@@ -141,7 +141,6 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	if err != nil {
 		return err
 	}
-
 	// Confirm
 	fmt.Fprintf(cmd.OutOrStderr(), "Created %v function in %v\n", cfg.Runtime, cfg.Path)
 	return nil
@@ -535,7 +534,7 @@ func newHelpTemplate(cmd *cobra.Command) *template.Template {
 	fm := template.FuncMap{
 		"indent": func(i int, c string, v string) string {
 			indentation := strings.Repeat(c, i)
-			return indentation + strings.Replace(v, "\n", "\n"+indentation, -1)
+			return indentation + strings.ReplaceAll(v, "\n", "\n"+indentation)
 		},
 	}
 	t.Funcs(fm)

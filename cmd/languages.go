@@ -52,7 +52,7 @@ EXAMPLES
 			"panguages", "manguages", "kanguages", "lsnguages", "lznguages"},
 		PreRunE: bindEnv("json", "repository", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runLanguages(cmd, args, newClient)
+			return runLanguages(cmd, newClient)
 		},
 	}
 
@@ -69,8 +69,8 @@ EXAMPLES
 	return cmd
 }
 
-func runLanguages(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
-	cfg, err := newLanguagesConfig(newClient)
+func runLanguages(cmd *cobra.Command, newClient ClientFactory) (err error) {
+	cfg, err := newLanguagesConfig()
 	if err != nil {
 		return
 	}
@@ -106,7 +106,7 @@ type languagesConfig struct {
 	JSON       bool   // output as JSON
 }
 
-func newLanguagesConfig(newClient ClientFactory) (cfg languagesConfig, err error) {
+func newLanguagesConfig() (cfg languagesConfig, err error) {
 	cfg = languagesConfig{
 		Verbose:    viper.GetBool("verbose"),
 		Repository: viper.GetString("repository"),

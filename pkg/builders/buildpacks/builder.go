@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -48,7 +49,6 @@ var (
 		"quay.io/boson/",
 		"gcr.io/paketo-buildpacks/",
 		"docker.io/paketobuildpacks/",
-		"ghcr.io/vmware-tanzu/function-buildpacks-for-knative/",
 		"gcr.io/buildpacks/",
 		"ghcr.io/knative/",
 	}
@@ -115,12 +115,12 @@ func WithTimestamp(v bool) Option {
 	}
 }
 
-var DefaultLifecycleImage = "quay.io/boson/lifecycle@sha256:f53fea9ec9188b92cab0b8a298ff852d76a6c2aaf56f968a08637e13de0e0c59"
+var DefaultLifecycleImage = "docker.io/buildpacksio/lifecycle:553c041"
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {
 	if len(platforms) != 0 {
-		return errors.New("the pack builder does not support specifying target platforms directly.")
+		return errors.New("the pack builder does not support specifying target platforms directly")
 	}
 
 	// Builder image from the function if defined, default otherwise.
@@ -154,7 +154,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// Pack build options
 	opts := pack.BuildOptions{
 		AppPath:        f.Root,
-		Image:          f.Image,
+		Image:          f.Build.Image,
 		LifecycleImage: DefaultLifecycleImage,
 		Builder:        image,
 		Buildpacks:     buildpacks,
@@ -178,6 +178,12 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	if runtime.GOOS == "linux" {
 		opts.ContainerConfig.Network = "host"
 	}
+
+	var bindings = make([]string, 0, len(f.Build.Mounts))
+	for _, m := range f.Build.Mounts {
+		bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
+	}
+	opts.ContainerConfig.Volumes = bindings
 
 	// only trust our known builders
 	opts.TrustBuilder = TrustBuilder
@@ -212,7 +218,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	if err = impl.Build(ctx, opts); err != nil {
 		if ctx.Err() != nil {
 			return // SIGINT
-		} else if !b.verbose {
+		} else if b.verbose {
 			err = fmt.Errorf("failed to build the function: %w", err)
 			fmt.Fprintln(color.Stderr(), "")
 			_, _ = io.Copy(color.Stderr(), &b.outBuff)
@@ -243,6 +249,9 @@ func isPodmanV43(ctx context.Context, cli client.CommonAPIClient) (b bool, err e
 // TrustBuilder determines whether the builder image should be trusted
 // based on a set of trusted builder image registry prefixes.
 func TrustBuilder(b string) bool {
+	if isLocalhost(b) {
+		return true
+	}
 	for _, v := range trustedBuilderImagePrefixes {
 		// Ensure that all entries in this list are terminated with a trailing "/"
 		if !strings.HasSuffix(v, "/") {
@@ -253,6 +262,14 @@ func TrustBuilder(b string) bool {
 		}
 	}
 	return false
+}
+
+func isLocalhost(img string) bool {
+	// Parsing logic is broken for localhost in go-containerregistry.
+	// See: https://github.com/google/go-containerregistry/issues/2048
+	// So I went for regex.
+	localhostRE := regexp.MustCompile(`^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?/.+$`)
+	return localhostRE.MatchString(img)
 }
 
 // Builder Image chooses the correct builder image or defaults.

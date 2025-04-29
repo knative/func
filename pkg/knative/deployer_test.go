@@ -4,35 +4,13 @@
 package knative
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+
 	fn "knative.dev/func/pkg/functions"
 )
-
-// Test_DefaultNamespace ensures that if there is an active kubeconfig,
-// that namespace will be returned as the default from the public
-// DefaultNamespae accessor, empty string otherwise.
-func Test_DefaultNamespace(t *testing.T) {
-	// Update Kubeconfig to indicate the currently active namespace is:
-	// "test-ns-deploy"
-	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/test_default_namespace", cwd()))
-
-	if DefaultNamespace() != "test-ns-deploy" {
-		t.Fatalf("expected 'test-ns-deploy', got '%v'", DefaultNamespace())
-	}
-}
-
-func cwd() (cwd string) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to determine current working directory: %v", err)
-		os.Exit(1)
-	}
-	return cwd
-}
 
 func Test_setHealthEndpoints(t *testing.T) {
 	f := fn.Function{
@@ -102,15 +80,15 @@ func Test_processValue(t *testing.T) {
 		{name: "bad context", arg: "{{secret:S}}", want: "", wantErr: true},
 		{name: "unset envvar", arg: "{{env:SOME_UNSET_VAR}}", want: "", wantErr: true},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := processLocalEnvValue(tt.arg)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("processValue() error = %v, wantErr %v", err, tt.wantErr)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := processLocalEnvValue(test.arg)
+			if (err != nil) != test.wantErr {
+				t.Errorf("processValue() error = %v, wantErr %v", err, test.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("processValue() got = %v, want %v", got, tt.want)
+			if got != test.want {
+				t.Errorf("processValue() got = %v, want %v", got, test.want)
 			}
 		})
 	}

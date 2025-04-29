@@ -29,7 +29,7 @@ The source of these templates is `./templates`; a directory subdivided by langua
 For example, the Go HTTP template is located in `./templates/go/http`.
 The client library and CLI are self-contained
 by encoding this directory as a ZIP byte array in the `./generate/zz_filesystem_generated.go` file.
-Therefore, any updates to templates requires re-generating this file.
+Therefore, any updates to templates require re-generating this file.
 
 When changes are made to files in the `./templates` directory,
 regenerate `./generate/zz_filesystem_generated.go` by running `make generate/zz_filesystem_generated.go`.
@@ -76,7 +76,7 @@ exit 0
 
 If you would like to run integration tests prior to opening a pull request against origin, you can enable Actions in your fork of this repository and create a pull request to your own main branch.
 
-If you would like to run integraiton tests locally, or would like to use the CLI / Client Library directly against a local cluster, the cluster allocation script can be used locally as well, by following the steps below.
+If you would like to run integration tests locally, or would like to use the CLI / Client Library directly against a local cluster, the cluster allocation script can be used locally as well, by following the steps below.
 
 
 ###  Prerequisites
@@ -93,9 +93,9 @@ Allocate a new local cluster by running `hack/allocate.sh`.
 
 ### Registry
 
-The allocation script sets up a local container registry and connects it to the cluster.  This registry must be set as trusted and its address entered in the local hosts file.  This is a one-time configuration and on Linux can be accomplished by running `hack/registry.sh`. 
+The allocation script sets up a local container registry and connects it to the cluster.  This registry must be set as trusted and its address entered in the local `hosts` file.  This is a one-time configuration and on Linux can be accomplished by running `hack/registry.sh`.
 
-On other systems, add `127.0.0.1 kind-registry` to your local hosts file and `"insecure-registries" = ["kind-registry:50000"]` to your docker daemon config (`docker/daemon.json`).
+On other systems, add `127.0.0.1 kind-registry` to your local `hosts` file and `"insecure-registries" = ["kind-registry:50000"]` to your docker daemon config (`docker/daemon.json`).
 
 
 ### Using the Cluster

@@ -29,21 +29,6 @@ const (
 	DefaultBuilder = builders.Default
 )
 
-// DefaultNamespace for remote operations is the currently active
-// context namespace (if available) or the fallback "default".
-// Namespace, when left blank on the function itself, indicates this
-// value should be used when deploying for the first time.  Subsequelty
-// the value will be populated, indicating the namespace in which the
-// function is currently deployed.  Changes to this value will issue warnings
-// to the user.
-func DefaultNamespace() (namespace string) {
-	var err error
-	if namespace, err = k8s.GetNamespace(""); err != nil {
-		return "default"
-	}
-	return
-}
-
 // Global configuration settings.
 type Global struct {
 	Builder   string `yaml:"builder,omitempty"`
@@ -55,6 +40,8 @@ type Global struct {
 	// NOTE: all members must include their yaml serialized names, even when
 	// this is the default, because these tag values are used for the static
 	// getter/setter accessors to match requests.
+
+	RegistryInsecure bool `yaml:"registryInsecure,omitempty"`
 }
 
 // New Config struct with all members set to static defaults.  See NewDefaults
@@ -94,8 +81,11 @@ func NewDefault() (cfg Global, err error) {
 	cp := File()
 	bb, err := os.ReadFile(cp)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = nil // config file is not required
+		// config file is not required
+		// permissions warning printed in cmd/root.go as to not spam here
+		// TODO: gauron99 - review the whole process for simplification
+		if os.IsNotExist(err) || os.IsPermission(err) {
+			err = nil
 		}
 		return
 	}
@@ -139,16 +129,19 @@ func (c Global) Apply(f fn.Function) Global {
 	if f.Runtime != "" {
 		c.Language = f.Runtime
 	}
-	if f.Deploy.Namespace != "" {
-		c.Namespace = f.Deploy.Namespace
-	}
+	// Namespace resolution is handled manually in the CLI due to needing
+	// to consider current kubernetes context.  This may be merged back
+	// in here once the logic is refined.
+	// if f.Deploy.Namespace != "" {
+	// 	c.Namespace = f.Deploy.Namespace
+	// }
 	if f.Registry != "" {
 		c.Registry = f.Registry
 	}
 	return c
 }
 
-// Configure a function with poipulated values of the config.
+// Configure a function with populated values of the config.
 // The resulting function is the function overridden by values on config.
 func (c Global) Configure(f fn.Function) fn.Function {
 	if c.Builder != "" {

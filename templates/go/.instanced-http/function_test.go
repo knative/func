@@ -1,7 +1,6 @@
 package function
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,7 +14,7 @@ func TestHandle(t *testing.T) {
 		res *http.Response
 	)
 
-	New().Handle(context.Background(), w, req)
+	New().Handle(w, req)
 	res = w.Result()
 	defer res.Body.Close()
 

@@ -29,8 +29,8 @@ type InvokeMessage struct {
 	Source      string
 	Type        string
 	ContentType string
-	Data        string
-	Format      string //optional override for function-defined message format
+	Data        []byte
+	Format      string // optional override for function-defined message format
 }
 
 // NewInvokeMessage creates a new InvokeMessage with fields populated
@@ -40,7 +40,7 @@ func NewInvokeMessage() InvokeMessage {
 		Source:      DefaultInvokeSource,
 		Type:        DefaultInvokeType,
 		ContentType: DefaultInvokeContentType,
-		Data:        DefaultInvokeData,
+		Data:        []byte(DefaultInvokeData),
 		// Format override not set by default: value from function being preferred.
 	}
 }
@@ -49,7 +49,6 @@ func NewInvokeMessage() InvokeMessage {
 // invocation message.  Returned is metadata (such as HTTP headers or
 // CloudEvent fields) and a stringified version of the payload.
 func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage, verbose bool) (metadata map[string][]string, body string, err error) {
-
 	// Get the first available route from 'local', 'remote', a named environment
 	// or treat target
 	route, err := invocationRoute(ctx, c, f, target) // choose instance to invoke
@@ -105,7 +104,8 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 //	errors if neither are available.
 func invocationRoute(ctx context.Context, c *Client, f Function, target string) (string, error) {
 	// TODO: this function has code-smell;  will de-smellify it in next pass.
-	if target == EnvironmentLocal {
+	switch target {
+	case EnvironmentLocal:
 		instance, err := c.Instances().Get(ctx, f, target)
 		if err != nil {
 			if errors.Is(err, ErrEnvironmentNotFound) {
@@ -114,8 +114,7 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 			return "", err
 		}
 		return instance.Route, nil
-
-	} else if target == EnvironmentRemote {
+	case EnvironmentRemote:
 		instance, err := c.Instances().Get(ctx, f, target)
 		if err != nil {
 			if errors.Is(err, ErrEnvironmentNotFound) {
@@ -124,8 +123,7 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 			return "", err
 		}
 		return instance.Route, nil
-
-	} else if target == "" { // target blank, check local first then remote.
+	case "":
 		instance, err := c.Instances().Get(ctx, f, EnvironmentLocal)
 		if err != nil && !errors.Is(err, ErrNotRunning) {
 			return "", err // unexpected errors are anything other than ErrNotRunning
@@ -141,7 +139,7 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 			return "", err // unexpected error
 		}
 		return instance.Route, nil
-	} else { // treat an unrecognized target as an ad-hoc verbatim endpoint
+	default:
 		return target, nil
 	}
 }
@@ -152,10 +150,10 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 	event.SetID(m.ID)
 	event.SetSource(m.Source)
 	event.SetType(m.Type)
-	if err = event.SetData(m.ContentType, m.Data); err != nil {
-		return
+	err = event.SetData(m.ContentType, (m.Data))
+	if err != nil {
+		return "", fmt.Errorf("cannot set data: %w", err)
 	}
-
 	c, err := cloudevents.NewClientHTTP(
 		cloudevents.WithTarget(route),
 		cloudevents.WithRoundTripper(t))
@@ -189,7 +187,7 @@ func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 		"Source":      {m.Source},
 		"Type":        {m.Type},
 		"ContentType": {m.ContentType},
-		"Data":        {m.Data},
+		"Data":        {string(m.Data)},
 	}
 	if verbose {
 		fmt.Println("Sending values")
@@ -198,7 +196,7 @@ func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", route, bytes.NewBufferString(m.Data))
+	req, err := http.NewRequestWithContext(ctx, "POST", route, bytes.NewReader(m.Data))
 	if err != nil {
 		return nil, "", fmt.Errorf("failure to create request: %w", err)
 	}

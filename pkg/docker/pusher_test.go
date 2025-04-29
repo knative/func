@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +35,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	regTypes "github.com/google/go-containerregistry/pkg/v1/types"
+	"gotest.tools/v3/assert"
 
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
@@ -68,9 +73,11 @@ const (
 	testUser            = "testuser"
 	testPwd             = "testpwd"
 	registryHostname    = "my.testing.registry"
-	functionImage       = "/testuser/func:latest"
-	functionImageRemote = registryHostname + functionImage
-	functionImageLocal  = "localhost" + functionImage
+	functionImageRemote = registryHostname + "/testuser/func:latest"
+
+	imageTarball    = "testdata/image.tar"
+	imageID         = "sha256:1fb61f35700f47e1e868f8b26fdd777016f96bb1b4b0b0e623efac39eb30d12e"
+	imageRepoDigest = "sha256:00af51d125f3092e157a7f8a717029412dc9d266c017e89cecdfeccb4cc3d7a7"
 )
 
 var testCredProvider = docker.CredentialsProvider(func(ctx context.Context, registry string) (docker.Credentials, error) {
@@ -80,207 +87,198 @@ var testCredProvider = docker.CredentialsProvider(func(ctx context.Context, regi
 	}, nil
 })
 
-func TestDaemonPush(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
-	defer cancel()
+func TestPush(t *testing.T) {
 
-	var optsPassedToMock types.ImagePushOptions
-	var imagePassedToMock string
-	var closeCalledOnMock bool
+	tests := []struct {
+		Name       string
+		DaemonPush bool
+	}{
+		{Name: "daemon push", DaemonPush: true},
+		{Name: "non daemon push"},
+	}
 
-	dockerClient := newMockPusherDockerClient()
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+			defer cancel()
 
-	dockerClient.imagePush = func(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {
-		imagePassedToMock = ref
-		optsPassedToMock = options
-		return io.NopCloser(strings.NewReader(`{
-    "status":  "latest: digest: sha256:00af51d125f3092e157a7f8a717029412dc9d266c017e89cecdfeccb4cc3d7a7 size: 2613"
+			// in memory network emulation
+			connections := conns(make(chan net.Conn))
+
+			transport := http.DefaultTransport.(*http.Transport).Clone()
+			transport.TLSClientConfig = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+			transport.DialContext = connections.DialContext
+
+			serveRegistry(t, connections)
+
+			dockerClient := newMockPusherDockerClient()
+
+			pushReachable := func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
+				if ref != functionImageRemote {
+					return nil, fmt.Errorf("unexpected ref")
+				}
+
+				var err error
+
+				authData, err := base64.StdEncoding.DecodeString(options.RegistryAuth)
+				if err != nil {
+					return nil, err
+				}
+
+				authStruct := struct {
+					Username, Password string
+				}{}
+
+				dec := json.NewDecoder(bytes.NewReader(authData))
+
+				err = dec.Decode(&authStruct)
+				if err != nil {
+					return nil, err
+				}
+
+				remoteOpts := []remote.Option{
+					remote.WithTransport(transport),
+					remote.WithAuth(&authn.Basic{
+						Username: authStruct.Username,
+						Password: authStruct.Password,
+					}),
+				}
+				tag, err := name.NewTag(ref)
+				if err != nil {
+					return nil, err
+				}
+				img, err := tarball.ImageFromPath(imageTarball, &tag)
+				if err != nil {
+					return nil, err
+				}
+
+				err = remote.Write(tag, img, remoteOpts...)
+				if err != nil {
+					return nil, err
+				}
+				is, err := img.Size()
+				if err != nil {
+					return nil, err
+				}
+				return io.NopCloser(strings.NewReader(`{
+    "status":  "latest: digest: ` + imageRepoDigest + ` size: ` + strconv.FormatInt(is, 10) + `"
 }
 `)), nil
-	}
+			}
 
-	dockerClient.close = func() error {
-		closeCalledOnMock = true
-		return nil
-	}
+			pushUnreachable := func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
+				return io.NopCloser(strings.NewReader(`{"errorDetail": {"message": "...no such host..."}}`)), nil
+			}
 
-	dockerClientFactory := func() (docker.PusherDockerClient, error) {
-		return dockerClient, nil
-	}
-	pusher := docker.NewPusher(
-		docker.WithCredentialsProvider(testCredProvider),
-		docker.WithPusherDockerClientFactory(dockerClientFactory),
-	)
+			if tt.DaemonPush {
+				dockerClient.imagePush = pushReachable
+			} else {
+				dockerClient.imagePush = pushUnreachable
+			}
 
-	f := fn.Function{
-		Image: functionImageLocal,
-	}
+			dockerClient.imageInspect = func(ctx context.Context, s string) (types.ImageInspect, []byte, error) {
+				return types.ImageInspect{ID: imageID}, []byte{}, nil
+			}
 
-	digest, err := pusher.Push(ctx, f)
-	if err != nil {
-		t.Fatal(err)
-	}
+			dockerClient.imageSave = func(ctx context.Context, tags []string) (io.ReadCloser, error) {
+				if slices.Equal(tags, []string{functionImageRemote}) {
+					f, err := os.Open(imageTarball)
+					if err != nil {
+						return nil, err
+					}
+					return f, nil
+				}
+				return nil, fmt.Errorf("unexpected tags")
+			}
 
-	if digest != "sha256:00af51d125f3092e157a7f8a717029412dc9d266c017e89cecdfeccb4cc3d7a7" {
-		t.Errorf("got bad digest: %q", digest)
-	}
+			var closeCalledOnMock bool
+			dockerClient.close = func() error {
+				closeCalledOnMock = true
+				return nil
+			}
 
-	authData, err := base64.StdEncoding.DecodeString(optsPassedToMock.RegistryAuth)
-	if err != nil {
-		t.Fatal(err)
-	}
+			dockerClientFactory := func() (docker.PusherDockerClient, error) {
+				return dockerClient, nil
+			}
 
-	authStruct := struct {
-		Username, Password string
-	}{}
+			pusher := docker.NewPusher(
+				docker.WithTransport(transport),
+				docker.WithCredentialsProvider(testCredProvider),
+				docker.WithPusherDockerClientFactory(dockerClientFactory),
+			)
 
-	dec := json.NewDecoder(bytes.NewReader(authData))
+			f := fn.Function{
+				Build: fn.BuildSpec{
+					Image: functionImageRemote,
+				},
+			}
 
-	err = dec.Decode(&authStruct)
-	if err != nil {
-		t.Fatal(err)
-	}
+			remoteOpts := []remote.Option{
+				remote.WithTransport(transport),
+				remote.WithAuth(&authn.Basic{
+					Username: testUser,
+					Password: testPwd,
+				}),
+			}
 
-	if imagePassedToMock != functionImageLocal {
-		t.Errorf("Bad image name passed to the Docker API Client: %q.", imagePassedToMock)
-	}
+			_, err := pusher.Push(ctx, f)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if authStruct.Username != testUser || authStruct.Password != testPwd {
-		t.Errorf("Bad credentials passed to the Docker API Client: %q:%q", authStruct.Username, authStruct.Password)
-	}
+			r, err := name.NewRegistry(registryHostname)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if !closeCalledOnMock {
-		t.Error("The Close() function has not been called on the Docker API Client.")
-	}
-}
+			c, err := remote.Catalog(ctx, r, remoteOpts...)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-func TestNonDaemonPush(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
-	defer cancel()
+			if !reflect.DeepEqual(c, []string{"testuser/func"}) {
+				t.Error("unexpected catalog content")
+			}
 
-	// in memory network emulation
-	connections := conns(make(chan net.Conn))
+			ref := name.MustParseReference(functionImageRemote)
 
-	serveRegistry(t, connections)
+			desc, err := remote.Get(ref, remoteOpts...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, desc.MediaType, regTypes.DockerManifestList)
 
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{
-		InsecureSkipVerify: true,
-	}
-	transport.DialContext = connections.DialContext
+			img, err := remote.Image(ref, remoteOpts...)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	dockerClient := newMockPusherDockerClient()
+			d, err := img.Digest()
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, d.String(), imageRepoDigest)
 
-	var imagesPassedToMock []string
-	dockerClient.imageSave = func(ctx context.Context, images []string) (io.ReadCloser, error) {
-		imagesPassedToMock = images
-		f, err := os.Open("./testdata/image.tar")
-		if err != nil {
-			return nil, fmt.Errorf("failed to load image tar: %w", err)
-		}
-		return f, nil
-	}
-
-	dockerClient.imageInspect = func(ctx context.Context, s string) (types.ImageInspect, []byte, error) {
-		return types.ImageInspect{ID: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}, []byte{}, nil
-	}
-
-	dockerClientFactory := func() (docker.PusherDockerClient, error) {
-		return dockerClient, nil
-	}
-
-	pusher := docker.NewPusher(
-		docker.WithTransport(transport),
-		docker.WithCredentialsProvider(testCredProvider),
-		docker.WithPusherDockerClientFactory(dockerClientFactory),
-	)
-
-	f := fn.Function{
-		Image: functionImageRemote,
-	}
-
-	actualDigest, err := pusher.Push(ctx, f)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(imagesPassedToMock, []string{f.Image}) {
-		t.Errorf("Bad image name passed to the Docker API Client: %q.", imagesPassedToMock)
-	}
-
-	r, err := name.NewRegistry(registryHostname)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	remoteOpts := []remote.Option{
-		remote.WithTransport(transport),
-		remote.WithAuth(&authn.Basic{
-			Username: testUser,
-			Password: testPwd,
-		}),
-	}
-
-	c, err := remote.Catalog(ctx, r, remoteOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(c, []string{"testuser/func"}) {
-		t.Error("unexpected catalog content")
-	}
-
-	imgRef := name.MustParseReference(functionImageRemote)
-
-	img, err := remote.Image(imgRef, remoteOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expectedDigest, err := img.Digest()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if actualDigest != expectedDigest.String() {
-		t.Error("digest does not match")
-	}
-
-	layers, err := img.Layers()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expectedDiffs := []string{
-		"sha256:cba17de713254df68662c399558da08f1cd9abfa4e3b404544757982b4f11597",
-		"sha256:d5c07940dc570b965530593384a3cf47f47bf07d68eb741d875090392a6331c3",
-		"sha256:a4dd43077393aff80a0bec5c1bf2db4941d620dcaa545662068476e324efefaa",
-		"sha256:abe6122e067d0f8bee1a8b8f0c4bb9d2b23cc73617bc8ff4addd6c1329bca23e",
-		"sha256:515e67f7a08c1798cad8ee4d5f0ce7e606540f5efe5163a967d8dc58994f9641",
-		"sha256:a5fdabf59fa2a4a0e60d21c1ffc4d482e62debe196bae742a476f4d5b893f0ce",
-		"sha256:8d6bae166e585b4b503d36a7de0ba749b68ef689884e94dfa0655bbf8ce4d213",
-		"sha256:b136b7c51981af6493ecbb1136f6ff0f23734f7b9feacb20c8090ac9dec6333d",
-		"sha256:e9055109e5f7999da5add4b5fff11a34783cddc9aef492d9b790024d1bc1b7d0",
-		"sha256:5a1ff39e0e0291a43170cbcd70515bfccef4bed4c7e7b97f82d49d3d557fe04b",
-	}
-
-	actualDiffs := make([]string, 0, len(expectedDiffs))
-
-	for _, layer := range layers {
-		diffID, err := layer.DiffID()
-		if err != nil {
-			t.Fatal(err)
-		}
-		actualDiffs = append(actualDiffs, diffID.String())
-	}
-
-	if !reflect.DeepEqual(expectedDiffs, actualDiffs) {
-		t.Error("layer diffs in tar and from registry differs")
+			if !closeCalledOnMock {
+				t.Error("The Close() function has not been called on the Docker API Client.")
+			}
+		})
 	}
 }
 
 func newMockPusherDockerClient() *mockPusherDockerClient {
 	return &mockPusherDockerClient{
+		imagePush: func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
+			return nil, fmt.Errorf(" imagePush not implemented")
+		},
+		imageSave: func(ctx context.Context, strings []string) (io.ReadCloser, error) {
+			return nil, fmt.Errorf("imageSave not implemented")
+		},
+		imageInspect: func(ctx context.Context, s string) (types.ImageInspect, []byte, error) {
+			return types.ImageInspect{}, nil, fmt.Errorf("imageInspect not implemented")
+		},
 		negotiateAPIVersion: func(ctx context.Context) {},
 		close:               func() error { return nil },
 	}
@@ -288,7 +286,7 @@ func newMockPusherDockerClient() *mockPusherDockerClient {
 
 type mockPusherDockerClient struct {
 	negotiateAPIVersion func(ctx context.Context)
-	imagePush           func(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error)
+	imagePush           func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error)
 	imageSave           func(ctx context.Context, strings []string) (io.ReadCloser, error)
 	imageInspect        func(ctx context.Context, s string) (types.ImageInspect, []byte, error)
 	close               func() error
@@ -302,7 +300,7 @@ func (m *mockPusherDockerClient) ImageSave(ctx context.Context, strings []string
 	return m.imageSave(ctx, strings)
 }
 
-func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader, b bool) (types.ImageLoadResponse, error) {
+func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader, b bool) (api.LoadResponse, error) {
 	panic("implement me")
 }
 
@@ -314,7 +312,7 @@ func (m *mockPusherDockerClient) ImageInspectWithRaw(ctx context.Context, s stri
 	return m.imageInspect(ctx, s)
 }
 
-func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {
+func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
 	return m.imagePush(ctx, ref, options)
 }
 

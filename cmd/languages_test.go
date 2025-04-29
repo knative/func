@@ -2,13 +2,15 @@ package cmd
 
 import (
 	"testing"
+
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestLanguages_Default ensures that the default behavior of listing
 // all supported languages is to print a plain text list of all the builtin
 // language runtimes.
 func TestLanguages_Default(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	buf := piped(t) // gather output
 	cmd := NewLanguagesCmd(NewClient)
@@ -33,7 +35,7 @@ typescript`
 // TestLanguages_JSON ensures that listing languages in --json format returns
 // builtin languages as a JSON array.
 func TestLanguages_JSON(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	buf := piped(t) // gather output
 	cmd := NewLanguagesCmd(NewClient)

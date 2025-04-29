@@ -24,6 +24,14 @@ const (
 	// By default it is excluded from source control.
 	RunDataDir       = ".func"
 	RunDataLocalFile = "local.yaml"
+
+	// BuiltHash is a name of a file that holds hash of built Function in runtime
+	// metadata dir (RunDataDir)
+	BuiltHash = "built-hash"
+
+	// BuiltImage is a name of a file that holds name of built image in runtime
+	// metadata dir (RunDataDir)
+	BuiltImage = "built-image"
 )
 
 // Local represents the transient runtime metadata which
@@ -76,8 +84,8 @@ type Function struct {
 	// "Registry+Name:latest" to derive the Image.
 	Image string `yaml:"image,omitempty"`
 
-	// ImageDigest is the SHA256 hash of the latest image that has been built
-	ImageDigest string `yaml:"imageDigest,omitempty"`
+	// Namespace in which to deploy the Function
+	Namespace string `yaml:"namespace,omitempty"`
 
 	// Created time is the moment that creation was successfully completed
 	// according to the client which is in charge of what constitutes being
@@ -132,6 +140,24 @@ type BuildSpec struct {
 	// PVCSize specifies the size of persistent volume claim used to store function
 	// when using deployment and remote build process (only relevant when Remote is true).
 	PVCSize string `yaml:"pvcSize,omitempty"`
+
+	// RemoteStorageClass specifies the storage class to use for the volume used
+	// on-cluster during when built remotely.
+	RemoteStorageClass string `yaml:"remoteStorageClass,omitempty"`
+
+	// Image stores last built image name NOT in func.yaml, but instead
+	// in .func/built-image
+	Image string `yaml:"-"`
+
+	// Mounts used in build phase. This is useful in particular for paketo bindings.
+	Mounts []MountSpec `yaml:"volumes,omitempty"`
+}
+
+type MountSpec struct {
+	// Path on the local machine
+	Source string `yaml:"hostPath"`
+	// Path in the build container
+	Destination string `yaml:"path"`
 }
 
 // RunSpec
@@ -153,8 +179,11 @@ type RunSpec struct {
 
 // DeploySpec
 type DeploySpec struct {
-	// Namespace into which the function is deployed on supported platforms.
+	// Namespace into which the function was deployed on supported platforms.
 	Namespace string `yaml:"namespace,omitempty"`
+
+	// Image is the deployed image including sha256
+	Image string `yaml:"image,omitempty"`
 
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
@@ -274,7 +303,15 @@ func NewFunction(root string) (f Function, err error) {
 		errorText += "\n" + "Migration: " + functionMigrationError.Error()
 		return Function{}, errors.New(errorText)
 	}
+
 	f.Local, err = f.newLocal()
+	if err != nil {
+		return
+	}
+	// ---- LOCAL SETTINGS - STUFF NOT IN FUNC.YAML ---- //
+
+	f.Build.Image, err = f.getLastBuiltImage()
+
 	return
 }
 
@@ -403,9 +440,26 @@ func (f Function) Write() (err error) {
 	}
 	// TODO: open existing file for writing, such that existing permissions
 	// are preserved?
-	err = os.WriteFile(filepath.Join(f.Root, FunctionFile), bb, 0644)
+	rwFile, err := os.OpenFile(filepath.Join(f.Root, FunctionFile), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return
+		return err
+	}
+	defer rwFile.Close()
+
+	tagVersion := f.SpecVersion
+
+	// Write schema header
+	schemaHeader := fmt.Sprintf(`# $schema: https://raw.githubusercontent.com/knative/func/refs/tags/v%s/schema/func_yaml-schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/knative/func/refs/tags/v%s/schema/func_yaml-schema.json
+`, tagVersion, tagVersion)
+
+	if _, err = rwFile.WriteString(schemaHeader); err != nil {
+		return err
+	}
+
+	// Write function data
+	if _, err = rwFile.Write(bb); err != nil {
+		return err
 	}
 
 	// Write local settings
@@ -418,7 +472,12 @@ func (f Function) Write() (err error) {
 	}
 	localConfigPath := filepath.Join(f.Root, RunDataDir, RunDataLocalFile)
 
-	err = os.WriteFile(localConfigPath, bb, 0644)
+	if err = os.WriteFile(localConfigPath, bb, 0644); err != nil {
+		return
+	}
+
+	// Write built image to .func
+	err = f.WriteRuntimeBuiltImage(false)
 	return
 }
 
@@ -465,7 +524,7 @@ func (f Function) Stamp(oo ...stampOption) (err error) {
 	}
 
 	// Write out the hash
-	if err = os.WriteFile(filepath.Join(f.Root, RunDataDir, "built"), []byte(hash), os.ModePerm); err != nil {
+	if err = os.WriteFile(filepath.Join(f.Root, RunDataDir, BuiltHash), []byte(hash), os.ModePerm); err != nil {
 		return
 	}
 
@@ -497,32 +556,6 @@ func (f Function) Initialized() bool {
 	return !f.Created.IsZero()
 }
 
-// ImageWithDigest returns the full reference to the image including SHA256 Digest.
-// If Digest is empty, image:tag is returned.
-// TODO: Populate this only on a successful deploy, as this results on a dirty
-// git tree on every build.
-func (f Function) ImageWithDigest() string {
-	// Return image, if Digest is empty
-	if f.ImageDigest == "" {
-		return f.Image
-	}
-
-	// Return image with new Digest if image already contains SHA256 Digest
-	shaIndex := strings.Index(f.Image, "@sha256:")
-	if shaIndex > 0 {
-		return f.Image[:shaIndex] + "@" + f.ImageDigest
-	}
-
-	lastSlashIdx := strings.LastIndexAny(f.Image, "/")
-	imageAsBytes := []byte(f.Image)
-
-	part1 := string(imageAsBytes[:lastSlashIdx+1])
-	part2 := string(imageAsBytes[lastSlashIdx+1:])
-
-	// Remove tag from the image name and append SHA256 hash instead
-	return part1 + strings.Split(part2, ":")[0] + "@" + f.ImageDigest
-}
-
 // LabelsMap combines default labels with the labels slice provided.
 // It will the resulting slice with ValidateLabels and return a key/value map.
 //   - key: EXAMPLE1                            # Label directly from a value
@@ -532,10 +565,6 @@ func (f Function) ImageWithDigest() string {
 func (f Function) LabelsMap() (map[string]string, error) {
 	defaultLabels := []Label{
 		{
-			Key:   ptr.String(fnlabels.FunctionKey),
-			Value: ptr.String(fnlabels.FunctionValue),
-		},
-		{
 			Key:   ptr.String(fnlabels.FunctionNameKey),
 			Value: ptr.String(f.Name),
 		},
@@ -543,16 +572,6 @@ func (f Function) LabelsMap() (map[string]string, error) {
 			Key:   ptr.String(fnlabels.FunctionRuntimeKey),
 			Value: ptr.String(f.Runtime),
 		},
-		// --- handle usage of deprecated labels (`boson.dev/function`, `boson.dev/runtime`)
-		{
-			Key:   ptr.String(fnlabels.DeprecatedFunctionKey),
-			Value: ptr.String(fnlabels.FunctionValue),
-		},
-		{
-			Key:   ptr.String(fnlabels.DeprecatedFunctionRuntimeKey),
-			Value: ptr.String(f.Runtime),
-		},
-		// --- end of handling usage of deprecated runtime labels
 	}
 
 	labels := append(defaultLabels, f.Deploy.Labels...)
@@ -580,7 +599,7 @@ func (f Function) LabelsMap() (map[string]string, error) {
 
 // ImageName returns a full image name (OCI container tag) for the
 // Function based off of the Function's `Registry` member plus `Name`.
-// Used to calculate the final value for .Image when none is provided
+// Used to calculate the final value for .Deploy.Image when none is provided
 // explicitly.
 //
 // form:    [registry]/[user]/[function]:latest
@@ -656,21 +675,6 @@ func (f Function) Built() bool {
 		return false
 	}
 
-	// Missing an image name always means !Built (but does not satisfy staleness
-	// checks).
-	// NOTE: This will be updated in the future such that a build does not
-	// automatically update the function's serialized, source-controlled state,
-	// because merely building does not indicate the function has changed, but
-	// rather that field should be populated on deploy.  I.e. the Image name
-	// and image stamp should reside as transient data in .func until such time
-	// as the given image has been deployed.
-	// An example of how this bug manifests is that every rebuild of a function
-	// registers the func.yaml as being dirty for source-control purposes, when
-	// this should only happen on deploy.
-	if f.Image == "" {
-		return false
-	}
-
 	// Calculate the current filesystem hash and see if it has changed.
 	//
 	// If this comparison returns true, the Function has a populated image,
@@ -684,13 +688,31 @@ func (f Function) Built() bool {
 		fmt.Fprintf(os.Stderr, "error calculating function's fingerprint: %v\n", err)
 		return false
 	}
-	return stamp == hash
+
+	if stamp != hash {
+		return false
+	}
+
+	// Special case of registry change on a subsequent deploy attempt should
+	// result in unbuilt image, forcing a rebuild if possible
+	// Example: Deploy with image using registry X. Then subsequently deploy with
+	// --registry=Y, changing registry resulting in unmatched Registry and Build.Image.
+
+	// If f.Image is specified, registry is overridden -- meaning its not taken into
+	// consideration and can be different from actually built image.
+	buildImage := f.Build.Image
+	fRegistry := f.Registry
+	if !strings.Contains(buildImage, fRegistry) && f.Image == "" {
+		fmt.Fprintf(os.Stderr, "Warning: registry '%s' does not match currently built image '%s' and no direct image override was provided via --image\n", f.Registry, f.Build.Image)
+		return false
+	}
+	return true
 }
 
 // BuildStamp accesses the current (last) build stamp for the function.
 // Unbuilt functions return empty string.
 func (f Function) BuildStamp() string {
-	path := filepath.Join(f.Root, RunDataDir, "built")
+	path := filepath.Join(f.Root, RunDataDir, BuiltHash)
 	if _, err := os.Stat(path); err != nil {
 		return ""
 	}
@@ -719,4 +741,67 @@ func (f Function) newLocal() (localConfig Local, err error) {
 
 	err = yaml.Unmarshal(b, &localConfig)
 	return
+}
+
+// WriteRuntimeBuiltImage writes built image name into runtime metadata
+// directory (.func/) from f.Build.Image
+func (f Function) WriteRuntimeBuiltImage(verbose bool) error {
+	path := filepath.Join(f.Root, RunDataDir, BuiltImage)
+
+	// dont write if empty (not built)
+	if f.Build.Image == "" {
+		return nil
+	}
+
+	if verbose {
+		fmt.Printf("Writing built image: '%s' at path: '%s'\n", f.Build.Image, path)
+	}
+
+	return os.WriteFile(path, []byte(f.Build.Image), os.ModePerm)
+}
+
+// getLastBuiltImage reads .func/built-image and returns its value or empty string
+// if the file doesnt exist (not built yet). Other errors are returned as usual.
+func (f Function) getLastBuiltImage() (string, error) {
+	path := filepath.Join(f.Root, RunDataDir, BuiltImage)
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// ImageNameWithDigest works with f.Build.Image and image digest. if the func
+// parameter newDigest is empty, just return the image name as is.
+// TODO: This function is a temporary one for a workaround for a current
+// solution on how the image digest is fetched (which is during/after Push).
+// Image digest should be gotten from imageID right after building the Function.
+// PS: I think that imageID item contains "sha256:[digest]"
+func (f Function) ImageNameWithDigest(newDigest string) string {
+	if newDigest == "" {
+		return f.Build.Image
+	}
+	image := f.Build.Image
+
+	// overwrite current digest
+	shaIndex := strings.Index(image, "@sha256:")
+	if shaIndex > 0 {
+		return image[:shaIndex] + "@" + newDigest
+	}
+
+	// image doesnt have a digest yet == image not pushed yet
+	//parse f.Build.Image to separate its name and tag
+	lastSlashIdx := strings.LastIndexAny(image, "/")
+	imageAsBytes := []byte(image)
+	part1 := string(imageAsBytes[:lastSlashIdx+1])
+	part2 := string(imageAsBytes[lastSlashIdx+1:])
+	// Remove tag from the image name and append SHA256 hash instead
+	return part1 + strings.Split(part2, ":")[0] + "@" + newDigest
 }

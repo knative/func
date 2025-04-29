@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ory/viper"
@@ -15,6 +14,7 @@ import (
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/oci"
 )
 
 func NewRunCmd(newClient ClientFactory) *cobra.Command {
@@ -39,9 +39,14 @@ DESCRIPTION
 	  The --container flag indicates that the function's container should be
 	  run rather than running the source code directly.  This may require that
 	  the function's container first be rebuilt.  Building the container on or
-	  off can be altered using the --build flag.  The default value --build=auto
-	  indicates the system should automatically build the container only if
-	  necessary.
+	  off can be altered using the --build flag.  The value --build=auto
+	  can be used to indicate the function should be run in a container, with
+	  the container automatically built if necessary.
+
+	  The --container flag defaults to true if the builder defined for the
+	  function is a containerized builder such as Pack or S2I, and in the case
+	  where the function's runtime requires containerized builds (is not yet
+	  supported by the Host builder.
 
 	Process Scaffolding
 	  This is an Experimental Feature currently available only to Go projects.
@@ -66,8 +71,8 @@ EXAMPLES
 `,
 		SuggestFor: []string{"rnu"},
 		PreRunE:    bindEnv("build", "builder", "builder-image", "confirm", "container", "env", "image", "path", "registry", "start-timeout", "verbose"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRun(cmd, args, newClient)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runRun(cmd, newClient)
 		},
 	}
 
@@ -104,6 +109,8 @@ EXAMPLES
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().Duration("start-timeout", f.Run.StartTimeout, fmt.Sprintf("time this function needs in order to start. If not provided, the client default %v will be in effect. ($FUNC_START_TIMEOUT)", fn.DefaultStartTimeout))
+	cmd.Flags().BoolP("container", "t", runContainerizedByDefault(f),
+		"Run the function in a container. ($FUNC_CONTAINER)")
 
 	// TODO: Without the "Host" builder enabled, this code-path is unreachable,
 	// so remove hidden flag when either the Host builder path is available,
@@ -117,8 +124,6 @@ EXAMPLES
 	cmd.Flags().String("build", "auto",
 		"Build the function. [auto|true|false]. ($FUNC_BUILD)")
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // register `--build` as equivalient to `--build=true`
-	cmd.Flags().BoolP("container", "t", true,
-		"Run the function in a container. ($FUNC_CONTAINER)")
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
@@ -137,14 +142,17 @@ EXAMPLES
 	return cmd
 }
 
-func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
+func runContainerizedByDefault(f fn.Function) bool {
+	return f.Build.Builder == "pack" || f.Build.Builder == "s2i" || !oci.IsSupported(f.Runtime)
+}
+
+func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg runConfig
 		f   fn.Function
 	)
-	if cfg, err = newRunConfig(cmd).Prompt(); err != nil {
-		return
-	}
+	cfg = newRunConfig(cmd) // Will add Prompt on upcoming UX refactor
+
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
@@ -156,20 +164,6 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
-	}
-
-	// TODO: this is duplicate logic with runBuild and runRun.
-	// Refactor both to have this logic part of creating the buildConfig and thus
-	// shared because newRunConfig uses newBuildConfig for its embedded struct.
-	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
-		prfx := f.Registry
-		if prfx[len(prfx)-1:] != "/" {
-			prfx = prfx + "/"
-		}
-		sps := strings.Split(f.Image, "/")
-		updImg := prfx + sps[len(sps)-1]
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", f.Image, f.Registry, updImg)
-		f.Image = updImg
 	}
 
 	// Client
@@ -192,12 +186,45 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	// If requesting to run via the container, build the container if it is
 	// either out-of-date or a build was explicitly requested.
 	if cfg.Container {
+		var digested bool
+
 		buildOptions, err := cfg.buildOptions()
 		if err != nil {
 			return err
 		}
-		if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
-			return err
+
+		// if image was specified, check if its digested and do basic validation
+		if cfg.Image != "" {
+			digested, err = isDigested(cfg.Image)
+			if err != nil {
+				return err
+			}
+			if !digested {
+				// assign valid undigested image
+				f.Build.Image = cfg.Image
+			}
+		}
+
+		if digested {
+			// run cmd takes f.Build.Image - see newContainerConfig in docker/runner.go
+			// it doesnt get saved, just runtime image
+			f.Build.Image = cfg.Image
+		} else {
+
+			if f, _, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+				return err
+			}
+		}
+	} else {
+		// dont run digested image without a container
+		if cfg.Image != "" {
+			digested, err := isDigested(cfg.Image)
+			if err != nil {
+				return err
+			}
+			if digested {
+				return fmt.Errorf("cannot use digested image with --container=false")
+			}
 		}
 	}
 
@@ -322,15 +349,8 @@ func (c runConfig) Validate(cmd *cobra.Command, f fn.Function) (err error) {
 		}
 	}
 
-	// There is currently no local host runner implemented, so specifying
-	// --container=false should return an informative error for runtimes other
-	// than Go  that is more helpful than the cryptic, though correct, error
-	// from the Client that it was instantated without a runner.
-	// TODO: modify this check when the local host runner is available to
-	// only generate this error when --container==false && the --language is
-	// not yet implemented.
-	if !c.Container && f.Runtime != "go" {
-		return errors.New("the ability to run functions outside of a container via 'func run' is coming soon.")
+	if !c.Container && !oci.IsSupported(f.Runtime) {
+		return fmt.Errorf("the %q runtime currently requires being run in a container", f.Runtime)
 	}
 
 	// When the docker runner respects the StartTimeout, this validation check

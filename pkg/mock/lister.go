@@ -8,16 +8,16 @@ import (
 
 type Lister struct {
 	ListInvoked bool
-	ListFn      func() ([]fn.ListItem, error)
+	ListFn      func(context.Context, string) ([]fn.ListItem, error)
 }
 
 func NewLister() *Lister {
 	return &Lister{
-		ListFn: func() ([]fn.ListItem, error) { return []fn.ListItem{}, nil },
+		ListFn: func(context.Context, string) ([]fn.ListItem, error) { return []fn.ListItem{}, nil },
 	}
 }
 
-func (l *Lister) List(context.Context) ([]fn.ListItem, error) {
+func (l *Lister) List(ctx context.Context, ns string) ([]fn.ListItem, error) {
 	l.ListInvoked = true
-	return l.ListFn()
+	return l.ListFn(ctx, ns)
 }

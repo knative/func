@@ -5,7 +5,9 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"path"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -106,10 +108,13 @@ func TestConfigVolumes(t *testing.T) {
 	funcName := "test-config-volumes"
 	funcPath := filepath.Join(t.TempDir(), funcName)
 
+	_, thisfile, _, _ := runtime.Caller(0)
+	testTemplateFolder := path.Join(path.Dir(thisfile), "..", "templates")
+
 	knFunc.TestCmd.Exec("create",
 		"--language", "go",
-		"--template", "volumes",
-		"--repository", "http://github.com/boson-project/test-templates.git",
+		"--template", "testvolumes",
+		"--repository", "file://"+testTemplateFolder,
 		funcPath)
 	knFunc.TestCmd.SourceDir = funcPath
 
@@ -147,7 +152,7 @@ func TestConfigVolumes(t *testing.T) {
 	configVolumesRemove("/bad-cm", enter)
 
 	// Deploy
-	knFunc.TestCmd.Exec("deploy", "--builder", "pack", "--registry", common.GetRegistry())
+	knFunc.TestCmd.Exec("deploy", "--registry", common.GetRegistry())
 	defer knFunc.TestCmd.Exec("delete")
 	_, functionUrl := common.WaitForFunctionReady(t, funcName)
 
@@ -212,7 +217,7 @@ func setupTestPvc(t *testing.T, pvcName string) {
 		ObjectMeta: metav1.ObjectMeta{Name: pvcName},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{},
 			},
 		},
@@ -247,10 +252,13 @@ func TestConfigVolumesPvcEmptyDir(t *testing.T) {
 	funcName := "test-config-vol-pvc"
 	funcPath := filepath.Join(t.TempDir(), funcName)
 
+	_, thisfile, _, _ := runtime.Caller(0)
+	testTemplateFolder := path.Join(path.Dir(thisfile), "..", "templates")
+
 	knFunc.TestCmd.Exec("create",
 		"--language", "go",
-		"--template", "volumes",
-		"--repository", "http://github.com/boson-project/test-templates.git",
+		"--template", "testvolumes",
+		"--repository", "file://"+testTemplateFolder,
 		funcPath)
 	knFunc.TestCmd.SourceDir = funcPath
 
@@ -271,7 +279,7 @@ func TestConfigVolumesPvcEmptyDir(t *testing.T) {
 
 	// Deploy
 
-	knFunc.TestCmd.Exec("deploy", "--builder", "pack", "--registry", common.GetRegistry())
+	knFunc.TestCmd.Exec("deploy", "--registry", common.GetRegistry())
 	t.Cleanup(func() {
 		knFunc.TestCmd.Exec("delete")
 	})

@@ -111,33 +111,36 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 
 	switch answers.SelectedOperation {
 	case "Add":
-		if answers.SelectedConfig == "Volumes" {
+		switch answers.SelectedConfig {
+		case "Volumes":
 			err = runAddVolumesPrompt(cmd.Context(), function)
-		} else if answers.SelectedConfig == "Environment variables" {
+		case "Environment variables":
 			err = runAddEnvsPrompt(cmd.Context(), function)
-		} else if answers.SelectedConfig == "Labels" {
+		case "Labels":
 			err = runAddLabelsPrompt(cmd.Context(), function, defaultLoaderSaver)
-		} else if answers.SelectedConfig == "Git" {
+		case "Git":
 			err = runConfigGitSetCmd(cmd, NewClient)
 		}
 	case "Remove":
-		if answers.SelectedConfig == "Volumes" {
+		switch answers.SelectedConfig {
+		case "Volumes":
 			err = runRemoveVolumesPrompt(function)
-		} else if answers.SelectedConfig == "Environment variables" {
+		case "Environment variables":
 			err = runRemoveEnvsPrompt(function)
-		} else if answers.SelectedConfig == "Labels" {
+		case "Labels":
 			err = runRemoveLabelsPrompt(function, defaultLoaderSaver)
-		} else if answers.SelectedConfig == "Git" {
+		case "Git":
 			err = runConfigGitRemoveCmd(cmd, NewClient)
 		}
 	case "List":
-		if answers.SelectedConfig == "Volumes" {
+		switch answers.SelectedConfig {
+		case "Volumes":
 			listVolumes(function)
-		} else if answers.SelectedConfig == "Environment variables" {
+		case "Environment variables":
 			err = listEnvs(function, cmd.OutOrStdout(), Human)
-		} else if answers.SelectedConfig == "Labels" {
+		case "Labels":
 			listLabels(function)
-		} else if answers.SelectedConfig == "Git" {
+		case "Git":
 			err = runConfigGitCmd(cmd, NewClient)
 		}
 	}

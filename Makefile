@@ -28,13 +28,15 @@ VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS         ?= $(shell git describe --tags --match 'v*')
 KVER         ?= $(shell git describe --tags --match 'knative-*')
 
-LDFLAGS      := -X main.date=$(DATE) -X main.vers=$(VERS) -X main.kver=$(KVER) -X main.hash=$(HASH)
-ifneq ($(FUNC_REPO_REF),)
-  LDFLAGS      += -X knative.dev/func/pkg/pipelines/tekton.FuncRepoRef=$(FUNC_REPO_REF)
-endif
-ifneq ($(FUNC_REPO_BRANCH_REF),)
-  LDFLAGS      += -X knative.dev/func/pkg/pipelines/tekton.FuncRepoBranchRef=$(FUNC_REPO_BRANCH_REF)
-endif
+LDFLAGS      := -X knative.dev/func/pkg/app.vers=$(VERS) -X knative.dev/func/pkg/app.kver=$(KVER) -X knative.dev/func/pkg/app.hash=$(HASH)
+
+FUNC_UTILS_IMG ?= ghcr.io/knative/func-utils:v2
+LDFLAGS += -X knative.dev/func/pkg/k8s.SocatImage=$(FUNC_UTILS_IMG)
+LDFLAGS += -X knative.dev/func/pkg/k8s.TarImage=$(FUNC_UTILS_IMG)
+LDFLAGS += -X knative.dev/func/pkg/pipelines/tekton.DeployerImage=$(FUNC_UTILS_IMG)
+
+GOFLAGS      := "-ldflags=$(LDFLAGS)"
+export GOFLAGS
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
@@ -62,11 +64,11 @@ build: $(BIN) ## (default) Build binary for current OS
 
 .PHONY: $(BIN)
 $(BIN): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
+	env CGO_ENABLED=0 go build ./cmd/$(BIN)
 
 .PHONY: test
 test: generate/zz_filesystem_generated.go ## Run core unit tests
-	go test -ldflags "$(LDFLAGS)" -race -cover -coverprofile=coverage.txt ./...
+	go test -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
 check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
@@ -74,32 +76,36 @@ check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
 	cd test && $(BIN_GOLANGCI_LINT) run --timeout 300s
 
 $(BIN_GOLANGCI_LINT):
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.55.2
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v2.0.2
 
 .PHONY: generate/zz_filesystem_generated.go
-generate/zz_filesystem_generated.go: clean_templates templates/certs/ca-certificates.crt
+generate/zz_filesystem_generated.go: clean_templates
 	go generate pkg/functions/templates_embedded.go
 
 .PHONY: clean_templates
 clean_templates:
 	# Removing temporary template files
-	@rm -f templates/go/cloudevents/go.sum
-	@rm -f templates/go/http/go.sum
+	@rm -rf templates/**/.DS_Store
 	@rm -rf templates/node/cloudevents/node_modules
 	@rm -rf templates/node/http/node_modules
-	@rm -rf templates/python/cloudevents/__pycache__
-	@rm -rf templates/python/http/__pycache__
-	@rm -rf templates/typescript/cloudevents/node_modules
-	@rm -rf templates/typescript/http/node_modules
-	@rm -rf templates/typescript/cloudevents/build
-	@rm -rf templates/typescript/http/build
-	@rm -rf templates/rust/cloudevents/target
-	@rm -rf templates/rust/http/target
+	@rm -rf templates/python/cloudevents/.venv
+	@rm -rf templates/python/cloudevents/.pytest_cache
+	@rm -rf templates/python/cloudevents/function/__pycache__
+	@rm -rf templates/python/cloudevents/tests/__pycache__
+	@rm -rf templates/python/http/.venv
+	@rm -rf templates/python/http/.pytest_cache
+	@rm -rf templates/python/http/function/__pycache__
+	@rm -rf templates/python/http/tests/__pycache__
 	@rm -rf templates/quarkus/cloudevents/target
 	@rm -rf templates/quarkus/http/target
+	@rm -rf templates/rust/cloudevents/target
+	@rm -rf templates/rust/http/target
 	@rm -rf templates/springboot/cloudevents/target
 	@rm -rf templates/springboot/http/target
-	@rm -f templates/**/.DS_Store
+	@rm -rf templates/typescript/cloudevents/build
+	@rm -rf templates/typescript/cloudevents/node_modules
+	@rm -rf templates/typescript/http/build
+	@rm -rf templates/typescript/http/node_modules
 
 .PHONY: clean
 clean: clean_templates ## Remove generated artifacts such as binaries and schemas
@@ -111,7 +117,7 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 .PHONY: docs
 docs:
 	# Generating command reference doc
-	go run docs/generator/main.go
+	KUBECONFIG="$(shell mktemp)" go run docs/generator/main.go
 
 #############
 ##@ Prow Integration
@@ -151,9 +157,8 @@ test-node: ## Test Node templates
 	cd templates/node/cloudevents && npm ci && npm test && rm -rf node_modules
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
-test-python: ## Test Python templates
-	cd templates/python/cloudevents && pip3 install -r requirements.txt && python3 test_func.py && rm -rf __pycache__
-	cd templates/python/http && python3 test_func.py && rm -rf __pycache__
+test-python: ## Test Python templates and Scaffolding
+	test/test_python.sh
 
 test-quarkus: ## Test Quarkus templates
 	cd templates/quarkus/cloudevents && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
@@ -176,13 +181,14 @@ test-typescript: ## Test Typescript templates
 ###############
 
 # Pulls runtimes then rebuilds the embedded filesystem
-update-runtimes:  pull-runtimes generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
+update-runtimes:  update-runtime-go generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
 
-pull-runtimes:
+update-runtime-go:
 	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
 	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
+
 
 .PHONY: cert
 certs: templates/certs/ca-certificates.crt ## Update root certificates
@@ -197,12 +203,12 @@ templates/certs/ca-certificates.crt:
 ###################
 
 test-integration: ## Run integration tests using an available cluster.
-	go test -ldflags "$(LDFLAGS)" -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
+	go test -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
 
 .PHONY: func-instrumented
 
 func-instrumented: ## Func binary that is instrumented for e2e tests
-	env CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -cover -o func ./cmd/func
+	env CGO_ENABLED=1 go build -cover -o func ./cmd/$(BIN)
 
 test-e2e: func-instrumented ## Run end-to-end tests using an available cluster.
 	./test/e2e_extended_tests.sh
@@ -269,3 +275,27 @@ schema-check: ## Check that func.yaml schema is up-to-date
 	(echo "\n\nFunction config schema 'schema/func_yaml-schema.json' is obsolete, please run 'make schema-generate'.\n\n"; rm -rf schema/func_yaml-schema-previous.json; exit 1)
 	rm -rf schema/func_yaml-schema-previous.json
 
+######################
+##@ Hack scripting
+######################
+
+### Local section - Can be run locally!
+
+.PHONY: generate-kn-components-local
+generate-kn-components-local: ## Generate knative components locally
+	cd hack && go run ./cmd/update-knative-components "local"
+
+.PHONY: test-hack
+test-hack:
+	cd hack && go test ./... -v
+
+### Automated section - This gets run in workflows, scripts etc.
+.PHONY: wf-generate-kn-components
+wf-generate-kn-components: # Generate kn components - used in automation
+	cd hack && go run ./cmd/update-knative-components
+
+.PHONY: update-builder
+wf-update-builder: # Used in automation
+	cd hack && go run ./cmd/update-builder
+
+### end of automation section

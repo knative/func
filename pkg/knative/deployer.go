@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	clienteventingv1 "knative.dev/client-pkg/pkg/eventing/v1"
+	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
@@ -19,10 +19,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/client-pkg/pkg/kn/flags"
-	servingclientlib "knative.dev/client-pkg/pkg/serving"
-	clientservingv1 "knative.dev/client-pkg/pkg/serving/v1"
-	"knative.dev/client-pkg/pkg/wait"
+	"knative.dev/client/pkg/flags"
+	servingclientlib "knative.dev/client/pkg/serving"
+	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	"knative.dev/client/pkg/wait"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
@@ -41,19 +41,16 @@ type DeployDecorator interface {
 type DeployerOpt func(*Deployer)
 
 type Deployer struct {
-	// Namespace with which to override that set on the default configuration (such as the ~/.kube/config).
-	// If left blank, deployment will commence to the configured namespace.
-	Namespace string
 	// verbose logging enablement flag.
 	verbose bool
 
 	decorator DeployDecorator
 }
 
-// DefaultNamespace attempts to read the kubernetes active namepsace.
-// Missing configs or not having an active kuberentes configuration are
+// ActiveNamespace attempts to read the Kubernetes active namespace.
+// Missing configs or not having an active Kubernetes configuration are
 // equivalent to having no default namespace (empty string).
-func DefaultNamespace() string {
+func ActiveNamespace() string {
 	// Get client config, if it exists, and from that the namespace
 	ns, _, err := k8s.GetClientConfig().Namespace()
 	if err != nil {
@@ -72,12 +69,6 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 	return d
 }
 
-func WithDeployerNamespace(namespace string) DeployerOpt {
-	return func(d *Deployer) {
-		d.Namespace = namespace
-	}
-}
-
 func WithDeployerVerbose(verbose bool) DeployerOpt {
 	return func(d *Deployer) {
 		d.verbose = verbose
@@ -92,8 +83,8 @@ func WithDeployerDecorator(decorator DeployDecorator) DeployerOpt {
 
 // Checks the status of the "user-container" for the ImagePullBackOff reason meaning that
 // the container image is not reachable probably because a private registry is being used.
-func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientservingv1.KnServingClient, funcName string) bool {
-	ksvc, err := client.GetService(ctx, funcName)
+func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientservingv1.KnServingClient, f fn.Function) bool {
+	ksvc, err := client.GetService(ctx, f.Name)
 	if err != nil {
 		return false
 	}
@@ -101,8 +92,8 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	if err != nil {
 		return false
 	}
-	list, err := k8sClient.CoreV1().Pods(d.Namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: "serving.knative.dev/revision=" + ksvc.Status.LatestCreatedRevisionName + ",serving.knative.dev/service=" + funcName,
+	list, err := k8sClient.CoreV1().Pods(f.Deploy.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "serving.knative.dev/revision=" + ksvc.Status.LatestCreatedRevisionName + ",serving.knative.dev/service=" + f.Name,
 		FieldSelector: "status.phase=Pending",
 	})
 	if err != nil {
@@ -120,22 +111,57 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	return false
 }
 
+func onClusterFix(f fn.Function) fn.Function {
+	// This only exists because of a bootstapping problem with On-Cluster
+	// builds:  It appears that, when sending a function to be built on-cluster
+	// the target namespace is not being transmitted in the pipeline
+	// configuration.  We should figure out how to transmit this information
+	// to the pipeline run for initial builds.  This is a new problem because
+	// earlier versions of this logic relied entirely on the current
+	// kubernetes context.
+	if f.Namespace == "" && f.Deploy.Namespace == "" {
+		f.Namespace, _ = k8s.GetDefaultNamespace()
+	}
+	return f
+}
+
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
-	var err error
-	if d.Namespace == "" {
-		d.Namespace, err = k8s.GetNamespace(d.Namespace)
-		if err != nil {
-			return fn.DeploymentResult{}, err
-		}
+	f = onClusterFix(f)
+	// Choosing f.Namespace vs f.Deploy.Namespace:
+	// This is minimal logic currently required of all deployer impls.
+	// If f.Namespace is defined, this is the (possibly new) target
+	// namespace.  Otherwise use the last deployed namespace.  Error if
+	// neither are set.  The logic which arbitrates between curret k8s context,
+	// flags, environment variables and global defaults to determine the
+	// effective namespace is not logic for the deployer implementation, which
+	// should have a minimum of logic.  In this case limited to "new ns or
+	// existing namespace?
+	namespace := f.Namespace
+	if namespace == "" {
+		namespace = f.Deploy.Namespace
+	}
+	if namespace == "" {
+		return fn.DeploymentResult{}, fmt.Errorf("deployer requires either a target namespace or that the function be already deployed")
 	}
 
-	client, err := NewServingClient(d.Namespace)
+	// Clients
+	client, err := NewServingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
-	eventingClient, err := NewEventingClient(d.Namespace)
+	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
+	}
+	// check if 'dapr-system' namespace exists
+	daprInstalled := false
+	k8sClient, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
+	_, err = k8sClient.CoreV1().Namespaces().Get(ctx, "dapr-system", metav1.GetOptions{})
+	if err == nil {
+		daprInstalled = true
 	}
 
 	var outBuff SynchronizedBuffer
@@ -146,7 +172,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 	since := time.Now()
 	go func() {
-		_ = GetKServiceLogs(ctx, d.Namespace, f.Name, f.ImageWithDigest(), &since, out)
+		_ = GetKServiceLogs(ctx, namespace, f.Name, f.Deploy.Image, &since, out)
 	}()
 
 	previousService, err := client.GetService(ctx, f.Name)
@@ -157,13 +183,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			referencedConfigMaps := sets.New[string]()
 			referencedPVCs := sets.New[string]()
 
-			service, err := generateNewService(f, d.decorator)
+			service, err := generateNewService(f, d.decorator, daprInstalled)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
 			}
 
-			err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
+			err = checkResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -184,7 +210,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				private := false
 				for !private {
 					time.Sleep(5 * time.Second)
-					private = d.isImageInPrivateRegistry(ctx, client, f.Name)
+					private = d.isImageInPrivateRegistry(ctx, client, f)
 					chprivate <- private
 				}
 				close(chprivate)
@@ -237,12 +263,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			}
 
 			if d.verbose {
-				fmt.Printf("Function deployed in namespace %q and exposed at URL:\n%s\n", d.Namespace, route.Status.URL.String())
+				fmt.Printf("Function deployed in namespace %q and exposed at URL:\n%s\n", namespace, route.Status.URL.String())
 			}
 			return fn.DeploymentResult{
 				Status:    fn.Deployed,
 				URL:       route.Status.URL.String(),
-				Namespace: d.Namespace,
+				Namespace: namespace,
 			}, nil
 
 		} else {
@@ -265,13 +291,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
-		err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
+		err = checkResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
 		}
 
-		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, previousService, newEnv, newEnvFrom, newVolumes, newVolumeMounts, d.decorator), 3)
+		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, previousService, newEnv, newEnvFrom, newVolumes, newVolumeMounts, d.decorator, daprInstalled), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -303,7 +329,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{
 			Status:    fn.Updated,
 			URL:       route.Status.URL.String(),
-			Namespace: d.Namespace,
+			Namespace: namespace,
 		}, nil
 	}
 }
@@ -384,7 +410,7 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 	return c
 }
 
-func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, error) {
+func generateNewService(f fn.Function, decorator DeployDecorator, daprInstalled bool) (*v1.Service, error) {
 	// set defaults to the values that avoid the following warning "Kubernetes default value is insecure, Knative may default this to secure in a future release"
 	runAsNonRoot := true
 	allowPrivilegeEscalation := false
@@ -395,7 +421,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		Type: corev1.SeccompProfileType("RuntimeDefault"),
 	}
 	container := corev1.Container{
-		Image: f.ImageWithDigest(),
+		Image: f.Deploy.Image,
 		SecurityContext: &corev1.SecurityContext{
 			RunAsNonRoot:             &runAsNonRoot,
 			AllowPrivilegeEscalation: &allowPrivilegeEscalation,
@@ -427,7 +453,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		return nil, err
 	}
 
-	annotations := generateServiceAnnotations(f, decorator, nil)
+	annotations := generateServiceAnnotations(f, decorator, nil, daprInstalled)
 
 	// we need to create a separate map for Annotations specified in a Revision,
 	// in case we will need to specify autoscaling annotations -> these could be only in a Revision not in a Service
@@ -497,13 +523,15 @@ func generateServiceLabels(f fn.Function, d DeployDecorator) (ll map[string]stri
 // application of any provided annotation decorator.
 // Also sets `serving.knative.dev/creator` to a value specified in annotations in the service reference in the previousService parameter,
 // this is beneficial when we are updating a service to pass validation on Knative side - the annotation is immutable.
-func generateServiceAnnotations(f fn.Function, d DeployDecorator, previousService *v1.Service) (aa map[string]string) {
+func generateServiceAnnotations(f fn.Function, d DeployDecorator, previousService *v1.Service, daprInstalled bool) (aa map[string]string) {
 	aa = make(map[string]string)
 
-	// Enables Dapr support.
-	// Has no effect unless the target cluster has Dapr control plane installed.
-	for k, v := range daprAnnotations(f.Name) {
-		aa[k] = v
+	if daprInstalled {
+		// Enables Dapr support.
+		// Has no effect unless the target cluster has Dapr control plane installed.
+		for k, v := range daprAnnotations(f.Name) {
+			aa[k] = v
+		}
 	}
 
 	// Function-defined annotations
@@ -531,6 +559,7 @@ func generateServiceAnnotations(f fn.Function, d DeployDecorator, previousServic
 // the target cluster will result in a sidecar exposing the dapr HTTP API
 // on localhost:3500 and metrics on 9092
 func daprAnnotations(appid string) map[string]string {
+	// make optional
 	aa := make(map[string]string)
 	aa["dapr.io/app-id"] = appid
 	aa["dapr.io/enabled"] = DaprEnabled
@@ -540,13 +569,13 @@ func daprAnnotations(appid string) map[string]string {
 	return aa
 }
 
-func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator DeployDecorator) func(service *v1.Service) (*v1.Service, error) {
+func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator DeployDecorator, daprInstalled bool) func(service *v1.Service) (*v1.Service, error) {
 	return func(service *v1.Service) (*v1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
 		service.Spec.Template.Name = ""
 
-		annotations := generateServiceAnnotations(f, decorator, previousService)
+		annotations := generateServiceAnnotations(f, decorator, previousService, daprInstalled)
 
 		// we need to create a separate map for Annotations specified in a Revision,
 		// in case we will need to specify autoscaling annotations -> these could be only in a Revision not in a Service
@@ -555,8 +584,8 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 			revisionAnnotations[k] = v
 		}
 
-		service.ObjectMeta.Annotations = annotations
-		service.Spec.Template.ObjectMeta.Annotations = revisionAnnotations
+		service.Annotations = annotations
+		service.Spec.Template.Annotations = revisionAnnotations
 
 		// I hate that we have to do this. Users should not see these values.
 		// It is an implementation detail. These health endpoints should not be
@@ -583,10 +612,10 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 			return nil, err
 		}
 
-		service.ObjectMeta.Labels = labels
-		service.Spec.Template.ObjectMeta.Labels = labels
+		service.Labels = labels
+		service.Spec.Template.Labels = labels
 
-		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, f.ImageWithDigest())
+		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, f.Deploy.Image)
 		if err != nil {
 			return service, err
 		}
@@ -594,8 +623,8 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 		cp.Env = newEnv
 		cp.EnvFrom = newEnvFrom
 		cp.VolumeMounts = newVolumeMounts
-		service.Spec.ConfigurationSpec.Template.Spec.Volumes = newVolumes
-		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.ServiceAccountName = f.Deploy.ServiceAccountName
+		service.Spec.Template.Spec.Volumes = newVolumes
+		service.Spec.Template.Spec.ServiceAccountName = f.Deploy.ServiceAccountName
 		return service, nil
 	}
 }
@@ -950,7 +979,11 @@ func checkResourcesArePresent(ctx context.Context, namespace string, referencedS
 	for s := range *referencedSecrets {
 		_, err := k8s.GetSecret(ctx, s, namespace)
 		if err != nil {
-			errMsg += fmt.Sprintf("  referenced Secret \"%s\" is not present in namespace \"%s\"\n", s, namespace)
+			if errors.IsForbidden(err) {
+				errMsg += " Ensure that the service account has the necessary permissions to access the secret.\n"
+			} else {
+				errMsg += fmt.Sprintf("  referenced Secret \"%s\" is not present in namespace \"%s\"\n", s, namespace)
+			}
 		}
 	}
 
@@ -977,14 +1010,14 @@ func checkResourcesArePresent(ctx context.Context, namespace string, referencedS
 	}
 
 	if errMsg != "" {
-		return fmt.Errorf("\n" + errMsg)
+		return fmt.Errorf("error(s) while validating resources:\n%s", errMsg)
 	}
 
 	return nil
 }
 
 // setServiceOptions sets annotations on Service Revision Template or in the Service Spec
-// from values specifed in function configuration options
+// from values specified in function configuration options
 func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) error {
 
 	toRemove := []string{}
@@ -1024,20 +1057,20 @@ func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) er
 	}
 
 	// in the container always set Requests/Limits & Concurrency values based on the contents of config
-	template.Spec.PodSpec.Containers[0].Resources.Requests = nil
-	template.Spec.PodSpec.Containers[0].Resources.Limits = nil
+	template.Spec.Containers[0].Resources.Requests = nil
+	template.Spec.Containers[0].Resources.Limits = nil
 	template.Spec.ContainerConcurrency = nil
 
 	if options.Resources != nil {
 		if options.Resources.Requests != nil {
-			template.Spec.PodSpec.Containers[0].Resources.Requests = corev1.ResourceList{}
+			template.Spec.Containers[0].Resources.Requests = corev1.ResourceList{}
 
 			if options.Resources.Requests.CPU != nil {
 				value, err := resource.ParseQuantity(*options.Resources.Requests.CPU)
 				if err != nil {
 					return err
 				}
-				template.Spec.PodSpec.Containers[0].Resources.Requests[corev1.ResourceCPU] = value
+				template.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = value
 			}
 
 			if options.Resources.Requests.Memory != nil {
@@ -1045,19 +1078,19 @@ func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) er
 				if err != nil {
 					return err
 				}
-				template.Spec.PodSpec.Containers[0].Resources.Requests[corev1.ResourceMemory] = value
+				template.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = value
 			}
 		}
 
 		if options.Resources.Limits != nil {
-			template.Spec.PodSpec.Containers[0].Resources.Limits = corev1.ResourceList{}
+			template.Spec.Containers[0].Resources.Limits = corev1.ResourceList{}
 
 			if options.Resources.Limits.CPU != nil {
 				value, err := resource.ParseQuantity(*options.Resources.Limits.CPU)
 				if err != nil {
 					return err
 				}
-				template.Spec.PodSpec.Containers[0].Resources.Limits[corev1.ResourceCPU] = value
+				template.Spec.Containers[0].Resources.Limits[corev1.ResourceCPU] = value
 			}
 
 			if options.Resources.Limits.Memory != nil {
@@ -1065,7 +1098,7 @@ func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) er
 				if err != nil {
 					return err
 				}
-				template.Spec.PodSpec.Containers[0].Resources.Limits[corev1.ResourceMemory] = value
+				template.Spec.Containers[0].Resources.Limits[corev1.ResourceMemory] = value
 			}
 
 			if options.Resources.Limits.Concurrency != nil {

@@ -21,7 +21,7 @@ var (
 	fm = template.FuncMap{
 		"indent": func(i int, c string, v string) string {
 			indentation := strings.Repeat(c, i)
-			return indentation + strings.Replace(v, "\n", "\n"+indentation, -1)
+			return indentation + strings.ReplaceAll(v, "\n", "\n"+indentation)
 		},
 		"rootCmdUse": func() string {
 			return rootName
@@ -96,6 +96,9 @@ func ignoreConfigEnv() (done func()) {
 // string to the file name, and recursively calls itself for each subcommand.
 func processSubCommands(c *cobra.Command, parent string, opts TemplateOptions) error {
 	for _, cc := range c.Commands() {
+		if cc.Hidden {
+			continue
+		}
 		name := cc.Name()
 		if name == "help" {
 			continue

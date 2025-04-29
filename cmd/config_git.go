@@ -48,7 +48,7 @@ the current directory or from the directory specified with --path.
 	return cmd
 }
 
-func runConfigGitCmd(cmd *cobra.Command, newClient ClientFactory) (err error) {
+func runConfigGitCmd(_ *cobra.Command, _ ClientFactory) (err error) {
 	fmt.Printf("--------------------------- Function Git config ---------------------------\n")
 	fmt.Printf("Not implemented yet.\n")
 

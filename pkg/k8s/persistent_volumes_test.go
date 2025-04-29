@@ -34,8 +34,8 @@ func TestUploadToVolume(t *testing.T) {
 	testingPVCName := "testing-pvc-" + rnd
 
 	err = k8s.CreatePersistentVolumeClaim(ctx, testingPVCName, testingNS,
-		nil, nil,
-		corev1.ReadWriteOnce, *resource.NewQuantity(1024, resource.DecimalSI))
+		nil, nil, corev1.ReadWriteOnce,
+		*resource.NewQuantity(1024, resource.DecimalSI), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestUploadToVolume(t *testing.T) {
 
 	// First, test error handling by uploading empty content stream.
 	err = k8s.UploadToVolume(ctx, &bytes.Buffer{}, testingPVCName, testingNS)
-	if err == nil || !strings.Contains(err.Error(), "short read") {
+	if err == nil || !strings.Contains(err.Error(), "does not look like a tar") {
 		t.Error("got <nil> error, or error with unexpected message")
 	}
 
@@ -98,7 +98,7 @@ func TestUploadToVolume(t *testing.T) {
 		},
 	}
 
-	pod, err = cliSet.CoreV1().Pods(testingNS).Create(ctx, pod, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().Pods(testingNS).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

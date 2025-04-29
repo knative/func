@@ -24,7 +24,7 @@ import org.springframework.http.ResponseEntity;
 @SpringBootTest(classes = SpringCloudEventsApplication.class,
     webEnvironment = WebEnvironment.RANDOM_PORT)
 public class SpringCloudEventsApplicationTests {
-  
+
   @Autowired
   private TestRestTemplate rest;
 

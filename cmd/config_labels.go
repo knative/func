@@ -111,7 +111,7 @@ func listLabels(f fn.Function) {
 	}
 }
 
-func runAddLabelsPrompt(ctx context.Context, f fn.Function, saver functionSaver) (err error) {
+func runAddLabelsPrompt(_ context.Context, f fn.Function, saver functionSaver) (err error) {
 
 	insertToIndex := 0
 

@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"errors"
 
 	fn "knative.dev/func/pkg/functions"
 )
@@ -10,7 +11,7 @@ import (
 // See deployer implementations for tests which ensure the currently
 // active kube namespace is chosen when no explicit namespace is provided.
 // This mock emulates a deployer which responds that the function was deployed
-// to that defined on the function, or "default" if not defined.
+// to desired or previously-deployed ns or "default" if not defined.
 const DefaultNamespace = "default"
 
 type Deployer struct {
@@ -20,12 +21,17 @@ type Deployer struct {
 
 func NewDeployer() *Deployer {
 	return &Deployer{
-		DeployFn: func(_ context.Context, f fn.Function) (fn.DeploymentResult, error) {
-			result := fn.DeploymentResult{Namespace: DefaultNamespace}
-			if f.Deploy.Namespace != "" {
-				result.Namespace = f.Deploy.Namespace
+		DeployFn: func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+			// the minimum necessary logic for a deployer, which should be
+			// confirmed by tests in the respective implementations.
+			if f.Namespace != "" {
+				result.Namespace = f.Namespace // deployed to that requested
+			} else if f.Deploy.Namespace != "" {
+				result.Namespace = f.Deploy.Namespace // redeploy to current
+			} else {
+				err = errors.New("namespace required for initial deployment")
 			}
-			return result, nil
+			return
 		},
 	}
 }

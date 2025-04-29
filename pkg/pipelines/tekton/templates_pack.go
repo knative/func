@@ -42,6 +42,15 @@ spec:
       type: array
   tasks:
     {{.GitCloneTaskRef}}
+    - name: scaffold
+      params:
+        - name: path
+          value: $(workspaces.source.path)/$(params.contextDir)
+      workspaces:
+        - name: source
+          workspace: source-workspace
+      {{.RunAfterFetchSources}}
+      {{.FuncScaffoldTaskRef}}
     - name: build
       params:
         - name: APP_IMAGE
@@ -55,7 +64,8 @@ spec:
         - name: ENV_VARS
           value:
             - '$(params.buildEnvs[*])'
-      {{.RunAfterFetchSources}}
+      runAfter:
+        - scaffold
       {{.FuncBuildpacksTaskRef}}
       workspaces:
         - name: source
@@ -156,15 +166,6 @@ metadata:
 
     # Fetch the git-clone task from hub
     pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
-
-    # Fetch the func-buildpacks task
-    pipelinesascode.tekton.dev/task-1: {{.FuncBuildpacksTaskRef}}
-
-    # Fetch the func-deploy task
-    pipelinesascode.tekton.dev/task-2: {{.FuncDeployTaskRef}}
-
-    # Fetch the pipelie definition from the .tekton directory
-    pipelinesascode.tekton.dev/pipeline: {{.PipelineYamlURL}}
 
     # How many runs we want to keep attached to this event
     pipelinesascode.tekton.dev/max-keep-runs: "5"

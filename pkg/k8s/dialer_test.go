@@ -11,9 +11,10 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
@@ -163,20 +164,22 @@ func TestDialInClusterService(t *testing.T) {
 		t.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		eg.Go(func() error {
 			resp, err := client.Get(svcInClusterURL)
 			if err != nil {
-				t.Fatal(err)
+				return err
 			}
 			defer resp.Body.Close()
-			io.Copy(io.Discard, resp.Body)
-		}()
+			_, err = io.Copy(io.Discard, resp.Body)
+			return err
+		})
 	}
-	wg.Wait()
+	err = eg.Wait()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestDialUnreachable(t *testing.T) {
@@ -195,7 +198,7 @@ func TestDialUnreachable(t *testing.T) {
 		t.Error("error was expected but got nil")
 		return
 	}
-	if !strings.Contains(err.Error(), "no such host") {
+	if !strings.Contains(err.Error(), "no such host") && !strings.Contains(err.Error(), "does not resolve") {
 		t.Errorf("error %q doesn't contain expected substring: ", err.Error())
 	}
 

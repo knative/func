@@ -17,6 +17,8 @@ package testing
 
 import (
 	"fmt"
+	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/http/cgi"
@@ -136,14 +138,57 @@ func cd(t *testing.T, dir string) {
 // such as fromTempDirectory(t)
 func ServeRepo(name string, t *testing.T) string {
 	t.Helper()
-	var (
-		path   = filepath.Join("./testdata", name)
-		dir    = filepath.Dir(path)
-		abs, _ = filepath.Abs(dir)
-		repo   = filepath.Base(path)
-		url    = RunGitServer(abs, t)
-	)
-	return fmt.Sprintf("%v/%v", url, repo)
+
+	gitRoot := t.TempDir()
+
+	// copy repo to the temp dir
+	err := filepath.Walk(filepath.Join("./testdata", name), func(path string, fi fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relp, err := filepath.Rel("./testdata", path)
+		if err != nil {
+			return fmt.Errorf("cannot get relpath: %v", err)
+		}
+
+		dest := filepath.Join(gitRoot, relp)
+
+		switch {
+		case fi.Mode().IsRegular():
+			var in, out *os.File
+			in, err = os.Open(path)
+			if err != nil {
+				return fmt.Errorf("cannot open source file: %v", err)
+			}
+			defer in.Close()
+			out, err = os.OpenFile(dest, os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return fmt.Errorf("cannot open destination file: %v", err)
+			}
+			defer out.Close()
+			_, err = io.Copy(out, in)
+			if err != nil {
+				return fmt.Errorf("cannot copy data: %v", err)
+			}
+		case fi.IsDir():
+			err = os.MkdirAll(dest, 0755)
+			if err != nil {
+				return fmt.Errorf("cannot mkdir: %v", err)
+			}
+		default:
+			return fmt.Errorf("unsupported file type")
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	url := RunGitServer(gitRoot, t)
+
+	return fmt.Sprintf("%v/%v", url, name)
 }
 
 // WithExecutable creates an executable of the given name and source in a temp
@@ -212,6 +257,45 @@ func RunGitServer(root string, t *testing.T) (url string) {
 	})
 
 	return "http://" + url
+}
+
+// FromTempDirectory moves the test into a new temporary directory and
+// clears all known interfering environment variables.  Returned is the
+// path to the somewhat isolated test environment.
+// Note that KUBECONFIG is also set to testdata/default_kubeconfig which can
+// be used for tests which are explicitly checking logic which depends on
+// kube context.
+func FromTempDirectory(t *testing.T) string {
+	t.Helper()
+	ClearEnvs(t)
+
+	// We have to define KUBECONFIG, or the file at ~/.kube/config (if extant)
+	// will be used (disrupting tests by using the current user's environment).
+	// The test kubeconfig set below has the current namespace set to 'func'
+	// NOTE: the below settings affect unit tests only, and we do explicitly
+	// want all unit tests to start in an empty environment with tests "opting in"
+	// to config, not opting out.
+	t.Setenv("KUBECONFIG", filepath.Join(Cwd(), "testdata", "default_kubeconfig"))
+
+	// By default unit tests presum no config exists unless provided in testdata.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+
+	// creates and CDs to a temp directory
+	d, done := Mktemp(t)
+
+	// Done and Reset
+	// NOTE:
+	// NO CLI command should require resetting viper.  If a CLI test
+	// is failing, and the following fixes the problem, it's probably because
+	// an instance of a command is being reused multiple times in the same
+	// test when a new instance of the command struct should instead be
+	// created for each test case:
+	// t.Cleanup(func() { done(); viper.Reset() })
+	t.Cleanup(done)
+
+	return d
 }
 
 // Cwd returns the current working directory or panic if unable to determine.

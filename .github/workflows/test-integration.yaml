@@ -10,26 +10,50 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/composite/go-setup
-      - uses: imjasonh/setup-ko@v0.6
-      - name: Install Binaries
-        run: ./hack/binaries.sh
-      - name: Local Registry
-        run: ./hack/registry.sh
-      - name: Allocate Cluster
-        run: ./hack/allocate.sh
-      - name: Setup testing images
-        run: ./hack/setup-testing-images.sh
-      - name: Install Tekton
-        run: ./hack/tekton.sh
-      - name: Set up environment variables
+      - name: Remove Unnecessary Software
         run: |
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/ghc || true
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
           echo "TEKTON_TESTS_ENABLED=1" >> "$GITHUB_ENV"
           echo "GITLAB_TESTS_ENABLED=1" >> "$GITHUB_ENV"
           echo "GITLAB_HOSTNAME=gitlab.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
           echo "GITLAB_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32})" >> "$GITHUB_ENV"
           echo "PAC_CONTROLLER_HOSTNAME=pac-ctr.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - uses: imjasonh/setup-ko@v0.6
+      - name: Install Binaries
+        run: ./hack/install-binaries.sh
+      - name: Allocate Cluster
+        run: |
+          attempt=0
+          max_attempts=5
+          until [ $attempt -ge $max_attempts ]
+          do
+            attempt=$((attempt+1))
+            echo "------------------ Attempt $attempt ------------------"
+            ./hack/allocate.sh && break
+            echo "------------------ failed, retrying... ------------------"
+            if [ $attempt -ge $max_attempts ]; then
+              echo "------------------ max # of retries reached, exiting ------------------"
+              exit 1
+            fi
+            ./hack/delete.sh
+            echo "------------------ sleep for 5 minutes ------------------"
+            sleep 300
+          done
+          echo "------------------ finished! attempt $attempt ------------------"
+      - name: Local Registry
+        run: ./hack/registry.sh
+      - name: Setup testing images
+        run: ./hack/setup-testing-images.sh
+      - name: Install Tekton
+        run: ./hack/install-tekton.sh
       - name: Install Pipelines as Code
         run: ./hack/install-pac.sh
       - name: Install Gitlab
@@ -44,14 +68,21 @@ jobs:
       - name: Dump Cluster Logs
         if: always()
         run: |
-          echo "::group::cluster events"
-          kubectl get events -A
-          echo "::endgroup::"
+          echo "::group::cluster events" >> cluster_log.txt
+          kubectl get events -A  >> cluster_log.txt 2>&1
+          echo "::endgroup::"  >> cluster_log.txt
 
-          echo "::group::cluster containers logs"
-          stern '.*' --all-namespaces --no-follow
-          echo "::endgroup::"
-      - uses: codecov/codecov-action@v3
+          echo "::group::cluster containers logs"  >> cluster_log.txt
+          stern '.*' --all-namespaces --no-follow  >> cluster_log.txt 2>&1
+          echo "::endgroup::"  >> cluster_log.txt
+      - name: "Archive log results"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs
+          path: ./cluster_log.txt
+          retention-days: 7
+      - uses: codecov/codecov-action@v5
         with:
           files: ./coverage.txt
           flags: integration-tests

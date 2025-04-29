@@ -1,0 +1,18 @@
+FROM scratch
+
+ARG TARGETARCH
+ARG FUNC_UTIL_BINARY=func-util-$TARGETARCH
+
+ENV PATH=/
+
+COPY $FUNC_UTIL_BINARY /func-util
+
+ADD func-util-symlinks.tgz /
+
+LABEL \
+   org.opencontainers.image.description="Knative Func Utils Image" \
+   org.opencontainers.image.source="https://github.com/knative/func" \
+   org.opencontainers.image.vendor="https://github.com/knative/func" \
+   org.opencontainers.image.url="https://github.com/knative/func/pkgs/container/func-utils"
+
+USER 0:0

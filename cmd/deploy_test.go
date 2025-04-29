@@ -14,9 +14,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"knative.dev/func/pkg/builders"
-	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 // commandConstructor is used to share test implementations between commands
@@ -32,7 +33,7 @@ func TestDeploy_BuilderPersists(t *testing.T) {
 
 func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -120,7 +121,7 @@ func TestDeploy_BuilderValidated(t *testing.T) {
 
 func testBuilderValidated(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -130,7 +131,7 @@ func testBuilderValidated(cmdFn commandConstructor, t *testing.T) {
 
 	cmd.SetArgs([]string{"--builder=invalid"})
 	if err := cmd.Execute(); err == nil {
-		t.Fatalf("expected error string '%v', got '%v'", "expected", err.Error())
+		t.Fatalf("expected error for invalid, got %q", err)
 	}
 
 }
@@ -146,7 +147,7 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 	var (
 		err      error
 		home     = fmt.Sprintf("%s/testdata/TestX_ConfigApplied", cwd())
-		root     = fromTempDirectory(t)
+		root     = FromTempDirectory(t)
 		f        = fn.Function{Runtime: "go", Root: root, Name: "f"}
 		pusher   = mock.NewPusher()
 		clientFn = NewTestClient(fn.WithPusher(pusher))
@@ -192,11 +193,12 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 	if err := cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
+
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Image != "registry.example.com/charlie/f:latest" {
-		t.Fatalf("expected image 'registry.example.com/charlie/f:latest' got '%v'", f.Image)
+	if f.Build.Image != "registry.example.com/charlie/f:latest" {
+		t.Fatalf("expected image 'registry.example.com/charlie/f:latest' got '%v'", f.Build.Image)
 	}
 
 	// Ensure environment variables loaded: Push
@@ -231,7 +233,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	// Ensure static default applied via 'builder'
 	// (a degenerate case, mostly just ensuring config values are not wiped to a
 	// zero value struct, etc)
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	f := fn.Function{Runtime: "go", Root: root, Name: "f"}
 	if f, err = fn.New().Init(f); err != nil {
@@ -248,7 +250,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	// Ensure Global Config applied via config in ./testdata
-	root = fromTempDirectory(t)
+	root = FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	f = fn.Function{Runtime: "go", Root: root, Name: "f"}
 	f, err = fn.New().Init(f)
@@ -268,7 +270,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	// Ensure Function context overrides global config
 	// The stanza above ensures the global config is applied.  This stanza
 	// ensures that, if set on the function, it will take precidence.
-	root = fromTempDirectory(t)
+	root = FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
 		Registry: "example.com/function"}
@@ -287,7 +289,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	// Ensure Environment Variable overrides function context.
-	root = fromTempDirectory(t)
+	root = FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	t.Setenv("FUNC_REGISTRY", "example.com/env")
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
@@ -307,7 +309,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	// Ensure flags override environment variables.
-	root = fromTempDirectory(t)
+	root = FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
 	t.Setenv("FUNC_REGISTRY", "example.com/env")
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
@@ -336,7 +338,7 @@ func TestDeploy_Default(t *testing.T) {
 }
 
 func testDefault(cmdFn commandConstructor, t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	// A Function with the minimum required values for deployment populated.
 	f := fn.Function{
@@ -366,7 +368,7 @@ func testDefault(cmdFn commandConstructor, t *testing.T) {
 // - Flags provided with the minus '-' suffix are treated as a removal
 func TestDeploy_Envs(t *testing.T) {
 	var (
-		root     = fromTempDirectory(t)
+		root     = FromTempDirectory(t)
 		ptr      = func(s string) *string { return &s } // TODO: remove pointers from Envs.
 		f        fn.Function
 		cmd      *cobra.Command
@@ -458,7 +460,7 @@ func TestDeploy_FunctionContext(t *testing.T) {
 
 func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry})
 	if err != nil {
@@ -511,7 +513,7 @@ func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
 // TestDeploy_GitArgsPersist ensures that the git flags, if provided, are
 // persisted to the Function for subsequent deployments.
 func TestDeploy_GitArgsPersist(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	var (
 		url    = "https://example.com/user/repo"
@@ -554,7 +556,7 @@ func TestDeploy_GitArgsPersist(t *testing.T) {
 // TestDeploy_GitArgsUsed ensures that any git values provided as flags are used
 // when invoking a remote deployment.
 func TestDeploy_GitArgsUsed(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	var (
 		url    = "https://example.com/user/repo"
@@ -569,7 +571,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 
 	// A Pipelines Provider which will validate the expected values were received
 	pipeliner := mock.NewPipelinesProvider()
-	pipeliner.RunFn = func(f fn.Function) (string, error) {
+	pipeliner.RunFn = func(f fn.Function) (string, fn.Function, error) {
 		if f.Build.Git.URL != url {
 			t.Errorf("Pipeline Provider expected git URL '%v' got '%v'", url, f.Build.Git.URL)
 		}
@@ -579,7 +581,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 		if f.Build.Git.ContextDir != dir {
 			t.Errorf("Pipeline Provider expected git dir '%v' got '%v'", url, f.Build.Git.ContextDir)
 		}
-		return url, nil
+		return url, f, nil
 	}
 
 	// Deploy the Function specifying all of the git-related flags and --remote
@@ -598,7 +600,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 // TestDeploy_GitURLBranch ensures that a --git-url which specifies the branch
 // in the URL is equivalent to providing --git-branch
 func TestDeploy_GitURLBranch(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -644,7 +646,7 @@ func TestDeploy_ImageAndRegistry(t *testing.T) {
 
 func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -717,14 +719,14 @@ func testImageFlag(cmdFn commandConstructor, t *testing.T) {
 		args    = []string{"--image", "docker.io/tigerteam/foo"}
 		builder = mock.NewBuilder()
 	)
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cmd := NewBuildCmd(NewTestClient(fn.WithBuilder(builder)))
+	cmd := cmdFn(NewTestClient(fn.WithBuilder(builder)))
 	cmd.SetArgs(args)
 
 	// Execute the command
@@ -754,40 +756,41 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 		image     string // value to provide as --image
 		build     string // If provided, the value of the build flag
 		push      bool   // if true, explicitly set argument --push=true
-		errString string // the string value of an expected error
+		errPrefix string // the string value of an expected error
 	}{
 		{
 			name:  "correctly formatted full image with digest yields no error (degen case)",
-			image: "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			image: "example.com/namespace/myfunction@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			build: "false",
 		},
 		{
 			name:      "--build forced on yields error",
-			image:     "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			image:     "example.com/mynamespace/myfunction@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
 			build:     "true",
-			errString: "building can not be enabled when using an image with digest",
+			errPrefix: "building can not be enabled when using an image with digest",
 		},
 		{
 			name:      "push flag explicitly set with digest should error",
-			image:     "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			image:     "example.com/mynamespace/myfunction@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
 			push:      true,
-			errString: "pushing is not valid when specifying an image with digest",
+			errPrefix: "pushing is not valid when specifying an image with digest",
 		},
 		{
 			name:      "invalid digest prefix 'Xsha256', expect error",
-			image:     "example.com/myNamespace/myFunction:latest@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
-			errString: "image digest 'Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e' requires 'sha256:' prefix",
+			image:     "example.com/mynamespace/myfunction@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			errPrefix: "could not parse reference",
 		},
 		{
 			name:      "invalid sha hash length(added X at the end), expect error",
-			image:     "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX",
-			errString: "image digest 'sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX' has an invalid sha256 hash length of 65 when it should be 64",
+			image:     "example.com/mynamespace/myfunction@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX",
+			errPrefix: "could not parse reference",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Move into a new temp directory
-			root := fromTempDirectory(t)
+			root := FromTempDirectory(t)
 
 			// Create a new Function in the temp directory
 			_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
@@ -820,13 +823,134 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 			cmd.SetArgs(args)
 			err = cmd.Execute()
 			if err != nil {
-				if tt.errString == "" {
+				if tt.errPrefix == "" {
 					t.Fatal(err) // no error was expected.  fail
 				}
-				if tt.errString != err.Error() {
-					t.Fatalf("expected error '%v' not received. got '%v'", tt.errString, err.Error())
+				if !strings.HasPrefix(err.Error(), tt.errPrefix) {
+					t.Fatalf("expected error prefix '%v' not received. got '%v'", tt.errPrefix, err.Error())
 				}
 				// There was an error, but it was expected
+			}
+		})
+	}
+}
+
+// TestDeploy_ImageWithDigestDoesntPopulateBuild ensures that when --image is
+// given with digest f.Build.Image is not populated because no image building
+// should happen; f.Deploy.Image should be populated because the image should
+// just be deployed as is (since it already has digest)
+func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
+	root := FromTempDirectory(t)
+	// image with digest (well almost, atleast in length and syntax)
+	const img = "example.com/username@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	// Create a new Function in the temp directory
+	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry)))
+
+	cmd.SetArgs([]string{"--build=false", "--push=false", "--image", img})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := fn.NewFunction(root)
+	if f.Build.Image != "" {
+		t.Fatal("build image should be empty when deploying with digested image")
+	}
+	if f.Deploy.Image != img {
+		t.Fatal("expected deployed image to match digested img given")
+	}
+}
+
+// TestDeploy_WithoutDigest ensures that images specified with --image and
+// without digest are correctly processed and propagated to .Deploy.Image
+func TestDeploy_WithoutDigest(t *testing.T) {
+	const sha = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+	tests := []struct {
+		name            string   //name of the test
+		args            []string //args to the deploy command
+		expectedImage   string   //expected value of .Deploy.Image
+		expectedToBuild bool     //expected build invocation
+	}{
+		{
+			name:            "defaults with image flag",
+			args:            []string{"--image=image.example.com/alice/f:latest"},
+			expectedImage:   "image.example.com/alice/f" + "@" + sha,
+			expectedToBuild: true,
+		},
+		{
+			name:            "direct deploy with image flag",
+			args:            []string{"--build=false", "--push=false", "--image=image.example.com/bob/f:latest"},
+			expectedImage:   "image.example.com/bob/f:latest",
+			expectedToBuild: false,
+		},
+		{
+			name:            "tagged image, push disabled",
+			args:            []string{"--push=false", "--image=image.example.com/clarance/f:latest"},
+			expectedImage:   "image.example.com/clarance/f:latest",
+			expectedToBuild: true,
+		},
+		{
+			name:            "untagged image w/ build & push",
+			args:            []string{"--image=image.example.com/dominik/f"},
+			expectedImage:   "image.example.com/dominik/f" + "@" + sha,
+			expectedToBuild: true,
+		},
+		{
+			name:            "untagged image w/out build & push",
+			args:            []string{"--build=false", "--push=false", "--image=image.example.com/enrique/f"},
+			expectedImage:   "image.example.com/enrique/f",
+			expectedToBuild: false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// ASSEMBLE
+			var (
+				root     = FromTempDirectory(t)
+				deployer = mock.NewDeployer()
+				builder  = mock.NewBuilder()
+				pusher   = mock.NewPusher()
+				f        = fn.Function{}
+			)
+
+			f.Name = "func"
+			f.Runtime = "go"
+			f, err := fn.New().Init(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// TODO: gauron99 this will be changed once we get image name+digest in
+			// building phase
+			// simulate current implementation of pusher where full image is concatenated
+			pusher.PushFn = func(ctx context.Context, _ fn.Function) (string, error) {
+				return sha, nil
+			}
+
+			// ACT
+			cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer), fn.WithBuilder(builder), fn.WithPusher(pusher)))
+			cmd.SetArgs(test.args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			f, err = fn.NewFunction(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// ASSERT
+			if builder.BuildInvoked != test.expectedToBuild {
+				t.Fatalf("expected builder invocation: '%v', got '%v'", test.expectedToBuild, builder.BuildInvoked)
+			}
+
+			if f.Deploy.Image != test.expectedImage {
+				t.Fatalf("expected deployed image '%v', got '%v'", test.expectedImage, f.Deploy.Image)
 			}
 		})
 	}
@@ -840,7 +964,7 @@ func TestDeploy_InvalidRegistry(t *testing.T) {
 
 func testInvalidRegistry(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f := fn.Function{
 		Root:    root,
@@ -864,11 +988,13 @@ func testInvalidRegistry(cmdFn commandConstructor, t *testing.T) {
 
 // TestDeploy_Namespace ensures that the namespace provided to the client
 // for use when describing a function is set
-// 1. The flag /env variable if provided
+// 1. The user's current active namespace by default
 // 2. The namespace of the function at path if provided
-// 3. The user's current active namespace
+// 3. The flag /env variable if provided has highest precedence
 func TestDeploy_Namespace(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t) // clears most envs, sets test KUBECONFIG
+
+	testClientFn := NewTestClient(fn.WithDeployer(mock.NewDeployer()))
 
 	// A function which will be repeatedly, mockingly deployed
 	f := fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}
@@ -877,107 +1003,116 @@ func TestDeploy_Namespace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The mock deployer responds that the given function was deployed
-	// to the namespace indicated in f.Deploy.Namespace or "default" if empty
-	// (it does not actually consider the current kubernetes context)
-	deployer := mock.NewDeployer()
-
-	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+	// Deploy it to the default namespace, which is taken from
+	// the test KUBECONFIG found in testdata/default_kubeconfig
+	cmd := NewDeployCmd(testClientFn)
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	f, _ = fn.NewFunction(root)
-	if f.Deploy.Namespace != "default" {
-		t.Fatalf("expected namespace 'default', got '%v'", f.Deploy.Namespace)
+	if f.Deploy.Namespace != "func" {
+		t.Fatalf("expected namespace 'func', got '%v'", f.Deploy.Namespace)
 	}
 
-	// Change the function's active namespace and ensure it is used, preempting
-	// the 'default' namespace from the mock
-	f, err = fn.NewFunction(root)
-	if err != nil {
+	// Deploy to a new namespace
+	cmd = NewDeployCmd(testClientFn)
+	cmd.SetArgs([]string{"--namespace=newnamespace"})
+	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	f.Deploy.Namespace = "alreadyDeployed"
-	if err := f.Write(); err != nil {
-		t.Fatal(err)
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace != "newnamespace" {
+		t.Fatalf("expected namespace 'newnamespace', got '%v'", f.Deploy.Namespace)
 	}
-	cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+
+	// Redeploy and confirm it retains being in the new namespace
+	// (does not revert to using the static default "default" nor the
+	// current context's "func")
+	cmd = NewDeployCmd(testClientFn)
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	f, _ = fn.NewFunction(root)
-	if f.Deploy.Namespace != "alreadyDeployed" {
-		t.Fatalf("expected namespace 'alreadyDeployed', got '%v'", f.Deploy.Namespace)
+	if f.Deploy.Namespace != "newnamespace" {
+		t.Fatalf("expected deploy to retain namespace 'newnamespace', got '%v'", f.Deploy.Namespace)
 	}
 
 	// Ensure an explicit name (a flag) is taken with highest precedence
-	cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
-	cmd.SetArgs([]string{"--namespace=newNamespace"})
+	// overriding both the default and the "previously deployed" value.
+	cmd = NewDeployCmd(testClientFn)
+	cmd.SetArgs([]string{"--namespace=thirdnamespace"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	f, _ = fn.NewFunction(root)
-	if f.Deploy.Namespace != "newNamespace" {
+	if f.Deploy.Namespace != "thirdnamespace" {
 		t.Fatalf("expected namespace 'newNamespace', got '%v'", f.Deploy.Namespace)
 	}
-
 }
 
-// TestDeploy_NamespaceDefaults ensures that when not specified, a users's
-// active kubernetes context is used for the namespace if available.
-func TestDeploy_NamespaceDefaults(t *testing.T) {
+// TestDeploy_NamespaceDefaultsToK8sContext ensures that when not specified, a
+// users's active kubernetes context is used for the namespace if available.
+func TestDeploy_NamespaceDefaultsToK8sContext(t *testing.T) {
 	kubeconfig := filepath.Join(cwd(), "testdata", "TestDeploy_NamespaceDefaults/kubeconfig")
 	expected := "mynamespace"
-	root := fromTempDirectory(t) // clears envs and cds to empty root
+	root := FromTempDirectory(t) // clears envs and cds to empty root
 	t.Setenv("KUBECONFIG", kubeconfig)
 
 	// Create a new function
-	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry})
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Defensive state check
 	if f.Deploy.Namespace != "" {
 		t.Fatalf("newly created functions should not have a namespace set until deployed.  Got '%v'", f.Deploy.Namespace)
 	}
 
 	// a deployer which actually uses config.DefaultNamespace
 	// This is not the default implementation of mock.NewDeployer as this would
-	// be likely to be confusing, since it would vary on developer machines
+	// likely be confusing because it would vary on developer machines
 	// unless they remember to clear local envs, such as is done here within
 	// fromTempDirectory(t).  To avert this potential confusion, the use of
 	// config.DefaultNamespace() is kept local to this test.
 	deployer := mock.NewDeployer()
 	deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
-		// deployer implementations shuld have integration tests which confirm
-		// this logic:
-		if f.Deploy.Namespace != "" {
-			result.Namespace = f.Deploy.Namespace
-		} else {
-			result.Namespace = config.DefaultNamespace()
-		}
+		// Mock confirmation the function was deployed to the namespace requested
+		// This test is a new, single-deploy, so f.Namespace
+		// (not f.Deploy.Namespace) is to be used
+		result.Namespace = f.Namespace
 		return
+
+		// NOTE: The below logic is expected of all deployers at this time,
+		// but is not necessary for this test.
+		// Deployer implementations should have integration tests which confirm
+		// this minimim namespace resolution logic is respected:
+		/*
+			if f.Namespace != "" {
+				// We deployed to the requested namespace
+				result.Namespace = f.Namespace
+			} else if f.Deploy.Namespace != "" {
+				// We redeployed to the currently deployed namespace
+				result.Namespace = f.Namespace
+			} else {
+				// We deployed to the default namespace, considering both
+				// active kube context, global config and the static default.
+				result.Namespace = defaultNamespace(false)
+			}
+			return
+		*/
 	}
 
-	// New deploy command that will not actually deploy or build (mocked)
-	cmd := NewDeployCmd(NewTestClient(
-		fn.WithDeployer(deployer),
-		fn.WithBuilder(mock.NewBuilder()),
-		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
-		fn.WithRegistry(TestRegistry),
-	))
+	// Execute a deploycommand with everything mocked
+	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
 	cmd.SetArgs([]string{})
-
-	// Execute, capturing stderr
-	stderr := strings.Builder{}
-	cmd.SetErr(&stderr)
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
-	// Assert the function has been updated to be in namespace from the profile
+	// Assert the function has been updated
 	f, err = fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
@@ -997,7 +1132,7 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 	// Change profile to one whose current profile is 'test-ns-deploy'
 	kubeconfig := filepath.Join(cwd(), "testdata", "TestDeploy_NamespaceRedeployWarning/kubeconfig")
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 	t.Setenv("KUBECONFIG", kubeconfig)
 
 	// Create a Function which appears to have been deployed to 'funcns'
@@ -1013,8 +1148,6 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 
 	// Redeploy the function without specifying namespace.
 	cmd := NewDeployCmd(NewTestClient(
-		fn.WithDeployer(mock.NewDeployer()),
-		fn.WithBuilder(mock.NewBuilder()),
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 		fn.WithRegistry(TestRegistry),
 	))
@@ -1048,7 +1181,7 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 // Also implicitly checks that the --namespace flag takes precedence over
 // the namespace of a previously deployed Function.
 func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	// Create a Function which appears to have been deployed to 'myns'
 	f := fn.Function{
@@ -1072,7 +1205,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 	))
 	cmd.SetArgs([]string{"--namespace=newns"})
 	out := strings.Builder{}
-	fmt.Fprintln(&out, "Test errpr")
+	fmt.Fprintln(&out, "Test error")
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
@@ -1082,12 +1215,17 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	expected := "Warning: function is in namespace 'myns', but requested namespace is 'newns'. Continuing with deployment to 'newns'."
+	activeNamespace, err := k8s.GetDefaultNamespace()
+	if err != nil {
+		t.Fatalf("Couldnt get active namespace, got error: %v", err)
+	}
 
-	// Ensure output contained warning if changing namespace
-	if !strings.Contains(out.String(), expected) {
+	expected1 := "Info: chosen namespace has changed from 'myns' to 'newns'. Undeploying function from 'myns' and deploying new in 'newns'."
+	expected2 := fmt.Sprintf("Warning: namespace chosen is 'newns', but currently active namespace is '%s'. Continuing with deployment to 'newns'.", activeNamespace)
+	// Ensure output contained info and warning if changing namespace
+	if !strings.Contains(out.String(), expected1) || !strings.Contains(out.String(), expected2) {
 		t.Log("STDERR:\n" + out.String())
-		t.Fatalf("Expected warning not found:\n%v", expected)
+		t.Fatalf("Expected Info and/or Warning not found:\n%v|%v", expected1, expected2)
 	}
 
 	// Ensure the function was saved as having been deployed to
@@ -1096,7 +1234,93 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Deploy.Namespace != "newns" {
-		t.Fatalf("expected function to be deoployed into namespace 'newns'.  got '%v'", f.Deploy.Namespace)
+		t.Fatalf("expected function to be deployed into namespace 'newns'.  got '%v'", f.Deploy.Namespace)
+	}
+}
+
+// TestDeploy_BasicRedeploy simply ensures that redeploy works and doesnt brake
+// using standard deploy method when desired namespace is deleted.
+func TestDeploy_BasicRedeployInCorrectNamespace(t *testing.T) {
+	root := FromTempDirectory(t)
+	expected := "testnamespace"
+
+	f := fn.Function{
+		Runtime:  "go",
+		Root:     root,
+		Registry: TestRegistry,
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Redeploy the function, specifying 'newns'
+	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
+	cmd.SetArgs([]string{"--namespace", expected})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace != expected {
+		t.Fatalf("expected deployed namespace %q, got %q", expected, f.Deploy.Namespace)
+	}
+
+	// get rid of desired namespace -- should still deploy as usual, now taking
+	// the "already deployed" namespace
+	cmd.SetArgs([]string{})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	if f.Deploy.Namespace != expected {
+		t.Fatal("expected deployed namespace to be specified after second deploy")
+	}
+}
+
+// TestDeploy_BasicRedeployPipelines simply ensures that deploy 2 times works
+// and doesnt brake using pipelines
+func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	// Create a Function which appears to have been deployed to 'myns'
+	f := fn.Function{
+		Runtime:  "go",
+		Root:     root,
+		Registry: TestRegistry,
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Redeploy the function, specifying 'newns'
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+	))
+
+	cmd.SetArgs([]string{"--remote", "--namespace=myfuncns"})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace == "" || f.Deploy.Namespace != f.Namespace {
+		t.Fatalf("namespace should match desired ns when deployed - '%s' | '%s'", f.Deploy.Namespace, f.Namespace)
+	}
+
+	cmd.SetArgs([]string{"--remote", "--namespace="})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Namespace != "" {
+		t.Fatalf("expected empty f.Namespace , got %q", f.Namespace)
+	}
+	if f.Deploy.Namespace != "myfuncns" {
+		t.Fatalf("deployed ns should NOT have changed but is '%s'\n", f.Deploy.Namespace)
 	}
 }
 
@@ -1124,7 +1348,9 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			name: "registry member mismatch",
 			f: fn.Function{
 				Registry: "registry.example.com/alice",
-				Image:    "registry.example.com/bob/f:latest",
+				Build: fn.BuildSpec{
+					Image: "registry.example.com/bob/f:latest",
+				},
 			},
 			args:             []string{},
 			expectedRegistry: "registry.example.com/alice",
@@ -1137,7 +1363,9 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			name: "registry flag updates",
 			f: fn.Function{
 				Registry: "registry.example.com/alice",
-				Image:    "registry.example.com/bob/f:latest",
+				Build: fn.BuildSpec{
+					Image: "registry.example.com/bob/f:latest",
+				},
 			},
 			args:             []string{"--registry=registry.example.com/charlie"},
 			expectedRegistry: "registry.example.com/charlie",
@@ -1150,7 +1378,9 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			name: "image flag overrides",
 			f: fn.Function{
 				Registry: "registry.example.com/alice",
-				Image:    "registry.example.com/bob/f:latest",
+				Build: fn.BuildSpec{
+					Image: "registry.example.com/bob/f:latest",
+				},
 			},
 			args:             []string{"--image=registry.example.com/charlie/f:latest"},
 			expectedRegistry: "registry.example.com/alice",            // not updated
@@ -1159,7 +1389,7 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			root := fromTempDirectory(t)
+			root := FromTempDirectory(t)
 			test.f.Runtime = "go"
 			test.f.Name = "f"
 			f, err := fn.New().Init(test.f)
@@ -1178,8 +1408,8 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			if f.Registry != test.expectedRegistry {
 				t.Fatalf("expected registry '%v', got '%v'", test.expectedRegistry, f.Registry)
 			}
-			if f.Image != test.expectedImage {
-				t.Fatalf("expected image '%v', got '%v'", test.expectedImage, f.Image)
+			if f.Build.Image != test.expectedImage {
+				t.Fatalf("expected image '%v', got '%v'", test.expectedImage, f.Build.Image)
 			}
 		})
 	}
@@ -1194,7 +1424,7 @@ func TestDeploy_RegistryLoads(t *testing.T) {
 
 func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f := fn.Function{
 		Root:     root,
@@ -1220,8 +1450,8 @@ func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	expected := "example.com/alice/my-func:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image name '%v'. got %v", expected, f.Image)
+	if f.Build.Image != expected {
+		t.Fatalf("expected image name '%v'. got %v", expected, f.Build.Image)
 	}
 }
 
@@ -1234,7 +1464,7 @@ func TestDeploy_RegistryOrImageRequired(t *testing.T) {
 
 func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -1258,6 +1488,74 @@ func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// TestDeploy_Authentication ensures that Token and Username/Password auth
+// propagate their values to pushers which support them.
+func TestDeploy_Authentication(t *testing.T) {
+	testAuthentication(NewDeployCmd, t)
+}
+
+func testAuthentication(cmdFn commandConstructor, t *testing.T) {
+	// This test is currently focused on ensuring the flags for
+	// explicit credentials (bearer token and username/password) are respected
+	// and propagated to pushers which support this authentication method.
+	// Integration tests must be used to ensure correct integration between
+	// the system and credential helpers (Docker, ecs, acs)
+	t.Helper()
+
+	root := FromTempDirectory(t)
+	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		testUser  = "alice"
+		testPass  = "123"
+		testToken = "example.jwt.token"
+	)
+
+	// Basic Auth: username/password
+	// -----------------------------
+	pusher := mock.NewPusher()
+	pusher.PushFn = func(ctx context.Context, _ fn.Function) (string, error) {
+		username, _ := ctx.Value(fn.PushUsernameKey{}).(string)
+		password, _ := ctx.Value(fn.PushPasswordKey{}).(string)
+
+		if username != testUser || password != testPass {
+			t.Fatalf("expected username %q, password %q.  Got %q, %q", testUser, testPass, username, password)
+		}
+
+		return "", nil
+	}
+
+	cmd := cmdFn(NewTestClient(fn.WithPusher(pusher)))
+	cmd.SetArgs([]string{"--builder", "host", "--username", testUser, "--password", testPass})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Basic Auth: token
+	// -----------------------------
+	pusher = mock.NewPusher()
+	pusher.PushFn = func(ctx context.Context, _ fn.Function) (string, error) {
+		token, _ := ctx.Value(fn.PushTokenKey{}).(string)
+
+		if token != testToken {
+			t.Fatalf("expected token %q, got %q", testToken, token)
+		}
+
+		return "", nil
+	}
+
+	cmd = cmdFn(NewTestClient(fn.WithPusher(pusher)))
+
+	cmd.SetArgs([]string{"--builder", "host", "--token", testToken})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
 }
 
 // TestDeploy_RemoteBuildURLPermutations ensures that the remote, build and git-url flags
@@ -1291,7 +1589,7 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 	// returns a single test function for one possible permutation of the flags.
 	newTestFn := func(remote, build, url string) func(t *testing.T) {
 		return func(t *testing.T) {
-			root := fromTempDirectory(t)
+			root := FromTempDirectory(t)
 
 			// Create a new Function in the temp directory
 			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
@@ -1411,7 +1709,7 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 // TestDeploy_RemotePersists ensures that the remote field is read from
 // the function by default, and is able to be overridden by flags/env vars.
 func TestDeploy_RemotePersists(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f, err := fn.New().Init(fn.Function{Runtime: "node", Root: root})
 	if err != nil {
@@ -1473,7 +1771,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 // line causes the pertinent value to be zeroed out.
 func TestDeploy_UnsetFlag(t *testing.T) {
 	// From a temp directory
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	// Create a function
 	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
@@ -1531,5 +1829,344 @@ func Test_ValidateBuilder(t *testing.T) {
 
 	if err := ValidateBuilder("invalid"); err == nil {
 		t.Fatalf("did not get expected error validating an invalid builder name")
+	}
+}
+
+// TestReDeploy_OnRegistryChange tests that after deployed image with registry X,
+// subsequent deploy with registry Y triggers build
+func TestReDeploy_OnRegistryChange(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	// Create a basic go Function
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// create build cmd
+	cmdBuild := NewBuildCmd(NewTestClient(fn.WithBuilder(mock.NewBuilder())))
+	cmdBuild.SetArgs([]string{"--registry=" + TestRegistry})
+
+	// First: prebuild Function
+	if err := cmdBuild.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// change registry and deploy again
+	newRegistry := "example.com/fred"
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+	))
+
+	cmd.SetArgs([]string{"--registry=" + newRegistry})
+
+	// Second: Deploy with different registry and expect new build
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// ASSERT
+	expectF, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal("couldnt load function from path")
+	}
+
+	if !strings.Contains(expectF.Build.Image, newRegistry) {
+		t.Fatalf("expected built image '%s' to contain new registry '%s'\n", expectF.Build.Image, newRegistry)
+	}
+}
+
+// TestReDeploy_OnRegistryChangeWithBuildFalse should fail with function not
+// being built because the registry has changed
+func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
+	root := FromTempDirectory(t)
+	registry := "example.com/bob"
+
+	f := fn.Function{
+		Runtime:   "go",
+		Root:      root,
+		Registry:  TestRegistry,
+		Namespace: "default",
+	}
+	_, f, err := fn.New(fn.WithDeployer(mock.NewDeployer())).New(context.Background(), f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploying again with a new registry should trigger "not built" error
+	// if specifying --build=false
+	cmd := NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--registry", registry, "--build=false"})
+	if err := cmd.Execute(); err == nil {
+		// TODO: should be a typed error which can be checked.  This will
+		// succeed even if an unrelated error is thrown.
+		t.Fatalf("expected error 'not built' not received")
+	}
+
+	// Assert that the requested change did not take effect
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(f.Build.Image, registry) {
+		t.Fatal("expected registry to NOT change since --build=false")
+	}
+}
+
+// TestDeploy_NoErrorOnOldFunctionNotFound assures that no error is given when
+// old Function's service is not available (is already deleted manually or the
+// namespace doesnt exist etc.)
+func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
+	var (
+		root    = FromTempDirectory(t)
+		nsOne   = "nsone"
+		nsTwo   = "nstwo"
+		remover = mock.NewRemover()
+	)
+
+	// A remover which can not find the old instance
+	remover.RemoveFn = func(n, ns string) error {
+		// Note that the knative remover explicitly checks for
+		// if it received an apiErrors.IsNotFound(err) and if so returns
+		// a fn.ErrFunctionNotFound.  This test implementation is dependent
+		// on that.  This is a change from the original implementation which
+		// directly returned a knative erorr with:
+		//   return apiErrors.NewNotFound(schema.GroupResource{Group: "", Resource: "Namespace"}, nsOne)
+		if ns == nsOne {
+			// Fabricate a not-found error.  For example if the function
+			// or its namespace had been manually removed
+			return fn.ErrFunctionNotFound
+		}
+		return nil
+	}
+	clientFn := NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRemover(remover),
+	)
+
+	// Create a basic go Function
+	f := fn.Function{
+		Runtime:  "go",
+		Root:     root,
+		Registry: TestRegistry,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy the function to ns "nsone"
+	cmd := NewDeployCmd(clientFn)
+	cmd.SetArgs([]string{"--namespace", nsOne})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Second Deploy with different namespace
+	cmd = NewDeployCmd(clientFn)
+	cmd.SetArgs([]string{"--namespace", nsTwo})
+	if err = cmd.Execute(); err != nil {
+		// possible TODO: catch the os.Stderr output and check that this is printed out
+		// and if this is implemented, probably change the name to *_WarnOnFunction
+		// expectedWarning := fmt.Sprintf("Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", nsOne)
+
+		// ASSERT
+
+		// Needs to pass since the error is set to nil for NotFound error
+		t.Fatal(err)
+	}
+}
+
+// TestDeploy_WithoutHome ensures that deploying a function without HOME &
+// XDG_CONFIG_HOME defined succeeds
+func TestDeploy_WithoutHome(t *testing.T) {
+	var (
+		root = FromTempDirectory(t)
+		ns   = "myns"
+	)
+
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	// Create a basic go Function
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy the function
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry)))
+
+	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", ns)})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestDeploy_CorrectImageDeployed ensures that deploying will always pass
+// the correct image name to the deployer (populating the f.Deploy.Image value)
+// in various scenarios.
+func TestDeploy_CorrectImageDeployed(t *testing.T) {
+	const sha = "sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+	// dataset
+	tests := []struct {
+		name         string
+		image        string
+		buildArgs    []string
+		deployArgs   []string
+		shouldFail   bool
+		shouldBuild  bool
+		pusherActive bool
+	}{
+		{
+			name:       "basic test to create and deploy",
+			image:      "myimage",
+			deployArgs: []string{"--image", "myimage"},
+		},
+		{
+			name:  "test to deploy with prebuild",
+			image: "myimage",
+			buildArgs: []string{
+				"--image=myimage",
+			},
+			deployArgs: []string{
+				"--build=false",
+			},
+			shouldBuild: true,
+		},
+		{
+			name:  "test to build and deploy",
+			image: "myimage",
+			buildArgs: []string{
+				"--image=myimage",
+			},
+			shouldBuild: true,
+		},
+		{
+			name:  "test to deploy without build should fail",
+			image: "myimage",
+			deployArgs: []string{
+				"--build=false",
+			},
+			shouldFail: true,
+		},
+		{
+			name:  "test to build then deploy with push",
+			image: "myimage" + "@" + sha,
+			buildArgs: []string{
+				"--image=myimage",
+			},
+			deployArgs: []string{
+				"--build=false",
+				"--push=true",
+			},
+			shouldBuild:  true,
+			pusherActive: true,
+		},
+	}
+
+	// run tests
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			f := fn.Function{
+				Runtime: "go",
+				Root:    root,
+			}
+			_, err := fn.New().Init(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// prebuild function if desired
+			if tt.shouldBuild {
+				cmd := NewBuildCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
+				cmd.SetArgs(tt.buildArgs)
+				if err = cmd.Execute(); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			pusher := mock.NewPusher()
+			if tt.pusherActive {
+				pusher.PushFn = func(_ context.Context, _ fn.Function) (string, error) {
+					return sha, nil
+				}
+			}
+
+			deployer := mock.NewDeployer()
+			deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+				// verify the image passed to the deployer
+				if f.Deploy.Image != tt.image {
+					return fn.DeploymentResult{}, fmt.Errorf("image '%v' does not match the expected image '%v'\n", f.Deploy.Image, tt.image)
+				}
+				return
+			}
+
+			// Deploy the function
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithDeployer(deployer), //is always specified
+				fn.WithPusher(pusher)))    // if specified, will return sha for testing
+
+			cmd.SetArgs(tt.deployArgs)
+
+			// assert
+			err = cmd.Execute()
+			if tt.shouldFail {
+				if err == nil {
+					t.Fatal("expected an error but got none")
+				}
+			} else {
+				// should not fail
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+// Test_isDigested ensures that the function is properly delegating to
+// by checking both that it will fail on an invalid reference and will
+// return true if the image contains a digest and false otherwise.
+// See the delegate from the implementation for comprehensive tests.
+func Test_isDigested(t *testing.T) {
+	var digested bool
+	var err error
+
+	// Ensure validation
+	_, err = isDigested("invalid&image@sha256:12345")
+	if err == nil {
+		t.Fatal("did not validate image reference")
+	}
+
+	// Ensure positive case
+	if digested, err = isDigested("alpine"); err != nil {
+		t.Fatal(err)
+	}
+	if digested {
+		t.Fatal("reported digested on undigested image reference")
+	}
+
+	// Ensure negative case
+	if digested, err = isDigested("alpine@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"); err != nil {
+		t.Fatal(err)
+	}
+	if !digested {
+		t.Fatal("did not report image reference has digest")
 	}
 }

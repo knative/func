@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/client-pkg/pkg/util"
+	"knative.dev/client/pkg/util"
 
 	"knative.dev/func/cmd/templates"
 	"knative.dev/func/pkg/config"
@@ -23,6 +23,10 @@ import (
 
 // DefaultVersion when building source directly (bypassing the Makefile)
 const DefaultVersion = "v0.0.0+source"
+
+// DefaultNamespace is the global static default namespace, and is equivalent
+// to the Kubernetes default namespace.
+const DefaultNamespace = "default"
 
 type RootCommandConfig struct {
 	Name string // usually `func` or `kn func`
@@ -58,7 +62,13 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 	// a version prefixed by "FUNC_"
 	viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 	viper.SetEnvPrefix("func") // ensure that all have the prefix
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
+	// check if permissions for FUNC HOME are sufficient; warn if otherwise
+	cp := config.File()
+	if _, err := os.ReadFile(cp); os.IsPermission(err) {
+		fmt.Fprintf(os.Stderr, "Warning: Insufficient permissions to read config file at '%s' - continuing without it\n", cp)
+	}
 	// Client
 	// Use the provided ClientFactory or default to NewClient
 	newClient := cfg.NewClient
@@ -102,6 +112,7 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 			Commands: []*cobra.Command{
 				NewCompletionCmd(),
 				NewVersionCmd(cfg.Version),
+				NewTektonClusterTasksCmd(),
 			},
 		},
 	}
@@ -150,6 +161,45 @@ func effectivePath() (path string) {
 	return path
 }
 
+// defaultNamespace to use when none is provided explicitly.
+// This requires a bit more logic than normal flag defaults, which rely
+// on the order of precedence Static Config -> Global Config -> Current Func ->
+// -> Environment Variables -> Flags.  This default calculation adds the
+// step of using the active Kubernetes namespace after Static Config and before
+// the optional Global Config setting.  The static default is "default"
+func defaultNamespace(f fn.Function, verbose bool) string {
+	// Specifically-requested
+	if f.Namespace != "" {
+		return f.Namespace
+	}
+
+	// Last deployed
+	if f.Deploy.Namespace != "" {
+		return f.Deploy.Namespace
+	}
+
+	// Active K8S namespace
+	namespace, err := k8s.GetDefaultNamespace()
+	if err != nil {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Unable to get current active kubernetes namespace.  Defaults will be used. %v", err)
+		}
+	} else if namespace != "" {
+		return namespace
+	}
+
+	// Globally-defined default in ~/.config/func/config.yaml is next
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading global config at '%v'. %v\n", config.File(), err)
+	} else if cfg.Namespace != "" {
+		return cfg.Namespace
+	}
+
+	// Static Default is the standard Kubernetes default "default"
+	return DefaultNamespace
+}
+
 // interactiveTerminal returns whether or not the currently attached process
 // terminal is interactive.  Used for determining whether or not to
 // interactively prompt the user to confirm default choices, etc.
@@ -170,6 +220,7 @@ func bindEnv(flags ...string) bindFunc {
 		}
 		viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 		viper.SetEnvPrefix("func") // ensure that all have the prefix
+		viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 		return
 	}
 }
@@ -214,46 +265,6 @@ func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 	return pathParts[len(pathParts)-1], absPath
 }
 
-// deriveImage returns the same image name which will be used.
-// I.e. if the explicit name is empty, derive one from the configured registry
-// (registry plus username) and the function's name.
-//
-// This is calculated preemptively here in the CLI (prior to invoking the
-// client), only in order to provide information to the user via the prompt.
-// The client will calculate this same value if the image override is not
-// provided.
-//
-// Derivation logic:
-// deriveImage attempts to arrive at a final, full image name:
-//
-//	format:  [registry]/[username]/[functionName]:[tag]
-//	example: quay.io/myname/my.function.name:tag.
-//
-// Registry can optionally be omitted, in which case DefaultRegistry
-// will be prepended.
-//
-// If the image flag is provided, this value is used directly (the user supplied
-// --image or $FUNC_IMAGE).  Otherwise, the function at 'path' is loaded, and
-// the Image name therein is used (i.e. it was previously calculated).
-// Finally, the default registry is used, which is prepended to the function
-// name, and appended with ':latest':
-func deriveImage(explicitImage, defaultRegistry, path string) string {
-	if explicitImage != "" {
-		return explicitImage // use the explicit value provided.
-	}
-	f, err := fn.NewFunction(path)
-	if err != nil {
-		return "" // unable to derive due to load error (uninitialized?)
-	}
-	if f.Image != "" {
-		return f.Image // use value previously provided or derived.
-	}
-	// Use the func system's derivation logic.
-	// Errors deriving result in an empty return
-	derivedValue, _ := f.ImageName()
-	return derivedValue
-}
-
 func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string) ([]fn.Env, int, error) {
 	updated := sets.NewString()
 
@@ -292,7 +303,7 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 
 	errMsg := fn.ValidateEnvs(envs)
 	if len(errMsg) > 0 {
-		return []fn.Env{}, 0, fmt.Errorf(strings.Join(errMsg, "\n"))
+		return []fn.Env{}, 0, fmt.Errorf("error(s) while validating envs: %s", strings.Join(errMsg, "\n"))
 	}
 
 	return envs, counter, nil

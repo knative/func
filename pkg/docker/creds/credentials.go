@@ -165,26 +165,49 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 		}
 	}
 
+	// default credential loaders map -- load only those that should be there.
+	var defaultCredentialLoaders = []CredentialsCallback{}
+
 	c.authFilePath = filepath.Join(configPath, "auth.json")
 	sys := &containersTypes.SystemContext{
 		AuthFilePath: c.authFilePath,
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
+	if _, err := os.Stat(c.authFilePath); err == nil {
+		defaultCredentialLoaders = append(defaultCredentialLoaders,
+			func(registry string) (docker.Credentials, error) {
+				return getCredentialsByCredentialHelper(c.authFilePath, registry)
+			})
 	}
-	dockerConfigPath := filepath.Join(home, ".docker", "config.json")
 
-	var defaultCredentialLoaders = []CredentialsCallback{
-		func(registry string) (docker.Credentials, error) {
-			return getCredentialsByCredentialHelper(c.authFilePath, registry)
-		},
-		func(registry string) (docker.Credentials, error) {
-			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
-		},
+	// add only if home dir is defined -- for .docker/config.json creds
+	home, err := os.UserHomeDir()
+	if err == nil {
+		dockerConfigPath := filepath.Join(home, ".docker", "config.json")
+		defaultCredentialLoaders = append(defaultCredentialLoaders,
+			func(registry string) (docker.Credentials, error) {
+				return getCredentialsByCredentialHelper(dockerConfigPath, registry)
+			})
+	}
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) {
 			creds, err := dockerConfig.GetCredentials(sys, registry)
+			if err != nil {
+				return docker.Credentials{}, err
+			}
+			if creds.Username == "" || creds.Password == "" {
+				return docker.Credentials{}, ErrCredentialsNotFound
+			}
+			return docker.Credentials{
+				Username: creds.Username,
+				Password: creds.Password,
+			}, nil
+		})
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
+		func(registry string) (docker.Credentials, error) {
+			// Fallback onto default docker config locations
+			emptySys := &containersTypes.SystemContext{}
+			creds, err := dockerConfig.GetCredentials(emptySys, registry)
 			if err != nil {
 				return docker.Credentials{}, err
 			}
@@ -192,11 +215,11 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 				Username: creds.Username,
 				Password: creds.Password,
 			}, nil
-		},
+		})
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) { // empty credentials provider for unsecured registries
 			return docker.Credentials{}, nil
-		},
-	}
+		})
 
 	c.credentialLoaders = append(c.credentialLoaders, defaultCredentialLoaders...)
 
@@ -213,7 +236,6 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 	}
 
 	registry := ref.Context().RegistryStr()
-
 	for _, load := range c.credentialLoaders {
 
 		result, err = load(registry)
@@ -240,8 +262,14 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 		return docker.Credentials{}, ErrCredentialsNotFound
 	}
 
+	// this is [registry] / [repository]
+	// this is  index.io  / user/imagename
+	repository := registry + "/" + ref.Context().RepositoryStr()
+
+	// the trying-to-actually-authorize cycle
 	for {
-		result, err = c.promptForCredentials(registry)
+		// use repo here to print it out in prompt
+		result, err = c.promptForCredentials(repository)
 		if err != nil {
 			return docker.Credentials{}, err
 		}
@@ -329,6 +357,11 @@ func setCredentialHelperToConfig(confFilePath, helper string) error {
 	configData["credsStore"] = helper
 
 	data, err := json.MarshalIndent(&configData, "", "    ")
+	if err != nil {
+		return err
+	}
+	// create config path if doesnt exist
+	err = os.MkdirAll(filepath.Dir(confFilePath), 0755)
 	if err != nil {
 		return err
 	}

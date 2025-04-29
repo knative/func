@@ -29,12 +29,12 @@ a Kubernetes Cluster with the following deployed:
 
 For your convenience you can run the following script to setup Tekton and required Tasks:
 ```
-$ ./hack/tekton.sh
+$ ./hack/install-tekton.sh
 ```
 
 To install the Git Server required by tests, run:
 ```
-$ ./gitserver.sh
+$ ./hack/install-git-server.sh
 ```
 
 #### Running all the Tests on KinD
@@ -43,8 +43,8 @@ The below instructions will run all the tests on KinD using an **ephemeral** con
 ```
 # Pre-Reqs
 ./hack/allocate.sh
-./hack/tekton.sh
-./test/gitserver.sh
+./hack/install-tekton.sh
+./hack/install-git-server.sh
 make build
 
 # Run tests

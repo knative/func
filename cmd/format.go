@@ -44,7 +44,7 @@ func write(out io.Writer, s Formatter, formatName string) {
 	case URL:
 		err = s.URL(out)
 	default:
-		err = fmt.Errorf("format not recognized: %v\n", formatName)
+		err = fmt.Errorf("format not recognized: %v", formatName)
 	}
 	if err != nil {
 		panic(err)

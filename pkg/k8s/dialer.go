@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -29,7 +28,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-var SocatImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
+var SocatImage = "ghcr.io/knative/func-utils:v2"
 
 // NewInClusterDialer creates context dialer that will dial TCP connections via POD running in k8s cluster.
 // This is useful when accessing k8s services that are not exposed outside cluster (e.g. openshift image registry).
@@ -71,7 +70,7 @@ type contextDialer struct {
 }
 
 func (c *contextDialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
-	if !(network == "tcp" || network == "tcp4" || network == "tcp6") {
+	if network != "tcp" && network != "tcp4" && network != "tcp6" {
 		return nil, fmt.Errorf("unsupported network: %q", network)
 	}
 
@@ -107,19 +106,72 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 	}
 }
 
-var connSuccessfulRE = regexp.MustCompile("successfully connected")
-
 // Creates io.Writer which closes connectSuccess channel when string "successfully connected" is written to it.
 func detectConnSuccess(connectSuccess chan struct{}) io.Writer {
-	pr, pw := io.Pipe()
-	go func() {
-		ok := connSuccessfulRE.MatchReader(bufio.NewReader(pr))
-		if ok {
-			close(connectSuccess)
+	return newKMPWriter("successfully connected", connectSuccess)
+}
+
+// kmpWriter is a writer that search word w using KMP algorithm in the text written to the writer.
+// When searched word w appears in the input the channel ch is closed.
+// This can be used to detect if particular character sequence was written to the writer.
+type kmpWriter struct {
+	w     string
+	k     int
+	t     []int
+	ch    chan<- struct{}
+	found bool
+}
+
+func newKMPWriter(w string, ch chan<- struct{}) *kmpWriter {
+	// Building KMP table.
+	t := make([]int, len(w)+1)
+	t[0] = -1
+	pos := 1
+	cnd := 0
+	for pos < len(w) {
+		if w[pos] == w[cnd] {
+			t[pos] = t[cnd]
+		} else {
+			t[pos] = cnd
+			for cnd >= 0 && w[pos] != w[cnd] {
+				cnd = t[cnd]
+			}
 		}
-		_, _ = io.Copy(io.Discard, pr)
-	}()
-	return pw
+		pos++
+		cnd++
+	}
+	t[pos] = cnd
+
+	return &kmpWriter{
+		w:  w,
+		t:  t,
+		ch: ch,
+	}
+}
+
+func (d *kmpWriter) Write(s []byte) (n int, err error) {
+	if d.found {
+		return len(s), nil
+	}
+	j := 0
+	for j < len(s) {
+		if d.w[d.k] == s[j] {
+			j++
+			d.k++
+			if d.k == len(d.w) {
+				d.found = true
+				close(d.ch)
+				return len(s), nil
+			}
+		} else {
+			d.k = d.t[d.k]
+			if d.k < 0 {
+				j++
+				d.k++
+			}
+		}
+	}
+	return j, nil
 }
 
 var (
@@ -369,6 +421,11 @@ func podReady(ctx context.Context, core v1.CoreV1Interface, podName, namespace s
 				for _, status := range pod.Status.ContainerStatuses {
 					if status.Ready {
 						d <- nil
+						return
+					}
+					if status.State.Terminated != nil {
+						msg, _ := GetPodLogs(ctx, namespace, podName, podName)
+						d <- fmt.Errorf("pod prematurely exited (output: %q, exitcode: %d)", msg, status.State.Terminated.ExitCode)
 						return
 					}
 					if status.State.Waiting != nil {

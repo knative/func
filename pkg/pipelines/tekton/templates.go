@@ -3,7 +3,6 @@ package tekton
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -28,20 +27,6 @@ const (
 
 	// Tasks references for PAC PipelineRun that are defined in the annotations
 	taskGitCloneRef = "git-clone"
-
-	// Following section contains references for Tasks to be used in Pipeline templates,
-	// there is a difference if we use PAC approach or standard Tekton approach.
-	//
-	// This can be simplified once we start consuming tasks from Tekton Hub
-	taskFuncBuildpacksPACTaskRef = `taskRef:
-        kind: Task
-        name: func-buildpacks`
-	taskFuncS2iPACTaskRef = `taskRef:
-        kind: Task
-        name: func-s2i`
-	taskFuncDeployPACTaskRef = `taskRef:
-        kind: Task
-        name: func-deploy`
 
 	// Following part holds a reference to Git Clone Task to be used in Pipeline template,
 	// the usage depends whether we use direct code upload or Git reference for a standard (non PAC) on-cluster build
@@ -87,17 +72,6 @@ const (
 	defaultPipelinesTargetBranch = "main"
 )
 
-var (
-	FuncRepoRef       = "knative/func"
-	FuncRepoBranchRef = "main"
-
-	taskBasePath = "https://raw.githubusercontent.com/" +
-		FuncRepoRef + "/" + FuncRepoBranchRef + "/pkg/pipelines/resources/tekton/task/"
-	BuildpackTaskURL = taskBasePath + "func-buildpacks/0.2/func-buildpacks.yaml"
-	S2ITaskURL       = taskBasePath + "func-s2i/0.1/func-s2i.yaml"
-	DeployTaskURL    = taskBasePath + "func-deploy/0.1/func-deploy.yaml"
-)
-
 type templateData struct {
 	FunctionName  string
 	Annotations   map[string]string
@@ -125,6 +99,7 @@ type templateData struct {
 	FuncBuildpacksTaskRef string
 	FuncS2iTaskRef        string
 	FuncDeployTaskRef     string
+	FuncScaffoldTaskRef   string
 
 	// Reference for build task - whether it should run after fetch-sources task or not
 	RunAfterFetchSources string
@@ -139,23 +114,37 @@ type templateData struct {
 // it creates the resource in the project directory
 func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
 	data := templateData{
-		FunctionName:          f.Name,
-		Annotations:           f.Deploy.Annotations,
-		Labels:                labels,
-		PipelineName:          getPipelineName(f),
-		RunAfterFetchSources:  runAfterFetchSourcesRef,
-		GitCloneTaskRef:       taskGitClonePACTaskRef,
-		FuncBuildpacksTaskRef: taskFuncBuildpacksPACTaskRef,
-		FuncS2iTaskRef:        taskFuncS2iPACTaskRef,
-		FuncDeployTaskRef:     taskFuncDeployPACTaskRef,
+		FunctionName:         f.Name,
+		Annotations:          f.Deploy.Annotations,
+		Labels:               labels,
+		PipelineName:         getPipelineName(f),
+		RunAfterFetchSources: runAfterFetchSourcesRef,
+		GitCloneTaskRef:      taskGitClonePACTaskRef,
+	}
+
+	for _, val := range []struct {
+		ref   string
+		field *string
+	}{
+		{getBuildpackTask(), &data.FuncBuildpacksTaskRef},
+		{getS2ITask(), &data.FuncS2iTaskRef},
+		{getDeployTask(), &data.FuncDeployTaskRef},
+		{getScaffoldTask(), &data.FuncScaffoldTaskRef},
+	} {
+		ts, err := getTaskSpec(val.ref)
+		if err != nil {
+			return err
+		}
+		*val.field = ts
 	}
 
 	var template string
-	if f.Build.Builder == builders.Pack {
+	switch f.Build.Builder {
+	case builders.Pack:
 		template = packPipelineTemplate
-	} else if f.Build.Builder == builders.S2I {
+	case builders.S2I:
 		template = s2iPipelineTemplate
-	} else {
+	default:
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
 
@@ -191,12 +180,17 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 		s2iImageScriptsUrl = quarkusS2iImageScriptsUrl
 	}
 
+	image := f.Deploy.Image
+	if image == "" {
+		image = f.Image
+	}
+
 	data := templateData{
 		FunctionName:  f.Name,
 		Annotations:   f.Deploy.Annotations,
 		Labels:        labels,
 		ContextDir:    contextDir,
-		FunctionImage: f.Image,
+		FunctionImage: image,
 		Registry:      f.Registry,
 		BuilderImage:  getBuilderImage(f),
 		BuildEnvs:     buildEnvs,
@@ -208,25 +202,23 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 
 		PipelinesTargetBranch: pipelinesTargetBranch,
 
-		GitCloneTaskRef:       taskGitCloneRef,
-		FuncBuildpacksTaskRef: BuildpackTaskURL,
-		FuncS2iTaskRef:        S2ITaskURL,
-		FuncDeployTaskRef:     DeployTaskURL,
+		GitCloneTaskRef: taskGitCloneRef,
 
 		PipelineYamlURL: fmt.Sprintf("%s/%s", resourcesDirectory, pipelineFileNamePAC),
 
 		S2iImageScriptsUrl: s2iImageScriptsUrl,
 
-		RepoUrl:  "{{ repo_url }}",
-		Revision: "{{ revision }}",
+		RepoUrl:  "\"{{ repo_url }}\"",
+		Revision: "\"{{ revision }}\"",
 	}
 
 	var template string
-	if f.Build.Builder == builders.Pack {
+	switch f.Build.Builder {
+	case builders.Pack:
 		template = packRunTemplatePAC
-	} else if f.Build.Builder == builders.S2I {
+	case builders.S2I:
 		template = s2iRunTemplatePAC
-	} else {
+	default:
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
 
@@ -286,17 +278,10 @@ func deleteAllPipelineTemplates(f fn.Function) string {
 	return ""
 }
 
-func getTaskSpec(taskUrlTemplate string) (string, error) {
-	resp, err := http.Get(taskUrlTemplate)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("cannot get task: %q bad http code: %d", taskUrlTemplate, resp.StatusCode)
-	}
-	defer resp.Body.Close()
+func getTaskSpec(taskYaml string) (string, error) {
+	var err error
 	var data map[string]any
-	dec := yaml.NewDecoder(resp.Body)
+	dec := yaml.NewDecoder(strings.NewReader(taskYaml))
 	err = dec.Decode(&data)
 	if err != nil {
 		return "", err
@@ -343,9 +328,10 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 		ref   string
 		field *string
 	}{
-		{BuildpackTaskURL, &data.FuncBuildpacksTaskRef},
-		{S2ITaskURL, &data.FuncS2iTaskRef},
-		{DeployTaskURL, &data.FuncDeployTaskRef},
+		{getBuildpackTask(), &data.FuncBuildpacksTaskRef},
+		{getS2ITask(), &data.FuncS2iTaskRef},
+		{getDeployTask(), &data.FuncDeployTaskRef},
+		{getScaffoldTask(), &data.FuncScaffoldTaskRef},
 	} {
 		ts, err := getTaskSpec(val.ref)
 		if err != nil {
@@ -355,11 +341,12 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	}
 
 	var template string
-	if f.Build.Builder == builders.Pack {
+	switch f.Build.Builder {
+	case builders.Pack:
 		template = packPipelineTemplate
-	} else if f.Build.Builder == builders.S2I {
+	case builders.S2I:
 		template = s2iPipelineTemplate
-	} else {
+	default:
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
 
@@ -400,7 +387,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		Annotations:   f.Deploy.Annotations,
 		Labels:        labels,
 		ContextDir:    contextDir,
-		FunctionImage: f.Image,
+		FunctionImage: f.Deploy.Image,
 		Registry:      f.Registry,
 		BuilderImage:  getBuilderImage(f),
 		BuildEnvs:     buildEnvs,
@@ -417,11 +404,12 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 	}
 
 	var template string
-	if f.Build.Builder == builders.Pack {
+	switch f.Build.Builder {
+	case builders.Pack:
 		template = packRunTemplate
-	} else if f.Build.Builder == builders.S2I {
+	case builders.S2I:
 		template = s2iRunTemplate
-	} else {
+	default:
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
 

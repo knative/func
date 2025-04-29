@@ -590,7 +590,7 @@ All notable changes to this project will be documented in this file. See [standa
 ### Docs
 - fix function typos
 - setting up remote access to kind clusters
-- wireguard configuraiton for OS X
+- wireguard configuration for OS X
 - Kind cluster provisioning and TLS
 - separate repository and system docs
 - getting started with kubernetes, reorganization.

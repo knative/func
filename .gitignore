@@ -2,20 +2,28 @@
 /func
 /func_*
 /cmd/func.yaml
-/templates/typescript/cloudevents/build
-/templates/typescript/http/build
-/templates/go/cloudevents/go.sum
 /coverage.out
 /coverage.txt
 /.coverage
 /bin
 /target
+/hack/bin
+/.artifacts
 
-# Nodejs
+/e2e/testdata/default_home/go
+/e2e/testdata/default_home/.cache
+
+/pkg/functions/testdata/migrations/*/.gitignore
+
+# JS
 node_modules
+/templates/typescript/cloudevents/build
+/templates/typescript/http/build
 
 # Python
 __pycache__
+/templates/python/cloudevents/.venv
+/templates/python/http/.venv
 
 # VSCode
 .vscode

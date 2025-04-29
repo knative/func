@@ -21,7 +21,6 @@ func TestBuild_BuilderImageUntrusted(t *testing.T) {
 		"gcr.io/paketo-buildpackshack/",
 		// And those that don't
 		"docker.io/paketobuildpackshack",
-		"ghcr.io/vmware-tanzu/function-buildpacks-for-knativehack",
 	}
 
 	for _, builder := range untrusted {
@@ -38,6 +37,22 @@ func TestBuild_BuilderImageTrusted(t *testing.T) {
 		if !TrustBuilder(builder) {
 			t.Fatalf("expected pack builder image %v to be trusted", builder)
 		}
+	}
+}
+
+func TestBuild_BuilderImageTrustedLocalhost(t *testing.T) {
+	for _, reg := range []string{
+		"localhost",
+		"localhost:5000",
+		"127.0.0.1",
+		"127.0.0.1:5000",
+		"[::1]",
+		"[::1]:5000"} {
+		t.Run(reg, func(t *testing.T) {
+			if !TrustBuilder(reg + "/project/builder:latest") {
+				t.Errorf("expected to be trusted: %q", reg)
+			}
+		})
 	}
 }
 

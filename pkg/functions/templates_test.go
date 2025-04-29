@@ -48,20 +48,20 @@ func TestTemplates_List(t *testing.T) {
 // when retrieving the list of templates for a runtime that does not exist
 // in an extended repository, but does in the default.
 func TestTemplates_List_ExtendedNotFound(t *testing.T) {
+	// An external template repo which does not contain python
 	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
-	// list templates for the "python" runtime -
-	// not supplied by the extended repos
+	// list templates for the "python" runtime, which will be found
+	// in the embedded filesystem.
 	templates, err := client.Templates().List("python")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err) // there shouldb be no error..
 	}
 
+	// and the list should be those from the embedded fs
 	expected := []string{
 		"cloudevents",
-		"flask",
 		"http",
-		"wsgi",
 	}
 
 	if diff := cmp.Diff(expected, templates); diff != "" {
@@ -355,7 +355,7 @@ func TestTemplates_ModeRemote(t *testing.T) {
 		t.Fatalf("The remote repositry directory mode should be 0755 but was %#o", file.Mode())
 	}
 
-	// Verify remote executible file mode was preserved.
+	// Verify remote executable file mode was preserved.
 	file, err = os.Stat(filepath.Join(root, "test", "executable.sh"))
 	if err != nil {
 		t.Fatal(err)

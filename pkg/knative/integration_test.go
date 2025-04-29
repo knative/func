@@ -63,7 +63,7 @@ func TestIntegration(t *testing.T) {
 		Type:       corev1.SecretTypeOpaque,
 	}
 
-	sc, err = cliSet.CoreV1().Secrets(namespace).Create(ctx, sc, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().Secrets(namespace).Create(ctx, sc, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestIntegration(t *testing.T) {
 		},
 		Data: map[string]string{"FUNC_TEST_CM_A": "1"},
 	}
-	cm, err = cliSet.CoreV1().ConfigMaps(namespace).Create(ctx, cm, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().ConfigMaps(namespace).Create(ctx, cm, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,10 +127,11 @@ func TestIntegration(t *testing.T) {
 		//     * environment variables starting which name starts with FUNC_TEST,
 		//     * files under /etc/cm and /etc/sc.
 		//   * application also prints the same info to stderr on startup
-		Image:       "quay.io/mvasek/func-test-service",
-		ImageDigest: "sha256:2eca4de00d7569c8791634bdbb0c4d5ec8fb061b001549314591e839dabd5269",
-		Created:     now,
+		Created: now,
 		Deploy: fn.DeploySpec{
+			// TODO: gauron99 - is it okay to have this explicitly set to deploy.image already?
+			// With this I skip the logic of setting the .Deploy.Image field but it should be fine for this test
+			Image:     "quay.io/mvasek/func-test-service@sha256:2eca4de00d7569c8791634bdbb0c4d5ec8fb061b001549314591e839dabd5269",
 			Namespace: namespace,
 			Labels:    []fn.Label{{Key: ptr("my-label"), Value: ptr("my-label-value")}},
 			Options: fn.Options{
@@ -155,10 +156,10 @@ func TestIntegration(t *testing.T) {
 
 	var buff = &knative.SynchronizedBuffer{}
 	go func() {
-		_ = knative.GetKServiceLogs(ctx, namespace, functionName, function.ImageWithDigest(), &now, buff)
+		_ = knative.GetKServiceLogs(ctx, namespace, functionName, function.Deploy.Image, &now, buff)
 	}()
 
-	deployer := knative.NewDeployer(knative.WithDeployerNamespace(namespace), knative.WithDeployerVerbose(false))
+	deployer := knative.NewDeployer(knative.WithDeployerVerbose(false))
 
 	depRes, err := deployer.Deploy(ctx, function)
 	if err != nil {
@@ -186,15 +187,15 @@ func TestIntegration(t *testing.T) {
 	if !strings.Contains(outStr, "FUNC_TEST_CM_A=1") {
 		t.Error("environment variable from config-map was not propagated")
 	}
-	if !strings.Contains(outStr, "/etc/sc/FUNC_TEST_SC_A") || !strings.Contains(outStr, "/etc/sc/FUNC_TEST_SC_A") {
+	if !strings.Contains(outStr, "/etc/sc/FUNC_TEST_SC_A") {
 		t.Error("secret was not mounted")
 	}
 	if !strings.Contains(outStr, "/etc/cm/FUNC_TEST_CM_A") {
 		t.Error("config-map was not mounted")
 	}
 
-	describer := knative.NewDescriber(namespace, false)
-	instance, err := describer.Describe(ctx, functionName)
+	describer := knative.NewDescriber(false)
+	instance, err := describer.Describe(ctx, functionName, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,8 +228,8 @@ func TestIntegration(t *testing.T) {
 		}
 	}
 
-	lister := knative.NewLister(namespace, false)
-	list, err := lister.List(ctx)
+	lister := knative.NewLister(false)
+	list, err := lister.List(ctx, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +250,7 @@ func TestIntegration(t *testing.T) {
 		{Value: ptr("{{ secret: " + secret + " }}")},
 		{Name: ptr("FUNC_TEST_CM_A_ALIASED"), Value: ptr("{{configMap:" + configMap + ":FUNC_TEST_CM_A}}")},
 	}
-	depRes, err = deployer.Deploy(ctx, function)
+	_, err = deployer.Deploy(ctx, function)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,13 +271,13 @@ func TestIntegration(t *testing.T) {
 		t.Error("environment variable was not set from config-map")
 	}
 
-	remover := knative.NewRemover(namespace, false)
-	err = remover.Remove(ctx, functionName)
+	remover := knative.NewRemover(false)
+	err = remover.Remove(ctx, functionName, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	list, err = lister.List(ctx)
+	list, err = lister.List(ctx, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}

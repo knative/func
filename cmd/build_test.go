@@ -6,6 +6,7 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestBuild_BuilderPersists ensures that the builder chosen is read from
@@ -88,13 +89,19 @@ func TestBuild_RegistryOrImageRequired(t *testing.T) {
 	testRegistryOrImageRequired(NewBuildCmd, t)
 }
 
+// TestBuild_Authentication ensures that Token and Username/Password auth
+// propagate to pushers which support them.
+func TestBuild_Authentication(t *testing.T) {
+	testAuthentication(NewBuildCmd, t)
+}
+
 // TestBuild_Push ensures that the build command properly pushes and respects
 // the --push flag.
 // - Push triggered after a successful build
 // - Push not triggered after an unsuccessful build
 // - Push can be disabled
 func TestBuild_Push(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f := fn.Function{
 		Root:     root,

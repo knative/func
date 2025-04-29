@@ -15,16 +15,15 @@ import (
 	"knative.dev/func/pkg/docker/creds"
 )
 
-func NewPromptForCredentials(in io.Reader, out, errOut io.Writer) func(registry string) (docker.Credentials, error) {
+func NewPromptForCredentials(in io.Reader, out, errOut io.Writer) func(repository string) (docker.Credentials, error) {
 	firstTime := true
-	return func(registry string) (docker.Credentials, error) {
+	return func(repository string) (docker.Credentials, error) {
 		var result docker.Credentials
-
 		if firstTime {
 			firstTime = false
-			fmt.Fprintf(out, "Please provide credentials for image registry (%s).\n", registry)
+			fmt.Fprintf(out, "Please provide credentials for image repository '%s'.\n", repository)
 		} else {
-			fmt.Fprintln(out, "Incorrect credentials, please try again.")
+			fmt.Fprintf(out, "Incorrect credentials for repository '%s'. Please make sure the repository is correct and try again.\n", repository)
 		}
 
 		var qs = []*survey.Question{

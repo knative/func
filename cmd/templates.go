@@ -56,11 +56,6 @@ EXAMPLES
 	o Return Go templates in a specific repository
 		$ {{rootCmdUse}} templates go --repository=https://github.com/boson-project/templates
 `,
-		SuggestFor: []string{"template", "templtaes", "templatse", "remplates",
-			"gemplates", "yemplates", "tenplates", "tekplates", "tejplates",
-			"temolates", "temllates", "temppates", "tempmates", "tempkates",
-			"templstes", "templztes", "templqtes", "templares", "templages", //nolint:misspell
-			"templayes", "templatee", "templatea", "templated", "templatew"},
 		PreRunE: bindEnv("json", "repository", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTemplates(cmd, args, newClient)
@@ -81,7 +76,7 @@ EXAMPLES
 
 func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	// Gather config
-	cfg, err := newTemplatesConfig(newClient)
+	cfg, err := newTemplatesConfig()
 	if err != nil {
 		return
 	}
@@ -174,7 +169,7 @@ type templatesConfig struct {
 	JSON       bool   // output as JSON
 }
 
-func newTemplatesConfig(newClient ClientFactory) (cfg templatesConfig, err error) {
+func newTemplatesConfig() (cfg templatesConfig, err error) {
 	cfg = templatesConfig{
 		Verbose:    viper.GetBool("verbose"),
 		Repository: viper.GetString("repository"),

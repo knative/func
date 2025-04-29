@@ -32,7 +32,7 @@ func GetPersistentVolumeClaim(ctx context.Context, name, namespaceOverride strin
 	return client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error) {
+func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClassName string) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
@@ -47,12 +47,17 @@ func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride st
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{accessMode},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{},
 			},
 		},
 	}
+
 	pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resourceRequest
+
+	if storageClassName != "" {
+		pvc.Spec.StorageClassName = &storageClassName
+	}
 
 	_, err = client.CoreV1().PersistentVolumeClaims(namespace).Create(ctx, pvc, metav1.CreateOptions{})
 	return
@@ -67,7 +72,7 @@ func DeletePersistentVolumeClaims(ctx context.Context, namespaceOverride string,
 	return client.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-var TarImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
+var TarImage = "ghcr.io/knative/func-utils:v2"
 
 // UploadToVolume uploads files (passed in form of tar stream) into volume.
 func UploadToVolume(ctx context.Context, content io.Reader, claimName, namespace string) error {
@@ -96,9 +101,11 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		return fmt.Errorf("cannot create k8s client: %w", err)
 	}
 
-	namespace, err = GetNamespace(namespace)
-	if err != nil {
-		return fmt.Errorf("cannot get namespace: %w", err)
+	if namespace == "" {
+		namespace, err = GetDefaultNamespace()
+		if err != nil {
+			return fmt.Errorf("cannot get namespace: %w", err)
+		}
 	}
 
 	podName := "volume-uploader-" + rand.String(5)

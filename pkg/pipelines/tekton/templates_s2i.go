@@ -46,6 +46,15 @@ spec:
       default: 'image:///usr/libexec/s2i'
   tasks:
     {{.GitCloneTaskRef}}
+    - name: scaffold
+      params:
+        - name: path
+          value: $(workspaces.source.path)/$(params.contextDir)
+      workspaces:
+        - name: source
+          workspace: source-workspace
+      {{.RunAfterFetchSources}}
+      {{.FuncScaffoldTaskRef}}
     - name: build
       params:
         - name: IMAGE
@@ -61,7 +70,8 @@ spec:
             - '$(params.buildEnvs[*])'
         - name: S2I_IMAGE_SCRIPTS_URL
           value: $(params.s2iImageScriptsUrl)
-      {{.RunAfterFetchSources}}
+      runAfter:
+        - scaffold
       {{.FuncS2iTaskRef}}
       workspaces:
         - name: source
@@ -163,12 +173,6 @@ metadata:
 
     # Fetch the git-clone task from hub
     pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
-
-    # Fetch the func-s2i task
-    pipelinesascode.tekton.dev/task-1: {{.FuncS2iTaskRef}}
-
-    # Fetch the func-deploy task
-    pipelinesascode.tekton.dev/task-2: {{.FuncDeployTaskRef}}
 
     # Fetch the pipelie definition from the .tekton directory
     pipelinesascode.tekton.dev/pipeline: {{.PipelineYamlURL}}

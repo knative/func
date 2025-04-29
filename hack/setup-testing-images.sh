@@ -4,10 +4,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KO_DOCKER_REPO="localhost:50000/knative/func"
-export KO_DOCKER_REPO
+FUNC_UTILS_IMG="localhost:50000/knative/func-utils:v2"
 
-ko build --tags "latest" -B ./cmd/func
+CGO_ENABLED=0 go build -o "func-util" -trimpath -ldflags '-w -s' ./cmd/func-util
+
+docker build . -f Dockerfile.utils -t "${FUNC_UTILS_IMG}" --build-arg FUNC_UTIL_BINARY=func-util
+docker push "${FUNC_UTILS_IMG}"
 
 # Build custom buildah image for tests.
 # This image will accept registries ending with .cluster.local as insecure (non-TLS).

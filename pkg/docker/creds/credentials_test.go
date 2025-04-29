@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -32,6 +33,24 @@ import (
 	"knative.dev/func/pkg/docker/creds"
 	. "knative.dev/func/pkg/testing"
 )
+
+var homeTempDir string
+
+func TestMain(m *testing.M) {
+	// github.com/containers/image only computes $HOME once so we need to set it
+	// globally for all the tests
+	var err error
+	homeTempDir, err = os.MkdirTemp("", "")
+	if err != nil {
+		panic("failed to create tempdir" + err.Error())
+	}
+	os.Setenv(testHomeEnvName(), homeTempDir)
+	if runtime.GOOS == "linux" {
+		os.Setenv("XDG_CONFIG_HOME", filepath.Join(homeTempDir, ".config"))
+	}
+
+	os.Exit(m.Run())
+}
 
 func Test_registryEquals(t *testing.T) {
 	tests := []struct {
@@ -73,7 +92,7 @@ func TestCheckAuth(t *testing.T) {
 		incorrectPwd = "badpwd"
 	)
 
-	localhost, localhostTLS := startServer(t, uname, pwd)
+	localhost, localhostTLS, cert := startServer(t, uname, pwd)
 
 	_, portTLS, err := net.SplitHostPort(localhostTLS)
 	if err != nil {
@@ -113,7 +132,6 @@ func TestCheckAuth(t *testing.T) {
 			},
 			wantErr: false,
 		},
-
 		{
 			name: "correct credentials non-localhost",
 			args: args{
@@ -151,7 +169,30 @@ func TestCheckAuth(t *testing.T) {
 				Username: tt.args.username,
 				Password: tt.args.password,
 			}
-			if err := creds.CheckAuth(tt.args.ctx, tt.args.registry+"/someorg/someimage:sometag", c, http.DefaultTransport); (err != nil) != tt.wantErr {
+			// create trusted certificates pool and add our certificate
+			certPool := x509.NewCertPool()
+			certPool.AddCert(cert)
+
+			// client transport with the certificate
+			transport := &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs: certPool,
+				},
+			}
+
+			dialer := &net.Dialer{}
+
+			transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				h, p, err := net.SplitHostPort(addr)
+				if err != nil {
+					return nil, err
+				}
+				if h == "test.io" {
+					h = "localhost"
+				}
+				return dialer.DialContext(ctx, network, net.JoinHostPort(h, p))
+			}
+			if err := creds.CheckAuth(tt.args.ctx, tt.args.registry+"/someorg/someimage:sometag", c, transport); (err != nil) != tt.wantErr {
 				t.Errorf("CheckAuth() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -160,68 +201,29 @@ func TestCheckAuth(t *testing.T) {
 
 func TestCheckAuthEmptyCreds(t *testing.T) {
 
-	localhost, _ := startServer(t, "", "")
+	localhost, _, _ := startServer(t, "", "")
 	err := creds.CheckAuth(context.Background(), localhost+"/someorg/someimage:sometag", docker.Credentials{}, http.DefaultTransport)
 	if err != nil {
 		t.Error(err)
 	}
 }
 
-func startServer(t *testing.T, uname, pwd string) (addr, addrTLS string) {
-	// TODO: this should be refactored to use OS-chosen ports so as not to
-	// fail when a user is running a function on the default port.)
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr = listener.Addr().String()
-
-	listenerTLS, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addrTLS = listenerTLS.Addr().String()
-
-	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		if uname == "" || pwd == "" {
-			if req.Method == http.MethodPost {
-				resp.WriteHeader(http.StatusCreated)
-			} else {
-				resp.WriteHeader(http.StatusOK)
-			}
-			return
-		}
-		// TODO add also test for token based auth
-		resp.Header().Add("WWW-Authenticate", "basic")
-		if u, p, ok := req.BasicAuth(); ok {
-			if u == uname && p == pwd {
-				if req.Method == http.MethodPost {
-					resp.WriteHeader(http.StatusCreated)
-				} else {
-					resp.WriteHeader(http.StatusOK)
-				}
-				return
-			}
-		}
-		resp.WriteHeader(http.StatusUnauthorized)
-	})
-
-	var randReader io.Reader = rand.Reader
+// generate Certificates
+func generateCert(t *testing.T) (tls.Certificate, *x509.Certificate) {
+	var randReader = rand.Reader
 
 	caPublicKey, caPrivateKey, err := ed25519.GenerateKey(randReader)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ca := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			CommonName: "localhost",
-		},
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "localhost"},
 		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
 		DNSNames:              []string{"localhost", "test.io"},
 		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(10, 0, 0),
+		NotAfter:              time.Now().AddDate(1, 0, 0),
 		IsCA:                  true,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		ExtraExtensions:       []pkix.Extension{},
@@ -229,73 +231,103 @@ func startServer(t *testing.T, uname, pwd string) (addr, addrTLS string) {
 		BasicConstraintsValid: true,
 	}
 
-	caBytes, err := x509.CreateCertificate(randReader, ca, ca, caPublicKey, caPrivateKey)
+	caBytes, err := x509.CreateCertificate(randReader, caTemplate, caTemplate, caPublicKey, caPrivateKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ca, err = x509.ParseCertificate(caBytes)
+	ca, err := x509.ParseCertificate(caBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cert := tls.Certificate{
+	tls := tls.Certificate{
 		Certificate: [][]byte{caBytes},
 		PrivateKey:  caPrivateKey,
 		Leaf:        ca,
 	}
+	return tls, ca
+}
 
+func startServer(t *testing.T, uname, pwd string) (addr, addrTLS string, ca *x509.Certificate) {
+	// create a custom handler function
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// no authentication required, empty creds
+		if uname == "" || pwd == "" {
+			if r.Method == http.MethodPost {
+				w.WriteHeader(http.StatusCreated)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
+			return
+		}
+
+		w.Header().Add("WWW-Authenticate", "basic")
+		if u, p, ok := r.BasicAuth(); ok {
+			if u == uname && p == pwd {
+				if r.Method == http.MethodPost {
+					w.WriteHeader(http.StatusCreated)
+				} else {
+					w.WriteHeader(http.StatusOK)
+				}
+				return
+			}
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+
+	// Setup certificates
+	// tls Cert for the TLS server (has ca as Leaf)
+	// x509 certificate which is its own CA for client
+	tlsCert, ca := generateCert(t)
+
+	// create Server config
 	server := http.Server{
 		Handler: handler,
 		TLSConfig: &tls.Config{
-			ServerName:   "localhost",
-			Certificates: []tls.Certificate{cert},
+			ServerName: "localhost",
+			// with the TLS certificate
+			Certificates: []tls.Certificate{tlsCert},
 		},
 	}
 
+	// non-TLS listener
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// TLS listener
+	listenerTLS, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr = listener.Addr().String()
+	addrTLS = listenerTLS.Addr().String()
+
+	// listen for requests
 	go func() {
 		err := server.ServeTLS(listenerTLS, "", "")
-		if err != nil && !strings.Contains(err.Error(), "Server closed") {
+		if err != nil && err != http.ErrServerClosed {
 			panic(err)
 		}
 	}()
 
 	go func() {
 		err := server.Serve(listener)
-		if err != nil && !strings.Contains(err.Error(), "Server closed") {
+		if err != nil && err != http.ErrServerClosed {
 			panic(err)
 		}
 	}()
-
-	// make the testing CA trusted by default HTTP transport/client
-	oldDefaultTransport := http.DefaultTransport
-	newDefaultTransport := http.DefaultTransport.(*http.Transport).Clone()
-	http.DefaultTransport = newDefaultTransport
-	caPool := x509.NewCertPool()
-	caPool.AddCert(ca)
-	newDefaultTransport.TLSClientConfig.RootCAs = caPool
-	dc := newDefaultTransport.DialContext
-	newDefaultTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		h, p, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, err
-		}
-		if h == "test.io" {
-			h = "localhost"
-		}
-		addr = net.JoinHostPort(h, p)
-		return dc(ctx, network, addr)
-	}
-
+	// shutdown servers at cleanup
 	t.Cleanup(func() {
 		err := server.Shutdown(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
-		http.DefaultTransport = oldDefaultTransport
 	})
 
-	return addr, addrTLS
+	return
 }
 
 const (
@@ -308,8 +340,6 @@ const (
 type Credentials = docker.Credentials
 
 func TestNewCredentialsProvider(t *testing.T) {
-	withCleanHome(t)
-
 	helperWithQuayIO := newInMemoryHelper()
 
 	err := helperWithQuayIO.Add(&credentials.Credentials{
@@ -408,8 +438,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer cleanUpConfigs(t)
-
+			resetHomeDir(t)
 			if tt.args.setUpEnv != nil {
 				tt.args.setUpEnv(t)
 			}
@@ -432,7 +461,8 @@ func TestNewCredentialsProvider(t *testing.T) {
 }
 
 func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
-	withCleanHome(t)
+	resetHomeDir(t)
+
 	credentialsProvider := creds.NewCredentialsProvider(testConfigPath(t), creds.WithVerifyCredentials(func(ctx context.Context, image string, credentials docker.Credentials) error {
 		if image == "localhost:5555/someorg/someimage:sometag" && credentials == (docker.Credentials{}) {
 			return nil
@@ -450,7 +480,7 @@ func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
 }
 
 func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
-	withCleanHome(t)
+	resetHomeDir(t)
 
 	helper := newInMemoryHelper()
 	setUpMockHelper("docker-credential-mock", helper)(t)
@@ -533,13 +563,254 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	}
 }
 
-func cleanUpConfigs(t *testing.T) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
+// TestCredentialsWithoutHome ensures that credentialProvider works when HOME is
+// not set or config is empty
+func TestCredentialsWithoutHome(t *testing.T) {
+	type args struct {
+		promptUser        creds.CredentialsCallback
+		verifyCredentials creds.VerifyCredentialsCallback
+		registry          string
+		setUpEnv          setUpEnv
+	}
+	tests := []struct {
+		name              string
+		testHomePathEmpty bool
+		args              args
+		want              Credentials
+	}{
+		{
+			name:              "empty home with correct user prompt",
+			testHomePathEmpty: true,
+			args: args{
+				promptUser:        correctPwdCallback, // user inputs correct credentials
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				setUpEnv:          setEmptyHome,
+			},
+			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+		{
+			name: "empty config with user prompt",
+			args: args{
+				promptUser:        correctPwdCallback,
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+			},
+			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
 	}
 
-	os.RemoveAll(filepath.Join(home, ".docker"))
+	// reset HOME to the original value after tests since they may change it
+	defer func() {
+		os.Setenv("HOME", homeTempDir)
+	}()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetHomeDir(t)
+			// set up HOME
+			if tt.testHomePathEmpty {
+				os.Unsetenv("HOME")
+			} else {
+				os.Setenv("HOME", homeTempDir)
+			}
+			credentialsProvider := creds.NewCredentialsProvider(
+				testConfigPath(t),
+				creds.WithPromptForCredentials(tt.args.promptUser),
+				creds.WithVerifyCredentials(tt.args.verifyCredentials),
+			)
+
+			got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
+
+			// ASSERT
+			if err != nil {
+				t.Errorf("%v", err)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestCredentialsHomePermissions tests whether the credentials provider
+// works in scenarios where HOME has different permissions
+func TestCredentialsHomePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skip windows perms for this test until windows perms are added")
+	}
+
+	if os.Getenv("GITHUB_ACTION") == "" {
+		// skip for prow because its running as root
+		t.Skip()
+	}
+
+	type args struct {
+		promptUser        creds.CredentialsCallback
+		verifyCredentials creds.VerifyCredentialsCallback
+		registry          string
+		setUpEnv          setUpEnv
+	}
+	tests := []struct {
+		name              string
+		perms             os.FileMode
+		args              args
+		expPermsDeniedErr bool
+		want              Credentials
+	}{
+		{
+			name:  "home with 0000 permissions (no perms)",
+			perms: 0000,
+			args: args{
+				promptUser: pwdCbkThatShallNotBeCalled(t),
+				setUpEnv:   setHomeWithPermissions(0000),
+			},
+			expPermsDeniedErr: true,
+		},
+		{
+			name:  "home with 0333 permissions (write-execute only)",
+			perms: 0333,
+			args: args{
+
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				setUpEnv: all(
+					withPopulatedDockerAuthConfig,
+					setUpMockHelper("docker-credential-mock", newInMemoryHelper()),
+					setHomeWithPermissions(0333)),
+			},
+
+			expPermsDeniedErr: false,
+			want:              Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+		{
+			name:  "home with 0444 permissions (read-only)",
+			perms: 0444,
+			args: args{
+				promptUser: pwdCbkThatShallNotBeCalled(t),
+				setUpEnv:   setHomeWithPermissions(0444)},
+			expPermsDeniedErr: true,
+		},
+		{
+			name:  "home with 0555 permissions (read-execute-only)",
+			perms: 0555,
+			args: args{
+				promptUser: pwdCbkThatShallNotBeCalled(t),
+				setUpEnv:   setHomeWithPermissions(0555),
+			},
+			expPermsDeniedErr: true,
+		},
+		{
+			name:  "home with 0666 permissions (read-write-execute)",
+			perms: 0666,
+			args: args{
+				promptUser: pwdCbkThatShallNotBeCalled(t),
+				setUpEnv:   setHomeWithPermissions(0666),
+			},
+			expPermsDeniedErr: true,
+		},
+		{
+			name:  "home with 0777 permissions (full access)",
+			perms: 0777,
+
+			args: args{
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				setUpEnv: all(
+					withPopulatedDockerAuthConfig,
+					setUpMockHelper("docker-credential-mock", newInMemoryHelper()),
+					setHomeWithPermissions(0777),
+				),
+			},
+			expPermsDeniedErr: false,
+			want:              Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+	}
+
+	// return HOME dir into its original state
+	defer func() {
+		resetHomePermissions(t) //reset home permissions to 0700
+	}()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			resetHomePermissions(t) //needs to be reset so that dir can be removed
+			resetHomeDir(t)
+
+			if tt.args.setUpEnv != nil {
+				tt.args.setUpEnv(t)
+			}
+
+			// try to create HOME/.config/func
+			_, err := testConfigPathError(t)
+			if err != nil { // If error was returned
+				if os.IsPermission(err) { // and its a permission error
+					if !tt.expPermsDeniedErr { // but it wasnt expected
+						t.Fatalf("didnt expect permissions denied error, but got: %s", err)
+					}
+
+				} else { // and it wasnt permission error
+					t.Fatalf("got unexpected error: %v", err)
+				}
+			} else { // Else no error was returned
+				if tt.expPermsDeniedErr { // but it was expected
+					t.Fatal("expected permissions denied error, but got none")
+				}
+			}
+
+			// if permissions were not denied, try to create Provider
+			if !tt.expPermsDeniedErr {
+
+				// try to stat HOME for permissions
+				info, err := os.Stat(os.Getenv(testHomeEnvName()))
+				if err != nil {
+					t.Fatalf("failed to stat HOME: %s", err)
+				}
+
+				if info.Mode().Perm() != tt.perms {
+					t.Errorf("expected permissions '%v', got '%v'", tt.perms, info.Mode().Perm())
+				}
+				credentialsProvider := creds.NewCredentialsProvider(
+					testConfigPath(t),
+					creds.WithPromptForCredentials(tt.args.promptUser),
+					creds.WithVerifyCredentials(tt.args.verifyCredentials),
+				)
+
+				got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
+				if err != nil {
+					t.Errorf("%v", err)
+					return
+				}
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("got: %v, want: %v", got, tt.want)
+				}
+
+			}
+		})
+	}
+}
+
+// ********************** helper functions below **************************** \\
+
+func resetHomeDir(t *testing.T) {
+	t.TempDir()
+	if err := os.RemoveAll(homeTempDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(homeTempDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// resetHomePermissions resets the HOME perms to 0700 (same as resetHomeDir(t))
+func resetHomePermissions(t *testing.T) {
+	if err := os.Chmod(homeTempDir, 0700); err != nil {
+		t.Fatal(err)
+	}
 }
 
 type setUpEnv = func(t *testing.T)
@@ -613,6 +884,8 @@ func pwdCbkFirstWrongThenCorrect(t *testing.T) func(registry string) (Credential
 	t.Helper()
 	var firstInvocation bool
 	return func(registry string) (Credentials, error) {
+		// registry is in form of registry/repository, need to extract registry only
+		registry = strings.Split(registry, "/")[0]
 		if registry != "index.docker.io" && registry != "quay.io" {
 			return Credentials{}, fmt.Errorf("unexpected registry: %s", registry)
 		}
@@ -625,6 +898,8 @@ func pwdCbkFirstWrongThenCorrect(t *testing.T) func(registry string) (Credential
 }
 
 func correctPwdCallback(registry string) (Credentials, error) {
+	// registry is in form of registry/repository, need to extract registry only
+	registry = strings.Split(registry, "/")[0]
 	if registry == "index.docker.io" {
 		return Credentials{Username: dockerIoUser, Password: dockerIoUserPwd}, nil
 	}
@@ -645,32 +920,33 @@ func correctVerifyCbk(ctx context.Context, image string, credentials Credentials
 	return creds.ErrUnauthorized
 }
 
-func testHomeEnvName(t *testing.T) string {
-	t.Helper()
+func testHomeEnvName() string {
 	if runtime.GOOS == "windows" {
 		return "USERPROFILE"
 	}
 	return "HOME"
 }
 
-func withCleanHome(t *testing.T) {
-	t.Helper()
-	tmpHome := t.TempDir()
-	t.Setenv(testHomeEnvName(t), tmpHome)
-
-	if runtime.GOOS == "linux" {
-		t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpHome, ".config"))
-	}
-}
-
 func testConfigPath(t *testing.T) string {
 	t.Helper()
-	home := os.Getenv(testHomeEnvName(t))
-	configPath := filepath.Join(home, ".config", "func")
-	if err := os.MkdirAll(configPath, os.ModePerm); err != nil {
-		t.Fatal(err)
+	home := os.Getenv(testHomeEnvName())
+	var configPath string
+	if home != "" { // if HOME is not set, don't create config dir
+		configPath = filepath.Join(home, ".config", "func")
+		if err := os.MkdirAll(configPath, os.ModePerm); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return configPath
+}
+
+// testConfigPathError tries to create a config dir in HOME/.config/func.
+// Compared to testConfigPath, this returns the path AND error instead of failing
+func testConfigPathError(t *testing.T) (string, error) {
+	t.Helper()
+	home := os.Getenv(testHomeEnvName())
+	configPath := filepath.Join(home, ".config", "func")
+	return configPath, os.MkdirAll(configPath, os.ModePerm)
 }
 
 func handlerForCredHelper(t *testing.T, credHelper credentials.Helper) http.Handler {
@@ -896,4 +1172,30 @@ func (i *inMemoryHelper) Delete(serverURL string) error {
 	}
 
 	return credentials.NewErrCredentialsNotFound()
+}
+
+// set home variables to empty values
+func setEmptyHome(t *testing.T) {
+	t.Helper()
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+}
+
+// setHomeWithPermissions sets home dir to specified permissions
+func setHomeWithPermissions(perm os.FileMode) func(t *testing.T) {
+	return func(t *testing.T) {
+		t.Helper()
+		homeDir := os.Getenv("HOME")
+
+		// if home is empty, nothing to do
+		if homeDir == "" {
+			t.Fatal("home dir is empty, cant set perms")
+		}
+
+		fmt.Printf("setting permissions (%v) on home dir: %s\n", perm, homeDir)
+		err := os.Chmod(homeDir, perm)
+		if err != nil {
+			t.Fatalf("failed to set permissions on home dir: %s", err)
+		}
+	}
 }

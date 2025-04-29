@@ -26,8 +26,7 @@ func TestContextDirFunc(t *testing.T) {
 
 	func() {
 
-		gitServer := common.GitTestServerProvider{}
-		gitServer.Init(t)
+		gitServer := common.GetGitServer(t)
 		remoteRepo := gitServer.CreateRepository(gitProjectName)
 		defer gitServer.DeleteRepository(gitProjectName)
 

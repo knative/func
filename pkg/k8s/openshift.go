@@ -86,7 +86,7 @@ func GetOpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
 }
 
 func GetDefaultOpenShiftRegistry() string {
-	ns, _ := GetNamespace("")
+	ns, _ := GetDefaultNamespace()
 	if ns == "" {
 		ns = "default"
 	}

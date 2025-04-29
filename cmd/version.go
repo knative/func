@@ -31,10 +31,10 @@ DESCRIPTION
 	  $ {{rootCmdUse}} version -v
 
 `,
-		SuggestFor: []string{"vers", "verison"}, //nolint:misspell
+		SuggestFor: []string{"vers", "version"}, //nolint:misspell
 		PreRunE:    bindEnv("verbose"),
-		Run: func(cmd *cobra.Command, args []string) {
-			runVersion(cmd, args, version)
+		Run: func(cmd *cobra.Command, _ []string) {
+			runVersion(cmd, version)
 		},
 	}
 	cfg, err := config.NewDefault()
@@ -47,7 +47,7 @@ DESCRIPTION
 }
 
 // Run
-func runVersion(cmd *cobra.Command, args []string, version Version) {
+func runVersion(cmd *cobra.Command, version Version) {
 	version.Verbose = viper.GetBool("verbose")
 	fmt.Fprintf(cmd.OutOrStdout(), "%v\n", version)
 }

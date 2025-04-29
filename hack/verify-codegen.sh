@@ -30,11 +30,19 @@ trap "cleanup" EXIT SIGINT
 
 # Save working tree state
 cp -aR "${REPO_ROOT_DIR}/go.sum" "${TMP_DIFFROOT}"
+cp -aR "${REPO_ROOT_DIR}/docs/"  "${TMP_DIFFROOT}"
+mkdir "${TMP_DIFFROOT}/generate/"
+cp "generate/zz_filesystem_generated.go" "${TMP_DIFFROOT}/generate/"
+
+ret=0
+echo "Checking generated FS"
+# Yes, this must be called before hack/update-codegen.sh
+go test -run "^\QTestFileSystems\E$/^\Qembedded\E$" ./pkg/filesystem || ret=1
 
 "${REPO_ROOT_DIR}/hack/update-codegen.sh"
 echo "Diffing ${REPO_ROOT_DIR} against freshly generated codegen"
-ret=0
 diff -Nupr --no-dereference "${REPO_ROOT_DIR}/go.sum" "${TMP_DIFFROOT}/go.sum" || ret=1
+diff -Nupr --no-dereference "${REPO_ROOT_DIR}/docs/" "${TMP_DIFFROOT}/docs/" || ret=1
 
 # Restore working tree state
 rm -fr "${REPO_ROOT_DIR}/go.sum"

@@ -16,7 +16,6 @@ import (
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/pipelines/tekton"
 )
 
 var format string = "json"
@@ -38,8 +37,7 @@ DESCRIPTION
 	the version of func, the version of the function spec, the default builder,
 	available runtimes, and available templates.
 `,
-		SuggestFor: []string{"env", "environemtn", "enviroment", "enviornment", "enviroment"},
-		PreRunE:    bindEnv("verbose", "format", "path"),
+		PreRunE: bindEnv("verbose", "format", "path"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runEnvironment(cmd, newClient, version)
 		},
@@ -67,7 +65,6 @@ type Environment struct {
 	Templates            map[string][]string
 	Environment          []string
 	Cluster              string
-	TektonTasks          map[string]string
 	Defaults             config.Global
 	Function             *functions.Function `json:",omitempty" yaml:",omitempty"`
 	Instance             *functions.Instance `json:",omitempty" yaml:",omitempty"`
@@ -137,11 +134,6 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		Environment:          envs,
 		Cluster:              host,
 		Defaults:             defaults,
-		TektonTasks: map[string]string{
-			"func-buildpack": tekton.BuildpackTaskURL,
-			"func-s2i":       tekton.S2ITaskURL,
-			"func-deploy":    tekton.DeployTaskURL,
-		},
 	}
 
 	function, instance := describeFuncInformation(cmd.Context(), newClient, cfg)
@@ -195,10 +187,10 @@ func describeFuncInformation(context context.Context, newClient ClientFactory, c
 		return nil, nil
 	}
 
-	client, done := newClient(ClientConfig{Namespace: function.Deploy.Namespace, Verbose: cfg.Verbose})
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
 
-	instance, err := client.Describe(context, function.Name, function)
+	instance, err := client.Describe(context, function.Name, function.Deploy.Namespace, function)
 	if err != nil {
 		return &function, nil
 	}

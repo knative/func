@@ -16,7 +16,7 @@ func New() *F {
 	return &F{time.Now()}
 }
 
-func (f *F) Handle(_ context.Context, w http.ResponseWriter, r *http.Request) {
+func (f *F) Handle(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Request received")
 	fmt.Fprintf(w, "Request received\n")
 }

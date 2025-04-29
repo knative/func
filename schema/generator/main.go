@@ -45,6 +45,11 @@ func generateFuncYamlSchema() error {
 		return err
 	}
 
+	err = indentedSchema.WriteByte('\n')
+	if err != nil {
+		return err
+	}
+
 	// write schema to the file
 	return os.WriteFile("schema/func_yaml-schema.json", indentedSchema.Bytes(), 0644)
 }

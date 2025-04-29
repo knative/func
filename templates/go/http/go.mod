@@ -1,3 +1,3 @@
 module function
 
-go 1.14
+go 1.21

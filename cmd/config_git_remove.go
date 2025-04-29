@@ -25,7 +25,7 @@ func NewConfigGitRemoveCmd(newClient ClientFactory) *cobra.Command {
 	such as local generated Pipelines resources and any resources generated on the cluster.
 	`,
 		SuggestFor: []string{"rem", "rmeove", "del", "dle"},
-		PreRunE:    bindEnv("path", "namespace", "delete-local", "delete-cluster"),
+		PreRunE:    bindEnv("path", "delete-local", "delete-cluster"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			return runConfigGitRemoveCmd(cmd, newClient)
 		},
@@ -36,20 +36,6 @@ func NewConfigGitRemoveCmd(newClient ClientFactory) *cobra.Command {
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
-
-	// Function Context
-	f, _ := fn.NewFunction(effectivePath())
-	if f.Initialized() {
-		cfg = cfg.Apply(f)
-	}
-
-	// Flags
-	//
-	// Globally-Configurable Flags:
-	//   Options whose value may be defined globally may also exist on the
-	//  contextually relevant function; but sets are flattened via cfg.Apply(f)
-	cmd.Flags().StringP("namespace", "n", cfg.Namespace,
-		"Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. ($FUNC_NAMESPACE)")
 
 	// Resources generated related Flags:
 	cmd.Flags().Bool("delete-local", false, "Delete local resources (pipeline templates).")
@@ -69,8 +55,6 @@ type configGitRemoveConfig struct {
 	// working directory of the process.
 	Path string
 
-	Namespace string
-
 	// informs whether any specific flag for deleting only a subset of resources has been set
 	flagSet bool
 
@@ -78,7 +62,7 @@ type configGitRemoveConfig struct {
 }
 
 // newConfigGitRemoveConfig creates a configGitRemoveConfig populated from command flags
-func newConfigGitRemoveConfig(cmd *cobra.Command) (c configGitRemoveConfig) {
+func newConfigGitRemoveConfig(_ *cobra.Command) (c configGitRemoveConfig) {
 	flagSet := false
 
 	// decide what resources we should delete:
@@ -93,8 +77,6 @@ func newConfigGitRemoveConfig(cmd *cobra.Command) (c configGitRemoveConfig) {
 	}
 
 	c = configGitRemoveConfig{
-		Namespace: viper.GetString("namespace"),
-
 		flagSet: flagSet,
 
 		metadata: pipelines.PacMetadata{
@@ -181,7 +163,7 @@ func runConfigGitRemoveCmd(cmd *cobra.Command, newClient ClientFactory) (err err
 		return
 	}
 
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
 
 	return client.RemovePAC(cmd.Context(), f, cfg.metadata)

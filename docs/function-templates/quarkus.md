@@ -10,7 +10,7 @@ Project path: /home/developer/projects/fn
 Function name: fn
 Runtime: quarkus
 
-❯ tree         
+❯ tree
 fn
 ├── func.yaml
 ├── mvnw
@@ -56,7 +56,7 @@ After the function has been built, it can be run locally.
 ❯ func run
 ```
 
-Functions can be invoked with a simple HTTP request. 
+Functions can be invoked with a simple HTTP request.
 You can test to see if the function is working by using your browser to visit
 http://localhost:8080.
 
@@ -150,7 +150,7 @@ then the object you return will be sent in the `data` property of a binary encod
 
 If the function received vanilla HTTP,
 then the object you return will be sent as the HTTP response body. In the example below, an invocation of this function
-through an incoming `CloudEvent`, will receive a response with a `CloudEvent` containing a list of purchases as its 
+through an incoming `CloudEvent`, will receive a response with a `CloudEvent` containing a list of purchases as its
 `data` property. If the invocation was via an ordinary HTTP request, the response will contain the same list of purchases
 in the HTTP response body, but no `CloudEvent` headers will be included.
 
@@ -197,14 +197,14 @@ Note that the type parameter of `CloudEvent<T>` must satisfy the conditions desc
 #### Example
 ```java
 public class Functions {
-    
+
     private boolean _processPurchase(Purchase purchase) {
         // do stuff
     }
-    
+
     public CloudEvent<Void> processPurchase(CloudEvent<Purchase> purchaseEvent) {
         System.out.println("subject is: ", purchaseEvent.subject());
-        
+
         if (!_processPurchase(purchaseEvent.data())) {
             return CloudEventBuilder.create()
                     .type("purchase.error")

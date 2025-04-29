@@ -6,7 +6,7 @@ import (
 
 	"knative.dev/func-go/http"
 
-	f "f"
+	f "function"
 )
 
 func main() {

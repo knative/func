@@ -22,7 +22,7 @@ It's recommended to set `FUNC_REGISTRY` environment variable.
 # replace ~/.bashrc by your shell rc file
 # replace docker.io/johndoe with your registry
 export FUNC_REGISTRY=docker.io/johndoe
-echo "export FUNC_REGISTRY=docker.io/johndoe" >> ~/.bashrc 
+echo "export FUNC_REGISTRY=docker.io/johndoe" >> ~/.bashrc
 ```
 
 ### Building
@@ -76,7 +76,7 @@ curl -v ${URL} \
   -d "{\"message\": \"$(whoami)\"}\""
 # OR
 URL="http://localhost:8080/?message=$(whoami)"
-curl -v ${URL} 
+curl -v ${URL}
 ```
 
 ### HTTPie

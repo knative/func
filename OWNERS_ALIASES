@@ -6,48 +6,30 @@ aliases:
   - itsmurugappan
   client-wg-leads:
   - dsimansk
-  - navidshaikh
-  - rhuss
   client-writers:
   - dsimansk
-  - maximilien
-  - navidshaikh
-  - rhuss
   - vyasgun
-  conformance-task-force-leads:
-  - salaboy
-  conformance-writers:
-  - salaboy
   docs-reviewers:
   - nainaz
-  - pmbanugo
-  - retocode
   - skonto
-  - snneji
-  docs-wg-leads:
-  - snneji
   docs-writers:
   - csantanapr
-  - retocode
   - skonto
-  - snneji
   eventing-reviewers:
   - Leo6Leo
   - aslom
   - cali0707
   - creydr
-  eventing-triage:
-  - lberk
   eventing-wg-leads:
+  - creydr
   - pierDipi
   eventing-writers:
+  - Leo6Leo
   - aliok
   - cali0707
   - creydr
-  - lberk
   - lionelvillard
   - matzew
-  - odacremolbap
   - pierDipi
   func-reviewers:
   - jrangelramos
@@ -58,40 +40,31 @@ aliases:
   - lance
   - lkingland
   - matejvasek
+  - matzew
   - salaboy
   functions-wg-leads:
   - lkingland
   - salaboy
   knative-admin:
-  - Cali0707
-  - Leo6Leo
-  - ReToCode
   - aliok
-  - creydr
-  - davidhadas
+  - cardil
   - dprotaso
   - dsimansk
   - evankanderson
+  - gauron99
   - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
-  - krsna-m
-  - nainaz
-  - pierDipi
-  - psschwei
-  - puerco
-  - salaboy
+  - matzew
+  - nrrso
   - skonto
   - upodroid
   knative-release-leads:
-  - Cali0707
-  - Leo6Leo
-  - ReToCode
-  - creydr
+  - dprotaso
   - dsimansk
-  - pierDipi
+  - gauron99
   - skonto
   knative-robots:
   - knative-automation
@@ -103,26 +76,23 @@ aliases:
   - aliok
   - houshengbo
   - matzew
-  - maximilien
   operations-wg-leads:
   - houshengbo
   operations-writers:
   - aliok
   - houshengbo
   - matzew
-  - maximilien
   productivity-leads:
-  - krsna-m
+  - cardil
   - upodroid
   productivity-reviewers:
   - evankanderson
   - mgencur
   productivity-wg-leads:
-  - krsna-m
+  - cardil
   - upodroid
   productivity-writers:
   - cardil
-  - krsna-m
   - upodroid
   security-wg-leads:
   - davidhadas
@@ -131,34 +101,24 @@ aliases:
   - davidhadas
   - evankanderson
   serving-approvers:
-  - psschwei
+  - dsimansk
   - skonto
   serving-reviewers:
-  - izabelacg
-  - retocode
   - skonto
   serving-triage:
-  - izabelacg
-  - retocode
   - skonto
   serving-wg-leads:
   - dprotaso
   serving-writers:
   - dprotaso
-  - psschwei
+  - dsimansk
   - skonto
   steering-committee:
   - aliok
-  - evankanderson
-  - nainaz
-  - puerco
-  - salaboy
-  technical-oversight-committee:
-  - davidhadas
   - dprotaso
-  - dsimansk
-  - krsna-m
-  - psschwei
+  - evankanderson
+  - matzew
+  - nrrso
   ux-wg-leads:
   - cali0707
   - leo6leo

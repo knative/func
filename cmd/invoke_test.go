@@ -13,11 +13,12 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestInvoke command executes the invocation path.
 func TestInvoke(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	var invoked int32
 
@@ -75,33 +76,5 @@ func TestInvoke(t *testing.T) {
 
 	if atomic.LoadInt32(&invoked) != 1 {
 		t.Fatal("function was not invoked")
-	}
-}
-
-// TestInvoke_Namespace ensures that invocation uses the Function's namespace
-// despite the currently active.
-func TestInvoke_Namespace(t *testing.T) {
-	root := fromTempDirectory(t)
-
-	// Create a Function in a non-active namespace
-	f := fn.Function{Runtime: "go", Root: root, Deploy: fn.DeploySpec{Namespace: "ns"}}
-	_, err := fn.New().Init(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// The shared Client constructor should receive the current function's
-	// namespace when constructing its describer (used when finding the
-	// function's route), not the currently active namespace.
-	namespace := ""
-	newClient := func(conf ClientConfig, opts ...fn.Option) (*fn.Client, func()) {
-		namespace = conf.Namespace // should be set to that of the function
-		return NewClient(conf, opts...)
-	}
-	cmd := NewInvokeCmd(newClient)
-	_ = cmd.Execute() // invocation error expected
-
-	if namespace != "ns" {
-		t.Fatalf("expected client to receive function's current namespace 'ns', got '%v'", namespace)
 	}
 }

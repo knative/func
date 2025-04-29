@@ -218,8 +218,8 @@ func handleSession(t *testing.T, newChannel ssh.NewChannel) {
 					t.Error(err)
 				}
 				var ret uint32
-				switch {
-				case data.Command == "set":
+				switch data.Command {
+				case "set":
 					ret = 0
 					_, _ = fmt.Fprintf(ch, "DOCKER_HOST=unix://%s\n", sshDockerSocket)
 				default:

@@ -14,7 +14,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol/http"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	dockerClient "github.com/docker/docker/client"
 
 	"knative.dev/func/pkg/docker"
@@ -30,16 +30,23 @@ func TestRun(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	t.Cleanup(cancel)
-
-	prePullTestImages(t)
+	image := displayEventImg
+	prePullTestImages(t, image)
 
 	// No need to check for port 8080 since the runner should automatically
 	// choose an open port, with 8080 only being the preferred first choice.
 
 	// Initialize a new function (creates all artifacts on disk necessary
 	// to perform actions such as running)
-	f := fn.Function{Runtime: "go", Root: root, Image: displayEventImg}
-	f, err := fn.New().Init(f)
+	f := fn.Function{Runtime: "go", Root: root, Image: image}
+
+	client := fn.New()
+	f, err := client.Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = client.Build(ctx, f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,13 +98,13 @@ func TestRun(t *testing.T) {
 	}
 }
 
-func prePullTestImages(t *testing.T) {
+func prePullTestImages(t *testing.T, img string) {
 	t.Helper()
 	c, _, err := docker.NewClient(dockerClient.DefaultDockerHost)
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp, err := c.ImagePull(context.Background(), displayEventImg, types.ImagePullOptions{})
+	resp, err := c.ImagePull(context.Background(), img, image.PullOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

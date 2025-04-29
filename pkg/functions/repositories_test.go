@@ -179,7 +179,7 @@ func TestRepositories_AddWithManifest(t *testing.T) {
 	// defines a custom language pack and makes full use of the manifest.yaml.
 	// The manifest.yaml is included which specifies things like custom templates
 	// location and (appropos to this test) a default name/
-	uri := ServeRepo("repository-a", t) // ./testdata/repository-a.git
+	uri := ServeRepo("repository-a.git", t) // ./testdata/repository-a.git
 	root, rm := Mktemp(t)
 	defer rm()
 

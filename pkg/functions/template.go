@@ -74,10 +74,10 @@ func (t template) Write(ctx context.Context, f *Function) error {
 		f.Run.Envs = t.config.RunEnvs
 	}
 	if f.Deploy.HealthEndpoints.Liveness == "" {
-		f.Deploy.HealthEndpoints.Liveness = t.config.HealthEndpoints.Liveness
+		f.Deploy.HealthEndpoints.Liveness = t.config.Liveness
 	}
 	if f.Deploy.HealthEndpoints.Readiness == "" {
-		f.Deploy.HealthEndpoints.Readiness = t.config.HealthEndpoints.Readiness
+		f.Deploy.HealthEndpoints.Readiness = t.config.Readiness
 	}
 	if f.Invoke == "" && t.config.Invoke != "http" {
 		f.Invoke = t.config.Invoke
@@ -85,7 +85,7 @@ func (t template) Write(ctx context.Context, f *Function) error {
 
 	mask := func(p string) bool {
 		_, f := path.Split(p)
-		return f == templateManifest
+		return f == manifestFile
 	}
 
 	return filesystem.CopyFromFS(".", f.Root, filesystem.NewMaskingFS(mask, t.fs)) // copy everything but manifest.yaml

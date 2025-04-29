@@ -4,15 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"knative.dev/client-pkg/pkg/util"
+	"knative.dev/client/pkg/util"
+
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
@@ -33,6 +34,7 @@ SYNOPSIS
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
 	             [--service-account] [-c|--confirm] [-v|--verbose]
+	             [--registry-insecure] [--remote-storage-class]
 
 DESCRIPTION
 
@@ -124,7 +126,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "service-account", "registry", "remote", "verbose"),
+		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "service-account", "registry", "registry-insecure", "remote", "username", "password", "token", "verbose", "remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -151,8 +153,7 @@ EXAMPLES
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
-	cmd.Flags().StringP("namespace", "n", cfg.Namespace,
-		"Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. ($FUNC_NAMESPACE)")
+	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
@@ -177,6 +178,8 @@ EXAMPLES
 		"Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)")
 	cmd.Flags().BoolP("remote", "R", f.Local.Remote,
 		"Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)")
+	cmd.Flags().StringP("remote-storage-class", "", f.Build.RemoteStorageClass,
+		"Specify a storage class to use for the volume on-cluster during remote builds")
 	cmd.Flags().String("pvc-size", f.Build.PVCSize,
 		"When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)")
 	cmd.Flags().String("service-account", f.Deploy.ServiceAccountName,
@@ -191,7 +194,22 @@ EXAMPLES
 		"Push the function image to registry before deploying. ($FUNC_PUSH)")
 	cmd.Flags().String("platform", "",
 		"Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)")
+	cmd.Flags().StringP("username", "", "",
+		"Username to use when pushing to the registry.")
+	cmd.Flags().StringP("password", "", "",
+		"Password to use when pushing to the registry.")
+	cmd.Flags().StringP("token", "", "",
+		"Token to use when pushing to the registry.")
 	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
+	cmd.Flags().StringP("namespace", "n", defaultNamespace(f, false),
+		"Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE)")
+
+	// Temporarily Hidden Basic Auth Flags
+	// Username, Password and Token flags, which plumb through basic auth, are
+	// currently only available on "host" builder.
+	_ = cmd.Flags().MarkHidden("username")
+	_ = cmd.Flags().MarkHidden("password")
+	_ = cmd.Flags().MarkHidden("token")
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
@@ -215,9 +233,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		cfg deployConfig
 		f   fn.Function
 	)
-	if err = config.CreatePaths(); err != nil { // for possible auth.json usage
-		return
-	}
 	if cfg, err = newDeployConfig(cmd).Prompt(); err != nil {
 		return
 	}
@@ -233,49 +248,95 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
 	}
+	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
 
-	// TODO: this is duplicate logic with runBuild and runRun.
-	// Refactor both to have this logic part of creating the buildConfig and thus
-	// shared because newDeployConfig uses newBuildConfig for its embedded struct.
-	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
-		prfx := f.Registry
-		if prfx[len(prfx)-1:] != "/" {
-			prfx = prfx + "/"
+	changingNamespace := func(f fn.Function) bool {
+		// We're changing namespace if:
+		return f.Deploy.Namespace != "" && // it's already deployed
+			f.Namespace != "" && // a specific (new) namespace is requested
+			(f.Namespace != f.Deploy.Namespace) // and it's different
+	}
+
+	// If we're changing namespace in an OpenShift cluster, we have to
+	// also update the registry because there is a registry per namespace,
+	// and their name includes the namespace.
+	// This saves needing a manual flag ``--registry={destination namespace registry}``
+	if changingNamespace(f) && k8s.IsOpenShift() {
+		// TODO(lkingland): this appears to force use of the openshift
+		// internal registry.
+		f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Namespace
+		if cfg.Verbose {
+			fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
 		}
-		sps := strings.Split(f.Image, "/")
-		updImg := prfx + sps[len(sps)-1]
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", f.Image, f.Registry, updImg)
-		f.Image = updImg
 	}
 
 	// Informative non-error messages regarding the final deployment request
-	printDeployMessages(cmd.OutOrStdout(), cfg)
+	printDeployMessages(cmd.OutOrStdout(), f)
 
+	// Get options based on the value of the config such as concrete impls
+	// of builders and pushers based on the value of the --builder flag
 	clientOptions, err := cfg.clientOptions()
 	if err != nil {
 		return
 	}
-	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: cfg.Verbose}, clientOptions...)
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.RegistryInsecure}, clientOptions...)
 	defer done()
 
 	// Deploy
 	if cfg.Remote {
+		var url string
 		// Invoke a remote build/push/deploy pipeline
-		// Returned is the function with fields like Registry and Image populated.
-		if f, err = client.RunPipeline(cmd.Context(), f); err != nil {
+		// Returned is the function with fields like Registry, f.Deploy.Image &
+		// f.Deploy.Namespace populated.
+		if url, f, err = client.RunPipeline(cmd.Context(), f); err != nil {
 			return
 		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Function Deployed at %v\n", url)
 	} else {
 		var buildOptions []fn.BuildOption
 		if buildOptions, err = cfg.buildOptions(); err != nil {
 			return
 		}
-		if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
-			return
-		}
-		if cfg.Push {
-			if f, err = client.Push(cmd.Context(), f); err != nil {
+
+		var (
+			digested   bool
+			justBuilt  bool
+			justPushed bool
+		)
+
+		// Validate the image and check whether its digested or not
+		if cfg.Image != "" {
+			digested, err = isDigested(cfg.Image)
+			if err != nil {
 				return
+			}
+			// image is valid and undigested
+			if !digested {
+				f.Deploy.Image = cfg.Image
+			}
+		}
+
+		// If user provided --image with digest, they are requesting that specific
+		// image to be used which means building phase should be skipped and image
+		// should be deployed as is
+		if digested {
+			f.Deploy.Image = cfg.Image
+		} else {
+			// NOT digested, build & push the Function unless specified otherwise
+			if f, justBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+				return
+			}
+			if cfg.Push {
+				if f, justPushed, err = client.Push(cmd.Context(), f); err != nil {
+					return
+				}
+			}
+			// TODO: gauron99 - temporary fix for undigested image direct deploy
+			// (w/out build) This might be more complex to do than leaving like this
+			// image digests are created via the registry on push.
+			if (justBuilt || justPushed) && f.Build.Image != "" {
+				// f.Build.Image is set in Push for now, just set it as a deployed image
+				f.Deploy.Image = f.Build.Image
 			}
 		}
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
@@ -299,26 +360,29 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 // flag value is explicitly truthy such as 'true' or '1'.  Error if flag
 // is neither 'auto' nor parseable as a boolean.  Return CLI-specific error
 // message verbeage suitable for both Deploy and Run commands which feature an
-// optional build step.
-func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, error) {
+// optional build step. Boolean return value signifies if the image has gone
+// through a build process.
+func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, bool, error) {
 	var err error
 	if flag == "auto" {
 		if f.Built() {
 			fmt.Fprintln(cmd.OutOrStdout(), "function up-to-date. Force rebuild with --build")
+			return f, false, nil
 		} else {
 			if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
-				return f, err
+				return f, false, err
 			}
 		}
 	} else if build, _ := strconv.ParseBool(flag); build {
 		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
-			return f, err
+			return f, false, err
 		}
 	} else if _, err = strconv.ParseBool(flag); err != nil {
-		return f, fmt.Errorf("--build ($FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
-
+		return f, false, fmt.Errorf("invalid value for the build flag (%q), valid value is either 'auto' or a boolean", flag)
+	} else if !build {
+		return f, false, nil
 	}
-	return f, nil
+	return f, true, nil
 }
 
 func NewRegistryValidator(path string) survey.Validator {
@@ -365,18 +429,7 @@ func KnownBuilders() builders.Known {
 	// However, future third-party integrations may support less than, or more
 	// builders, and certain environmental considerations may alter this list.
 
-	// Also a good place to stick feature-flags; to wit:
-	enable_host, _ := strconv.ParseBool(os.Getenv("FUNC_ENABLE_HOST_BUILDER"))
-	if !enable_host {
-		bb := []string{}
-		for _, b := range builders.All() {
-			if b != builders.Host {
-				bb = append(bb, b)
-			}
-		}
-		return bb
-	}
-
+	// Also a good place to stick feature-flags.
 	return builders.All()
 }
 
@@ -451,6 +504,10 @@ type deployConfig struct {
 	// be triggered in a remote environment rather than run locally.
 	Remote bool
 
+	// RemoteStorageClass defines the storage class to use for the remote
+	// volume when building on-cluster.
+	RemoteStorageClass string
+
 	// PVCSize configures the PVC size used by the pipeline if --remote flag is set.
 	PVCSize string
 
@@ -461,8 +518,8 @@ type deployConfig struct {
 
 // newDeployConfig creates a buildConfig populated from command flags and
 // environment variables; in that precedence.
-func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
-	c = deployConfig{
+func newDeployConfig(cmd *cobra.Command) deployConfig {
+	cfg := deployConfig{
 		buildConfig:        newBuildConfig(),
 		Build:              viper.GetString("build"),
 		Env:                viper.GetStringSlice("env"),
@@ -472,6 +529,7 @@ func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 		GitURL:             viper.GetString("git-url"),
 		Namespace:          viper.GetString("namespace"),
 		Remote:             viper.GetBool("remote"),
+		RemoteStorageClass: viper.GetString("remote-storage-class"),
 		PVCSize:            viper.GetString("pvc-size"),
 		Timestamp:          viper.GetBool("build-timestamp"),
 		ServiceAccountName: viper.GetString("service-account"),
@@ -480,10 +538,11 @@ func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 	// results and appears to be an open issue since 2017:
 	// https://github.com/spf13/viper/issues/380
 	var err error
-	if c.Env, err = cmd.Flags().GetStringArray("env"); err != nil {
+	if cfg.Env, err = cmd.Flags().GetStringArray("env"); err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error reading envs: %v", err)
 	}
-	return
+
+	return cfg
 }
 
 // Configure the given function.  Updates a function struct with all
@@ -502,10 +561,11 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 
 	// Configure basic members
 	f.Domain = c.Domain
+	f.Namespace = c.Namespace
 	f.Build.Git.URL = c.GitURL
 	f.Build.Git.ContextDir = c.GitDir
 	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
-	f.Deploy.Namespace = c.Namespace
+	f.Build.RemoteStorageClass = c.RemoteStorageClass
 	f.Deploy.ServiceAccountName = c.ServiceAccountName
 	f.Local.Remote = c.Remote
 
@@ -516,17 +576,6 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 			return f, fmt.Errorf("cannot parse PVC size %q. %w", c.PVCSize, err)
 		}
 		f.Build.PVCSize = c.PVCSize
-	}
-
-	// ImageDigest
-	// Parsed off f.Image if provided.  Deploying adds the ability to specify a
-	// digest on the associated image (not available on build as nonsensical).
-	newDigest, err := imageDigest(f.Image)
-	if err != nil {
-		return f, err
-	}
-	if newDigest != "" {
-		f.ImageDigest = newDigest
 	}
 
 	// Envs
@@ -625,10 +674,11 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	}
 
 	// Check Image Digest was included
-	// (will be set on the function during .Configure)
-	var digest string
-	if digest, err = imageDigest(c.Image); err != nil {
-		return
+	var digest bool
+	if c.Image != "" {
+		if digest, err = isDigested(c.Image); err != nil {
+			return
+		}
 	}
 
 	// --build can be "auto"|true|false
@@ -643,12 +693,14 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 		v, _ := strconv.ParseBool(s)
 		return v
 	}
-	if digest != "" && truthy(c.Build) {
+
+	// Can not build when specifying an --image with digest
+	if digest && truthy(c.Build) {
 		return errors.New("building can not be enabled when using an image with digest")
 	}
 
 	// Can not push when specifying an --image with digest
-	if digest != "" && c.Push {
+	if digest && c.Push {
 		return errors.New("pushing is not valid when specifying an image with digest")
 	}
 
@@ -672,54 +724,25 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	return
 }
 
-// imageDigest returns the image digest from a full image string if it exists,
-// and includes basic validation that a provided digest is correctly formatted.
-func imageDigest(v string) (digest string, err error) {
-	vv := strings.Split(v, "@")
-	if len(vv) < 2 {
-		return // has no digest
-	} else if len(vv) > 2 {
-		err = fmt.Errorf("image '%v' contains an invalid digest (extra '@')", v)
-		return
-	}
-	digest = vv[1]
-
-	if !strings.HasPrefix(digest, "sha256:") {
-		err = fmt.Errorf("image digest '%s' requires 'sha256:' prefix", digest)
-		return
-	}
-
-	if len(digest[7:]) != 64 {
-		err = fmt.Errorf("image digest '%v' has an invalid sha256 hash length of %v when it should be 64", digest, len(digest[7:]))
-	}
-
-	return
-}
-
 // printDeployMessages to the output.  Non-error deployment messages.
-func printDeployMessages(out io.Writer, cfg deployConfig) {
-	// Digest
-	// ------
-	// If providing an image digest, print this, and note that the values
-	// of push and build are ignored.
-	// TODO: perhaps just error if either --push or --build were actually
-	// provided (using the cobra .Changed accessor)
-	digest, err := imageDigest(cfg.Image)
-	if err != nil && digest != "" {
-		fmt.Fprintf(out, "Deploying image '%v' with digest '%s'. Build and push are disabled.\n", cfg.Image, digest)
+func printDeployMessages(out io.Writer, f fn.Function) {
+	digest, err := isDigested(f.Image)
+	if err == nil && digest {
+		fmt.Fprintf(out, "Deploying image '%v', which has a digest. Build and push are disabled.\n", f.Image)
 	}
 
 	// Namespace
 	// ---------
-	f, _ := fn.NewFunction(cfg.Path)
 	currentNamespace := f.Deploy.Namespace // will be "" if no initialed f at path.
-	targetNamespace := cfg.Namespace
+	targetNamespace := f.Namespace
+	if targetNamespace == "" {
+		return
+	}
 
-	// If potentially creating a duplicate deployed function in a different
-	// namespace.  TODO: perhaps add a --delete or --force flag which will
-	// automagically delete the deployment in the "old" namespace.
+	// If creating a duplicate deployed function in a different
+	// namespace.
 	if targetNamespace != currentNamespace && currentNamespace != "" {
-		fmt.Fprintf(out, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", currentNamespace, targetNamespace, targetNamespace)
+		fmt.Fprintf(out, "Info: chosen namespace has changed from '%s' to '%s'. Undeploying function from '%s' and deploying new in '%s'.\n", currentNamespace, targetNamespace, currentNamespace, targetNamespace)
 	}
 
 	// Namespace Changing
@@ -727,9 +750,9 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 	// If the target namespace is provided but differs from active, warn because
 	// the function won't be visible to other commands such as kubectl unless
 	// context namespace is switched.
-	activeNamespace, err := k8s.GetNamespace("")
+	activeNamespace, err := k8s.GetDefaultNamespace()
 	if err == nil && targetNamespace != "" && targetNamespace != activeNamespace {
-		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", cfg.Namespace, activeNamespace, cfg.Namespace)
+		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", targetNamespace, activeNamespace, targetNamespace)
 	}
 
 	// Git Args
@@ -749,8 +772,20 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 	// function source does include a reference to a git repository, but that it
 	// will be ignored in favor of the local source code since --remote was not
 	// specified.
-	if !cfg.Remote && (cfg.GitURL != "" || cfg.GitBranch != "" || cfg.GitDir != "") {
+
+	// TODO update names of these to Source--Revision--Dir
+	if !f.Local.Remote && (f.Build.Git.URL != "" || f.Build.Git.Revision != "" || f.Build.Git.ContextDir != "") {
 		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
 	}
+}
 
+// isDigested checks that the given image reference has a digest. Invalid
+// reference return error.
+func isDigested(v string) (validDigest bool, err error) {
+	ref, err := name.ParseReference(v)
+	if err != nil {
+		return false, err
+	}
+	_, ok := ref.(name.Digest)
+	return ok, nil
 }

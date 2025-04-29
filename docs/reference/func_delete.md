@@ -25,7 +25,7 @@ func delete <name>
 func delete
 
 # Undeploy the function 'myfunc' in namespace 'apps'
-func delete -n apps myfunc
+func delete myfunc --namespace apps
 
 ```
 
@@ -35,7 +35,7 @@ func delete -n apps myfunc
   -a, --all string         Delete all resources created for a function, eg. Pipelines, Secrets, etc. ($FUNC_ALL) (allowed values: "true", "false") (default "true")
   -c, --confirm            Prompt to confirm options interactively ($FUNC_CONFIRM)
   -h, --help               help for delete
-  -n, --namespace string   The namespace in which to delete. ($FUNC_NAMESPACE)
+  -n, --namespace string   The namespace when deleting by name. ($FUNC_NAMESPACE) (default "default")
   -p, --path string        Path to the function.  Default is current directory ($FUNC_PATH)
   -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
 ```

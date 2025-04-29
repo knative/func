@@ -1,60 +1,44 @@
 package s2i
 
 import (
-	"archive/tar"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"slices"
 	"strings"
 
-	"github.com/docker/docker/api/types"
 	dockerClient "github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/openshift/source-to-image/pkg/api"
 	"github.com/openshift/source-to-image/pkg/api/validation"
 	"github.com/openshift/source-to-image/pkg/build"
 	"github.com/openshift/source-to-image/pkg/build/strategies"
 	s2idocker "github.com/openshift/source-to-image/pkg/docker"
 	"github.com/openshift/source-to-image/pkg/scm/git"
-	"golang.org/x/exp/maps"
-	"golang.org/x/term"
-
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/scaffolding"
 )
 
 // DefaultName when no WithName option is provided to NewBuilder
 const DefaultName = builders.S2I
 
-var DefaultNodeBuilder = "registry.access.redhat.com/ubi8/nodejs-16-minimal"
+var DefaultNodeBuilder = "registry.access.redhat.com/ubi8/nodejs-20-minimal"
 var DefaultQuarkusBuilder = "registry.access.redhat.com/ubi8/openjdk-21"
 var DefaultPythonBuilder = "registry.access.redhat.com/ubi8/python-39"
+var DefaultGoBuilder = "registry.access.redhat.com/ubi8/go-toolset"
 
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
 var DefaultBuilderImages = map[string]string{
+	"go":         DefaultGoBuilder,
 	"node":       DefaultNodeBuilder,
 	"nodejs":     DefaultNodeBuilder,
-	"typescript": DefaultNodeBuilder,
-	"quarkus":    DefaultQuarkusBuilder,
 	"python":     DefaultPythonBuilder,
-}
-
-// DockerClient is subset of dockerClient.CommonAPIClient required by this package
-type DockerClient interface {
-	ImageBuild(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error)
-	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
+	"quarkus":    DefaultQuarkusBuilder,
+	"typescript": DefaultNodeBuilder,
 }
 
 // Builder of functions using the s2i subsystem.
@@ -62,7 +46,7 @@ type Builder struct {
 	name    string
 	verbose bool
 	impl    build.Builder // S2I builder implementation (aka "Strategy")
-	cli     DockerClient
+	cli     s2idocker.Client
 }
 
 type Option func(*Builder)
@@ -89,7 +73,7 @@ func WithImpl(s build.Builder) Option {
 	}
 }
 
-func WithDockerClient(cli DockerClient) Option {
+func WithDockerClient(cli s2idocker.Client) Option {
 	return func(b *Builder) {
 		b.cli = cli
 	}
@@ -120,7 +104,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	if err != nil {
 		return
 	}
-	// If a platform was requestd
+
+	// Validate Platforms
 	if len(platforms) == 1 {
 		platform := strings.ToLower(platforms[0].OS + "/" + platforms[0].Architecture)
 		// Try to get the platform image from within the builder image
@@ -134,47 +119,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		return errors.New("the S2I builder currently only supports specifying a single target platform")
 	}
 
-	// TODO this function currently doesn't support private s2i builder images since credentials are not set
-
-	// Build Config
-	cfg := &api.Config{}
-	cfg.Quiet = !b.verbose
-	cfg.Tag = f.Image
-	cfg.Source = &git.URL{URL: url.URL{Path: f.Root}, Type: git.URLTypeLocal}
-	cfg.BuilderImage = builderImage
-	cfg.BuilderPullPolicy = api.DefaultBuilderPullPolicy
-	cfg.PreviousImagePullPolicy = api.DefaultPreviousImagePullPolicy
-	cfg.RuntimeImagePullPolicy = api.DefaultRuntimeImagePullPolicy
-	cfg.DockerConfig = s2idocker.GetDefaultDockerConfig()
-
-	tmp, err := os.MkdirTemp("", "s2i-build")
-	if err != nil {
-		return fmt.Errorf("cannot create temporary dir for s2i build: %w", err)
-	}
-	defer os.RemoveAll(tmp)
-
-	funcignorePath := filepath.Join(f.Root, ".funcignore")
-	if _, err := os.Stat(funcignorePath); err == nil {
-		s2iignorePath := filepath.Join(f.Root, ".s2iignore")
-
-		// If the .s2iignore file exists, remove it
-		if _, err := os.Stat(s2iignorePath); err == nil {
-			err := os.Remove(s2iignorePath)
-			if err != nil {
-				return fmt.Errorf("error removing existing s2iignore file: %w", err)
-			}
-		}
-		// Create the symbolic link
-		err = os.Symlink(funcignorePath, s2iignorePath)
-		if err != nil {
-			return fmt.Errorf("error creating symlink: %w", err)
-		}
-		// Removing the symbolic link at the end of the function
-		defer os.Remove(s2iignorePath)
-	}
-
-	cfg.AsDockerfile = filepath.Join(tmp, "Dockerfile")
-
 	var client = b.cli
 	if client == nil {
 		var c dockerClient.CommonAPIClient
@@ -186,11 +130,39 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		client = c
 	}
 
-	scriptURL, err := s2iScriptURL(ctx, client, cfg.BuilderImage)
-	if err != nil {
-		return fmt.Errorf("cannot get s2i script url: %w", err)
+	// Link .s2iignore -> .funcignore
+	funcignorePath := filepath.Join(f.Root, ".funcignore")
+	s2iignorePath := filepath.Join(f.Root, ".s2iignore")
+	if _, err := os.Stat(funcignorePath); err == nil {
+		if _, err := os.Stat(s2iignorePath); err == nil {
+			fmt.Fprintln(os.Stderr, "Warning: an existing .s2iignore was detected.  Using this with preference over .funcignore")
+		} else {
+			if err = os.Symlink("./.funcignore", s2iignorePath); err != nil {
+				return err
+			}
+			defer os.Remove(s2iignorePath)
+		}
 	}
-	cfg.ScriptsURL = scriptURL
+
+	// Build Config
+	cfg := &api.Config{
+		Source: &git.URL{
+			Type: git.URLTypeLocal,
+			URL:  url.URL{Path: f.Root},
+		},
+		Quiet:                   !b.verbose,
+		Tag:                     f.Build.Image,
+		BuilderImage:            builderImage,
+		BuilderPullPolicy:       api.DefaultBuilderPullPolicy,
+		PreviousImagePullPolicy: api.DefaultPreviousImagePullPolicy,
+		RuntimeImagePullPolicy:  api.DefaultRuntimeImagePullPolicy,
+		DockerConfig:            s2idocker.GetDefaultDockerConfig(),
+	}
+
+	// Scaffold
+	if cfg, err = scaffold(cfg, f); err != nil {
+		return
+	}
 
 	// Excludes
 	// Do not include .git, .env, .func or any language-specific cache directories
@@ -206,8 +178,18 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	if err != nil {
 		return err
 	}
+
+	buildEnvs["LISTEN_ADDRESS"] = "0.0.0.0:8080"
 	for k, v := range buildEnvs {
 		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{Name: k, Value: v})
+	}
+
+	for _, m := range f.Build.Mounts {
+		cfg.BuildVolumes = append(cfg.BuildVolumes, fmt.Sprintf("%s:%s:ro,Z", m.Source, m.Destination))
+	}
+
+	if runtime.GOOS == "linux" {
+		cfg.DockerNetworkMode = "host"
 	}
 
 	// Validate the config
@@ -215,13 +197,13 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		for _, e := range errs {
 			fmt.Fprintf(os.Stderr, "ERROR: %s\n", e)
 		}
-		return errors.New("Unable to build via the s2i builder.")
+		return errors.New("unable to build via the s2i builder")
 	}
 
-	var impl = b.impl
 	// Create the S2I builder instance if not overridden
+	var impl = b.impl
 	if impl == nil {
-		impl, _, err = strategies.Strategy(nil, cfg, build.Overrides{})
+		impl, _, err = strategies.Strategy(client, cfg, build.Overrides{})
 		if err != nil {
 			return fmt.Errorf("cannot create s2i builder: %w", err)
 		}
@@ -235,167 +217,67 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 	if b.verbose {
 		for _, message := range result.Messages {
-			fmt.Println(message)
+			fmt.Fprintln(os.Stderr, message)
 		}
 	}
-
-	pr, pw := io.Pipe()
-
-	// s2i apparently is not excluding the files in --as-dockerfile mode
-	exclude := regexp.MustCompile(cfg.ExcludeRegExp)
-
-	const up = ".." + string(os.PathSeparator)
-	go func() {
-		tw := tar.NewWriter(pw)
-		err := filepath.Walk(tmp, func(path string, fi fs.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			p, err := filepath.Rel(tmp, path)
-			if err != nil {
-				return fmt.Errorf("cannot get relative path: %w", err)
-			}
-			if p == "." {
-				return nil
-			}
-
-			p = filepath.ToSlash(p)
-
-			if exclude.MatchString(p) {
-				return nil
-			}
-
-			lnk := ""
-			if fi.Mode()&fs.ModeSymlink != 0 {
-				lnk, err = os.Readlink(path)
-				if err != nil {
-					return fmt.Errorf("cannot read link: %w", err)
-				}
-				if filepath.IsAbs(lnk) {
-					lnk, err = filepath.Rel(tmp, lnk)
-					if err != nil {
-						return fmt.Errorf("cannot get relative path for symlink: %w", err)
-					}
-					if strings.HasPrefix(lnk, up) || lnk == ".." {
-						return fmt.Errorf("link %q points outside source root", p)
-					}
-				}
-			}
-
-			hdr, err := tar.FileInfoHeader(fi, lnk)
-			if err != nil {
-				return fmt.Errorf("cannot create tar header: %w", err)
-			}
-			hdr.Name = p
-
-			if runtime.GOOS == "windows" {
-				// Windows does not have execute permission, we assume that all files are executable.
-				hdr.Mode |= 0111
-			}
-
-			err = tw.WriteHeader(hdr)
-			if err != nil {
-				return fmt.Errorf("cannot write header to thar stream: %w", err)
-			}
-			if fi.Mode().IsRegular() {
-				var r io.ReadCloser
-				r, err = os.Open(path)
-				if err != nil {
-					return fmt.Errorf("cannot open source file: %w", err)
-				}
-				defer r.Close()
-
-				_, err = io.Copy(tw, r)
-				if err != nil {
-					return fmt.Errorf("cannot copy file to tar stream :%w", err)
-				}
-			}
-
-			return nil
-		})
-		_ = tw.Close()
-		_ = pw.CloseWithError(err)
-	}()
-
-	opts := types.ImageBuildOptions{
-		Tags:       []string{f.Image},
-		PullParent: true,
-	}
-
-	resp, err := client.ImageBuild(ctx, pr, opts)
-	if err != nil {
-		return fmt.Errorf("cannot build the app image: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var out io.Writer = io.Discard
-	if b.verbose {
-		out = os.Stderr
-	}
-
-	var isTerminal bool
-	var fd uintptr
-	if outF, ok := out.(*os.File); ok {
-		fd = outF.Fd()
-		isTerminal = term.IsTerminal(int(outF.Fd()))
-	}
-
-	return jsonmessage.DisplayJSONMessagesStream(resp.Body, out, fd, isTerminal, nil)
-}
-
-func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, error) {
-	img, _, err := cli.ImageInspectWithRaw(ctx, image)
-	if err != nil {
-		if dockerClient.IsErrNotFound(err) { // image is not in the daemon, get info directly from registry
-			var (
-				ref name.Reference
-				img v1.Image
-				cfg *v1.ConfigFile
-			)
-
-			ref, err = name.ParseReference(image)
-			if err != nil {
-				return "", fmt.Errorf("cannot parse image name: %w", err)
-			}
-			if _, ok := ref.(name.Tag); ok && !slices.Contains(maps.Values(DefaultBuilderImages), image) {
-				fmt.Fprintln(os.Stderr, "image referenced by tag which is discouraged: Tags are mutable and can point to a different artifact than the expected one")
-			}
-			img, err = remote.Image(ref)
-			if err != nil {
-				return "", fmt.Errorf("cannot get image from registry: %w", err)
-			}
-			cfg, err = img.ConfigFile()
-			if err != nil {
-				return "", fmt.Errorf("cannot get config for image: %w", err)
-			}
-
-			if cfg.Config.Labels != nil {
-				if u, ok := cfg.Config.Labels["io.openshift.s2i.scripts-url"]; ok {
-					return u, nil
-				}
-			}
-		}
-		return "", err
-	}
-
-	if img.Config != nil && img.Config.Labels != nil {
-		if u, ok := img.Config.Labels["io.openshift.s2i.scripts-url"]; ok {
-			return u, nil
-		}
-	}
-
-	if img.ContainerConfig != nil && img.ContainerConfig.Labels != nil {
-		if u, ok := img.ContainerConfig.Labels["io.openshift.s2i.scripts-url"]; ok {
-			return u, nil
-		}
-	}
-
-	return "", nil
+	return nil
 }
 
 // Builder Image chooses the correct builder image or defaults.
 func BuilderImage(f fn.Function, builderName string) (string, error) {
 	// delegate as the logic is shared amongst builders
 	return builders.Image(f, builderName, DefaultBuilderImages)
+}
+
+// scaffold the project
+// Returns a config with settings suitable for building runtimes which
+// support scaffolding.
+func scaffold(cfg *api.Config, f fn.Function) (*api.Config, error) {
+	// Scafffolding is currently only supported by the Go and Python runtimes
+	if f.Runtime != "go" && f.Runtime != "python" {
+		return cfg, nil
+	}
+
+	contextDir := filepath.Join(".s2i", "builds", "last")
+	appRoot := filepath.Join(f.Root, contextDir)
+	_ = os.RemoveAll(appRoot)
+
+	// The enbedded repository contains the scaffolding code itself which glues
+	// together the middleware and a function via main
+	embeddedRepo, err := fn.NewRepository("", "") // default is the embedded fs
+	if err != nil {
+		return cfg, fmt.Errorf("unable to load the embedded scaffolding. %w", err)
+	}
+
+	// Write scaffolding to .s2i/builds/last
+	err = scaffolding.Write(appRoot, f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
+	if err != nil {
+		return cfg, fmt.Errorf("unable to build due to a scaffold error. %w", err)
+	}
+
+	// Write out an S2I assembler script if the runtime needs to override the
+	// one provided in the S2I image.
+	assemble, err := assembler(f)
+	if err != nil {
+		return cfg, err
+	}
+	if assemble != "" {
+		if err := os.MkdirAll(filepath.Join(f.Root, ".s2i", "bin"), 0755); err != nil {
+			return nil, fmt.Errorf("unable to create .s2i bin dir. %w", err)
+		}
+		if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(assemble), 0700); err != nil {
+			return nil, fmt.Errorf("unable to write go assembler. %w", err)
+		}
+	}
+
+	cfg.KeepSymlinks = true // Don't infinite loop on the symlink to root.
+
+	// We want to force that the system use the (copy via filesystem)
+	// method rather than a "git clone" method because (other than being
+	// faster) appears to have a bug where the assemble script is ignored.
+	// Maybe this issue is related:
+	// https://github.com/openshift/source-to-image/issues/1141
+	cfg.ForceCopy = true
+
+	return cfg, nil
 }
