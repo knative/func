@@ -167,7 +167,7 @@ type RunSpec struct {
 
 	// Env variables to be set
 	Envs Envs `yaml:"envs,omitempty"`
-    
+
 	// PodSecurityContext to be set for read and write permission
 	PodSecurityContext PodSecurityContext `yaml:"podSecurityContext, omitempty"`
 	// StartTimeout specifies that this function should have a custom timeout

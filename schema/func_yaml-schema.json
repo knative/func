@@ -16,7 +16,7 @@
 						}
 					},
 					"type": "object",
-					"description// with containerized docker runner and deployed Knative service integration": "BuilderImages define optional explicit builder images to use by\nbuilder implementations in leau of the in-code defaults.  They key\nis the builder's short name.  For example:\nbuilderImages:\n  pack: example.com/user/my-pack-node-builder\n  s2i: example.com/user/my-s2i-node-builder"
+					"description": "BuilderImages define optional explicit builder images to use by\nbuilder implementations in leau of the in-code defaults.  They key\nis the builder's short name.  For example:\nbuilderImages:\n  pack: example.com/user/my-pack-node-builder\n  s2i: example.com/user/my-s2i-node-builder"
 				},
 				"buildpacks": {
 					"items": {
