@@ -65,7 +65,7 @@ func TestPrivateGitRepository(t *testing.T) {
 	}
 
 	gitCredsDir := t.TempDir()
-	err := os.WriteFile(filepath.Join(gitCredsDir, "type"), []byte(`git-credentials`), 0600)
+	err := os.WriteFile(filepath.Join(gitCredsDir, "type"), []byte(`git-credentials`), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestPrivateGitRepository(t *testing.T) {
 username=developer
 password=nbusr123
 `
-	err = os.WriteFile(filepath.Join(gitCredsDir, "credentials"), []byte(gitCred), 0600)
+	err = os.WriteFile(filepath.Join(gitCredsDir, "credentials"), []byte(gitCred), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
