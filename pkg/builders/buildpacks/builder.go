@@ -153,6 +153,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	}
 	// Pack build options
 	opts := pack.BuildOptions{
+		GroupID:        -1,
+		UserID:         -1,
 		AppPath:        f.Root,
 		Image:          f.Build.Image,
 		LifecycleImage: DefaultLifecycleImage,
