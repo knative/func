@@ -62,10 +62,10 @@ require (
 	k8s.io/client-go v0.32.3
 	k8s.io/klog/v2 v2.130.1
 	knative.dev/client/pkg v0.0.0-20250424014425-1e24794f765f
-	knative.dev/eventing v0.45.1-0.20250425140225-7146629994af
+	knative.dev/eventing v0.45.1-0.20250430151906-06f8dc9242d1
 	knative.dev/hack v0.0.0-20250424013725-c4037b0fe56b
 	knative.dev/pkg v0.0.0-20250424013628-d5e74d29daa3
-	knative.dev/serving v0.45.1-0.20250424155724-9dfd12deda0c
+	knative.dev/serving v0.45.1-0.20250501231108-eaad7921469c
 )
 
 require (
@@ -157,7 +157,7 @@ require (
 	github.com/go-openapi/swag v0.23.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
@@ -292,7 +292,7 @@ require (
 	k8s.io/cli-runtime v0.31.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e // indirect
-	knative.dev/networking v0.0.0-20250415164913-6268d931d247 // indirect
+	knative.dev/networking v0.0.0-20250424014624-16635c6d8dcc // indirect
 	sigs.k8s.io/controller-runtime v0.20.4 // indirect
 	sigs.k8s.io/gateway-api v1.1.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
