@@ -1,6 +1,6 @@
 {
 	"KindNode": "v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027",
 	"Serving": "v1.18.0",
-	"Eventing": "v1.18.0",
+	"Eventing": "v1.18.1",
 	"Contour": "v1.18.0"
 }
