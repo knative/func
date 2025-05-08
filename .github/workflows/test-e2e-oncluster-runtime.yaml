@@ -64,7 +64,3 @@ jobs:
           echo "::group::cluster containers logs"
           stern '.*' --all-namespaces --no-follow
           echo "::endgroup::"
-      - uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage.txt
-          flags: e2e-test-oncluster-runtime

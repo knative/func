@@ -41,7 +41,7 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           files: ./coverage.txt
-          flags: unit-tests-${{ matrix.os }}
+          flags: unit-tests
           fail_ci_if_error: true
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -130,7 +130,7 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           files: ./coverage.txt
-          flags: e2e-test
+          flags: e2e-tests
           fail_ci_if_error: true
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -182,7 +182,7 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           files: ./coverage.txt
-          flags: e2e-test-oncluster
+          flags: e2e-tests
           fail_ci_if_error: true
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}

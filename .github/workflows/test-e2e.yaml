@@ -44,4 +44,4 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           files: ./coverage.txt
-          flags: e2e-test
+          flags: e2e-tests

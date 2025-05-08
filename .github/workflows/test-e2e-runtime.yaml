@@ -76,7 +76,3 @@ jobs:
             fi
           done
           echo "------------------ finished! attempt $attempt ------------------"
-      - uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage.txt
-          flags: e2e-test-runtime-${{ matrix.runtime }}
