@@ -48,12 +48,12 @@ require (
 	github.com/tektoncd/cli v0.37.0
 	github.com/tektoncd/pipeline v0.65.1
 	github.com/xanzy/go-gitlab v0.102.0
-	golang.org/x/crypto v0.37.0
-	golang.org/x/net v0.39.0
+	golang.org/x/crypto v0.38.0
+	golang.org/x/net v0.40.0
 	golang.org/x/oauth2 v0.29.0
-	golang.org/x/sync v0.13.0
-	golang.org/x/sys v0.32.0
-	golang.org/x/term v0.31.0
+	golang.org/x/sync v0.14.0
+	golang.org/x/sys v0.33.0
+	golang.org/x/term v0.32.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/v3 v3.5.1
@@ -62,10 +62,10 @@ require (
 	k8s.io/client-go v0.32.3
 	k8s.io/klog/v2 v2.130.1
 	knative.dev/client/pkg v0.0.0-20250424014425-1e24794f765f
-	knative.dev/eventing v0.45.1-0.20250430151906-06f8dc9242d1
-	knative.dev/hack v0.0.0-20250424013725-c4037b0fe56b
-	knative.dev/pkg v0.0.0-20250424013628-d5e74d29daa3
-	knative.dev/serving v0.45.1-0.20250505122054-a01a07861356
+	knative.dev/eventing v0.45.1-0.20250514154546-3788fccf0466
+	knative.dev/hack v0.0.0-20250514121446-f525e187efdc
+	knative.dev/pkg v0.0.0-20250515022847-873230f3a48e
+	knative.dev/serving v0.45.1-0.20250516122049-99655d21cec8
 )
 
 require (
@@ -275,7 +275,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac // indirect
 	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/api v0.204.0 // indirect
