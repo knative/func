@@ -461,7 +461,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator, daprInstalled 
 	for k, v := range annotations {
 		revisionAnnotations[k] = v
 	}
-
+	PodSecurityContext := getPodSecurityContext(f.Run)
 	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        f.Name,
@@ -477,6 +477,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator, daprInstalled 
 					},
 					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
+							SecurityContext: PodSecurityContext,
 							Containers: []corev1.Container{
 								container,
 							},
@@ -1107,4 +1108,14 @@ func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) er
 	}
 
 	return servingclientlib.UpdateRevisionTemplateAnnotations(template, toUpdate, toRemove)
+}
+
+func getPodSecurityContext(RunSpec fn.RunSpec) *corev1.PodSecurityContext {
+	return &corev1.PodSecurityContext{
+		RunAsUser:    RunSpec.PodSecurityContext.RunAsUser,
+		RunAsGroup:   RunSpec.PodSecurityContext.RunAsGroup,
+		RunAsNonRoot: RunSpec.PodSecurityContext.RunAsNonRoot,
+		FSGroup:      RunSpec.PodSecurityContext.FSGroup,
+	}
+
 }
