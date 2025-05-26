@@ -1,0 +1,17 @@
+name: Test Docker
+
+on: [pull_request]
+
+jobs:
+  check:
+    name: Test Docker
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Test Docker
+        run: |
+          docker pull alpine
+          docker tag alpine registry.default.svc.cluster.local:5000/alpine
+          docker push registry.default.svc.cluster.local:5000/alpine
