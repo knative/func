@@ -5,7 +5,24 @@ import (
 	"strings"
 )
 
-var DeployerImage = "ghcr.io/knative/func-utils:v2"
+var (
+	FuncUtilImage = "ghcr.io/knative/func-utils:v2"
+	DeployerImage string
+	ScaffoldImage string
+	S2IImage      string
+)
+
+func init() {
+	if DeployerImage == "" {
+		DeployerImage = FuncUtilImage
+	}
+	if ScaffoldImage == "" {
+		ScaffoldImage = FuncUtilImage
+	}
+	if S2IImage == "" {
+		S2IImage = FuncUtilImage
+	}
+}
 
 func getBuildpackTask() string {
 	return `apiVersion: tekton.dev/v1
@@ -371,7 +388,7 @@ spec:
       name: gen-source
     - emptyDir: {}
       name: env-vars
-`, DeployerImage)
+`, S2IImage)
 }
 
 func getDeployTask() string {
@@ -430,7 +447,7 @@ spec:
     - name: func-scaffold
       image: %s
       command: ["scaffold", "$(params.path)"]
-`, DeployerImage)
+`, ScaffoldImage)
 }
 
 // GetClusterTasks returns multi-document yaml containing tekton tasks used by func.
