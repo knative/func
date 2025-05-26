@@ -202,7 +202,9 @@ func (n *Pusher) pushImage(ctx context.Context, f fn.Function, credentials Crede
 		return digest, nil
 	}
 	errStr := err.Error()
-	if strings.Contains(errStr, "no such host") || strings.Contains(errStr, "failure in name resolution") {
+	if strings.Contains(errStr, "no such host") ||
+		strings.Contains(errStr, "failure in name resolution") ||
+		regexp.MustCompile(`lookup .*: server misbehaving`).MatchString(errStr) {
 		// push with custom transport to be able to push into cluster private registries
 		return n.push(ctx, f, credentials, output)
 	}
