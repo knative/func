@@ -16,6 +16,7 @@ import (
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/pipelines/tekton"
 )
 
 var format string = "json"
@@ -60,6 +61,10 @@ type Environment struct {
 	SpecVersion          string
 	SocatImage           string
 	TarImage             string
+	FuncUtilsImage       string
+	DeployerImage        string
+	ScaffoldImage        string
+	S2IImage             string
 	Languages            []string
 	DefaultImageBuilders map[string]map[string]string
 	Templates            map[string][]string
@@ -128,6 +133,10 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		SpecVersion:          functions.LastSpecVersion(),
 		SocatImage:           k8s.SocatImage,
 		TarImage:             k8s.TarImage,
+		FuncUtilsImage:       tekton.FuncUtilImage,
+		DeployerImage:        tekton.DeployerImage,
+		ScaffoldImage:        tekton.ScaffoldImage,
+		S2IImage:             tekton.S2IImage,
 		Languages:            r,
 		DefaultImageBuilders: builderimagesdefault,
 		Templates:            t,
