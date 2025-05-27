@@ -687,7 +687,7 @@ func addQuarkusBuildpack(packageDesc *buildpackage.Config, bpDesc *dist.Buildpac
 
 	packageDesc.Dependencies = append(packageDesc.Dependencies, dist.ImageOrURI{
 		BuildpackURI: dist.BuildpackURI{
-			URI: "docker://gcr.io/paketo-buildpacks/quarkus:" + latestQuarkusVersion,
+			URI: "docker://index.docker.io/paketobuildpacks/quarkus:" + latestQuarkusVersion,
 		},
 	})
 	quarkusBP := dist.ModuleRef{
