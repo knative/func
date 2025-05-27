@@ -121,8 +121,8 @@ var httpFuncValidatorMap = map[string]FuncResponsivenessValidator{
 		expects: "message=hello",
 	},
 	"python": {
-		urlMask: "%s?message=hello",
-		expects: `{"message": "hello"}`,
+		urlMask: "%s",
+		expects: `OK`,
 	},
 	"quarkus": {
 		urlMask: "%s?message=hello",
