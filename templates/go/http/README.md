@@ -31,6 +31,8 @@ runtime: go
 created: 2025-03-17T02:02:34.196208671+01:00
 build:
   buildEnvs:
+    - name: GOPRIVATE
+      value: example.com
     - name: SERVICE_BINDING_ROOT
       value: /bindings
   volumes:
@@ -47,6 +49,9 @@ name: go-fn
 runtime: go
 created: 2025-03-17T02:02:34.196208671+01:00
 build:
+  buildEnvs:
+    - name: GOPRIVATE
+      value: example.com
   volumes:
     - hostPath: /home/jdoe/.netrc
       path: /opt/app-root/src/.netrc
