@@ -29,11 +29,25 @@ find_executables() {
 }
 
 populate_environment() {
-  export ARCH="${ARCH:-amd64}"
+  # User's KUBECOFNIG and that used by these scripts should be isolated:
+  export KUBECONFIG="$(cd "$(dirname "$0")" && pwd)/bin/kubeconfig.yaml"
+  # Detect architecture, default to amd64 if unable to detect
+  if [[ -z "${ARCH:-}" ]]; then
+    local machine_arch=$(uname -m)
+    case $machine_arch in
+      x86_64) export ARCH="amd64" ;;
+      aarch64|arm64) export ARCH="arm64" ;;
+      *) export ARCH="amd64" ;;
+    esac
+  else
+    export ARCH="$ARCH"
+  fi
   export CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
-  export KUBECONFIG="${KUBECONFIG:-$(dirname "$(realpath "$0")")/bin/kubeconfig.yaml}"
   export TERM="${TERM:-dumb}"
+
   echo "KUBECONFIG=${KUBECONFIG}"
+  echo "CONTAINER_ENGINE=${CONTAINER_ENGINE}"
+  echo "TERM=${TERM}"
 }
 
 define_colors() {
@@ -75,7 +89,7 @@ find_executable() {
 
   # Use the binary installed into hack/bin/ by allocate.sh if
   # it exists.
-  path=$(dirname "$(realpath "$0")")"/bin/$name"
+  path=$(cd "$(dirname "$0")" && pwd)"/bin/$name"
   if [[ -x "$path" ]]; then
     echo "$path" & return 0
   fi

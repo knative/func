@@ -20,9 +20,9 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source "$(dirname "$(realpath "$0")")/common.sh"
+source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 # this is where versions of common components are (like knative)
-source "$(dirname "$(realpath "$0")")/component-versions.sh"
+source "$(cd "$(dirname "$0")" && pwd)/component-versions.sh"
 
 main() {
   echo "${blue}Allocating${reset}"
@@ -376,7 +376,10 @@ next_steps() {
   echo -e "${grey}REGISTRY"
   echo -e "Before using the cluster for integration and E2E tests, please run \"${reset}registry.sh${grey}\" (Linux systems) which will configure podman or docker to communicate with the standalone container registry without TLS."
   echo -e ""
-  echo -e "For other operating systems, or to do this manually, edit the docker daemon config (/etc/docker/daemon.json on linux and ~/.docker/daemon.json on OSX), add:"
+  echo -e "For other operating systems, or to do this manually, edit the docker daemon config:"
+  echo -e "  - Linux: /etc/docker/daemon.json"
+  echo -e "  - macOS: ~/.docker/daemon.json (or via Docker Desktop settings)"
+  echo -e "Add the following configuration:"
   echo -e "${reset}{ \"insecure-registries\": [ \"localhost:50000\" ] }"
   echo -e ""
   echo -e "${grey}For podman, edit /etc/container/registries.conf to include:"

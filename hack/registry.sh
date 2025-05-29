@@ -13,7 +13,7 @@
 # limitations under the License.
 
 #
-# - Registers registry with Docker as trusted (linux only)
+# - Registers registry with Docker as trusted (Linux and macOS)
 #
 
 set -o errexit
@@ -42,11 +42,16 @@ warn_nix() {
     if [[ -x $(command -v "nix") || -x $(command -v "nixos-rebuild") ]]; then
         if [ "$CONTAINER_ENGINE" == "docker" ]; then
           echo "${yellow}Warning: Nix detected${reset}"
-          echo "If Docker was configured using nix, this command will fail to find daemon.json. please configure the insecure registry by modifying your nix config:"
-          echo "  virtualisation.docker = {"
-          echo "    enable = true;"
-          echo "    daemon.settings.insecure-registries = [ \"localhost:50000\" ];"
-          echo "  };"
+          if [[ "$(uname)" == "Darwin" ]]; then
+            echo "If Docker Desktop was installed via Nix on macOS, you may need to manually configure the insecure registry."
+            echo "Please confirm \"localhost:50000\" is specified as an insecure registry in the docker config file."
+          else
+            echo "If Docker was configured using nix, this command will fail to find daemon.json. please configure the insecure registry by modifying your nix config:"
+            echo "  virtualisation.docker = {"
+            echo "    enable = true;"
+            echo "    daemon.settings.insecure-registries = [ \"localhost:50000\" ];"
+            echo "  };"
+          fi
         elif [ "$CONTAINER_ENGINE" == "podman" ]; then
           echo "${yellow}Warning: Nix detected${reset}"
           echo "If podman was configured via Nix, this command will likely fail.  At time of this writing, podman configured via the nix option 'virtualisation.podman' does not have an option for configuring insecure registries."
@@ -57,9 +62,35 @@ warn_nix() {
 }
 
 set_registry_insecure() {
-    patch=".\"insecure-registries\" = [\"localhost:50000\""]
-    sudo jq "$patch" /etc/docker/daemon.json > /tmp/daemon.json.tmp && sudo mv /tmp/daemon.json.tmp /etc/docker/daemon.json
-    sudo service docker restart
+    # Determine the daemon.json location based on OS
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # macOS: Docker Desktop stores daemon.json in ~/.docker/
+        DAEMON_JSON="$HOME/.docker/daemon.json"
+        USE_SUDO=""
+    else
+        # Linux: daemon.json is in /etc/docker/
+        DAEMON_JSON="/etc/docker/daemon.json"
+        USE_SUDO="sudo"
+    fi
+
+    # Create daemon.json if it doesn't exist
+    if [ ! -f "$DAEMON_JSON" ]; then
+        echo "{}" | $USE_SUDO tee "$DAEMON_JSON" > /dev/null
+    fi
+
+    # Update daemon.json with insecure registry
+    patch=".\"insecure-registries\" = [\"localhost:50000\"]"
+    $USE_SUDO jq "$patch" "$DAEMON_JSON" > /tmp/daemon.json.tmp && $USE_SUDO mv /tmp/daemon.json.tmp "$DAEMON_JSON"
+    echo "OK $DAEMON_JSON"
+
+    # Restart Docker based on OS
+    if [[ "$(uname)" == "Darwin" ]]; then
+        # macOS: Restart Docker Desktop
+        echo "${yellow}*** If Docker Desktop is running, please restart it via the menu bar icon ***${reset}"
+    else
+        # Linux: Use service command
+        sudo service docker restart
+    fi
 }
 
 set_registry_insecure_podman() {
@@ -69,6 +100,12 @@ set_registry_insecure_podman() {
     if ! sudo grep -q "\[\[registry-insecure-local\]\]" "$FILE"; then
         # Append the new section to the file
         echo -e "\n[[registry-insecure-local]]\nlocation = \"localhost:50000\"\ninsecure = true" | sudo tee -a "$FILE" > /dev/null
+    fi
+
+    # On macOS, set up SSH port forwarding so Podman VM can access host's localhost:50000
+    if [[ "$(uname)" == "Darwin" ]]; then
+        echo "Setting up port forwarding for Podman VM to access registry..."
+        podman machine ssh -- -L 50000:localhost:50000 -N -f
     fi
 }
 
