@@ -65,7 +65,7 @@ require (
 	knative.dev/eventing v0.45.1-0.20250526160117-40bac3cce0e6
 	knative.dev/hack v0.0.0-20250514121446-f525e187efdc
 	knative.dev/pkg v0.0.0-20250520014526-44579e9ce5ed
-	knative.dev/serving v0.45.1-0.20250523001030-c36383ed56d1
+	knative.dev/serving v0.45.1-0.20250529121820-92b23aa11d52
 )
 
 require (
