@@ -128,12 +128,13 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 			SecurityContext: defaultPodSecurityContext(),
 			Containers: []corev1.Container{
 				{
-					Name:       podName,
-					Image:      podImage,
-					Stdin:      true,
-					StdinOnce:  true,
-					WorkingDir: volumeMntPoint,
-					Command:    podCommand,
+					Name:            podName,
+					Image:           podImage,
+					ImagePullPolicy: corev1.PullAlways,
+					Stdin:           true,
+					StdinOnce:       true,
+					WorkingDir:      volumeMntPoint,
+					Command:         podCommand,
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      pVol,
