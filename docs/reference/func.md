@@ -34,6 +34,7 @@ Learn more about Knative at: https://knative.dev
 * [func invoke](func_invoke.md)	 - Invoke a local or remote function
 * [func languages](func_languages.md)	 - List available function language runtimes
 * [func list](func_list.md)	 - List deployed functions
+* [func mcp](func_mcp.md)	 - Start MCP server
 * [func repository](func_repository.md)	 - Manage installed template repositories
 * [func run](func_run.md)	 - Run the function locally
 * [func subscribe](func_subscribe.md)	 - Subscribe a function to events
