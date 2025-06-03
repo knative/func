@@ -21,7 +21,7 @@ source "$(dirname "$(realpath "$0")")/common.sh"
 install_tekton() {
   echo "${blue}Installing Tekton${reset}"
 
-  tekton_release="previous/v0.56.4"
+  tekton_release="previous/v0.69.0"
   namespace="${NAMESPACE:-default}"
 
   $KUBECTL apply -f "https://storage.googleapis.com/tekton-releases/pipeline/${tekton_release}/release.yaml"
