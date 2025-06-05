@@ -17,9 +17,10 @@ func config labels
 ### Options
 
 ```
-  -h, --help          help for labels
-  -p, --path string   Path to the function.  Default is current directory ($FUNC_PATH)
-  -v, --verbose       Print verbose logs ($FUNC_VERBOSE)
+  -h, --help            help for labels
+  -o, --output string   Output format (human|json) (default "human")
+  -p, --path string     Path to the function.  Default is current directory ($FUNC_PATH)
+  -v, --verbose         Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
