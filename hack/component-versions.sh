@@ -11,7 +11,7 @@ set_versions() {
 	kind_node_version=v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
 
 	# gets updated programatically via workflow -> PR creation
-	knative_serving_version="v1.18.0"
+	knative_serving_version="v1.18.1"
 	knative_eventing_version="v1.18.1"
 	contour_version="v1.18.0"
 }
