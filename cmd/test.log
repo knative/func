@@ -1,0 +1,1247 @@
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Error: only S2I builds currently support specifying platform
+Usage:
+  build [flags]
+
+Flags:
+      --build-timestamp        Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string         Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
+      --builder-image string   Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                   help for build
+  -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string        Optionally specify a target platform, for example "linux/amd64" when using the s2i build strategy
+  -u, --push                   Attempt to push the function image to the configured registry after being successfully built
+  -r, --registry string        Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure      Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
+
+Error: "invalid" is not a known builder. Available builders are "host", "pack" and "s2i"
+Usage:
+  build [flags]
+
+Flags:
+      --build-timestamp        Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string         Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
+      --builder-image string   Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                   help for build
+  -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string        Optionally specify a target platform, for example "linux/amd64" when using the s2i build strategy
+  -u, --push                   Attempt to push the function image to the configured registry after being successfully built
+  -r, --registry string        Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure      Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
+
+Error: "invalid" is not a known builder. Available builders are "host", "pack" and "s2i"
+Usage:
+  build [flags]
+
+Flags:
+      --build-timestamp        Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string         Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
+      --builder-image string   Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                   help for build
+  -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string        Optionally specify a target platform, for example "linux/amd64" when using the s2i build strategy
+  -u, --push                   Attempt to push the function image to the configured registry after being successfully built
+  -r, --registry string        Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure      Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: registry.example.com/alice/f:latest
+Building function image
+🙌 Function built: registry.example.com/alice/f:latest
+Building function image
+🙌 Function built: registry.example.com/charlie/f:latest
+Building function image
+🙌 Function built: registry.example.com/charlie/f:latest
+Building function image
+🙌 Function built: registry.example.com/global/f:latest
+Building function image
+🙌 Function built: registry.example.com/global/f:latest
+Building function image
+🙌 Function built: example.com/function/f:latest
+Building function image
+🙌 Function built: example.com/env/f:latest
+Building function image
+🙌 Function built: example.com/flag/f:latest
+Building function image
+🙌 Function built: example.com/alice/myfunc:latest
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Building function image
+🙌 Function built: docker.io/tigerteam/foo
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Building function image
+🙌 Function built: example.com/alice/myfunc
+Building function image
+🙌 Function built: example.com/alice/subnamespace/myfunc
+Building function image
+Error: cannot determine function image: could not parse reference: foo/bar/invald/myfunc/myFunc:latest
+Usage:
+  build [flags]
+
+Flags:
+      --build-timestamp        Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string         Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
+      --builder-image string   Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                   help for build
+  -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string        Optionally specify a target platform, for example "linux/amd64" when using the s2i build strategy
+  -u, --push                   Attempt to push the function image to the configured registry after being successfully built
+  -r, --registry string        Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure      Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: registry.example.com/alice/f:latest
+Building function image
+🙌 Function built: registry.example.com/charlie/f:latest
+Building function image
+🙌 Function built: registry.example.com/charlie/f:latest
+Building function image
+🙌 Function built: example.com/alice/my-func:latest
+Building function image
+Error: registry required to build function, please set with `--registry` or the FUNC_REGISTRY environment variable
+Usage:
+  build [flags]
+
+Flags:
+      --build-timestamp        Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string         Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
+      --builder-image string   Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                   help for build
+  -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string        Optionally specify a target platform, for example "linux/amd64" when using the s2i build strategy
+  -u, --push                   Attempt to push the function image to the configured registry after being successfully built
+  -r, --registry string        Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure      Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: example.com/alice/myfunc
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Building function image
+🙌 Function built: example.com/alice/myfunc:latest
+Building function image
+🙌 Function built: example.com/alice/myfunc:latest
+Building function image
+Error: mock error
+Usage:
+  build [flags]
+
+Flags:
+      --build-timestamp        Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string         Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
+      --builder-image string   Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                   help for build
+  -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string        Optionally specify a target platform, for example "linux/amd64" when using the s2i build strategy
+  -u, --push                   Attempt to push the function image to the configured registry after being successfully built
+  -r, --registry string        Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY) (default "example.com/alice")
+      --registry-insecure      Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
+
+Created go function in /private/var/folders/z1/qm65pv652rl9lj95kpkkhxzm0000gn/T/TestCreate_Execute364543246/002/myfunc
+Error: Required flag "language" not set.
+Available language runtimes are:
+  go
+  node
+  python
+  quarkus
+  rust
+  springboot
+  typescript
+
+Usage:
+  create [flags]
+
+Aliases:
+  create, init
+
+Flags:
+  -c, --confirm             Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                help for create
+  -l, --language string     Language Runtime (see help text for list) ($FUNC_LANGUAGE)
+  -r, --repository string   URI to a Git repository containing the specified template ($FUNC_REPOSITORY)
+  -t, --template string     Function template. (see help text for list) ($FUNC_TEMPLATE) (default "http")
+  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
+
+Error: The language runtime 'invalid' is not recognized.
+Available language runtimes are:
+  go
+  node
+  python
+  quarkus
+  rust
+  springboot
+  typescript
+
+Usage:
+  create [flags]
+
+Aliases:
+  create, init
+
+Flags:
+  -c, --confirm             Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                help for create
+  -l, --language string     Language Runtime (see help text for list) ($FUNC_LANGUAGE)
+  -r, --repository string   URI to a Git repository containing the specified template ($FUNC_REPOSITORY)
+  -t, --template string     Function template. (see help text for list) ($FUNC_TEMPLATE) (default "http")
+  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
+
+Error: The template 'invalid' was not found for language runtime 'go'.
+Available templates for this language runtime are:
+  cloudevents
+  http
+
+Usage:
+  create [flags]
+
+Aliases:
+  create, init
+
+Flags:
+  -c, --confirm             Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                help for create
+  -l, --language string     Language Runtime (see help text for list) ($FUNC_LANGUAGE)
+  -r, --repository string   URI to a Git repository containing the specified template ($FUNC_REPOSITORY)
+  -t, --template string     Function template. (see help text for list) ($FUNC_TEMPLATE) (default "http")
+  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
+
+Error: Function name 'invalid!' must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')
+Usage:
+  create [flags]
+
+Aliases:
+  create, init
+
+Flags:
+  -c, --confirm             Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                help for create
+  -l, --language string     Language Runtime (see help text for list) ($FUNC_LANGUAGE)
+  -r, --repository string   URI to a Git repository containing the specified template ($FUNC_REPOSITORY)
+  -t, --template string     Function template. (see help text for list) ($FUNC_TEMPLATE) (default "http")
+  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
+
+Created go function in /private/var/folders/z1/qm65pv652rl9lj95kpkkhxzm0000gn/T/TestCreate_ConfigOptional1352047261/002/myfunc
+Building container image
+Building function image
+🙌 Function built: example.com/alice/myfunc:latest
+Pushing container image to registry
+Deploying function to cluster
+Creating route to function
+Done
+Building container image
+Building function image
+🙌 Function built: example.com/alice/testname:latest
+Pushing container image to registry
+Deploying function to cluster
+Creating route to function
+Done
+Error: must also specify a name when specifying namespace
+Error: only one of --path and [NAME] should be provided
+Building function image
+🙌 Function built: example.com/alice/002:latest
+function up-to-date. Force rebuild with --build
+function up-to-date. Force rebuild with --build
+function up-to-date. Force rebuild with --build
+Error: only S2I builds currently support specifying platform
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Error: "invalid" is not a known builder. Available builders are "host", "pack" and "s2i"
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Error: "invalid" is not a known builder. Available builders are "host", "pack" and "s2i"
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: registry.example.com/alice/f:latest
+function up-to-date. Force rebuild with --build
+Building function image
+🙌 Function built: registry.example.com/charlie/f:latest
+function up-to-date. Force rebuild with --build
+Building function image
+🙌 Function built: registry.example.com/global/f:latest
+Building function image
+🙌 Function built: registry.example.com/global/f:latest
+Building function image
+🙌 Function built: example.com/function/f:latest
+Building function image
+🙌 Function built: example.com/env/f:latest
+Building function image
+🙌 Function built: example.com/flag/f:latest
+Building function image
+🙌 Function built: example.com/alice/myfunc:latest
+Building function image
+🙌 Function built: example.com/alice/002:latest
+function up-to-date. Force rebuild with --build
+function up-to-date. Force rebuild with --build
+function up-to-date. Force rebuild with --build
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Function Deployed at 
+Function Deployed at https://example.com/user/repo
+Function Deployed at 
+Building function image
+🙌 Function built: example.com/alice/002:latest
+function up-to-date. Force rebuild with --build
+function up-to-date. Force rebuild with --build
+Building function image
+🙌 Function built: docker.io/tigerteam/foo
+Deploying image 'example.com/namespace/myfunction@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e', which has a digest. Build and push are disabled.
+Error: building can not be enabled when using an image with digest
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Error: pushing is not valid when specifying an image with digest
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Error: could not parse reference: example.com/mynamespace/myfunction@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Error: could not parse reference: example.com/mynamespace/myfunction@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Deploying image 'example.com/username@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', which has a digest. Build and push are disabled.
+Building function image
+🙌 Function built: image.example.com/alice/f:latest
+Building function image
+🙌 Function built: image.example.com/clarance/f:latest
+Building function image
+🙌 Function built: image.example.com/dominik/f
+Building function image
+Error: cannot determine function image: could not parse reference: foo/bar/invald/myfunc/myFunc:latest
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Info: chosen namespace has changed from 'func' to 'newnamespace'. Undeploying function from 'func' and deploying new in 'newnamespace'.
+Warning: namespace chosen is 'newnamespace', but currently active namespace is 'func'. Continuing with deployment to 'newnamespace'.
+function up-to-date. Force rebuild with --build
+Warning: namespace chosen is 'newnamespace', but currently active namespace is 'func'. Continuing with deployment to 'newnamespace'.
+function up-to-date. Force rebuild with --build
+Info: chosen namespace has changed from 'newnamespace' to 'thirdnamespace'. Undeploying function from 'newnamespace' and deploying new in 'thirdnamespace'.
+Warning: namespace chosen is 'thirdnamespace', but currently active namespace is 'func'. Continuing with deployment to 'thirdnamespace'.
+function up-to-date. Force rebuild with --build
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Warning: namespace chosen is 'testnamespace', but currently active namespace is 'func'. Continuing with deployment to 'testnamespace'.
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Warning: namespace chosen is 'testnamespace', but currently active namespace is 'func'. Continuing with deployment to 'testnamespace'.
+function up-to-date. Force rebuild with --build
+Warning: namespace chosen is 'myfuncns', but currently active namespace is 'func'. Continuing with deployment to 'myfuncns'.
+Function Deployed at 
+Function Deployed at 
+Building function image
+🙌 Function built: registry.example.com/alice/f:latest
+Building function image
+🙌 Function built: registry.example.com/charlie/f:latest
+Building function image
+🙌 Function built: registry.example.com/charlie/f:latest
+Building function image
+🙌 Function built: example.com/alice/my-func:latest
+Building function image
+Error: registry required to build function, please set with `--registry` or the FUNC_REGISTRY environment variable
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: example.com/alice/myfunc
+Building function image
+🙌 Function built: example.com/alice/002:latest
+function up-to-date. Force rebuild with --build
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Error: git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Error: git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Error: not built
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Error: git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Error: git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Function Deployed at 
+Function Deployed at 
+Function Deployed at 
+Function Deployed at 
+Function Deployed at 
+Function Deployed at 
+Function Deployed at 
+Function Deployed at 
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Error: git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Error: git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Error: not built
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Error: git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Error: git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Function Deployed at 
+Function Deployed at 
+function up-to-date. Force rebuild with --build
+Function Deployed at 
+Function Deployed at 
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Warning: registry 'example.com/fred' does not match currently built image 'example.com/alice/002:latest' and no direct image override was provided via --image
+Building function image
+🙌 Function built: example.com/fred/002:latest
+Building container image
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Pushing container image to registry
+Deploying function to cluster
+Creating route to function
+Done
+Warning: namespace chosen is 'default', but currently active namespace is 'func'. Continuing with deployment to 'default'.
+Error: not built
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "default")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY) (default "example.com/alice")
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Warning: namespace chosen is 'nsone', but currently active namespace is 'func'. Continuing with deployment to 'nsone'.
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Info: chosen namespace has changed from 'nsone' to 'nstwo'. Undeploying function from 'nsone' and deploying new in 'nstwo'.
+Warning: namespace chosen is 'nstwo', but currently active namespace is 'func'. Continuing with deployment to 'nstwo'.
+function up-to-date. Force rebuild with --build
+Warning: Can't undeploy Function from namespace 'nsone'. The Function's service was not found. The namespace or service may have already been removed
+Warning: namespace chosen is 'myns', but currently active namespace is 'func'. Continuing with deployment to 'myns'.
+Building function image
+🙌 Function built: example.com/alice/002:latest
+Building function image
+🙌 Function built: myimage
+Building function image
+🙌 Function built: myimage
+Building function image
+🙌 Function built: myimage
+function up-to-date. Force rebuild with --build
+Error: not built
+Usage:
+  deploy [flags]
+
+Flags:
+      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
+  -h, --help                          help for deploy
+  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "func")
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: myimage
+Error: function not found at this path and no name provided
+Usage:
+  describe <name> [flags]
+
+Aliases:
+  describe, info, desc
+
+Examples:
+
+# Show the details of a function as declared in the local func.yaml
+{{rootCmdUse}} describe
+
+# Show the details of the function in the directory with yaml output
+{{rootCmdUse}} describe --output yaml --path myotherfunc
+
+
+Flags:
+  -h, --help               help for describe
+  -n, --namespace string   The namespace in which to look for the named function. ($FUNC_NAMESPACE) (default "func")
+  -o, --output string      Output format (human|plain|json|xml|yaml|url) ($FUNC_OUTPUT) (default "human")
+  -p, --path string        Path to the function.  Default is current directory ($FUNC_PATH)
+  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+
+--- FAIL: TestDescrbe_Default (0.00s)
+    describe_test.go:27: Unexpected error text returned: function not found at this path and no name provided
+Function name:
+  
+Function is built in image:
+  
+Function is deployed in namespace:
+  
+Routes:
+Function name:
+  
+Function is built in image:
+  
+Function is deployed in namespace:
+  
+Routes:
+Function name:
+  
+Function is built in image:
+  
+Function is deployed in namespace:
+  
+Routes:
+Error: only one of --path and [NAME] should be provided
+Usage:
+  describe <name> [flags]
+
+Aliases:
+  describe, info, desc
+
+Examples:
+
+# Show the details of a function as declared in the local func.yaml
+{{rootCmdUse}} describe
+
+# Show the details of the function in the directory with yaml output
+{{rootCmdUse}} describe --output yaml --path myotherfunc
+
+
+Flags:
+  -h, --help               help for describe
+  -n, --namespace string   The namespace in which to look for the named function. ($FUNC_NAMESPACE) (default "default")
+  -o, --output string      Output format (human|plain|json|xml|yaml|url) ($FUNC_OUTPUT) (default "human")
+  -p, --path string        Path to the function.  Default is current directory ($FUNC_PATH)
+  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+
+invokedno functions found in namespace 'func'
+no functions found in namespace 'ns'
+no functions found
+no functions found
+Error: both --namespace and --all-namespaces specified
+Usage:
+  list [flags]
+
+Aliases:
+  list, ls
+
+Examples:
+
+# List all functions in the current namespace with human readable output
+{{rootCmdUse}} list
+
+# List all functions in the 'test' namespace with yaml output
+{{rootCmdUse}} list --namespace test --output yaml
+
+# List all functions in all namespaces with JSON output
+{{rootCmdUse}} list --all-namespaces --output json
+
+
+Flags:
+  -A, --all-namespaces     List functions in all namespaces. If set, the --namespace flag is ignored.
+  -h, --help               help for list
+  -n, --namespace string   The namespace for which to list functions. ($FUNC_NAMESPACE) (default "func")
+  -o, --output string      Output format (human|plain|json|xml|yaml) ($FUNC_OUTPUT) (default "human")
+  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: ghcr.com/reg/002:latest
+Running on host port 8080
+Building function image
+🙌 Function built: ghcr.com/reg/002:latest
+Running on host port 8080
+Building function image
+🙌 Function built: ghcr.com/reg/002:latest
+Running on host port 8080
+Building function image
+🙌 Function built: ghcr.com/reg/002:latest
+Running on host port 8080
+Building function image
+🙌 Function built: ghcr.com/reg/002:latest
+Running on host port 8080
+Error: "invalid" is not a known builder. Available builders are "host", "pack" and "s2i"
+Usage:
+  run [flags]
+
+Flags:
+      --build string[="true"]   Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+  -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string    Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                 Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -t, --container               Run the function in a container. ($FUNC_CONTAINER) (default true)
+  -e, --env stringArray         Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -h, --help                    help for run
+  -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]. This option takes precedence over --registry. Specifying tag is optional. ($FUNC_IMAGE)
+  -p, --path string             Path to the function.  Default is current directory ($FUNC_PATH)
+  -r, --registry string         Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+  -v, --verbose                 Print verbose logs ($FUNC_VERBOSE)
+
+Running on host port 8080
+Building function image
+🙌 Function built: ghcr.com/reg/002:latest
+Running on host port 8080
+Building function image
+🙌 Function built: ghcr.com/reg/002:latest
+Running on host port 8080
+Building function image
+Error: generic build error
+Usage:
+  run [flags]
+
+Flags:
+      --build string[="true"]   Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+  -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string    Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                 Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -t, --container               Run the function in a container. ($FUNC_CONTAINER) (default true)
+  -e, --env stringArray         Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -h, --help                    help for run
+  -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]. This option takes precedence over --registry. Specifying tag is optional. ($FUNC_IMAGE)
+  -p, --path string             Path to the function.  Default is current directory ($FUNC_PATH)
+  -r, --registry string         Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+  -v, --verbose                 Print verbose logs ($FUNC_VERBOSE)
+
+Running on host port 8080
+Running on host port 8080
+Error: cannot use digested image with --container=false
+Usage:
+  run [flags]
+
+Flags:
+      --build string[="true"]   Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+  -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string    Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                 Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -t, --container               Run the function in a container. ($FUNC_CONTAINER) (default true)
+  -e, --env stringArray         Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -h, --help                    help for run
+  -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]. This option takes precedence over --registry. Specifying tag is optional. ($FUNC_IMAGE)
+  -p, --path string             Path to the function.  Default is current directory ($FUNC_PATH)
+  -r, --registry string         Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+  -v, --verbose                 Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: username/exampleimage:latest
+Running on host port 8080
+Running on host port 8080
+Running on host port 8080
+Error: cannot use digested image with --container=false
+Usage:
+  run [flags]
+
+Flags:
+      --build string[="true"]   Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+  -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string    Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                 Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -t, --container               Run the function in a container. ($FUNC_CONTAINER) (default true)
+  -e, --env stringArray         Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -h, --help                    help for run
+  -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]. This option takes precedence over --registry. Specifying tag is optional. ($FUNC_IMAGE)
+  -p, --path string             Path to the function.  Default is current directory ($FUNC_PATH)
+  -r, --registry string         Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+  -v, --verbose                 Print verbose logs ($FUNC_VERBOSE)
+
+Building function image
+🙌 Function built: username/exampleimage:latest
+Running on host port 8080
+Building function image
+🙌 Function built: example.com/ns-to-override/002:latest
+Running on host port 8080
+Error: template repo does not exist
+Usage:
+  templates [flags]
+
+Flags:
+  -h, --help                help for templates
+      --json                Set output to JSON format. (Env: $FUNC_JSON)
+  -r, --repository string   URI to a specific repository to consider ($FUNC_REPOSITORY)
+  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
+
+Error: Get "wrong://github.com/boson-project/repo-does-not-exist": unsupported protocol scheme "wrong"
+Usage:
+  templates [flags]
+
+Flags:
+  -h, --help                help for templates
+      --json                Set output to JSON format. (Env: $FUNC_JSON)
+  -r, --repository string   URI to a specific repository to consider ($FUNC_REPOSITORY)
+  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
+
+FAIL
+exit status 1
+FAIL	knative.dev/func/cmd	3.289s
