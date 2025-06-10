@@ -973,16 +973,19 @@ func (c *Client) Describe(ctx context.Context, name, namespace string, f Functio
 		return c.describer.Describe(ctx, name, namespace)
 	}
 
-	// If the function's not initialized, then we can save some time and
-	// fail fast.
+	// Desribe Current Function
+	// ------------------------
 	if !f.Initialized() {
-		return d, fmt.Errorf("function not initialized: %v", f.Root)
+		return d, NewErrNotInitialized(f.Root)
 	}
 
 	// If the function is undeployed, we can't describe it either.
 	if f.Name == "" {
 		return d, fmt.Errorf("unable to describe without a name. %v", ErrNameRequired)
 	}
+
+	// If it has a populated deployed namespace, we can presume it's deployed
+	// and attempt to describe.
 
 	return c.describer.Describe(ctx, f.Name, f.Deploy.Namespace)
 }

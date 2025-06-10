@@ -2,12 +2,65 @@ package cmd
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
 	. "knative.dev/func/pkg/testing"
 )
+
+// TestDescribe_Default ensures that running describe when there is no
+// function in the given directory fails correctly.
+func TestDescribe_Default(t *testing.T) {
+	_ = FromTempDirectory(t)
+	describer := mock.NewDescriber()
+
+	cmd := NewDescribeCmd(NewTestClient(fn.WithDescriber(describer)))
+	cmd.SetArgs([]string{})
+	err := cmd.Execute()
+
+	if err == nil {
+		t.Fatal("describing a nonexistent function should error")
+	}
+	if !strings.Contains(err.Error(), "function not found at this path and no name provided") {
+		t.Fatalf("Unexpected error text returned: %v", err)
+	}
+	if describer.DescribeInvoked {
+		t.Fatal("Describer incorrectly invoked")
+	}
+}
+
+// TestDescribe_Undeployed ensures that describing a function which exists,
+// but has not been deployed, does not error but rather delegates to the
+// deployer which will presumably describe it as being !deployed (See deployer
+// test suite)
+func TestDescribe_Undeployed(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	client := fn.New()
+	_, err := client.Init(fn.Function{
+		Name:     "testfunc",
+		Runtime:  "go",
+		Registry: TestRegistry,
+		Root:     root,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	describer := mock.NewDescriber()
+
+	cmd := NewDescribeCmd(NewTestClient(fn.WithDescriber(describer)))
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !describer.DescribeInvoked {
+		t.Fatal("Describer should have been invoked for any initialized function")
+	}
+}
 
 // TestDescribe_ByName ensures that describing a function by name invokes
 // the describer appropriately.
