@@ -242,13 +242,23 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
-	if !f.Initialized() {
-		return fn.NewErrNotInitialized(f.Root)
-	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
 	}
 	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
+
+	if !f.Initialized() {
+		if !cfg.Remote || f.Build.Git.URL == "" {
+			// Only error if this is not a fully remote build
+			return fn.NewErrNotInitialized(f.Root)
+		} else {
+			// TODO: this case is not supported because the pipeline
+			// implementation requires the function's name, which is in the
+			// remote repository.  We should inspect the remote repository.
+			// For now, give a more helpful error.
+			return errors.New("please ensure the function's source is also available locally")
+		}
+	}
 
 	changingNamespace := func(f fn.Function) bool {
 		// We're changing namespace if:
