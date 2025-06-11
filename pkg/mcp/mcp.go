@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"os/exec"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -18,6 +19,7 @@ func NewServer() *MCPServer {
 		"1.0.0",
 		server.WithToolCapabilities(true),
 	)
+
 	mcpServer.AddTool(
 		mcp.NewTool("healthcheck",
 			mcp.WithDescription("Checks if the server is running"),
@@ -25,6 +27,43 @@ func NewServer() *MCPServer {
 		handleHealthCheckTool,
 	)
 
+	mcpServer.AddTool(
+		mcp.NewTool("create",
+			mcp.WithDescription("Creates a knative function in the current directory"),
+			mcp.WithString("name",
+				mcp.Required(),
+				mcp.Description("Name of the function to be created"),
+			),
+			mcp.WithString("language",
+				mcp.Required(),
+				mcp.Description("Language/Runtime of the function to be created"),
+			),
+			mcp.WithString("cwd",
+				mcp.Required(),
+				mcp.Description("Current working directory of the MCP client"),
+			),
+		),
+		handleCreateTool,
+	)
+
+	mcpServer.AddTool(
+		mcp.NewTool("deploy",
+			mcp.WithDescription("Deploys the function to the cluster"),
+			mcp.WithString("registry",
+				mcp.Required(),
+				mcp.Description("Name of the registry to be used to push the function image"),
+			),
+			mcp.WithString("cwd",
+				mcp.Required(),
+				mcp.Description("Full path of the function to be deployed"),
+			),
+			mcp.WithString("builder",
+				mcp.Required(),
+				mcp.Description("Builder to be used to build the function image"),
+			),
+		),
+		handleDeployTool,
+	)
 	return &MCPServer{
 		server: mcpServer,
 	}
@@ -39,5 +78,58 @@ func handleHealthCheckTool(
 	request mcp.CallToolRequest,
 ) (*mcp.CallToolResult, error) {
 	body := []byte(fmt.Sprintf(`{"message": "%s"}`, "The MCP server is running!"))
+	return mcp.NewToolResultText(string(body)), nil
+}
+
+func handleCreateTool(
+	ctx context.Context,
+	request mcp.CallToolRequest,
+) (*mcp.CallToolResult, error) {
+	cwd, err := request.RequireString("cwd")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	name, err := request.RequireString("name")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	language, err := request.RequireString("language")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	cmd := exec.Command("func", "create", "-l", language, name)
+	cmd.Dir = cwd
+	out, err := cmd.Output()
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
+	return mcp.NewToolResultText(string(body)), nil
+}
+
+func handleDeployTool(
+	ctx context.Context,
+	request mcp.CallToolRequest,
+) (*mcp.CallToolResult, error) {
+	cwd, err := request.RequireString("cwd")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	registry, err := request.RequireString("registry")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	builder, err := request.RequireString("builder")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	cmd := exec.Command("func", "deploy", "--registry", registry, "--builder", builder)
+	cmd.Dir = cwd
+	out, err := cmd.Output()
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
 	return mcp.NewToolResultText(string(body)), nil
 }
