@@ -28,7 +28,7 @@ NAME
 SYNOPSIS
 	{{rootCmdUse}} run [-t|--container] [-r|--registry] [-i|--image] [-e|--env]
 	             [--build] [-b|--builder] [--builder-image] [-c|--confirm]
-	             [-v|--verbose]
+	             [--address] [-v|--verbose]
 
 DESCRIPTION
 	Run the function locally.
@@ -68,9 +68,12 @@ EXAMPLES
 
 	o Run the function locally on the host with no containerization (Go only).
 	  $ {{rootCmdUse}} run --container=false
+
+	o Run the function locally on a specific address.
+	  $ {{rootCmdUse}} run --address=0.0.0.0:8081
 `,
 		SuggestFor: []string{"rnu"},
-		PreRunE:    bindEnv("build", "builder", "builder-image", "confirm", "container", "env", "image", "path", "registry", "start-timeout", "verbose"),
+		PreRunE:    bindEnv("address", "build", "builder", "builder-image", "confirm", "container", "env", "image", "path", "registry", "start-timeout", "verbose"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runRun(cmd, newClient)
 		},
@@ -124,6 +127,8 @@ EXAMPLES
 	cmd.Flags().String("build", "auto",
 		"Build the function. [auto|true|false]. ($FUNC_BUILD)")
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // register `--build` as equivalient to `--build=true`
+	cmd.Flags().String("address", "",
+		"Interface and port on which to bind and listen. Default is 127.0.0.1:8080, or an available port if 8080 is not available. ($FUNC_ADDRESS)")
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
@@ -234,7 +239,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// For the former, build is required and a container runtime.  For the
 	// latter, scaffolding is first applied and the local host must be
 	// configured to build/run the language of the function.
-	job, err := client.Run(cmd.Context(), f)
+	job, err := client.Run(cmd.Context(), f, fn.RunWithAddress(cfg.Address))
 	if err != nil {
 		return
 	}
@@ -285,6 +290,9 @@ type runConfig struct {
 	// StartTimeout optionally adjusts the startup timeout from the client's
 	// default of fn.DefaultStartTimeout.
 	StartTimeout time.Duration
+
+	// Address is the interface and port to bind (e.g. "0.0.0.0:8081")
+	Address string
 }
 
 func newRunConfig(cmd *cobra.Command) (c runConfig) {
@@ -294,6 +302,7 @@ func newRunConfig(cmd *cobra.Command) (c runConfig) {
 		Env:          viper.GetStringSlice("env"),
 		Container:    viper.GetBool("container"),
 		StartTimeout: viper.GetDuration("start-timeout"),
+		Address:      viper.GetString("address"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:

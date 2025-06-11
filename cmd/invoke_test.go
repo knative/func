@@ -30,7 +30,7 @@ func TestInvoke(t *testing.T) {
 	// Mock Runner
 	// Starts a service which sets invoked=1 on any request
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function, _ time.Duration) (job *fn.Job, err error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ string, _ time.Duration) (job *fn.Job, err error) {
 		var (
 			l net.Listener
 			h = http.NewServeMux()

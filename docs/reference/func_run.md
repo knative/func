@@ -11,7 +11,7 @@ NAME
 SYNOPSIS
 	func run [-t|--container] [-r|--registry] [-i|--image] [-e|--env]
 	             [--build] [-b|--builder] [--builder-image] [-c|--confirm]
-	             [-v|--verbose]
+	             [--address] [-v|--verbose]
 
 DESCRIPTION
 	Run the function locally.
@@ -52,6 +52,9 @@ EXAMPLES
 	o Run the function locally on the host with no containerization (Go only).
 	  $ func run --container=false
 
+	o Run the function locally on a specific address.
+	  $ func run --address=0.0.0.0:8081
+
 
 ```
 func run
@@ -60,6 +63,7 @@ func run
 ### Options
 
 ```
+      --address string          Interface and port on which to bind and listen. Default is 127.0.0.1:8080, or an available port if 8080 is not available. ($FUNC_ADDRESS)
       --build string[="true"]   Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
   -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
       --builder-image string    Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)

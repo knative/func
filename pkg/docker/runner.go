@@ -50,10 +50,11 @@ func NewRunner(verbose bool, out, errOut io.Writer) *Runner {
 }
 
 // Run the function.
-func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Duration) (job *fn.Job, err error) {
+func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTimeout time.Duration) (job *fn.Job, err error) {
 
 	var (
-		port = choosePort(DefaultHost, DefaultPort, DefaultDialTimeout)
+		host = DefaultHost
+		port = DefaultPort
 		c    client.CommonAPIClient // Docker client
 		id   string                 // ID of running container
 		conn net.Conn               // Connection to container's stdio
@@ -67,13 +68,25 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Durat
 		runtimeErrCh = make(chan error, 10)
 	)
 
+	// Parse address if provided
+	if address != "" {
+		var err error
+		host, port, err = net.SplitHostPort(address)
+		if err != nil {
+			return nil, fmt.Errorf("invalid address format '%s': %w", address, err)
+		}
+	}
+
+	// Choose an available port
+	port = choosePort(host, port, DefaultDialTimeout)
+
 	if f.Build.Image == "" {
 		return job, errors.New("Function has no associated image. Has it been built?")
 	}
 	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {
 		return job, errors.Wrap(err, "failed to create Docker API client")
 	}
-	if id, err = newContainer(ctx, c, f, port, n.verbose); err != nil {
+	if id, err = newContainer(ctx, c, f, host, port, n.verbose); err != nil {
 		return job, errors.Wrap(err, "runner unable to create container")
 	}
 	if conn, err = copyStdio(ctx, c, id, copyErrCh, n.out, n.errOut); err != nil {
@@ -136,7 +149,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Durat
 	}
 
 	// Job reporting port, runtime errors and provides a mechanism for stopping.
-	return fn.NewJob(f, DefaultHost, port, runtimeErrCh, stop, n.verbose)
+	return fn.NewJob(f, host, port, runtimeErrCh, stop, n.verbose)
 }
 
 // Dial the given (tcp) port on the given interface, returning an error if it is
@@ -178,7 +191,7 @@ func choosePort(host, preferredPort string, dialTimeout time.Duration) string {
 
 }
 
-func newContainer(ctx context.Context, c client.CommonAPIClient, f fn.Function, port string, verbose bool) (id string, err error) {
+func newContainer(ctx context.Context, c client.CommonAPIClient, f fn.Function, host, port string, verbose bool) (id string, err error) {
 	var (
 		containerCfg container.Config
 		hostCfg      container.HostConfig
@@ -186,7 +199,7 @@ func newContainer(ctx context.Context, c client.CommonAPIClient, f fn.Function, 
 	if containerCfg, err = newContainerConfig(f, port, verbose); err != nil {
 		return
 	}
-	if hostCfg, err = newHostConfig(port); err != nil {
+	if hostCfg, err = newHostConfig(host, port); err != nil {
 		return
 	}
 	t, err := c.ContainerCreate(ctx, &containerCfg, &hostCfg, nil, nil, "")
@@ -225,14 +238,14 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	return
 }
 
-func newHostConfig(port string) (c container.HostConfig, err error) {
+func newHostConfig(host, port string) (c container.HostConfig, err error) {
 	// httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
 	httpPort := nat.Port("8080/tcp")
 	ports := map[nat.Port][]nat.PortBinding{
 		httpPort: {
 			nat.PortBinding{
 				HostPort: port,
-				HostIP:   "127.0.0.1",
+				HostIP:   host,
 			},
 		},
 	}

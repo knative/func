@@ -107,7 +107,7 @@ func TestRun_Run(t *testing.T) {
 
 			runner := mock.NewRunner()
 			if tt.runError != nil {
-				runner.RunFn = func(context.Context, fn.Function, time.Duration) (*fn.Job, error) { return nil, tt.runError }
+				runner.RunFn = func(context.Context, fn.Function, string, time.Duration) (*fn.Job, error) { return nil, tt.runError }
 			}
 
 			builder := mock.NewBuilder()
@@ -220,7 +220,7 @@ func TestRun_Images(t *testing.T) {
 			runner := mock.NewRunner()
 
 			if tt.runError != nil {
-				runner.RunFn = func(context.Context, fn.Function, time.Duration) (*fn.Job, error) { return nil, tt.runError }
+				runner.RunFn = func(context.Context, fn.Function, string, time.Duration) (*fn.Job, error) { return nil, tt.runError }
 			}
 
 			builder := mock.NewBuilder()
@@ -324,7 +324,7 @@ func TestRun_CorrectImage(t *testing.T) {
 			root := FromTempDirectory(t)
 			runner := mock.NewRunner()
 
-			runner.RunFn = func(_ context.Context, f fn.Function, _ time.Duration) (*fn.Job, error) {
+			runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
 				// TODO: add if for empty image? -- should fail beforehand
 				if f.Build.Image != tt.image {
 					return nil, fmt.Errorf("Expected image: %v but got: %v", tt.image, f.Build.Image)
@@ -394,7 +394,7 @@ func TestRun_DirectOverride(t *testing.T) {
 	root := FromTempDirectory(t)
 	runner := mock.NewRunner()
 
-	runner.RunFn = func(_ context.Context, f fn.Function, _ time.Duration) (*fn.Job, error) {
+	runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
 		if f.Build.Image != overrideImage {
 			return nil, fmt.Errorf("Expected image to be overridden with '%v' but got: '%v'", overrideImage, f.Build.Image)
 		}
@@ -454,6 +454,50 @@ func TestRun_DirectOverride(t *testing.T) {
 			runErrCh <- fmt.Errorf("Function was not expected to build again but it did")
 		}
 
+		close(runErrCh) // release the waiting parent process
+	}()
+	cancel() // trigger the return of cmd.ExecuteContextC in the routine
+	<-ctx.Done()
+	if err := <-runErrCh; err != nil { // wait for completion of assertions
+		t.Fatal(err)
+	}
+}
+
+// TestRun_Address ensures that the --address flag is passed to the runner.
+func TestRun_Address(t *testing.T) {
+	root := FromTempDirectory(t)
+	_, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testAddr := "0.0.0.0:1234"
+
+	runner := mock.NewRunner()
+	runner.RunFn = func(_ context.Context, f fn.Function, addr string, _ time.Duration) (*fn.Job, error) {
+		if addr != testAddr {
+			return nil, fmt.Errorf("Expected address '%v' but got: '%v'", testAddr, addr)
+		}
+		errs := make(chan error, 1)
+		stop := func() error { return nil }
+		return fn.NewJob(f, "127.0.0.1", "8080", errs, stop, false)
+	}
+
+	// RUN THE ACTUAL TESTED COMMAND
+	cmd := NewRunCmd(NewTestClient(
+		fn.WithRunner(runner),
+		fn.WithRegistry("ghcr.com/reg"),
+	))
+	cmd.SetArgs([]string{"--address", testAddr})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	runErrCh := make(chan error, 1)
+	go func() {
+		_, err := cmd.ExecuteContextC(ctx)
+		if err != nil {
+			runErrCh <- err // error was not expected
+			return
+		}
 		close(runErrCh) // release the waiting parent process
 	}()
 	cancel() // trigger the return of cmd.ExecuteContextC in the routine

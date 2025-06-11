@@ -36,20 +36,31 @@ func newDefaultRunner(client *Client, out, err io.Writer) *defaultRunner {
 	}
 }
 
-func (r *defaultRunner) Run(ctx context.Context, f Function, startTimeout time.Duration) (job *Job, err error) {
+func (r *defaultRunner) Run(ctx context.Context, f Function, address string, startTimeout time.Duration) (job *Job, err error) {
 	var (
-		port    string
 		runFn   func() error
 		verbose = r.client.verbose
 	)
 
-	port, err = choosePort(defaultRunHost, defaultRunPort)
+	// Parse address if provided, otherwise use defaults
+	host := defaultRunHost
+	port := defaultRunPort
+
+	if address != "" {
+		var err error
+		host, port, err = net.SplitHostPort(address)
+		if err != nil {
+			return nil, fmt.Errorf("invalid address format '%s': %w", address, err)
+		}
+	}
+
+	port, err = choosePort(host, port)
 	if err != nil {
 		return nil, fmt.Errorf("cannot choose port: %w", err)
 	}
 
 	// Job contains metadata and references for the running function.
-	job, err = NewJob(f, defaultRunHost, port, nil, nil, verbose)
+	job, err = NewJob(f, host, port, nil, nil, verbose)
 	if err != nil {
 		return
 	}
