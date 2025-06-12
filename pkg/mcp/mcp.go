@@ -64,6 +64,14 @@ func NewServer() *MCPServer {
 		),
 		handleDeployTool,
 	)
+
+	mcpServer.AddTool(
+		mcp.NewTool("list",
+			mcp.WithDescription("Lists all the functions deployed in the cluster"),
+		),
+		handleListTool,
+	)
+
 	return &MCPServer{
 		server: mcpServer,
 	}
@@ -126,6 +134,19 @@ func handleDeployTool(
 	}
 	cmd := exec.Command("func", "deploy", "--registry", registry, "--builder", builder)
 	cmd.Dir = cwd
+	out, err := cmd.Output()
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
+	return mcp.NewToolResultText(string(body)), nil
+}
+
+func handleListTool(
+	ctx context.Context,
+	request mcp.CallToolRequest,
+) (*mcp.CallToolResult, error) {
+	cmd := exec.Command("func", "list")
 	out, err := cmd.Output()
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
