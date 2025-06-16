@@ -3,7 +3,7 @@
 This guide describes how you can build a Function on Cluster with Tekton Pipelines. The on cluster build is enabled by fetching Function source code from a remote Git repository. Buildpacks or S2I builder strategy can be used to build the Function image.
 
 ## Prerequisite
-1. Install Tekton Pipelines on the cluster. 
+1. Install Tekton Pipelines on the cluster.
 
    **Note:** If you're using `./hack/allocate.sh` for development/testing, Tekton and PAC are automatically installed.
 

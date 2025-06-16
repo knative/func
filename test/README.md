@@ -27,7 +27,7 @@ a Kubernetes Cluster with the following deployed:
 - Tekton Tasks listed [here](../docs/reference/on_cluster_build.md)
 - Embedded Git Server (`func-git`) used by tests
 
-When using `./hack/allocate.sh` to create a test cluster, Tekton and PAC (Pipelines-as-Code) 
+When using `./hack/allocate.sh` to create a test cluster, Tekton and PAC (Pipelines-as-Code)
 are automatically installed. You only need to install the Git Server:
 ```
 $ ./hack/install-git-server.sh
