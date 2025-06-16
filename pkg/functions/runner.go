@@ -218,8 +218,9 @@ func runPython(ctx context.Context, job *Job) (err error) {
 	}
 
 	// Run
+	listenAddress := net.JoinHostPort(job.Host, job.Port)
 	if job.verbose {
-		fmt.Printf("PORT=%v ./.venv/bin/python ./service/main.py\n", job.Port)
+		fmt.Printf("PORT=%v LISTEN_ADDRESS=%v ./.venv/bin/python ./service/main.py\n", job.Port, listenAddress)
 	}
 	cmd = exec.CommandContext(ctx, "./.venv/bin/python", "./service/main.py")
 	// cmd.Dir = job.Function.Root // handled by the middleware
@@ -232,7 +233,7 @@ func runPython(ctx context.Context, job *Job) (err error) {
 	//   PWD environment variable for the subprocess to match Dir.
 	//   The new method Cmd.Environ reports the environment that would be used
 	//   to run the command, including the implicitly set PWD variable.
-	cmd.Env = append(cmd.Env, "PORT="+job.Port, "PWD="+cmd.Dir)
+	cmd.Env = append(cmd.Env, "PORT="+job.Port, "LISTEN_ADDRESS="+listenAddress, "PWD="+cmd.Dir)
 
 	// Running asynchronously allows for the client Run method to return
 	// metadata about the running function such as its chosen port.
