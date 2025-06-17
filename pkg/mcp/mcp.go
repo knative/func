@@ -72,6 +72,25 @@ func NewServer() *MCPServer {
 		handleListTool,
 	)
 
+	mcpServer.AddTool(
+		mcp.NewTool("build",
+			mcp.WithDescription("Builds the function image in the current directory"),
+			mcp.WithString("cwd",
+				mcp.Required(),
+				mcp.Description("Current working directory of the MCP client"),
+			),
+			mcp.WithString("builder",
+				mcp.Required(),
+				mcp.Description("Builder to be used to build the function image"),
+			),
+			mcp.WithString("registry",
+				mcp.Required(),
+				mcp.Description("Name of the registry to be used to push the function image"),
+			),
+		),
+		handleBuildTool,
+	)
+
 	return &MCPServer{
 		server: mcpServer,
 	}
@@ -147,6 +166,33 @@ func handleListTool(
 	request mcp.CallToolRequest,
 ) (*mcp.CallToolResult, error) {
 	cmd := exec.Command("func", "list")
+	out, err := cmd.Output()
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
+	return mcp.NewToolResultText(string(body)), nil
+}
+
+func handleBuildTool(
+	ctx context.Context,
+	request mcp.CallToolRequest,
+) (*mcp.CallToolResult, error) {
+	cwd, err := request.RequireString("cwd")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	builder, err := request.RequireString("builder")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	registry, err := request.RequireString("registry")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	cmd := exec.Command("func", "build", "--builder", builder, "--registry", registry)
+	cmd.Dir = cwd
 	out, err := cmd.Output()
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
