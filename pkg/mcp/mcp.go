@@ -91,6 +91,17 @@ func NewServer() *MCPServer {
 		handleBuildTool,
 	)
 
+	mcpServer.AddTool(
+		mcp.NewTool("delete",
+			mcp.WithDescription("Deletes a function from the cluster"),
+			mcp.WithString("name",
+				mcp.Required(),
+				mcp.Description("Name of the function to be deleted"),
+			),
+		),
+		handleDeleteTool,
+	)
+
 	return &MCPServer{
 		server: mcpServer,
 	}
@@ -193,6 +204,23 @@ func handleBuildTool(
 
 	cmd := exec.Command("func", "build", "--builder", builder, "--registry", registry)
 	cmd.Dir = cwd
+	out, err := cmd.Output()
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
+	return mcp.NewToolResultText(string(body)), nil
+}
+
+func handleDeleteTool(
+	ctx context.Context,
+	request mcp.CallToolRequest,
+) (*mcp.CallToolResult, error) {
+	name, err := request.RequireString("name")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	cmd := exec.Command("func", "delete", name)
 	out, err := cmd.Output()
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
