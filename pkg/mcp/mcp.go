@@ -61,6 +61,10 @@ func NewServer() *MCPServer {
 				mcp.Required(),
 				mcp.Description("Builder to be used to build the function image"),
 			),
+			mcp.WithBoolean("remote",
+				mcp.DefaultBool(false),
+				mcp.Description("If true, the function will be deployed remotely"),
+			),
 		),
 		handleDeployTool,
 	)
@@ -162,7 +166,16 @@ func handleDeployTool(
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	cmd := exec.Command("func", "deploy", "--registry", registry, "--builder", builder)
+	remote, err := request.RequireBool("remote")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	var cmd *exec.Cmd
+	if remote {
+		cmd = exec.Command("func", "deploy", "--registry", registry, "--builder", builder, "--remote")
+	} else {
+		cmd = exec.Command("func", "deploy", "--registry", registry, "--builder", builder)
+	}
 	cmd.Dir = cwd
 	out, err := cmd.Output()
 	if err != nil {
