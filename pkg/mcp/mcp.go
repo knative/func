@@ -91,6 +91,17 @@ func NewServer() *MCPServer {
 		handleBuildTool,
 	)
 
+	mcpServer.AddResource(mcp.NewResource(
+		"func://docs",
+		"Root Help Command",
+		mcp.WithResourceDescription("--help output of the func command"),
+		mcp.WithMIMEType("text/plain"),
+	), handleRootHelpResource)
+
+	mcpServer.AddPrompt(mcp.NewPrompt("help",
+		mcp.WithPromptDescription("help prompt for the root command"),
+	), handleHelpPrompt)
+
 	return &MCPServer{
 		server: mcpServer,
 	}
@@ -98,6 +109,40 @@ func NewServer() *MCPServer {
 
 func (s *MCPServer) Start() error {
 	return server.ServeStdio(s.server)
+}
+
+func handleRootHelpResource(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+	content, err := exec.Command("func", "--help").Output()
+	if err != nil {
+		return nil, err
+	}
+
+	return []mcp.ResourceContents{
+		mcp.TextResourceContents{
+			URI:      "func://docs",
+			MIMEType: "text/plain",
+			Text:     string(content),
+		},
+	}, nil
+}
+
+func handleHelpPrompt(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	return mcp.NewGetPromptResult(
+		"Help Prompt",
+		[]mcp.PromptMessage{
+			mcp.NewPromptMessage(
+				mcp.RoleUser,
+				mcp.NewTextContent("What can I do with the func command?"),
+			),
+			mcp.NewPromptMessage(
+				mcp.RoleAssistant,
+				mcp.NewEmbeddedResource(mcp.TextResourceContents{
+					URI:      "func://docs",
+					MIMEType: "text/plain",
+				}),
+			),
+		},
+	), nil
 }
 
 func handleHealthCheckTool(
