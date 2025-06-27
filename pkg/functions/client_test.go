@@ -1740,7 +1740,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	// Create a client with a mock runner which will report the port at which the
 	// interloping function is listening.
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function, _ time.Duration) (*fn.Job, error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
 		stop := func() error { return nil }
@@ -1842,7 +1842,7 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 
 	// Create a client with a mock Runner which returns its address.
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function, _ time.Duration) (*fn.Job, error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
 		stop := func() error { return nil }
@@ -1896,7 +1896,7 @@ func TestClient_Instances(t *testing.T) {
 
 	// A mock runner
 	runner := mock.NewRunner()
-	runner.RunFn = func(_ context.Context, f fn.Function, _ time.Duration) (*fn.Job, error) {
+	runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
 		errs := make(chan error, 10)
 		stop := func() error { return nil }
 		return fn.NewJob(f, "127.0.0.1", "8080", errs, stop, false)

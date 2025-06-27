@@ -133,7 +133,7 @@ type Runner interface {
 	// a stop function.  The process can be stopped by running the returned stop
 	// function, either on context cancellation or in a defer.
 	// The duration is the time to wait for the job to start.
-	Run(context.Context, Function, time.Duration) (*Job, error)
+	Run(context.Context, Function, string, time.Duration) (*Job, error)
 }
 
 // Remover of deployed services.
@@ -176,11 +176,12 @@ type Instance struct {
 	Route string
 	// Routes is the primary route plus any other route at which the function
 	// can be contacted.
-	Routes        []string       `json:"routes" yaml:"routes"`
-	Name          string         `json:"name" yaml:"name"`
-	Image         string         `json:"image" yaml:"image"`
-	Namespace     string         `json:"namespace" yaml:"namespace"`
-	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`
+	Routes        []string          `json:"routes" yaml:"routes"`
+	Name          string            `json:"name" yaml:"name"`
+	Image         string            `json:"image" yaml:"image"`
+	Namespace     string            `json:"namespace" yaml:"namespace"`
+	Subscriptions []Subscription    `json:"subscriptions" yaml:"subscriptions"`
+	Labels        map[string]string `json:"labels" yaml:"labels"`
 }
 
 // Subscriptions currently active to event sources
@@ -906,6 +907,7 @@ func (c *Client) Route(ctx context.Context, f Function) (string, Function, error
 
 type RunOptions struct {
 	StartTimeout time.Duration
+	Address      string
 }
 
 type RunOption func(c *RunOptions)
@@ -917,6 +919,12 @@ type RunOption func(c *RunOptions)
 func RunWithStartTimeout(t time.Duration) RunOption {
 	return func(c *RunOptions) {
 		c.StartTimeout = t
+	}
+}
+
+func RunWithAddress(address string) RunOption {
+	return func(c *RunOptions) {
+		c.Address = address
 	}
 }
 
@@ -944,7 +952,7 @@ func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job
 
 	// Run the function, which returns a Job for use interacting (at arms length)
 	// with that running task (which is likely inside a container process).
-	if job, err = c.runner.Run(ctx, f, timeout); err != nil {
+	if job, err = c.runner.Run(ctx, f, oo.Address, timeout); err != nil {
 		return
 	}
 
