@@ -48,7 +48,7 @@ the current directory or from the directory specified with --path.
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|json) ($FUNC_OUTPUT)")
 
 	configEnvsAddCmd := NewConfigEnvsAddCmd(loadSaver)
-	configEnvsRemoveCmd := NewConfigEnvsRemoveCmd()
+	configEnvsRemoveCmd := NewConfigEnvsRemoveCmd(loadSaver)
 
 	addPathFlag(cmd)
 	addPathFlag(configEnvsAddCmd)
@@ -139,8 +139,8 @@ set environment variable from a secret
 	return cmd
 }
 
-func NewConfigEnvsRemoveCmd() *cobra.Command {
-	return &cobra.Command{
+func NewConfigEnvsRemoveCmd(loadSaver functionLoaderSaver) *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Remove environment variable from the function configuration",
 		Long: `Remove environment variable from the function configuration
@@ -150,16 +150,39 @@ in the current directory or from the directory specified with --path.
 `,
 		Aliases:    []string{"rm"},
 		SuggestFor: []string{"del", "delete", "rmeove"},
-		PreRunE:    bindEnv("path", "verbose"),
+		PreRunE:    bindEnv("path", "name", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(defaultLoaderSaver)
+			function, err := initConfigCommand(loadSaver)
 			if err != nil {
 				return
+			}
+
+			var name string
+			if cmd.Flags().Changed("name") {
+				s, e := cmd.Flags().GetString("name")
+				if e != nil {
+					return e
+				}
+				name = s
+			}
+
+			if name != "" {
+				envs := []fn.Env{}
+				for _, v := range function.Run.Envs {
+					if *v.Name != name {
+						envs = append(envs, v)
+					}
+				}
+				function.Run.Envs = envs
+				return loadSaver.Save(function)
 			}
 
 			return runRemoveEnvsPrompt(function)
 		},
 	}
+
+	cmd.Flags().StringP("name", "", "", "Name of the environment variable.")
+	return cmd
 
 }
 

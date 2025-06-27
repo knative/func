@@ -18,6 +18,7 @@ func config envs remove
 
 ```
   -h, --help          help for remove
+      --name string   Name of the environment variable.
   -p, --path string   Path to the function.  Default is current directory ($FUNC_PATH)
   -v, --verbose       Print verbose logs ($FUNC_VERBOSE)
 ```
