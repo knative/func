@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -777,6 +779,36 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	if !f.Local.Remote && (f.Build.Git.URL != "" || f.Build.Git.Revision != "" || f.Build.Git.ContextDir != "") {
 		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
 	}
+
+	// Git Branch Mismatch
+	// -------------------
+	// When doing a remote build with --git-branch, warn if the local branch
+	// doesn't match, as this can lead to confusion about which func.yaml is used.
+	if f.Local.Remote && f.Build.Git.URL != "" && f.Build.Git.Revision != "" {
+		// Doing a remote build, specified a git repository to pull from, and
+		// specified a reference within that remote.
+		currentBranch, err := getCurrentGitBranch()
+		if err != nil {
+			fmt.Fprintf(out, "Warning: unable to verify local and remote references match. %v\n", err)
+		} else if currentBranch != f.Build.Git.Revision {
+			fmt.Fprintf(out, "Warning: Local git branch '%s' does not match --git-branch '%s'. The local func.yaml will be used for function metadata (name, runtime, etc). Ensure your local branch matches the remote branch to avoid deployment issues.\n", currentBranch, f.Build.Git.Revision)
+		}
+	}
+}
+
+// getCurrentGitBranch returns the current git branch name
+func getCurrentGitBranch() (string, error) {
+	gitCmd := os.Getenv("FUNC_GIT")
+	if gitCmd == "" {
+		gitCmd = "git"
+	}
+
+	cmd := exec.Command(gitCmd, "rev-parse", "--abbrev-ref", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
 }
 
 // isDigested checks that the given image reference has a digest. Invalid
