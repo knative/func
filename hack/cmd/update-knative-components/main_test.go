@@ -25,6 +25,8 @@ set_versions() {
 	knative_serving_version="v1.2.3"
 	knative_eventing_version="v1.4.5"
 	contour_version="v1.4.6"
+	tekton_version="v0.56.4"
+	pac_version="v0.24.6"
 }
 `
 
@@ -32,7 +34,9 @@ const expectedJson string = `{
 	"KindNode": "v1.30",
 	"Serving": "v1.2.3",
 	"Eventing": "v1.4.5",
-	"Contour": "v1.4.6"
+	"Contour": "v1.4.6",
+	"Tekton": "v0.56.4",
+	"Pac": "v0.24.6"
 }
 `
 
@@ -44,7 +48,9 @@ func TestRead(t *testing.T) {
 	"Serving": "v1.14",
 	"Eventing": "v1.15",
 	"Contour": "v1.61",
-	"KindNode": "1.3456"
+	"KindNode": "1.3456",
+	"Tekton": "v0.50.0",
+	"Pac": "v0.20.0"
 }
 `
 	tmpJson := path.Join(dir, "json.json")
@@ -72,6 +78,8 @@ func TestWrite(t *testing.T) {
 		Eventing: "v1.4.5",
 		Contour:  "v1.4.6",
 		KindNode: "v1.30",
+		Tekton:   "v0.56.4",
+		Pac:      "v0.24.6",
 	}
 
 	// write to script (generate it)
