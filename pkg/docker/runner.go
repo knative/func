@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	// DefaultHost is the standard ipv4 looback
-	DefaultHost = "127.0.0.1"
+	// DefaultHost is the standard ipv6 looback
+	DefaultHost = "::1"
 
 	// DefaultPort is used as the preferred port, and in the unlikly event of an
 	// error querying the OS for a free port during allocation.
