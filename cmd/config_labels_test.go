@@ -172,9 +172,9 @@ func TestListLabels(t *testing.T) {
 	}()
 
 	expected := []string{
-		`Configured labels:`,
-		`-  Label with key "a" and value "b"`,
-		`-  Label with key "c" and value "d"`,
+		`Labels:`,
+		` -  Label with key "a" and value "b"`,
+		` -  Label with key "c" and value "d"`,
 	}
 
 	// prevents the ExpectString() function from waiting indefinitely

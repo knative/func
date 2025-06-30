@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"knative.dev/func/pkg/config"
@@ -24,16 +27,14 @@ the current directory or from the directory specified with --path.
 `,
 		Aliases:    []string{"label"},
 		SuggestFor: []string{"albels", "abels"},
-		PreRunE:    bindEnv("path", "verbose"),
+		PreRunE:    bindEnv("path", "output", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
 				return
 			}
 
-			listLabels(function)
-
-			return
+			return listLabels(function, cmd.OutOrStdout(), Format(viper.GetString("output")))
 		},
 	}
 
@@ -42,18 +43,52 @@ the current directory or from the directory specified with --path.
 		Short: "Add labels to the function configuration",
 		Long: `Add labels to the function configuration
 
-Interactive prompt to add labels to the function project in the current
-directory or from the directory specified with --path.
+If label is not set explicitly by flag, interactive prompt is used.
 
 The label can be set directly from a value or from an environment variable on
 the local machine.
 `,
+		Example: `# set label directly
+{{rootCmdUse}} config labels add --name=Foo --value=Bar
+
+# set label from local env $FOO
+{{rootCmdUse}} config labels add --name=Foo --value='{{"{{"}} env:FOO {{"}}"}}'`,
 		SuggestFor: []string{"ad", "create", "insert", "append"},
-		PreRunE:    bindEnv("path", "verbose"),
+		PreRunE:    bindEnv("path", "name", "value", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
 				return
+			}
+
+			var np *string
+			var vp *string
+
+			if cmd.Flags().Changed("name") {
+				s, e := cmd.Flags().GetString("name")
+				if e != nil {
+					return e
+				}
+				np = &s
+			}
+			if cmd.Flags().Changed("value") {
+				s, e := cmd.Flags().GetString("value")
+				if e != nil {
+					return e
+				}
+				vp = &s
+			}
+
+			if np != nil && vp != nil {
+				if err := utils.ValidateLabelKey(*np); err != nil {
+					return err
+				}
+				if err := utils.ValidateLabelValue(*vp); err != nil {
+					return err
+				}
+
+				function.Deploy.Labels = append(function.Deploy.Labels, fn.Label{Key: np, Value: vp})
+				return loaderSaver.Save(function)
 			}
 
 			return runAddLabelsPrompt(cmd.Context(), function, loaderSaver)
@@ -70,11 +105,31 @@ directory or from the directory specified with --path.
 `,
 		Aliases:    []string{"rm"},
 		SuggestFor: []string{"del", "delete", "rmeove"},
-		PreRunE:    bindEnv("path", "verbose"),
+		PreRunE:    bindEnv("path", "name", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
 				return
+			}
+
+			var name string
+			if cmd.Flags().Changed("name") {
+				s, e := cmd.Flags().GetString("name")
+				if e != nil {
+					return e
+				}
+				name = s
+			}
+
+			if name != "" {
+				labels := []fn.Label{}
+				for _, v := range function.Deploy.Labels {
+					if v.Key == nil || *v.Key != name {
+						labels = append(labels, v)
+					}
+				}
+				function.Deploy.Labels = labels
+				return loaderSaver.Save(function)
 			}
 
 			return runRemoveLabelsPrompt(function, loaderSaver)
@@ -85,6 +140,12 @@ directory or from the directory specified with --path.
 	if err != nil {
 		fmt.Fprintf(configLabelsCmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
+
+	// Add flags
+	configLabelsCmd.Flags().StringP("output", "o", "human", "Output format (human|json)")
+	configLabelsAddCmd.Flags().StringP("name", "", "", "Name of the label.")
+	configLabelsAddCmd.Flags().StringP("value", "", "", "Value of the label.")
+	configLabelsRemoveCmd.Flags().StringP("name", "", "", "Name of the label.")
 
 	addPathFlag(configLabelsCmd)
 	addPathFlag(configLabelsAddCmd)
@@ -99,15 +160,27 @@ directory or from the directory specified with --path.
 	return configLabelsCmd
 }
 
-func listLabels(f fn.Function) {
-	if len(f.Deploy.Labels) == 0 {
-		fmt.Println("There aren't any configured labels")
-		return
-	}
+func listLabels(f fn.Function, w io.Writer, outputFormat Format) error {
+	switch outputFormat {
+	case Human:
+		if len(f.Deploy.Labels) == 0 {
+			_, err := fmt.Fprintln(w, "No labels defined")
+			return err
+		}
 
-	fmt.Println("Configured labels:")
-	for _, e := range f.Deploy.Labels {
-		fmt.Println(" - ", e.String())
+		fmt.Fprintln(w, "Labels:")
+		for _, e := range f.Deploy.Labels {
+			_, err := fmt.Fprintln(w, " - ", e.String())
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	case JSON:
+		enc := json.NewEncoder(w)
+		return enc.Encode(f.Deploy.Labels)
+	default:
+		return fmt.Errorf("invalid format: %v", outputFormat)
 	}
 }
 
