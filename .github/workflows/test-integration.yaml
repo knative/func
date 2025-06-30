@@ -52,10 +52,6 @@ jobs:
         run: ./hack/registry.sh
       - name: Setup testing images
         run: ./hack/setup-testing-images.sh
-      - name: Install Tekton
-        run: ./hack/install-tekton.sh
-      - name: Install Pipelines as Code
-        run: ./hack/install-pac.sh
       - name: Install Gitlab
         run: ./hack/install-gitlab.sh
       - name: Patch Hosts

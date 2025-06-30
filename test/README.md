@@ -27,12 +27,8 @@ a Kubernetes Cluster with the following deployed:
 - Tekton Tasks listed [here](../docs/reference/on_cluster_build.md)
 - Embedded Git Server (`func-git`) used by tests
 
-For your convenience you can run the following script to setup Tekton and required Tasks:
-```
-$ ./hack/install-tekton.sh
-```
-
-To install the Git Server required by tests, run:
+When using `./hack/allocate.sh` to create a test cluster, Tekton and PAC (Pipelines-as-Code)
+are automatically installed. You only need to install the Git Server:
 ```
 $ ./hack/install-git-server.sh
 ```
@@ -42,8 +38,7 @@ $ ./hack/install-git-server.sh
 The below instructions will run all the tests on KinD using an **ephemeral** container registry.
 ```
 # Pre-Reqs
-./hack/allocate.sh
-./hack/install-tekton.sh
+./hack/allocate.sh  # This automatically installs Tekton and PAC
 ./hack/install-git-server.sh
 make build
 
