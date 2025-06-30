@@ -139,7 +139,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 		case "Environment variables":
 			err = listEnvs(function, cmd.OutOrStdout(), Human)
 		case "Labels":
-			listLabels(function)
+			err = listLabels(function, cmd.OutOrStdout(), Human)
 		case "Git":
 			err = runConfigGitCmd(cmd, NewClient)
 		}
