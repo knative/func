@@ -53,7 +53,7 @@ EXAMPLES
 	  $ func run --container=false
 
 	o Run the function locally on a specific address.
-	  $ func run --address=0.0.0.0:8081
+	  $ func run --address='[::]:8081'
 
 	o Run the function locally and output JSON with the service address.
 	  $ func run --json
