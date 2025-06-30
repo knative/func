@@ -219,7 +219,7 @@ test-integration: ## Run integration tests using an available cluster.
 	go test -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
 
 .PHONY: func-instrumented
-func-instrumented: ## Func binary that is instrumented for e2e tests
+func-instrumented: # func binary instrumented with coverage reporting
 	env CGO_ENABLED=1 go build -cover -o func ./cmd/$(BIN)
 
 .PHONY: test-e2e
