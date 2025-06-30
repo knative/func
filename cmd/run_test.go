@@ -21,6 +21,7 @@ func TestRun_Run(t *testing.T) {
 		runError     error                               // Set the runner to yield this error
 		buildInvoked bool                                // should Builder.Build be invoked?
 		runInvoked   bool                                // should Runner.Run be invoked?
+		jsonOutput   bool                                // expect JSON output format
 	}{
 		{
 			name:         "run and build by default",
@@ -99,6 +100,14 @@ func TestRun_Run(t *testing.T) {
 			buildError:   fmt.Errorf("generic build error"),
 			buildInvoked: true,
 			runInvoked:   false,
+		},
+		{
+			name:         "run with json output",
+			desc:         "Should output JSON format when --json flag is used",
+			args:         []string{"--json"},
+			buildInvoked: true,
+			runInvoked:   true,
+			jsonOutput:   true,
 		},
 	}
 	for _, tt := range tests {
