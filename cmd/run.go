@@ -71,7 +71,7 @@ EXAMPLES
 	  $ {{rootCmdUse}} run --container=false
 
 	o Run the function locally on a specific address.
-	  $ {{rootCmdUse}} run --address=0.0.0.0:8081
+	  $ {{rootCmdUse}} run --address=[::]:8081
 
 	o Run the function locally and output JSON with the service address.
 	  $ {{rootCmdUse}} run --json
@@ -321,7 +321,7 @@ type runConfig struct {
 	// default of fn.DefaultStartTimeout.
 	StartTimeout time.Duration
 
-	// Address is the interface and port to bind (e.g. "0.0.0.0:8081")
+	// Address is the interface and port to bind (e.g. "[::]:8081")
 	Address string
 
 	// JSON output format

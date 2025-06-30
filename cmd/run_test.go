@@ -480,7 +480,7 @@ func TestRun_Address(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testAddr := "0.0.0.0:1234"
+	testAddr := "[::]:1234"
 
 	runner := mock.NewRunner()
 	runner.RunFn = func(_ context.Context, f fn.Function, addr string, _ time.Duration) (*fn.Job, error) {
