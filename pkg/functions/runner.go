@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -177,11 +176,7 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	//   A Cmd with a non-empty Dir field and nil Env now implicitly sets the PWD environment variable for the subprocess to match Dir.
 	//   The new method Cmd.Environ reports the environment that would be used to run the command, including the implicitly set PWD variable.
 	// cmd.Env = append(cmd.Environ(), "PORT="+job.Port) // requires go 1.19
-	var host = job.Host
-	if strings.Contains(host, ":") {
-		host = fmt.Sprintf("[%s]", host)
-	}
-	cmd.Env = append(cmd.Env, "LISTEN_ADDRESS="+host+":"+job.Port, "PWD="+cmd.Dir)
+	cmd.Env = append(cmd.Env, "LISTEN_ADDRESS="+net.JoinHostPort(job.Host, job.Port), "PWD="+cmd.Dir)
 
 	// Running asynchronously allows for the client Run method to return
 	// metadata about the running function such as its chosen port.
@@ -273,7 +268,7 @@ func runPython(ctx context.Context, job *Job) (err error) {
 
 func waitFor(ctx context.Context, job *Job, timeout time.Duration) error {
 	var (
-		uri      = fmt.Sprintf("http://%s:%s%s", job.Host, job.Port, readinessEndpoint)
+		uri      = fmt.Sprintf("http://%s%s", net.JoinHostPort(job.Host, job.Port), readinessEndpoint)
 		interval = 500 * time.Millisecond
 	)
 
