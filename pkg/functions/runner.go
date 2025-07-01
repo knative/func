@@ -171,17 +171,12 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	cmd.Stderr = os.Stderr
 
 	// cmd.Cancel = stop // TODO: use when we upgrade to go 1.20
-	//  TODO: Update the functions go runtime to accept LISTEN_ADDRESS rather
-	// than just port in able to allow listening on other interfaces
-	// (keeping the default localhost only)
-	if job.Host != "127.0.0.1" {
-		fmt.Fprintf(os.Stderr, "Warning: the Go functions runtime currently only supports localhost '127.0.0.1'.  Requested listen interface '%v' will be ignored.", job.Host)
-	}
+
 	// See the 1.19 [release notes](https://tip.golang.org/doc/go1.19) which state:
 	//   A Cmd with a non-empty Dir field and nil Env now implicitly sets the PWD environment variable for the subprocess to match Dir.
 	//   The new method Cmd.Environ reports the environment that would be used to run the command, including the implicitly set PWD variable.
 	// cmd.Env = append(cmd.Environ(), "PORT="+job.Port) // requires go 1.19
-	cmd.Env = append(cmd.Env, "PORT="+job.Port, "PWD="+cmd.Dir)
+	cmd.Env = append(cmd.Env, "LISTEN_ADDRESS="+net.JoinHostPort(job.Host, job.Port), "PWD="+cmd.Dir)
 
 	// Running asynchronously allows for the client Run method to return
 	// metadata about the running function such as its chosen port.
@@ -274,7 +269,7 @@ func runPython(ctx context.Context, job *Job) (err error) {
 
 func waitFor(ctx context.Context, job *Job, timeout time.Duration) error {
 	var (
-		uri      = fmt.Sprintf("http://%s:%s%s", job.Host, job.Port, readinessEndpoint)
+		uri      = fmt.Sprintf("http://%s%s", net.JoinHostPort(job.Host, job.Port), readinessEndpoint)
 		interval = 500 * time.Millisecond
 	)
 
