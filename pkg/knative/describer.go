@@ -98,5 +98,10 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (descr
 
 	description.Subscriptions = subscriptions
 
+	// Populate labels from the service
+	if service.Labels != nil {
+		description.Labels = service.Labels
+	}
+
 	return
 }

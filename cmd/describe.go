@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -81,6 +82,9 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 		if err != nil {
 			return err
 		}
+		if !f.Initialized() {
+			return errors.New("function not found at this path and no name provided")
+		}
 		details, err = client.Describe(cmd.Context(), "", "", f)
 		if err != nil {
 			return err
@@ -153,6 +157,13 @@ func (i info) Human(w io.Writer) error {
 			fmt.Fprintf(w, "  %v %v %v\n", s.Source, s.Type, s.Broker)
 		}
 	}
+
+	if len(i.Labels) > 0 {
+		fmt.Fprintln(w, "Labels:")
+		for k, v := range i.Labels {
+			fmt.Fprintf(w, "  %v: %v\n", k, v)
+		}
+	}
 	return nil
 }
 
@@ -168,6 +179,12 @@ func (i info) Plain(w io.Writer) error {
 	if len(i.Subscriptions) > 0 {
 		for _, s := range i.Subscriptions {
 			fmt.Fprintf(w, "Subscription %v %v %v\n", s.Source, s.Type, s.Broker)
+		}
+	}
+
+	if len(i.Labels) > 0 {
+		for k, v := range i.Labels {
+			fmt.Fprintf(w, "Label %v %v\n", k, v)
 		}
 	}
 	return nil
