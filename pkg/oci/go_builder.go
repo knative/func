@@ -25,6 +25,7 @@ func (b goBuilder) Base() string {
 func (b goBuilder) Configure(_ buildJob, _ v1.Platform, cf v1.ConfigFile) (v1.ConfigFile, error) {
 	// : Using Cmd rather than Entrypoint due to it being overrideable.
 	cf.Config.Cmd = []string{"/func/f"}
+	cf.Config.Env = append(cf.Config.Env, "LISTEN_ADDRESS=[::]:8080")
 	return cf, nil
 }
 

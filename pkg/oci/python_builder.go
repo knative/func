@@ -31,7 +31,7 @@ func (b pythonBuilder) Configure(job buildJob, _ v1.Platform, cf v1.ConfigFile) 
 		svcPath       = filepath.Join("/func", svcRelPath)              // eg /func/.func/builds/by-hash/$HASH
 		pythonPathEnv = fmt.Sprintf("PYTHONPATH=%v/lib", svcPath)
 		mainPath      = fmt.Sprintf("%v/service/main.py", svcPath)
-		listenAddrEnv = "LISTEN_ADDRESS=0.0.0.0:8080"
+		listenAddrEnv = "LISTEN_ADDRESS=[::]:8080"
 	)
 
 	cf.Config.Env = append(cf.Config.Env, pythonPathEnv, listenAddrEnv)

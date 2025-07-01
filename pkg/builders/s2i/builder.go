@@ -179,7 +179,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		return err
 	}
 
-	buildEnvs["LISTEN_ADDRESS"] = "0.0.0.0:8080"
+	buildEnvs["LISTEN_ADDRESS"] = "[::]:8080"
 	for k, v := range buildEnvs {
 		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{Name: k, Value: v})
 	}
