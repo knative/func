@@ -182,6 +182,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		opts.ContainerConfig.Network = "host"
 	}
 
+	if _, ok := opts.Env["BPE_DEFAULT_LISTEN_ADDRESS"]; !ok {
+		opts.Env["BPE_DEFAULT_LISTEN_ADDRESS"] = "[::]:8080"
+	}
+
 	var bindings = make([]string, 0, len(f.Build.Mounts))
 	for _, m := range f.Build.Mounts {
 		bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
