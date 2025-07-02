@@ -200,7 +200,7 @@ func TestFunctionSubscribeEvents(t *testing.T) {
 		}
 		waitChan <- true
 	}()
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// Invoke Producer func to force Event A to be emitted. The event should be received by func
 	testhttp.TestGet(t, funcSubTest.FuncProducerUrl+"?type="+funcSubTest.SubscribeToEventType+"&message=EVENT_A_CATCH_ME")
