@@ -344,7 +344,6 @@ func NewSSHClientConfig(url *urlPkg.URL, credentialsConfig Config) (*ssh.ClientC
 			ssh.KeyAlgoRSASHA256,
 			ssh.KeyAlgoRSASHA512,
 			ssh.KeyAlgoRSA,
-			ssh.KeyAlgoDSA,
 		},
 		Timeout: sshTimeout * time.Second,
 	}
