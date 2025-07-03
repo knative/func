@@ -222,21 +222,18 @@ templates/certs/ca-certificates.crt:
 test-integration: ## Run integration tests using an available cluster.
 	go test -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
 
-.PHONY: func-instrumented
-func-instrumented: # func binary instrumented with coverage reporting
+.PHONY: func-instrumented-bin
+func-instrumented-bin: # func binary instrumented with coverage reporting
 	env CGO_ENABLED=1 go build -cover -o func ./cmd/$(BIN)
 
-.PHONY: test-e2e
-test-e2e: func-instrumented ## Run end-to-end tests using an available cluster.
-	./test/e2e_extended_tests.sh
-
-.PHONY: test-e2e-runtime
-test-e2e-runtime: func-instrumented ## Run end-to-end lifecycle tests using an available cluster for a single runtime.
-	./test/e2e_lifecycle_tests.sh $(runtime)
-
-.PHONY: test-e2e-on-cluster
-test-e2e-on-cluster: func-instrumented ## Run end-to-end on-cluster build tests using an available cluster.
-	./test/e2e_oncluster_tests.sh
+.PHONY: test-all
+test-all: func-instrumented-bin ## Run all tests (unit, integration, e2e)
+	@echo "Running unit and integration tests..."
+	go test -tags "integration" -cover -timeout 30m --coverprofile=coverage.txt ./... -v
+	@echo "Running E2E tests..."
+	go test -tags "e2e" -cover -timeout 30m --coverprofile=coverage-e2e.txt ./e2e -v
+	@echo "Merging coverage reports..."
+	@cat coverage-e2e.txt >> coverage.txt && rm coverage-e2e.txt
 
 ######################
 ##@ Release Artifacts
@@ -296,8 +293,8 @@ schema-generate: schema/func_yaml-schema.json ## Generate func.yaml schema
 schema/func_yaml-schema.json: pkg/functions/function.go pkg/functions/function_*.go
 	go run schema/generator/main.go
 
-.PHONY: schema-check
-schema-check: ## Check that func.yaml schema is up-to-date
+.PHONY: check-schema
+check-schema: ## Check that func.yaml schema is up-to-date
 	mv schema/func_yaml-schema.json schema/func_yaml-schema-previous.json
 	make schema-generate
 	diff schema/func_yaml-schema.json schema/func_yaml-schema-previous.json ||\
