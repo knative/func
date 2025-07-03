@@ -386,6 +386,26 @@
 					"type": "array",
 					"description": "Env variables to be set"
 				},
+				"podSecurityContext": {
+					"properties": {
+						"RunAsUser": {
+							"pattern": "^[-._a-zA-Z][-._a-zA-Z0-9]*$",
+							"type": "integer"
+						},
+						"RunAsGroup": {
+							"type": "integer"
+						},
+						"RunAsNonRoot":{
+							"type": "boolean"
+						},
+						"FSGroup":{
+							"type":"integer"
+						}
+					},
+					"additionalProperties": false,
+					"type": "object"
+                    
+				},
 				"startTimeout": {
 					"type": "integer",
 					"description": "StartTimeout specifies that this function should have a custom timeout\nwhen starting. This setting is currently respected by the host runner,\nwith containerized docker runner and deployed Knative service integration\nin development."
