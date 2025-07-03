@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -51,7 +50,7 @@ the current directory or from the directory specified with --path.
 	}
 
 	// Flags
-	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) ($FUNC_OUTPUT)")
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|yaml|url) ($FUNC_OUTPUT)")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace in which to look for the named function. ($FUNC_NAMESPACE)")
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
@@ -228,7 +227,7 @@ func (i info) JSON(w io.Writer) error {
 }
 
 func (i info) XML(w io.Writer) error {
-	return xml.NewEncoder(w).Encode(i)
+	return errors.New("XML export not currently supported")
 }
 
 func (i info) YAML(w io.Writer) error {

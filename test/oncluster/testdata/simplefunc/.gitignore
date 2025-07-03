@@ -1,4 +1,0 @@
-
-# Functions use the .func directory for local runtime data which should
-# generally not be tracked in source control:
-/.func
