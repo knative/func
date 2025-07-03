@@ -11,7 +11,7 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-func TestRoundTripper(t *testing.T) {
+func TestInt_RoundTripper(t *testing.T) {
 	if !k8s.IsOpenShift() {
 		t.Skip("The cluster in not an instance of OpenShift.")
 		return
