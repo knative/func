@@ -1,0 +1,520 @@
+name: Functions
+
+# To run this workflow's tests locally, see ./hack/test-full.sh
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Global version definitions
+env:
+  PYTHON_VERSION: '3.10'
+  NODE_VERSION: '20'
+  JAVA_VERSION: '21'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  # --------
+  # PRECHECK
+  # --------
+  precheck:
+    name: Precheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+
+      - name: Check and Lint
+        run: make check
+      - name: Check Generated Schema File
+        run: make check-schema
+      - name: Check Templates
+        run: make check-templates
+      - name: Check Embedded FS
+        run: make check-embedded-fs
+
+  # ----------
+  # UNIT TESTS
+  # ----------
+  test-unit:
+    name: Unit Tests
+    needs: precheck
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - "ubuntu-latest"
+          - "macos-latest"
+          - "windows-latest"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Disable CRLF conversion (Windows)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+
+      - name: Run Unit Tests
+        run: make test
+
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          flags: unit ${{ matrix.os }}
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # --------------
+  # TEMPLATE TESTS
+  # --------------
+  test-templates:
+    name: Template Tests
+    needs: precheck
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - "ubuntu-latest"
+          - "macos-latest"
+          - "windows-latest"
+    runs-on: ${{ matrix.os }}
+    steps:
+        # Setup
+      - name: Disable CRLF conversion (Windows)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+
+        # Toolchains
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+        # Run
+      - name: Templates Tests
+        run: make test-templates
+
+
+  # -----------------
+  # INTEGRATION TESTS
+  # -----------------
+  test-integration:
+    name: Integration Tests
+    needs: precheck
+    runs-on: ubuntu-latest
+    env:
+      FUNC_CLUSTER_RETRIES: 5
+      FUNC_INT_TEKTON_ENABLED: true
+      FUNC_INT_GITLAB_ENABLED: true
+      FUNC_INT_GITLAB_HOSTNAME: gitlab.localtest.me
+      FUNC_TEST_GITLAB_PASS: test-password-123
+      FUNC_INT_PAC_HOST: pac-ctr.localtest.me
+      KUBECONFIG: ${{github.workspace}}/hack/bin/kubeconfig.yaml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+
+      - name: Free up disk space
+        run: |
+          echo "Starting disk cleanup for CI environment..."
+          echo "Initial disk usage:"
+          df -h /
+
+          echo "Removing Android SDK (9.5GB)..."
+          sudo rm -rf /usr/local/lib/android || true
+
+          echo "Removing Haskell/GHC (6.3GB)..."
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /opt/ghc || true
+
+          echo "Removing .NET and PowerShell (1.3GB+)..."
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo rm -rf /opt/microsoft/powershell || true
+
+          echo "Removing Julia (991MB)..."
+          sudo rm -rf /usr/local/julia* || true
+
+          echo "Removing browsers (1GB+)..."
+          sudo rm -rf /usr/local/share/chromium || true
+          sudo rm -rf /opt/google/chrome || true
+          sudo rm -rf /opt/microsoft/msedge || true
+
+          echo "Removing CodeQL (1.6GB)..."
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+
+          echo "Removing Azure CLI (649MB)..."
+          sudo rm -rf /opt/az || true
+
+          echo "Removing unused language runtimes..."
+          sudo rm -rf /opt/hostedtoolcache/Ruby || true
+          sudo rm -rf /opt/hostedtoolcache/PyPy || true
+
+          echo "Cleaning package manager caches..."
+          sudo apt-get clean || true
+
+          echo "Final disk usage after cleanup:"
+          df -h /
+
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/cluster.sh
+      - name: Start Local Registry
+        run: ./hack/registry.sh
+      - name: Prepare Images
+        run: ./hack/images.sh
+      - name: Install Gitlab
+        run: ./hack/gitlab.sh
+      - name: Install Git Server
+        run: ./hack/git-server.sh
+
+      - name: Run Integration Tests
+        run: make test-integration
+
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          flags: integration
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Preserve Cluser Logs
+      - name: Dump Cluster Logs
+        if: always()
+        run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Archive Cluster Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs-integration
+          path: ./cluster_log.txt
+          retention-days: 7
+
+  # ---------
+  # E2E TESTS
+  # ---------
+  # Runs Core, Metadata, and Remote
+  test-e2e:
+    name: E2E - Core, Metadata, and Remote
+    needs: precheck
+    runs-on: ubuntu-latest
+    env:
+      FUNC_CLUSTER_RETRIES: 5
+      FUNC_E2E_CLEAN: false # cluster only used once
+      FUNC_E2E_VERBOSE: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/cluster.sh
+      - name: Start Local Registry
+        run: ./hack/registry.sh
+      - name: Prepare Images
+        run: ./hack/images.sh
+
+      - name: Run Basic E2E Tests (core, metadata, remote)
+        run: make test-e2e
+
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          flags: e2e
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Preserve Cluser Logs
+      - name: Dump Cluster Logs
+        if: always()
+        run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Archive Cluster Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs-e2e-core
+          path: ./cluster_log.txt
+          retention-days: 7
+
+  # ----------------
+  # E2E PODMAN TESTS
+  # ----------------
+  test-e2e-podman:
+    name: E2E - Podman
+    needs: precheck
+    runs-on: ubuntu-latest
+    env:
+      FUNC_CLUSTER_RETRIES: 5
+      FUNC_E2E_PODMAN: true
+      FUNC_E2E_CLEAN: false # cluster only used once
+      FUNC_E2E_VERBOSE: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+
+      - name: Start Podman
+        run: sudo apt update && sudo apt install -y podman && podman system service --time=0 &
+
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/cluster.sh
+      - name: Start Local Registry
+        run: ./hack/registry.sh
+
+      - name: Run E2E Podman Tests
+        run: make test-e2e-podman
+
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          flags: e2e
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Preserve Cluser Logs
+      - name: Dump Cluster Logs
+        if: always()
+        run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Archive Cluster Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs-${{ matrix.os }}-podman
+          path: ./cluster_log.txt
+          retention-days: 7
+
+
+  # -----------------
+  # E2E RUNTIME TESTS
+  # -----------------
+  test-e2e-runtimes:
+    name: E2E - Runtimes
+    needs: precheck
+    strategy:
+      matrix:
+        runtime:
+          - "go"
+          - "python"
+          - "node"
+          - "typescript"
+          - "rust"
+          - "quarkus"
+          - "springboot"
+    runs-on: ubuntu-latest
+    env:
+      FUNC_CLUSTER_RETRIES: 5  # Cluster allocation retries
+      FUNC_E2E_CLEAN: false  # Skip deletes (cluster not reused)
+      FUNC_E2E_MATRIX: true  # Enables the language runtim matrix tests
+      FUNC_E2E_VERBOSE: true
+      FUNC_E2E_MATRIX_RUNTIMES: ${{ matrix.runtime }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+
+      - name: Free up disk space
+        run: |
+          echo "Starting disk cleanup for CI environment..."
+          echo "Initial disk usage:"
+          df -h /
+
+          echo "Removing Android SDK (9.5GB)..."
+          sudo rm -rf /usr/local/lib/android || true
+
+          echo "Removing Haskell/GHC (6.3GB)..."
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /opt/ghc || true
+
+          echo "Removing .NET and PowerShell (1.3GB+)..."
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo rm -rf /opt/microsoft/powershell || true
+
+          echo "Removing Julia (991MB)..."
+          sudo rm -rf /usr/local/julia* || true
+
+          echo "Removing browsers (1GB+)..."
+          sudo rm -rf /usr/local/share/chromium || true
+          sudo rm -rf /opt/google/chrome || true
+          sudo rm -rf /opt/microsoft/msedge || true
+
+          echo "Removing CodeQL (1.6GB)..."
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+
+          echo "Removing Azure CLI (649MB)..."
+          sudo rm -rf /opt/az || true
+
+          echo "Removing unused language runtimes..."
+          sudo rm -rf /opt/hostedtoolcache/Ruby || true
+          sudo rm -rf /opt/hostedtoolcache/PyPy || true
+
+          echo "Cleaning package manager caches..."
+          sudo apt-get clean || true
+
+          echo "Final disk usage after cleanup:"
+          df -h /
+
+        # Install Toolchain Being Tested
+      - name: Setup Python
+        if: matrix.runtime == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Setup Node.js
+        if: matrix.runtime == 'node' || matrix.runtime == 'typescript'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Setup Java
+        if: matrix.runtime == 'quarkus' || matrix.runtime == 'springboot'
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+      - name: Setup Rust
+        if: matrix.runtime == 'rust'
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      # Allocate Cluster
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/cluster.sh
+      - name: Start Local Registry
+        run: ./hack/registry.sh
+      - name: Prepare Images
+        run: ./hack/images.sh
+
+      - name: Run Test - ${{ matrix.runtime }}
+        run: make test-e2e-matrix
+
+      # Coverage and Logs
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          flags: e2e ${{ matrix.runtime }}
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Preserve Cluser Logs
+      - name: Dump Cluster Logs
+        if: always()
+        run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Archive Cluster Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs-${{ matrix.runtime }}
+          path: ./cluster_log.txt
+          retention-days: 7
+
+  # Build and Publish
+  build:
+    name: Build Release
+    needs:
+      - test-unit
+      - test-integration
+      - test-templates
+      - test-e2e
+      - test-e2e-podman
+      - test-e2e-runtimes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - name: Build Platform Binaries
+        run: make cross-platform
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OSX Binary (AMD)
+          path: func_darwin_amd64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OSX Binary (ARM)
+          path: func_darwin_arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linux Binary (AMD)
+          path: func_linux_amd64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linux Binary (ARM)
+          path: func_linux_arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linux Binary (PPC64LE)
+          path: func_linux_ppc64le
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linux Binary (S390X)
+          path: func_linux_s390x
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows Binary
+          path: func_windows_amd64.exe
+
+  publish-utils-image:
+    name: Publish Utils Image
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - uses: docker/setup-qemu-action@v3
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        run: |
+          for a in amd64 arm64 ppc64le s390x; do
+            CGO_ENABLED=0 go build -o "func-util-$a" -trimpath -ldflags '-w -s' ./cmd/func-util
+          done
+          docker buildx create --name multiarch --driver docker-container --use
+          docker buildx build . -f Dockerfile.utils \
+            --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
+            --push \
+            -t "ghcr.io/knative/func-utils:v2" \
+            --annotation index:org.opencontainers.image.description="Knative Func Utils Image" \
+            --annotation index:org.opencontainers.image.source="https://github.com/knative/func" \
+            --annotation index:org.opencontainers.image.vendor="https://github.com/knative/func" \
+            --annotation index:org.opencontainers.image.url="https://github.com/knative/func/pkgs/container/func-utils"
+
+  publish-image:
+    name: Publish as Image
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - uses: imjasonh/setup-ko@v0.6
+      - run: ko build --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 -B ./cmd/func

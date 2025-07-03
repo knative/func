@@ -20,7 +20,7 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-func TestUploadToVolume(t *testing.T) {
+func TestInt_UploadToVolume(t *testing.T) {
 	var err error
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 	t.Cleanup(cancel)
@@ -137,7 +137,7 @@ func TestUploadToVolume(t *testing.T) {
 	}
 }
 
-func TestListPersistentVolumeClaimsNamesIfConnectedWrongKubeconfig(t *testing.T) {
+func TestInt_ListPersistentVolumeClaimsNamesIfConnectedWrongKubeconfig(t *testing.T) {
 	t.Setenv("KUBECONFIG", "/tmp/non-existent.config")
 	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(context.Background(), "")
 	if err != nil {
@@ -145,7 +145,7 @@ func TestListPersistentVolumeClaimsNamesIfConnectedWrongKubeconfig(t *testing.T)
 	}
 }
 
-func TestListPersistentVolumeClaimsNamesIfConnectedWrongKubernentesMaster(t *testing.T) {
+func TestInt_ListPersistentVolumeClaimsNamesIfConnectedWrongKubernentesMaster(t *testing.T) {
 	t.Setenv("KUBERNETES_MASTER", "/tmp/non-existent.config")
 	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(context.Background(), "")
 	if err != nil {

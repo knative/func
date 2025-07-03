@@ -16,6 +16,8 @@ BIN_WINDOWS       ?= $(BIN)_windows_amd64.exe
 
 # Utilities
 BIN_GOLANGCI_LINT ?= "$(PWD)/bin/golangci-lint"
+BIN_MISSPELL      ?= "$(PWD)/bin/misspell"
+BIN_GOIMPORTS     ?= "$(PWD)/bin/goimports"
 
 # Version
 # A verbose version is built into the binary including a date stamp, git commit
@@ -39,6 +41,9 @@ GOFLAGS      := "-ldflags=$(LDFLAGS)"
 export GOFLAGS
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+# Disable output buffering (stream)
+MAKEFLAGS += --output-sync=none
 
 # Default Targets
 .PHONY: all
@@ -72,12 +77,71 @@ test: generate/zz_filesystem_generated.go ## Run core unit tests
 	go test -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
-check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
+check: check-lint check-goimports check-misspell check-whitespace check-eof ## Check code quality (comprehensive)
+
+.PHONY: check-lint
+check-lint: $(BIN_GOLANGCI_LINT) ## Run golangci-lint
 	$(BIN_GOLANGCI_LINT) run --timeout 300s
-	cd test && $(BIN_GOLANGCI_LINT) run --timeout 300s
+
+.PHONY: check-goimports
+check-goimports: $(BIN_GOIMPORTS) ## Check Go import formatting
+	@echo "Checking Go import formatting..."
+	@git ls-files | \
+		git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
+		git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
+		grep -Ev '(vendor/|third_party/|\.git)' | \
+		grep '\.go$$' | \
+		while IFS= read -r file; do [ -f "$$file" ] && echo "$$file"; done | \
+		xargs $(BIN_GOIMPORTS) -l | grep . && \
+		(echo "Error: Files with incorrect import formatting found. Run 'goimports -w <file>' to fix."; exit 1) || true
+
+.PHONY: check-misspell
+check-misspell: $(BIN_MISSPELL) ## Check for common misspellings
+	@echo "Checking for misspellings..."
+	@git ls-files | \
+		git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
+		git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
+		grep -Ev '(vendor/|third_party/|\.git)' | \
+		grep -v '\.svg$$' | \
+		while IFS= read -r file; do [ -f "$$file" ] && echo "$$file"; done | \
+		xargs $(BIN_MISSPELL) -i importas -error
+
+.PHONY: check-whitespace
+check-whitespace: ## Check for trailing whitespace
+	@echo "Checking for trailing whitespace..."
+	@git ls-files | \
+		git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
+		git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
+		grep -Ev '(vendor/|third_party/|\.git)' | \
+		grep -v '\.svg$$' | \
+		while IFS= read -r file; do [ -f "$$file" ] && echo "$$file"; done | \
+		xargs grep -nE " +$$" 2>&1 | grep -v "Binary file" && \
+		(echo "Error: Trailing whitespace found"; exit 1) || true
+
+.PHONY: check-eof
+check-eof: ## Check files end with newlines
+	@echo "Checking for missing EOF newlines..."
+	@git ls-files | \
+		git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
+		git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
+		grep -Ev '(vendor/|third_party/|\.git)' | \
+		grep -Ev '\.(ai|svg)$$' | \
+		while IFS= read -r file; do \
+			if [ -f "$$file" ] && [ -n "$$(tail -c 1 "$$file" 2>/dev/null)" ]; then \
+				echo "$$file: missing newline at EOF"; \
+			fi; \
+		done | grep . && exit 1 || true
 
 $(BIN_GOLANGCI_LINT):
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v2.5.0
+
+$(BIN_MISSPELL):
+	@echo "Installing misspell..."
+	@GOBIN=$(PWD)/bin go install github.com/client9/misspell/cmd/misspell@latest
+
+$(BIN_GOIMPORTS):
+	@echo "Installing goimports..."
+	@GOBIN=$(PWD)/bin go install golang.org/x/tools/cmd/goimports@latest
 
 .PHONY: generate/zz_filesystem_generated.go
 generate/zz_filesystem_generated.go: clean_templates
@@ -167,8 +231,8 @@ test-node: ## Test Node templates
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
 .PHONY: test-python
-test-python: ## Test Python templates and Scaffolding
-	test/test_python.sh
+test-python: ## Test Python templates
+	./hack/test-python.sh
 
 .PHONY: test-quarkus
 test-quarkus: ## Test Quarkus templates
@@ -196,14 +260,19 @@ test-typescript: ## Test Typescript templates
 
 # Pulls runtimes then rebuilds the embedded filesystem
 .PHONY: update-runtimes
-update-runtimes:  update-runtime-go generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
+update-runtimes:  update-runtime-go update-runtime-python generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
 
 .PHONY: update-runtime-go
 update-runtime-go:
+	@echo "Updating Go runtime..."
 	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
 	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
+
+.PHONY: update-runtime-python
+update-runtime-python:
+	# Nothing to update for Python
 
 
 .PHONY: certs
@@ -218,25 +287,45 @@ templates/certs/ca-certificates.crt:
 ##@ Extended Testing (cluster required)
 ###################
 
+# See target "test" for unit tests only
+
 .PHONY: test-integration
 test-integration: ## Run integration tests using an available cluster.
-	go test -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
-
-.PHONY: func-instrumented
-func-instrumented: # func binary instrumented with coverage reporting
-	env CGO_ENABLED=1 go build -cover -o func ./cmd/$(BIN)
+	# Available Options:
+	#   FUNC_TEST_GITLAB_PASS
+	#   FUNC_INT_GITLAB_ENABLED
+	#   FUNC_INT_GITLAB_HOSTNAME
+	#   FUNC_INT_TEKTON_ENABLED
+	#   FUNC_INT_PAC_HOST
+	go test -cover -coverprofile=coverage.txt -tags integration -timeout 60m ./... -v -run TestInt_
 
 .PHONY: test-e2e
-test-e2e: func-instrumented ## Run end-to-end tests using an available cluster.
-	./test/e2e_extended_tests.sh
+test-e2e: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
+	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
+	go test -cover -coverprofile=coverage.txt -tags e2e -timeout 60m ./e2e -v -run "TestCore_|TestMetadata_|TestRemote_"
 
-.PHONY: test-e2e-runtime
-test-e2e-runtime: func-instrumented ## Run end-to-end lifecycle tests using an available cluster for a single runtime.
-	./test/e2e_lifecycle_tests.sh $(runtime)
+.PHONY: test-e2e-podman
+test-e2e-podman: func-instrumented-bin ## Run E2E Podman-specific tests
+	# see e2e_test.go for available options
+	FUNC_E2E_PODMAN=true go test -cover -coverprofile=coverage.txt -tags e2e -timeout 60m ./e2e -v -run TestPodman_
 
-.PHONY: test-e2e-on-cluster
-test-e2e-on-cluster: func-instrumented ## Run end-to-end on-cluster build tests using an available cluster.
-	./test/e2e_oncluster_tests.sh
+test-e2e-matrix: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
+	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
+	FUNC_E2E_MATRIX=true go test -cover -coverprofile=coverage.txt -tags e2e -timeout 120m ./e2e -v -run TestMatrix_
+
+
+.PHONY: test-full
+test-full: func-instrumented-bin ## Run full test suite with all checks enabled
+	./hack/test-full.sh
+
+test-full-logged: func-instrumented-bin ## Run full test and log with timestamps (requires python)
+	./hack/test-full.sh 2>&1 | python -u -c "import sys; from datetime import datetime; [print(f'[{datetime.now().strftime(\"%H:%M:%S\")}] {line}', end='', flush=True) for line in sys.stdin]" | tee ./test-full.log
+	@echo '🎉 Full Test Complete.  Log stored in test-full.log'
+
+.PHONY: func-instrumented-bin
+func-instrumented-bin: # func binary instrumented with coverage reporting
+	env CGO_ENABLED=1 go build -cover -o func ./cmd/$(BIN)
+
 
 ######################
 ##@ Release Artifacts
@@ -296,8 +385,8 @@ schema-generate: schema/func_yaml-schema.json ## Generate func.yaml schema
 schema/func_yaml-schema.json: pkg/functions/function.go pkg/functions/function_*.go
 	go run schema/generator/main.go
 
-.PHONY: schema-check
-schema-check: ## Check that func.yaml schema is up-to-date
+.PHONY: check-schema
+check-schema: ## Check that func.yaml schema is up-to-date
 	mv schema/func_yaml-schema.json schema/func_yaml-schema-previous.json
 	make schema-generate
 	diff schema/func_yaml-schema.json schema/func_yaml-schema-previous.json ||\
