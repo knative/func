@@ -60,6 +60,8 @@ kubernetes() {
   cat <<EOF | $KIND create cluster --name=func --kubeconfig="${KUBECONFIG}" --wait=60s --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: dual
 nodes:
   - role: control-plane
     image: kindest/node:${kind_node_version}

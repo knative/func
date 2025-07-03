@@ -321,7 +321,7 @@ type runConfig struct {
 	// default of fn.DefaultStartTimeout.
 	StartTimeout time.Duration
 
-	// Address is the interface and port to bind (e.g. "0.0.0.0:8081")
+	// Address is the interface and port to bind (e.g. "[::]:8081")
 	Address string
 
 	// JSON output format

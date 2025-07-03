@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultRunHost        = "127.0.0.1" // TODO allow to be altered via a runOpt
+	defaultRunHost        = "::1" // TODO allow to be altered via a runOpt
 	defaultRunPort        = "8080"
 	defaultRunDialTimeout = 2 * time.Second
 	defaultRunStopTimeout = 10 * time.Second

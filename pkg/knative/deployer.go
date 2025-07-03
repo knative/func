@@ -723,7 +723,7 @@ func withOpenAddress(ee []fn.Env) []fn.Env {
 	}
 	if !found {
 		k := "ADDRESS"
-		v := "0.0.0.0"
+		v := "[::]"
 		ee = append(ee, fn.Env{Name: &k, Value: &v})
 	}
 	return ee
