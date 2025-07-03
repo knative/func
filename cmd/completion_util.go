@@ -82,7 +82,7 @@ func CompleteTemplateList(cmd *cobra.Command, args []string, toComplete string, 
 
 func CompleteOutputFormatList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
 	directive = cobra.ShellCompDirectiveDefault
-	strings = []string{"plain", "yaml", "xml", "json"}
+	strings = []string{"plain", "yaml", "json"}
 	return
 }
 
