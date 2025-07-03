@@ -36,7 +36,7 @@ import (
 //
 // A cluster is required. See .github/workflows for more. For example:
 //
-//   ./hack/install-binaries.sh && ./hack/allocate.sh && ./hack/registry.sh
+//   ./hack/binaries.sh && ./hack/cluster.sh && ./hack/registry.sh
 //
 // Binaries are required:  go for compiling functions and git for
 // repository-related tests.

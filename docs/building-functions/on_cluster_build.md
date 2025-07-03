@@ -5,7 +5,7 @@ This guide describes how you can build a Function on Cluster with Tekton Pipelin
 ## Prerequisite
 1. Install Tekton Pipelines on the cluster.
 
-   **Note:** If you're using `./hack/allocate.sh` for development/testing, Tekton and PAC are automatically installed.
+   **Note:** If you're using `./hack/cluster.sh` for development/testing, Tekton and PAC are automatically installed.
 
    For production environments, please refer to [Tekton Pipelines documentation](https://github.com/tektoncd/pipeline/blob/main/docs/install.md) or run the following command:
 ```bash
