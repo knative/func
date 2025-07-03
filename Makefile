@@ -133,6 +133,10 @@ presubmit-unit-tests: ## Run prow presubmit unit tests locally
 ##@ Templates
 #############
 
+.PHONY: check-embedded-fs
+check-embedded-fs: ## Check the embedded templates FS
+	go test -run "^\QTestFileSystems\E$$/^\Qembedded\E$$" ./pkg/filesystem
+
 # TODO: add linters for other templates
 .PHONY: check-templates
 check-templates: check-go check-rust ## Run template source code checks
