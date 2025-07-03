@@ -85,24 +85,14 @@ func goBuild(cfg buildJob, p v1.Platform) (binPath string, err error) {
 		return
 	}
 	envs := goBuildEnvs(p)
+
+	// Build the function
 	if cfg.verbose {
 		fmt.Printf("%v %v\n", gobin, strings.Join(args, " "))
 	} else {
 		fmt.Printf("   %v\n", filepath.Base(outpath))
 	}
-
-	cmd := exec.CommandContext(cfg.ctx, gobin, "mod", "tidy")
-	cmd.Env = envs
-	cmd.Dir = cfg.buildDir()
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	err = cmd.Run()
-	if err != nil {
-		return "", fmt.Errorf("cannot sync deps: %w", err)
-	}
-
-	// Build the function
-	cmd = exec.CommandContext(cfg.ctx, gobin, args...)
+	cmd := exec.CommandContext(cfg.ctx, gobin, args...)
 	cmd.Env = envs
 	cmd.Dir = cfg.buildDir()
 	cmd.Stderr = os.Stderr
