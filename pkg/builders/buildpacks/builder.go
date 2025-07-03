@@ -120,10 +120,6 @@ var DefaultLifecycleImage = "docker.io/buildpacksio/lifecycle:553c041"
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {
-	if f.Runtime == "python" {
-		return fmt.Errorf("python is not currently supported with pack builder (use host or s2i builder instead")
-	}
-
 	if len(platforms) != 0 {
 		return errors.New("the pack builder does not support specifying target platforms directly")
 	}
@@ -186,6 +182,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		opts.ContainerConfig.Network = "host"
 	}
 
+	if _, ok := opts.Env["BPE_DEFAULT_LISTEN_ADDRESS"]; !ok {
+		opts.Env["BPE_DEFAULT_LISTEN_ADDRESS"] = "[::]:8080"
+	}
+
 	var bindings = make([]string, 0, len(f.Build.Mounts))
 	for _, m := range f.Build.Mounts {
 		bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
@@ -213,6 +213,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 		if ok, _ := isPodmanV43(ctx, cli); ok {
 			return fmt.Errorf("podman 4.3 is not supported, use podman 4.2 or 4.4")
+		}
+
+		if f.Runtime == "python" {
+			cli = pyScaffoldInjector{cli}
 		}
 
 		// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.
