@@ -127,8 +127,8 @@ func goBuildCmd(p v1.Platform, cfg buildJob) (gobin string, args []string, outpa
 	 *    Either replace or append to gobin
 	 */
 
-	// Use the binary specified FUNC_GO_PATH if defined
-	gobin = os.Getenv("FUNC_GO_PATH") // TODO: move to main and plumb through
+	// Use the binary specified FUNC_GO if defined
+	gobin = os.Getenv("FUNC_GO") // TODO: move to main and plumb through
 	if gobin == "" {
 		gobin = "go"
 	}
