@@ -115,7 +115,7 @@ dns() {
     $KUBECTL patch configmap/config-domain \
     --namespace knative-serving \
     --type merge \
-    --patch '{"data":{"127.0.0.1.sslip.io":""}}' && break
+    --patch '{"data":{"localtest.me":""}}' && break
 
     (( i+=1 ))
     if (( i>=n )); then
@@ -402,7 +402,7 @@ tekton() {
 pac() {
   echo "${blue}Installing PAC (Pipelines-as-Code) ${pac_version} ${reset}"
 
-  local -r pac_ctr_host="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.127.0.0.1.sslip.io}"
+  local -r pac_ctr_host="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.localtest.me}"
 
   # Install Pipelines as Code
   $KUBECTL apply -f "https://raw.githubusercontent.com/openshift-pipelines/pipelines-as-code/release-${pac_version}/release.k8s.yaml"

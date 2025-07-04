@@ -102,7 +102,7 @@ On other systems, add `127.0.0.1 kind-registry` to your local `hosts` file and `
 
 Once the cluster has been allocated, the `func` CLI (or client library) will automatically use it (see the [Kubeconfig Docs](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) for more)
 
-Functions will be available at the address `[Function Name].default.127.0.0.1.sslip.io`
+Functions will be available at the address `[Function Name].default.localtest.me`
 
 To run integration tests, use `make test-integration`.
 

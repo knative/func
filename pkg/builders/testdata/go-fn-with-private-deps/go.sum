@@ -1,4 +1,2 @@
-git-private.127.0.0.1.sslip.io/foo.git v0.0.0-20250312185939-e7bf19abfd77 h1:IJ6SiucMsd0bjPwuj3VIGCHN225+0lCU1OZSmsg3Rjk=
-git-private.127.0.0.1.sslip.io/foo.git v0.0.0-20250312185939-e7bf19abfd77/go.mod h1:rG9yzCHOSu2zUBmaB7GEu7RBsjiJZRUP1hy26O5CLsc=
-git-private.127.0.0.1.sslip.io/foo.git v0.0.0-20250319130200-b1126104a200 h1:moO2xbNMRhtKOUjzkXNgtv0y3k2Xo+xP9N4MagWSXe0=
-git-private.127.0.0.1.sslip.io/foo.git v0.0.0-20250319130200-b1126104a200/go.mod h1:8MJdyAVONQdluGP17pXr5Lu//oVu7YHyXBE29FDEEng=
+git-private.localtest.me/foo.git v0.0.0-20250704181237-d1e4de9dcd02 h1:8zZccH+dkzYMYRJN+sPw4fed4NlwC5W9hfNM4kl6RlM=
+git-private.localtest.me/foo.git v0.0.0-20250704181237-d1e4de9dcd02/go.mod h1:jqnvPQqnKYxxNNRBi9Wmpo5coeutnzAYIim12Lo9qRc=

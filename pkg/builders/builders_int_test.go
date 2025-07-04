@@ -70,7 +70,7 @@ func TestPrivateGitRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gitCred := `url=https://git-private.127.0.0.1.sslip.io
+	gitCred := `url=https://git-private.localtest.me
 username=developer
 password=nbusr123
 `
@@ -80,7 +80,7 @@ password=nbusr123
 	}
 
 	netrc := filepath.Join(t.TempDir(), ".netrc")
-	netrcContent := `machine git-private.127.0.0.1.sslip.io login developer password nbusr123`
+	netrcContent := `machine git-private.localtest.me login developer password nbusr123`
 	err = os.WriteFile(netrc, []byte(netrcContent), 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ password=nbusr123
 	f.Build.BuildEnvs = []fn.Env{
 		{
 			Name:  ptr("GOPRIVATE"),
-			Value: ptr("*.127.0.0.1.sslip.io"),
+			Value: ptr("*.localtest.me"),
 		},
 	}
 
@@ -167,13 +167,13 @@ func createCertificate(t *testing.T) string {
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 		SerialNumber:          randSN(),
-		// openssl hash of this subject is 712d4c9d
+		// openssl hash of this subject is 85c05568
 		// do not update the subject without also updating the hash referred from another places (e.g. Dockerfile)
 		// See also: https://github.com/paketo-buildpacks/ca-certificates/blob/v1.0.1/cacerts/certs.go#L132
 		Subject: pkix.Name{
-			CommonName: "git-private.127.0.0.1.sslip.io",
+			CommonName: "git-private.localtest.me",
 		},
-		DNSNames:     []string{"git-private.127.0.0.1.sslip.io"},
+		DNSNames:     []string{"git-private.localtest.me"},
 		NotBefore:    time.Now(),
 		NotAfter:     time.Now().AddDate(0, 0, 1),
 		SubjectKeyId: ski[:],
@@ -231,7 +231,7 @@ func randSN() *big.Int {
 func buildPatchedS2IBuilder(ctx context.Context, t *testing.T, certDir string) string {
 	tag := "localhost:50000/go-toolset:test"
 	dockerfile := `FROM registry.access.redhat.com/ubi8/go-toolset:latest
-COPY 712d4c9d.0 /etc/pki/ca-trust/source/anchors/
+COPY 85c05568.0 /etc/pki/ca-trust/source/anchors/
 USER 0:0
 RUN update-ca-trust
 USER 1001:0
@@ -243,13 +243,13 @@ USER 1001:0
 func buildPatcheBuildpackBuilder(ctx context.Context, t *testing.T, certDir string) string {
 	tag := "localhost:50000/builder-jammy-tin:test"
 	dockerfile := `FROM ghcr.io/knative/builder-jammy-tiny:latest
-COPY 712d4c9d.0 /etc/ssl/certs/
+COPY 85c05568.0 /etc/ssl/certs/
 `
 	return buildPatchedBuilder(ctx, t, tag, dockerfile, certDir)
 }
 
 // Builds an image with specified tag from specified dockerfile.
-// This function also injects self-signed as "712d4c9d.0" into the build context.
+// This function also injects self-signed as "85c05568.0" into the build context.
 func buildPatchedBuilder(ctx context.Context, t *testing.T, tag, dockerfile, certDir string) string {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -277,7 +277,7 @@ func buildPatchedBuilder(ctx context.Context, t *testing.T, tag, dockerfile, cer
 		t.Fatal(err)
 	}
 	err = tw.WriteHeader(&tar.Header{
-		Name: "712d4c9d.0",
+		Name: "85c05568.0",
 		Size: int64(len(cb)),
 		Mode: 0644,
 	})
@@ -320,12 +320,12 @@ func buildPatchedBuilder(ctx context.Context, t *testing.T, tag, dockerfile, cer
 }
 
 // This sets up a private git repository for testing.
-// The repository url is https://git-private.127.0.0.1.sslip.io/foo.git, and it is protected by basic authentication.
+// The repository url is https://git-private.localtest.me/foo.git, and it is protected by basic authentication.
 // The credentials are developer:nbusr123.
 func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 	const (
 		name  = "git-private"
-		host  = "git-private.127.0.0.1.sslip.io"
+		host  = "git-private.localtest.me"
 		image = "ghcr.io/matejvasek/git-private:latest"
 	)
 

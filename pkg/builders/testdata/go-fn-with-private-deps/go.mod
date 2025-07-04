@@ -2,4 +2,4 @@ module function
 
 go 1.22
 
-require git-private.127.0.0.1.sslip.io/foo.git v0.0.0-20250319130200-b1126104a200 // indirect
+require git-private.localtest.me/foo.git v0.0.0-20250704181237-d1e4de9dcd02 // indirect
