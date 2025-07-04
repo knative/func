@@ -21,7 +21,7 @@ source "$(dirname "$(realpath "$0")")/common.sh"
 function install_gitlab() {
   echo "${blue}Installing GitLab${reset}"
 
-  local -r gitlab_host="${GITLAB_HOSTNAME:-gitlab.127.0.0.1.sslip.io}"
+  local -r gitlab_host="${GITLAB_HOSTNAME:-gitlab.localtest.me}"
 
   $KUBECTL apply -f - <<EOF
 kind: Namespace

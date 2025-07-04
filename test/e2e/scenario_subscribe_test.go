@@ -66,7 +66,7 @@ func (f *FuncSubscribeTestType) setupBroker() {
 
 // setupProducerFunc creates and deploy a knative function that produces events
 // It will take 'type' and 'message' from query string to build and send an event to a TARGET_SINK (env var)
-// Example: https://func-producer.default.127.0.0.1.sslip.io?type=HelloEvent&message=HELLO+EVENT+1
+// Example: https://func-producer.default.localtest.me?type=HelloEvent&message=HELLO+EVENT+1
 func (f *FuncSubscribeTestType) setupProducerFunc() {
 
 	var funcProducerName = "func-producer"

@@ -64,7 +64,7 @@ func newRemoteTestClient(verbose bool) *fn.Client {
 func assertFunctionEchoes(url string) (err error) {
 	token := time.Now().Format("20060102150405.000000000")
 
-	// res, err := http.Get("http://testremote-default.default.127.0.0.1.sslip.io?token=" + token)
+	// res, err := http.Get("http://testremote-default.default.localtest.me?token=" + token)
 	res, err := http.Get(url + "?token=" + token)
 	if err != nil {
 		return
