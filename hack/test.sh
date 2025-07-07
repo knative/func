@@ -43,7 +43,7 @@ EOF
   kubectl wait --for=condition=Ready route echo -n func --timeout=600s
 
   echo "${blue}Invoking echo server${reset}"
-  curl http://echo.func.127.0.0.1.sslip.io/
+  curl http://echo.func.localtest.me/
 
   echo "${green}✅ Echo succeeded${reset}"
 }

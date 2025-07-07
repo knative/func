@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"git-private.127.0.0.1.sslip.io/foo.git/pkg/foo"
+	"git-private.localtest.me/foo.git/pkg/foo"
 )
 
 // Handle an HTTP Request.
