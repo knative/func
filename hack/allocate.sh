@@ -43,8 +43,8 @@ main() {
   ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
   ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
   ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
-  ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
   ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
+  #( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
 
   local job
   for job in $(jobs -p); do
