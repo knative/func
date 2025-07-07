@@ -2170,3 +2170,75 @@ func Test_isDigested(t *testing.T) {
 		t.Fatal("did not report image reference has digest")
 	}
 }
+
+func TestDeploy_BaseImage(t *testing.T) {
+	testBaseImage(NewDeployCmd, t)
+}
+
+func testBaseImage(cmdFn commandConstructor, t *testing.T) {
+	const baseImage = "example.com/repo/baseImage"
+	tests := []struct {
+		name    string
+		runtime string
+		builder string
+		expErr  bool
+	}{
+		{
+			name:    "should-succeed: python-runtime with host-builder",
+			runtime: "python",
+			builder: "host",
+		},
+		{
+			name:    "should-succeed: go-runtime with host-builder",
+			runtime: "go",
+			builder: "host",
+		},
+		{
+			name:    "should-fail: python-runtime with pack-builder",
+			runtime: "python",
+			builder: "pack",
+			expErr:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+
+			// func init
+			f := fn.Function{Runtime: tt.runtime, Root: root}
+			_, err := fn.New().Init(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			//create cmd
+			cmd := cmdFn(NewTestClient(
+				fn.WithBuilder(mock.NewBuilder()),
+				fn.WithDeployer(mock.NewDeployer()),
+				fn.WithRegistry(TestRegistry),
+			))
+
+			// create flags for cmd
+			args := []string{
+				fmt.Sprintf("--builder=%s", tt.builder),
+				fmt.Sprintf("--base-image=%s", baseImage),
+			}
+
+			cmd.SetArgs(args)
+			err = cmd.Execute()
+
+			// ASSERT
+
+			// got error but expected success
+			if err != nil && !tt.expErr {
+				err = fmt.Errorf("Expected the test to succeed but instead got: %w", err)
+				t.Fatal(err)
+			}
+
+			// succeeded but expected fail
+			if err == nil && tt.expErr {
+				t.Fatal(fmt.Errorf("Expected error but test succeeded"))
+			}
+		})
+	}
+}

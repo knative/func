@@ -152,6 +152,9 @@ type BuildSpec struct {
 	// in .func/built-image
 	Image string `yaml:"-"`
 
+	// BaseImage defines an override for the function to be built upon (host bulder only)
+	BaseImage string `yaml:"baseImage,omitempty"`
+
 	// Mounts used in build phase. This is useful in particular for paketo bindings.
 	Mounts []MountSpec `yaml:"volumes,omitempty"`
 }

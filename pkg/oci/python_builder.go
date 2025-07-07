@@ -19,7 +19,10 @@ var defaultPythonBase = "python:3.13-slim" // Moving from docker.io.  See issue 
 
 type pythonBuilder struct{}
 
-func (b pythonBuilder) Base() string {
+func (b pythonBuilder) Base(customBase string) string {
+	if customBase != "" {
+		return customBase
+	}
 	return defaultPythonBase
 }
 

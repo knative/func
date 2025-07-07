@@ -18,8 +18,9 @@ import (
 
 type goBuilder struct{}
 
-func (b goBuilder) Base() string {
-	return "" // scratch
+func (b goBuilder) Base(customImage string) string {
+	// if not defined -> return "", meaning building from scratch
+	return customImage
 }
 
 func (b goBuilder) Configure(_ buildJob, _ v1.Platform, cf v1.ConfigFile) (v1.ConfigFile, error) {

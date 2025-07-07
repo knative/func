@@ -95,6 +95,12 @@ func TestBuild_Authentication(t *testing.T) {
 	testAuthentication(NewBuildCmd, t)
 }
 
+// TestBuild_BaseImage ensures that base image is used only with the right
+// builders and propagates into f.Build.BaseImage
+func TestBuild_BaseImage(t *testing.T) {
+	testBaseImage(NewBuildCmd, t)
+}
+
 // TestBuild_Push ensures that the build command properly pushes and respects
 // the --push flag.
 // - Push triggered after a successful build

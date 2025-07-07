@@ -515,3 +515,89 @@ func TestRun_Address(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// TestRun_BaseImage ensures that running func run --base-image with various
+// other
+func TestRun_BaseImage(t *testing.T) {
+	const baseImage = "example.com/repo/baseImage"
+	tests := []struct {
+		name        string
+		runtime     string
+		builder     string
+		expectError bool
+	}{
+		{
+			name:    "should-succeed: python-runtime with host-builder",
+			runtime: "python",
+			builder: "host",
+		},
+		{
+			name:    "should-succeed: go-runtime with host-builder",
+			runtime: "go",
+			builder: "host",
+		},
+		{
+			name:        "should-fail: python-runtime with pack-builder",
+			runtime:     "python",
+			builder:     "pack",
+			expectError: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			runner := mock.NewRunner()
+
+			runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
+				errs := make(chan error, 1)
+				stop := func() error { return nil }
+				return fn.NewJob(f, "127.0.0.1", "8080", errs, stop, false)
+			}
+
+			builder := mock.NewBuilder()
+			//if tt.expectError {
+			//	builder.BuildFn = func(f fn.Function) error { return fmt.Errorf("expected error") }
+			//}
+
+			cmd := NewRunCmd(NewTestClient(
+				fn.WithRunner(runner),
+				fn.WithBuilder(builder),
+				fn.WithRegistry(TestRegistry),
+			))
+			args := []string{"--build=true", fmt.Sprintf("--builder=%s", tt.builder), fmt.Sprintf("--base-image=%s", baseImage)}
+			cmd.SetArgs(args)
+
+			// set test case's function instance
+			_, err := fn.New().Init(fn.Function{Root: root, Runtime: tt.runtime})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			runErrCh := make(chan error, 1)
+			go func() {
+				t0 := tt // capture tt into closure
+				_, err := cmd.ExecuteContextC(ctx)
+				if err != nil && t0.expectError {
+					// This is an expected error, so simply continue execution ignoring
+					// the error (send nil on the channel to release the parent routine
+					runErrCh <- nil
+					return
+				} else if err != nil {
+					runErrCh <- err // error not expected
+					return
+				}
+
+				// No errors, but an error was expected:
+				if t0.expectError {
+					runErrCh <- fmt.Errorf("Expected error but got '%v'\n", err)
+				}
+				close(runErrCh) // release the waiting parent process
+			}()
+			cancel() // trigger the return of cmd.ExecuteContextC in the routine
+			<-ctx.Done()
+			if err := <-runErrCh; err != nil { // wait for completion of assertions
+				t.Fatal(err)
+			}
+		})
+	}
+}
