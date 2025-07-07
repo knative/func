@@ -57,7 +57,6 @@ main() {
 }
 
 kubernetes() {
-  lsmod | grep ip6_tables
   sudo modprobe ip6_tables
   cat <<EOF | $KIND create cluster --name=func --kubeconfig="${KUBECONFIG}" --wait=60s --config=-
 kind: Cluster
