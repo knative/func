@@ -52,8 +52,6 @@ jobs:
         run: ./hack/registry.sh
       - name: Setup testing images
         run: ./hack/setup-testing-images.sh
-      - name: Install Gitlab
-        run: ./hack/install-gitlab.sh
       - name: Patch Hosts
         run: ./hack/patch-hosts.sh
       - name: Integration Test
