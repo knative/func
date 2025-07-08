@@ -44,7 +44,7 @@ main() {
   ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
   ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
   ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
-  #( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
+  ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
 
   local job
   for job in $(jobs -p); do
@@ -337,6 +337,34 @@ dapr_runtime() {
     dapr_flags="--image-registry=ghcr.io/dapr --log-as-json"
   fi
 
+  # hack to patch dapr to work on IPv6
+  (sleep 5;
+  $KUBECTL patch statefulset dapr-scheduler-server -n dapr-system --patch-file /dev/stdin <<EOF
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "name": "dapr-scheduler-server",
+            "env": [
+              {
+                "name": "DAPR_HOST_IP",
+                "valueFrom": {
+                  "fieldRef": {
+                    "fieldPath": "status.podIP"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
+EOF
+  )&
   # Install Dapr Runtime
   # shellcheck disable=SC2086
   $DAPR init ${dapr_flags} --kubernetes --wait
