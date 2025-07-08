@@ -180,6 +180,9 @@ networking() {
     --type merge \
     --patch '{"data":{"ingress-class":"contour.ingress.networking.knative.dev"}}'
 
+  echo "Patching contour to prefer duals-tack"
+  kubectl patch -n contour-external svc/envoy --type merge --patch '{"spec":{"ipFamilyPolicy":"PreferDualStack"}}'
+
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=10m
   echo "${green}✅ Ingress${reset}"
