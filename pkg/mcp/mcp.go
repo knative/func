@@ -163,9 +163,63 @@ func NewServer() *MCPServer {
 		mcp.WithMIMEType("text/plain"),
 	), handleRootHelpResource)
 
+	// Static help resources for each command
+	mcpServer.AddResource(mcp.NewResource(
+		"func://create/docs",
+		"Create Command Help",
+		mcp.WithResourceDescription("--help output of the 'create' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand("create", "func://create/docs")
+	})
+
+	mcpServer.AddResource(mcp.NewResource(
+		"func://build/docs",
+		"Build Command Help",
+		mcp.WithResourceDescription("--help output of the 'build' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand("build", "func://build/docs")
+	})
+
+	mcpServer.AddResource(mcp.NewResource(
+		"func://deploy/docs",
+		"Deploy Command Help",
+		mcp.WithResourceDescription("--help output of the 'deploy' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand("deploy", "func://deploy/docs")
+	})
+
+	mcpServer.AddResource(mcp.NewResource(
+		"func://list/docs",
+		"List Command Help",
+		mcp.WithResourceDescription("--help output of the 'list' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand("list", "func://list/docs")
+	})
+
+	mcpServer.AddResource(mcp.NewResource(
+		"func://delete/docs",
+		"Delete Command Help",
+		mcp.WithResourceDescription("--help output of the 'delete' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand("delete", "func://delete/docs")
+	})
+
 	mcpServer.AddPrompt(mcp.NewPrompt("help",
 		mcp.WithPromptDescription("help prompt for the root command"),
-	), handleHelpPrompt)
+	), handleRootHelpPrompt)
+
+	mcpServer.AddPrompt(mcp.NewPrompt("cmd_help",
+		mcp.WithPromptDescription("help prompt for a specific command"),
+		mcp.WithArgument("cmd",
+			mcp.ArgumentDescription("The command for which help is requested"),
+			mcp.RequiredArgument(),
+		),
+	), handleCmdHelpPrompt)
 
 	return &MCPServer{
 		server: mcpServer,
@@ -191,7 +245,45 @@ func handleRootHelpResource(ctx context.Context, request mcp.ReadResourceRequest
 	}, nil
 }
 
-func handleHelpPrompt(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+func runHelpCommand(cmd string, uri string) ([]mcp.ResourceContents, error) {
+	content, err := exec.Command("func", cmd, "--help").Output()
+	if err != nil {
+		return nil, err
+	}
+	return []mcp.ResourceContents{
+		mcp.TextResourceContents{
+			URI:      uri,
+			MIMEType: "text/plain",
+			Text:     string(content),
+		},
+	}, nil
+}
+
+func handleCmdHelpPrompt(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	cmd := request.Params.Arguments["cmd"]
+	if cmd == "" {
+		return nil, fmt.Errorf("cmd is required")
+	}
+
+	return mcp.NewGetPromptResult(
+		"Cmd Help Prompt",
+		[]mcp.PromptMessage{
+			mcp.NewPromptMessage(
+				mcp.RoleUser,
+				mcp.NewTextContent("What can I do with this func command? Please provide help for the command: "+cmd),
+			),
+			mcp.NewPromptMessage(
+				mcp.RoleAssistant,
+				mcp.NewEmbeddedResource(mcp.TextResourceContents{
+					URI:      fmt.Sprintf("func://%s/docs", cmd),
+					MIMEType: "text/plain",
+				}),
+			),
+		},
+	), nil
+}
+
+func handleRootHelpPrompt(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	return mcp.NewGetPromptResult(
 		"Help Prompt",
 		[]mcp.PromptMessage{
