@@ -2,14 +2,14 @@ package common
 
 import (
 	"context"
+	"fmt"
 
 	"strings"
 	"testing"
 
-	"knative.dev/func/pkg/k8s"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+
+	"knative.dev/func/pkg/k8s"
 )
 
 var DefaultGitServer GitProvider
@@ -39,71 +39,61 @@ type GitProvider interface {
 // ------------------------------------------------------
 
 type GitTestServerKnativeProvider struct {
-	PodName    string
-	ServiceUrl string
-	Kubectl    *TestExecCmd
-	t          *testing.T
+	Kubectl      *TestExecCmd
+	namespace    string
+	externalHost string
+	t            *testing.T
 }
 
-func (g *GitTestServerKnativeProvider) Init(T *testing.T) {
+// name of the pod,svc and ingress
+const podName = "func-git"
+const svcName = podName
+const ingressName = podName
 
-	g.t = T
-	if g.PodName == "" {
-		config, err := k8s.GetClientConfig().ClientConfig()
-		if err != nil {
-			T.Fatal(err.Error())
-		}
-		clientSet, err := kubernetes.NewForConfig(config)
-		if err != nil {
-			T.Fatal(err.Error())
-		}
-		ctx := context.Background()
-
-		namespace, _, _ := k8s.GetClientConfig().Namespace()
-		podList, err := clientSet.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
-			LabelSelector: "serving.knative.dev/service=func-git",
-		})
-		if err != nil {
-			T.Fatal(err.Error())
-		}
-		for _, pod := range podList.Items {
-			g.PodName = pod.Name
-		}
-	}
-
-	if g.ServiceUrl == "" {
-		// Get Route Name
-		_, g.ServiceUrl = GetKnativeServiceRevisionAndUrl(T, "func-git")
-	}
-
+func (g *GitTestServerKnativeProvider) Init(t *testing.T) {
+	g.t = t
 	if g.Kubectl == nil {
 		g.Kubectl = &TestExecCmd{
 			Binary:              "kubectl",
 			ShouldDumpCmdLine:   true,
 			ShouldDumpOnSuccess: true,
-			T:                   T,
+			T:                   t,
 		}
 	}
-	T.Logf("Initialized HTTP Func Git Server: Server URL = %v Pod Name = %v\n", g.ServiceUrl, g.PodName)
+	if g.namespace == "" {
+		g.namespace, _, _ = k8s.GetClientConfig().Namespace()
+	}
+
+	if g.externalHost == "" {
+		cli, err := k8s.NewKubernetesClientset()
+		if err != nil {
+			t.Fatal(err)
+		}
+		i, err := cli.NetworkingV1().Ingresses(g.namespace).Get(context.Background(), ingressName, metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		g.externalHost = i.Spec.Rules[0].Host
+	}
+
+	t.Logf("Initialized HTTP Func Git Server: Server URL = %s Pod Name = %s\n", g.externalHost, podName)
 }
 
 func (g *GitTestServerKnativeProvider) CreateRepository(repoName string) *GitRemoteRepo {
-	// kubectl exec $podname -c user-container -- git-repo create $reponame
-	cmdResult := g.Kubectl.Exec("exec", g.PodName, "-c", "user-container", "--", "git-repo", "create", repoName)
+	cmdResult := g.Kubectl.Exec("exec", podName, "--", "git-repo", "create", repoName)
 	if !strings.Contains(cmdResult.Out, "created") {
 		g.t.Fatal("unable to create git bare repository " + repoName)
 	}
-	namespace, _, _ := k8s.GetClientConfig().Namespace()
 	gitRepo := &GitRemoteRepo{
 		RepoName:         repoName,
-		ExternalCloneURL: g.ServiceUrl + "/" + repoName + ".git",
-		ClusterCloneURL:  "http://func-git." + namespace + ".svc.cluster.local/" + repoName + ".git",
+		ExternalCloneURL: fmt.Sprintf("http://%s/%s.git", g.externalHost, repoName),
+		ClusterCloneURL:  fmt.Sprintf("http://%s.%s.svc.cluster.local/%s.git", svcName, g.namespace, repoName),
 	}
 	return gitRepo
 }
 
 func (g *GitTestServerKnativeProvider) DeleteRepository(repoName string) {
-	cmdResult := g.Kubectl.Exec("exec", g.PodName, "-c", "user-container", "--", "git-repo", "delete", repoName)
+	cmdResult := g.Kubectl.Exec("exec", podName, "--", "git-repo", "delete", repoName)
 	if !strings.Contains(cmdResult.Out, "deleted") {
 		g.t.Fatal("unable to delete git bare repository " + repoName)
 	}
