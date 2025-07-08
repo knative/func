@@ -31,12 +31,12 @@ spec:
       annotations:
         autoscaling.knative.dev/max-scale: "1"
         autoscaling.knative.dev/min-scale: "1"
-        client.knative.dev/user-image: quay.io/mvasek/gitserver
+        client.knative.dev/user-image: ghcr.io/matejvasek/func/gitserver:latest
     spec:
       containers:
-      - image: quay.io/mvasek/gitserver
+      - image: ghcr.io/matejvasek/func/gitserver:latest
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         resources: {}
 status: {}
 EOF
