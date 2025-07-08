@@ -46,7 +46,6 @@ import (
 )
 
 func TestGitlab(t *testing.T) {
-	t.Skip("skip for now")
 	var err error
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
