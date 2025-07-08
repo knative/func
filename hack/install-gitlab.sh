@@ -70,6 +70,7 @@ spec:
         - name: GITLAB_OMNIBUS_CONFIG
           value: |
             external_url 'http://${gitlab_host}'
+            nginx['listen_addresses'] = ["[::]"]
             gitlab_rails['gitlab_shell_ssh_port'] = 30022
             gitlab_rails['gitlab_email_enabled'] = false
             puma['worker_processes'] = 0
