@@ -10,11 +10,11 @@ import (
 	"syscall"
 
 	"github.com/AlecAivazis/survey/v2/terminal"
+
 	"knative.dev/func/cmd"
 	"knative.dev/func/pkg/docker"
+	"knative.dev/func/pkg/version"
 )
-
-var vers, kver, hash string
 
 func Main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -32,9 +32,9 @@ func Main() {
 	cfg := cmd.RootCommandConfig{
 		Name: "func",
 		Version: cmd.Version{
-			Vers: vers,
-			Kver: kver,
-			Hash: hash,
+			Vers: version.Vers,
+			Kver: version.Kver,
+			Hash: version.Hash,
 		}}
 
 	if err := cmd.NewRootCmd(cfg).ExecuteContext(ctx); err != nil {

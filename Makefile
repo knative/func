@@ -28,7 +28,7 @@ VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS         ?= $(shell git describe --tags --match 'v*')
 KVER         ?= $(shell git describe --tags --match 'knative-*')
 
-LDFLAGS      := -X knative.dev/func/pkg/app.vers=$(VERS) -X knative.dev/func/pkg/app.kver=$(KVER) -X knative.dev/func/pkg/app.hash=$(HASH)
+LDFLAGS      := -X knative.dev/func/pkg/version.Vers=$(VERS) -X knative.dev/func/pkg/version.Kver=$(KVER) -X knative.dev/func/pkg/version.Hash=$(HASH)
 
 FUNC_UTILS_IMG ?= ghcr.io/knative/func-utils:v2
 LDFLAGS += -X knative.dev/func/pkg/k8s.SocatImage=$(FUNC_UTILS_IMG)

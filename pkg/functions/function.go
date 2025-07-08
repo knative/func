@@ -10,9 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/google/go-containerregistry/pkg/name"
 	"gopkg.in/yaml.v2"
+
 	fnlabels "knative.dev/func/pkg/k8s/labels"
+	"knative.dev/func/pkg/version"
 	"knative.dev/pkg/ptr"
 )
 
@@ -444,12 +447,12 @@ func (f Function) Write() (err error) {
 	}
 	defer rwFile.Close()
 
-	tagVersion := f.SpecVersion
+	schemaURI := funcYamlSchemaURI()
 
 	// Write schema header
-	schemaHeader := fmt.Sprintf(`# $schema: https://raw.githubusercontent.com/knative/func/refs/tags/v%s/schema/func_yaml-schema.json
-# yaml-language-server: $schema=https://raw.githubusercontent.com/knative/func/refs/tags/v%s/schema/func_yaml-schema.json
-`, tagVersion, tagVersion)
+	schemaHeader := fmt.Sprintf(`# $schema: %s
+# yaml-language-server: $schema=%s
+`, schemaURI, schemaURI)
 
 	if _, err = rwFile.WriteString(schemaHeader); err != nil {
 		return err
@@ -477,6 +480,25 @@ func (f Function) Write() (err error) {
 	// Write built image to .func
 	err = f.WriteRuntimeBuiltImage(false)
 	return
+}
+
+func funcYamlSchemaURI() string {
+	var (
+		ref  = "main"
+		kver semver.Version
+		err  error
+	)
+	kver, err = semver.Parse(strings.TrimPrefix(version.Kver, "knative-v"))
+	if err == nil {
+		ref = fmt.Sprintf("release-%d.%d", kver.Major, kver.Minor)
+	} else {
+		if version.Hash != "" {
+			ref = version.Hash
+		}
+	}
+
+	return fmt.Sprintf("https://raw.githubusercontent.com/knative/func"+
+		"/%s/schema/func_yaml-schema.json", ref)
 }
 
 type stampOptions struct{ journal bool }
