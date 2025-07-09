@@ -128,6 +128,17 @@ dns() {
   echo "${green}✅ DNS${reset}"
 }
 
+arr2yaml() {
+  echo -n '['
+  local e
+  local s=""
+  for e in "$@"; do
+    printf '%s"%s"' "$s" "$e";
+    s=", "
+  done
+  echo -n ']'
+}
+
 loadbalancer() {
   echo "${blue}Installing Load Balancer (Metallb)${reset}"
   $KUBECTL apply -f "https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml"
@@ -138,7 +149,22 @@ loadbalancer() {
     --timeout=300s
 
   local kind_addr
+  local kind_addr6
+  local addr_array
+
   kind_addr="$($CONTAINER_ENGINE container inspect func-control-plane | jq '.[0].NetworkSettings.Networks.kind.IPAddress' -r)"
+  kind_addr6="$($CONTAINER_ENGINE container inspect func-control-plane | jq '.[0].NetworkSettings.Networks.kind.GlobalIPv6Address' -r)"
+
+  addr_array=()
+
+  if [[ -n "$kind_addr" ]]; then
+    addr_array+=("$kind_addr/32");
+  fi
+
+  if [[ -n "$kind_addr6" ]]; then
+    addr_array+=("$kind_addr6/128");
+  fi
+
 
   echo "Setting up address pool."
   $KUBECTL apply -f - <<EOF
@@ -148,8 +174,7 @@ metadata:
   name: example
   namespace: metallb-system
 spec:
-  addresses:
-  - ${kind_addr}-${kind_addr}
+  addresses: $(arr2yaml "${addr_array[@]}")
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
