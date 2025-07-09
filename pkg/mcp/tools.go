@@ -293,7 +293,6 @@ func handleConfigVolumesTool(
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	if action == "list" {
-		// For 'list' action, we don't need other parameters, only --path
 		args := []string{"config", "volumes", "--path", path}
 		if request.GetBool("verbose", false) {
 			args = append(args, "--verbose")
@@ -344,6 +343,110 @@ func handleConfigVolumesTool(
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("func config volumes failed: %s", out)), nil
+	}
+
+	body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
+	return mcp.NewToolResultText(string(body)), nil
+}
+
+func handleConfigLabelsTool(
+	ctx context.Context,
+	request mcp.CallToolRequest,
+) (*mcp.CallToolResult, error) {
+	action, err := request.RequireString("action")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	path, err := request.RequireString("path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	if action == "list" {
+		args := []string{"config", "labels", "--path", path}
+		if request.GetBool("verbose", false) {
+			args = append(args, "--verbose")
+		}
+
+		cmd := exec.Command("func", args...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("func config labels list failed: %s", out)), nil
+		}
+		body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
+		return mcp.NewToolResultText(string(body)), nil
+	}
+
+	args := []string{"config", "labels", action, "--path", path}
+
+	// Optional flags
+	if name := request.GetString("name", ""); name != "" {
+		args = append(args, "--name", name)
+	}
+	if value := request.GetString("value", ""); value != "" {
+		args = append(args, "--value", value)
+	}
+	if request.GetBool("verbose", false) {
+		args = append(args, "--verbose")
+	}
+
+	cmd := exec.Command("func", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("func config labels %s failed: %s", action, out)), nil
+	}
+
+	body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
+	return mcp.NewToolResultText(string(body)), nil
+}
+
+func handleConfigEnvsTool(
+	ctx context.Context,
+	request mcp.CallToolRequest,
+) (*mcp.CallToolResult, error) {
+	action, err := request.RequireString("action")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	path, err := request.RequireString("path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	// Handle 'list' action separately
+	if action == "list" {
+		args := []string{"config", "envs", "--path", path}
+		if request.GetBool("verbose", false) {
+			args = append(args, "--verbose")
+		}
+
+		cmd := exec.Command("func", args...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("func config envs list failed: %s", out)), nil
+		}
+		body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
+		return mcp.NewToolResultText(string(body)), nil
+	}
+
+	// Handle 'add' and 'remove' actions
+	args := []string{"config", "envs", action, "--path", path}
+
+	// Optional flags
+	if name := request.GetString("name", ""); name != "" {
+		args = append(args, "--name", name)
+	}
+	if value := request.GetString("value", ""); value != "" {
+		args = append(args, "--value", value)
+	}
+	if request.GetBool("verbose", false) {
+		args = append(args, "--verbose")
+	}
+
+	cmd := exec.Command("func", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("func config envs %s failed: %s", action, out)), nil
 	}
 
 	body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
