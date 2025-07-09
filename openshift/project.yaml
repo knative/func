@@ -1,0 +1,3 @@
+project:
+  tag: knative-nightly
+  imagePrefix: knative-kn-plugin-func

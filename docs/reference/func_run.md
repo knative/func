@@ -68,7 +68,7 @@ func run
 ```
       --address string          Interface and port on which to bind and listen. Default is 127.0.0.1:8080, or an available port if 8080 is not available. ($FUNC_ADDRESS)
       --build string[="true"]   Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
-  -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+  -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "s2i")
       --builder-image string    Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                 Prompt to confirm options interactively ($FUNC_CONFIRM)
   -t, --container               Run the function in a container. ($FUNC_CONTAINER) (default true)

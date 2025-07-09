@@ -1,0 +1,228 @@
+---
+lockfileVersion: 1
+lockfileVendor: redhat
+arches:
+- arch: aarch64
+  packages:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/aarch64/appstream/os/Packages/s/socat-1.7.4.1-1.el8.aarch64.rpm
+    repoid: ubi-8-for-aarch64-appstream-rpms
+    size: 324364
+    checksum: sha256:eb27326c2f3f7c813f0f21e15177ab3f4c74778e2ef8029de51aafb09445c515
+    name: socat
+    evr: 1.7.4.1-1.el8
+    sourcerpm: socat-1.7.4.1-1.el8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/aarch64/baseos/os/Packages/r/rsync-3.1.3-21.el8_10.aarch64.rpm
+    repoid: ubi-8-for-aarch64-baseos-rpms
+    size: 410884
+    checksum: sha256:c2abdc201cedd3e1831955ae628c644ab670214126697695c77657edbbeaecb2
+    name: rsync
+    evr: 3.1.3-21.el8_10
+    sourcerpm: rsync-3.1.3-21.el8_10.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/aarch64/baseos/os/Packages/t/tar-1.30-9.el8.aarch64.rpm
+    repoid: ubi-8-for-aarch64-baseos-rpms
+    size: 849892
+    checksum: sha256:3ba95ecab30f49ecf168ee37e6bc332b626bde62ef7bf61801613f93e2126d8e
+    name: tar
+    evr: 2:1.30-9.el8
+    sourcerpm: tar-1.30-9.el8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/aarch64/baseos/os/Packages/t/tzdata-2025b-1.el8.noarch.rpm
+    repoid: ubi-8-for-aarch64-baseos-rpms
+    size: 488428
+    checksum: sha256:338539f7f0cd2770694153af81e2e65121b050a1bb555ad66a6fb6f562732602
+    name: tzdata
+    evr: 2025b-1.el8
+    sourcerpm: tzdata-2025b-1.el8.src.rpm
+  source:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/aarch64/appstream/source/SRPMS/Packages/s/socat-1.7.4.1-1.el8.src.rpm
+    repoid: ubi-8-for-aarch64-appstream-source-rpms
+    size: 666330
+    checksum: sha256:fde85ccbec9a4dabe98d7cf695d394f43fad1ec9b03c167f97430d6eb724b946
+    name: socat
+    evr: 1.7.4.1-1.el8
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/aarch64/baseos/source/SRPMS/Packages/r/rsync-3.1.3-21.el8_10.src.rpm
+    repoid: ubi-8-for-aarch64-baseos-source-rpms
+    size: 1149684
+    checksum: sha256:8dd8cd91786a1a30835e61c75f2f56b0449680583cff5be4e396fd82bfaab7c1
+    name: rsync
+    evr: 3.1.3-21.el8_10
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/aarch64/baseos/source/SRPMS/Packages/t/tar-1.30-9.el8.src.rpm
+    repoid: ubi-8-for-aarch64-baseos-source-rpms
+    size: 2169236
+    checksum: sha256:53ae8ab2f98cb36c9d7e3830a7a8d6a9897707bf3d0f0c6805282f88ca6e23f7
+    name: tar
+    evr: 2:1.30-9.el8
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/aarch64/baseos/source/SRPMS/Packages/t/tzdata-2025b-1.el8.src.rpm
+    repoid: ubi-8-for-aarch64-baseos-source-rpms
+    size: 946701
+    checksum: sha256:2f0ba51d371713287a690d9d1635b534113258aa2571862603d52870c1c8b60d
+    name: tzdata
+    evr: 2025b-1.el8
+  module_metadata: []
+- arch: ppc64le
+  packages:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/ppc64le/appstream/os/Packages/s/socat-1.7.4.1-1.el8.ppc64le.rpm
+    repoid: ubi-8-for-ppc64le-appstream-rpms
+    size: 337076
+    checksum: sha256:51f267ce6469e7967815e1f202b8afa84010717ff24fbff30c7c1bc9ee15d1d1
+    name: socat
+    evr: 1.7.4.1-1.el8
+    sourcerpm: socat-1.7.4.1-1.el8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/ppc64le/baseos/os/Packages/r/rsync-3.1.3-21.el8_10.ppc64le.rpm
+    repoid: ubi-8-for-ppc64le-baseos-rpms
+    size: 443544
+    checksum: sha256:13fc835eb33dbf991d34cc204f79fb84938176ea53442073187178818823e373
+    name: rsync
+    evr: 3.1.3-21.el8_10
+    sourcerpm: rsync-3.1.3-21.el8_10.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/ppc64le/baseos/os/Packages/t/tar-1.30-9.el8.ppc64le.rpm
+    repoid: ubi-8-for-ppc64le-baseos-rpms
+    size: 878620
+    checksum: sha256:c34619440c83b785306420d9ae4a21ccbafe09815e5631510cccb6433f435a47
+    name: tar
+    evr: 2:1.30-9.el8
+    sourcerpm: tar-1.30-9.el8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/ppc64le/baseos/os/Packages/t/tzdata-2025b-1.el8.noarch.rpm
+    repoid: ubi-8-for-ppc64le-baseos-rpms
+    size: 488428
+    checksum: sha256:338539f7f0cd2770694153af81e2e65121b050a1bb555ad66a6fb6f562732602
+    name: tzdata
+    evr: 2025b-1.el8
+    sourcerpm: tzdata-2025b-1.el8.src.rpm
+  source:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/ppc64le/appstream/source/SRPMS/Packages/s/socat-1.7.4.1-1.el8.src.rpm
+    repoid: ubi-8-for-ppc64le-appstream-source-rpms
+    size: 666330
+    checksum: sha256:fde85ccbec9a4dabe98d7cf695d394f43fad1ec9b03c167f97430d6eb724b946
+    name: socat
+    evr: 1.7.4.1-1.el8
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/ppc64le/baseos/source/SRPMS/Packages/r/rsync-3.1.3-21.el8_10.src.rpm
+    repoid: ubi-8-for-ppc64le-baseos-source-rpms
+    size: 1149684
+    checksum: sha256:8dd8cd91786a1a30835e61c75f2f56b0449680583cff5be4e396fd82bfaab7c1
+    name: rsync
+    evr: 3.1.3-21.el8_10
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/ppc64le/baseos/source/SRPMS/Packages/t/tar-1.30-9.el8.src.rpm
+    repoid: ubi-8-for-ppc64le-baseos-source-rpms
+    size: 2169236
+    checksum: sha256:53ae8ab2f98cb36c9d7e3830a7a8d6a9897707bf3d0f0c6805282f88ca6e23f7
+    name: tar
+    evr: 2:1.30-9.el8
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/ppc64le/baseos/source/SRPMS/Packages/t/tzdata-2025b-1.el8.src.rpm
+    repoid: ubi-8-for-ppc64le-baseos-source-rpms
+    size: 946701
+    checksum: sha256:2f0ba51d371713287a690d9d1635b534113258aa2571862603d52870c1c8b60d
+    name: tzdata
+    evr: 2025b-1.el8
+  module_metadata: []
+- arch: s390x
+  packages:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/s390x/appstream/os/Packages/s/socat-1.7.4.1-1.el8.s390x.rpm
+    repoid: ubi-8-for-s390x-appstream-rpms
+    size: 320544
+    checksum: sha256:4e8380ed4b4570663136b8b499bfe343b688bda676028ef5172d2155ac80e6ae
+    name: socat
+    evr: 1.7.4.1-1.el8
+    sourcerpm: socat-1.7.4.1-1.el8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/s390x/baseos/os/Packages/r/rsync-3.1.3-21.el8_10.s390x.rpm
+    repoid: ubi-8-for-s390x-baseos-rpms
+    size: 414124
+    checksum: sha256:a96c06ec291a0246b8b060b1c2744015e0d3b0ad2f2785adb216ca60e1c6244e
+    name: rsync
+    evr: 3.1.3-21.el8_10
+    sourcerpm: rsync-3.1.3-21.el8_10.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/s390x/baseos/os/Packages/t/tar-1.30-9.el8.s390x.rpm
+    repoid: ubi-8-for-s390x-baseos-rpms
+    size: 853548
+    checksum: sha256:1efadfc1d2113503b8b0e95939c4cb98a7e0095fb383dec2ac4bf652822a8d87
+    name: tar
+    evr: 2:1.30-9.el8
+    sourcerpm: tar-1.30-9.el8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/s390x/baseos/os/Packages/t/tzdata-2025b-1.el8.noarch.rpm
+    repoid: ubi-8-for-s390x-baseos-rpms
+    size: 488428
+    checksum: sha256:338539f7f0cd2770694153af81e2e65121b050a1bb555ad66a6fb6f562732602
+    name: tzdata
+    evr: 2025b-1.el8
+    sourcerpm: tzdata-2025b-1.el8.src.rpm
+  source:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/s390x/appstream/source/SRPMS/Packages/s/socat-1.7.4.1-1.el8.src.rpm
+    repoid: ubi-8-for-s390x-appstream-source-rpms
+    size: 666330
+    checksum: sha256:fde85ccbec9a4dabe98d7cf695d394f43fad1ec9b03c167f97430d6eb724b946
+    name: socat
+    evr: 1.7.4.1-1.el8
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/s390x/baseos/source/SRPMS/Packages/r/rsync-3.1.3-21.el8_10.src.rpm
+    repoid: ubi-8-for-s390x-baseos-source-rpms
+    size: 1149684
+    checksum: sha256:8dd8cd91786a1a30835e61c75f2f56b0449680583cff5be4e396fd82bfaab7c1
+    name: rsync
+    evr: 3.1.3-21.el8_10
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/s390x/baseos/source/SRPMS/Packages/t/tar-1.30-9.el8.src.rpm
+    repoid: ubi-8-for-s390x-baseos-source-rpms
+    size: 2169236
+    checksum: sha256:53ae8ab2f98cb36c9d7e3830a7a8d6a9897707bf3d0f0c6805282f88ca6e23f7
+    name: tar
+    evr: 2:1.30-9.el8
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/s390x/baseos/source/SRPMS/Packages/t/tzdata-2025b-1.el8.src.rpm
+    repoid: ubi-8-for-s390x-baseos-source-rpms
+    size: 946701
+    checksum: sha256:2f0ba51d371713287a690d9d1635b534113258aa2571862603d52870c1c8b60d
+    name: tzdata
+    evr: 2025b-1.el8
+  module_metadata: []
+- arch: x86_64
+  packages:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/x86_64/appstream/os/Packages/s/socat-1.7.4.1-1.el8.x86_64.rpm
+    repoid: ubi-8-for-x86_64-appstream-rpms
+    size: 330744
+    checksum: sha256:b03b86ac05bd5871f14e00400a6ddd30d8e9ed97b93e56e96789706c36e2f379
+    name: socat
+    evr: 1.7.4.1-1.el8
+    sourcerpm: socat-1.7.4.1-1.el8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/x86_64/baseos/os/Packages/r/rsync-3.1.3-21.el8_10.x86_64.rpm
+    repoid: ubi-8-for-x86_64-baseos-rpms
+    size: 420856
+    checksum: sha256:c65fc8397e47b5c9a3e3ca8b1aca7136a1534ecbfb76884bdc0dde075e1f990b
+    name: rsync
+    evr: 3.1.3-21.el8_10
+    sourcerpm: rsync-3.1.3-21.el8_10.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/x86_64/baseos/os/Packages/t/tar-1.30-9.el8.x86_64.rpm
+    repoid: ubi-8-for-x86_64-baseos-rpms
+    size: 858812
+    checksum: sha256:6b0dc7341d743c89fa038292a7e04761ebb6cc98208ebc26dee9f01e2c1a9529
+    name: tar
+    evr: 2:1.30-9.el8
+    sourcerpm: tar-1.30-9.el8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/x86_64/baseos/os/Packages/t/tzdata-2025b-1.el8.noarch.rpm
+    repoid: ubi-8-for-x86_64-baseos-rpms
+    size: 488428
+    checksum: sha256:338539f7f0cd2770694153af81e2e65121b050a1bb555ad66a6fb6f562732602
+    name: tzdata
+    evr: 2025b-1.el8
+    sourcerpm: tzdata-2025b-1.el8.src.rpm
+  source:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/x86_64/appstream/source/SRPMS/Packages/s/socat-1.7.4.1-1.el8.src.rpm
+    repoid: ubi-8-for-x86_64-appstream-source-rpms
+    size: 666330
+    checksum: sha256:fde85ccbec9a4dabe98d7cf695d394f43fad1ec9b03c167f97430d6eb724b946
+    name: socat
+    evr: 1.7.4.1-1.el8
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/x86_64/baseos/source/SRPMS/Packages/r/rsync-3.1.3-21.el8_10.src.rpm
+    repoid: ubi-8-for-x86_64-baseos-source-rpms
+    size: 1149684
+    checksum: sha256:8dd8cd91786a1a30835e61c75f2f56b0449680583cff5be4e396fd82bfaab7c1
+    name: rsync
+    evr: 3.1.3-21.el8_10
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/x86_64/baseos/source/SRPMS/Packages/t/tar-1.30-9.el8.src.rpm
+    repoid: ubi-8-for-x86_64-baseos-source-rpms
+    size: 2169236
+    checksum: sha256:53ae8ab2f98cb36c9d7e3830a7a8d6a9897707bf3d0f0c6805282f88ca6e23f7
+    name: tar
+    evr: 2:1.30-9.el8
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/x86_64/baseos/source/SRPMS/Packages/t/tzdata-2025b-1.el8.src.rpm
+    repoid: ubi-8-for-x86_64-baseos-source-rpms
+    size: 946701
+    checksum: sha256:2f0ba51d371713287a690d9d1635b534113258aa2571862603d52870c1c8b60d
+    name: tzdata
+    evr: 2025b-1.el8
+  module_metadata: []

@@ -115,7 +115,7 @@ func deploy
 ```
       --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
       --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
-  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "s2i")
       --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
       --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)

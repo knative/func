@@ -344,7 +344,7 @@ spec:
         - mountPath: /env-vars
           name: env-vars
     - name: build
-      image: quay.io/buildah/stable:v1.31.0
+      image: registry.redhat.io/rhel8/buildah@sha256:a1e5cc0fb334e333e5eab69689223e8bd1f0c060810d260603b26cf8c0da2023
       workingDir: /gen-source
       script: |
         TLS_VERIFY_FLAG=""

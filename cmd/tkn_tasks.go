@@ -18,7 +18,7 @@ Installation: func tkn-tasks | kubectl apply -f -
 `,
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := fmt.Fprintln(cmd.OutOrStdout(), tekton.GetClusterTasks())
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), tekton.GetClusterTasks()+"\n---\n"+tekton.GetDevConsolePipelines())
 			return err
 		},
 	}
