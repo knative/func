@@ -3,7 +3,11 @@
 FROM registry.ci.openshift.org/ocp/4.17:cli-artifacts as tools
 
 # Dockerfile to bootstrap build and test in openshift-ci
-FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang-1.24-nofips-openshift-4.19 as builder
+FROM registry.redhat.io/rhel10/go-toolset@sha256:050c556adbf8a684de705abadfdfaf105936e5b4e7abe4f46d6b095a684bfa37 as builder
+
+USER 0:0
+RUN yum update -y go
+USER 1001:0
 
 ARG TARGETARCH
 

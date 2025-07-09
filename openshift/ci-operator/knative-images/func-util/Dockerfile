@@ -1,8 +1,12 @@
 # DO NOT EDIT! Generated Dockerfile for cmd/func-util.
-ARG GO_BUILDER=registry.ci.openshift.org/openshift/release:rhel-9-release-golang-1.24-nofips-openshift-4.19
-ARG GO_RUNTIME=registry.access.redhat.com/ubi8/ubi-minimal
+ARG GO_BUILDER=registry.redhat.io/rhel10/go-toolset@sha256:050c556adbf8a684de705abadfdfaf105936e5b4e7abe4f46d6b095a684bfa37
+ARG GO_RUNTIME=registry.redhat.io/ubi10-minimal@sha256:da1aedf263c25c4d5a58bc9d44a6b9f973a217ed67cb7ad2e08ec2711e901eec
 
 FROM $GO_BUILDER as builder
+
+USER 0:0
+RUN yum update -y go
+USER 1001:0
 
 WORKDIR /workspace
 COPY . .
