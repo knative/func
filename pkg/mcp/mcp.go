@@ -156,6 +156,29 @@ func NewServer() *MCPServer {
 		handleDeleteTool,
 	)
 
+	mcpServer.AddTool(
+		mcp.NewTool("config_volumes",
+			mcp.WithDescription("Lists and manages configured volumes for a function"),
+			mcp.WithString("action",
+				mcp.Required(),
+				mcp.Description("The action to perform: 'add' to add a volume, 'remove' to remove a volume, 'list' to list volumes"),
+			),
+			mcp.WithString("path",
+				mcp.Required(),
+				mcp.Description("Path to the function. Default is current directory ($FUNC_PATH)"),
+			),
+
+			// Optional flags
+			mcp.WithString("type", mcp.Description("Volume type: configmap, secret, pvc, or emptydir")),
+			mcp.WithString("mount_path", mcp.Description("Mount path for the volume in the function container")),
+			mcp.WithString("source", mcp.Description("Name of the ConfigMap, Secret, or PVC to mount (not used for emptydir)")),
+			mcp.WithString("medium", mcp.Description("Storage medium for EmptyDir volume: 'Memory' or '' (default)")),
+			mcp.WithString("size", mcp.Description("Maximum size limit for EmptyDir volume (e.g., 1Gi)")),
+			mcp.WithBoolean("read_only", mcp.Description("Mount volume as read-only (only for PVC)")),
+			mcp.WithBoolean("verbose", mcp.Description("Print verbose logs ($FUNC_VERBOSE)")),
+		),
+		handleConfigVolumesTool,
+	)
 	mcpServer.AddResource(mcp.NewResource(
 		"func://docs",
 		"Root Help Command",
@@ -170,7 +193,7 @@ func NewServer() *MCPServer {
 		mcp.WithResourceDescription("--help output of the 'create' command"),
 		mcp.WithMIMEType("text/plain"),
 	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand("create", "func://create/docs")
+		return runHelpCommand([]string{"create"}, "func://create/docs")
 	})
 
 	mcpServer.AddResource(mcp.NewResource(
@@ -179,7 +202,7 @@ func NewServer() *MCPServer {
 		mcp.WithResourceDescription("--help output of the 'build' command"),
 		mcp.WithMIMEType("text/plain"),
 	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand("build", "func://build/docs")
+		return runHelpCommand([]string{"build"}, "func://build/docs")
 	})
 
 	mcpServer.AddResource(mcp.NewResource(
@@ -188,7 +211,7 @@ func NewServer() *MCPServer {
 		mcp.WithResourceDescription("--help output of the 'deploy' command"),
 		mcp.WithMIMEType("text/plain"),
 	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand("deploy", "func://deploy/docs")
+		return runHelpCommand([]string{"deploy"}, "func://deploy/docs")
 	})
 
 	mcpServer.AddResource(mcp.NewResource(
@@ -197,7 +220,7 @@ func NewServer() *MCPServer {
 		mcp.WithResourceDescription("--help output of the 'list' command"),
 		mcp.WithMIMEType("text/plain"),
 	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand("list", "func://list/docs")
+		return runHelpCommand([]string{"list"}, "func://list/docs")
 	})
 
 	mcpServer.AddResource(mcp.NewResource(
@@ -206,7 +229,25 @@ func NewServer() *MCPServer {
 		mcp.WithResourceDescription("--help output of the 'delete' command"),
 		mcp.WithMIMEType("text/plain"),
 	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand("delete", "func://delete/docs")
+		return runHelpCommand([]string{"delete"}, "func://delete/docs")
+	})
+
+	mcpServer.AddResource(mcp.NewResource(
+		"func://config/volumes/add/docs",
+		"Config Volumes Add Command Help",
+		mcp.WithResourceDescription("--help output of the 'config volumes add' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand([]string{"config", "volumes", "add"}, "func://config/volumes/add/docs")
+	})
+
+	mcpServer.AddResource(mcp.NewResource(
+		"func://config/volumes/remove/docs",
+		"Config Volumes Remove Command Help",
+		mcp.WithResourceDescription("--help output of the 'config volumes remove' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand([]string{"config", "volumes", "remove"}, "func://config/volumes/add/docs")
 	})
 
 	mcpServer.AddPrompt(mcp.NewPrompt("help",
@@ -245,8 +286,9 @@ func handleRootHelpResource(ctx context.Context, request mcp.ReadResourceRequest
 	}, nil
 }
 
-func runHelpCommand(cmd string, uri string) ([]mcp.ResourceContents, error) {
-	content, err := exec.Command("func", cmd, "--help").Output()
+func runHelpCommand(args []string, uri string) ([]mcp.ResourceContents, error) {
+	args = append(args, "--help")
+	content, err := exec.Command("func", args...).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -568,6 +610,76 @@ func handleDeleteTool(
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("func delete failed: %s", out)), nil
+	}
+
+	body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
+	return mcp.NewToolResultText(string(body)), nil
+}
+
+func handleConfigVolumesTool(
+	ctx context.Context,
+	request mcp.CallToolRequest,
+) (*mcp.CallToolResult, error) {
+	action, err := request.RequireString("action")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	path, err := request.RequireString("path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if action == "list" {
+		// For 'list' action, we don't need other parameters, only --path
+		args := []string{"config", "volumes", "--path", path}
+		if request.GetBool("verbose", false) {
+			args = append(args, "--verbose")
+		}
+
+		cmd := exec.Command("func", args...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("func config volumes list failed: %s", out)), nil
+		}
+		body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
+		return mcp.NewToolResultText(string(body)), nil
+	}
+
+	args := []string{"config", "volumes", action}
+
+	if action == "add" {
+		volumeType, err := request.RequireString("type")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		args = append(args, "--type", volumeType)
+	}
+	mountPath, err := request.RequireString("mount_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	args = append(args, "--mount-path", mountPath, "--path", path)
+
+	// Optional flags
+	if v := request.GetString("source", ""); v != "" {
+		args = append(args, "--source", v)
+	}
+	if v := request.GetString("medium", ""); v != "" {
+		args = append(args, "--medium", v)
+	}
+	if v := request.GetString("size", ""); v != "" {
+		args = append(args, "--size", v)
+	}
+	if request.GetBool("read_only", false) {
+		args = append(args, "--read-only")
+	}
+	if request.GetBool("verbose", false) {
+		args = append(args, "--verbose")
+	}
+
+	cmd := exec.Command("func", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("func config volumes failed: %s", out)), nil
 	}
 
 	body := []byte(fmt.Sprintf(`{"result": "%s"}`, out))
