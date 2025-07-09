@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -44,6 +45,11 @@ func handleCmdHelpPrompt(ctx context.Context, request mcp.GetPromptRequest) (*mc
 		return nil, fmt.Errorf("cmd is required")
 	}
 
+	parts := strings.Fields(cmd)
+	if len(parts) == 0 {
+		return nil, fmt.Errorf("invalid cmd: %s", cmd)
+	}
+
 	return mcp.NewGetPromptResult(
 		"Cmd Help Prompt",
 		[]mcp.PromptMessage{
@@ -54,7 +60,7 @@ func handleCmdHelpPrompt(ctx context.Context, request mcp.GetPromptRequest) (*mc
 			mcp.NewPromptMessage(
 				mcp.RoleAssistant,
 				mcp.NewEmbeddedResource(mcp.TextResourceContents{
-					URI:      fmt.Sprintf("func://%s/docs", cmd),
+					URI:      fmt.Sprintf("func://%s/docs", strings.Join(parts, "/")),
 					MIMEType: "text/plain",
 				}),
 			),

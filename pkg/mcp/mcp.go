@@ -177,6 +177,47 @@ func NewServer() *MCPServer {
 		),
 		handleConfigVolumesTool,
 	)
+
+	mcpServer.AddTool(
+		mcp.NewTool("config_labels",
+			mcp.WithDescription("Lists and manages labels for a function"),
+			mcp.WithString("action",
+				mcp.Required(),
+				mcp.Description("The action to perform: 'add' to add a label, 'remove' to remove a label, 'list' to list labels"),
+			),
+			mcp.WithString("path",
+				mcp.Required(),
+				mcp.Description("Path to the function. Default is current directory ($FUNC_PATH)"),
+			),
+
+			// Optional flags
+			mcp.WithString("name", mcp.Description("Name of the label.")),
+			mcp.WithString("value", mcp.Description("Value of the label.")),
+			mcp.WithBoolean("verbose", mcp.Description("Print verbose logs ($FUNC_VERBOSE)")),
+		),
+		handleConfigLabelsTool,
+	)
+
+	mcpServer.AddTool(
+		mcp.NewTool("config_envs",
+			mcp.WithDescription("Lists and manages environment variables for a function"),
+			mcp.WithString("action",
+				mcp.Required(),
+				mcp.Description("The action to perform: 'add' to add an env var, 'remove' to remove, 'list' to list env vars"),
+			),
+			mcp.WithString("path",
+				mcp.Required(),
+				mcp.Description("Path to the function. Default is current directory ($FUNC_PATH)"),
+			),
+
+			// Optional flags
+			mcp.WithString("name", mcp.Description("Name of the environment variable.")),
+			mcp.WithString("value", mcp.Description("Value of the environment variable.")),
+			mcp.WithBoolean("verbose", mcp.Description("Print verbose logs ($FUNC_VERBOSE)")),
+		),
+		handleConfigEnvsTool,
+	)
+
 	mcpServer.AddResource(mcp.NewResource(
 		"func://docs",
 		"Root Help Command",
@@ -245,7 +286,43 @@ func NewServer() *MCPServer {
 		mcp.WithResourceDescription("--help output of the 'config volumes remove' command"),
 		mcp.WithMIMEType("text/plain"),
 	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"config", "volumes", "remove"}, "func://config/volumes/add/docs")
+		return runHelpCommand([]string{"config", "volumes", "remove"}, "func://config/volumes/remove/docs")
+	})
+
+	mcpServer.AddResource(mcp.NewResource(
+		"func://config/labels/add/docs",
+		"Config Labels Add Command Help",
+		mcp.WithResourceDescription("--help output of the 'config labels add' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand([]string{"config", "labels", "add"}, "func://config/labels/add/docs")
+	})
+
+	mcpServer.AddResource(mcp.NewResource(
+		"func://config/labels/remove/docs",
+		"Config Labels Remove Command Help",
+		mcp.WithResourceDescription("--help output of the 'config labels remove' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand([]string{"config", "labels", "remove"}, "func://config/labels/remove/docs")
+	})
+
+	mcpServer.AddResource(mcp.NewResource(
+		"func://config/envs/add/docs",
+		"Config Envs Add Command Help",
+		mcp.WithResourceDescription("--help output of the 'config envs add' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand([]string{"config", "envs", "add"}, "func://config/envs/add/docs")
+	})
+
+	mcpServer.AddResource(mcp.NewResource(
+		"func://config/envs/remove/docs",
+		"Config Envs Remove Command Help",
+		mcp.WithResourceDescription("--help output of the 'config envs remove' command"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return runHelpCommand([]string{"config", "envs", "remove"}, "func://config/envs/remove/docs")
 	})
 
 	mcpServer.AddPrompt(mcp.NewPrompt("help",
