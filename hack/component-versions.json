@@ -3,6 +3,6 @@
 	"Serving": "v1.18.1",
 	"Eventing": "v1.18.2",
 	"Contour": "v1.18.0",
-	"Tekton": "v0.56.4",
+	"Tekton": "v1.1.0",
 	"Pac": "v0.24.6"
 }
