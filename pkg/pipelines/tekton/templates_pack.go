@@ -119,7 +119,7 @@ spec:
     - name: gitRevision
       value: {{.Revision}}
     - name: contextDir
-      value: {{.ContextDir}}
+      value: "{{.ContextDir}}"
     - name: imageName
       value: {{.FunctionImage}}
     - name: registry
@@ -182,7 +182,7 @@ spec:
     - name: gitRevision
       value: {{.Revision}}
     - name: contextDir
-      value: {{.ContextDir}}
+      value: "{{.ContextDir}}"
     - name: imageName
       value: {{.FunctionImage}}
     - name: registry
