@@ -421,7 +421,7 @@ tekton() {
   # TODO: Remove this workaround once the underlying Tekton issue is resolved
   echo "${blue}- Disabling affinity assistant (temporary workaround)${reset}"
   $KUBECTL patch configmap feature-flags -n tekton-pipelines \
-    -p '{"data":{"disable-affinity-assistant":"true"}}' \
+    -p '{"data":{"disable-affinity-assistant":"true", "coschedule":"disabled"}}' \
     --type=merge
 
   echo "${green}✅ Tekton${reset}"
