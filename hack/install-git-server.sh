@@ -17,31 +17,79 @@ set -o nounset
 set -o pipefail
 
 git_server() {
-  echo "Creating Git Server Knative service..."
-  cat << EOF | kubectl apply -f -
-apiVersion: serving.knative.dev/v1
+  echo "Creating Git Server"
+
+  local name="func-git"
+
+  local namespace
+  namespace="$(kubectl config view --minify --output 'jsonpath={..namespace}')"
+  namespace="${namespace:-"default"}"
+
+
+  local ingress_class="contour-external"
+  local cluster_domain="localtest.me"
+  if kubectl api-versions | grep -q openshift.io; then
+    cluster_domain="$(kubectl get ingresses.config/cluster -o jsonpath='{.spec.domain}')"
+    ingress_class="openshift-default"
+  fi
+
+
+  local -r func_git_host="${name}.${namespace}.${cluster_domain}"
+
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "${name}"
+  namespace: "${namespace}"
+  labels:
+    app.kubernetes.io/name: "${name}"
+spec:
+  containers:
+    - name: "${name}"
+      image: ghcr.io/matejvasek/func/gitserver:latest
+      ports:
+        - containerPort: 8080
+          name: http
+---
+apiVersion: v1
 kind: Service
 metadata:
-  name: func-git
-  labels:
-    app: git
+  name: "${name}"
+  namespace: "${namespace}"
 spec:
-  template:
-    metadata:
-      annotations:
-        autoscaling.knative.dev/max-scale: "1"
-        autoscaling.knative.dev/min-scale: "1"
-        client.knative.dev/user-image: ghcr.io/matejvasek/func/gitserver:latest
-    spec:
-      containers:
-      - image: ghcr.io/matejvasek/func/gitserver:latest
-        ports:
-        - containerPort: 8080
-        resources: {}
-status: {}
+  selector:
+    app.kubernetes.io/name: "${name}"
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "${name}"
+  namespace: "${namespace}"
+spec:
+  ingressClassName: "${ingress_class}"
+  rules:
+    - host: "${func_git_host}"
+      http:
+        paths:
+          - backend:
+              service:
+                name: "${name}"
+                port:
+                  number: 80
+            pathType: Prefix
+            path: /
 EOF
 
-  kubectl wait ksvc --for=condition=RoutesReady --timeout=30s -l "app=git"
+  echo "starting func-git service at: ${func_git_host}"
+
+  kubectl wait --for=condition=Ready "pod/${name}" --timeout=30s
 }
 
 git_server
