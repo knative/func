@@ -15,5 +15,5 @@ set_versions() {
 	knative_eventing_version="v1.18.2"
 	contour_version="v1.18.0"
 	tekton_version="v1.1.0"
-	pac_version="v0.24.6"
+	pac_version="v0.35.2"
 }

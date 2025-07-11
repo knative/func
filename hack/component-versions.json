@@ -4,5 +4,5 @@
 	"Eventing": "v1.18.2",
 	"Contour": "v1.18.0",
 	"Tekton": "v1.1.0",
-	"Pac": "v0.24.6"
+	"Pac": "v0.35.2"
 }
