@@ -69,8 +69,8 @@ EXAMPLES
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
 		PreRunE: bindEnv("image", "path", "builder", "registry", "confirm",
-			"push", "builder-image", "platform", "verbose", "build-timestamp",
-			"registry-insecure", "username", "password", "token"),
+			"push", "builder-image", "base-image", "platform", "verbose",
+			"build-timestamp", "registry-insecure", "username", "password", "token"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBuild(cmd, args, newClient)
 		},
@@ -110,6 +110,8 @@ EXAMPLES
 	builderImage := f.Build.BuilderImages[f.Build.Builder]
 	cmd.Flags().StringP("builder-image", "", builderImage,
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
+	cmd.Flags().StringP("base-image", "", f.Build.BaseImage,
+		"Override the base image for your function (host builder only)")
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)")
 
@@ -223,6 +225,10 @@ type buildConfig struct {
 	// image name derivation based on registry and function name)
 	Image string
 
+	// BaseImage is an image to build a function upon (host builder only)
+	// TODO: gauron99 -- make option to add a path to dockerfile ?
+	BaseImage string
+
 	// Path of the function implementation on local disk. Defaults to current
 	// working directory of the process.
 	Path string
@@ -260,6 +266,7 @@ func newBuildConfig() buildConfig {
 			RegistryInsecure: viper.GetBool("registry-insecure"),
 		},
 		BuilderImage:  viper.GetString("builder-image"),
+		BaseImage:     viper.GetString("base-image"),
 		Image:         viper.GetString("image"),
 		Path:          viper.GetString("path"),
 		Platform:      viper.GetString("platform"),
@@ -281,6 +288,7 @@ func (c buildConfig) Configure(f fn.Function) fn.Function {
 		f.Build.BuilderImages[f.Build.Builder] = c.BuilderImage
 	}
 	f.Image = c.Image
+	f.Build.BaseImage = c.BaseImage
 	// Path, Platform and Push are not part of a function's state.
 	return f
 }
@@ -360,6 +368,10 @@ func (c buildConfig) Validate() (err error) {
 		return
 	}
 
+	// BaseImage is only supported with the host builder
+	if c.BaseImage != "" && c.Builder != "host" {
+		err = errors.New("only host builds support specifying the base image")
+	}
 	return
 }
 

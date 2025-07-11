@@ -64,7 +64,7 @@ type languageBuilder interface {
 	// Base returns the base image (if any) to use.  Ideally this is a
 	// multi-arch base image with a corresponding platform image for
 	// each requested to be built.
-	Base() string
+	Base(customBase string) string
 
 	// WriteShared layers (not platform-specific) which need to be genearted
 	// on demand per language, such as shared dependencies.
@@ -568,12 +568,13 @@ func newCertsTarball(source, target string, verbose bool) error {
 // Its layers are automatically downloaded into the local cache if this is
 // the first fetch and their blobs linked into the final OCI image.
 func pullBase(job buildJob, p v1.Platform) (image v1.Image, err error) {
-	if job.languageBuilder.Base() == "" {
+	baseImage := job.function.Build.BaseImage
+	if job.languageBuilder.Base(baseImage) == "" {
 		return // FROM SCRATCH
 	}
 
 	// Parse the base into a reference
-	ref, err := name.ParseReference(job.languageBuilder.Base())
+	ref, err := name.ParseReference(job.languageBuilder.Base(baseImage))
 	if err != nil {
 		return
 	}

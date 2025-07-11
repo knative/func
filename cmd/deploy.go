@@ -128,7 +128,11 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "service-account", "registry", "registry-insecure", "remote", "username", "password", "token", "verbose", "remote-storage-class"),
+		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
+			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
+			"git-url", "image", "namespace", "path", "platform", "push", "pvc-size",
+			"service-account", "registry", "registry-insecure", "remote",
+			"username", "password", "token", "verbose", "remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -163,6 +167,8 @@ EXAMPLES
 	builderImage := f.Build.BuilderImages[f.Build.Builder]
 	cmd.Flags().String("builder-image", builderImage,
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
+	cmd.Flags().StringP("base-image", "", f.Build.BaseImage,
+		"Override the base image for your function (host builder only)")
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)")
 

@@ -49,6 +49,10 @@
 					"type": "string",
 					"description": "RemoteStorageClass specifies the storage class to use for the volume used\non-cluster during when built remotely."
 				},
+				"baseImage": {
+					"type": "string",
+					"description": "BaseImage defines an override for the function to be built upon (host bulder only)"
+				},
 				"volumes": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",

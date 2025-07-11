@@ -461,7 +461,7 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 // OCI builder for each language, and can be overridden for testing
 type TestLanguageBuilder struct {
 	BaseInvoked bool
-	BaseFn      func() string
+	BaseFn      func(customImage string) string
 
 	WriteSharedInvoked bool
 	WriteSharedFn      func(buildJob) ([]imageLayer, error)
@@ -475,7 +475,7 @@ type TestLanguageBuilder struct {
 
 func NewTestLanguageBuilder() *TestLanguageBuilder {
 	return &TestLanguageBuilder{
-		BaseFn:          func() string { return "" },
+		BaseFn:          func(customImage string) string { return "" },
 		WriteSharedFn:   func(buildJob) ([]imageLayer, error) { return []imageLayer{}, nil },
 		WritePlatformFn: func(buildJob, v1.Platform) ([]imageLayer, error) { return []imageLayer{}, nil },
 		ConfigureFn: func(buildJob, v1.Platform, v1.ConfigFile) (v1.ConfigFile, error) {
@@ -484,9 +484,9 @@ func NewTestLanguageBuilder() *TestLanguageBuilder {
 	}
 }
 
-func (l *TestLanguageBuilder) Base() string {
+func (l *TestLanguageBuilder) Base(customImage string) string {
 	l.BaseInvoked = true
-	return l.BaseFn()
+	return l.BaseFn(customImage)
 }
 
 func (l *TestLanguageBuilder) WriteShared(job buildJob) ([]imageLayer, error) {
