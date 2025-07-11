@@ -57,7 +57,7 @@ const (
           - name: name
             value: git-clone
           - name: version
-            value: "0.4"
+            value: "0.10"
       workspaces:
         - name: output
           workspace: source-workspace`
