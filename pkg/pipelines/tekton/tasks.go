@@ -40,7 +40,7 @@ metadata:
 spec:
   description: >-
     The Knative Functions Buildpacks task builds source into a container image and pushes it to a registry,
-    using Cloud Native Buildpacks. This task is based on the Buildpacks Tekton task v 0.10.
+    using Cloud Native Buildpacks. This task is based on the Buildpacks Tekton task v 0.4.
 
   workspaces:
     - name: source
