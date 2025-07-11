@@ -178,7 +178,7 @@ metadata:
 spec:
   params:
     - name: gitRepository
-      value: "{{.RepoUrl}}"
+      value: {{.RepoUrl}}
     - name: gitRevision
       value: {{.Revision}}
     - name: contextDir
