@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/docker/docker/client"
 	"io"
 	"log"
 	"math/big"
@@ -293,11 +294,11 @@ func (m *mockPusherDockerClient) NegotiateAPIVersion(ctx context.Context) {
 	m.negotiateAPIVersion(ctx)
 }
 
-func (m *mockPusherDockerClient) ImageSave(ctx context.Context, strings []string) (io.ReadCloser, error) {
+func (m *mockPusherDockerClient) ImageSave(ctx context.Context, strings []string, opts ...client.ImageSaveOption) (io.ReadCloser, error) {
 	return m.imageSave(ctx, strings)
 }
 
-func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader, b bool) (api.LoadResponse, error) {
+func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader, opts ...client.ImageLoadOption) (api.LoadResponse, error) {
 	panic("implement me")
 }
 
@@ -313,7 +314,7 @@ func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, opti
 	return m.imagePush(ctx, ref, options)
 }
 
-func (m *mockPusherDockerClient) ImageHistory(context.Context, string) ([]api.HistoryResponseItem, error) {
+func (m *mockPusherDockerClient) ImageHistory(context.Context, string, ...client.ImageHistoryOption) ([]api.HistoryResponseItem, error) {
 	return nil, errors.New("the ImageHistory() function is not implemented")
 }
 

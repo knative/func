@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"github.com/docker/docker/client"
 	"io"
 	"net"
 	"net/http"
@@ -460,13 +461,13 @@ func (c *closeGuardingClient) ImageCreate(arg0 context.Context, arg1 string, arg
 	return c.pimpl.ImageCreate(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ImageHistory(arg0 context.Context, arg1 string) ([]image.HistoryResponseItem, error) {
+func (c *closeGuardingClient) ImageHistory(arg0 context.Context, arg1 string, arg2 ...client.ImageHistoryOption) ([]image.HistoryResponseItem, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
 		panic("use of closed client")
 	}
-	return c.pimpl.ImageHistory(arg0, arg1)
+	return c.pimpl.ImageHistory(arg0, arg1, arg2...)
 }
 
 func (c *closeGuardingClient) ImageImport(arg0 context.Context, arg1 image.ImportSource, arg2 string, arg3 image.ImportOptions) (io.ReadCloser, error) {
@@ -496,13 +497,13 @@ func (c *closeGuardingClient) ImageList(arg0 context.Context, arg1 image.ListOpt
 	return c.pimpl.ImageList(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ImageLoad(arg0 context.Context, arg1 io.Reader, arg2 bool) (image.LoadResponse, error) {
+func (c *closeGuardingClient) ImageLoad(arg0 context.Context, arg1 io.Reader, arg2 ...client.ImageLoadOption) (image.LoadResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
 		panic("use of closed client")
 	}
-	return c.pimpl.ImageLoad(arg0, arg1, arg2)
+	return c.pimpl.ImageLoad(arg0, arg1, arg2...)
 }
 
 func (c *closeGuardingClient) ImagePull(arg0 context.Context, arg1 string, arg2 image.PullOptions) (io.ReadCloser, error) {
@@ -532,13 +533,13 @@ func (c *closeGuardingClient) ImageRemove(arg0 context.Context, arg1 string, arg
 	return c.pimpl.ImageRemove(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ImageSave(arg0 context.Context, arg1 []string) (io.ReadCloser, error) {
+func (c *closeGuardingClient) ImageSave(arg0 context.Context, arg1 []string, arg2 ...client.ImageSaveOption) (io.ReadCloser, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
 		panic("use of closed client")
 	}
-	return c.pimpl.ImageSave(arg0, arg1)
+	return c.pimpl.ImageSave(arg0, arg1, arg2...)
 }
 
 func (c *closeGuardingClient) ImageSearch(arg0 context.Context, arg1 string, arg2 registry.SearchOptions) ([]registry.SearchResult, error) {
@@ -1070,4 +1071,13 @@ func (c *closeGuardingClient) VolumeUpdate(arg0 context.Context, arg1 string, ar
 		panic("use of closed client")
 	}
 	return c.pimpl.VolumeUpdate(arg0, arg1, arg2, arg3)
+}
+
+func (c *closeGuardingClient) ImageInspect(ctx context.Context, image string, opts ...client.ImageInspectOption) (image.InspectResponse, error) {
+	c.m.RLock()
+	defer c.m.RUnlock()
+	if c.closed {
+		panic("use of closed client")
+	}
+	return c.pimpl.ImageInspect(ctx, image, opts...)
 }
