@@ -36,6 +36,8 @@ const (
           value: $(params.gitRepository)
         - name: revision
           value: $(params.gitRevision)
+        - name: gitInitImage
+          value: ghcr.io/tektoncd/github.com/tektoncd/pipeline/cmd/git-init:v0.21.0
       taskRef:
         kind: Task
         name: git-clone
@@ -49,6 +51,8 @@ const (
           value: $(params.gitRepository)
         - name: revision
           value: $(params.gitRevision)
+        - name: gitInitImage
+          value: ghcr.io/tektoncd/github.com/tektoncd/pipeline/cmd/git-init:v0.21.0
       taskRef:
         resolver: hub
         params:
