@@ -63,11 +63,11 @@ require (
 	k8s.io/apimachinery v0.33.1
 	k8s.io/client-go v0.33.1
 	k8s.io/klog/v2 v2.130.1
-	knative.dev/client/pkg v0.0.0-20250617200959-1c3b47ce739a
-	knative.dev/eventing v0.45.1-0.20250625134405-5bcf8011acc8
-	knative.dev/hack v0.0.0-20250514121446-f525e187efdc
-	knative.dev/pkg v0.0.0-20250627014006-8481e7eef7f6
-	knative.dev/serving v0.45.1-0.20250627133507-aa58baffad69
+	knative.dev/client/pkg v0.0.0-20250708014651-8a01ca14f99a
+	knative.dev/eventing v0.45.1-0.20250709065003-351613bc3192
+	knative.dev/hack v0.0.0-20250708013849-70d4b00da6ba
+	knative.dev/pkg v0.0.0-20250710001404-a4cc1bdef5b2
+	knative.dev/serving v0.45.1-0.20250711121705-7144b0d4d246
 )
 
 require (
@@ -223,7 +223,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
 	github.com/opencontainers/selinux v1.11.0 // indirect
-	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/ostreedev/ostree-go v0.0.0-20210805093236-719684c64e4f // indirect
 	github.com/pelletier/go-toml/v2 v2.2.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
@@ -267,7 +266,7 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.62.0 // indirect
 	go.opentelemetry.io/otel v1.37.0 // indirect
 	go.opentelemetry.io/otel/metric v1.37.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
@@ -295,7 +294,7 @@ require (
 	k8s.io/cli-runtime v0.31.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e // indirect
-	knative.dev/networking v0.0.0-20250616174156-f950c0c1a0a8 // indirect
+	knative.dev/networking v0.0.0-20250708014646-f8c92385906a // indirect
 	sigs.k8s.io/controller-runtime v0.20.4 // indirect
 	sigs.k8s.io/gateway-api v1.1.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
