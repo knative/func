@@ -99,9 +99,14 @@ EXAMPLES
 	o Allow insecure server connections when using SSL
 		$ {{rootCmdUse}} invoke --insecure
 
+	o In case you need to specifically send GET request
+		$ {{rootCmdUse}} invoke --request-type=GET
 `,
-		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
-		PreRunE:    bindEnv("path", "format", "target", "id", "source", "type", "data", "content-type", "file", "insecure", "confirm", "verbose"),
+		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke",
+			"onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
+		PreRunE: bindEnv("path", "format", "target", "id", "source", "type",
+			"data", "content-type", "request-type", "file", "insecure",
+			"confirm", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInvoke(cmd, args, newClient)
 		},
@@ -120,6 +125,7 @@ EXAMPLES
 	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. ($FUNC_SOURCE)")
 	cmd.Flags().StringP("type", "", fn.DefaultInvokeType, "Type value for the request data. ($FUNC_TYPE)")
 	cmd.Flags().StringP("content-type", "", fn.DefaultInvokeContentType, "Content Type of the data. ($FUNC_CONTENT_TYPE)")
+	cmd.Flags().StringP("request-type", "", fn.DefaultInvokeRequestType, "Type of request to use. Can be POST or GET. ($FUNC_REQUEST_TYPE)")
 	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. ($FUNC_DATA)")
 	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. ($FUNC_FILE)")
 	cmd.Flags().BoolP("insecure", "i", false, "Allow insecure server connections when using SSL. ($FUNC_INSECURE)")
@@ -162,6 +168,7 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		Source:      cfg.Source,
 		Type:        cfg.Type,
 		ContentType: cfg.ContentType,
+		RequestType: strings.ToUpper(cfg.RequestType),
 		Data:        cfg.Data,
 		Format:      cfg.Format,
 	}
@@ -219,6 +226,7 @@ type invokeConfig struct {
 	Type        string
 	Data        []byte
 	ContentType string
+	RequestType string
 	File        string
 	Confirm     bool
 	Verbose     bool
@@ -235,6 +243,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 		Type:        viper.GetString("type"),
 		Data:        []byte(viper.GetString("data")),
 		ContentType: viper.GetString("content-type"),
+		RequestType: viper.GetString("request-type"),
 		File:        viper.GetString("file"),
 		Confirm:     viper.GetBool("confirm"),
 		Verbose:     viper.GetBool("verbose"),

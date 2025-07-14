@@ -11,6 +11,8 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
+
 	"github.com/google/uuid"
 )
 
@@ -18,6 +20,7 @@ const (
 	DefaultInvokeSource      = "/boson/fn"
 	DefaultInvokeType        = "boson.fn"
 	DefaultInvokeContentType = "application/json"
+	DefaultInvokeRequestType = "POST"
 	DefaultInvokeData        = `{"message":"Hello World"}`
 	DefaultInvokeFormat      = "http"
 )
@@ -30,6 +33,7 @@ type InvokeMessage struct {
 	Type        string
 	ContentType string
 	Data        []byte
+	RequestType string // HTTP Request GET/POST (defaults to POST)
 	Format      string // optional override for function-defined message format
 }
 
@@ -40,6 +44,7 @@ func NewInvokeMessage() InvokeMessage {
 		Source:      DefaultInvokeSource,
 		Type:        DefaultInvokeType,
 		ContentType: DefaultInvokeContentType,
+		RequestType: DefaultInvokeRequestType,
 		Data:        []byte(DefaultInvokeData),
 		// Format override not set by default: value from function being preferred.
 	}
@@ -63,6 +68,11 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 	// set. Once decided, codify in a test.
 	format := DefaultInvokeFormat
 
+	// RequestType is expected GET or POST
+	if m.RequestType == "" {
+		m.RequestType = DefaultInvokeRequestType
+	}
+
 	if verbose {
 		fmt.Printf("Invoking '%v' function at %v\n", f.Invoke, route)
 	}
@@ -79,19 +89,27 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 		}
 	}
 
-	switch format {
-	case "http":
-		return sendPost(ctx, route, m, c.transport, verbose)
-	case "cloudevent":
-		// CouldEvents return a string which always includes a fairly verbose
-		// summation of fields, so metadata is not applicable
-		meta := make(map[string][]string)
-		body, err = sendEvent(ctx, route, m, c.transport, verbose)
-		return meta, body, err
-	default:
-		err = fmt.Errorf("format '%v' not supported", format)
+	if m.RequestType != "POST" && m.RequestType != "GET" {
+		err = fmt.Errorf("http request type '%v' not supported, expected GET or POST", m.RequestType)
 		return
 	}
+
+	switch format {
+	case "http":
+		return sendHttp(ctx, route, m, c.transport, verbose)
+	case "cloudevent":
+		switch m.RequestType {
+		case "POST":
+			body, err = sendEvent(ctx, route, m, c.transport, verbose)
+		case "GET":
+			// Construct a special CloudEvents GET request.
+			// This will be used most likely only for very special cases
+			body, err = sendGetEvent(ctx, route, m, c.transport, verbose)
+		}
+	default:
+		err = fmt.Errorf("format '%v' not supported", format)
+	}
+	return
 }
 
 // invocationRoute returns a route to the named target instance of a func:
@@ -176,30 +194,84 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 	return
 }
 
+// sendGetEvent sends a GET event as a cloudEvent. Normally, this is not the
+// way CEs are intended to be sent exactly.
+// In CloudEvents specification it reads:
+//
+// "Events can be transferred with all standard or application-defined HTTP request
+// methods that support payload body transfers"
+//
+// Since this is not the case for GET request, we need to specify custom protocol
+// and use a slightly different client resulting in a slightly different
+// function all together.
+func sendGetEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper, verbose bool) (resp string, err error) {
+	if m.ID == "" {
+		// we're using a different Client function, we need to create an ID.
+		// ce.NewClientHTTP() sets ID if not present, ce.NewClient() doesn't
+		m.ID = uuid.NewString()
+	}
+
+	// construct the event
+	event := cloudevents.NewEvent()
+	event.SetID(m.ID)
+	event.SetSource(m.Source)
+	event.SetType(m.Type)
+	event.SetDataContentType(m.ContentType)
+
+	if verbose {
+		fmt.Println("Constructing a GET request CloudEvent:")
+		fmt.Printf("Event: %+v\n", event)
+	}
+	// create http protocol with GET method
+	protocol, err := cehttp.New(cehttp.WithRoundTripper(t), cehttp.WithMethod("GET"))
+	if err != nil {
+		return
+	}
+
+	c, err := cloudevents.NewClient(protocol)
+	if err != nil {
+		return
+	}
+
+	if verbose {
+		fmt.Printf("Sending event\n%v", event)
+	}
+
+	evt, result := c.Request(cloudevents.ContextWithTarget(ctx, route), event)
+	if cloudevents.IsUndelivered(result) {
+		err = fmt.Errorf("unable to invoke: %v", result)
+	} else if evt != nil { // Check for nil in case no event is returned
+		resp = evt.String()
+	}
+	return
+}
+
 // sendPost to the route populated with data in the invoke message.
-func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper, verbose bool) (map[string][]string, string, error) {
+func sendHttp(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper, verbose bool) (map[string][]string, string, error) {
 	client := http.Client{
 		Transport: t,
 		Timeout:   time.Minute,
 	}
-	values := url.Values{
-		"ID":          {m.ID},
-		"Source":      {m.Source},
-		"Type":        {m.Type},
-		"ContentType": {m.ContentType},
-		"Data":        {string(m.Data)},
-	}
+
 	if verbose {
+		values := url.Values{
+			"ID":          {m.ID},
+			"Source":      {m.Source},
+			"Type":        {m.Type},
+			"ContentType": {m.ContentType},
+			"Data":        {string(m.Data)},
+		}
 		fmt.Println("Sending values")
 		for k, v := range values {
 			fmt.Printf("  %v: %v\n", k, v[0]) // NOTE len==1 value slices assumed
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", route, bytes.NewReader(m.Data))
+	req, err := http.NewRequestWithContext(ctx, m.RequestType, route, bytes.NewReader(m.Data))
 	if err != nil {
 		return nil, "", fmt.Errorf("failure to create request: %w", err)
 	}
+
 	req.Header.Add("Content-Type", m.ContentType)
 
 	resp, err := client.Do(req)

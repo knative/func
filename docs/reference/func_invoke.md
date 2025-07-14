@@ -85,6 +85,8 @@ EXAMPLES
 	o Allow insecure server connections when using SSL
 		$ func invoke --insecure
 
+	o In case you need to specifically send GET request
+		$ func invoke --request-type=GET
 
 
 ```
@@ -103,6 +105,7 @@ func invoke
       --id string             ID for the request data. ($FUNC_ID)
   -i, --insecure              Allow insecure server connections when using SSL. ($FUNC_INSECURE)
   -p, --path string           Path to the function.  Default is current directory ($FUNC_PATH)
+      --request-type string   Type of request to use. Can be POST or GET. ($FUNC_REQUEST_TYPE) (default "POST")
       --source string         Source value for the request data. ($FUNC_SOURCE) (default "/boson/fn")
   -t, --target string         Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. ($FUNC_TARGET)
       --type string           Type value for the request data. ($FUNC_TYPE) (default "boson.fn")
