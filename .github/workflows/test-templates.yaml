@@ -1,0 +1,53 @@
+name: Template Tests
+
+on: [pull_request]
+
+jobs:
+  test:
+    name: Test Templates
+    strategy:
+      matrix:
+        os:
+          - "ubuntu-latest"
+          - "windows-latest"
+          - "macos-latest"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Disable CLRF conversion
+        run: git config --global core.autocrlf false # TODO: Why?
+      - name: Update Tools (Mac)
+        run: ./hack/mac-bash.sh
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+        # Install toolchains
+      - name: Setup Go
+        uses: knative/actions/setup-go@main
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      # Run Template Tests
+      - name: "Test Templates - ${{ matrix.os }}"
+        run: make test-templates
+
+      # Coverage and Logs
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          flags: templates
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
