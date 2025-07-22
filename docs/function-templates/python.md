@@ -1,160 +1,379 @@
 # Python Function Developer's Guide
 
-When creating a Python function using the `func` CLI, the project directory
-looks like a typical Python project. Both HTTP and Event functions have the same
-template structure.
+Python Functions allow for the direct deployment of source code as a production
+service to any Kubernetes cluster with Knative installed.  The request handler
+method signature follows the ASGI (Asynchronous Server Gateway Interface)
+standard, allowing for integration with any supporting library.
+
+## Project Structure
+
+When you create a Python function using `func create -l python`, you get a standard Python project structure:
 
 ```
-❯ func create -l python fn
-Project path: /home/developer/src/fn
-Function name: fn
-Runtime: python
-
-❯ tree
-fn
-├── func.py
-├── func.yaml
-├── requirements.txt
-└── test_func.py
-
+❯ func create -l python myfunc
+❯ tree myfunc
+myfunc/
+├── func.yaml           # Function configuration
+├── pyproject.toml      # Python project metadata
+├── function/
+│   ├── __init__.py
+│   └── func.py         # Your function implementation
+└── tests/
+    └── test_func.py    # Unit tests
 ```
 
-Aside from the `func.yaml` file, this looks like the beginning of just about
-any Python project. For now, we will ignore the `func.yaml` file, and just
-say that it is a configuration file that is used when building your project.
-If you're really interested, check out the [reference doc](../reference/func_yaml.md).
-To learn more about the CLI and the details for each supported command, see
-the [CLI Commands document](../reference/func.md).
+The `func.yaml` file contains build and deployment configuration. For details,
+see the [func.yaml reference](../reference/func_yaml.md).
 
-## Running the function locally
+## Function Implementation
 
-To run a function, you'll first need to build it. This step creates an OCI
-container image that can be run locally on your computer, or on a Kubernetes
-cluster.
-
-```
-❯ func build
-```
-
-After the function has been built, it can be run locally.
-
-```
-❯ func run
-```
-
-Functions can be invoked with a simple HTTP request.
-You can test to see if the function is working by using your browser to visit
-http://localhost:8080. You can also access liveness and readiness
-endpoints at http://localhost:8080/health/liveness and
-http://localhost:8080/health/readiness. These two endpoints are used
-by Kubernetes to determine the health of your function. If everything
-is good, both of these will return `OK`.
-
-## Deploying the function to a cluster
-
-To deploy your function to a Kubernetes cluster, use the `deploy` command.
-
-```
-❯ func deploy
-```
-
-You can get the URL for your deployed function with the `info` command.
-
-```
-❯ func info
-```
-
-## Testing a function locally
-
-
-Python functions can be tested locally on your computer. In the project there is
-a `test_func.py` file which contains a simple unit test. To run the test locally,
-you'll need to install the required dependencies. You do this as you would
-with any Python project.
-
-```
-❯ pip install -r requirements.txt
-```
-
-Once you have done this, you can run the provided tests with `python3 test_func.py`.
-The default test framework for Python functions is `unittest`. If you prefer another,
-that's no problem. Just install a test framework more to your liking.
-
-## Function reference
-
-Boson Python functions have very few restrictions. You can add any required dependencies
-in `requirements.txt`, and you may include additional local Python files. The only real
-requirements are that your project contain a `func.py` file which contains a `main()` function.
-In this section, we will look in a little more detail at how Boson functions are invoked,
-and what APIs are available to you as a developer.
-
-### Invocation parameters
-
-When using the `func` CLI to create a function project, you may choose to generate a project
-that responds to a `CloudEvent` or simple HTTP. `CloudEvents` in Knative are transported over
-HTTP as a `POST` request, so in many ways, the two types of functions are very much the same.
-They each will listen and respond to incoming HTTP events.
-
-When an incoming request is received, your function will be invoked with a `Context`
-object as the first parameter. This object is a Python class with two attributes. The
-`request` attribute will always be present, and contains the Flask `request` object.
-The second attribute, `cloud_event`, will be populated if the incoming request is a
-`CloudEvent`. Developers may access any `CloudEvent` data from the context object.
-For example:
+Python functions must implement a method `new()` which returns a new instance
+of your Function class:
 
 ```python
-def main(context: Context):
-    """
-    The context parameter contains the Flask request object and any
-    CloudEvent received with the request.
-    """
-    print(f"Method: {context.request.method}")
-    print(f"Event data {context.cloud_event.data})
-    # ... business logic here
+def new():
+    """Factory function that returns a Function instance."""
+    return Function()
+
+class Function:
+    """Your function implementation."""
+    pass
 ```
 
-### Return Values
-Functions may return any value supported by Flask, as the invocation framework
-proxies these values directly to the Flask server. See the Flask
-[documentation](https://flask.palletsprojects.com/en/1.1.x/quickstart/#about-responses)
-for more information.
+### Core Methods
 
-#### Example
-```python
-def main(context: Context):
-    body = { "message": "Howdy!" }
-    headers = { "content-type": "application/json" }
-    return body, 200, headers
-```
+Your function class can implement several optional methods:
 
-Note that functions may set both headers and response codes as secondary
-and tertiary response values from function invocation.
-
-### CloudEvents
-All event messages in Knative are sent as `CloudEvents` over HTTP. As noted
-above, function developers may access an event through the `context` parameter
-when the function is invoked. Additionally, developers may use an `@event`
-decorator to inform the invoker that this function's return value should be
-converted to a `CloudEvent` before sending the response. For example:
+#### `handle(self, scope, receive, send)`
+The main request handler following ASGI protocol. This async method processes all HTTP requests except health checks.
 
 ```python
-@event("event_source"="/my/function", "event_type"="my.type")
-def main(context):
-    # business logic here
-    data = do_something()
-    # more data processing
-    return data
+async def handle(self, scope, receive, send):
+    """Handle HTTP requests."""
+    # Process the request
+    await send({
+        'type': 'http.response.start',
+        'status': 200,
+        'headers': [[b'content-type', b'text/plain']],
+    })
+    await send({
+        'type': 'http.response.body',
+        'body': b'Hello, World!',
+    })
 ```
 
-This will result in a `CloudEvent` as the response value, with a type of
-`"my.type"`, a source of `"/my/function"`, and the data property set to `data`.
-Both the `event_source` and `event_type` decorator attributes are optional.
-If not supplied, the CloudEvent's source attribute will be set to
-`"/parliament/function"` and the type will be set to `"parliament.response"`.
+#### `start(self, cfg)`
 
-## Dependencies
-Developers are not restricted to the dependencies provided in the template
-`requirements.txt` file. Additional dependencies can be added as they would be
-in any other project by simply adding them to the `requirements.txt` file.
-When the project is built for deployment, these dependencies will be included
-in the container image.
+Called when a function instance starts (e.g., during scaling or updates). Receives configuration as a dictionary.
+
+```python
+def start(self, cfg):
+    """Initialize function with configuration."""
+    self.debug = cfg.get('DEBUG', 'false').lower() == 'true'
+    logging.info("Function initialized")
+```
+
+#### `stop(self)`
+
+Called when a function instance stops. Use for cleanup operations.
+
+```python
+def stop(self):
+    """Clean up resources."""
+    # Close database connections, flush buffers, etc.
+    logging.info("Function shutting down")
+```
+
+#### `alive(self)` and `ready(self)`
+
+Health check methods exposed at `/health/liveness` and `/health/readiness`:
+
+```python
+def alive(self):
+    """Liveness check."""
+    return True, "Function is alive"
+
+def ready(self):
+    """Readiness check."""
+    if self.database_connected:
+        return True, "Ready to serve"
+    return False, "Database not connected"
+```
+
+## Local Development
+
+### Running Your Function
+
+```bash
+# Build and run on the host (not in a container)
+func run --builder=host
+
+# Force rebuild even if no changes detected
+func run --build
+```
+
+### Testing
+
+Test your function with HTTP requests:
+
+```bash
+# Test the main endpoint
+curl http://localhost:8080
+
+# Check health endpoints
+curl http://localhost:8080/health/liveness
+curl http://localhost:8080/health/readiness
+```
+
+### Testing CloudEvent Functions
+
+Create a CloudEvent function:
+
+```bash
+# Create a new CloudEvent function
+func create -l python -t cloudevents myeventfunc
+```
+
+Test CloudEvent functions using curl with proper headers:
+
+```bash
+# Invoke with a CloudEvent
+curl -X POST http://localhost:8080 \
+  -H "Ce-Specversion: 1.0" \
+  -H "Ce-Type: com.example.sampletype" \
+  -H "Ce-Source: example/source" \
+  -H "Ce-Id: 1234-5678-9101" \
+  -H "Ce-Subject: example-subject" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello CloudEvent!"}'
+```
+
+Also see `func invoke` which automates this for basic testing.
+
+### Unit Testing
+
+Python functions use modern Python packaging with `pyproject.toml` and include
+pytest with async support for testing ASGI functions. The generated project
+includes example tests in `tests/test_func.py` that demonstrate how to test the
+async handler.
+
+#### Setting Up Your Development Environment
+
+It's best practice to use a virtual environment to isolate your function's dependencies:
+
+```bash
+# Create a virtual environment (Python 3.3+)
+python3 -m venv venv
+
+# Activate the virtual environment
+# On Linux/macOS:
+source venv/bin/activate
+# On Windows:
+# venv\Scripts\activate
+
+# Upgrade pip to ensure you have the latest version
+python -m pip install --upgrade pip
+
+# Install the function package and its dependencies (including test dependencies)
+pip install -e .
+
+# Run tests with pytest
+pytest
+
+# Run tests with verbose output
+pytest -v
+
+# Run tests with coverage (requires pytest-cov)
+pip install pytest-cov
+pytest --cov=function --cov-report=term-missing
+
+# When done, deactivate the virtual environment
+deactivate
+```
+
+**Note**:
+- Python 3 typically comes with `venv` module built-in
+- If `python3` command is not found, try `python` instead
+- The `-m pip` syntax ensures you're using the pip from your virtual environment
+- Always activate your virtual environment before running tests or installing dependencies
+
+#### Writing Tests for ASGI Functions
+
+The test file demonstrates how to test ASGI functions by mocking the ASGI interface:
+
+```python
+import pytest
+from function import new
+
+@pytest.mark.asyncio
+async def test_function_handle():
+    # Create function instance
+    f = new()
+
+    # Mock ASGI scope (request details)
+    scope = {
+        'type': 'http',
+        'method': 'POST',
+        'path': '/',
+        'headers': [(b'content-type', b'application/json')],
+    }
+
+    # Mock receive callable (for request body)
+    async def receive():
+        return {
+            'type': 'http.request',
+            'body': b'{"test": "data"}',
+            'more_body': False,
+        }
+
+    # Track sent responses
+    responses = []
+
+    # Mock send callable
+    async def send(message):
+        responses.append(message)
+
+    # Call the handler
+    await f.handle(scope, receive, send)
+
+    # Assert responses
+    assert len(responses) == 2
+    assert responses[0]['type'] == 'http.response.start'
+    assert responses[0]['status'] == 200
+    assert responses[1]['type'] == 'http.response.body'
+```
+
+#### Testing CloudEvent Functions
+
+For CloudEvent functions, include CloudEvent headers in your test scope:
+
+```python
+@pytest.mark.asyncio
+async def test_cloudevent_handler():
+    f = new()
+
+    # CloudEvent headers
+    scope = {
+        'type': 'http',
+        'method': 'POST',
+        'path': '/',
+        'headers': [
+            (b'ce-specversion', b'1.0'),
+            (b'ce-type', b'com.example.test'),
+            (b'ce-source', b'test/unit'),
+            (b'ce-id', b'test-123'),
+            (b'content-type', b'application/json'),
+        ],
+    }
+
+    # Test with CloudEvent data
+    async def receive():
+        return {
+            'type': 'http.request',
+            'body': b'{"message": "test event"}',
+            'more_body': False,
+        }
+
+    # ... rest of test
+```
+
+#### Testing with Real HTTP Clients
+
+For integration testing, you can use httpx with ASGI support:
+
+```python
+import httpx
+import pytest
+from function import new
+
+@pytest.mark.asyncio
+async def test_with_http_client():
+    f = new()
+
+    # Create ASGI transport with your function
+    transport = httpx.ASGITransport(app=f.handle)
+
+    # Make HTTP requests
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/")
+        assert response.status_code == 200
+
+        response = await client.post("/", json={"test": "data"})
+        assert response.status_code == 200
+```
+
+## Advanced Implementation Examples
+
+### Processing Request Data
+
+```python
+async def handle(self, scope, receive, send):
+    """Process POST requests with JSON data."""
+    if scope['method'] == 'POST':
+        # Receive request body
+        body = b''
+        while True:
+            message = await receive()
+            if message['type'] == 'http.request':
+                body += message.get('body', b'')
+                if not message.get('more_body', False):
+                    break
+
+        # Process JSON data
+        import json
+        data = json.loads(body)
+        result = process_data(data)
+
+        # Send response
+        response_body = json.dumps(result).encode()
+        await send({
+            'type': 'http.response.start',
+            'status': 200,
+            'headers': [[b'content-type', b'application/json']],
+        })
+        await send({
+            'type': 'http.response.body',
+            'body': response_body,
+        })
+```
+
+### Environment-Based Configuration
+
+```python
+class Function:
+    def start(self, cfg):
+        """Configure function from environment."""
+        self.api_key = cfg.get('API_KEY')
+        self.cache_ttl = int(cfg.get('CACHE_TTL', '300'))
+        self.log_level = cfg.get('LOG_LEVEL', 'INFO')
+
+        logging.basicConfig(level=self.log_level)
+```
+
+### CloudEvent Handling
+
+For CloudEvent support, parse the headers and body accordingly:
+
+```python
+async def handle(self, scope, receive, send):
+    """Handle CloudEvents."""
+    headers = dict(scope['headers'])
+
+    # Check if this is a CloudEvent
+    if b'ce-type' in headers:
+        event_type = headers[b'ce-type'].decode()
+        event_source = headers[b'ce-source'].decode()
+        # Process CloudEvent...
+```
+
+## Deployment
+
+### Basic Deployment
+
+```bash
+# Deploy to a specific registry
+func deploy --builder=host --registry docker.io/myuser
+```
+
+
+For all deploy options, see `func deploy --help`
