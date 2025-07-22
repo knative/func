@@ -308,23 +308,16 @@ schema-check: ## Check that func.yaml schema is up-to-date
 ##@ Hack scripting
 ######################
 
-### Local section - Can be run locally!
-
-.PHONY: generate-kn-components-local
-generate-kn-components-local: ## Generate knative components locally
-	cd hack && go run ./cmd/update-knative-components "local"
+.PHONY: hack-generate-components
+hack-generate-components: ## Regenerate components in hack/ dir
+	cd hack && go run ./cmd/components
 
 .PHONY: test-hack
 test-hack:
 	cd hack && go test ./... -v
 
-### Automated section - This gets run in workflows, scripts etc.
-.PHONY: wf-generate-kn-components
-wf-generate-kn-components: # Generate kn components - used in automation
-	cd hack && go run ./cmd/update-knative-components
+## This is used by workflows
 
 .PHONY: update-builder
-wf-update-builder: # Used in automation
+__update-builder: # Used in automation
 	cd hack && go run ./cmd/update-builder
-
-### end of automation section
