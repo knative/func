@@ -1848,7 +1848,8 @@ insecure=true
 // will be set as well.
 // arguments set to those provided.
 func newCmd(t *testing.T, args ...string) *exec.Cmd {
-	bin := Bin
+	t.
+		bin := Bin
 
 	// If Plugin proivided, it is a subcommand so prepend it to args.
 	if Plugin != "" {
