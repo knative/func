@@ -7,6 +7,10 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+var TEMPLATE_RESOURCE_URIS = []string{
+	"https://github.com/gauron99/func-templates",
+}
+
 type MCPServer struct {
 	server *server.MCPServer
 }
@@ -43,7 +47,7 @@ func NewServer() *MCPServer {
 
 			// Optional flags
 			mcp.WithString("template", mcp.Description("Function template (e.g., http, cloudevents)")),
-			mcp.WithString("repository", mcp.Description("URI to Git repo containing the template")),
+			mcp.WithString("repository", mcp.Description("URI to Git repo containing the template. Overrides default template selection when provided.")),
 			mcp.WithBoolean("confirm", mcp.Description("Prompt to confirm options interactively")),
 			mcp.WithBoolean("verbose", mcp.Description("Print verbose logs")),
 		),
@@ -325,6 +329,14 @@ func NewServer() *MCPServer {
 		return runHelpCommand([]string{"config", "envs", "remove"}, "func://config/envs/remove/docs")
 	})
 
+	// Static resource for listing available templates
+	mcpServer.AddResource(mcp.NewResource(
+		"func://templates",
+		"Available Templates",
+		mcp.WithResourceDescription("List of available function templates"),
+		mcp.WithMIMEType("plain/text"),
+	), handleListTemplatesResource)
+
 	mcpServer.AddPrompt(mcp.NewPrompt("help",
 		mcp.WithPromptDescription("help prompt for the root command"),
 	), handleRootHelpPrompt)
@@ -336,6 +348,10 @@ func NewServer() *MCPServer {
 			mcp.RequiredArgument(),
 		),
 	), handleCmdHelpPrompt)
+
+	mcpServer.AddPrompt(mcp.NewPrompt("list_templates",
+		mcp.WithPromptDescription("prompt to list available function templates"),
+	), handleListTemplatesPrompt)
 
 	return &MCPServer{
 		server: mcpServer,
