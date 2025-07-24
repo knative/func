@@ -43,3 +43,10 @@ CLAUDE.md
 
 # Operating system temporary files
 .DS_Store
+
+# TODO: Update this test to be from a temp directory with a hard-coded impl:
+/pkg/builders/testdata/go-fn-with-private-deps/.s2i
+
+# TODO: Run this test from a temp directory instead:
+pkg/oci/testdata/test-links/absoluteLink
+pkg/oci/testdata/test-links/absoluteLinkWindows

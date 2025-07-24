@@ -17,19 +17,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       # Configure OS
-      - name: Set Environment Variables
-        run: |
-          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
-          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
-          echo "FUNC_ALLOCATE_RETRIES=5" >> "$GITHUB_ENV"
-          echo "FUNC_E2E_MATRIX=true" >> "$GITHUB_ENV"
-          echo "FUNC_E2E_CLEAN=false" >> "$GITHUB_ENV"
-          echo "FUNC_E2E_VERBOSE=true" >> "$GITHUB_ENV"
-          echo "TEKTON_TESTS_ENABLED=1" >> "$GITHUB_ENV"
-          echo "GITLAB_TESTS_ENABLED=1" >> "$GITHUB_ENV"
-          echo "GITLAB_HOSTNAME=gitlab.localtest.me" >> "$GITHUB_ENV"
-          echo "GITLAB_ROOT_PASSWORD=GL-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
-          echo "PAC_CONTROLLER_HOSTNAME=pac-ctr.localtest.me" >> "$GITHUB_ENV"
       - name: Remove Unnecessary Software
         run: |
           sudo rm -rf /usr/share/dotnet || true
@@ -72,25 +59,23 @@ jobs:
         run: ./hack/images.sh
       - name: Install Git Server
         run: ./hack/git-server.sh
+      - name: Install Gitlab
+        run: ./hack/gitlab.sh
 
-      # Podman (Linux)
-      - name: Setup Podman (Linux)
+      # Install and Start Podman (Linux)
+      - name: Install and Start Podman (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt update
           sudo apt install -y podman
-          # Start Podman service in background
-          podman system service --time=0 > /dev/null 2>&1 &
-          sleep 2  # Give it time to start
-          # Get the socket path and set it for E2E tests
-          PODMAN_SOCKET="$(podman info -f '{{.Host.RemoteSocket.Path}}' 2>/dev/null)"
-          echo "FUNC_E2E_PODMAN=true" >> "$GITHUB_ENV"
-          echo "FUNC_E2E_PODMAN_HOST=unix://${PODMAN_SOCKET}" >> "$GITHUB_ENV"
-          echo "Podman socket: ${PODMAN_SOCKET}"
+          podman system service --time=0 &
+          sleep 3  # Give it time to start
 
-      # Run Core Tests (unit, integration, E2E)
+      # Run Full Test Suite
       - name: "Test - ${{ matrix.os }}"
-        run: make test-all
+        env:
+          FUNC_E2E_CLEAN: "false"  # Cluster is recreated for each workflow run
+        run: make test-full
 
       # Run Template Tests
       - name: "Test Templates - ${{ matrix.os }}"
@@ -100,7 +85,7 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           files: ./coverage.txt
-          flags: e2e-${{ matrix.os }}
+          flags: e2e ${{ matrix.os }}
           fail_ci_if_error: true
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
