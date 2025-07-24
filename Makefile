@@ -219,20 +219,20 @@ templates/certs/ca-certificates.crt:
 
 .PHONY: test-integration
 test-integration: ## Run integration tests using an available cluster.
-	go test -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
+	go test -tags integration -timeout 30m ./... -v
+
+.PHONY: test-e2e
+test-e2e: func-instrumented-bin ## Run all tests (unit, integration, e2e)
+	go test -tags e2e -cover -timeout 30m ./e2e -v
+
+.PHONY: test-full
+test-full: func-instrumented-bin ## Run full test suite with all features enabled
+	./hack/test-full.sh
 
 .PHONY: func-instrumented-bin
 func-instrumented-bin: # func binary instrumented with coverage reporting
 	env CGO_ENABLED=1 go build -cover -o func ./cmd/$(BIN)
 
-.PHONY: test-all
-test-all: func-instrumented-bin ## Run all tests (unit, integration, e2e)
-	@echo "Running unit and integration tests..."
-	go test -tags "integration" -cover -timeout 30m --coverprofile=coverage.txt ./... -v
-	@echo "Running E2E tests..."
-	go test -tags "e2e" -cover -timeout 30m --coverprofile=coverage-e2e.txt ./e2e -v
-	@echo "Merging coverage reports..."
-	@cat coverage-e2e.txt >> coverage.txt && rm coverage-e2e.txt
 
 ######################
 ##@ Release Artifacts
