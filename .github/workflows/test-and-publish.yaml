@@ -70,6 +70,8 @@ jobs:
         run: ./hack/registry.sh
       - name: Prepare Images
         run: ./hack/images.sh
+      - name: Install Git Server
+        run: ./hack/git-server.sh
 
       # Podman (Linux)
       - name: Setup Podman (Linux)
