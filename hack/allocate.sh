@@ -60,19 +60,22 @@ kubernetes() {
   cat <<EOF | $KIND create cluster --name=func --kubeconfig="${KUBECONFIG}" --wait=60s --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: ipv6
+  apiServerAddress: "::1"
 nodes:
   - role: control-plane
     image: kindest/node:${kind_node_version}
     extraPortMappings:
     - containerPort: 80
       hostPort: 80
-      listenAddress: "127.0.0.1"
+      listenAddress: "::1"
     - containerPort: 443
       hostPort: 443
-      listenAddress: "127.0.0.1"
+      listenAddress: "::1"
     - containerPort: 30022
       hostPort: 30022
-      listenAddress: "127.0.0.1"
+      listenAddress: "::1"
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:50000"]
@@ -190,7 +193,24 @@ networking() {
   echo "Version: ${contour_version}"
 
   echo "Installing a configured Contour."
-  $KUBECTL apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
+  local tmp_yaml
+  tmp_yaml="$(mktemp)"
+  curl -Lso "${tmp_yaml}" "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
+  patch "${tmp_yaml}" <<EOF
+8805a8806
+>   ipFamilyPolicy: PreferDualStack
+8861a8863,8865
+>             - "--stats-address=::"
+>             - "--envoy-service-http-address=::"
+>             - "--envoy-service-https-address=::"
+9500a9505,9507
+>             - "--stats-address=::"
+>             - "--envoy-service-http-address=::"
+>             - "--envoy-service-https-address=::"
+EOF
+  $KUBECTL apply -f "${tmp_yaml}"
+  rm "${tmp_yaml}"
+
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
 
@@ -204,9 +224,6 @@ networking() {
     --namespace knative-serving \
     --type merge \
     --patch '{"data":{"ingress-class":"contour.ingress.networking.knative.dev"}}'
-
-  echo "Patching contour to prefer duals-tack"
-  kubectl patch -n contour-external svc/envoy --type merge --patch '{"spec":{"ipFamilyPolicy":"PreferDualStack"}}'
 
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=10m
@@ -335,6 +352,35 @@ dapr_runtime() {
   if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
     dapr_flags="--image-registry=ghcr.io/dapr --log-as-json"
   fi
+
+    # hack to patch dapr to work on IPv6
+  (sleep 5;
+  $KUBECTL patch statefulset dapr-scheduler-server -n dapr-system --patch-file /dev/stdin <<EOF
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "name": "dapr-scheduler-server",
+            "env": [
+              {
+                "name": "DAPR_HOST_IP",
+                "valueFrom": {
+                  "fieldRef": {
+                    "fieldPath": "status.podIP"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
+EOF
+  )&
 
   # Install Dapr Runtime
   # shellcheck disable=SC2086
