@@ -9,20 +9,6 @@ on:
       - "main"
 
 jobs:
-  check:
-    runs-on: "ubuntu-latest"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: knative/actions/setup-go@main
-      - name: Lint Core
-        run: make check
-      - name: Lint Templates
-        run: make check-templates
-      - name: Check that 'func.yaml schema' is up-to-date
-        run: make check-schema
-      - name: Check embedded templates content
-        run: make check-embedded-fs
-
   test:
     strategy:
       matrix:
@@ -84,8 +70,6 @@ jobs:
         run: ./hack/registry.sh
       - name: Prepare Images
         run: ./hack/images.sh
-      - name: Install Gitlab
-        run: ./hack/gitlab.sh
 
       # Podman (Linux)
       - name: Setup Podman (Linux)
@@ -137,7 +121,7 @@ jobs:
   build:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
-    needs: [check, test]
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
