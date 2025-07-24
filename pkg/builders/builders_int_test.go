@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"testing"
 	"time"
@@ -38,6 +39,9 @@ import (
 )
 
 func TestPrivateGitRepository(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping TestPrivateGitRepository on non-Linux systems due to cluster networking limitations")
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
