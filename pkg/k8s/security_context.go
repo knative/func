@@ -14,11 +14,12 @@ func defaultPodSecurityContext() *corev1.PodSecurityContext {
 		return nil
 	}
 	runAsUser := int64(1001)
-	runAsGroup := int64(1002)
+	runAsGroup := int64(0) // Match Tekton buildpack task group
+	fsGroup := int64(1002) // Keep FSGroup for volume ownership
 	return &corev1.PodSecurityContext{
 		RunAsUser:  &runAsUser,
 		RunAsGroup: &runAsGroup,
-		FSGroup:    &runAsGroup,
+		FSGroup:    &fsGroup,
 	}
 }
 
