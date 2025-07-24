@@ -79,9 +79,25 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y podman
+          
+          # Create registries.conf (same as upstream test-integration-podman.sh)
+          # Use absolute path since tests may run from different directories
+          REGISTRIES_CONF_PATH="${{ github.workspace }}/registries.conf"
+          cat <<EOF > "${REGISTRIES_CONF_PATH}"
+          unqualified-search-registries = ["docker.io", "quay.io", "registry.fedoraproject.org", "registry.access.redhat.com"]
+          short-name-mode="permissive"
+          
+          [[registry]]
+          location="localhost:50000"
+          insecure=true
+          EOF
+          
+          echo "CONTAINERS_REGISTRIES_CONF=${REGISTRIES_CONF_PATH}" >> "$GITHUB_ENV"
+          
           # Start Podman service in background
           podman system service --time=0 > /dev/null 2>&1 &
           sleep 2  # Give it time to start
+          
           # Get the socket path and set it for E2E tests
           PODMAN_SOCKET="$(podman info -f '{{.Host.RemoteSocket.Path}}' 2>/dev/null)"
           echo "FUNC_E2E_PODMAN=true" >> "$GITHUB_ENV"

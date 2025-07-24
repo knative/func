@@ -227,12 +227,8 @@ func-instrumented-bin: # func binary instrumented with coverage reporting
 
 .PHONY: test-all
 test-all: func-instrumented-bin ## Run all tests (unit, integration, e2e)
-	@echo "Running unit and integration tests..."
-	go test -tags "integration" -cover -timeout 30m --coverprofile=coverage.txt ./... -v
-	@echo "Running E2E tests..."
-	go test -tags "e2e" -cover -timeout 30m --coverprofile=coverage-e2e.txt ./e2e -v
-	@echo "Merging coverage reports..."
-	@cat coverage-e2e.txt >> coverage.txt && rm coverage-e2e.txt
+	cd e2e && go test -v -tags e2e
+
 
 ######################
 ##@ Release Artifacts

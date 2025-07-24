@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -190,7 +191,17 @@ var (
 func init() {
 	fmt.Fprintln(os.Stderr, "Initializing E2E Tests")
 	fmt.Fprintln(os.Stderr, "----------------------")
-	fmt.Fprintln(os.Stderr, "Config Provided:")
+	// Useful for CI debugging:
+	// fmt.Fprintln(os.Stderr, "--  Initial Environment: ")
+	// for _, env := range os.Environ() {
+	// 	fmt.Println(env)
+	// }
+	fmt.Fprintln(os.Stderr, "--  Preserved Environment: ")
+	fmt.Fprintf(os.Stderr, "  HOME=%v\n", os.Getenv("HOME"))
+	fmt.Fprintf(os.Stderr, "  PATH=%v\n", os.Getenv("PATH"))
+	fmt.Fprintf(os.Stderr, "  XDG_CONFIG_HOME%v\n", os.Getenv("XDG_CONFIG_HOME"))
+	fmt.Fprintf(os.Stderr, "  XDG_RUNTIME_DIR%v\n", os.Getenv("XDG_RUNTIME_DIR"))
+	fmt.Fprintln(os.Stderr, "--  Config Provided: ")
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_BIN=%v\n", os.Getenv("FUNC_E2E_BIN"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_CLEAN=%v\n", os.Getenv("FUNC_E2E_CLEAN"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_DOCKER_HOST=%v\n", os.Getenv("FUNC_E2E_DOCKER_HOST"))
@@ -1385,7 +1396,9 @@ func TestRemote_Dir(t *testing.T) {
 func TestPodman_Pack(t *testing.T) {
 	name := "func-e2e-test-podman-pack"
 	_ = fromCleanEnv(t, name)
-	setupPodman(t)
+	if err := setupPodman(t); err != nil {
+		t.Fatal(err)
+	}
 
 	if !Podman {
 		t.Skip("Podman tests not enabled. Enable with FUNC_E2E_PODMAN=true and set FUNC_E2E_PODMAN_HOST to the Podman socket")
@@ -1418,7 +1431,9 @@ func TestPodman_Pack(t *testing.T) {
 func TestPodman_S2I(t *testing.T) {
 	name := "func-e2e-test-podman-s2i"
 	_ = fromCleanEnv(t, name)
-	setupPodman(t)
+	if err := setupPodman(t); err != nil {
+		t.Fatal(err)
+	}
 
 	if !Podman {
 		t.Skip("Podman tests not enabled. Enable with FUNC_E2E_TEST_PODMAN=true and set FUNC_E2E_PODMAN_HOST to the Podman socket")
@@ -1762,16 +1777,19 @@ func setupPodmanLinks(t *testing.T) {
 // run locally outside of CI. Some environment variables, provided via
 // FUNC_E2E_* or other settings, are explicitly set here.
 func setupEnv(t *testing.T) {
-	// Keep HOME
+	// Preserve HOME, PATH and some XDG paths, and PATH
 	home := os.Getenv("HOME")
+	path := Tools + ":" + os.Getenv("PATH") // Prepend E2E tools
+	xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
+	xdgRuntimeDir := os.Getenv("XDG_RUNTIME_DIR")
 
-	// Keep PATH, but prepend the path to the tools installed with
-	path := Tools + ":" + os.Getenv("PATH")
-
+	// Clear everything else
 	os.Clearenv()
 
-	os.Setenv("PATH", path)
 	os.Setenv("HOME", home)
+	os.Setenv("PATH", path)
+	os.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
+	os.Setenv("XDG_RUNTIME_DIR", xdgRuntimeDir)
 	os.Setenv("KUBECONFIG", Kubeconfig)
 	os.Setenv("GOCOVERDIR", Gocoverdir)
 	os.Setenv("FUNC_VERBOSE", fmt.Sprintf("%t", Verbose))
@@ -1800,9 +1818,15 @@ func setupEnv(t *testing.T) {
 func setupPodman(t *testing.T) error {
 	t.Helper()
 
+	// Podman Socket
 	os.Setenv("DOCKER_HOST", PodmanHost)
 
-	cfg := `
+	// Podman Config
+	// NOTE: the unqualified-search-registries and short-name-mode may be
+	// unnecessary.
+	cfg := `unqualified-search-registries = ["docker.io", "quay.io", "registry.fedoraproject.org", "registry.access.redhat.com"]
+short-name-mode="permissive"
+
 [[registry]]
 location="localhost:50000"
 insecure=true
@@ -1813,14 +1837,35 @@ insecure=true
 	}
 	os.Setenv("CONTAINERS_REGISTRIES_CONF", cfgPath)
 
+	// Podman Info
+	// May be useful when debugging:
+	// t.Log("podman info:")
+	// infoCmd := exec.Command("podman", "info")
+	// output, err := infoCmd.CombinedOutput()
+	// if err != nil {
+	// 	return err
+	// }
+	// t.Logf("%s", output)
+
+	// Done if Linux
+	if runtime.GOOS == "linux" {
+		// Podman machine setup is only needed on macOS/Windows
+		// On Linux, Podman runs natively without a VM
+		t.Log("Running on Linux - Podman machine setup not needed")
+		return nil
+	}
+
+	// Windows and Darwin must run Podman in a VM.
+	// connect the pipes
+
 	// List available machines (debug)
 	t.Log("Available Podman Machines:")
 	listCmd := exec.Command("podman", "machine", "list")
-	output, err := listCmd.CombinedOutput()
+	output, err = listCmd.CombinedOutput()
 	if err != nil {
 		return err
 	}
-	t.Logf("output: %s", output)
+	t.Logf("%s", output)
 
 	// Kill any existing process on port 50000 in the Podman VM
 	killCmd := exec.Command("podman", "machine", "ssh", "--",
@@ -1848,8 +1893,8 @@ insecure=true
 // will be set as well.
 // arguments set to those provided.
 func newCmd(t *testing.T, args ...string) *exec.Cmd {
-	t.
-		bin := Bin
+	t.Helper()
+	bin := Bin
 
 	// If Plugin proivided, it is a subcommand so prepend it to args.
 	if Plugin != "" {
