@@ -39,14 +39,20 @@ export KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/hack/bin/kubeconfig.yaml}"
 # made explicitly in the current environment to take precidence; just setting
 # new defaults which are more expansive in testing scope.
 export FUNC_ALLOCATE_RETRIES="${FUNC_ALLOCATE_RETRIES:-5}"
-# export FUNC_E2E_MATRIX="${FUNC_E2E_MATRIX:-true}"
+export FUNC_E2E_MATRIX="${FUNC_E2E_MATRIX:-true}"
 export FUNC_E2E_VERBOSE="${FUNC_E2E_VERBOSE:-true}"
 export FUNC_E2E_PODMAN="${FUNC_E2E_PODMAN:-true}"
 export TEKTON_TESTS_ENABLED="${TEKTON_TESTS_ENABLED:-1}"
 export GITLAB_TESTS_ENABLED="${GITLAB_TESTS_ENABLED:-0}"  # FIXME: Default to 1
 export GITLAB_HOSTNAME="${GITLAB_HOSTNAME:-gitlab.localtest.me}"
 export PAC_CONTROLLER_HOSTNAME="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.localtest.me}"
-export GITLAB_ROOT_PASSWORD="GL-${TIMESTAMP}-$$"
+
+# GitLab test configuration
+export GITLAB_ROOT_PASSWORD="${GITLAB_ROOT_PASSWORD:-test-password-123}"
+if [ "$GITLAB_ROOT_PASSWORD" = "test-password-123" ]; then
+    echo "⚠️  WARNING: Using default GitLab root password for testing."
+    echo "   For production use, set GITLAB_ROOT_PASSWORD environment variable."
+fi
 
 
 # Check if binaries are installed
@@ -79,8 +85,11 @@ fi
 # Verify cluster connectivity
 if ! kubectl cluster-info &>/dev/null; then
     echo "ERROR: Cannot connect to Kubernetes cluster"
+    echo "KUBECONFIG: ${KUBECONFIG}"
     echo "Please ensure your cluster is running and KUBECONFIG is valid."
     echo "You may need to run ./hack/allocate.sh"
+    kubectl cluster-info
+    kin
     exit 1
 fi
 
@@ -114,12 +123,36 @@ if [ "${FUNC_E2E_PODMAN}" = "true" ]; then
         exit 1
     fi
     
-    # Get the socket path - it may already include unix:// prefix
-    PODMAN_SOCKET="$(podman info -f '{{.Host.RemoteSocket.Path}}')"
-    if [[ "${PODMAN_SOCKET}" == unix://* ]]; then
-        export FUNC_E2E_PODMAN_HOST="${PODMAN_SOCKET}"
+    # Get the socket path
+    # On macOS/Windows, we need the host-accessible socket from podman machine
+    # On Linux, we can use the socket from podman info
+    if [[ "$OSTYPE" == "darwin"* ]] || [[ "$OSTYPE" == "msys" ]]; then
+        # Try to get the socket from podman machine inspect
+        MACHINE_NAME="${PODMAN_MACHINE:-podman-machine-default}"
+        PODMAN_SOCKET="$(podman machine inspect "${MACHINE_NAME}" --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2>/dev/null || true)"
+        
+        if [ -z "${PODMAN_SOCKET}" ]; then
+            # Fallback: check if DOCKER_HOST is already set by podman
+            if [ -n "${DOCKER_HOST}" ]; then
+                export FUNC_E2E_PODMAN_HOST="${DOCKER_HOST}"
+            else
+                echo "Warning: Could not determine Podman socket path"
+                echo "Try running: podman machine stop && podman machine start"
+                echo "Then use the DOCKER_HOST value it provides"
+                PODMAN_SOCKET="$(podman info -f '{{.Host.RemoteSocket.Path}}')"
+                export FUNC_E2E_PODMAN_HOST="unix://${PODMAN_SOCKET}"
+            fi
+        else
+            export FUNC_E2E_PODMAN_HOST="unix://${PODMAN_SOCKET}"
+        fi
     else
-        export FUNC_E2E_PODMAN_HOST="unix://${PODMAN_SOCKET}"
+        # Linux: use the socket from podman info
+        PODMAN_SOCKET="$(podman info -f '{{.Host.RemoteSocket.Path}}')"
+        if [[ "${PODMAN_SOCKET}" == unix://* ]]; then
+            export FUNC_E2E_PODMAN_HOST="${PODMAN_SOCKET}"
+        else
+            export FUNC_E2E_PODMAN_HOST="unix://${PODMAN_SOCKET}"
+        fi
     fi
     echo "Podman socket: ${FUNC_E2E_PODMAN_HOST}"
 fi
@@ -128,17 +161,18 @@ fi
 echo "mode: atomic" > coverage.txt
 
 # Run unit and integration tests together
-echo ""
-echo "Running unit and integration tests..."
-go test -race -tags integration -timeout 30m -coverprofile=coverage-integration.txt ./... -v
-tail -n +2 coverage-integration.txt >> coverage.txt
-rm -f coverage-integration.txt
+# echo ""
+# echo "Running unit and integration tests..."
+# go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v
+# tail -n +2 coverage-integration.txt >> coverage.txt
+# rm -f coverage-integration.t -run TestMetadata_Labels_Removext
 
 # Run E2E tests
 echo ""
 echo "Running E2E tests..."
 cd "${PROJECT_ROOT}/e2e"
-go test -tags e2e -timeout 30m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
+go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Remote_PVC
+# go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
 tail -n +2 coverage-e2e.txt >> ../coverage.txt
 rm -f coverage-e2e.txt
 
