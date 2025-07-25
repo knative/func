@@ -18,6 +18,18 @@
 
 source "$(dirname "$(realpath "$0")")/common.sh"
 
+# Default GitLab root password for local testing only
+# WARNING: This is an insecure default. DO NOT use in production!
+# In CI, this should be overridden with a secure random password
+GITLAB_ROOT_PASSWORD=${GITLAB_ROOT_PASSWORD:-"test-password-123"}
+
+if [ "$GITLAB_ROOT_PASSWORD" = "test-password-123" ]; then
+    echo "⚠️  WARNING: Using default GitLab root password for testing."
+    echo "   This is insecure and should only be used for local development."
+    echo "   Set GITLAB_ROOT_PASSWORD to override."
+    echo ""
+fi
+
 function install_gitlab() {
   echo "${blue}Installing GitLab${reset}"
 

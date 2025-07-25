@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -44,6 +45,12 @@ import (
 )
 
 func TestGitlab(t *testing.T) {
+	// Skip on ARM64 due to Paketo buildpack limitations
+	if runtime.GOARCH == "arm64" || runtime.GOARCH == "arm" {
+		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	}
+	
 	var err error
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()

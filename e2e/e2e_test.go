@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	goruntime "runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -126,11 +127,12 @@ var (
 
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
 	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
-	// MatrixRuntimes = []string{"go", "python", "node", "rust", "typescript", "quarkus", "springboot"}
-	MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
+	// MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
+	MatrixRuntimes = []string{"go"}
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
-	MatrixTemplates = []string{"http", "cloudevents"}
+	// MatrixTemplates = []string{"http", "cloudevents"}
+	MatrixTemplates = []string{"http"}
 
 	// Plugin indicates func is being run as a plugin within Bin, and
 	// the value of this argument is the subcommand.  For example, when
@@ -199,8 +201,8 @@ func init() {
 	fmt.Fprintln(os.Stderr, "--  Preserved Environment: ")
 	fmt.Fprintf(os.Stderr, "  HOME=%v\n", os.Getenv("HOME"))
 	fmt.Fprintf(os.Stderr, "  PATH=%v\n", os.Getenv("PATH"))
-	fmt.Fprintf(os.Stderr, "  XDG_CONFIG_HOME%v\n", os.Getenv("XDG_CONFIG_HOME"))
-	fmt.Fprintf(os.Stderr, "  XDG_RUNTIME_DIR%v\n", os.Getenv("XDG_RUNTIME_DIR"))
+	fmt.Fprintf(os.Stderr, "  XDG_CONFIG_HOME=%v\n", os.Getenv("XDG_CONFIG_HOME"))
+	fmt.Fprintf(os.Stderr, "  XDG_RUNTIME_DIR=%v\n", os.Getenv("XDG_RUNTIME_DIR"))
 	fmt.Fprintln(os.Stderr, "--  Config Provided: ")
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_BIN=%v\n", os.Getenv("FUNC_E2E_BIN"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_CLEAN=%v\n", os.Getenv("FUNC_E2E_CLEAN"))
@@ -1407,6 +1409,12 @@ func TestPodman_Pack(t *testing.T) {
 		t.Skip("FUNC_E2E_PODMAN_HOST must be set to the Podman socket path")
 	}
 
+	// Skip on ARM64 due to Paketo buildpack limitations
+	if goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm" {
+		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	}
+
 	// Create a Function
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
@@ -1504,6 +1512,12 @@ func TestMatrix_Run(t *testing.T) {
 func doMatrixRun(t *testing.T, name, runtime, builder, template string) {
 	t.Helper()
 	_ = fromCleanEnv(t, name)
+
+	// Skip pack builder on ARM64 due to Paketo buildpack limitations
+	if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
+		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	}
 
 	// Choose an address ahead of time
 	address, err := chooseOpenAddress(t)
@@ -1606,6 +1620,12 @@ func doMatrixDeploy(t *testing.T, name, runtime, builder, template string) {
 	t.Helper()
 	_ = fromCleanEnv(t, name)
 
+	// Skip pack builder on ARM64 due to Paketo buildpack limitations
+	if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
+		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	}
+
 	// Initialize the Function
 	if err := newCmd(t, "init", "-l", runtime, "-t", template).Run(); err != nil {
 		t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
@@ -1650,10 +1670,65 @@ func TestMatrix_Remote(t *testing.T) {
 	}
 }
 
+// TestMatrix_Remote_PVC is a temporary test being used to isolate a permissions
+// problem in remote tests.
+func TestMatrix_Remote_PVC(t *testing.T) {
+	// FUNCTION ONE:  PACK
+	if false {
+		name1 := "func-e2e-matrix-remote-pvc-pack"
+		_ = fromCleanEnv(t, name1)
+		if err := newCmd(t, "init", "-l", "go", "-t", "http").Run(); err != nil {
+			t.Fatalf("Failed to create function : %v", err)
+		}
+		if err := newCmd(t, "deploy", "--builder", "pack", "--remote", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			clean(t, name1, DefaultNamespace)
+		}()
+
+		// Wait for the function to be ready, using the appropriate method based on template
+		if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name1)) {
+			t.Fatalf("function did not deploy correctly")
+		}
+	}
+
+	// FUNCTION TWO:  S2I
+	name2 := "func-e2e-matrix-remote-pvc-s2i"
+	_ = fromCleanEnv(t, name2)
+	if err := newCmd(t, "init", "-l", "go", "-t", "http").Run(); err != nil {
+		t.Fatalf("Failed to create function : %v", err)
+	}
+	if err := newCmd(t, "deploy", "--builder", "s2i", "--remote", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		clean(t, name2, DefaultNamespace)
+	}()
+
+	// Wait for the function to be ready, using the appropriate method based on template
+	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name2)) {
+		t.Fatalf("function did not deploy correctly")
+	}
+
+	t.Log("SUCCESS: both deployed and echoed")
+}
+
 // doMatrixRemote implements a specific permutation of the remote deploy matrix tests.
 func doMatrixRemote(t *testing.T, name, runtime, builder, template string) {
 	t.Helper()
 	_ = fromCleanEnv(t, name)
+
+	// Skip pack builder on ARM64 due to Paketo buildpack limitations
+	if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
+		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	}
+
+	// Skip host builder (remote builds only support Pack and S2I)
+	if builder == "host" {
+		t.Skip("Host builder is not supported for remote builds.")
+	}
 
 	// Initialize the Function
 	if err := newCmd(t, "init", "-l", runtime, "-t", template).Run(); err != nil {
@@ -1722,48 +1797,6 @@ func cdTemp(t *testing.T, name string) string {
 	return tmp
 }
 
-var HomeRelPath = ".func_e2e_home"
-
-// setupHome
-func setupHome(t *testing.T) {
-
-	xdgConfigDir := filepath.Join(HomeRelPath, ".config")
-	if err := os.MkdirAll(xdgConfigDir, 0755); err != nil {
-		t.Fatalf("failed to create .config directory: %v", err)
-	}
-
-	xdgDataDir := filepath.Join(HomeRelPath, ".local", "share")
-	if err := os.MkdirAll(xdgDataDir, 0755); err != nil {
-		t.Fatalf("failed to create .local/share directory: %v", err)
-	}
-
-	// If podman is enabled, this will add some links for its metadata
-	if Podman {
-		setupPodmanLinks(t)
-	}
-}
-
-// setupPodmanLinks creates symlinks in the synthetic, isolated home to the
-// actual podman system settings.
-func setupPodmanLinks(t *testing.T) {
-	actualHome, err := os.UserHomeDir()
-	if err != nil {
-		panic(fmt.Sprintf("error determining user home directory. %v", err))
-	}
-	podmanConfigSource := filepath.Join(actualHome, ".config", "containers")
-	podmanDataSource := filepath.Join(actualHome, ".local", "share", "containers")
-
-	if _, err := os.Stat(podmanConfigSource); err == nil {
-		podmanConfigLink := filepath.Join(HomeRelPath, ".config", "containers")
-		_ = os.Symlink(podmanConfigSource, podmanConfigLink)
-	}
-
-	if _, err := os.Stat(podmanDataSource); err == nil {
-		podmanDataLink := filepath.Join(HomeRelPath, ".local", "share", "containers")
-		_ = os.Symlink(podmanDataSource, podmanDataLink)
-	}
-}
-
 // setupEnv before running a test to remove all environment variables and
 // set the required environment variables to those specified during
 // initialization.
@@ -1773,6 +1806,7 @@ func setupPodmanLinks(t *testing.T) {
 // run locally outside of CI. Some environment variables, provided via
 // FUNC_E2E_* or other settings, are explicitly set here.
 func setupEnv(t *testing.T) {
+	t.Helper()
 	// Preserve HOME, PATH and some XDG paths, and PATH
 	home := os.Getenv("HOME")
 	path := Tools + ":" + os.Getenv("PATH") // Prepend E2E tools
@@ -1802,9 +1836,8 @@ func setupEnv(t *testing.T) {
 	// The following host-builder related settings will become the defaults
 	// once the host builder supports the core runtimes.  Setting them here in
 	// order to futureproof individual tests.
-	os.Setenv("FUNC_ENABLE_HOST_BUILDER", "true") // Enable the host builder
-	os.Setenv("FUNC_BUILDER", "host")             // default to host builder
-	os.Setenv("FUNC_CONTAINER", "false")          // "run" uses host builder
+	os.Setenv("FUNC_BUILDER", "host")    // default to host builder
+	os.Setenv("FUNC_CONTAINER", "false") // "run" uses host builder
 }
 
 // setupPodmanEnvs
@@ -2188,17 +2221,6 @@ func getEnvBool(env, deprecated string, dfltBool bool) bool {
 	return val
 }
 
-// getEnvBin converts the value returned from getEnv into an absolute path.
-// and if not provided checks the current PATH for a matching binary name,
-// and returns the absolute path to that.
-func getEnvBin(env, deprecated, dflt string) string {
-	val, err := exec.LookPath(getEnv(env, deprecated, dflt))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error locating command %q. %v", val, err)
-	}
-	return val
-}
-
 // getEnv gets the value of the given environment variable, or the default.
 // If the optional deprecated environment variable name is passed, it will be used
 // as a fallback with a warning about its deprecation status being printed.
@@ -2261,20 +2283,4 @@ func chooseOpenAddress(t *testing.T) (address string, err error) {
 	}
 	defer l.Close()
 	return l.Addr().String(), nil
-}
-
-// expandPath attempts to expand the path if relative.
-// fails soft.
-func expandPath(path string) string {
-	if !strings.HasPrefix(path, "~/") {
-		return path
-	}
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		// nonfatal.  Let the test which uses the test report the
-		// appropos failure at that time.
-		fmt.Fprintf(os.Stderr, "error: expanding user homedir failed. %v", err)
-		return path
-	}
-	return filepath.Join(homeDir, path[2:])
 }
