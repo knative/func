@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"time"
@@ -282,7 +283,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), string(jsonData))
 	} else {
-		fmt.Fprintf(cmd.OutOrStderr(), "Running on host port %v\n", job.Port)
+		fmt.Fprintf(cmd.OutOrStderr(), "Function running on %s\n", net.JoinHostPort(job.Host, job.Port))
 	}
 
 	select {
