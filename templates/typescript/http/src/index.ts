@@ -33,12 +33,31 @@ Body:
 ${JSON.stringify(body)}
 -----------------------------------------------------------
 `);
-  return {
-    body: body,
-    headers: {
-      'content-type': 'application/json'
-    }
-  };
+  // If the request is an HTTP POST, return the request body
+  if (context.method === 'POST') {
+    return {
+      body: body,
+      headers: {
+        'content-type': 'application/json'
+      }
+    };
+  } else if (context.method === 'GET') {
+    // If the request is an HTTP GET, return the query parameters
+    return {
+      body: context.query,
+      headers: {
+        'content-type': 'application/json'
+      }
+    };
+  } else {
+    return {
+      statusCode: 405,
+      body: { error: 'Method not allowed' },
+      headers: {
+        'content-type': 'application/json'
+      }
+    };
+  }
 };
 
 export { handle };
