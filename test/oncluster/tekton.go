@@ -3,7 +3,6 @@ package oncluster
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,36 +10,36 @@ import (
 	"knative.dev/func/pkg/pipelines/tekton"
 )
 
-// TektonPipelineExists verifies pipeline with a given prefix exists on cluster
-func TektonPipelineExists(t *testing.T, pipelinePrefix string) bool {
+// TektonPipelineExists verifies pipeline with a given function name exists on cluster
+func TektonPipelineExists(t *testing.T, functionName string) bool {
 	ns, _, _ := k8s.GetClientConfig().Namespace()
 	client, _ := tekton.NewTektonClient(ns)
-	pipelines, err := client.Pipelines(ns).List(context.Background(), v1.ListOptions{})
+	// Look for pipelines with the function.knative.dev/name label matching the function name
+	pipelines, err := client.Pipelines(ns).List(context.Background(), v1.ListOptions{
+		LabelSelector: "function.knative.dev/name=" + functionName,
+	})
 	if err != nil {
 		t.Error(err.Error())
+		return false
 	}
-	for _, pipeline := range pipelines.Items {
-		if strings.HasPrefix(pipeline.Name, pipelinePrefix) && strings.HasSuffix(pipeline.Name, "-pipeline") {
-			return true
-		}
-	}
-	return false
+	// If any pipeline exists with this label, it means the pipeline was created for this function
+	return len(pipelines.Items) > 0
 }
 
-// TektonPipelineRunExists verifies pipelinerun with a given prefix exists on cluster
-func TektonPipelineRunExists(t *testing.T, pipelineRunPrefix string) bool {
+// TektonPipelineRunExists verifies pipelinerun with a given function name exists on cluster
+func TektonPipelineRunExists(t *testing.T, functionName string) bool {
 	ns, _, _ := k8s.GetClientConfig().Namespace()
 	client, _ := tekton.NewTektonClient(ns)
-	pipelineRuns, err := client.PipelineRuns(ns).List(context.Background(), v1.ListOptions{})
+	// Look for pipeline runs with the function.knative.dev/name label matching the function name
+	pipelineRuns, err := client.PipelineRuns(ns).List(context.Background(), v1.ListOptions{
+		LabelSelector: "function.knative.dev/name=" + functionName,
+	})
 	if err != nil {
 		t.Error(err.Error())
+		return false
 	}
-	for _, run := range pipelineRuns.Items {
-		if strings.HasPrefix(run.Name, pipelineRunPrefix) {
-			return true
-		}
-	}
-	return false
+	// If any pipeline run exists with this label, it means a pipeline run was created for this function
+	return len(pipelineRuns.Items) > 0
 }
 
 type PipelineRunSummary struct {
@@ -67,33 +66,39 @@ func (p *PipelineRunSummary) IsSucceed() bool {
 
 // TektonPipelineLastRunSummary gather information about a pipeline run such as
 // list of tasks executed and status of each task execution. It is meant to be used on assertions
-func TektonPipelineLastRunSummary(t *testing.T, pipelinePrefix string) *PipelineRunSummary {
+func TektonPipelineLastRunSummary(t *testing.T, functionName string) *PipelineRunSummary {
 	ns, _, _ := k8s.GetClientConfig().Namespace()
 	client, _ := tekton.NewTektonClient(ns)
-	pipelineRuns, err := client.PipelineRuns(ns).List(context.Background(), v1.ListOptions{})
+	// Look for pipeline runs with the function.knative.dev/name label matching the function name
+	pipelineRuns, err := client.PipelineRuns(ns).List(context.Background(), v1.ListOptions{
+		LabelSelector: "function.knative.dev/name=" + functionName,
+	})
 	if err != nil {
 		t.Error(err.Error())
+		return &PipelineRunSummary{}
 	}
+
 	lr := PipelineRunSummary{}
-	for _, run := range pipelineRuns.Items {
-		if strings.HasPrefix(run.Name, pipelinePrefix) {
-			lr.PipelineRunName = run.Name
-			if len(run.Status.Conditions) > 0 {
-				lr.PipelineRunStatus = run.Status.Conditions[0].Reason
+	// Get the most recent pipeline run (they're sorted by creation time)
+	if len(pipelineRuns.Items) > 0 {
+		// Take the first one (most recent) from the filtered list
+		run := pipelineRuns.Items[0]
+		lr.PipelineRunName = run.Name
+		if len(run.Status.Conditions) > 0 {
+			lr.PipelineRunStatus = run.Status.Conditions[0].Reason
+		}
+		lr.TasksRunSummary = []PipelineTaskRunSummary{}
+		for _, ref := range run.Status.ChildReferences {
+			r := PipelineTaskRunSummary{}
+			r.TaskName = ref.PipelineTaskName
+			taskRun, err := client.TaskRuns(ns).Get(context.Background(), ref.Name, v1.GetOptions{})
+			if err != nil {
+				t.Error(err.Error())
 			}
-			lr.TasksRunSummary = []PipelineTaskRunSummary{}
-			for _, ref := range run.Status.ChildReferences {
-				r := PipelineTaskRunSummary{}
-				r.TaskName = ref.PipelineTaskName
-				taskRun, err := client.TaskRuns(ns).Get(context.Background(), ref.Name, v1.GetOptions{})
-				if err != nil {
-					t.Error(err.Error())
-				}
-				if len(taskRun.Status.Conditions) > 0 {
-					r.TaskStatus = taskRun.Status.Conditions[0].Reason
-				}
-				lr.TasksRunSummary = append(lr.TasksRunSummary, r)
+			if len(taskRun.Status.Conditions) > 0 {
+				r.TaskStatus = taskRun.Status.Conditions[0].Reason
 			}
+			lr.TasksRunSummary = append(lr.TasksRunSummary, r)
 		}
 	}
 	return &lr
