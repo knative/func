@@ -48,12 +48,11 @@ export GITLAB_HOSTNAME="${GITLAB_HOSTNAME:-gitlab.localtest.me}"
 export PAC_CONTROLLER_HOSTNAME="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.localtest.me}"
 
 # GitLab test configuration
+# This is the default set by ./hack/gitlab.sh, and is overridden in CI, and
+# a warning is issued that users should not only use ./hack/gitlab.sh for
+# configuring test cluster available locally, such as that created by
+# hack/cluster.sh
 export GITLAB_ROOT_PASSWORD="${GITLAB_ROOT_PASSWORD:-test-password-123}"
-if [ "$GITLAB_ROOT_PASSWORD" = "test-password-123" ]; then
-    echo "⚠️  WARNING: Using default GitLab root password for testing."
-    echo "   For production use, set GITLAB_ROOT_PASSWORD environment variable."
-fi
-
 
 # Check if binaries are installed
 if [ ! -d "${PROJECT_ROOT}/hack/bin" ]; then
@@ -171,7 +170,7 @@ echo "mode: atomic" > coverage.txt
 echo ""
 echo "Running E2E tests..."
 cd "${PROJECT_ROOT}/e2e"
-go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Remote_PVC
+go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Run
 # go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
 tail -n +2 coverage-e2e.txt >> ../coverage.txt
 rm -f coverage-e2e.txt
