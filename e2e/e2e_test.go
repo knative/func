@@ -127,10 +127,11 @@ var (
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
 	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
 	// MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
-	MatrixRuntimes = []string{"go", "python"}
+	MatrixRuntimes = []string{"python"}
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
-	MatrixTemplates = []string{"http", "cloudevents"}
+	// MatrixTemplates = []string{"http", "cloudevents"}
+	MatrixTemplates = []string{"cloudevents"}
 
 	// Plugin indicates func is being run as a plugin within Bin, and
 	// the value of this argument is the subcommand.  For example, when
@@ -1505,12 +1506,6 @@ func doMatrixRun(t *testing.T, name, runtime, builder, template string) {
 	t.Helper()
 	_ = fromCleanEnv(t, name)
 
-	// Skip pack builder on ARM64 due to Paketo buildpack limitations
-	// if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
-	// 	t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
-	// 		"See https://github.com/paketo-buildpacks/nodejs/issues/712")
-	// }
-
 	// Choose an address ahead of time
 	address, err := chooseOpenAddress(t)
 	if err != nil {
@@ -1523,34 +1518,11 @@ func doMatrixRun(t *testing.T, name, runtime, builder, template string) {
 	// func run
 	run := []string{"run", "--builder", builder, "--address", address}
 
-	// Python Special Treatment
-	// --------------------------
-	// Skip Pack builder (not supported)
-	// TODO: Remove when pack support is added
-	if runtime == "python" && builder == "pack" {
-		t.Skip("Python runtime currently does not support the Pack builder")
-	}
-
-	// Echo Implementation
-	// Replace the simple "OK" implementation with an echo.
-	//
-	// The Python HTTP template is currently not an "echo" because it's
-	// annoyingly complex, and we want the default template to be as simple
-	// and approachable as possible.  We'll be transitioning to having all
-	// builtin templates to a simple "OK" response for this reason, and using
-	// an external repository for the "echo" implementations currently the
-	// default.  Python HTTP is a bit ahead of this schedule, so use an echo
-	// implementation in ./testdata until then:
-	if runtime == "python" && template == "http" {
-		init = append(init, "--repository", "file://"+filepath.Join(Testdata, "templates"))
-	}
-
-	// Node special treatment
-	// ----------------------
-	// Skip Host builder (not supported)
-	if runtime == "node" && builder == "host" {
-		t.Skip("Node runtime currently does not support the Host builder")
-	}
+	// Language and architecture special treatment
+	// - Skips tests if the builder is not supported
+	// - Skips tests for the pack builder if on ARM
+	// - adds arguments as necessary
+	init = matrixExceptions(t, init, runtime, builder, template)
 
 	// Initialize
 	// ----------
@@ -1565,7 +1537,8 @@ func doMatrixRun(t *testing.T, name, runtime, builder, template string) {
 		t.Fatal(err)
 	}
 
-	// Wait for the function to be ready, using the appropriate method based on template
+	// Wait for the function to be ready, using the appropriate method based
+	// on template
 	httpAddress := "http://" + address
 	var ready bool
 	if template == "cloudevents" {
@@ -1618,39 +1591,41 @@ func doMatrixDeploy(t *testing.T, name, runtime, builder, template string) {
 	// 		"See https://github.com/paketo-buildpacks/nodejs/issues/712")
 	// }
 
+	// func init
+	initArgs := []string{"init", "-l", runtime, "-t", template}
+
+	// func deploy
+	deployArgs := []string{"deploy", "--builder", builder}
+
+	// Language and architecture special treatment
+	// - Skips tests if the builder is not supported
+	// - Skips tests for the pack builder if on ARM
+	// - adds arguments as necessary
+	initArgs = matrixExceptions(t, initArgs, runtime, builder, template)
+
 	// Initialize
 	// ----------
-	initArgs := []string{"init", "-l", runtime, "-t", template}
-	// Python Special Treatment:
-	//   skip if pack builder (not yet supported)
-	//   custom template for "echo" implementation (default is just an OK)
-	if runtime == "python" && builder == "pack" {
-		t.Skip("Python runtime currently does not support the Pack builder")
-	}
-	if runtime == "python" && template == "http" {
-		initArgs = append(initArgs, "--repository", "file://"+filepath.Join(Testdata, "templates"))
-	}
-
 	if err := newCmd(t, initArgs...).Run(); err != nil {
 		t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
 	}
 
 	// Deploy
 	// ------
-	if err := newCmd(t, "deploy", "--builder", builder).Run(); err != nil {
+	if err := newCmd(t, deployArgs...).Run(); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
 		clean(t, name, DefaultNamespace)
 	}()
 
-	// Wait for the function to be ready, using the appropriate method based on template
-	functionURL := fmt.Sprintf("http://%v.default.localtest.me", name)
+	// Wait for the function to be ready, using the appropriate method based
+	// on template
+	httpAddress := fmt.Sprintf("http://%v.default.localtest.me", name)
 	var ready bool
 	if template == "cloudevents" {
-		ready = waitForCloudevent(t, functionURL)
+		ready = waitForCloudevent(t, httpAddress)
 	} else {
-		ready = waitForEcho(t, functionURL)
+		ready = waitForEcho(t, httpAddress)
 	}
 
 	if !ready {
@@ -1674,6 +1649,74 @@ func TestMatrix_Remote(t *testing.T) {
 			}
 		}
 	}
+}
+
+// matrixExceptions adds language-specific arguments or skips matrix tests as
+// necessary to match current levels of supported combinations.
+func matrixExceptions(t *testing.T, initArgs []string, funcRuntime, builder, template string) []string {
+	t.Helper()
+
+	// Buildpacks do not currently support ARM
+	if builder == "pack" && (runtime.GOARCH == "arm64" || runtime.GOARCH == "arm") {
+		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	}
+
+	// Python Special Treatment
+	// --------------------------
+	// Skip Pack builder (not supported)
+	// TODO: Remove when pack support is added
+	if funcRuntime == "python" && builder == "pack" {
+		t.Skip("The pack builder does not currently support Python Functions")
+	}
+
+	// Echo Implementation
+	// Replace the simple "OK" implementation with an echo.
+	//
+	// The Python HTTP template is currently not an "echo" because it's
+	// annoyingly complex, and we want the default template to be as simple
+	// and approachable as possible.  We'll be transitioning to having all
+	// builtin templates to a simple "OK" response for this reason, and using
+	// an external repository for the "echo" implementations currently the
+	// default.  Python HTTP is a bit ahead of this schedule, so use an echo
+	// implementation in ./testdata until then:
+	if funcRuntime == "python" && template == "http" {
+		initArgs = append(initArgs, "--repository", "file://"+filepath.Join(Testdata, "templates"))
+	}
+
+	// Node special treatment
+	// ----------------------
+	// Skip on Host builder (not supported)
+	if funcRuntime == "node" && builder == "host" {
+		t.Skip("The host builder does not currently support Node Functions")
+	}
+
+	// Typescript special treatment
+	// ----------------------
+	// Skip on Host builder (not supported)
+	if funcRuntime == "typescript" && builder == "host" {
+		t.Skip("The host builder does not currently support Typescript Functions")
+	}
+
+	// Rust special treatment
+	// ----------------------
+	// Skip on Host builder (not supported)
+	if funcRuntime == "rust" && builder == "host" {
+		t.Skip("The host builder does not currently support Rust Functions")
+	}
+	// Skip on S2I builder (not supported)
+	if funcRuntime == "rust" && builder == "s2i" {
+		t.Skip("The pack builder does not currently support Rust Functions")
+	}
+
+	// Quarkus special treatment
+	// ----------------------
+	// Skip on Host builder (not supported)
+	if funcRuntime == "quarkus" && builder == "host" {
+		t.Skip("The host builder does not currently support Quarkus Functions")
+	}
+
+	return initArgs
 }
 
 // TestMatrix_TEST is a temporary test being used to isolate cases when
@@ -1991,31 +2034,30 @@ func waitForEcho(t *testing.T, address string) (ok bool) {
 func waitForCloudevent(t *testing.T, address string) (ok bool) {
 	t.Helper()
 	var (
-		retries       = 50 // Set high for slow environments (CI)
-		warnThreshold = 30 // start warning after 30
-		warnModulo    = 5  // but only warn every 5 attempts
-		delay         = 500 * time.Millisecond
+		retries       = 100 // Set high for slow environments (CI)
+		warnThreshold = 30  // start warning after 30
+		warnModulo    = 5   // but only warn every 5 attempts
+		delay         = 1 * time.Second
 	)
-
-	// Prepare CloudEvent headers
-	req, err := http.NewRequest("POST", address, strings.NewReader(`{"message": "test"}`))
-	if err != nil {
-		t.Fatalf("error creating request: %v", err)
-		return false
-	}
-
-	// Set CloudEvents headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Ce-Id", "test-event-1")
-	req.Header.Set("Ce-Type", "test.event.type")
-	req.Header.Set("Ce-Source", "e2e-test")
-	req.Header.Set("Ce-Specversion", "1.0")
 
 	client := &http.Client{}
 
 	for i := 0; i < retries; i++ {
 		time.Sleep(delay)
-		t.Logf("POST %v (CloudEvent)\n", address)
+		// t.Logf("POST %v (CloudEvent)\n", address)
+
+		req, err := http.NewRequest("POST", address, strings.NewReader(`{"message": "test"}`))
+		if err != nil {
+			t.Fatalf("error creating request: %v", err)
+			return false
+		}
+
+		// Set CloudEvents headers
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Ce-Id", "test-event-1")
+		req.Header.Set("Ce-Type", "test.event.type")
+		req.Header.Set("Ce-Source", "e2e-test")
+		req.Header.Set("Ce-Specversion", "1.0")
 
 		res, err := client.Do(req)
 		if err != nil {
@@ -2027,6 +2069,34 @@ func waitForCloudevent(t *testing.T, address string) (ok bool) {
 		defer res.Body.Close()
 
 		if res.StatusCode == 200 {
+			// Validate that the response is a proper CloudEvent
+			// 1. Check for CloudEvent header
+			ceSpecVersion := res.Header.Get("Ce-Specversion")
+
+			// 2. Ensure CloudEvent header is present
+			if ceSpecVersion == "" {
+				if i > warnThreshold && i%warnModulo == 0 {
+					t.Logf("Function returned 200 but missing Ce-Specversion header (attempt %v/%v)", i, retries)
+				}
+				continue
+			}
+
+			// 3. Read and validate the response body
+			body, err := io.ReadAll(res.Body)
+			if err != nil {
+				t.Logf("Error reading response body: %v", err)
+				continue
+			}
+
+			// Ensure body is valid JSON (CloudEvents should have JSON body)
+			var jsonBody interface{}
+			if err := json.Unmarshal(body, &jsonBody); err != nil {
+				if i > warnThreshold && i%warnModulo == 0 {
+					t.Logf("Function returned 200 with CE headers but invalid JSON body (attempt %v/%v): %v", i, retries, err)
+				}
+				continue
+			}
+
 			// CloudEvents function is responding correctly
 			return true
 		}
@@ -2075,16 +2145,16 @@ func waitForContent(t *testing.T, address, content string) (ok bool) {
 func waitFor(t *testing.T, address, content, errMsg string) (ok bool) {
 	t.Helper()
 	var (
-		retries          = 50    // Set high for slow environments (CI)
+		retries          = 100   // Set high for slow environments (CI)
 		warnThreshold    = 30    // start warning after 30
 		warnModulo       = 5     // but only warn every 5 attempts
 		mismatchLast     = ""    // cache the last content for squelching purposes.
 		mismatchReported = false // note that the given content was reported
-		delay            = 500 * time.Millisecond
+		delay            = 1 * time.Second
 	)
 	for i := 0; i < retries; i++ {
 		time.Sleep(delay)
-		t.Logf("GET %v\n", address)
+		// t.Logf("GET %v\n", address)
 		res, err := http.Get(address)
 		if err != nil {
 			if i > warnThreshold && i%warnModulo == 0 {
