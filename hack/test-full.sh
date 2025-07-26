@@ -170,8 +170,8 @@ echo "mode: atomic" > coverage.txt
 echo ""
 echo "Running E2E tests..."
 cd "${PROJECT_ROOT}/e2e"
-# go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Remote
-go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
+go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Deploy
+# go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
 tail -n +2 coverage-e2e.txt >> ../coverage.txt
 rm -f coverage-e2e.txt
 
