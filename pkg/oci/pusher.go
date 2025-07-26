@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/term"
 
@@ -168,12 +169,51 @@ func (p *Pusher) authOption(ctx context.Context) (remote.Option, error) {
 		return remote.WithAuth(&authn.Basic{Username: username, Password: password}), nil
 	}
 
-	// Default chain
+	// Default chain with resilient handling
 	return remote.WithAuthFromKeychain(authn.NewMultiKeychain(
-		authn.DefaultKeychain, // Podman and Docker config files
-		google.Keychain,       // Google
+		localRegistryKeychain{},                      // Try localhost first
+		resilientKeychain{inner: authn.DefaultKeychain}, // Podman and Docker config files with error handling
+		google.Keychain,                              // Google
 		// TODO: Integrate and test ECR and ACR credential helpers:
 		// authn.NewKeychainFromHelper(ecr.ECRHelper{ClientFactory: api.DefaultClientFactory{}}),
 		// authn.NewKeychainFromHelper(acr.ACRCredHelper{}),
 	)), nil
+}
+
+// localRegistryKeychain returns anonymous auth for localhost registries
+type localRegistryKeychain struct{}
+
+func (k localRegistryKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
+	registry := resource.RegistryStr()
+	// Check if this is a localhost registry
+	if registry == "localhost" || registry == "127.0.0.1" || 
+	   registry == "localhost:5000" || registry == "localhost:50000" ||
+	   registry == "127.0.0.1:5000" || registry == "127.0.0.1:50000" {
+		return authn.Anonymous, nil
+	}
+	return authn.Anonymous, fmt.Errorf("not a localhost registry")
+}
+
+// resilientKeychain wraps another keychain and handles errors gracefully
+type resilientKeychain struct {
+	inner authn.Keychain
+}
+
+func (k resilientKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
+	auth, err := k.inner.Resolve(resource)
+	if err != nil {
+		// If the error is about a missing credential helper, return anonymous auth
+		// This handles the "docker-credential-desktop: executable file not found" case
+		errStr := err.Error()
+		if os.IsNotExist(err) || 
+		   strings.Contains(errStr, "executable file not found") ||
+		   strings.Contains(errStr, "not found in $PATH") ||
+		   strings.Contains(errStr, "docker-credential-") {
+			// Log warning to stderr
+			fmt.Fprintf(os.Stderr, "Warning: credential helper not found, using anonymous auth: %v\n", err)
+			return authn.Anonymous, nil
+		}
+		return nil, err
+	}
+	return auth, nil
 }
