@@ -128,7 +128,7 @@ var (
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
 	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
 	// MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
-	MatrixRuntimes = []string{"go"}
+	MatrixRuntimes = []string{"python"}
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
 	// MatrixTemplates = []string{"http", "cloudevents"}
@@ -1485,7 +1485,7 @@ func TestPodman_S2I(t *testing.T) {
 //	 Test it can:
 //	 1.  Run locally on the host (func run)
 //	 3.  Deploy and receive the default response (an echo)
-//	 4.  Deply and run via a remote build and receive the echo
+//	 4.  Remote build and run via an in-cluster build
 // -----------------
 
 // TestMatrix_Run ensures that supported runtimes and builders can run both
@@ -1670,27 +1670,25 @@ func TestMatrix_Remote(t *testing.T) {
 	}
 }
 
-// TestMatrix_Remote_PVC is a temporary test being used to isolate a permissions
-// problem in remote tests.
-func TestMatrix_Remote_PVC(t *testing.T) {
+// TestMatrix_TEST is a temporary test being used to isolate cases when
+// debugging
+func TestMatrix_TEST(t *testing.T) {
 	// FUNCTION ONE:  PACK
-	if false {
-		name1 := "func-e2e-matrix-remote-pvc-pack"
-		_ = fromCleanEnv(t, name1)
-		if err := newCmd(t, "init", "-l", "go", "-t", "http").Run(); err != nil {
-			t.Fatalf("Failed to create function : %v", err)
-		}
-		if err := newCmd(t, "deploy", "--builder", "pack", "--remote", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
-			t.Fatal(err)
-		}
-		defer func() {
-			clean(t, name1, DefaultNamespace)
-		}()
+	name1 := "func-e2e-matrix-remote-pvc-pack"
+	_ = fromCleanEnv(t, name1)
+	if err := newCmd(t, "init", "-l", "go", "-t", "http").Run(); err != nil {
+		t.Fatalf("Failed to create function : %v", err)
+	}
+	if err := newCmd(t, "deploy", "--builder", "pack", "--remote", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		clean(t, name1, DefaultNamespace)
+	}()
 
-		// Wait for the function to be ready, using the appropriate method based on template
-		if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name1)) {
-			t.Fatalf("function did not deploy correctly")
-		}
+	// Wait for the function to be ready, using the appropriate method based on template
+	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name1)) {
+		t.Fatalf("function did not deploy correctly")
 	}
 
 	// FUNCTION TWO:  S2I
