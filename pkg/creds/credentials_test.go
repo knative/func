@@ -81,6 +81,30 @@ func Test_registryEquals(t *testing.T) {
 	}
 }
 
+func Test_IsLocalRegistry(t *testing.T) {
+	tests := []struct {
+		name     string
+		registry string
+		want     bool
+	}{
+		{"localhost without port", "localhost", true},
+		{"127.0.0.1 without port", "127.0.0.1", true},
+		{"localhost with port", "localhost:5000", true},
+		{"127.0.0.1 with port", "127.0.0.1:5000", true},
+		{"external registry", "quay.io", false},
+		{"external registry with port", "example.com:5000", false},
+		{"IPv6 localhost", "::1", false},
+		{"localhost with path", "localhost/path", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := creds.IsLocalRegistry(tt.registry); got != tt.want {
+				t.Errorf("IsLocalRegistry(%q) = %v, want %v", tt.registry, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCheckAuth(t *testing.T) {
 
 	const (

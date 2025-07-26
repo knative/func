@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -30,6 +31,14 @@ type CredentialsCallback func(registry string) (oci.Credentials, error)
 var ErrUnauthorized = errors.New("bad credentials")
 
 var ErrCredentialsNotFound = errors.New("credentials not found")
+
+// localhostRegex matches localhost or 127.0.0.1 with optional port
+var localhostRegex = regexp.MustCompile(`^(localhost|127\.0\.0\.1)(:[0-9]+)?$`)
+
+// IsLocalRegistry checks if a registry is localhost or 127.0.0.1 with optional port
+func IsLocalRegistry(registry string) bool {
+	return localhostRegex.MatchString(registry)
+}
 
 // VerifyCredentialsCallback checks if credentials are authorized for image push.
 // If credentials are incorrect this callback shall return ErrUnauthorized.
@@ -166,6 +175,17 @@ func NewCredentialsProvider(configPath string, opts ...Opt) oci.CredentialsProvi
 
 	// default credential loaders map -- load only those that should be there.
 	var defaultCredentialLoaders = []CredentialsCallback{}
+
+	// Add localhost registry handler first - anonymous auth for localhost registries
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
+		func(registry string) (oci.Credentials, error) {
+			// Check if this is a localhost registry that should use anonymous auth
+			if IsLocalRegistry(registry) {
+				// Return empty credentials for anonymous auth
+				return oci.Credentials{}, nil
+			}
+			return oci.Credentials{}, ErrCredentialsNotFound
+		})
 
 	c.authFilePath = filepath.Join(configPath, "auth.json")
 	sys := &containersTypes.SystemContext{
@@ -389,6 +409,16 @@ func getCredentialsByCredentialHelper(confFilePath, registry string) (oci.Creden
 
 	credentialsMap, err := client.List(p)
 	if err != nil {
+		// Handle missing credential helper gracefully
+		errStr := err.Error()
+		if os.IsNotExist(err) ||
+			strings.Contains(errStr, "executable file not found") ||
+			strings.Contains(errStr, "not found in $PATH") ||
+			strings.Contains(errStr, helperName) {
+			// Log warning but don't fail - the credential helper is not available
+			fmt.Fprintf(os.Stderr, "Warning: credential helper %s not found, skipping: %v\n", helperName, err)
+			return result, ErrCredentialsNotFound
+		}
 		return result, fmt.Errorf("failed to list credentials: %w", err)
 	}
 
