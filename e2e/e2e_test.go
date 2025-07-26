@@ -20,7 +20,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	goruntime "runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -128,11 +127,10 @@ var (
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
 	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
 	// MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
-	MatrixRuntimes = []string{"python"}
+	MatrixRuntimes = []string{"go", "python"}
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
-	// MatrixTemplates = []string{"http", "cloudevents"}
-	MatrixTemplates = []string{"http"}
+	MatrixTemplates = []string{"http", "cloudevents"}
 
 	// Plugin indicates func is being run as a plugin within Bin, and
 	// the value of this argument is the subcommand.  For example, when
@@ -1409,12 +1407,6 @@ func TestPodman_Pack(t *testing.T) {
 		t.Skip("FUNC_E2E_PODMAN_HOST must be set to the Podman socket path")
 	}
 
-	// Skip on ARM64 due to Paketo buildpack limitations
-	if goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm" {
-		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
-			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
-	}
-
 	// Create a Function
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
@@ -1514,10 +1506,10 @@ func doMatrixRun(t *testing.T, name, runtime, builder, template string) {
 	_ = fromCleanEnv(t, name)
 
 	// Skip pack builder on ARM64 due to Paketo buildpack limitations
-	if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
-		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
-			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
-	}
+	// if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
+	// 	t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+	// 		"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	// }
 
 	// Choose an address ahead of time
 	address, err := chooseOpenAddress(t)
@@ -1620,17 +1612,31 @@ func doMatrixDeploy(t *testing.T, name, runtime, builder, template string) {
 	t.Helper()
 	_ = fromCleanEnv(t, name)
 
-	// Skip pack builder on ARM64 due to Paketo buildpack limitations
-	if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
-		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
-			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	// // Skip pack builder on ARM64 due to Paketo buildpack limitations
+	// if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
+	// 	t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+	// 		"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	// }
+
+	// Initialize
+	// ----------
+	initArgs := []string{"init", "-l", runtime, "-t", template}
+	// Python Special Treatment:
+	//   skip if pack builder (not yet supported)
+	//   custom template for "echo" implementation (default is just an OK)
+	if runtime == "python" && builder == "pack" {
+		t.Skip("Python runtime currently does not support the Pack builder")
+	}
+	if runtime == "python" && template == "http" {
+		initArgs = append(initArgs, "--repository", "file://"+filepath.Join(Testdata, "templates"))
 	}
 
-	// Initialize the Function
-	if err := newCmd(t, "init", "-l", runtime, "-t", template).Run(); err != nil {
+	if err := newCmd(t, initArgs...).Run(); err != nil {
 		t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
 	}
 
+	// Deploy
+	// ------
 	if err := newCmd(t, "deploy", "--builder", builder).Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -1717,22 +1723,36 @@ func doMatrixRemote(t *testing.T, name, runtime, builder, template string) {
 	t.Helper()
 	_ = fromCleanEnv(t, name)
 
-	// Skip pack builder on ARM64 due to Paketo buildpack limitations
-	if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
-		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
-			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
-	}
+	// // Skip pack builder on ARM64 due to Paketo buildpack limitations
+	// if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
+	// 	t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+	// 		"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	// }
 
 	// Skip host builder (remote builds only support Pack and S2I)
 	if builder == "host" {
 		t.Skip("Host builder is not supported for remote builds.")
 	}
 
-	// Initialize the Function
-	if err := newCmd(t, "init", "-l", runtime, "-t", template).Run(); err != nil {
+	// Initialize
+	// ----------
+	initArgs := []string{"init", "-l", runtime, "-t", template}
+	// Python Special Treatment:
+	//   skip if pack builder (not yet supported)
+	//   custom template for "echo" implementation (default is just an OK)
+	if runtime == "python" && builder == "pack" {
+		t.Skip("Python runtime currently does not support the Pack builder")
+	}
+	if runtime == "python" && template == "http" {
+		initArgs = append(initArgs, "--repository", "file://"+filepath.Join(Testdata, "templates"))
+	}
+
+	if err := newCmd(t, initArgs...).Run(); err != nil {
 		t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
 	}
 
+	// Deploy
+	// ------
 	if err := newCmd(t, "deploy", "--builder", builder, "--remote", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
 		t.Fatal(err)
 	}
