@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -76,6 +77,27 @@ const (
 	defaultPipelinesTargetBranch = "main"
 )
 
+// insecureRegistryRegex matches localhost, 127.0.0.1, or registry.default.svc.cluster.local with optional port
+var insecureRegistryRegex = regexp.MustCompile(`^(localhost|127\.0\.0\.1|registry\.default\.svc\.cluster\.local)(:[0-9]+)?$`)
+
+// isInsecureRegistry checks if the given registry should be treated as insecure
+// (skip TLS verification). This includes known local/cluster registries.
+func isInsecureRegistry(registry string) bool {
+	// First check the basic regex pattern
+	if insecureRegistryRegex.MatchString(registry) {
+		return true
+	}
+
+	// Also check if registry includes the insecure registry as part of image path (e.g., "localhost/myimage")
+	// This handles cases where the registry might be part of a full image reference
+	parts := strings.SplitN(registry, "/", 2)
+	if len(parts) > 0 && insecureRegistryRegex.MatchString(parts[0]) {
+		return true
+	}
+
+	return false
+}
+
 type templateData struct {
 	FunctionName  string
 	Annotations   map[string]string
@@ -112,6 +134,9 @@ type templateData struct {
 
 	// S2I related properties
 	S2iImageScriptsUrl string
+
+	// TLS verification for registry operations
+	TlsVerify string
 }
 
 // createPipelineTemplatePAC creates a Pipeline template used for PAC on-cluster build
@@ -189,6 +214,12 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 		image = f.Image
 	}
 
+	// Determine if TLS verification should be skipped
+	tlsVerify := "true"
+	if isInsecureRegistry(f.Registry) {
+		tlsVerify = "false"
+	}
+
 	data := templateData{
 		FunctionName:  f.Name,
 		Annotations:   f.Deploy.Annotations,
@@ -211,6 +242,7 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 		PipelineYamlURL: fmt.Sprintf("%s/%s", resourcesDirectory, pipelineFileNamePAC),
 
 		S2iImageScriptsUrl: s2iImageScriptsUrl,
+		TlsVerify:          tlsVerify,
 
 		RepoUrl:  "\"{{ repo_url }}\"",
 		Revision: "\"{{ revision }}\"",
@@ -386,6 +418,12 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		s2iImageScriptsUrl = quarkusS2iImageScriptsUrl
 	}
 
+	// Determine if TLS verification should be skipped
+	tlsVerify := "true"
+	if isInsecureRegistry(f.Registry) {
+		tlsVerify = "false"
+	}
+
 	data := templateData{
 		FunctionName:  f.Name,
 		Annotations:   f.Deploy.Annotations,
@@ -402,6 +440,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		SecretName:      getPipelineSecretName(f),
 
 		S2iImageScriptsUrl: s2iImageScriptsUrl,
+		TlsVerify:          tlsVerify,
 
 		RepoUrl:  f.Build.Git.URL,
 		Revision: pipelinesTargetBranch,

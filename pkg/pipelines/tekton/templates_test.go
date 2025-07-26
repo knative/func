@@ -19,6 +19,31 @@ const (
 	TestRegistry = "example.com/alice"
 )
 
+func Test_isInsecureRegistry(t *testing.T) {
+	tests := []struct {
+		name     string
+		registry string
+		want     bool
+	}{
+		{"localhost without port", "localhost", true},
+		{"127.0.0.1 without port", "127.0.0.1", true},
+		{"cluster local registry without port", "registry.default.svc.cluster.local", true},
+		{"localhost with port 5000", "localhost:5000", true},
+		{"127.0.0.1 with port 5000", "127.0.0.1:5000", true},
+		{"cluster local registry with port 5000", "registry.default.svc.cluster.local:5000", true},
+		{"external registry", "docker.io", false},
+		{"external registry with port", "quay.io:443", false},
+		{"similar but not matching", "localhost.example.com", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isInsecureRegistry(tt.registry); got != tt.want {
+				t.Errorf("isInsecureRegistry(%q) = %v, want %v", tt.registry, got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_createPipelineTemplatePAC(t *testing.T) {
 	tests := []struct {
 		name    string
