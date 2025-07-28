@@ -27,9 +27,6 @@ export KNATIVE_SERVING_VERSION=${KNATIVE_SERVING_VERSION:-latest}
 export KNATIVE_EVENTING_VERSION=${KNATIVE_EVENTING_VERSION:-latest}
 source "$(go run knative.dev/hack/cmd/script presubmit-tests.sh)"
 
-FUNC_REPO_BRANCH_REF="${PULL_PULL_SHA}"
-export FUNC_REPO_BRANCH_REF
-
 function post_build_tests() {
   local failed=0
   header "Ensuring code builds cross-platform"

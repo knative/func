@@ -1,0 +1,13 @@
+# $schema: https://raw.githubusercontent.com/knative/func/release-1.18/schema/func_yaml-schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/knative/func/release-1.18/schema/func_yaml-schema.json
+specVersion: 0.36.0
+name: func-e2e-test-remote-deploy
+runtime: go
+registry: registry.default.svc.cluster.local:5000/func
+namespace: default
+created: 2025-07-22T20:58:39.883931+09:00
+build:
+  builder: pack
+deploy:
+  namespace: default
+  image: registry.default.svc.cluster.local:5000/func/func-e2e-test-remote-deploy:latest

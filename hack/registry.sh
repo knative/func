@@ -27,12 +27,20 @@ registry() {
 
   warn_nix
 
-  # Check the value of CONTAINER_ENGINE
+  # Configure both Docker and Podman if they exist
+  # This supports environments where both are installed
   echo 'Setting registry as trusted local-only'
-  if [ "$CONTAINER_ENGINE" == "docker" ]; then
-      set_registry_insecure
-  elif [ "$CONTAINER_ENGINE" == "podman" ]; then
-      set_registry_insecure_podman
+  
+  # Try to configure Docker if it exists
+  if command -v docker &> /dev/null; then
+      echo "Configuring Docker for insecure registry..."
+      set_registry_insecure || echo "${yellow}Warning: Failed to configure Docker${reset}"
+  fi
+  
+  # Try to configure Podman if it exists
+  if command -v podman &> /dev/null; then
+      echo "Configuring Podman for insecure registry..."
+      set_registry_insecure_podman || echo "${yellow}Warning: Failed to configure Podman${reset}"
   fi
 
   echo "${green}✅ Registry${reset}"
@@ -40,8 +48,10 @@ registry() {
 
 warn_nix() {
     if [[ -x $(command -v "nix") || -x $(command -v "nixos-rebuild") ]]; then
-        if [ "$CONTAINER_ENGINE" == "docker" ]; then
-          echo "${yellow}Warning: Nix detected${reset}"
+        echo "${yellow}Warning: Nix detected${reset}"
+        
+        # Warn about Docker if it's installed
+        if command -v docker &> /dev/null; then
           if [[ "$(uname)" == "Darwin" ]]; then
             echo "If Docker Desktop was installed via Nix on macOS, you may need to manually configure the insecure registry."
             echo "Please confirm \"localhost:50000\" is specified as an insecure registry in the docker config file."
@@ -52,8 +62,10 @@ warn_nix() {
             echo "    daemon.settings.insecure-registries = [ \"localhost:50000\" ];"
             echo "  };"
           fi
-        elif [ "$CONTAINER_ENGINE" == "podman" ]; then
-          echo "${yellow}Warning: Nix detected${reset}"
+        fi
+        
+        # Warn about Podman if it's installed
+        if command -v podman &> /dev/null; then
           echo "If podman was configured via Nix, this command will likely fail.  At time of this writing, podman configured via the nix option 'virtualisation.podman' does not have an option for configuring insecure registries."
           echo "The configuration required is adding the following to registries.conf:"
           echo -e "  [[registry-insecure-local]]\n  location = \"localhost:50000\"\n  insecure = true"
@@ -94,12 +106,36 @@ set_registry_insecure() {
 }
 
 set_registry_insecure_podman() {
-    FILE="/etc/containers/registries.conf"
-
-    # Check if the section exists
-    if ! sudo grep -q "\[\[registry-insecure-local\]\]" "$FILE"; then
-        # Append the new section to the file
-        echo -e "\n[[registry-insecure-local]]\nlocation = \"localhost:50000\"\ninsecure = true" | sudo tee -a "$FILE" > /dev/null
+    # Handle both rootful and rootless Podman configurations
+    # For rootless, use user's config directory
+    USER_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/containers"
+    SYSTEM_CONFIG_FILE="/etc/containers/registries.conf"
+    
+    # Try user config first (rootless)
+    if [ -w "$USER_CONFIG_DIR" ] || mkdir -p "$USER_CONFIG_DIR" 2>/dev/null; then
+        USER_CONFIG_FILE="$USER_CONFIG_DIR/registries.conf"
+        echo "Configuring rootless Podman registry at $USER_CONFIG_FILE"
+        
+        # Create the file if it doesn't exist
+        if [ ! -f "$USER_CONFIG_FILE" ]; then
+            echo "" > "$USER_CONFIG_FILE"
+        fi
+        
+        # Check if the section exists
+        if ! grep -q "\[\[registry\]\]" "$USER_CONFIG_FILE" || ! grep -A2 "\[\[registry\]\]" "$USER_CONFIG_FILE" | grep -q "location.*localhost:50000"; then
+            # Append the new section to the file
+            echo -e "\n[[registry]]\nlocation = \"localhost:50000\"\ninsecure = true" >> "$USER_CONFIG_FILE"
+        fi
+    fi
+    
+    # Also try system config if we have sudo (rootful)
+    if command -v sudo &> /dev/null && sudo -n true 2>/dev/null; then
+        echo "Configuring system-wide Podman registry at $SYSTEM_CONFIG_FILE"
+        # Check if the section exists
+        if ! sudo grep -q "\[\[registry\]\].*localhost:50000" "$SYSTEM_CONFIG_FILE" 2>/dev/null; then
+            # Append the new section to the file
+            echo -e "\n[[registry]]\nlocation = \"localhost:50000\"\ninsecure = true" | sudo tee -a "$SYSTEM_CONFIG_FILE" > /dev/null
+        fi
     fi
 
     # On macOS, set up SSH port forwarding so Podman VM can access host's localhost:50000
