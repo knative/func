@@ -67,9 +67,18 @@ func TestFunctionExtendedFlow(t *testing.T) {
 					}
 					return
 				}
-				funcPort = findPort("Running on host port (.*)", stdout.String())
-				if funcPort == "" {
-					funcPort = findPort("Function started on port (.*)", stdout.String())
+
+				address := findPort(`Function running on (.*)`, stdout.String())
+				if address != "" {
+					_, port, err := net.SplitHostPort(address)
+					if err == nil {
+						funcPort = port
+					} else {
+						funcPort = address
+					}
+				} else {
+					// legacy fallback
+					funcPort = findPort("Running on host port (.*)", stdout.String())
 				}
 				attempts++
 				if funcPort == "" {

@@ -43,13 +43,19 @@ func TestFunctionRunWithoutContainer(t *testing.T) {
 			funcPort, attempts := "", 0
 			for funcPort == "" && attempts < 30 { // 15 secs
 				t.Logf("----Function Output:\n%v", stdout.String())
-				matches := regexp.MustCompile("Running on host port (.*)").FindStringSubmatch(stdout.String())
-				attempts++
+				matches := regexp.MustCompile("Function running on (.*)").FindStringSubmatch(stdout.String())
 				if len(matches) > 1 {
-					funcPort = matches[1]
+					hostPort := matches[1]
+					_, port, err := net.SplitHostPort(hostPort)
+					if err == nil {
+						funcPort = port
+					} else {
+						funcPort = hostPort
+					}
 				} else {
 					time.Sleep(500 * time.Millisecond)
 				}
+				attempts++
 			}
 			// can proceed
 			portChannel <- funcPort
