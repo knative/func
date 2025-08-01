@@ -988,23 +988,6 @@ func fixupGoBuildpackARM64(ctx context.Context, config *builder.Config) error {
 // The paketo go-dist buildpack refer to the amd64 version of Go.
 // This function replaces these references with references to the arm64 version.
 func fixupGoDistPkgRefs(buildpackToml, arch string) error {
-	tomlBytes, err := os.ReadFile(buildpackToml)
-	if err != nil {
-		return err
-	}
-
-	var config any
-	err = toml.Unmarshal(tomlBytes, &config)
-	if err != nil {
-		return err
-	}
-	deps := config.(map[string]any)["metadata"].(map[string]any)["dependencies"].([]map[string]any)
-
-	versions := make(map[string]struct{}, len(deps))
-	for _, dep := range deps {
-		versions[dep["version"].(string)] = struct{}{}
-	}
-
 	resp, err := http.Get("https://go.dev/dl/?mode=json&include=all")
 	if err != nil {
 		return err
@@ -1026,47 +1009,52 @@ func fixupGoDistPkgRefs(buildpackToml, arch string) error {
 		return err
 	}
 
-	var replacements = make([]struct {
-		Old string
-		New string
-	}, 0, len(releases))
-
+	rels := make(map[string]struct {
+		file     string
+		checksum string
+	})
 	for _, r := range releases {
-		if _, ok := versions[strings.TrimPrefix(r.Version, "go")]; !ok {
-			continue
-		}
-		var newSha256, newFilename, oldSha256, oldFilename string
 		for _, f := range r.Files {
 			if f.OS != "linux" {
 				continue
 			}
-			switch f.Arch {
-			case "amd64":
-				oldSha256, oldFilename = f.Sha256, f.Filename
-			case arch:
-				newSha256, newFilename = f.Sha256, f.Filename
-			default:
-				continue
+			if f.Arch == arch {
+				rels[strings.TrimPrefix(r.Version, "go")] = struct {
+					file     string
+					checksum string
+				}{file: f.Filename, checksum: f.Sha256}
 			}
 		}
-		replacements = append(replacements,
-			struct {
-				Old string
-				New string
-			}{Old: oldSha256, New: newSha256},
-			struct {
-				Old string
-				New string
-			}{Old: "/" + oldFilename, New: "/" + newFilename})
-
 	}
 
-	tomlStr := string(tomlBytes)
-	for _, r := range replacements {
-		tomlStr = strings.ReplaceAll(tomlStr, r.Old, r.New)
+	tomlBytes, err := os.ReadFile(buildpackToml)
+	if err != nil {
+		return err
 	}
 
-	err = os.WriteFile(buildpackToml, []byte(tomlStr), 0644)
+	var config any
+	err = toml.Unmarshal(tomlBytes, &config)
+	if err != nil {
+		return err
+	}
+	deps := config.(map[string]any)["metadata"].(map[string]any)["dependencies"].([]map[string]any)
+
+	re := regexp.MustCompile(`checksum=([a-fA-F0-9]+)`)
+
+	for _, dep := range deps {
+		rel := rels[dep["version"].(string)]
+		dep["purl"] = re.ReplaceAllLiteralString(dep["purl"].(string), "checksum="+rel.checksum)
+		dep["checksum"] = "sha256:" + rel.checksum
+		dep["uri"] = "https://go.dev/dl/" + rel.file
+		dep["arch"] = arch
+	}
+
+	tomlBytes, err = toml.Marshal(config)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(buildpackToml, tomlBytes, 0644)
 	if err != nil {
 		return err
 	}
@@ -1473,6 +1461,7 @@ func fixupCPythonDistPkgRefs(ctx context.Context, buildpackToml string) error {
 		}
 		dep["uri"] = uri
 		dep["checksum"] = checksum
+		dep["arch"] = "arm64"
 	}
 
 	bs, err := toml.Marshal(config)
