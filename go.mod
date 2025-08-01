@@ -54,7 +54,7 @@ require (
 	golang.org/x/net v0.41.0
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sync v0.15.0
-	golang.org/x/sys v0.33.0
+	golang.org/x/sys v0.34.0
 	golang.org/x/term v0.32.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -64,15 +64,15 @@ require (
 	k8s.io/client-go v0.33.1
 	k8s.io/klog/v2 v2.130.1
 	knative.dev/client/pkg v0.0.0-20250723105007-fcc5f74af535
-	knative.dev/eventing v0.46.0
+	knative.dev/eventing v0.46.1-0.20250723120508-88be38ab185d
 	knative.dev/hack v0.0.0-20250708013849-70d4b00da6ba
-	knative.dev/pkg v0.0.0-20250716115900-19d3cc2da0b9
-	knative.dev/serving v0.46.0
+	knative.dev/pkg v0.0.0-20250728131637-f6a99aca71fd
+	knative.dev/serving v0.46.1-0.20250723134715-ca4a998b00ab
 )
 
 require (
-	cel.dev/expr v0.23.0 // indirect
-	cloud.google.com/go/compute/metadata v0.6.0 // indirect
+	cel.dev/expr v0.24.0 // indirect
+	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2 // indirect
 	dario.cat/mergo v1.0.0 // indirect
@@ -230,7 +230,7 @@ require (
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
-	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/prometheus/statsd_exporter v0.28.0 // indirect
 	github.com/rickb777/date v1.20.2 // indirect
 	github.com/rickb777/plural v1.4.1 // indirect
@@ -283,7 +283,7 @@ require (
 	google.golang.org/api v0.204.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
-	google.golang.org/grpc v1.73.0 // indirect
+	google.golang.org/grpc v1.74.2 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
