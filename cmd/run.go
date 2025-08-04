@@ -180,6 +180,12 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 
+	// Force container=true for containerized builders if not explicitly set
+	// This fixes the bug where --builder=pack doesn't default to --container=true
+	if (f.Build.Builder == "pack" || f.Build.Builder == "s2i") && !cmd.Flags().Changed("container") {
+		cfg.Container = true
+	}
+
 	// Ignore the verbose flag if JSON output
 	if cfg.JSON {
 		cfg.Verbose = false
