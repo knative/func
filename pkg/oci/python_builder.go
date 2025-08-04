@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	slashpath "path"
 	"path/filepath"
+	"regexp"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
@@ -23,7 +24,17 @@ func (b pythonBuilder) Base(customBase string) string {
 	if customBase != "" {
 		return customBase
 	}
-	return defaultPythonBase
+	cmd := exec.Command("python", "-V")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return defaultPythonBase
+	}
+	re := regexp.MustCompile(`Python (\d+\.\d+)\.\d+`)
+	subMatches := re.FindSubmatch(out)
+	if len(subMatches) != 2 {
+		return defaultPythonBase
+	}
+	return fmt.Sprintf("python:%s-slim", subMatches[1])
 }
 
 // Configure gives the python builder a chance to mutate the final
