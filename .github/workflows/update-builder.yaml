@@ -27,5 +27,5 @@ jobs:
             "$HOME/.config/containers/registries.conf"
           skopeo login ghcr.io -u gh-action -p "$GITHUB_TOKEN"
           docker login ghcr.io -u gh-action -p "$GITHUB_TOKEN"
-          make wf-update-builder
-        
+          make __update-builder
+
