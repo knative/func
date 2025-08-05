@@ -183,9 +183,9 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Check for explicit container=false before applying auto-fix
 	envValue := os.Getenv("FUNC_CONTAINER")
-	containerExplicitlySetToFalse := cmd.Flags().Changed("container") || 
+	containerExplicitlySetToFalse := cmd.Flags().Changed("container") ||
 		(envValue != "" && strings.ToLower(envValue) == "false")
-	
+
 	// Validate that containerized builders (pack/s2i) cannot be used with explicit container=false
 	if (f.Build.Builder == "pack" || f.Build.Builder == "s2i") && !cfg.Container && containerExplicitlySetToFalse {
 		return fmt.Errorf("builder %q requires container mode but --container=false was explicitly set", f.Build.Builder)
