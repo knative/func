@@ -8,7 +8,7 @@ import (
 )
 
 var TEMPLATE_RESOURCE_URIS = []string{
-	"https://github.com/gauron99/func-templates",
+	"https://github.com/functions-dev/templates",
 }
 
 type MCPServer struct {
