@@ -177,10 +177,17 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 
-	// Auto-fix: Force container=true for containerized builders when --container flag not explicitly set
+	// Smart auto-fix logic for builder/container compatibility
 	// This fixes the original bug where --builder=pack doesn't default to container=true
+	
+	// Case 1: Containerized builders (pack/s2i) should force container=true when not explicitly set
 	if (f.Build.Builder == "pack" || f.Build.Builder == "s2i") && !cfg.Container && !cmd.Flags().Changed("container") {
 		cfg.Container = true
+	}
+	
+	// Case 2: container=false should auto-select host builder when no builder explicitly set
+	if !cfg.Container && cmd.Flags().Changed("container") && !cmd.Flags().Changed("builder") {
+		f.Build.Builder = "host"
 	}
 
 	// Validate after configure and auto-fix

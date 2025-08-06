@@ -28,7 +28,7 @@ func TestFunctionRunWithoutContainer(t *testing.T) {
 	var funcPath = filepath.Join(t.TempDir(), funcName)
 
 	knFuncTerm1 := common.NewKnFuncShellCli(t)
-	knFuncTerm1.Exec("create", "--language", "go", "--template", "http", "--builder", "host", funcPath)
+	knFuncTerm1.Exec("create", "--language", "go", "--template", "http", funcPath)
 
 	knFuncTerm1.ShouldDumpOnSuccess = false
 	knFuncTerm2 := common.NewKnFuncShellCli(t)
