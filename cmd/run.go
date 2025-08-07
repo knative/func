@@ -171,13 +171,28 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
-	if err = cfg.Validate(cmd, f); err != nil {
-		return
-	}
 	if !f.Initialized() {
 		return fn.NewErrNotInitialized(f.Root)
 	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
+		return
+	}
+
+	// Smart auto-fix logic for builder/container compatibility
+	// This fixes the original bug where --builder=pack doesn't default to container=true
+
+	// Case 1: Containerized builders (pack/s2i) should force container=true when not explicitly set
+	if (f.Build.Builder == "pack" || f.Build.Builder == "s2i") && !cfg.Container && !cmd.Flags().Changed("container") {
+		cfg.Container = true
+	}
+
+	// Case 2: container=false should auto-select host builder when no builder explicitly set
+	if !cfg.Container && cmd.Flags().Changed("container") && !cmd.Flags().Changed("builder") {
+		f.Build.Builder = "host"
+	}
+
+	// Validate after configure and auto-fix
+	if err = cfg.Validate(cmd, f); err != nil {
 		return
 	}
 
@@ -399,6 +414,11 @@ func (c runConfig) Validate(cmd *cobra.Command, f fn.Function) (err error) {
 
 	if !c.Container && !oci.IsSupported(f.Runtime) {
 		return fmt.Errorf("the %q runtime currently requires being run in a container", f.Runtime)
+	}
+
+	// Validate that containerized builders (pack/s2i) cannot be used with container=false
+	if (f.Build.Builder == "pack" || f.Build.Builder == "s2i") && !c.Container {
+		return fmt.Errorf("builder %q requires container mode but --container=false was set", f.Build.Builder)
 	}
 
 	// When the docker runner respects the StartTimeout, this validation check

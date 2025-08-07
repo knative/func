@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -599,5 +600,109 @@ func TestRun_BaseImage(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+// TestCtrBuilder tests that pack builder auto-forces container mode
+func TestCtrBuilder(t *testing.T) {
+	var runner = mock.NewRunner()
+	var builder = mock.NewBuilder()
+	tmp := t.TempDir()
+
+	fnPath := filepath.Join(tmp, "fn")
+	f, err := fn.New().Init(fn.Function{Root: fnPath, Runtime: "python"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = f.Write()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(fnPath)
+
+	cmd := NewRunCmd(NewTestClient(
+		fn.WithRunner(runner),
+		fn.WithBuilder(builder),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--builder=pack", "--build=1"})
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(time.Second, func() {
+		cancel()
+	})
+	err = cmd.ExecuteContext(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// verify that builder was called since `--builder=pack` was provided
+	if !builder.BuildInvoked {
+		t.Error("builder has not been invoked")
+	}
+}
+
+// TestCtrBuilderConflict tests that pack builder with explicit container=false shows validation error
+func TestCtrBuilderConflict(t *testing.T) {
+	var runner = mock.NewRunner()
+	var builder = mock.NewBuilder()
+	tmp := t.TempDir()
+
+	fnPath := filepath.Join(tmp, "fn")
+	f, err := fn.New().Init(fn.Function{Root: fnPath, Runtime: "python"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = f.Write()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(fnPath)
+
+	cmd := NewRunCmd(NewTestClient(
+		fn.WithRunner(runner),
+		fn.WithBuilder(builder),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--builder=pack", "--build=1", "--container=0"})
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(time.Second, func() {
+		cancel()
+	})
+	err = cmd.ExecuteContext(ctx)
+	// since explicit flag `--builder=pack` and `--container=0` are contradiction we want error
+	if err == nil {
+		t.Error("error expected but got <nil>")
+	}
+}
+
+// TestSmartBuilderSelection tests that container=false auto-selects host builder
+func TestSmartBuilderSelection(t *testing.T) {
+	var runner = mock.NewRunner()
+	var builder = mock.NewBuilder()
+	tmp := t.TempDir()
+
+	fnPath := filepath.Join(tmp, "fn")
+	f, err := fn.New().Init(fn.Function{Root: fnPath, Runtime: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = f.Write()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(fnPath)
+
+	cmd := NewRunCmd(NewTestClient(
+		fn.WithRunner(runner),
+		fn.WithBuilder(builder),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--container=false", "--build=1"})
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(time.Second, func() {
+		cancel()
+	})
+	err = cmd.ExecuteContext(ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
