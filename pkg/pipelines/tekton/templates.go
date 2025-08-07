@@ -43,7 +43,11 @@ const (
         name: git-clone
       workspaces:
         - name: output
-          workspace: source-workspace`
+          workspace: source-workspace
+        - name: cache
+          workspace: cache-workspace
+        - name: dockerconfig
+          workspace: dockerconfig-workspace`
 	// TODO fix Tekton Hub reference
 	taskGitCloneTaskRef = `- name: fetch-sources
       params:
@@ -64,7 +68,11 @@ const (
             value: "0.4"
       workspaces:
         - name: output
-          workspace: source-workspace`
+          workspace: source-workspace
+        - name: cache
+          workspace: cache-workspace
+        - name: dockerconfig
+          workspace: dockerconfig-workspace`
 	runAfterFetchSourcesRef = `runAfter:
         - fetch-sources`
 
