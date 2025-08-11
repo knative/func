@@ -68,11 +68,7 @@ const (
             value: "0.4"
       workspaces:
         - name: output
-          workspace: source-workspace
-        - name: cache
-          workspace: cache-workspace
-        - name: dockerconfig
-          workspace: dockerconfig-workspace`
+          workspace: source-workspace`
 	runAfterFetchSourcesRef = `runAfter:
         - fetch-sources`
 
