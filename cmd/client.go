@@ -8,8 +8,8 @@ import (
 	"knative.dev/func/cmd/prompt"
 	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/creds"
 	"knative.dev/func/pkg/docker"
-	"knative.dev/func/pkg/docker/creds"
 	fn "knative.dev/func/pkg/functions"
 	fnhttp "knative.dev/func/pkg/http"
 	"knative.dev/func/pkg/k8s"
@@ -102,13 +102,9 @@ func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
 // has cluster-flavor specific additional credential loaders to take advantage
 // of features or configuration nuances of cluster variants.
 func newCredentialsProvider(configPath string, t http.RoundTripper) oci.CredentialsProvider {
-	additionalLoaders := k8s.GetOpenShiftDockerCredentialLoaders()
-    // additionalLoaders := append(
-	// 	k8s.GetOpenShiftDockerCredentialLoaders(), 
-	// 	oci.GetGoogleCredentialLoader(), // non existent right now
-	// 	oci.GetECRCredentialLoader(),    // non existent right now
-	// 	oci.GetACRCredentialLoader(),     // non existent right now
-	// )
+	additionalLoaders := append(k8s.GetOpenShiftDockerCredentialLoaders(), k8s.GetGoogleCredentialLoader()...)
+	additionalLoaders = append(additionalLoaders, k8s.GetECRCredentialLoader()...)
+	additionalLoaders = append(additionalLoaders, k8s.GetACRCredentialLoader()...)
 	options := []creds.Opt{
 		creds.WithPromptForCredentials(prompt.NewPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
 		creds.WithPromptForCredentialStore(prompt.NewPromptForCredentialStore()),

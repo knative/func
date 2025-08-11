@@ -11,7 +11,7 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"golang.org/x/term"
 
-	"knative.dev/func/pkg/docker/creds"
+	"knative.dev/func/pkg/creds"
 	"knative.dev/func/pkg/oci"
 )
 

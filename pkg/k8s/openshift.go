@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"knative.dev/func/pkg/docker/creds"
+	"knative.dev/func/pkg/creds"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 )

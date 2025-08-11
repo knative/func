@@ -26,8 +26,8 @@ import (
 
 	"github.com/docker/docker-credential-helpers/credentials"
 
+	"knative.dev/func/pkg/creds"
 	"knative.dev/func/pkg/docker"
-	"knative.dev/func/pkg/docker/creds"
 	. "knative.dev/func/pkg/testing"
 )
 
