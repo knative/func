@@ -394,9 +394,14 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 	o := []fn.Option{fn.WithRegistry(c.Registry)}
 	switch c.Builder {
 	case builders.Host:
+		t := newTransport(c.RegistryInsecure) // may provide a custom impl which proxies
+		creds := newCredentialsProvider(config.Dir(), t)
 		o = append(o,
 			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
-			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose)))
+			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose,
+				oci.WithCredentialsProvider(creds),
+				oci.WithVerbose(c.Verbose))),
+		)
 	case builders.Pack:
 		o = append(o,
 			fn.WithBuilder(pack.NewBuilder(

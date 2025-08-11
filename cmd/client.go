@@ -14,6 +14,7 @@ import (
 	fnhttp "knative.dev/func/pkg/http"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/pipelines/tekton"
 )
 
@@ -100,19 +101,26 @@ func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
 // newCredentialsProvider returns a credentials provider which possibly
 // has cluster-flavor specific additional credential loaders to take advantage
 // of features or configuration nuances of cluster variants.
-func newCredentialsProvider(configPath string, t http.RoundTripper) docker.CredentialsProvider {
+func newCredentialsProvider(configPath string, t http.RoundTripper) oci.CredentialsProvider {
+	additionalLoaders := k8s.GetOpenShiftDockerCredentialLoaders()
+    // additionalLoaders := append(
+	// 	k8s.GetOpenShiftDockerCredentialLoaders(), 
+	// 	oci.GetGoogleCredentialLoader(), // non existent right now
+	// 	oci.GetECRCredentialLoader(),    // non existent right now
+	// 	oci.GetACRCredentialLoader(),     // non existent right now
+	// )
 	options := []creds.Opt{
 		creds.WithPromptForCredentials(prompt.NewPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
 		creds.WithPromptForCredentialStore(prompt.NewPromptForCredentialStore()),
 		creds.WithTransport(t),
-		creds.WithAdditionalCredentialLoaders(k8s.GetOpenShiftDockerCredentialLoaders()...),
+		creds.WithAdditionalCredentialLoaders(additionalLoaders...),
 	}
 
 	// Other cluster variants can be supported here
 	return creds.NewCredentialsProvider(configPath, options...)
 }
 
-func newTektonPipelinesProvider(creds docker.CredentialsProvider, verbose bool) *tekton.PipelinesProvider {
+func newTektonPipelinesProvider(creds oci.CredentialsProvider, verbose bool) *tekton.PipelinesProvider {
 	options := []tekton.Opt{
 		tekton.WithCredentialsProvider(creds),
 		tekton.WithVerbose(verbose),
