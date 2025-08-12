@@ -302,6 +302,10 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Deploy
 	if cfg.Remote {
+		// dont try to build remotely with the host builder
+		if f.Build.Builder == "host" {
+			return errors.New("cannot deploy remotely using the host builder. Please choose different --builder")
+		}
 		var url string
 		// Invoke a remote build/push/deploy pipeline
 		// Returned is the function with fields like Registry, f.Deploy.Image &
@@ -328,18 +332,14 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			if err != nil {
 				return
 			}
-			// image is valid and undigested
-			if !digested {
-				f.Deploy.Image = cfg.Image
-			}
+			// image is valid (no error); just assign here, both digested and
+			// undigested images are valid
+			f.Deploy.Image = cfg.Image
 		}
 
-		// If user provided --image with digest, they are requesting that specific
-		// image to be used which means building phase should be skipped and image
-		// should be deployed as is
-		if digested {
-			f.Deploy.Image = cfg.Image
-		} else {
+		// if user provided an undigested image or didnt provide one at all, use
+		// build route.
+		if !digested {
 			// NOT digested, build & push the Function unless specified otherwise
 			if f, justBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return

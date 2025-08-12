@@ -183,9 +183,6 @@ func TestApply(t *testing.T) {
 	// member on the function (example: confirm), and not all members of a
 	// function are globally configurable (example: image).
 	f := fn.Function{
-		Build: fn.BuildSpec{
-			Builder: "builder",
-		},
 		Deploy: fn.DeploySpec{
 			Namespace: "namespace",
 		},
@@ -194,9 +191,6 @@ func TestApply(t *testing.T) {
 	}
 	cfg := config.Global{}.Apply(f)
 
-	if cfg.Builder != "builder" {
-		t.Error("apply missing map of f.Build.Builder")
-	}
 	if cfg.Language != "runtime" {
 		t.Error("apply missing map of f.Runtime ")
 	}
@@ -215,9 +209,6 @@ func TestApply(t *testing.T) {
 	// empty values in the function context should not zero out
 	// populated values in the global config when applying.
 	cfg.Apply(fn.Function{})
-	if cfg.Builder == "" {
-		t.Error("empty f.Build.Builder should not be mapped")
-	}
 	if cfg.Language == "" {
 		t.Error("empty f.Runtime should not be mapped")
 	}
@@ -226,7 +217,7 @@ func TestApply(t *testing.T) {
 	}
 }
 
-// TestConfigyre ensures that configuring a function results in every member
+// TestConfigure ensures that configuring a function results in every member
 // of the function in the intersection of the two sets, global config and function
 // members, to be set to the values of the config.
 // (See the associated cfg.Apply)

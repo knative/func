@@ -16,9 +16,11 @@ import (
 	"knative.dev/client/pkg/util"
 
 	"knative.dev/func/cmd/templates"
+	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/oci"
 )
 
 // DefaultVersion when building source directly (bypassing the Makefile)
@@ -141,6 +143,32 @@ func registry() string {
 	}
 	cfg, _ := config.NewDefault()
 	return cfg.RegistryDefault()
+}
+
+// Dynamic builder defaulting. In order of prio: Viper value, function context,
+// midstream (s2i) and dynamic defaulting of host for oci-enabled runtimes,
+// otherwise pack. This can be returned to normal when Host becomes the overall
+// default instead of pack.
+func defaultBuilder() string {
+	// provided value
+	if b := viper.GetString("builder"); b != "" {
+		return b
+	}
+	// Function Context
+	f, _ := fn.NewFunction(effectivePath())
+	if f.Initialized() && f.Build.Builder != "" {
+		return f.Build.Builder
+	}
+
+	// midstream has default s2i - should not set host builder in any case
+	if builders.Default == builders.S2I {
+		return builders.S2I
+	}
+
+	if f.Initialized() && oci.IsSupported(f.Runtime) {
+		return builders.Host
+	}
+	return builders.Default
 }
 
 // effectivePath to use is that which was provided by --path or FUNC_PATH.

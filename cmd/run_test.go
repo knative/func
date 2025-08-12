@@ -134,9 +134,8 @@ func TestRun_Run(t *testing.T) {
 				fn.WithRegistry("ghcr.com/reg"),
 			))
 			cmd.SetArgs(tt.args) // Do not use test command args
-
 			// set test case's function instance
-			f, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+			f, err := fn.New().Init(fn.Function{Root: root, Runtime: "node"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -210,11 +209,11 @@ func TestRun_Images(t *testing.T) {
 			buildInvoked: false,
 		},
 		{
-			name:         "digested image without container should fail",
-			args:         []string{"--container=false", "--image", "exampleimage@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
+			name:         "digested image without container (host builder) should fail",
+			args:         []string{"--builder=host", "--image", "exampleimage@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
 			runInvoked:   false,
 			buildInvoked: false,
-			buildError:   fmt.Errorf("cannot use digested image with --container=false"),
+			buildError:   fmt.Errorf("cannot use digested image with non-containerized builds"),
 		},
 		{
 			name:         "image should build even with tagged image given",
@@ -249,7 +248,8 @@ func TestRun_Images(t *testing.T) {
 			cmd.SetArgs(tt.args) // Do not use test command args
 
 			// set test case's function instance
-			_, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+			f := fn.Function{Root: root, Runtime: "go", Build: fn.BuildSpec{Builder: "pack"}}
+			_, err := fn.New().Init(f)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -315,14 +315,14 @@ func TestRun_CorrectImage(t *testing.T) {
 			buildInvoked: false,
 		},
 		{
-			name:         "digested image without container should fail",
-			args:         []string{"--container=false", "--image", "exampleimage@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
+			name:         "digested image without container (with host builder) should fail",
+			args:         []string{"--builder=host", "--image", "exampleimage@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
 			image:        "",
 			buildInvoked: false,
 			expectError:  true,
 		},
 		{
-			name:         "image should build even with tagged image given",
+			name:         "image should build with tagged image given",
 			args:         []string{"--image", "username/exampleimage:latest"},
 			image:        "username/exampleimage:latest",
 			buildInvoked: true,
@@ -357,7 +357,8 @@ func TestRun_CorrectImage(t *testing.T) {
 			cmd.SetArgs(tt.args)
 
 			// set test case's function instance
-			_, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+			f := fn.Function{Root: root, Runtime: "go", Build: fn.BuildSpec{Builder: "pack"}}
+			_, err := fn.New().Init(f)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -417,7 +418,7 @@ func TestRun_DirectOverride(t *testing.T) {
 
 	// SETUP THE ENVIRONMENT & SITUATION
 	// create function
-	_, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+	_, err := fn.New().Init(fn.Function{Root: root, Runtime: "go", Build: fn.BuildSpec{Builder: "pack"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -637,72 +638,5 @@ func TestCtrBuilder(t *testing.T) {
 	// verify that builder was called since `--builder=pack` was provided
 	if !builder.BuildInvoked {
 		t.Error("builder has not been invoked")
-	}
-}
-
-// TestCtrBuilderConflict tests that pack builder with explicit container=false shows validation error
-func TestCtrBuilderConflict(t *testing.T) {
-	var runner = mock.NewRunner()
-	var builder = mock.NewBuilder()
-	tmp := t.TempDir()
-
-	fnPath := filepath.Join(tmp, "fn")
-	f, err := fn.New().Init(fn.Function{Root: fnPath, Runtime: "python"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = f.Write()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(fnPath)
-
-	cmd := NewRunCmd(NewTestClient(
-		fn.WithRunner(runner),
-		fn.WithBuilder(builder),
-		fn.WithRegistry(TestRegistry),
-	))
-	cmd.SetArgs([]string{"--builder=pack", "--build=1", "--container=0"})
-	ctx, cancel := context.WithCancel(context.Background())
-	time.AfterFunc(time.Second, func() {
-		cancel()
-	})
-	err = cmd.ExecuteContext(ctx)
-	// since explicit flag `--builder=pack` and `--container=0` are contradiction we want error
-	if err == nil {
-		t.Error("error expected but got <nil>")
-	}
-}
-
-// TestSmartBuilderSelection tests that container=false auto-selects host builder
-func TestSmartBuilderSelection(t *testing.T) {
-	var runner = mock.NewRunner()
-	var builder = mock.NewBuilder()
-	tmp := t.TempDir()
-
-	fnPath := filepath.Join(tmp, "fn")
-	f, err := fn.New().Init(fn.Function{Root: fnPath, Runtime: "go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = f.Write()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(fnPath)
-
-	cmd := NewRunCmd(NewTestClient(
-		fn.WithRunner(runner),
-		fn.WithBuilder(builder),
-		fn.WithRegistry(TestRegistry),
-	))
-	cmd.SetArgs([]string{"--container=false", "--build=1"})
-	ctx, cancel := context.WithCancel(context.Background())
-	time.AfterFunc(time.Second, func() {
-		cancel()
-	})
-	err = cmd.ExecuteContext(ctx)
-	if err != nil {
-		t.Fatal(err)
 	}
 }
