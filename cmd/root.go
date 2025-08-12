@@ -16,9 +16,11 @@ import (
 	"knative.dev/client/pkg/util"
 
 	"knative.dev/func/cmd/templates"
+	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/oci"
 )
 
 // DefaultVersion when building source directly (bypassing the Makefile)
@@ -141,6 +143,38 @@ func registry() string {
 	}
 	cfg, _ := config.NewDefault()
 	return cfg.RegistryDefault()
+}
+
+// determines the default builder as 'flag default'
+// takes into account function context (if already built)
+// otherwise, will use dynamic defaulting - use 'host' for specific runtimes
+func defaultBuilder(f fn.Function) string {
+	// using function context
+	if f.Build.Builder != "" {
+		return f.Build.Builder
+	}
+
+	// global config file
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config file at %v, using defaults", config.File())
+	}
+	if cfg.Builder != "" {
+		return cfg.Builder
+	}
+
+	// midstream should not set host builder as default
+	if builders.Default == builders.S2I {
+		return builders.S2I
+	}
+
+	// if oci enabled runtime
+	if oci.IsSupported(f.Runtime) {
+		return builders.Host
+	}
+
+	// static default
+	return builders.Default
 }
 
 // effectivePath to use is that which was provided by --path or FUNC_PATH.

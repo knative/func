@@ -17,6 +17,7 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/mock"
+	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -230,29 +231,10 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 		clientFn = NewTestClient(fn.WithBuilder(builder))
 	)
 
-	// Ensure static default applied via 'builder'
-	// (a degenerate case, mostly just ensuring config values are not wiped to a
-	// zero value struct, etc)
+	// Ensure Global Config applied via config in ./testdata
 	root := FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	f := fn.Function{Runtime: "go", Root: root, Name: "f"}
-	if f, err = fn.New().Init(f); err != nil {
-		t.Fatal(err)
-	}
-	if err := cmdFn(clientFn).Execute(); err != nil {
-		t.Fatal(err)
-	}
-	if f, err = fn.NewFunction(root); err != nil {
-		t.Fatal(err)
-	}
-	if f.Build.Builder != builders.Default {
-		t.Fatalf("expected static default builder '%v', got '%v'", builders.Default, f.Build.Builder)
-	}
-
-	// Ensure Global Config applied via config in ./testdata
-	root = FromTempDirectory(t)
-	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
-	f = fn.Function{Runtime: "go", Root: root, Name: "f"}
 	f, err = fn.New().Init(f)
 	if err != nil {
 		t.Fatal(err)
@@ -469,17 +451,24 @@ func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
 
 	// Build the function explicitly setting the builder to !builders.Default
 	cmd := cmdFn(NewTestClient())
-	dflt := cmd.Flags().Lookup("builder").DefValue
 
-	// The initial default value should be builders.Default (see global config)
-	if dflt != builders.Default {
-		t.Fatalf("expected flag default value '%v', got '%v'", builders.Default, dflt)
+	dflt := defaultBuilder(f)
+	// The initial default value should be host for oci-enabled languages or builders.Default
+	// Includes midstream check so that S2I is not overwriten.
+	expectedDefault := ""
+	if oci.IsSupported(f.Runtime) && builders.Default != builders.S2I {
+		expectedDefault = builders.Host
+	} else {
+		expectedDefault = builders.Default
+	}
+	if dflt != expectedDefault {
+		t.Fatalf("expected default value '%v', got '%v'", expectedDefault, dflt)
 	}
 
 	// Choose the value that is not the default
 	// We must calculate this because downstream changes the default via patches.
 	var builder string
-	if builders.Default == builders.Pack {
+	if expectedDefault == builders.Pack {
 		builder = builders.S2I
 	} else {
 		builder = builders.Pack
@@ -503,7 +492,7 @@ func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
 	// The command default should now take into account the function when
 	// determining the flag default
 	cmd = cmdFn(NewTestClient())
-	dflt = cmd.Flags().Lookup("builder").DefValue
+	dflt = defaultBuilder(f)
 
 	if dflt != builder {
 		t.Fatalf("expected flag default to be function's current builder '%v', got '%v'", builder, dflt)
@@ -532,7 +521,7 @@ func TestDeploy_GitArgsPersist(t *testing.T) {
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 		fn.WithRegistry(TestRegistry),
 	))
-	cmd.SetArgs([]string{"--remote", "--git-url=" + url, "--git-branch=" + branch, "--git-dir=" + dir, "."})
+	cmd.SetArgs([]string{"--builder=pack", "--remote", "--git-url=" + url, "--git-branch=" + branch, "--git-dir=" + dir, "."})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -564,7 +553,8 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 		dir    = "function"
 	)
 	// Create a new Function in the temp dir
-	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	f := fn.Function{Runtime: "go", Root: root, Build: fn.BuildSpec{Builder: "pack"}}
+	_, err := fn.New().Init(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -601,8 +591,8 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 // in the URL is equivalent to providing --git-branch
 func TestDeploy_GitURLBranch(t *testing.T) {
 	root := FromTempDirectory(t)
-
-	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	ff := fn.Function{Runtime: "go", Root: root, Build: fn.BuildSpec{Builder: "pack"}}
+	f, err := fn.New().Init(ff)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1288,6 +1278,7 @@ func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 		Runtime:  "go",
 		Root:     root,
 		Registry: TestRegistry,
+		Build:    fn.BuildSpec{Builder: "pack"},
 	}
 	f, err := fn.New().Init(f)
 	if err != nil {
@@ -1592,7 +1583,8 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 			root := FromTempDirectory(t)
 
 			// Create a new Function in the temp directory
-			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+			f := fn.Function{Runtime: "go", Root: root, Build: fn.BuildSpec{Builder: "pack"}}
+			if _, err := fn.New().Init(f); err != nil {
 				t.Fatal(err)
 			}
 
@@ -1774,7 +1766,7 @@ func TestDeploy_UnsetFlag(t *testing.T) {
 	root := FromTempDirectory(t)
 
 	// Create a function
-	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry, Build: fn.BuildSpec{Builder: "pack"}}
 	f, err := fn.New().Init(f)
 	if err != nil {
 		t.Fatal(err)

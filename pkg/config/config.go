@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
-	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -25,8 +24,10 @@ const (
 	// DefaultLanguage is intentionaly undefined.
 	DefaultLanguage = ""
 
+	// NOTE: Builder is now dynamic. Can reverse when
+	// host builder becomes the standard instead of pack.
 	// DefaultBuilder is statically defined by the builders package.
-	DefaultBuilder = builders.Default
+	//DefaultBuilder = builders.Default
 )
 
 // Global configuration settings.
@@ -48,7 +49,8 @@ type Global struct {
 // for one which further takes into account the optional config file.
 func New() Global {
 	return Global{
-		Builder:  DefaultBuilder,
+		// NOTE: see note above at 'DefaultBuilder' for why this is commented.
+		//Builder:  DefaultBuilder,
 		Language: DefaultLanguage,
 		// ...
 	}
@@ -123,9 +125,7 @@ func (c Global) Apply(f fn.Function) Global {
 	// yes a bit tedious, manually mapping each member (if defined) is simple,
 	// easy to understand and support; with both mapping direction (Apply and
 	// Configure) in one central place here... with tests.
-	if f.Build.Builder != "" {
-		c.Builder = f.Build.Builder
-	}
+
 	if f.Runtime != "" {
 		c.Language = f.Runtime
 	}

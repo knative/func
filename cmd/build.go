@@ -98,7 +98,7 @@ EXAMPLES
 	// Globally-Configurable Flags:
 	// Options whose value may be defined globally may also exist on the
 	// contextually relevant function; sets are flattened above via cfg.Apply(f)
-	cmd.Flags().StringP("builder", "b", cfg.Builder,
+	cmd.Flags().StringP("builder", "b", defaultBuilder(f),
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. ($FUNC_BUILDER)", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -155,8 +156,8 @@ EXAMPLES
 	// Globally-Configurable Flags:
 	// Options whose value may be defined globally may also exist on the
 	// contextually relevant function; but sets are flattened via cfg.Apply(f)
-	cmd.Flags().StringP("builder", "b", cfg.Builder,
-		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
+	cmd.Flags().StringP("builder", "b", defaultBuilder(f),
+		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. Defaults to 'host' for python/go, otherwise '%s'", KnownBuilders(), builders.Default))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)")
@@ -328,18 +329,14 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			if err != nil {
 				return
 			}
-			// image is valid and undigested
-			if !digested {
-				f.Deploy.Image = cfg.Image
-			}
+			// image is valid (no error); just assign here, both digested and
+			// undigested images are valid
+			f.Deploy.Image = cfg.Image
 		}
 
-		// If user provided --image with digest, they are requesting that specific
-		// image to be used which means building phase should be skipped and image
-		// should be deployed as is
-		if digested {
-			f.Deploy.Image = cfg.Image
-		} else {
+		// if user provided an undigested image or didnt provide one at all, use
+		// build route.
+		if !digested {
 			// NOT digested, build & push the Function unless specified otherwise
 			if f, justBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return
@@ -430,10 +427,8 @@ func NewRegistryValidator(path string) survey.Validator {
 // ValidateBuilder ensures that the given builder is one that the CLI
 // knows how to instantiate, returning a builkder.ErrUnknownBuilder otherwise.
 func ValidateBuilder(name string) (err error) {
-	for _, known := range KnownBuilders() {
-		if name == known {
-			return
-		}
+	if slices.Contains(KnownBuilders(), name) {
+		return
 	}
 	return builders.ErrUnknownBuilder{Name: name, Known: KnownBuilders()}
 }
@@ -727,6 +722,11 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// regarding this potentially confusing nuance.
 	if !c.Remote && (cmd.Flags().Changed("git-url") || cmd.Flags().Changed("git-dir") || cmd.Flags().Changed("git-branch")) {
 		return errors.New("git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)")
+	}
+
+	// dont try to build remotely with the host builder
+	if c.Remote && c.Builder == "host" {
+		return errors.New("cannot deploy remotely using the host builder. Please choose different --builder")
 	}
 
 	// Git URL can contain at maximum one '#'

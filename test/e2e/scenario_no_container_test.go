@@ -21,7 +21,7 @@ import (
 )
 
 // TestFunctionRunWithoutContainer tests the func runs on host without container (golang funcs only)
-// In other words, it tests `func run --container=false`
+// In other words, it tests `func run --builder=host`
 func TestFunctionRunWithoutContainer(t *testing.T) {
 
 	var funcName = "func-no-container"
@@ -62,7 +62,7 @@ func TestFunctionRunWithoutContainer(t *testing.T) {
 		}
 
 		// Run without container (scaffolding)
-		knFuncTerm1.Exec("run", "--container=false", "--verbose", "--path", funcPath, "--registry", common.GetRegistry())
+		knFuncTerm1.Exec("run", "--builder=host", "--verbose", "--path", funcPath, "--registry", common.GetRegistry())
 	}()
 
 	knFuncRunCompleted := false
