@@ -5,6 +5,10 @@ go 1.24.0
 // this is required bacause of bad dep in github.com/openshift-pipelines/pipelines-as-code
 replace github.com/imdario/mergo => dario.cat/mergo v1.0.1
 
+// Pin knative.dev/pkg until tekton drop's use of knative.dev/pkg/metrics
+// Issue: https://github.com/tektoncd/pipeline/issues/8969
+replace knative.dev/pkg => knative.dev/pkg v0.0.0-20250716115900-19d3cc2da0b9
+
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Masterminds/semver v1.5.0
@@ -63,11 +67,11 @@ require (
 	k8s.io/apimachinery v0.33.1
 	k8s.io/client-go v0.33.1
 	k8s.io/klog/v2 v2.130.1
-	knative.dev/client/pkg v0.0.0-20250812022443-527deb6d78c4
-	knative.dev/eventing v0.46.1-0.20250807145849-50a65f4eec4d
+	knative.dev/client/pkg v0.0.0-20250814022246-3345f434e4b0
+	knative.dev/eventing v0.46.1-0.20250812205542-23fa8200f151
 	knative.dev/hack v0.0.0-20250708013849-70d4b00da6ba
-	knative.dev/pkg v0.0.0-20250811181739-e06d4c9af190
-	knative.dev/serving v0.46.1-0.20250811203339-43463bc1e48a
+	knative.dev/pkg v0.0.0-20250813152941-6c39c7c0f363
+	knative.dev/serving v0.46.1-0.20250814121443-c3e27aadb9d2
 )
 
 require (
@@ -294,7 +298,7 @@ require (
 	k8s.io/cli-runtime v0.31.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e // indirect
-	knative.dev/networking v0.0.0-20250807143752-5be3ba43ad43 // indirect
+	knative.dev/networking v0.0.0-20250812143640-1456f137af1a // indirect
 	sigs.k8s.io/controller-runtime v0.20.4 // indirect
 	sigs.k8s.io/gateway-api v1.1.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
