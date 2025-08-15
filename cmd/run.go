@@ -28,8 +28,8 @@ NAME
 	{{rootCmdUse}} run - Run a function locally
 
 SYNOPSIS
-	{{rootCmdUse}} run [-t|--container] [-r|--registry] [-i|--image] [-e|--env]
-	             [--build] [-b|--builder] [--builder-image] [-c|--confirm]
+	{{rootCmdUse}} run [-r|--registry] [-i|--image] [-e|--env] [--build]
+				 [-b|--builder] [--builder-image] [-c|--confirm]
 	             [--address] [--json] [-v|--verbose]
 
 DESCRIPTION
@@ -38,26 +38,19 @@ DESCRIPTION
 	Values provided for flags are not persisted to the function's metadata.
 
 	Containerized Runs
-	  The --container flag indicates that the function's container should be
-	  run rather than running the source code directly.  This may require that
-	  the function's container first be rebuilt.  Building the container on or
-	  off can be altered using the --build flag.  The value --build=auto
-	  can be used to indicate the function should be run in a container, with
-	  the container automatically built if necessary.
-
-	  The --container flag defaults to true if the builder defined for the
-	  function is a containerized builder such as Pack or S2I, and in the case
-	  where the function's runtime requires containerized builds (is not yet
-	  supported by the Host builder.
+	  You can build your function in a container using the Pack or S2i builders.
+	  On the contrary, non-containerized run is achieved via Host builder which
+	  will use your host OS' environment to build the function. This builder is
+	  currently enabled for Go and Python. Building defaults to using the Host
+	  builder when available. You can alter this by using the --builder flag
+	  eg: --builder=s2i.
 
 	Process Scaffolding
-	  This is an Experimental Feature currently available only to Go projects.
-	  When running a function with --container=false (host-based runs), the
-	  function is first wrapped code which presents it as a process.
-	  This "scaffolding" is transient, written for each build or run, and should
-	  in most cases be transparent to a function author.  However, to customize,
-	  or even completely replace this scafolding code, see the 'scaffold'
-	  subcommand.
+	  This is an Experimental Feature currently available only to Go and Python
+	  projects. When running a function with --builder=host, the function is
+	  first wrapped with code which presents it as a process. This "scaffolding"
+	  is transient, written for each build or run, and should in most cases be
+	  transparent to a function author.
 
 EXAMPLES
 
@@ -65,11 +58,12 @@ EXAMPLES
 	  $ {{rootCmdUse}} run
 
 	o Run the function locally from within its container, forcing a rebuild
-	  of the container even if no filesysem changes are detected
-	  $ {{rootCmdUse}} run --build
+	  of the container even if no filesystem changes are detected. There are 2
+	  builders available for containerized build - 'pack' and 's2i'.
+	  $ {{rootCmdUse}} run --build=<builder>
 
-	o Run the function locally on the host with no containerization (Go only).
-	  $ {{rootCmdUse}} run --container=false
+	o Run the function locally on the host with no containerization (Go/Python only).
+	  $ {{rootCmdUse}} run --builder=host
 
 	o Run the function locally on a specific address.
 	  $ {{rootCmdUse}} run --address='[::]:8081'
@@ -79,7 +73,7 @@ EXAMPLES
 `,
 		SuggestFor: []string{"rnu"},
 		PreRunE: bindEnv("build", "builder", "builder-image", "base-image",
-			"confirm", "container", "env", "image", "path", "registry",
+			"confirm", "env", "image", "path", "registry",
 			"start-timeout", "verbose", "address", "json"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runRun(cmd, newClient)
@@ -121,8 +115,6 @@ EXAMPLES
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().Duration("start-timeout", f.Run.StartTimeout, fmt.Sprintf("time this function needs in order to start. If not provided, the client default %v will be in effect. ($FUNC_START_TIMEOUT)", fn.DefaultStartTimeout))
-	cmd.Flags().BoolP("container", "t", runContainerizedByDefault(f),
-		"Run the function in a container. ($FUNC_CONTAINER)")
 
 	// TODO: Without the "Host" builder enabled, this code-path is unreachable,
 	// so remove hidden flag when either the Host builder path is available,
@@ -157,10 +149,6 @@ EXAMPLES
 	return cmd
 }
 
-func runContainerizedByDefault(f fn.Function) bool {
-	return f.Build.Builder == "pack" || f.Build.Builder == "s2i" || !oci.IsSupported(f.Runtime)
-}
-
 func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg runConfig
@@ -174,27 +162,16 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if !f.Initialized() {
 		return fn.NewErrNotInitialized(f.Root)
 	}
+
+	if err = cfg.Validate(cmd, f); err != nil {
+		return
+	}
+
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
 	}
 
-	// Smart auto-fix logic for builder/container compatibility
-	// This fixes the original bug where --builder=pack doesn't default to container=true
-
-	// Case 1: Containerized builders (pack/s2i) should force container=true when not explicitly set
-	if (f.Build.Builder == "pack" || f.Build.Builder == "s2i") && !cfg.Container && !cmd.Flags().Changed("container") {
-		cfg.Container = true
-	}
-
-	// Case 2: container=false should auto-select host builder when no builder explicitly set
-	if !cfg.Container && cmd.Flags().Changed("container") && !cmd.Flags().Changed("builder") {
-		f.Build.Builder = "host"
-	}
-
-	// Validate after configure and auto-fix
-	if err = cfg.Validate(cmd, f); err != nil {
-		return
-	}
+	container := f.Build.Builder != "host"
 
 	// Ignore the verbose flag if JSON output
 	if cfg.JSON {
@@ -206,7 +183,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if err != nil {
 		return
 	}
-	if cfg.Container {
+	if container {
 		clientOptions = append(clientOptions, fn.WithRunner(docker.NewRunner(cfg.Verbose, os.Stdout, os.Stderr)))
 	}
 	if cfg.StartTimeout != 0 {
@@ -220,7 +197,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	//
 	// If requesting to run via the container, build the container if it is
 	// either out-of-date or a build was explicitly requested.
-	if cfg.Container {
+	if container {
 		var digested bool
 
 		buildOptions, err := cfg.buildOptions()
@@ -234,23 +211,17 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			if err != nil {
 				return err
 			}
-			if !digested {
-				// assign valid undigested image
-				f.Build.Image = cfg.Image
-			}
+			// image was parsed and both digested AND undigested imgs are valid
+			f.Build.Image = cfg.Image
 		}
 
-		if digested {
-			// run cmd takes f.Build.Image - see newContainerConfig in docker/runner.go
-			// it doesnt get saved, just runtime image
-			f.Build.Image = cfg.Image
-		} else {
-
+		// actual build step
+		if !digested {
 			if f, _, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return err
 			}
 		}
-	} else {
+	} else { // if !container
 		// dont run digested image without a container
 		if cfg.Image != "" {
 			digested, err := isDigested(cfg.Image)
@@ -258,7 +229,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 				return err
 			}
 			if digested {
-				return fmt.Errorf("cannot use digested image with --container=false")
+				return fmt.Errorf("cannot use digested image with non-containerized builds (--builder=host)")
 			}
 		}
 	}
@@ -330,10 +301,6 @@ type runConfig struct {
 	// Can be 'auto' or a truthy value.
 	Build string
 
-	// Container indicates the function should be run in a container.
-	// Requires the container be built.
-	Container bool
-
 	// Env variables.  may include removals using a "-"
 	Env []string
 
@@ -353,7 +320,6 @@ func newRunConfig(cmd *cobra.Command) (c runConfig) {
 		buildConfig:  newBuildConfig(),
 		Build:        viper.GetString("build"),
 		Env:          viper.GetStringSlice("env"),
-		Container:    viper.GetBool("container"),
 		StartTimeout: viper.GetDuration("start-timeout"),
 		Address:      viper.GetString("address"),
 		JSON:         viper.GetBool("json"),
@@ -379,7 +345,7 @@ func (c runConfig) Configure(f fn.Function) (fn.Function, error) {
 
 	f.Run.Envs, err = applyEnvs(f.Run.Envs, c.Env)
 
-	// The other members; build, path, and container; are not part of function
+	// The other members; build and path; are not part of function
 	// state, so are not mentioned here in Configure.
 	return f, err
 }
@@ -412,18 +378,13 @@ func (c runConfig) Validate(cmd *cobra.Command, f fn.Function) (err error) {
 		}
 	}
 
-	if !c.Container && !oci.IsSupported(f.Runtime) {
+	if f.Build.Builder == "host" && !oci.IsSupported(f.Runtime) {
 		return fmt.Errorf("the %q runtime currently requires being run in a container", f.Runtime)
-	}
-
-	// Validate that containerized builders (pack/s2i) cannot be used with container=false
-	if (f.Build.Builder == "pack" || f.Build.Builder == "s2i") && !c.Container {
-		return fmt.Errorf("builder %q requires container mode but --container=false was set", f.Build.Builder)
 	}
 
 	// When the docker runner respects the StartTimeout, this validation check
 	// can be removed
-	if c.StartTimeout != 0 && c.Container {
+	if c.StartTimeout != 0 && f.Build.Builder != "host" {
 		return errors.New("the ability to specify the startup timeout for containerized runs is coming soon")
 	}
 
