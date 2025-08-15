@@ -259,7 +259,7 @@ type buildConfig struct {
 func newBuildConfig() buildConfig {
 	return buildConfig{
 		Global: config.Global{
-			Builder:          viper.GetString("builder"),
+			Builder:          defaultBuilder(), // deferred defaulting
 			Confirm:          viper.GetBool("confirm"),
 			Registry:         registry(), // deferred defaulting
 			Verbose:          viper.GetBool("verbose"),

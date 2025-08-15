@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/oci"
 )
 
 const (
@@ -18,6 +19,39 @@ const (
 	S2I     = "s2i"
 	Default = Pack
 )
+
+// Dynamically choose builder. Preferences are: cfgBuilder - from viper package,
+// from func.yaml, already built, If Default is S2I -> we are downstream.
+// Otherwise we are good to prefer host over pack for supported languages by
+// default.
+// Note: "true default" is still Pack, but we are currently in the middle of
+// transition to move to Host builder. I imagine that 'Default'
+// will change to Host once more languages are supported (or all).
+func ChooseBuilder(cfgBuilder string, f fn.Function) string {
+	// if specified
+	if cfgBuilder != "" {
+		return cfgBuilder
+	}
+
+	// else if previously built
+	if f.Build.Builder != "" {
+		return f.Build.Builder
+	}
+
+	// else defer to dynamic defaulting here
+
+	// We won't have S2I set as default upstream, so this serves as easy
+	// check for downstream to make sure it always defaults to S2I.
+	if Default == S2I {
+		return Default
+	}
+
+	if oci.IsSupported(f.Runtime) {
+		return Host
+	} else {
+		return Default
+	}
+}
 
 // Known builder names with a pretty-printed string representation
 type Known []string
