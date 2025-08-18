@@ -28,6 +28,9 @@ spec:
       description: Path where the function project is
       name: contextDir
       type: string
+    - default: ''
+      name: subPathOverride
+      description: Dir to build from (might not be where func.yaml is)
     - description: Function image name
       name: imageName
       type: string
@@ -57,8 +60,10 @@ spec:
           value: $(params.imageName)
         - name: REGISTRY
           value: $(params.registry)
-        - name: SOURCE_SUBPATH
+        - name: contextDir
           value: $(params.contextDir)
+        - name: SOURCE_SUBPATH
+          value: $(params.subPathOverride)
         - name: BUILDER_IMAGE
           value: $(params.builderImage)
         - name: ENV_VARS
@@ -120,6 +125,8 @@ spec:
       value: {{.Revision}}
     - name: contextDir
       value: "{{.ContextDir}}"
+    - name: subPathOverride
+      value: "{{.SubPathOverride}}"
     - name: imageName
       value: {{.FunctionImage}}
     - name: registry

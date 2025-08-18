@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/template"
 
@@ -77,14 +78,15 @@ const (
 )
 
 type templateData struct {
-	FunctionName  string
-	Annotations   map[string]string
-	Labels        map[string]string
-	ContextDir    string
-	FunctionImage string
-	Registry      string
-	BuilderImage  string
-	BuildEnvs     []string
+	FunctionName    string
+	Annotations     map[string]string
+	Labels          map[string]string
+	ContextDir      string
+	FunctionImage   string
+	SubPathOverride string
+	Registry        string
+	BuilderImage    string
+	BuildEnvs       []string
 
 	PipelineName    string
 	PipelineRunName string
@@ -387,14 +389,15 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 	}
 
 	data := templateData{
-		FunctionName:  f.Name,
-		Annotations:   f.Deploy.Annotations,
-		Labels:        labels,
-		ContextDir:    contextDir,
-		FunctionImage: f.Deploy.Image,
-		Registry:      f.Registry,
-		BuilderImage:  getBuilderImage(f),
-		BuildEnvs:     buildEnvs,
+		FunctionName:    f.Name,
+		Annotations:     f.Deploy.Annotations,
+		Labels:          labels,
+		ContextDir:      contextDir,
+		SubPathOverride: contextDir,
+		FunctionImage:   f.Deploy.Image,
+		Registry:        f.Registry,
+		BuilderImage:    getBuilderImage(f),
+		BuildEnvs:       buildEnvs,
 
 		PipelineName:    getPipelineName(f),
 		PipelineRunName: getPipelineRunGenerateName(f),
@@ -405,6 +408,13 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 
 		RepoUrl:  f.Build.Git.URL,
 		Revision: pipelinesTargetBranch,
+	}
+
+	// this is for current impl. of python+pack hack
+	// its for pack builder which needs the path of where to deploy and its
+	// different from where func.yaml is
+	if f.Runtime == "python" && f.Build.Builder == "pack" {
+		data.ContextDir = filepath.Join(data.ContextDir, "fn")
 	}
 
 	var template string
