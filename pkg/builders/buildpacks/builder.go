@@ -217,7 +217,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 		if f.Runtime == "python" {
 			if fi, _ := os.Lstat(filepath.Join(f.Root, "Procfile")); fi == nil {
-				cli = pyScaffoldInjector{cli}
+				cli = pyScaffoldInjector{cli, f.Invoke}
 			}
 		}
 
