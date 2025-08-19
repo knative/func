@@ -14,9 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"knative.dev/func/pkg/docker"
-	"knative.dev/func/pkg/docker/creds"
+	"knative.dev/func/pkg/creds"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/oci"
 )
 
 const (
@@ -106,7 +106,7 @@ func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
 	if !ok {
 		return nil
 	}
-	var credentials docker.Credentials
+	var credentials oci.Credentials
 
 	if authInfo := rawConf.AuthInfos[cc.AuthInfo]; authInfo != nil {
 		credentials.Username = "openshift"
@@ -114,11 +114,11 @@ func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
 	}
 
 	return []creds.CredentialsCallback{
-		func(registry string) (docker.Credentials, error) {
+		func(registry string) (oci.Credentials, error) {
 			if registry == openShiftRegistryHostPort {
 				return credentials, nil
 			}
-			return docker.Credentials{}, creds.ErrCredentialsNotFound
+			return oci.Credentials{}, creds.ErrCredentialsNotFound
 		},
 	}
 

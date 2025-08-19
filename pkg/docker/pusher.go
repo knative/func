@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/oci"
 
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
@@ -33,13 +34,6 @@ import (
 
 type Opt func(*Pusher)
 
-type Credentials struct {
-	Username string
-	Password string
-}
-
-type CredentialsProvider func(ctx context.Context, image string) (Credentials, error)
-
 // PusherDockerClient is sub-interface of client.CommonAPIClient required by pusher.
 type PusherDockerClient interface {
 	daemon.Client
@@ -52,12 +46,12 @@ type PusherDockerClientFactory func() (PusherDockerClient, error)
 // Pusher of images from local to remote registry.
 type Pusher struct {
 	verbose             bool // verbose logging.
-	credentialsProvider CredentialsProvider
+	credentialsProvider oci.CredentialsProvider
 	transport           http.RoundTripper
 	dockerClientFactory PusherDockerClientFactory
 }
 
-func WithCredentialsProvider(cp CredentialsProvider) Opt {
+func WithCredentialsProvider(cp oci.CredentialsProvider) Opt {
 	return func(p *Pusher) {
 		p.credentialsProvider = cp
 	}
@@ -81,14 +75,10 @@ func WithVerbose(verbose bool) Opt {
 	}
 }
 
-func EmptyCredentialsProvider(ctx context.Context, registry string) (Credentials, error) {
-	return Credentials{}, nil
-}
-
 // NewPusher creates an instance of a docker-based image pusher.
 func NewPusher(opts ...Opt) *Pusher {
 	result := &Pusher{
-		credentialsProvider: EmptyCredentialsProvider,
+		credentialsProvider: oci.EmptyCredentialsProvider,
 		transport:           http.DefaultTransport,
 		dockerClientFactory: func() (PusherDockerClient, error) {
 			c, _, err := NewClient(client.DefaultDockerHost)
@@ -176,7 +166,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (string, error) {
 	return d.String(), nil
 }
 
-func (n *Pusher) pushImage(ctx context.Context, f fn.Function, credentials Credentials) (digest string, err error) {
+func (n *Pusher) pushImage(ctx context.Context, f fn.Function, credentials oci.Credentials) (digest string, err error) {
 
 	var output io.Writer
 
@@ -211,7 +201,7 @@ func (n *Pusher) pushImage(ctx context.Context, f fn.Function, credentials Crede
 	return "", err
 }
 
-func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
+func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials oci.Credentials, output io.Writer) (digest string, err error) {
 	cli, err := n.dockerClientFactory()
 	if err != nil {
 		return "", fmt.Errorf("failed to create docker api client: %w", err)
@@ -267,7 +257,7 @@ func ParseDigest(output string) string {
 	return ""
 }
 
-func (n *Pusher) push(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
+func (n *Pusher) push(ctx context.Context, f fn.Function, credentials oci.Credentials, output io.Writer) (digest string, err error) {
 	auth := &authn.Basic{
 		Username: credentials.Username,
 		Password: credentials.Password,

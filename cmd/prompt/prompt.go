@@ -11,14 +11,14 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"golang.org/x/term"
 
-	"knative.dev/func/pkg/docker"
-	"knative.dev/func/pkg/docker/creds"
+	"knative.dev/func/pkg/creds"
+	"knative.dev/func/pkg/oci"
 )
 
-func NewPromptForCredentials(in io.Reader, out, errOut io.Writer) func(repository string) (docker.Credentials, error) {
+func NewPromptForCredentials(in io.Reader, out, errOut io.Writer) func(repository string) (oci.Credentials, error) {
 	firstTime := true
-	return func(repository string) (docker.Credentials, error) {
-		var result docker.Credentials
+	return func(repository string) (oci.Credentials, error) {
+		var result oci.Credentials
 		if firstTime {
 			firstTime = false
 			fmt.Fprintf(out, "Please provide credentials for image repository '%s'.\n", repository)
@@ -56,7 +56,7 @@ func NewPromptForCredentials(in io.Reader, out, errOut io.Writer) func(repositor
 		if isTerm {
 			err := survey.Ask(qs, &result, survey.WithStdio(fr, out.(terminal.FileWriter), errOut))
 			if err != nil {
-				return docker.Credentials{}, err
+				return oci.Credentials{}, err
 			}
 		} else {
 			reader := bufio.NewReader(in)
@@ -64,18 +64,18 @@ func NewPromptForCredentials(in io.Reader, out, errOut io.Writer) func(repositor
 			fmt.Fprintf(out, "Username: ")
 			u, err := reader.ReadString('\n')
 			if err != nil {
-				return docker.Credentials{}, err
+				return oci.Credentials{}, err
 			}
 			u = strings.Trim(u, "\r\n")
 
 			fmt.Fprintf(out, "Password: ")
 			p, err := reader.ReadString('\n')
 			if err != nil {
-				return docker.Credentials{}, err
+				return oci.Credentials{}, err
 			}
 			p = strings.Trim(p, "\r\n")
 
-			result = docker.Credentials{Username: u, Password: p}
+			result = oci.Credentials{Username: u, Password: p}
 		}
 
 		return result, nil
