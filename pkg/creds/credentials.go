@@ -22,10 +22,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 
-	"knative.dev/func/pkg/docker"
+	"knative.dev/func/pkg/oci"
 )
 
-type CredentialsCallback func(registry string) (docker.Credentials, error)
+type CredentialsCallback func(registry string) (oci.Credentials, error)
 
 var ErrUnauthorized = errors.New("bad credentials")
 
@@ -33,7 +33,7 @@ var ErrCredentialsNotFound = errors.New("credentials not found")
 
 // VerifyCredentialsCallback checks if credentials are authorized for image push.
 // If credentials are incorrect this callback shall return ErrUnauthorized.
-type VerifyCredentialsCallback func(ctx context.Context, image string, credentials docker.Credentials) error
+type VerifyCredentialsCallback func(ctx context.Context, image string, credentials oci.Credentials) error
 
 type keyChain struct {
 	user string
@@ -48,7 +48,7 @@ func (k keyChain) Resolve(resource authn.Resource) (authn.Authenticator, error) 
 }
 
 // CheckAuth verifies that credentials can be used for image push
-func CheckAuth(ctx context.Context, image string, credentials docker.Credentials, trans http.RoundTripper) error {
+func CheckAuth(ctx context.Context, image string, credentials oci.Credentials, trans http.RoundTripper) error {
 
 	ref, err := name.ParseReference(image)
 	if err != nil {
@@ -142,9 +142,8 @@ func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) Opt {
 // The picked value will be saved in the func config.
 //
 // To verify that credentials are correct custom callback can be used (see WithVerifyCredentials).
-func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsProvider {
+func NewCredentialsProvider(configPath string, opts ...Opt) oci.CredentialsProvider {
 	var c credentialsProvider
-
 	for _, o := range opts {
 		o(&c)
 	}
@@ -154,7 +153,7 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 	}
 
 	if c.verifyCredentials == nil {
-		c.verifyCredentials = func(ctx context.Context, registry string, credentials docker.Credentials) error {
+		c.verifyCredentials = func(ctx context.Context, registry string, credentials oci.Credentials) error {
 			return CheckAuth(ctx, registry, credentials, c.transport)
 		}
 	}
@@ -175,7 +174,7 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 
 	if _, err := os.Stat(c.authFilePath); err == nil {
 		defaultCredentialLoaders = append(defaultCredentialLoaders,
-			func(registry string) (docker.Credentials, error) {
+			func(registry string) (oci.Credentials, error) {
 				return getCredentialsByCredentialHelper(c.authFilePath, registry)
 			})
 	}
@@ -185,40 +184,40 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 	if err == nil {
 		dockerConfigPath := filepath.Join(home, ".docker", "config.json")
 		defaultCredentialLoaders = append(defaultCredentialLoaders,
-			func(registry string) (docker.Credentials, error) {
+			func(registry string) (oci.Credentials, error) {
 				return getCredentialsByCredentialHelper(dockerConfigPath, registry)
 			})
 	}
 	defaultCredentialLoaders = append(defaultCredentialLoaders,
-		func(registry string) (docker.Credentials, error) {
+		func(registry string) (oci.Credentials, error) {
 			creds, err := dockerConfig.GetCredentials(sys, registry)
 			if err != nil {
-				return docker.Credentials{}, err
+				return oci.Credentials{}, err
 			}
 			if creds.Username == "" || creds.Password == "" {
-				return docker.Credentials{}, ErrCredentialsNotFound
+				return oci.Credentials{}, ErrCredentialsNotFound
 			}
-			return docker.Credentials{
+			return oci.Credentials{
 				Username: creds.Username,
 				Password: creds.Password,
 			}, nil
 		})
 	defaultCredentialLoaders = append(defaultCredentialLoaders,
-		func(registry string) (docker.Credentials, error) {
+		func(registry string) (oci.Credentials, error) {
 			// Fallback onto default docker config locations
 			emptySys := &containersTypes.SystemContext{}
 			creds, err := dockerConfig.GetCredentials(emptySys, registry)
 			if err != nil {
-				return docker.Credentials{}, err
+				return oci.Credentials{}, err
 			}
-			return docker.Credentials{
+			return oci.Credentials{
 				Username: creds.Username,
 				Password: creds.Password,
 			}, nil
 		})
 	defaultCredentialLoaders = append(defaultCredentialLoaders,
-		func(registry string) (docker.Credentials, error) { // empty credentials provider for unsecured registries
-			return docker.Credentials{}, nil
+		func(registry string) (oci.Credentials, error) { // empty credentials provider for unsecured registries
+			return oci.Credentials{}, nil
 		})
 
 	c.credentialLoaders = append(c.credentialLoaders, defaultCredentialLoaders...)
@@ -226,13 +225,13 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 	return c.getCredentials
 }
 
-func (c *credentialsProvider) getCredentials(ctx context.Context, image string) (docker.Credentials, error) {
+func (c *credentialsProvider) getCredentials(ctx context.Context, image string) (oci.Credentials, error) {
 	var err error
-	result := docker.Credentials{}
+	result := oci.Credentials{}
 
 	ref, err := name.ParseReference(image)
 	if err != nil {
-		return docker.Credentials{}, fmt.Errorf("cannot parse the image reference: %w", err)
+		return oci.Credentials{}, fmt.Errorf("cannot parse the image reference: %w", err)
 	}
 
 	registry := ref.Context().RegistryStr()
@@ -244,7 +243,7 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 			if errors.Is(err, ErrCredentialsNotFound) {
 				continue
 			}
-			return docker.Credentials{}, err
+			return oci.Credentials{}, err
 		}
 
 		err = c.verifyCredentials(ctx, image, result)
@@ -252,14 +251,14 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 			return result, nil
 		} else {
 			if !errors.Is(err, ErrUnauthorized) {
-				return docker.Credentials{}, err
+				return oci.Credentials{}, err
 			}
 		}
 
 	}
 
 	if c.promptForCredentials == nil {
-		return docker.Credentials{}, ErrCredentialsNotFound
+		return oci.Credentials{}, ErrCredentialsNotFound
 	}
 
 	// this is [registry] / [repository]
@@ -271,7 +270,7 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 		// use repo here to print it out in prompt
 		result, err = c.promptForCredentials(repository)
 		if err != nil {
-			return docker.Credentials{}, err
+			return oci.Credentials{}, err
 		}
 
 		err = c.verifyCredentials(ctx, image, result)
@@ -282,21 +281,21 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 				// This shouldn't be fatal error.
 				if strings.Contains(err.Error(), "not implemented") {
 					fmt.Fprintf(os.Stderr, "the cred-helper does not support write operation (consider changing the cred-helper it in auth.json)\n")
-					return docker.Credentials{}, nil
+					return oci.Credentials{}, nil
 				}
 
 				if !errors.Is(err, errNoCredentialHelperConfigured) {
-					return docker.Credentials{}, err
+					return oci.Credentials{}, err
 				}
 				helpers := listCredentialHelpers()
 				helper, err := c.promptForCredentialStore(helpers)
 				if err != nil {
-					return docker.Credentials{}, err
+					return oci.Credentials{}, err
 				}
 				helper = strings.TrimPrefix(helper, "docker-credential-")
 				err = setCredentialHelperToConfig(c.authFilePath, helper)
 				if err != nil {
-					return docker.Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
+					return oci.Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
 				}
 				err = setCredentialsByCredentialHelper(c.authFilePath, registry, result.Username, result.Password)
 				if err != nil {
@@ -304,11 +303,11 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 					// This shouldn't be fatal error.
 					if strings.Contains(err.Error(), "not implemented") {
 						fmt.Fprintf(os.Stderr, "the cred-helper does not support write operation (consider changing the cred-helper it in auth.json)\n")
-						return docker.Credentials{}, nil
+						return oci.Credentials{}, nil
 					}
 
 					if !errors.Is(err, errNoCredentialHelperConfigured) {
-						return docker.Credentials{}, err
+						return oci.Credentials{}, err
 					}
 				}
 			}
@@ -317,7 +316,7 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 			if errors.Is(err, ErrUnauthorized) {
 				continue
 			}
-			return docker.Credentials{}, err
+			return oci.Credentials{}, err
 		}
 	}
 }
@@ -374,8 +373,8 @@ func setCredentialHelperToConfig(confFilePath, helper string) error {
 	return nil
 }
 
-func getCredentialsByCredentialHelper(confFilePath, registry string) (docker.Credentials, error) {
-	result := docker.Credentials{}
+func getCredentialsByCredentialHelper(confFilePath, registry string) (oci.Credentials, error) {
+	result := oci.Credentials{}
 
 	helper, err := getCredentialHelperFromConfig(confFilePath)
 	if err != nil && !os.IsNotExist(err) {

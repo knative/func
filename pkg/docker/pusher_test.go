@@ -38,6 +38,7 @@ import (
 
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/oci"
 )
 
 func TestGetRegistry(t *testing.T) {
@@ -77,8 +78,8 @@ const (
 	imageRepoDigest = "sha256:00af51d125f3092e157a7f8a717029412dc9d266c017e89cecdfeccb4cc3d7a7"
 )
 
-var testCredProvider = docker.CredentialsProvider(func(ctx context.Context, registry string) (docker.Credentials, error) {
-	return docker.Credentials{
+var testCredProvider = oci.CredentialsProvider(func(ctx context.Context, registry string) (oci.Credentials, error) {
+	return oci.Credentials{
 		Username: testUser,
 		Password: testPwd,
 	}, nil

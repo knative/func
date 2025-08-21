@@ -13,7 +13,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/pkg/errors"
@@ -22,29 +21,63 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
+type Credentials struct {
+	Username string
+	Password string
+}
+
+type CredentialsProvider func(ctx context.Context, image string) (Credentials, error)
+
+type Opt func(*Pusher)
+
 // Pusher of OCI multi-arch layout directories.
 type Pusher struct {
-	Anonymous bool
-	Insecure  bool
-	Token     string
-	Username  string
-	Verbose   bool
+	Anonymous           bool
+	credentialsProvider CredentialsProvider
+
+	Insecure bool
+	Token    string
+	Username string
+	Verbose  bool
 
 	updates chan v1.Update
 	done    chan bool
 }
 
-func NewPusher(insecure, anon, verbose bool) *Pusher {
-	return &Pusher{
-		Insecure:  insecure,
-		Anonymous: anon,
-		Verbose:   verbose,
-		updates:   make(chan v1.Update, 10),
-		done:      make(chan bool, 1),
+func EmptyCredentialsProvider(ctx context.Context, registry string) (Credentials, error) {
+	return Credentials{}, nil
+}
+
+func WithCredentialsProvider(cp CredentialsProvider) Opt {
+	return func(p *Pusher) {
+		p.credentialsProvider = cp
 	}
 }
 
+func WithVerbose(verbose bool) Opt {
+	return func(pusher *Pusher) {
+		pusher.Verbose = verbose
+	}
+}
+
+func NewPusher(insecure, anon, verbose bool, opts ...Opt) *Pusher {
+	result := &Pusher{
+		credentialsProvider: EmptyCredentialsProvider,
+		Insecure:            insecure,
+		Anonymous:           anon,
+		Verbose:             verbose,
+		updates:             make(chan v1.Update, 10),
+		done:                make(chan bool, 1),
+	}
+	for _, opt := range opts {
+		opt(result)
+	}
+	return result
+}
+
 func (p *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err error) {
+	credentials, _ := p.credentialsProvider(ctx, f.Build.Image)
+
 	go p.handleUpdates(ctx)
 	defer func() { p.done <- true }()
 	buildDir, err := getLastBuildDir(f)
@@ -67,7 +100,7 @@ func (p *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	if err != nil {
 		return
 	}
-	if err = p.writeIndex(ctx, ref, ii); err != nil {
+	if err = p.writeIndex(ctx, ref, ii, credentials); err != nil {
 		return
 	}
 	h, err := ii.Digest()
@@ -120,7 +153,7 @@ func getLastBuildDir(f fn.Function) (string, error) {
 }
 
 // writeIndex to its defined registry.
-func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.ImageIndex) error {
+func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.ImageIndex, creds Credentials) error {
 	oo := []remote.Option{
 		remote.WithContext(ctx),
 		remote.WithProgress(p.updates),
@@ -135,9 +168,12 @@ func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.Image
 	}
 
 	if !p.Anonymous {
-		a, err := p.authOption(ctx)
+		a, err := p.authOption(ctx, creds)
 		if err != nil {
 			return err
+		}
+		if a == nil {
+			return errors.New("no authentication option provided")
 		}
 		oo = append(oo, a)
 	}
@@ -148,13 +184,14 @@ func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.Image
 // authOption selects an appropriate authentication option.
 // If user provided = basic auth (secret is password)
 // If only secret provided = bearer token auth
-// If neither are provided = Returned is a cascading keychain auth mthod
+// If neither are provided = creds from credentials provider
 // which performs the following in order:
 // - Default Keychain (docker and podman config files)
 // - Google Keychain
 // - TODO: ECR Amazon
 // - TODO: ACR Azure
-func (p *Pusher) authOption(ctx context.Context) (remote.Option, error) {
+// - interactive prompt for username and password
+func (p *Pusher) authOption(ctx context.Context, creds Credentials) (remote.Option, error) {
 
 	// Basic Auth if provided
 	username, _ := ctx.Value(fn.PushUsernameKey{}).(string)
@@ -168,12 +205,10 @@ func (p *Pusher) authOption(ctx context.Context) (remote.Option, error) {
 		return remote.WithAuth(&authn.Basic{Username: username, Password: password}), nil
 	}
 
-	// Default chain
-	return remote.WithAuthFromKeychain(authn.NewMultiKeychain(
-		authn.DefaultKeychain, // Podman and Docker config files
-		google.Keychain,       // Google
-		// TODO: Integrate and test ECR and ACR credential helpers:
-		// authn.NewKeychainFromHelper(ecr.ECRHelper{ClientFactory: api.DefaultClientFactory{}}),
-		// authn.NewKeychainFromHelper(acr.ACRCredHelper{}),
-	)), nil
+	// Use provided credentials if available or prompt for them
+	if creds.Username != "" && creds.Password != "" {
+		return remote.WithAuth(&authn.Basic{Username: creds.Username, Password: creds.Password}), nil
+	}
+
+	return nil, nil
 }
