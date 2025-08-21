@@ -6,7 +6,7 @@
 	},
 	"Eventing": {
 		"version": "v1.19.1",
-		"owner": "knative",
+		"owner": "",
 		"repo": "eventing"
 	},
 	"KindNode": {
@@ -17,7 +17,7 @@
 	},
 	"Serving": {
 		"version": "v1.19.1",
-		"owner": "knative",
+		"owner": "",
 		"repo": "serving"
 	},
 	"Tekton": {
