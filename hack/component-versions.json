@@ -1,12 +1,11 @@
 {
 	"Contour": {
-		"version": "v1.19.1",
+		"version": "v1.19.2",
 		"owner": "knative-extensions",
 		"repo": "net-contour"
 	},
 	"Eventing": {
 		"version": "v1.19.1",
-		"owner": "",
 		"repo": "eventing"
 	},
 	"KindNode": {
@@ -17,7 +16,6 @@
 	},
 	"Serving": {
 		"version": "v1.19.1",
-		"owner": "",
 		"repo": "serving"
 	},
 	"Tekton": {
