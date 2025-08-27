@@ -37,9 +37,9 @@ import (
 	"knative.dev/pkg/apis"
 
 	"knative.dev/func/pkg/builders/buildpacks"
-	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/pipelines"
 	"knative.dev/func/pkg/pipelines/tekton"
 	"knative.dev/func/pkg/random"
@@ -102,8 +102,8 @@ func TestGitlab(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	credentialsProvider := func(ctx context.Context, image string) (docker.Credentials, error) {
-		return docker.Credentials{
+	credentialsProvider := func(ctx context.Context, image string) (oci.Credentials, error) {
+		return oci.Credentials{
 			Username: "",
 			Password: "",
 		}, nil

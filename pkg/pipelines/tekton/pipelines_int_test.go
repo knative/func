@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/oci"
 
 	"knative.dev/func/pkg/builders/buildpacks"
 	pack "knative.dev/func/pkg/builders/buildpacks"
@@ -34,8 +35,8 @@ import (
 	. "knative.dev/func/pkg/testing"
 )
 
-var testCP = func(_ context.Context, _ string) (docker.Credentials, error) {
-	return docker.Credentials{
+var testCP = func(_ context.Context, _ string) (oci.Credentials, error) {
+	return oci.Credentials{
 		Username: "",
 		Password: "",
 	}, nil
