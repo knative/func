@@ -164,14 +164,14 @@ echo "mode: atomic" > coverage.txt
 # echo "Running unit and integration tests..."
 # go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v
 # tail -n +2 coverage-integration.txt >> coverage.txt
-# rm -f coverage-integration.t -run TestMetadata_Labels_Removext
+# rm -f coverage-integration.text -run TestMetadata_Labels_Remove
 
 # Run E2E tests
 echo ""
 echo "Running E2E tests..."
 cd "${PROJECT_ROOT}/e2e"
-go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Deploy
-# go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
+# go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Deploy
+go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
 tail -n +2 coverage-e2e.txt >> ../coverage.txt
 rm -f coverage-e2e.txt
 
