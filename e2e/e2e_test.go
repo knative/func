@@ -123,12 +123,12 @@ var (
 	// MatrixBuilders specifies builders to check during matrix tests.
 	// Can be set with FUNC_E2E_MATRIX_BUILDERS.
 	// MatrixBuilders = []string{"host", "s2i", "pack"}
-	MatrixBuilders = []string{"s2i"}
+	MatrixBuilders = []string{"host", "s2i", "pack"}
 
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
 	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
 	// MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
-	MatrixRuntimes = []string{"quarkus"}
+	MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
 	// MatrixTemplates = []string{"http", "cloudevents"}
@@ -1523,7 +1523,7 @@ func doMatrixRun(t *testing.T, name, runtime, builder, template string) {
 	// - Skips tests if the builder is not supported
 	// - Skips tests for the pack builder if on ARM
 	// - adds arguments as necessary
-	init = matrixExceptions(t, init, runtime, builder, template)
+	init, timeout := matrixExceptionsLocal(t, init, runtime, builder, template)
 
 	// Initialize
 	// ----------
@@ -1543,9 +1543,9 @@ func doMatrixRun(t *testing.T, name, runtime, builder, template string) {
 	httpAddress := "http://" + address
 	var ready bool
 	if template == "cloudevents" {
-		ready = waitForCloudevent(t, httpAddress)
+		ready = waitForCloudevent(t, httpAddress, withWaitTimeout(timeout))
 	} else { // default is http:
-		ready = waitForEcho(t, httpAddress)
+		ready = waitForEcho(t, httpAddress, withWaitTimeout(timeout))
 	}
 
 	if !ready {
@@ -1586,32 +1586,15 @@ func doMatrixDeploy(t *testing.T, name, runtime, builder, template string) {
 	t.Helper()
 	_ = fromCleanEnv(t, name)
 
-	// // Skip pack builder on ARM64 due to Paketo buildpack limitations
-	// if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
-	// 	t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
-	// 		"See https://github.com/paketo-buildpacks/nodejs/issues/712")
-	// }
-
-	// func init
-	initArgs := []string{"init", "-l", runtime, "-t", template}
-
-	// func deploy
-	deployArgs := []string{"deploy", "--builder", builder}
-
-	// Language and architecture special treatment
-	// - Skips tests if the builder is not supported
-	// - Skips tests for the pack builder if on ARM
-	// - adds arguments as necessary
-	initArgs = matrixExceptions(t, initArgs, runtime, builder, template)
-
 	// Initialize
-	// ----------
+	initArgs := []string{"init", "-l", runtime, "-t", template}
+	initArgs, timeout := matrixExceptionsLocal(t, initArgs, runtime, builder, template)
 	if err := newCmd(t, initArgs...).Run(); err != nil {
 		t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
 	}
 
 	// Deploy
-	// ------
+	deployArgs := []string{"deploy", "--builder", builder}
 	if err := newCmd(t, deployArgs...).Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -1624,9 +1607,9 @@ func doMatrixDeploy(t *testing.T, name, runtime, builder, template string) {
 	httpAddress := fmt.Sprintf("http://%v.default.localtest.me", name)
 	var ready bool
 	if template == "cloudevents" {
-		ready = waitForCloudevent(t, httpAddress)
+		ready = waitForCloudevent(t, httpAddress, withWaitTimeout(timeout))
 	} else {
-		ready = waitForEcho(t, httpAddress)
+		ready = waitForEcho(t, httpAddress, withWaitTimeout(timeout))
 	}
 
 	if !ready {
@@ -1652,9 +1635,80 @@ func TestMatrix_Remote(t *testing.T) {
 	}
 }
 
-// matrixExceptions adds language-specific arguments or skips matrix tests as
-// necessary to match current levels of supported combinations.
-func matrixExceptions(t *testing.T, initArgs []string, funcRuntime, builder, template string) []string {
+// doMatrixRemote implements a specific permutation of the remote deploy matrix tests.
+func doMatrixRemote(t *testing.T, name, runtime, builder, template string) {
+	t.Helper()
+	_ = fromCleanEnv(t, name)
+
+	// Initialize
+	initArgs := []string{"init", "-l", runtime, "-t", template}
+	initArgs, timeout := matrixExceptionsRemote(t, initArgs, runtime, builder, template)
+	if err := newCmd(t, initArgs...).Run(); err != nil {
+		t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
+	}
+
+	// Deploy
+	if err := newCmd(t, "deploy", "--builder", builder, "--remote", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		clean(t, name, DefaultNamespace)
+	}()
+
+	// Wait for the function to be ready, using the appropriate method based on template
+	functionURL := fmt.Sprintf("http://%v.default.localtest.me", name)
+	var ready bool
+	if template == "cloudevents" {
+		ready = waitForCloudevent(t, functionURL, withWaitTimeout(timeout))
+	} else {
+		ready = waitForEcho(t, functionURL, withWaitTimeout(timeout))
+	}
+
+	if !ready {
+		t.Fatalf("function did not deploy correctly")
+	}
+}
+
+// matrixExceptionsLocal adds language-specific arguments or skips matrix tests as
+// necessary to match current levels of supported combinations for local
+// tasks such as run, build and deploy
+func matrixExceptionsLocal(t *testing.T, initArgs []string, funcRuntime, builder, template string) ([]string, time.Duration) {
+	t.Helper()
+
+	// Choose a default timeout based on builder.
+	// Slightly shorter for local builds
+	var waitTimeout = 1 * time.Minute
+	if builder == "pack" || builder == "s2i" {
+		waitTimeout = 3 * time.Minute
+	}
+
+	return matrixExceptionsShared(t, initArgs, funcRuntime, builder, template, waitTimeout)
+}
+
+// matrixExceptionsRemote adds language-specific arguments or skips matrix tests as
+// necessary to match current levels of supported combinations for remote
+// builds
+func matrixExceptionsRemote(t *testing.T, initArgs []string, funcRuntime, builder, template string) ([]string, time.Duration) {
+	t.Helper()
+
+	// Choose a default timeout based on builder.
+	// Slightly longer for remote builds
+	var waitTimeout = 2 * time.Minute
+	if builder == "pack" || builder == "s2i" {
+		waitTimeout = 5 * time.Minute
+	}
+
+	// Remote builds only support Pack and S2I
+	if builder == "host" {
+		t.Skip("Host builder is not supported for remote builds.")
+	}
+
+	return matrixExceptionsShared(t, initArgs, funcRuntime, builder, template, waitTimeout)
+}
+
+// matrixExceptionsShared are exceptions to the full matrix which are shared
+// between both local (run, build, deploy) and remote (deploy --remote)
+func matrixExceptionsShared(t *testing.T, initArgs []string, funcRuntime, builder, template string, waitTimeout time.Duration) ([]string, time.Duration) {
 	t.Helper()
 
 	// Buildpacks do not currently support ARM
@@ -1716,6 +1770,10 @@ func matrixExceptions(t *testing.T, initArgs []string, funcRuntime, builder, tem
 	if funcRuntime == "quarkus" && builder == "host" {
 		t.Skip("The host builder does not currently support Quarkus Functions")
 	}
+	// Java can take... a while
+	if funcRuntime == "quarkus" {
+		waitTimeout = 6 * time.Minute
+	}
 
 	// Springboot special treatment
 	// ----------------------
@@ -1723,11 +1781,15 @@ func matrixExceptions(t *testing.T, initArgs []string, funcRuntime, builder, tem
 	if funcRuntime == "springboot" && builder == "host" {
 		t.Skip("The host builder does not currently support Springboot Functions")
 	}
+	// Skip on s2i builder (not supported)
 	if funcRuntime == "springboot" && builder == "s2i" {
 		t.Skip("The s2i builder does not currently support Springboot Functions")
 	}
-
-	return initArgs
+	// Java can take... a while
+	if funcRuntime == "springboot" {
+		waitTimeout = 6 * time.Minute
+	}
+	return initArgs, waitTimeout
 }
 
 // TestMatrix_TEST is a temporary test being used to isolate cases when
@@ -1770,62 +1832,6 @@ func TestMatrix_TEST(t *testing.T) {
 	}
 
 	t.Log("SUCCESS: both deployed and echoed")
-}
-
-// doMatrixRemote implements a specific permutation of the remote deploy matrix tests.
-func doMatrixRemote(t *testing.T, name, runtime, builder, template string) {
-	t.Helper()
-	_ = fromCleanEnv(t, name)
-
-	// // Skip pack builder on ARM64 due to Paketo buildpack limitations
-	// if builder == "pack" && (goruntime.GOARCH == "arm64" || goruntime.GOARCH == "arm") {
-	// 	t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
-	// 		"See https://github.com/paketo-buildpacks/nodejs/issues/712")
-	// }
-
-	// Skip host builder (remote builds only support Pack and S2I)
-	if builder == "host" {
-		t.Skip("Host builder is not supported for remote builds.")
-	}
-
-	// Initialize
-	// ----------
-	initArgs := []string{"init", "-l", runtime, "-t", template}
-	// Python Special Treatment:
-	//   skip if pack builder (not yet supported)
-	//   custom template for "echo" implementation (default is just an OK)
-	if runtime == "python" && builder == "pack" {
-		t.Skip("Python runtime currently does not support the Pack builder")
-	}
-	if runtime == "python" && template == "http" {
-		initArgs = append(initArgs, "--repository", "file://"+filepath.Join(Testdata, "templates"))
-	}
-
-	if err := newCmd(t, initArgs...).Run(); err != nil {
-		t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
-	}
-
-	// Deploy
-	// ------
-	if err := newCmd(t, "deploy", "--builder", builder, "--remote", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
-
-	// Wait for the function to be ready, using the appropriate method based on template
-	functionURL := fmt.Sprintf("http://%v.default.localtest.me", name)
-	var ready bool
-	if template == "cloudevents" {
-		ready = waitForCloudevent(t, functionURL)
-	} else {
-		ready = waitForEcho(t, functionURL)
-	}
-
-	if !ready {
-		t.Fatalf("function did not deploy correctly")
-	}
 }
 
 // ----------------------------------------------------------------------------
@@ -2043,15 +2049,21 @@ type waitCfg struct {
 	warnInterval  time.Duration // only warn this often
 }
 
+func withWaitTimeout(t time.Duration) waitOption {
+	return func(cfg *waitCfg) {
+		cfg.timeout = t
+	}
+}
+
 // waitForEcho returns true if there is service at the given addresss which
 // echoes back the request arguments given.
-func waitForEcho(t *testing.T, address string) (ok bool) {
-	return waitFor(t, address+"?test-echo-param&message=test-echo-param", "test-echo-param", "does not appear to be an echo")
+func waitForEcho(t *testing.T, address string, options ...waitOption) (ok bool) {
+	return waitFor(t, address+"?test-echo-param&message=test-echo-param", "test-echo-param", "does not appear to be an echo", options...)
 }
 
 // waitForCloudevent returns true if there is a service at the given address
 // which accepts CloudEvents and responds with HTTP 200 when given a cloudevent
-func waitForCloudevent(t *testing.T, address string, timeout time.Time, options ...waitOption) (ok bool) {
+func waitForCloudevent(t *testing.T, address string, options ...waitOption) (ok bool) {
 	t.Helper()
 
 	cfg := waitCfg{
@@ -2064,18 +2076,15 @@ func waitForCloudevent(t *testing.T, address string, timeout time.Time, options 
 		o(&cfg)
 	}
 
-	var (
-		retries       = 100 // Set high for slow environments (CI)
-		warnThreshold = 30  // start warning after 30
-		warnModulo    = 5   // but only warn every 5 attempts
-		delay         = 1 * time.Second
-	)
-
 	client := &http.Client{}
 
-	for i := 0; i < retries; i++ {
-		time.Sleep(delay)
-		// t.Logf("POST %v (CloudEvent)\n", address)
+	startTime := time.Now()
+	lastWarnTime := time.Time{}
+	attemptCount := 0
+
+	for time.Since(startTime) < cfg.timeout {
+		attemptCount++
+		time.Sleep(cfg.interval)
 
 		req, err := http.NewRequest("POST", address, strings.NewReader(`{"message": "test"}`))
 		if err != nil {
@@ -2092,8 +2101,10 @@ func waitForCloudevent(t *testing.T, address string, timeout time.Time, options 
 
 		res, err := client.Do(req)
 		if err != nil {
-			if i > warnThreshold && i%warnModulo == 0 {
-				t.Logf("unable to contact function (attempt %v/%v). %v", i, retries, err)
+			elapsed := time.Since(startTime)
+			if elapsed > cfg.warnThreshold && time.Since(lastWarnTime) >= cfg.warnInterval {
+				t.Logf("unable to contact function (attempt %v, elapsed %v). %v", attemptCount, elapsed.Round(time.Second), err)
+				lastWarnTime = time.Now()
 			}
 			continue
 		}
@@ -2111,10 +2122,12 @@ func waitForCloudevent(t *testing.T, address string, timeout time.Time, options 
 			}
 
 			// Ensure body is valid JSON
-			var jsonBody interface{}
+			var jsonBody any
 			if err := json.Unmarshal(body, &jsonBody); err != nil {
-				if i > warnThreshold && i%warnModulo == 0 {
-					t.Logf("Function returned 200 but invalid JSON body (attempt %v/%v): %v", i, retries, err)
+				elapsed := time.Since(startTime)
+				if elapsed > cfg.warnThreshold && time.Since(lastWarnTime) >= cfg.warnInterval {
+					t.Logf("Function returned 200 but invalid JSON body (attempt %v, elapsed %v): %v", attemptCount, elapsed.Round(time.Second), err)
+					lastWarnTime = time.Now()
 				}
 				continue
 			}
@@ -2134,9 +2147,11 @@ func waitForCloudevent(t *testing.T, address string, timeout time.Time, options 
 			}
 
 			// Neither structured nor binary CloudEvent
-			if i > warnThreshold && i%warnModulo == 0 {
-				t.Logf("Function returned 200 but response is not a CloudEvent (attempt %v/%v)", i, retries)
+			elapsed := time.Since(startTime)
+			if elapsed > cfg.warnThreshold && time.Since(lastWarnTime) >= cfg.warnInterval {
+				t.Logf("Function returned 200 but response is not a CloudEvent (attempt %v, elapsed %v)", attemptCount, elapsed.Round(time.Second))
 				t.Logf("Content-Type: %s, Ce-Specversion: %s", contentType, ceSpecVersion)
+				lastWarnTime = time.Now()
 			}
 			continue
 		}
@@ -2148,20 +2163,22 @@ func waitForCloudevent(t *testing.T, address string, timeout time.Time, options 
 			return false
 		}
 
-		if i > warnThreshold && i%warnModulo == 0 {
-			t.Logf("Function responded with status %d (attempt %v/%v)", res.StatusCode, i, retries)
+		elapsed := time.Since(startTime)
+		if elapsed > cfg.warnThreshold && time.Since(lastWarnTime) >= cfg.warnInterval {
+			t.Logf("Function responded with status %d (attempt %v, elapsed %v)", res.StatusCode, attemptCount, elapsed.Round(time.Second))
+			lastWarnTime = time.Now()
 		}
 	}
 
-	t.Logf("Could not validate CloudEvents function after %v tries", retries)
+	t.Logf("Could not validate CloudEvents function after %v (timeout %v)", time.Since(startTime).Round(time.Second), cfg.timeout)
 	return false
 }
 
 // waitForContent returns true if there is a service listening at the
 // given addresss which responds HTTP OK with the given string in its body.
 // returns false if the.
-func waitForContent(t *testing.T, address, content string) (ok bool) {
-	return waitFor(t, address, content, "expected content not found")
+func waitForContent(t *testing.T, address, content string, options ...waitOption) (ok bool) {
+	return waitFor(t, address, content, "expected content not found", options...)
 }
 
 // waitFor an endpoint to return an OK response which includes the given
@@ -2182,23 +2199,37 @@ func waitForContent(t *testing.T, address, content string) (ok bool) {
 // currently executing a `func run`
 // Note that until this is implemented, this temporary implementation also
 // forces single-threaded test execution.
-func waitFor(t *testing.T, address, content, errMsg string) (ok bool) {
+func waitFor(t *testing.T, address, content, errMsg string, options ...waitOption) (ok bool) {
 	t.Helper()
+	cfg := waitCfg{
+		timeout:       2 * time.Minute,
+		interval:      5 * time.Second,
+		warnThreshold: 30 * time.Second,
+		warnInterval:  10 * time.Second,
+	}
+	for _, o := range options {
+		o(&cfg)
+	}
+
 	var (
-		retries          = 100   // Set high for slow environments (CI)
-		warnThreshold    = 30    // start warning after 30
-		warnModulo       = 5     // but only warn every 5 attempts
 		mismatchLast     = ""    // cache the last content for squelching purposes.
 		mismatchReported = false // note that the given content was reported
-		delay            = 1 * time.Second
 	)
-	for i := 0; i < retries; i++ {
-		time.Sleep(delay)
+
+	startTime := time.Now()
+	lastWarnTime := time.Time{}
+	attemptCount := 0
+
+	for time.Since(startTime) < cfg.timeout {
+		attemptCount++
+		time.Sleep(cfg.interval)
 		// t.Logf("GET %v\n", address)
 		res, err := http.Get(address)
 		if err != nil {
-			if i > warnThreshold && i%warnModulo == 0 {
-				t.Logf("unable to contact function (attempt %v/%v). %v", i, retries, err)
+			elapsed := time.Since(startTime)
+			if elapsed > cfg.warnThreshold && time.Since(lastWarnTime) >= cfg.warnInterval {
+				t.Logf("unable to contact function (attempt %v, elapsed %v). %v", attemptCount, elapsed.Round(time.Second), err)
+				lastWarnTime = time.Now()
 			}
 			continue
 		}
@@ -2227,7 +2258,7 @@ func waitFor(t *testing.T, address, content, errMsg string) (ok bool) {
 		}
 		return true
 	}
-	t.Logf("Could not validate function after %v tries", retries)
+	t.Logf("Could not validate function after %v (timeout %v)", time.Since(startTime).Round(time.Second), cfg.timeout)
 	return
 }
 
