@@ -123,12 +123,12 @@ var (
 	// MatrixBuilders specifies builders to check during matrix tests.
 	// Can be set with FUNC_E2E_MATRIX_BUILDERS.
 	// MatrixBuilders = []string{"host", "s2i", "pack"}
-	MatrixBuilders = []string{"host"}
+	MatrixBuilders = []string{"s2i"}
 
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
 	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
 	// MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
-	MatrixRuntimes = []string{"python"}
+	MatrixRuntimes = []string{"quarkus"}
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
 	// MatrixTemplates = []string{"http", "cloudevents"}
@@ -1707,7 +1707,7 @@ func matrixExceptions(t *testing.T, initArgs []string, funcRuntime, builder, tem
 	}
 	// Skip on S2I builder (not supported)
 	if funcRuntime == "rust" && builder == "s2i" {
-		t.Skip("The pack builder does not currently support Rust Functions")
+		t.Skip("The s2i builder does not currently support Rust Functions")
 	}
 
 	// Quarkus special treatment
@@ -1715,6 +1715,16 @@ func matrixExceptions(t *testing.T, initArgs []string, funcRuntime, builder, tem
 	// Skip on Host builder (not supported)
 	if funcRuntime == "quarkus" && builder == "host" {
 		t.Skip("The host builder does not currently support Quarkus Functions")
+	}
+
+	// Springboot special treatment
+	// ----------------------
+	// Skip on Host builder (not supported)
+	if funcRuntime == "springboot" && builder == "host" {
+		t.Skip("The host builder does not currently support Springboot Functions")
+	}
+	if funcRuntime == "springboot" && builder == "s2i" {
+		t.Skip("The s2i builder does not currently support Springboot Functions")
 	}
 
 	return initArgs
@@ -2024,16 +2034,36 @@ func newCmd(t *testing.T, args ...string) *exec.Cmd {
 	// return stdout.String()
 }
 
+type waitOption func(*waitCfg)
+
+type waitCfg struct {
+	timeout       time.Duration // total time to wait
+	interval      time.Duration // time between retries
+	warnThreshold time.Duration // start warning after this long
+	warnInterval  time.Duration // only warn this often
+}
+
 // waitForEcho returns true if there is service at the given addresss which
 // echoes back the request arguments given.
 func waitForEcho(t *testing.T, address string) (ok bool) {
-	return waitFor(t, address+"?test-echo-param", "test-echo-param", "does not appear to be an echo")
+	return waitFor(t, address+"?test-echo-param&message=test-echo-param", "test-echo-param", "does not appear to be an echo")
 }
 
 // waitForCloudevent returns true if there is a service at the given address
 // which accepts CloudEvents and responds with HTTP 200 when given a cloudevent
-func waitForCloudevent(t *testing.T, address string) (ok bool) {
+func waitForCloudevent(t *testing.T, address string, timeout time.Time, options ...waitOption) (ok bool) {
 	t.Helper()
+
+	cfg := waitCfg{
+		timeout:       2 * time.Minute,
+		interval:      5 * time.Second,
+		warnThreshold: 30 * time.Second,
+		warnInterval:  10 * time.Second,
+	}
+	for _, o := range options {
+		o(&cfg)
+	}
+
 	var (
 		retries       = 100 // Set high for slow environments (CI)
 		warnThreshold = 30  // start warning after 30
@@ -2071,35 +2101,44 @@ func waitForCloudevent(t *testing.T, address string) (ok bool) {
 
 		if res.StatusCode == 200 {
 			// Validate that the response is a proper CloudEvent
-			// 1. Check for CloudEvent header
-			ceSpecVersion := res.Header.Get("Ce-Specversion")
+			// CloudEvents can be in either binary or structured mode
 
-			// 2. Ensure CloudEvent header is present
-			if ceSpecVersion == "" {
-				if i > warnThreshold && i%warnModulo == 0 {
-					t.Logf("Function returned 200 but missing Ce-Specversion header (attempt %v/%v)", i, retries)
-				}
-				continue
-			}
-
-			// 3. Read and validate the response body
+			// Read the response body first
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				t.Logf("Error reading response body: %v", err)
 				continue
 			}
 
-			// Ensure body is valid JSON (CloudEvents should have JSON body)
+			// Ensure body is valid JSON
 			var jsonBody interface{}
 			if err := json.Unmarshal(body, &jsonBody); err != nil {
 				if i > warnThreshold && i%warnModulo == 0 {
-					t.Logf("Function returned 200 with CE headers but invalid JSON body (attempt %v/%v): %v", i, retries, err)
+					t.Logf("Function returned 200 but invalid JSON body (attempt %v/%v): %v", i, retries, err)
 				}
 				continue
 			}
 
-			// CloudEvents function is responding correctly
-			return true
+			// Check for CloudEvent response (either mode)
+			contentType := res.Header.Get("Content-Type")
+			ceSpecVersion := res.Header.Get("Ce-Specversion")
+
+			if contentType == "application/cloudevents+json" {
+				// Valid structured CloudEvent
+				t.Logf("Received valid structured CloudEvent response")
+				return true
+			} else if ceSpecVersion != "" {
+				// Valid binary CloudEvent
+				t.Logf("Received valid binary CloudEvent response")
+				return true
+			}
+
+			// Neither structured nor binary CloudEvent
+			if i > warnThreshold && i%warnModulo == 0 {
+				t.Logf("Function returned 200 but response is not a CloudEvent (attempt %v/%v)", i, retries)
+				t.Logf("Content-Type: %s, Ce-Specversion: %s", contentType, ceSpecVersion)
+			}
+			continue
 		}
 
 		if res.StatusCode == 500 {
