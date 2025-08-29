@@ -17,6 +17,14 @@
 # This script sets up the environment for comprehensive testing including
 # Podman, Tekton, GitLab, and matrix tests
 #
+# Cluster Setup:
+#   This script defaults to running all of the optional tests.  This requires
+#   one install the toolchains for all core language runtimes, Podman, 
+#   and configure the cluster with:
+#     hack/cluster.sh
+#     hack/registry.sh
+#     hack/git-server.sh
+#     hack/gitlab.sh
 
 set -o errexit
 set -o nounset
@@ -43,7 +51,7 @@ export FUNC_E2E_MATRIX="${FUNC_E2E_MATRIX:-true}"
 export FUNC_E2E_VERBOSE="${FUNC_E2E_VERBOSE:-true}"
 export FUNC_E2E_PODMAN="${FUNC_E2E_PODMAN:-true}"
 export TEKTON_TESTS_ENABLED="${TEKTON_TESTS_ENABLED:-1}"
-export GITLAB_TESTS_ENABLED="${GITLAB_TESTS_ENABLED:-0}"  # FIXME: Default to 1
+export GITLAB_TESTS_ENABLED="${GITLAB_TESTS_ENABLED:-1}"
 export GITLAB_HOSTNAME="${GITLAB_HOSTNAME:-gitlab.localtest.me}"
 export PAC_CONTROLLER_HOSTNAME="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.localtest.me}"
 
@@ -160,18 +168,18 @@ fi
 echo "mode: atomic" > coverage.txt
 
 # Run unit and integration tests together
-# echo ""
-# echo "Running unit and integration tests..."
-# go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v
-# tail -n +2 coverage-integration.txt >> coverage.txt
-# rm -f coverage-integration.text -run TestMetadata_Labels_Remove
+echo ""
+echo "Running unit and integration tests..."
+go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v
+tail -n +2 coverage-integration.txt >> coverage.txt
+rm -f coverage-integration.text -run TestMetadata_Labels_Remove
 
 # Run E2E tests
 echo ""
 echo "Running E2E tests..."
 cd "${PROJECT_ROOT}/e2e"
-# go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Deploy
-go test -tags e2e -timeout 60m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
+# go test -tags e2e -timeout 120m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Deploy
+go test -tags e2e -timeout 120m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
 tail -n +2 coverage-e2e.txt >> ../coverage.txt
 rm -f coverage-e2e.txt
 
