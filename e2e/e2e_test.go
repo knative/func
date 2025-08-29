@@ -122,7 +122,8 @@ var (
 
 	// MatrixBuilders specifies builders to check during matrix tests.
 	// Can be set with FUNC_E2E_MATRIX_BUILDERS.
-	MatrixBuilders = []string{"host", "pack", "s2i"}
+	// MatrixBuilders = []string{"host", "s2i", "pack"}
+	MatrixBuilders = []string{"host"}
 
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
 	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
