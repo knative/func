@@ -11,17 +11,35 @@ pub async fn handle(
 ) -> Result<Event, actix_web::Error> {
     info!("event: {}", event);
 
-    let input = match event.data() {
-        Some(Data::Binary(v)) => from_slice(v)?,
-        Some(Data::String(v)) => from_str(v)?,
-        Some(Data::Json(v)) => v.to_owned(),
-        None => json!({ "name": config.name }),
+    // Extract message from event data, or use default
+    let message = match event.data() {
+        Some(Data::Binary(v)) => {
+            let input: serde_json::Value = from_slice(v)?;
+            input.get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&config.name)
+                .to_string()
+        },
+        Some(Data::String(v)) => {
+            let input: serde_json::Value = from_str(v)?;
+            input.get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&config.name)
+                .to_string()
+        },
+        Some(Data::Json(v)) => {
+            v.get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&config.name)
+                .to_string()
+        },
+        None => config.name.clone(),
     };
 
     EventBuilderV10::from(event)
         .source("func://handler")
-        .ty("func.example")
-        .data("application/json", json!({ "hello": input["name"] }))
+        .ty("func.echo")
+        .data("application/json", json!({ "message": message }))
         .build()
         .map_err(ErrorInternalServerError)
 }
@@ -37,11 +55,11 @@ mod tests {
     #[actix_rt::test]
     async fn valid_input() {
         let mut input = Event::default();
-        input.set_data("application/json", json!({"name": "bootsy"}));
+        input.set_data("application/json", json!({"message": "test-echo"}));
         let resp = handle(input, config()).await;
         assert!(resp.is_ok());
         match resp.unwrap().data() {
-            Some(Data::Json(output)) => assert_eq!("bootsy", output["hello"]),
+            Some(Data::Json(output)) => assert_eq!("test-echo", output["message"]),
             _ => panic!(),
         }
     }
@@ -51,7 +69,7 @@ mod tests {
         let resp = handle(Event::default(), config()).await;
         assert!(resp.is_ok());
         match resp.unwrap().data() {
-            Some(Data::Json(output)) => assert_eq!("world", output["hello"]),
+            Some(Data::Json(output)) => assert_eq!("world", output["message"]),
             _ => panic!(),
         }
     }
