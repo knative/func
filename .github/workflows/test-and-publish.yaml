@@ -17,7 +17,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       # Configure OS
-      - name: Remove Unnecessary Software
+      - name: Free up disk space
         run: |
           sudo rm -rf /usr/share/dotnet || true
           sudo rm -rf /usr/local/lib/android || true
