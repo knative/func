@@ -172,9 +172,6 @@ func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.Image
 		if err != nil {
 			return err
 		}
-		if a == nil {
-			return errors.New("no authentication option provided")
-		}
 		oo = append(oo, a)
 	}
 
@@ -210,5 +207,6 @@ func (p *Pusher) authOption(ctx context.Context, creds Credentials) (remote.Opti
 		return remote.WithAuth(&authn.Basic{Username: creds.Username, Password: creds.Password}), nil
 	}
 
-	return nil, nil
+	// Return anonymous auth when no credentials are provided (e.g., for localhost registries)
+	return remote.WithAuth(authn.Anonymous), nil
 }
