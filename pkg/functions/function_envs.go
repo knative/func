@@ -9,6 +9,25 @@ import (
 
 type Envs []Env
 
+// Add appends a new environment variable to the Envs slice with the given name and value.
+// If name is an empty string, the Name pointer will be nil, which is used for importing
+// all key-value pairs from a secret or configmap.
+// This method supports template syntax for values:
+//   - Plain values: Add("KEY", "value")
+//   - From local env: Add("KEY", "{{ env:LOCAL_VAR }}")
+//   - From secret: Add("KEY", "{{ secret:secretName:key }}")
+//   - From configmap: Add("KEY", "{{ configMap:configMapName:key }}")
+//   - Import all from secret: Add("", "{{ secret:secretName }}")
+//   - Import all from configmap: Add("", "{{ configMap:configMapName }}")
+func (ee *Envs) Add(name, value string) *Envs {
+	env := Env{Value: &value}
+	if name != "" {
+		env.Name = &name
+	}
+	*ee = append(*ee, env)
+	return ee
+}
+
 // String returns Envs as a space-separated set of environment variable
 // declarations in the form "KEY=VALUE K2=V2"
 func (ee Envs) String() string {
