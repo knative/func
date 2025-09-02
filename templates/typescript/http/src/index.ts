@@ -50,8 +50,8 @@ ${JSON.stringify(body)}
       }
     };
   } else {
-    return { 
-      statusCode: 405, 
+    return {
+      statusCode: 405,
       body: { error: 'Method not allowed' },
       headers: {
         'content-type': 'application/json'

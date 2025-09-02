@@ -19,13 +19,13 @@ init() {
 }
 
 find_executables() {
-  KUBECTL=$(find_executable "kubectl")
-  KIND=$(find_executable "kind")
-  DAPR=$(find_executable "dapr")
-  HELM=$(find_executable "helm")
-  STERN=$(find_executable "stern")
-  KN=$(find_executable "kn")
-  JQ=$(find_executable "jq")
+  KUBECTL=$(find_executable "kubectl" || true)
+  KIND=$(find_executable "kind" || true)
+  DAPR=$(find_executable "dapr" || true)
+  HELM=$(find_executable "helm" || true)
+  STERN=$(find_executable "stern" || true)
+  KN=$(find_executable "kn" || true)
+  JQ=$(find_executable "jq" || true)
 }
 
 populate_environment() {

@@ -144,6 +144,16 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("deployer requires either a target namespace or that the function be already deployed")
 	}
 
+	// Choosing an image to deploy:
+	// If the service has not been deployed before, but there exists a
+	// build image, this build image should be used for the deploy.
+	// TODO: test/consdier the case where it HAS been deployed, and the
+	// build image has been updated /since/ deployment:  do we need a
+	// timestamp? Incrementation?
+	if f.Deploy.Image == "" {
+		f.Deploy.Image = f.Build.Image
+	}
+
 	// Clients
 	client, err := NewServingClient(namespace)
 	if err != nil {
