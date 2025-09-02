@@ -20,6 +20,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+source "$(dirname "$(realpath "$0")")/common.sh"
+
 output_file="${1:-cluster_log.txt}"
 
 echo "::group::cluster events" >> "$output_file"
