@@ -16,6 +16,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+source "$(dirname "$(realpath "$0")")/common.sh"
+
 git_server() {
   echo "Creating Git Server"
 
