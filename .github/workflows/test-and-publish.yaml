@@ -75,7 +75,6 @@ jobs:
       - name: "Test - ${{ matrix.os }}"
         env:
           FUNC_E2E_CLEAN: "false"  # Cluster is recreated for each workflow run
-          GITLAB_ROOT_PASSWORD: "gitlab-${{ github.run_id }}-${{ github.run_number }}"
         run: make test-full
 
       # Run Template Tests

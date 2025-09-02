@@ -1,47 +1,30 @@
 #!/usr/bin/env bash
 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# This script runs unit, integration and e2e tests with all optional tests
+# enabled:
+# - Matrix (for each runtime/language/builder c. product)
+# - Podman
+# - Gitlab
+# - Pipelines
+# - etc.
 #
-#     https://www.apache.org/licenses/LICENSE-2.0
+# (See the environment variables which allow selective overriding.)
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-#
-# Run full test suite with all features enabled
-# This script sets up the environment for comprehensive testing including
-# Podman, Tekton, GitLab, and matrix tests
-#
-# Cluster Setup:
-#   This script defaults to running all of the optional tests.  This requires
-#   one install the toolchains for all core language runtimes, Podman, 
-#   and configure the cluster with:
-#     hack/cluster.sh
-#     hack/registry.sh
-#     hack/git-server.sh
-#     hack/gitlab.sh
+# This script presumes a local testing environment set up using the
+# helper scripts in ./hack and performs some precondition checks to ensure
+# resources are available for the features enabled (nonexhaustive).
+#     hack/binaries.sh   - Installs necessary binaries in ./hack/bin
+#     hack/cluster.sh    - Start test cluster with Knative Serving/Eventing
+#     hack/registry.sh   - Starts and configures a local container registry
+#     hack/git-server.sh - Starts a git server in-cluster
+#     hack/gitlab.sh     - Installs GitLab in-cluster
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-# Determine script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-
-# Generate a timestamp for use setting things which require uniqueness
-TIMESTAMP=$(date +%Y%m%d%H%M%S 2>/dev/null || date +%s 2>/dev/null || echo "$(date)")
-
-# Set up PATH and KUBECONFIG
-export PATH="${PROJECT_ROOT}/hack/bin:${PATH}"
-export KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/hack/bin/kubeconfig.yaml}"
-
-# Set up test environment variables
+# Enable Optional Tests
+# ---------------------
 # The defaults in the e2e test implementation are a bit more conservative.
 # Here we toggle on All The Things.  Note that we still allow any settings
 # made explicitly in the current environment to take precidence; just setting
@@ -55,12 +38,33 @@ export GITLAB_TESTS_ENABLED="${GITLAB_TESTS_ENABLED:-1}"
 export GITLAB_HOSTNAME="${GITLAB_HOSTNAME:-gitlab.localtest.me}"
 export PAC_CONTROLLER_HOSTNAME="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.localtest.me}"
 
+
+# Environment Setup
+# -------------------
+
+# Determine script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Set up PATH and KUBECONFIG
+export PATH="${PROJECT_ROOT}/hack/bin:${PATH}"
+export KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/hack/bin/kubeconfig.yaml}"
+
 # GitLab test configuration
 # This is the default set by ./hack/gitlab.sh, and is overridden in CI, and
 # a warning is issued that users should not only use ./hack/gitlab.sh for
 # configuring test cluster available locally, such as that created by
 # hack/cluster.sh
 export GITLAB_ROOT_PASSWORD="${GITLAB_ROOT_PASSWORD:-test-password-123}"
+
+# Generate a timestamp for use setting things which require uniqueness
+TIMESTAMP=$(date +%Y%m%d%H%M%S 2>/dev/null || date +%s 2>/dev/null || echo "$(date)")
+
+# Initialize coverage file
+echo "mode: atomic" > coverage.txt
+
+# Precondition Checks
+# -------------------
 
 # Check if binaries are installed
 if [ ! -d "${PROJECT_ROOT}/hack/bin" ]; then
@@ -118,8 +122,11 @@ if [ "${FUNC_E2E_PODMAN}" = "true" ]; then
     fi
 fi
 
-echo "✓ Prerequisites check passed"
 echo ""
+echo "✓ Prerequisites check passed"
+
+# Podman Setup
+# -------------
 
 # Check Podman service if Podman tests are enabled
 if [ "${FUNC_E2E_PODMAN}" = "true" ]; then
@@ -161,31 +168,48 @@ if [ "${FUNC_E2E_PODMAN}" = "true" ]; then
             export FUNC_E2E_PODMAN_HOST="unix://${PODMAN_SOCKET}"
         fi
     fi
-    echo "Podman socket: ${FUNC_E2E_PODMAN_HOST}"
+    echo ""
+    echo "✓ Podman socket: ${FUNC_E2E_PODMAN_HOST}"
 fi
 
-# Initialize coverage file
-echo "mode: atomic" > coverage.txt
-
+# Unit and Integration Tests
+# --------------------------
 # Run unit and integration tests together
-# echo ""
-# echo "Running unit and integration tests..."
-# go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v
-# tail -n +2 coverage-integration.txt >> coverage.txt
-# rm -f coverage-integration.text -run TestMetadata_Labels_Remove
+echo ""
+echo "Running unit and integration tests..."
+INTEGRATION_START=$SECONDS
+# go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v -run TestNewCredentialsProvider
+go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v
+tail -n +2 coverage-integration.txt >> coverage.txt
+rm -f coverage-integration.txt 
+
+INTEGRATION_DURATION=$((SECONDS - INTEGRATION_START))
+INTEGRATION_MINS=$((INTEGRATION_DURATION / 60))
+INTEGRATION_SECS=$((INTEGRATION_DURATION % 60))
+
+echo ""
+echo "✓ Unit and Integration tests completed successfully (duration: ${INTEGRATION_MINS}m ${INTEGRATION_SECS}s)"
+
+# E2E Tests
+# --------------------------
 
 # Run E2E tests
 echo ""
 echo "Running E2E tests..."
+E2E_START=$SECONDS
 cd "${PROJECT_ROOT}/e2e"
-go test -tags e2e -timeout 120m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Deploy
-# go test -tags e2e -timeout 120m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
+# go test -tags e2e -timeout 120m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_Run
+go test -tags e2e -timeout 120m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
 tail -n +2 coverage-e2e.txt >> ../coverage.txt
 rm -f coverage-e2e.txt
 
+E2E_DURATION=$((SECONDS - E2E_START))
+E2E_MINS=$((E2E_DURATION / 60))
+E2E_SECS=$((E2E_DURATION % 60))
+
+echo "✓ E2E tests completed successfully (duration: ${E2E_MINS}m ${E2E_SECS}s)"
+
 cd "${PROJECT_ROOT}"
-echo ""
-echo "Coverage report created: coverage.txt"
 
 echo ""
-echo "All tests completed successfully!"
+echo "✓ All tests completed successfully"
