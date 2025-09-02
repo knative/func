@@ -25,10 +25,14 @@ source "$(dirname "$(realpath "$0")")/common.sh"
 output_file="${1:-cluster_log.txt}"
 
 echo "::group::cluster events" >> "$output_file"
-kubectl get events -A >> "$output_file" 2>&1
+"$KUBECTL" get events -A >> "$output_file" 2>&1
 echo "::endgroup::" >> "$output_file"
 
 echo "::group::cluster containers logs" >> "$output_file"
-stern '.*' --all-namespaces --no-follow >> "$output_file" 2>&1
+if [[ -n "${STERN:-}" && -x "${STERN}" ]]; then
+  "$STERN" '.*' --all-namespaces --no-follow >> "$output_file" 2>&1
+else
+  echo "stern not available, skipping container logs" >> "$output_file" 2>&1
+fi
 echo "::endgroup::" >> "$output_file"
 
