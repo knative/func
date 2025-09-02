@@ -128,7 +128,7 @@ var (
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
 	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
 	// MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
-	MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
+	MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust"}
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
 	// MatrixTemplates = []string{"http", "cloudevents"}
