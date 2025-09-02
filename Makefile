@@ -40,6 +40,9 @@ export GOFLAGS
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
+# Disable output buffering (stream)
+MAKEFLAGS += --output-sync=none
+
 # Default Targets
 .PHONY: all
 all: build docs
