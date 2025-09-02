@@ -12,8 +12,7 @@ import (
 	"github.com/Netflix/go-expect"
 	"github.com/creack/pty"
 	"github.com/hinshun/vt10x"
-
-	"knative.dev/func/pkg/docker"
+	"knative.dev/func/pkg/oci"
 )
 
 const (
@@ -21,7 +20,7 @@ const (
 )
 
 func Test_NewPromptForCredentials(t *testing.T) {
-	expectedCreds := docker.Credentials{
+	expectedCreds := oci.Credentials{
 		Username: "testuser",
 		Password: "testpwd",
 	}

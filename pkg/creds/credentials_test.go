@@ -26,8 +26,8 @@ import (
 
 	"github.com/docker/docker-credential-helpers/credentials"
 
-	"knative.dev/func/pkg/docker"
-	"knative.dev/func/pkg/docker/creds"
+	"knative.dev/func/pkg/creds"
+	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -162,7 +162,7 @@ func TestCheckAuth(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := docker.Credentials{
+			c := oci.Credentials{
 				Username: tt.args.username,
 				Password: tt.args.password,
 			}
@@ -199,7 +199,7 @@ func TestCheckAuth(t *testing.T) {
 func TestCheckAuthEmptyCreds(t *testing.T) {
 
 	localhost, _, _ := startServer(t, "", "")
-	err := creds.CheckAuth(context.Background(), localhost+"/someorg/someimage:sometag", docker.Credentials{}, http.DefaultTransport)
+	err := creds.CheckAuth(context.Background(), localhost+"/someorg/someimage:sometag", oci.Credentials{}, http.DefaultTransport)
 	if err != nil {
 		t.Error(err)
 	}
@@ -334,7 +334,7 @@ const (
 	quayIoUserPwd   = "goodPwd2"
 )
 
-type Credentials = docker.Credentials
+type Credentials = oci.Credentials
 
 func TestNewCredentialsProvider(t *testing.T) {
 	helperWithQuayIO := newInMemoryHelper()
@@ -460,8 +460,8 @@ func TestNewCredentialsProvider(t *testing.T) {
 func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
 	resetHomeDir(t)
 
-	credentialsProvider := creds.NewCredentialsProvider(testConfigPath(t), creds.WithVerifyCredentials(func(ctx context.Context, image string, credentials docker.Credentials) error {
-		if image == "localhost:5555/someorg/someimage:sometag" && credentials == (docker.Credentials{}) {
+	credentialsProvider := creds.NewCredentialsProvider(testConfigPath(t), creds.WithVerifyCredentials(func(ctx context.Context, image string, credentials oci.Credentials) error {
+		if image == "localhost:5555/someorg/someimage:sometag" && credentials == (oci.Credentials{}) {
 			return nil
 		}
 		t.Fatal("unreachable")
@@ -471,7 +471,7 @@ func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if c != (docker.Credentials{}) {
+	if c != (oci.Credentials{}) {
 		t.Error("unexpected credentials")
 	}
 }

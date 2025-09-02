@@ -34,6 +34,7 @@ import (
 	"knative.dev/func/pkg/k8s"
 	fnlabels "knative.dev/func/pkg/k8s/labels"
 	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/oci"
 	"knative.dev/pkg/apis"
 )
 
@@ -54,11 +55,11 @@ type pacURLCallback = func() (string, error)
 type PipelinesProvider struct {
 	verbose             bool
 	getPacURL           pacURLCallback
-	credentialsProvider docker.CredentialsProvider
+	credentialsProvider oci.CredentialsProvider
 	decorator           PipelineDecorator
 }
 
-func WithCredentialsProvider(credentialsProvider docker.CredentialsProvider) Opt {
+func WithCredentialsProvider(credentialsProvider oci.CredentialsProvider) Opt {
 	return func(pp *PipelinesProvider) {
 		pp.credentialsProvider = credentialsProvider
 	}
