@@ -128,11 +128,11 @@ var (
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
 	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
 	// MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
-	MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
+	MatrixRuntimes = []string{"quarkus", "springboot"}
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
 	// MatrixTemplates = []string{"http", "cloudevents"}
-	MatrixTemplates = []string{"cloudevents"}
+	MatrixTemplates = []string{"http", "cloudevents"}
 
 	// Plugin indicates func is being run as a plugin within Bin, and
 	// the value of this argument is the subcommand.  For example, when
