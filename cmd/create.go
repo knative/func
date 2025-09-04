@@ -336,8 +336,9 @@ func isValidTemplate(client *fn.Client, runtime, template string) bool {
 // is required, and a verbose list of valid options.
 func noRuntimeError(client *fn.Client) error {
 	b := strings.Builder{}
-	fmt.Fprintf(&b, "Required flag \"language\" not set.\n")
-	fmt.Fprintln(&b, "Available language runtimes are:")
+	fmt.Fprintf(&b, " Missing required language\n")
+	fmt.Fprintf(&b, "You need to specify which programming language to use.\n")
+	fmt.Fprintln(&b, "Choose from these options:")
 	runtimes, err := client.Runtimes()
 	if err != nil {
 		return err
@@ -345,6 +346,9 @@ func noRuntimeError(client *fn.Client) error {
 	for _, v := range runtimes {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
+	fmt.Fprintf(&b, "\nExample:\n")
+	fmt.Fprintf(&b, "  func create --language python myfunction\n")
+	fmt.Fprintf(&b, "\nRun 'func languages' to see detailed language information.\n")
 	return ErrNoRuntime(errors.New(b.String()))
 }
 
