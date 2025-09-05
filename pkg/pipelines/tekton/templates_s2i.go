@@ -53,6 +53,10 @@ spec:
       workspaces:
         - name: source
           workspace: source-workspace
+        - name: cache
+          workspace: cache-workspace
+        - name: dockerconfig
+          workspace: dockerconfig-workspace
       {{.RunAfterFetchSources}}
       {{.FuncScaffoldTaskRef}}
     - name: build
@@ -92,6 +96,10 @@ spec:
       workspaces:
         - name: source
           workspace: source-workspace
+        - name: cache
+          workspace: cache-workspace
+        - name: dockerconfig
+          workspace: dockerconfig-workspace
   workspaces:
     - description: Directory where function source is located.
       name: source-workspace
