@@ -57,7 +57,7 @@ require (
 	golang.org/x/crypto v0.41.0
 	golang.org/x/net v0.43.0
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.17.0
 	golang.org/x/sys v0.35.0
 	golang.org/x/term v0.34.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -67,11 +67,11 @@ require (
 	k8s.io/apimachinery v0.33.4
 	k8s.io/client-go v0.33.4
 	k8s.io/klog/v2 v2.130.1
-	knative.dev/client/pkg v0.0.0-20250905022241-b0d8345bc2f2
-	knative.dev/eventing v0.46.1-0.20250904130844-ea44c30e2797
+	knative.dev/client/pkg v0.0.0-20250909022336-7058e965bbf7
+	knative.dev/eventing v0.46.1-0.20250909024733-5b31acec9b00
 	knative.dev/hack v0.0.0-20250902153942-1499de21e119
-	knative.dev/pkg v0.0.0-20250903014743-528bde37b646
-	knative.dev/serving v0.46.1-0.20250905135143-6bab56591b55
+	knative.dev/pkg v0.0.0-20250909010931-8c9c1d368e4b
+	knative.dev/serving v0.46.1-0.20250908164532-12777f672fea
 )
 
 require (
@@ -231,9 +231,9 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
-	github.com/prometheus/client_golang v1.23.0 // indirect
+	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.65.0 // indirect
+	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/prometheus/statsd_exporter v0.28.0 // indirect
 	github.com/rickb777/date v1.20.2 // indirect
@@ -288,7 +288,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/grpc v1.74.2 // indirect
-	google.golang.org/protobuf v1.36.7 // indirect
+	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
