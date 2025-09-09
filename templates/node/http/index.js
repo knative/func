@@ -3,7 +3,7 @@
  * function that echoes its input to the caller, and returns an error if
  * the incoming request is something other than an HTTP POST or GET.
  *
- * In can be invoked with 'func invoke'
+ * It can be invoked with 'func invoke'
  * It can be tested with 'npm test'
  *
  * @param {Context} context a context object.
