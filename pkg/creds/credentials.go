@@ -167,6 +167,20 @@ func NewCredentialsProvider(configPath string, opts ...Opt) oci.CredentialsProvi
 	// default credential loaders map -- load only those that should be there.
 	var defaultCredentialLoaders = []CredentialsCallback{}
 
+	// Add localhost registry handler first - anonymous auth for localhost registries
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
+		func(registry string) (oci.Credentials, error) {
+			// Check if this is a localhost registry that should use anonymous auth
+			if registry == "localhost" || registry == "127.0.0.1" || 
+			   registry == "localhost:5000" || registry == "localhost:50000" ||
+			   registry == "127.0.0.1:5000" || registry == "127.0.0.1:50000" ||
+			   strings.HasPrefix(registry, "localhost:") || strings.HasPrefix(registry, "127.0.0.1:") {
+				// Return empty credentials for anonymous auth
+				return oci.Credentials{}, nil
+			}
+			return oci.Credentials{}, ErrCredentialsNotFound
+		})
+
 	c.authFilePath = filepath.Join(configPath, "auth.json")
 	sys := &containersTypes.SystemContext{
 		AuthFilePath: c.authFilePath,
@@ -389,6 +403,16 @@ func getCredentialsByCredentialHelper(confFilePath, registry string) (oci.Creden
 
 	credentialsMap, err := client.List(p)
 	if err != nil {
+		// Handle missing credential helper gracefully
+		errStr := err.Error()
+		if os.IsNotExist(err) || 
+		   strings.Contains(errStr, "executable file not found") ||
+		   strings.Contains(errStr, "not found in $PATH") ||
+		   strings.Contains(errStr, helperName) {
+			// Log warning but don't fail - the credential helper is not available
+			fmt.Fprintf(os.Stderr, "Warning: credential helper %s not found, skipping: %v\n", helperName, err)
+			return result, ErrCredentialsNotFound
+		}
 		return result, fmt.Errorf("failed to list credentials: %w", err)
 	}
 

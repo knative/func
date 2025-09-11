@@ -244,6 +244,11 @@ func TestIntegration(t *testing.T) {
 	}
 
 	buff.Reset()
+	
+	// Wait a moment for the previous deployment's pods to terminate
+	// to avoid capturing logs from both old and new pods
+	time.Sleep(3 * time.Second)
+	
 	t.Setenv("LOCAL_ENV_TO_DEPLOY", "iddqd")
 	function.Run.Envs = []fn.Env{
 		{Name: ptr("FUNC_TEST_VAR"), Value: ptr("{{ env:LOCAL_ENV_TO_DEPLOY }}")},
@@ -254,6 +259,12 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	
+	// Give the new deployment a moment to stabilize and clear any old pod logs
+	time.Sleep(2 * time.Second)
+	buff.Reset()
+	time.Sleep(2 * time.Second)
+	
 	outStr = buff.String()
 	t.Log("function output:\n" + outStr)
 

@@ -1,0 +1,184 @@
+name: Test and Publish
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    branches:
+      - "main"
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os:
+          - "ubuntu-latest"
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Configure OS
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/ghc || true
+      - name: Disable CLRF conversion
+        run: git config --global core.autocrlf false # TODO: Why?
+      - name: Checkout Source
+        uses: actions/checkout@v4
+      - name: Update Tools (Mac)
+        run: ./hack/mac-bash.sh
+
+        # Install toolchains
+      - name: Setup Go
+        uses: knative/actions/setup-go@main
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      # Allocate Cluster 
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/cluster.sh
+      - name: Start Local Registry
+        run: ./hack/registry.sh
+      - name: Prepare Images
+        run: ./hack/images.sh
+      - name: Install Git Server
+        run: ./hack/git-server.sh
+      - name: Install Gitlab
+        run: ./hack/gitlab.sh
+
+      # Install and Start Podman (Linux)
+      - name: Install and Start Podman (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt update
+          sudo apt install -y podman
+          podman system service --time=0 &
+          sleep 3  # Give it time to start
+
+      # Run Full Test Suite
+      - name: "Test - ${{ matrix.os }}"
+        env:
+          FUNC_E2E_CLEAN: "false"  # Cluster is recreated for each workflow run
+        run: make test-full
+
+      # Run Template Tests
+      - name: "Test Templates - ${{ matrix.os }}"
+        run: make test-templates
+
+      # Coverage and Logs
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          flags: e2e ${{ matrix.os }}
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Preserve Cluser Logs
+      - name: Dump Cluster Logs
+        if: always()
+        run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Archive Cluster Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs-${{ matrix.os }}
+          path: ./cluster_log.txt
+          retention-days: 7
+
+
+  # Build and Publish
+  # - if target is main (not a PR)
+  build:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      # Standard build tasks
+      - name: Build
+        run: make cross-platform
+      # Upload all build artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OSX Binary (AMD)
+          path: func_darwin_amd64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OSX Binary (ARM)
+          path: func_darwin_arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linux Binary (AMD)
+          path: func_linux_amd64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linux Binary (ARM)
+          path: func_linux_arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linux Binary (PPC64LE)
+          path: func_linux_ppc64le
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Linux Binary (S390X)
+          path: func_linux_s390x
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows Binary
+          path: func_windows_amd64.exe
+
+  publish-utils-image:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - uses: docker/setup-qemu-action@v3
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        run: |
+          for a in amd64 arm64 ppc64le s390x; do
+            CGO_ENABLED=0 go build -o "func-util-$a" -trimpath -ldflags '-w -s' ./cmd/func-util
+          done
+          docker buildx create --name multiarch --driver docker-container --use
+          docker buildx build . -f Dockerfile.utils \
+            --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
+            --push \
+            -t "ghcr.io/knative/func-utils:v2" \
+            --annotation index:org.opencontainers.image.description="Knative Func Utils Image" \
+            --annotation index:org.opencontainers.image.source="https://github.com/knative/func" \
+            --annotation index:org.opencontainers.image.vendor="https://github.com/knative/func" \
+            --annotation index:org.opencontainers.image.url="https://github.com/knative/func/pkgs/container/func-utils"
+
+  publish-image:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - uses: imjasonh/setup-ko@v0.6
+      - run: ko build --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 -B ./cmd/func
