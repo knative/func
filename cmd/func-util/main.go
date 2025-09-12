@@ -87,7 +87,12 @@ func scaffold(ctx context.Context) error {
 	}
 
 	if f.Runtime != "go" && f.Runtime != "python" {
-		// Scaffolding is for now supported/needed only for Go.
+		// Scaffolding is for now supported/needed only for Go/Python
+		return nil
+	}
+
+	// special case for python-pack
+	if f.Build.Builder == "pack" && f.Runtime == "python" {
 		return nil
 	}
 
@@ -147,7 +152,7 @@ func deploy(ctx context.Context) error {
 			return fmt.Errorf("cannot determine working directory: %w", err)
 		}
 	}
-
+	fmt.Printf("root: %v\n", root)
 	f, err := fn.NewFunction(root)
 	if err != nil {
 		return fmt.Errorf("cannot load function: %w", err)
