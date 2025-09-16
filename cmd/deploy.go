@@ -241,15 +241,15 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		cfg deployConfig
 		f   fn.Function
 	)
-	
+
 	// Initialize config first
 	cfg = newDeployConfig(cmd)
-	
+
 	// Create function object to check if initialized
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
-	
+
 	// Check if function exists BEFORE prompting for config
 	if !f.Initialized() {
 		if !cfg.Remote || f.Build.Git.URL == "" {
@@ -275,7 +275,7 @@ For more detailed deployment options, run 'func deploy --help'`)
 			return errors.New("please ensure the function's source is also available locally")
 		}
 	}
-	
+
 	// Now that we know function exists, proceed with prompting
 	if cfg, err = cfg.Prompt(); err != nil {
 		return
