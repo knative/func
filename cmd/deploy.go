@@ -254,7 +254,19 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if !f.Initialized() {
 		if !cfg.Remote || f.Build.Git.URL == "" {
 			// Only error if this is not a fully remote build
-			return fmt.Errorf("no function found in current directory.\nYou need to be inside a function directory to deploy it.\n\nTry this:\n  func create --language go myfunction    Create a new function\n  cd myfunction                          Go into the function directory\n  func deploy --registry <registry>      Deploy to the cloud\n\nOr if you have an existing function:\n  cd path/to/your/function              Go to your function directory\n  func deploy --registry <registry>     Deploy the function\n\nFor more detailed deployment options, run 'func deploy --help'.")
+			return fmt.Errorf(`no function found in current directory.
+You need to be inside a function directory to deploy it.
+
+Try this:
+  func create --language go myfunction    Create a new function
+  cd myfunction                          Go into the function directory
+  func deploy --registry <registry>      Deploy to the cloud
+
+Or if you have an existing function:
+  cd path/to/your/function              Go to your function directory
+  func deploy --registry <registry>     Deploy the function
+
+For more detailed deployment options, run 'func deploy --help'`)
 		} else {
 			// TODO: this case is not supported because the pipeline
 			// implementation requires the function's name, which is in the
