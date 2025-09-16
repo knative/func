@@ -84,7 +84,17 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 			return err
 		}
 		if !f.Initialized() {
-			return fmt.Errorf("no function found in current directory.\nYou need to be inside a function directory to get the function description.\n\nTry this:\n  func create --language go myfunction    Create a new function\n  cd myfunction                          Go into the function directory\n  func describe                          Show function description\n\nOr if you have an existing function:\n  cd path/to/your/function              Go to your function directory\n  func describe                         Show function description")
+			return fmt.Errorf(`no function found in current directory.
+You need to be inside a function directory to get the function description.
+
+Try this:
+  func create --language go myfunction    Create a new function
+  cd myfunction                          Go into the function directory
+  func describe                          Show function description
+
+Or if you have an existing function:
+  cd path/to/your/function              Go to your function directory
+  func describe                         Show function description`)
 		}
 		details, err = client.Describe(cmd.Context(), "", "", f)
 		if err != nil {
