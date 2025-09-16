@@ -160,7 +160,17 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 	if !f.Initialized() {
-		return fmt.Errorf("no function found in current directory.\nYou need to be inside a function directory to run it.\n\nTry this:\n  func create --language go myfunction    Create a new function\n  cd myfunction                          Go into the function directory\n  func run                               Run the function locally\n\nOr if you have an existing function:\n  cd path/to/your/function              Go to your function directory\n  func run                              Run the function locally")
+		return fmt.Errorf(`no function found in current directory.
+You need to be inside a function directory to run it.
+
+Try this:
+  func create --language go myfunction    Create a new function
+  cd myfunction                          Go into the function directory
+  func run                               Run the function locally
+
+Or if you have an existing function:
+  cd path/to/your/function              Go to your function directory
+  func run                              Run the function locally`)
 	}
 
 	if err = cfg.Validate(cmd, f); err != nil {
