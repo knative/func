@@ -90,14 +90,50 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 
 	items, err := client.List(cmd.Context(), cfg.Namespace)
 	if err != nil {
-		return
+		return fmt.Errorf(`cannot connect to Knative cluster
+
+The 'func list' command shows functions deployed to your Knative cluster.
+
+To use this command, you need:
+  1. A running Kubernetes cluster
+  2. Knative Serving installed on the cluster
+  3. kubectl configured to access your cluster
+
+Workflow:
+  func create --language go myfunction    Create a function
+  func deploy --registry <registry>       Deploy to cluster
+  func list                               See your deployed functions
+
+Troubleshooting:
+  kubectl get pods -n knative-serving     Check Knative installation
+  kubectl config current-context          Verify cluster connection
+
+Installation guide: https://knative.dev/docs/serving/#installation`)
 	}
 
 	if len(items) == 0 {
 		if cfg.Namespace != "" {
-			fmt.Printf("no functions found in namespace '%v'\n", cfg.Namespace)
+			fmt.Printf(`no functions found in namespace '%v'
+
+'func list' shows functions that have been deployed to your cluster.
+
+To see functions here:
+  func create --language go myfunction    Create a function
+  func deploy --registry <registry>       Deploy to cluster
+  func list                               See it listed
+
+Or check other namespaces:
+  func list --all-namespaces             List functions in all namespaces
+`, cfg.Namespace)
 		} else {
-			fmt.Println("no functions found")
+			fmt.Println(`no functions found
+
+'func list' shows functions that have been deployed to your cluster.
+
+To see functions here:
+  func create --language go myfunction    Create a function
+  func deploy --registry <registry>       Deploy to cluster
+  func list                               See it listed`)
 		}
 		return
 	}
