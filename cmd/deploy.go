@@ -241,24 +241,32 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		cfg deployConfig
 		f   fn.Function
 	)
-	if cfg, err = newDeployConfig(cmd).Prompt(); err != nil {
-		return
-	}
-	if err = cfg.Validate(cmd); err != nil {
-		return
-	}
+
+	// Initialize config first
+	cfg = newDeployConfig(cmd)
+
+	// Create function object to check if initialized
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
-	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
-		return
-	}
-	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
 
+	// Check if function exists BEFORE prompting for config
 	if !f.Initialized() {
 		if !cfg.Remote || f.Build.Git.URL == "" {
 			// Only error if this is not a fully remote build
-			return fn.NewErrNotInitialized(f.Root)
+			return fmt.Errorf(`no function found in current directory.
+You need to be inside a function directory to deploy it.
+
+Try this:
+  func create --language go myfunction    Create a new function
+  cd myfunction                          Go into the function directory
+  func deploy --registry <registry>      Deploy to the cloud
+
+Or if you have an existing function:
+  cd path/to/your/function              Go to your function directory
+  func deploy --registry <registry>     Deploy the function
+
+For more detailed deployment options, run 'func deploy --help'`)
 		} else {
 			// TODO: this case is not supported because the pipeline
 			// implementation requires the function's name, which is in the
@@ -267,6 +275,18 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return errors.New("please ensure the function's source is also available locally")
 		}
 	}
+
+	// Now that we know function exists, proceed with prompting
+	if cfg, err = cfg.Prompt(); err != nil {
+		return
+	}
+	if err = cfg.Validate(cmd); err != nil {
+		return
+	}
+	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
+		return
+	}
+	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
 
 	changingNamespace := func(f fn.Function) bool {
 		// We're changing namespace if:
