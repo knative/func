@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -83,7 +82,17 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 			return err
 		}
 		if !f.Initialized() {
-			return errors.New("function not found at this path and no name provided")
+			return fmt.Errorf(`no function found in current directory.
+You need to be inside a function directory to get the function description.
+
+Try this:
+  func create --language go myfunction    Create a new function
+  cd myfunction                          Go into the function directory
+  func describe                          Show function description
+
+Or if you have an existing function:
+  cd path/to/your/function              Go to your function directory
+  func describe                         Show function description`)
 		}
 		details, err = client.Describe(cmd.Context(), "", "", f)
 		if err != nil {
