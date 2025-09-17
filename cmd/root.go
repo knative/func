@@ -153,7 +153,7 @@ func effectivePath() (path string) {
 		p   = fs.StringP("path", "p", "", "")
 	)
 	fs.SetOutput(io.Discard)
-	fs.ParseErrorsWhitelist.UnknownFlags = true // wokeignore:rule=whitelist
+	fs.ParseErrorsAllowlist.UnknownFlags = true // wokeignore:rule=whitelist
 	// Preparsing flags intentionally ignores errors because this is intended
 	// to be an opportunistic parse of the path flags, with actual validation of
 	// flags taking place later in the instantiation process by the cobra pkg.
