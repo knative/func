@@ -13,6 +13,8 @@
  * @param {object} context.headers the HTTP request headers
  * @param {string} context.method the HTTP request method
  * @param {string} context.httpVersion the HTTP protocol version
+ * @param {string} context.httpVersionMajor the HTTP major version number
+ * @param {string} context.httpVersionMinor the HTTP minor version number
  * See: https://github.com/knative/func/blob/main/docs/function-developers/nodejs.md#the-context-object
  */
 const handle = async (context, body) => {
