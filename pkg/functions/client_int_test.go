@@ -1,5 +1,4 @@
 //go:build integration
-// +build integration
 
 package functions_test
 
@@ -24,8 +23,9 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
-	. "knative.dev/func/pkg/testing"
 	"knative.dev/pkg/ptr"
+
+	. "knative.dev/func/pkg/testing"
 )
 
 // # Integration Tests
@@ -57,9 +57,9 @@ import (
 const (
 	DefaultIntTestHome       = "./testdata/default_home"
 	DefaultIntTestKubeconfig = "../../hack/bin/kubeconfig.yaml"
-	DefaultIntTestRegistry   = "localhost:50000/func"
 	DefaultIntTestNamespace  = "default"
 	DefaultIntTestVerbose    = false
+	// DefaultIntTestRegistry = // see testing package (it's shared)
 )
 
 var (
