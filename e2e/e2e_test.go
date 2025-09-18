@@ -1,5 +1,4 @@
 //go:build e2e
-// +build e2e
 
 /*
 Package e2e provides an end-to-end test suite for the Functions CLI "func".
@@ -1787,7 +1786,7 @@ func matrixExceptionsShared(t *testing.T, initArgs []string, funcRuntime, builde
 	}
 	// Java can take... a while
 	if funcRuntime == "springboot" {
-		waitTimeout = 6 * time.Minute
+		waitTimeout = 10 * time.Minute
 	}
 	return initArgs, waitTimeout
 }
@@ -1795,6 +1794,7 @@ func matrixExceptionsShared(t *testing.T, initArgs []string, funcRuntime, builde
 // TestMatrix_TEST is a temporary test being used to isolate cases when
 // debugging
 func TestMatrix_TEST(t *testing.T) {
+	t.Skip("for debugging only")
 	// FUNCTION ONE:  PACK
 	name1 := "func-e2e-matrix-remote-pvc-pack"
 	_ = fromCleanEnv(t, name1)
