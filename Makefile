@@ -40,6 +40,9 @@ export GOFLAGS
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
+# Disable output buffering (stream)
+MAKEFLAGS += --output-sync=none
+
 # Default Targets
 .PHONY: all
 all: build docs
@@ -74,7 +77,6 @@ test: generate/zz_filesystem_generated.go ## Run core unit tests
 .PHONY: check
 check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
 	$(BIN_GOLANGCI_LINT) run --timeout 300s
-	cd test && $(BIN_GOLANGCI_LINT) run --timeout 300s
 
 $(BIN_GOLANGCI_LINT):
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v2.0.2
@@ -196,14 +198,19 @@ test-typescript: ## Test Typescript templates
 
 # Pulls runtimes then rebuilds the embedded filesystem
 .PHONY: update-runtimes
-update-runtimes:  update-runtime-go generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
+update-runtimes:  update-runtime-go update-runtime-python generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
 
 .PHONY: update-runtime-go
 update-runtime-go:
+	@echo "Updating Go runtime..."
 	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
 	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
+
+.PHONY: update-runtime-python
+update-runtime-python:
+	# Nothing to update for Python
 
 
 .PHONY: certs
@@ -220,23 +227,20 @@ templates/certs/ca-certificates.crt:
 
 .PHONY: test-integration
 test-integration: ## Run integration tests using an available cluster.
-	go test -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
-
-.PHONY: func-instrumented
-func-instrumented: # func binary instrumented with coverage reporting
-	env CGO_ENABLED=1 go build -cover -o func ./cmd/$(BIN)
+	go test -tags integration -timeout 30m ./... -v
 
 .PHONY: test-e2e
-test-e2e: func-instrumented ## Run end-to-end tests using an available cluster.
-	./test/e2e_extended_tests.sh
+test-e2e: func-instrumented-bin ## Run all tests (unit, integration, e2e)
+	go test -tags e2e -cover -timeout 30m ./e2e -v
 
-.PHONY: test-e2e-runtime
-test-e2e-runtime: func-instrumented ## Run end-to-end lifecycle tests using an available cluster for a single runtime.
-	./test/e2e_lifecycle_tests.sh $(runtime)
+.PHONY: test-full
+test-full: func-instrumented-bin ## Run full test suite with all features enabled
+	./hack/test-full.sh
 
-.PHONY: test-e2e-on-cluster
-test-e2e-on-cluster: func-instrumented ## Run end-to-end on-cluster build tests using an available cluster.
-	./test/e2e_oncluster_tests.sh
+.PHONY: func-instrumented-bin
+func-instrumented-bin: # func binary instrumented with coverage reporting
+	env CGO_ENABLED=1 go build -cover -o func ./cmd/$(BIN)
+
 
 ######################
 ##@ Release Artifacts
@@ -296,8 +300,8 @@ schema-generate: schema/func_yaml-schema.json ## Generate func.yaml schema
 schema/func_yaml-schema.json: pkg/functions/function.go pkg/functions/function_*.go
 	go run schema/generator/main.go
 
-.PHONY: schema-check
-schema-check: ## Check that func.yaml schema is up-to-date
+.PHONY: check-schema
+check-schema: ## Check that func.yaml schema is up-to-date
 	mv schema/func_yaml-schema.json schema/func_yaml-schema-previous.json
 	make schema-generate
 	diff schema/func_yaml-schema.json schema/func_yaml-schema-previous.json ||\
