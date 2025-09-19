@@ -158,17 +158,43 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		cfg buildConfig
 		f   fn.Function
 	)
-	if cfg, err = newBuildConfig().Prompt(); err != nil { // gather values into a single instruction set
+	
+	// Initialize config first
+	cfg = newBuildConfig()
+	
+	// Create function object to check if initialized
+	if f, err = fn.NewFunction(cfg.Path); err != nil {
+		return
+	}
+	
+	// Check if function exists BEFORE prompting for config
+	if !f.Initialized() {
+		return fmt.Errorf(`no function found in current directory.
+You need to be inside a function directory to build it.
+
+Try this:
+  func create --language go myfunction    Create a new function
+  cd myfunction                          Go into the function directory
+  func build --registry <registry>       Build the function container
+
+Or if you have an existing function:
+  cd path/to/your/function              Go to your function directory
+  func build                            Build using previous settings
+
+Common build scenarios:
+  func build --registry registry.example.com/alice    Build with registry
+  func build --push                                   Build and push to registry
+  func build --builder=s2i                           Build with S2I builder
+
+For more detailed build options, run 'func build --help'.`)
+	}
+	
+	// Now that we know function exists, proceed with prompting
+	if cfg, err = cfg.Prompt(); err != nil { // gather values into a single instruction set
 		return
 	}
 	if err = cfg.Validate(); err != nil { // Perform any pre-validation
 		return
-	}
-	if f, err = fn.NewFunction(cfg.Path); err != nil { // Read in the Function
-		return
-	}
-	if !f.Initialized() {
-		return fn.NewErrNotInitialized(f.Root)
 	}
 	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 
