@@ -158,15 +158,15 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		cfg buildConfig
 		f   fn.Function
 	)
-	
+
 	// Initialize config first
 	cfg = newBuildConfig()
-	
+
 	// Create function object to check if initialized
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
-	
+
 	// Check if function exists BEFORE prompting for config
 	if !f.Initialized() {
 		return fmt.Errorf(`no function found in current directory.
@@ -186,9 +186,9 @@ Common build scenarios:
   func build --push                                   Build and push to registry
   func build --builder=s2i                           Build with S2I builder
 
-For more detailed build options, run 'func build --help'.`)
+For more detailed build options, run 'func build --help'`)
 	}
-	
+
 	// Now that we know function exists, proceed with prompting
 	if cfg, err = cfg.Prompt(); err != nil { // gather values into a single instruction set
 		return
