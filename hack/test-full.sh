@@ -178,10 +178,10 @@ fi
 echo ""
 echo "Running unit and integration tests..."
 INTEGRATION_START=$SECONDS
-# go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v -run TestNewCredentialsProvider
-# go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v
-# tail -n +2 coverage-integration.txt >> coverage.txt
-# rm -f coverage-integration.txt 
+go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v -run TestNewCredentialsProvider
+go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v
+tail -n +2 coverage-integration.txt >> coverage.txt
+rm -f coverage-integration.txt 
 
 INTEGRATION_DURATION=$((SECONDS - INTEGRATION_START))
 INTEGRATION_MINS=$((INTEGRATION_DURATION / 60))
@@ -193,79 +193,13 @@ echo "✓ Unit and Integration tests completed successfully (duration: ${INTEGRA
 # E2E Tests
 # --------------------------
 
-# Function to check and report disk usage
-check_disk_usage() {
-    echo ""
-    echo "=== Disk Usage Check ==="
-    df -h / 2>/dev/null || df -h
-
-    # Check Docker/Podman storage if available
-    if command -v docker &>/dev/null; then
-        echo ""
-        echo "Docker storage:"
-        docker system df || true
-    fi
-
-    if command -v podman &>/dev/null; then
-        echo ""
-        echo "Podman storage:"
-        podman system df || true
-    fi
-
-    # Show /tmp usage
-    echo ""
-    echo "Test artifacts in /tmp:"
-    du -sh /tmp/TestMatrix_* 2>/dev/null | tail -5 || echo "No TestMatrix directories yet"
-    echo ""
-}
-
-# Show disk usage before tests
-check_disk_usage
-
-# Run E2E tests with periodic cleanup
+# Run E2E tests
 echo ""
-echo "Running E2E tests with disk monitoring..."
+echo "Running E2E tests..."
 E2E_START=$SECONDS
-
-# Export cleanup command for tests to use
-export FUNC_E2E_CLEANUP_BETWEEN_SUITES="${PROJECT_ROOT}/hack/matrix-cleanup.sh"
-
 cd "${PROJECT_ROOT}/e2e"
-
-# Run each test suite separately with cleanup between them
-echo "Running TestMatrix_Run tests..."
-go test -tags e2e -timeout 40m -coverprofile=coverage-e2e-run.txt -coverpkg=../... -v -run TestMatrix_Run
-check_disk_usage
-
-# Cleanup after Run tests
-if [ -f "${PROJECT_ROOT}/hack/matrix-cleanup.sh" ]; then
-    echo "Performing cleanup after Run tests..."
-    "${PROJECT_ROOT}/hack/matrix-cleanup.sh"
-fi
-
-echo "Running TestMatrix_Deploy tests..."
-go test -tags e2e -timeout 40m -coverprofile=coverage-e2e-deploy.txt -coverpkg=../... -v -run TestMatrix_Deploy
-check_disk_usage
-
-# Cleanup after Deploy tests
-if [ -f "${PROJECT_ROOT}/hack/matrix-cleanup.sh" ]; then
-    echo "Performing cleanup after Deploy tests..."
-    "${PROJECT_ROOT}/hack/matrix-cleanup.sh"
-fi
-
-echo "Running TestMatrix_Remote tests..."
-go test -tags e2e -timeout 40m -coverprofile=coverage-e2e-remote.txt -coverpkg=../... -v -run TestMatrix_Remote
-check_disk_usage
-
-# Merge coverage files
-echo "mode: atomic" > coverage-e2e.txt
-for f in coverage-e2e-*.txt; do
-    if [ -f "$f" ]; then
-        tail -n +2 "$f" >> coverage-e2e.txt
-        rm -f "$f"
-    fi
-done
-
+# go test -tags e2e -timeout 120m -coverprofile=coverage-e2e.txt -coverpkg=../... -v -run TestMatrix_
+go test -tags e2e -timeout 120m -coverprofile=coverage-e2e.txt -coverpkg=../... -v
 tail -n +2 coverage-e2e.txt >> ../coverage.txt
 rm -f coverage-e2e.txt
 
@@ -274,13 +208,6 @@ E2E_MINS=$((E2E_DURATION / 60))
 E2E_SECS=$((E2E_DURATION % 60))
 
 echo "✓ E2E tests completed successfully (duration: ${E2E_MINS}m ${E2E_SECS}s)"
-
-# Final cleanup and disk usage report
-if [ -f "${PROJECT_ROOT}/hack/matrix-cleanup.sh" ]; then
-    echo ""
-    echo "Performing final cleanup..."
-    "${PROJECT_ROOT}/hack/matrix-cleanup.sh"
-fi
 
 cd "${PROJECT_ROOT}"
 

@@ -50,6 +50,13 @@ const (
 	// cluster may be used across multiple test runs during debugging.
 	DefaultClean = true
 
+	// DefaultCleanImages indicates whether or not tests should clean up container
+	// images and volumes after themselves. This is separate from DefaultClean
+	// which handles cluster resources. This is necessary in CI which quickly
+	// runs out of disk space during Quarkus and Springboot builds.
+	// Disable with FUNC_E2E_CLEAN_IMAGES="false".
+	DefaultCleanImages = true
+
 	// DefaultGocoverdir defines the default path to use for the GOCOVERDIR
 	// while executing tests.  This value can be altered using
 	// FUNC_E2E_GOCOVERDIR. While this value could be passed through using
@@ -96,6 +103,10 @@ var (
 	// if the cluster is expected to be removed upon completion (such as in CI)
 	Clean bool
 
+	// CleanImages instructs the system to remove container images and volumes
+	// created during testing. Separate from Clean which handles cluster resources.
+	CleanImages bool
+
 	// DockerHost is the DOCKER_HOST value to use for tests.
 	// Can be set with FUNC_E2E_DOCKER_HOST.
 	DockerHost string
@@ -126,8 +137,8 @@ var (
 
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
 	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
-	// MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
-	MatrixRuntimes = []string{"quarkus", "springboot"}
+	MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
+	// MatrixRuntimes = []string{"quarkus", "springboot"}
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
 	// MatrixTemplates = []string{"http", "cloudevents"}
@@ -205,6 +216,7 @@ func init() {
 	fmt.Fprintln(os.Stderr, "--  Config Provided: ")
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_BIN=%v\n", os.Getenv("FUNC_E2E_BIN"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_CLEAN=%v\n", os.Getenv("FUNC_E2E_CLEAN"))
+	fmt.Fprintf(os.Stderr, "  FUNC_E2E_CLEAN_IMAGES=%v\n", os.Getenv("FUNC_E2E_CLEAN_IMAGES"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_DOCKER_HOST=%v\n", os.Getenv("FUNC_E2E_DOCKER_HOST"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_GOCOVERDIR=%v\n", os.Getenv("FUNC_E2E_GOCOVERDIR"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_HOME=%v\n", os.Getenv("FUNC_E2E_HOME"))
@@ -232,6 +244,7 @@ func init() {
 	fmt.Fprintln(os.Stderr, "Final Config:")
 	fmt.Fprintf(os.Stderr, "  Bin=%v\n", Bin)
 	fmt.Fprintf(os.Stderr, "  Clean=%v\n", Clean)
+	fmt.Fprintf(os.Stderr, "  CleanImages=%v\n", CleanImages)
 	fmt.Fprintf(os.Stderr, "  DockerHost=%v\n", DockerHost)
 	fmt.Fprintf(os.Stderr, "  Gocoverdir=%v\n", Gocoverdir)
 	fmt.Fprintf(os.Stderr, "  Kubeconfig=%v\n", Kubeconfig)
@@ -272,6 +285,9 @@ func readEnvs() {
 
 	// Clean up deployed functions before starting next test
 	Clean = getEnvBool("FUNC_E2E_CLEAN", "", DefaultClean)
+
+	// Clean up container images and volumes after tests
+	CleanImages = getEnvBool("FUNC_E2E_CLEAN_IMAGES", "", DefaultCleanImages)
 
 	// DockerHost - the DOCKER_HOST to use for container operations (not including podman-specific tests)
 	DockerHost = getEnv("FUNC_E2E_DOCKER_HOST", "", "")
@@ -1506,6 +1522,11 @@ func doMatrixRun(t *testing.T, name, runtime, builder, template string) {
 	t.Helper()
 	_ = fromCleanEnv(t, name)
 
+	// Clean up container images and volumes when done
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+
 	// Choose an address ahead of time
 	address, err := chooseOpenAddress(t)
 	if err != nil {
@@ -1585,6 +1606,14 @@ func doMatrixDeploy(t *testing.T, name, runtime, builder, template string) {
 	t.Helper()
 	_ = fromCleanEnv(t, name)
 
+	// Register cleanup functions (runs in LIFO order - image cleanup will run after cluster cleanup)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
+
 	// Initialize
 	initArgs := []string{"init", "-l", runtime, "-t", template}
 	initArgs, timeout := matrixExceptionsLocal(t, initArgs, runtime, builder, template)
@@ -1597,9 +1626,6 @@ func doMatrixDeploy(t *testing.T, name, runtime, builder, template string) {
 	if err := newCmd(t, deployArgs...).Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	// Wait for the function to be ready, using the appropriate method based
 	// on template
@@ -1639,6 +1665,14 @@ func doMatrixRemote(t *testing.T, name, runtime, builder, template string) {
 	t.Helper()
 	_ = fromCleanEnv(t, name)
 
+	// Register cleanup functions (runs in LIFO order - image cleanup will run after cluster cleanup)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
+
 	// Initialize
 	initArgs := []string{"init", "-l", runtime, "-t", template}
 	initArgs, timeout := matrixExceptionsRemote(t, initArgs, runtime, builder, template)
@@ -1650,9 +1684,6 @@ func doMatrixRemote(t *testing.T, name, runtime, builder, template string) {
 	if err := newCmd(t, "deploy", "--builder", builder, "--remote", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	// Wait for the function to be ready, using the appropriate method based on template
 	functionURL := fmt.Sprintf("http://%v.default.localtest.me", name)
@@ -2341,13 +2372,102 @@ func containsInstance(t *testing.T, list []fn.ListItem, name, namespace string) 
 
 // clean up by deleting the named function (via defers)
 func clean(t *testing.T, name, ns string) {
+	t.Helper()
+	if !Clean {
+		return
+	}
 	// There is currently a bug in delete which hangs for several seconds
 	// when deleting a Function. This adds considerably to the test suite
 	// execution time.  Tests are written such that they are not dependent
 	// on a clean exit/cleanup, so this step is skipped for speed.
-	if Clean {
-		if err := newCmd(t, "delete", name, "--namespace", ns).Run(); err != nil {
-			t.Logf("Error deleting function. %v", err)
+	if err := newCmd(t, "delete", name, "--namespace", ns).Run(); err != nil {
+		t.Logf("Error deleting function. %v", err)
+	}
+}
+
+// cleanImages removes container images and volumes created for a function during testing.
+// This is separate from clean() which handles cluster resources.
+func cleanImages(t *testing.T, name string) {
+	t.Helper()
+
+	if !CleanImages {
+		return
+	}
+
+	// Log stats before cleanup
+	logImageStats(t, name, "pre-cleanup")
+
+	// Build the image name pattern used by the tests
+	imageName := fmt.Sprintf("%s/%s", Registry, name)
+
+	// Track what we cleaned
+	var imagesRemoved, volumesRemoved int
+
+	// Try to remove with Docker first
+	dockerCmd := exec.Command("docker", "rmi", imageName)
+	if output, err := dockerCmd.CombinedOutput(); err != nil {
+		// Log but don't fail - image might not exist or Docker might not be available
+		if strings.Contains(string(output), "No such image") {
+			t.Logf("Docker image %s not found (already cleaned or never created)", imageName)
+		} else {
+			t.Logf("Docker image cleanup for %s failed: %v", imageName, err)
+		}
+	} else {
+		imagesRemoved++
+	}
+
+	// Clean up any pack build cache volumes associated with this function
+	// Format: pack-cache-func_{function-name}_latest-*
+	volumePattern := fmt.Sprintf("pack-cache-func_%s_", name)
+
+	// List and remove matching Docker volumes
+	listCmd := exec.Command("docker", "volume", "ls", "--format", "{{.Name}}")
+	if output, err := listCmd.Output(); err == nil {
+		volumes := strings.Split(string(output), "\n")
+		for _, vol := range volumes {
+			vol = strings.TrimSpace(vol)
+			if strings.HasPrefix(vol, volumePattern) {
+				rmCmd := exec.Command("docker", "volume", "rm", vol)
+				if err := rmCmd.Run(); err != nil {
+					t.Logf("Failed to remove Docker volume %s: %v", vol, err)
+				} else {
+					volumesRemoved++
+				}
+			}
+		}
+	}
+
+	// Log cleanup summary
+	if imagesRemoved > 0 || volumesRemoved > 0 {
+		t.Logf("Cleanup complete for %s: removed %d image(s) and %d volume(s)", name, imagesRemoved, volumesRemoved)
+	} else {
+		t.Logf("No images or volumes to clean for %s", name)
+	}
+
+	// Log stats after cleanup (but only if we actually cleaned something)
+	if imagesRemoved > 0 {
+		logImageStats(t, name, "post-cleanup")
+	}
+}
+
+// logImageStats logs Docker/Podman storage statistics for debugging disk usage
+func logImageStats(t *testing.T, name string, phase string) {
+	t.Helper()
+
+	// Get image size for this specific function
+	imageName := fmt.Sprintf("%s/%s", Registry, name)
+
+	// Check Docker image size
+	dockerSizeCmd := exec.Command("docker", "images", "--format", "{{.Size}}", imageName)
+	if output, err := dockerSizeCmd.Output(); err == nil && len(output) > 0 {
+		t.Logf("[%s] Docker image %s size: %s", phase, imageName, strings.TrimSpace(string(output)))
+	}
+
+	// Log overall Docker storage usage (only once at the beginning to avoid noise)
+	if phase == "pre-cleanup" {
+		dockerDfCmd := exec.Command("docker", "system", "df", "--format", "{{.Type}}\t{{.Size}}\t{{.Reclaimable}}")
+		if output, err := dockerDfCmd.Output(); err == nil {
+			t.Logf("[%s] Docker storage usage:\n%s", phase, string(output))
 		}
 	}
 }
