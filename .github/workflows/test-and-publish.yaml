@@ -17,11 +17,82 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       # Configure OS
+      - name: Analyze disk usage before cleanup
+        run: |
+          echo "=== INITIAL DISK USAGE ANALYSIS ==="
+          echo "Overall filesystem usage:"
+          df -h /
+          echo ""
+          echo "TOP 30 DISK CONSUMERS AT ROOT LEVEL:"
+          sudo du -h -d 1 / 2>/dev/null | sort -rh | head -30
+          echo ""
+          echo "Breakdown of /usr (often the largest):"
+          sudo du -h -d 1 /usr 2>/dev/null | sort -rh | head -15
+          echo ""
+          echo "Breakdown of /var:"
+          sudo du -h -d 1 /var 2>/dev/null | sort -rh | head -15
+          echo ""
+          echo "Top consumers in /usr/local (>100MB):"
+          sudo du -h -d 2 /usr/local 2>/dev/null | grep -E '^[0-9.]+G|^[0-9]{3,}M' | sort -rh | head -20
+          echo ""
+          echo "Top consumers in /opt (>100MB):"
+          sudo du -h -d 2 /opt 2>/dev/null | grep -E '^[0-9.]+G|^[0-9]{3,}M' | sort -rh | head -20
+          echo ""
+          echo "Docker volumes detail:"
+          docker volume ls
+          echo ""
+          echo "Docker system df:"
+          docker system df
+          echo "=== END DISK USAGE ANALYSIS ==="
       - name: Free up disk space
         run: |
-          sudo rm -rf /usr/share/dotnet || true
+          echo "Starting disk cleanup for CI environment..."
+          echo "Initial disk usage:"
+          df -h /
+
+          # Based on analysis, these are the major consumers we can safely remove:
+
+          echo "Removing Android SDK (9.5GB)..."
           sudo rm -rf /usr/local/lib/android || true
+
+          echo "Removing Haskell/GHC (6.3GB)..."
+          sudo rm -rf /usr/local/.ghcup || true
           sudo rm -rf /opt/ghc || true
+
+          echo "Removing .NET and PowerShell (1.3GB+)..."
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo rm -rf /opt/microsoft/powershell || true
+
+          echo "Removing Julia (991MB)..."
+          sudo rm -rf /usr/local/julia* || true
+
+          echo "Removing browsers (1GB+)..."
+          sudo rm -rf /usr/local/share/chromium || true
+          sudo rm -rf /opt/google/chrome || true
+          sudo rm -rf /opt/microsoft/msedge || true
+
+          echo "Removing CodeQL (1.6GB)..."
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+
+          echo "Removing Azure CLI (649MB)..."
+          sudo rm -rf /opt/az || true
+
+          echo "Removing unused language runtimes..."
+          sudo rm -rf /opt/hostedtoolcache/Ruby || true
+          sudo rm -rf /opt/hostedtoolcache/PyPy || true
+
+          echo "Cleaning package manager caches..."
+          sudo apt-get clean || true
+
+          echo "Final disk usage after cleanup:"
+          df -h /
+
+          # Calculate and show space freed
+          INITIAL_USED=46
+          FINAL_USED=$(df / | tail -1 | awk '{print int($3/1024/1024)}')
+          FREED=$((INITIAL_USED - FINAL_USED))
+          echo "Freed approximately ${FREED}GB of disk space"
       - name: Disable CLRF conversion
         run: git config --global core.autocrlf false # TODO: Why?
       - name: Checkout Source

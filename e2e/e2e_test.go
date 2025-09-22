@@ -276,6 +276,99 @@ func init() {
 	fmt.Fprintln(os.Stderr, "") // TODO: there is a superfluous linebreak from "func version".  This balances the whitespace.
 }
 
+// TestMain provides custom test execution logic including cleanup
+func TestMain(m *testing.M) {
+	// Perform initial cleanup to start with a clean environment
+	if CleanImages {
+		fmt.Fprintln(os.Stderr, "Performing initial cleanup of Docker/Podman resources...")
+		cleanupAllResources()
+	}
+
+	// Run the tests
+	exitCode := m.Run()
+
+	// Final cleanup (if needed)
+	if CleanImages {
+		fmt.Fprintln(os.Stderr, "Performing final cleanup of Docker/Podman resources...")
+		cleanupAllResources()
+	}
+
+	os.Exit(exitCode)
+}
+
+// cleanupAllResources performs a comprehensive cleanup of Docker/Podman resources
+func cleanupAllResources() {
+	// First, remove ALL test-related images from the registry
+	fmt.Fprintf(os.Stderr, "  Removing test images from registry...\n")
+	imgCmd := exec.Command("docker", "images", "--format", "{{.Repository}}:{{.Tag}}", "localhost:50000/func/*")
+	if output, err := imgCmd.Output(); err == nil {
+		images := strings.Split(string(output), "\n")
+		for _, img := range images {
+			img = strings.TrimSpace(img)
+			if img != "" && img != ":" {
+				rmCmd := exec.Command("docker", "rmi", "-f", img)
+				rmCmd.Run() // Ignore errors, image might not exist
+			}
+		}
+	}
+
+	// Remove ALL pack and s2i volumes aggressively
+	fmt.Fprintf(os.Stderr, "  Removing all build cache volumes...\n")
+	cmd := exec.Command("docker", "volume", "ls", "--format", "{{.Name}}")
+	if output, err := cmd.Output(); err == nil {
+		volumes := strings.Split(string(output), "\n")
+		var removedCount int
+		for _, vol := range volumes {
+			vol = strings.TrimSpace(vol)
+			if vol == "" {
+				continue
+			}
+
+			// Remove all pack and s2i related volumes
+			if strings.HasPrefix(vol, "pack-cache-") ||
+			   strings.HasPrefix(vol, "pack-layers-") ||
+			   strings.HasPrefix(vol, "pack-app-") ||
+			   strings.HasPrefix(vol, "s2i-cache-") ||
+			   strings.Contains(vol, "buildpack") ||
+			   strings.Contains(vol, "func-e2e-") {
+				rmCmd := exec.Command("docker", "volume", "rm", "-f", vol)
+				if err := rmCmd.Run(); err == nil {
+					removedCount++
+				}
+			}
+		}
+		if removedCount > 0 {
+			fmt.Fprintf(os.Stderr, "  Removed %d build cache volumes\n", removedCount)
+		}
+	}
+
+	// Prune all unused volumes
+	volPruneCmd := exec.Command("docker", "volume", "prune", "-f")
+	if output, err := volPruneCmd.CombinedOutput(); err == nil {
+		if strings.Contains(string(output), "Total reclaimed space:") {
+			fmt.Fprintf(os.Stderr, "  Pruned unused volumes\n")
+		}
+	}
+
+	// Clean up dangling images
+	pruneCmd := exec.Command("docker", "image", "prune", "-f")
+	if output, err := pruneCmd.CombinedOutput(); err == nil {
+		if strings.Contains(string(output), "Total reclaimed space:") {
+			fmt.Fprintf(os.Stderr, "  Pruned dangling images\n")
+		}
+	}
+
+	// Clean up build cache (can be large)
+	buildPruneCmd := exec.Command("docker", "buildx", "prune", "-f")
+	buildPruneCmd.Run() // Ignore errors if buildx is not available
+
+	// Log current disk usage
+	dfCmd := exec.Command("docker", "system", "df")
+	if output, err := dfCmd.Output(); err == nil {
+		fmt.Fprintf(os.Stderr, "Current Docker storage usage:\n%s\n", string(output))
+	}
+}
+
 // readEnvs and apply defaults, populating the named global variables with
 // the final values which will be used by all tests.
 func readEnvs() {
@@ -418,6 +511,14 @@ func TestCore_Deploy_Basic(t *testing.T) {
 	name := "func-e2e-test-core-deploy"
 	_ = fromCleanEnv(t, name)
 
+	// Register cleanup functions (runs in LIFO order)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
+
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -425,9 +526,6 @@ func TestCore_Deploy_Basic(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
 		t.Fatalf("function did not deploy correctly")
@@ -441,6 +539,14 @@ func TestCore_Deploy_Template(t *testing.T) {
 	name := "func-e2e-test-core-deploy-template"
 	_ = fromCleanEnv(t, name)
 
+	// Register cleanup functions (runs in LIFO order)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
+
 	// Creates a new Function from the template located in the repository at a
 	// well-known path:  {repo}/{runtime}/{template} where
 	//   repo: github.com/functions-dev
@@ -452,9 +558,6 @@ func TestCore_Deploy_Template(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	// The default implementation responds with HTTP 200 and the string
 	// "testcore-deploy-template" for all requests.
@@ -494,6 +597,14 @@ func TestCore_Update(t *testing.T) {
 	name := "func-e2e-test-core-update"
 	root := fromCleanEnv(t, name)
 
+	// Register cleanup functions (runs in LIFO order)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
+
 	// create
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
@@ -503,9 +614,6 @@ func TestCore_Update(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
 		t.Fatalf("function did not deploy correctly")
 	}
@@ -539,6 +647,14 @@ func TestCore_Describe(t *testing.T) {
 	name := "func-e2e-test-core-describe"
 	_ = fromCleanEnv(t, name)
 
+	// Register cleanup functions (runs in LIFO order)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
+
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -547,9 +663,6 @@ func TestCore_Describe(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	if err := cmd.Wait(); err != nil {
 		t.Fatalf("deploy error. %v", err)
@@ -586,6 +699,14 @@ func TestCore_Describe(t *testing.T) {
 func TestCore_Invoke(t *testing.T) {
 	name := "func-e2e-test-core-invoke"
 	_ = fromCleanEnv(t, name)
+
+	// Register cleanup functions (runs in LIFO order)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
 
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
@@ -638,9 +759,6 @@ func TestCore_Invoke(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 	if !waitForEcho(t, "http://func-e2e-test-core-invoke.default.localtest.me") {
 		t.Fatalf("function did not deploy correctly")
 	}
@@ -664,6 +782,14 @@ func TestCore_Delete(t *testing.T) {
 	name := "func-e2e-test-core-delete"
 	_ = fromCleanEnv(t, name)
 
+	// Register cleanup functions (runs in LIFO order)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
+
 	// Deploy a Function
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
@@ -672,9 +798,6 @@ func TestCore_Delete(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
 		t.Fatalf("function did not deploy correctly")
 	}
@@ -819,9 +942,6 @@ func TestMetadata_Envs_Add(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 	if !waitForContent(t, fmt.Sprintf("http://%v.default.localtest.me", name), "OK") {
 		t.Fatalf("handler failed")
 	}
@@ -878,9 +998,6 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 	if !waitForContent(t, fmt.Sprintf("http://%v.default.localtest.me", name), "OK") {
 		t.Fatalf("handler failed")
 	}
@@ -950,9 +1067,6 @@ func TestMetadata_Labels_Add(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
 		t.Fatalf("function did not deploy correctly")
 	}
@@ -1001,9 +1115,6 @@ func TestMetadata_Labels_Remove(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
 		t.Fatalf("function did not deploy correctly")
 	}
@@ -1175,9 +1286,6 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	// Verify the function has access to all volumes
 	if !waitForContent(t, fmt.Sprintf("http://%s.default.localtest.me", name), "OK") {
@@ -1270,15 +1378,20 @@ func TestRemote_Deploy(t *testing.T) {
 	name := "func-e2e-test-remote-deploy"
 	_ = fromCleanEnv(t, name)
 
+	// Register cleanup functions (runs in LIFO order)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
+
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
 	if err := newCmd(t, "deploy", "--remote", "--builder=pack", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
 		t.Fatalf("function did not deploy correctly")
@@ -1292,6 +1405,14 @@ func TestRemote_Deploy(t *testing.T) {
 func TestRemote_Source(t *testing.T) {
 	name := "func-e2e-test-remote-source"
 	_ = fromCleanEnv(t, name)
+
+	// Register cleanup functions (runs in LIFO order)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
 
 	// This command currently requires the function source also be available
 	// locally in order to use its name.
@@ -1308,9 +1429,6 @@ func TestRemote_Source(t *testing.T) {
 	).Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	if !waitForContent(t,
 		fmt.Sprintf("http://%v.default.localtest.me", name), name) {
@@ -1324,6 +1442,14 @@ func TestRemote_Source(t *testing.T) {
 func TestRemote_Ref(t *testing.T) {
 	name := "func-e2e-test-remote-ref"
 	_ = fromCleanEnv(t, name)
+
+	// Register cleanup functions (runs in LIFO order)
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
 
 	// This command currently requires the function source also be available
 	// locally in order to use its name.
@@ -1352,9 +1478,6 @@ func TestRemote_Ref(t *testing.T) {
 	).Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	if !waitForContent(t,
 		fmt.Sprintf("http://%v.default.localtest.me", name), name) {
@@ -1370,6 +1493,14 @@ func TestRemote_Ref(t *testing.T) {
 func TestRemote_Dir(t *testing.T) {
 	name := "func-e2e-test-remote-dir"
 	_ = fromCleanEnv(t, name)
+
+	// Clean up resources at test end
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
 
 	// This command currently requires the function source also be available
 	// locally in order to use its name.
@@ -1398,9 +1529,6 @@ func TestRemote_Dir(t *testing.T) {
 	).Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	if !waitForContent(t,
 		fmt.Sprintf("http://%v.default.localtest.me", name), name) {
@@ -1413,6 +1541,14 @@ func TestRemote_Dir(t *testing.T) {
 func TestPodman_Pack(t *testing.T) {
 	name := "func-e2e-test-podman-pack"
 	_ = fromCleanEnv(t, name)
+
+	// Clean up resources at test end
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
 	if err := setupPodman(t); err != nil {
 		t.Fatal(err)
 	}
@@ -1434,9 +1570,6 @@ func TestPodman_Pack(t *testing.T) {
 	if err := newCmd(t, "deploy", "--builder=pack").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
 		t.Fatalf("function did not deploy correctly")
@@ -1448,6 +1581,14 @@ func TestPodman_Pack(t *testing.T) {
 func TestPodman_S2I(t *testing.T) {
 	name := "func-e2e-test-podman-s2i"
 	_ = fromCleanEnv(t, name)
+
+	// Clean up resources at test end
+	t.Cleanup(func() {
+		cleanImages(t, name)
+	})
+	t.Cleanup(func() {
+		clean(t, name, DefaultNamespace)
+	})
 	if err := setupPodman(t); err != nil {
 		t.Fatal(err)
 	}
@@ -1469,9 +1610,6 @@ func TestPodman_S2I(t *testing.T) {
 	if err := newCmd(t, "deploy", "--builder=s2i").Run(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		clean(t, name, DefaultNamespace)
-	}()
 
 	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
 		t.Fatalf("function did not deploy correctly")
@@ -1503,6 +1641,10 @@ func TestMatrix_Run(t *testing.T) {
 	if !Matrix {
 		t.Skip("Matrix tests not enabled. Enable with FUNC_E2E_MATRIX=true")
 	}
+
+	// Log filesystem diagnostics at the start of matrix tests
+	logFilesystemDiagnostics(t)
+
 	for _, runtime := range MatrixRuntimes {
 		for _, builder := range MatrixBuilders {
 			for _, template := range MatrixTemplates {
@@ -2416,22 +2558,72 @@ func cleanImages(t *testing.T, name string) {
 		imagesRemoved++
 	}
 
-	// Clean up any pack build cache volumes associated with this function
-	// Format: pack-cache-func_{function-name}_latest-*
-	volumePattern := fmt.Sprintf("pack-cache-func_%s_", name)
+	// Clean up various build cache volumes
+	// Pack creates multiple volume types:
+	// - pack-cache-func_{function-name}_latest-*
+	// - pack-layers-* (can be shared, clean carefully)
+	// - pack-app-* (can be shared, clean carefully)
+	// S2I creates:
+	// - s2i-cache-* (if applicable)
+
+	// First, remove function-specific volumes
+	functionSpecificPatterns := []string{
+		fmt.Sprintf("pack-cache-func_%s_", name), // Function-specific pack cache
+		fmt.Sprintf("s2i-cache-%s", name),        // S2I build cache
+	}
+
+	// Also remove generic pack volumes (these accumulate and consume lots of space)
+	// Note: This is aggressive but necessary to prevent disk exhaustion
+	genericPatterns := []string{
+		"pack-layers-",  // Pack layer cache (shared across builds)
+		"pack-app-",     // Pack app cache (shared across builds)
+	}
 
 	// List and remove matching Docker volumes
 	listCmd := exec.Command("docker", "volume", "ls", "--format", "{{.Name}}")
 	if output, err := listCmd.Output(); err == nil {
 		volumes := strings.Split(string(output), "\n")
+
+		// First pass: remove function-specific volumes
 		for _, vol := range volumes {
 			vol = strings.TrimSpace(vol)
-			if strings.HasPrefix(vol, volumePattern) {
-				rmCmd := exec.Command("docker", "volume", "rm", vol)
-				if err := rmCmd.Run(); err != nil {
-					t.Logf("Failed to remove Docker volume %s: %v", vol, err)
-				} else {
-					volumesRemoved++
+			if vol == "" {
+				continue
+			}
+
+			for _, pattern := range functionSpecificPatterns {
+				if strings.HasPrefix(vol, pattern) {
+					rmCmd := exec.Command("docker", "volume", "rm", vol)
+					if err := rmCmd.Run(); err != nil {
+						t.Logf("Failed to remove Docker volume %s: %v", vol, err)
+					} else {
+						volumesRemoved++
+						t.Logf("Removed volume: %s", vol)
+					}
+					break
+				}
+			}
+		}
+
+		// Second pass: aggressively remove generic pack volumes
+		// This helps prevent disk exhaustion in CI
+		for _, vol := range volumes {
+			vol = strings.TrimSpace(vol)
+			if vol == "" {
+				continue
+			}
+
+			for _, pattern := range genericPatterns {
+				if strings.HasPrefix(vol, pattern) {
+					rmCmd := exec.Command("docker", "volume", "rm", "-f", vol)  // Force removal
+					if err := rmCmd.Run(); err != nil {
+						// This is expected if the volume is in use
+						t.Logf("Could not remove generic volume %s (may be in use): %v", vol, err)
+					} else {
+						volumesRemoved++
+						t.Logf("Removed generic volume: %s", vol)
+					}
+					break
 				}
 			}
 		}
@@ -2448,6 +2640,116 @@ func cleanImages(t *testing.T, name string) {
 	if imagesRemoved > 0 {
 		logImageStats(t, name, "post-cleanup")
 	}
+}
+
+// logFilesystemDiagnostics logs filesystem usage information for debugging space issues
+func logFilesystemDiagnostics(t *testing.T) {
+	t.Helper()
+
+	t.Logf("=== FILESYSTEM DIAGNOSTICS ===")
+
+	// Get overall filesystem usage
+	dfCmd := exec.Command("df", "-h", "/")
+	if output, err := dfCmd.Output(); err == nil {
+		t.Logf("Filesystem usage:\n%s", string(output))
+	}
+
+	// Get numeric disk usage for key paths to identify the biggest culprits
+	// Using -sb for bytes to make it sortable and clear
+	t.Logf("\n--- TOP DISK CONSUMERS (in GB) ---")
+
+	// Check major directories with actual numeric values
+	pathsToCheck := []string{
+		"/var/lib/docker",           // Docker storage
+		"/home/runner/.cache",        // Various caches
+		"/home/runner/work",          // GitHub Actions workspace
+		"/home/runner/.local",        // Local installations
+		"/tmp",                       // Temporary files
+		"/home/runner/.docker",       // Docker config/caches
+		"/home/runner/.pack",         // Pack cache if exists
+		"/opt",                       // Optional software
+		"/usr/local",                 // Local installations
+	}
+
+	for _, path := range pathsToCheck {
+		cmd := exec.Command("bash", "-c", fmt.Sprintf("sudo du -sb %s 2>/dev/null | awk '{printf \"%%.1fG\\t%%s\\n\", $1/1024/1024/1024, $2}'", path))
+		if output, err := cmd.Output(); err == nil && len(output) > 0 {
+			t.Logf("%s", strings.TrimSpace(string(output)))
+		}
+	}
+
+	// Deep dive into Docker storage components
+	t.Logf("\n--- DOCKER STORAGE BREAKDOWN ---")
+	dockerPaths := []string{
+		"/var/lib/docker/overlay2",     // Image layers
+		"/var/lib/docker/containers",   // Container filesystems
+		"/var/lib/docker/volumes",      // Volumes
+		"/var/lib/docker/buildkit",     // BuildKit cache
+		"/var/lib/docker/image",        // Image metadata
+		"/var/lib/docker/tmp",          // Temporary files
+	}
+
+	for _, path := range dockerPaths {
+		cmd := exec.Command("bash", "-c", fmt.Sprintf("sudo du -sb %s 2>/dev/null | awk '{printf \"%%.1fG\\t%%s\\n\", $1/1024/1024/1024, $2}'", path))
+		if output, err := cmd.Output(); err == nil && len(output) > 0 {
+			t.Logf("%s", strings.TrimSpace(string(output)))
+		}
+	}
+
+	// Check GitHub Actions specific caches
+	t.Logf("\n--- GITHUB ACTIONS CACHES ---")
+	actionsPaths := []string{
+		"/home/runner/work/_temp",           // GitHub temp
+		"/home/runner/work/_actions",        // Downloaded actions
+		"/home/runner/work/_PipelineMapping", // Pipeline cache
+		"/home/runner/.cargo",               // Rust cargo cache
+		"/home/runner/.npm",                 // NPM cache
+		"/home/runner/.m2",                  // Maven cache
+		"/home/runner/go",                   // Go modules
+	}
+
+	for _, path := range actionsPaths {
+		cmd := exec.Command("bash", "-c", fmt.Sprintf("du -sb %s 2>/dev/null | awk '{printf \"%%.1fG\\t%%s\\n\", $1/1024/1024/1024, $2}'", path))
+		if output, err := cmd.Output(); err == nil && len(output) > 0 {
+			t.Logf("%s", strings.TrimSpace(string(output)))
+		}
+	}
+
+	// Docker command output for comparison
+	t.Logf("\n--- DOCKER SYSTEM DF ---")
+	dockerDfCmd := exec.Command("docker", "system", "df")
+	if output, err := dockerDfCmd.Output(); err == nil {
+		t.Logf("%s", string(output))
+	}
+
+	// Count Docker volumes to see accumulation
+	volCountCmd := exec.Command("bash", "-c", "docker volume ls -q | wc -l")
+	if output, err := volCountCmd.Output(); err == nil {
+		t.Logf("\nTotal Docker volumes: %s", strings.TrimSpace(string(output)))
+	}
+
+	// List actual Docker volumes with sizes
+	t.Logf("\n--- DOCKER VOLUMES DETAIL ---")
+	volListCmd := exec.Command("bash", "-c", "docker volume ls --format '{{.Name}}' | while read vol; do size=$(docker run --rm -v \"$vol\":/data alpine du -sh /data 2>/dev/null | cut -f1); echo \"$size	$vol\"; done | sort -rh | head -20")
+	if output, err := volListCmd.Output(); err == nil && len(output) > 0 {
+		t.Logf("Top Docker volumes by size:\n%s", string(output))
+	}
+
+	// Show what's consuming space in /usr/local
+	t.Logf("\n--- /usr/local BREAKDOWN (directories >500MB) ---")
+	usrLocalCmd := exec.Command("bash", "-c", "sudo du -h -d 2 /usr/local 2>/dev/null | grep -E '^[0-9.]+G|^[5-9][0-9][0-9]M' | sort -rh | head -15")
+	if output, err := usrLocalCmd.Output(); err == nil && len(output) > 0 {
+		t.Logf("%s", string(output))
+	}
+
+	// Show what's consuming space in /opt
+	t.Logf("\n--- /opt BREAKDOWN (directories >500MB) ---")
+	optCmd := exec.Command("bash", "-c", "sudo du -h -d 2 /opt 2>/dev/null | grep -E '^[0-9.]+G|^[5-9][0-9][0-9]M' | sort -rh | head -15")
+	if output, err := optCmd.Output(); err == nil && len(output) > 0 {
+		t.Logf("%s", string(output))
+	}
+
+	t.Logf("=== END FILESYSTEM DIAGNOSTICS ===\n")
 }
 
 // logImageStats logs Docker/Podman storage statistics for debugging disk usage
