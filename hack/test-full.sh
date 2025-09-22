@@ -178,7 +178,7 @@ fi
 echo ""
 echo "Running unit and integration tests..."
 INTEGRATION_START=$SECONDS
-go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v -run TestNewCredentialsProvider
+# go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v -run TestNewCredentialsProvider
 go test -tags integration -timeout 60m -coverprofile=coverage-integration.txt ./... -v
 tail -n +2 coverage-integration.txt >> coverage.txt
 rm -f coverage-integration.txt 
