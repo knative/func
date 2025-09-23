@@ -2,6 +2,8 @@ package tekton
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -57,7 +59,22 @@ func getPipelineName(f fn.Function) string {
 	} else {
 		source = "git"
 	}
-	return fmt.Sprintf("%s-%s-%s-pipeline", f.Name, f.Build.Builder, source)
+	
+	// Kubernetes resource names must be <= 63 characters (RFC 1123)
+	// We use a hash-based approach to guarantee uniqueness while staying under the limit
+	
+	// Create a unique identifier based on function name, builder, and source
+	fullIdentifier := fmt.Sprintf("%s-%s-%s", f.Name, f.Build.Builder, source)
+	
+	// Generate hash of the full identifier
+	hash := sha256.Sum256([]byte(fullIdentifier))
+	// Use first 8 characters of hex encoding (4 bytes = 8 hex chars)
+	shortHash := hex.EncodeToString(hash[:4])
+	
+	// Format: func-{hash}-{builder}-{source}
+	// This gives us: 4 + 1 + 8 + 1 + 3-4 + 1 + 6-3 = 24-26 chars max
+	// Well under the 63 char limit with room for future additions
+	return fmt.Sprintf("func-%s-%s-%s", shortHash, f.Build.Builder, source)
 }
 
 func getPipelineRunGenerateName(f fn.Function) string {
