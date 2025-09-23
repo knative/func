@@ -169,8 +169,8 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// Check if function exists BEFORE prompting for config
 	if !f.Initialized() {
-		return fmt.Errorf(`no function found in current directory.
-You need to be inside a function directory to build it.
+		return fmt.Errorf(`no function found in current directory (or --path not specified).
+You need to point to a function directory to build.
 
 Try this:
   func create --language go myfunction    Create a new function
@@ -180,6 +180,9 @@ Try this:
 Or if you have an existing function:
   cd path/to/your/function              Go to your function directory
   func build                            Build using previous settings
+
+Or build from anywhere using --path:
+  func build --path /path/to/your/function --registry <registry>
 
 Common build scenarios:
   func build --registry registry.example.com/alice    Build with registry
