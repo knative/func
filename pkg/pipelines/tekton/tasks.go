@@ -62,8 +62,11 @@ spec:
       description: The registry associated with the function image.
     - name: BUILDER_IMAGE
       description: The image on which builds will run (must include lifecycle and compatible buildpacks).
-    - name: SOURCE_SUBPATH
-      description: A subpath within the "source" input where the source to build is located.
+    - name: contextDir
+      description: context directory for the function project
+      default: ""
+    - name: BUILD_TARGET
+      description: A directory to where to build from. (passed to pack builder)
       default: ""
     - name: ENV_VARS
       type: array
@@ -157,10 +160,10 @@ spec:
         ############################################
 
         func_file="$(workspaces.source.path)/func.yaml"
-        if [ "$(params.SOURCE_SUBPATH)" != "" ]; then
-          func_file="$(workspaces.source.path)/$(params.SOURCE_SUBPATH)/func.yaml"
+        if [ "$(params.contextDir)" != "" ]; then
+          func_file="$(workspaces.source.path)/$(params.contextDir)/func.yaml"
         fi
-        echo "--> Saving 'func.yaml'"
+        echo "--> Saving 'func.yaml' from '$func_file'"
         cp $func_file /emptyDir/func.yaml
 
         ############################################
@@ -183,7 +186,7 @@ spec:
         - name: DOCKER_CONFIG
           value: $(workspaces.dockerconfig.path)
       args:
-        - "-app=$(workspaces.source.path)/$(params.SOURCE_SUBPATH)"
+        - "-app=$(workspaces.source.path)/$(params.BUILD_TARGET)"
         - "-cache-dir=$(workspaces.cache.path)"
         - "-cache-image=$(params.CACHE_IMAGE)"
         - "-uid=$(params.USER_ID)"
@@ -220,13 +223,13 @@ spec:
         digest=$(cat $(results.IMAGE_DIGEST.path))
 
         func_file="$(workspaces.source.path)/func.yaml"
-        if [ "$(params.SOURCE_SUBPATH)" != "" ]; then
-          func_file="$(workspaces.source.path)/$(params.SOURCE_SUBPATH)/func.yaml"
+        if [ "$(params.contextDir)" != "" ]; then
+          func_file="$(workspaces.source.path)/$(params.contextDir)/func.yaml"
         fi
 
         if [[ ! -f "$func_file" ]]; then
           echo "--> Restoring 'func.yaml'"
-          mkdir -p "$(workspaces.source.path)/$(params.SOURCE_SUBPATH)"
+          mkdir -p "$(workspaces.source.path)/$(params.contextDir)"
           cp /emptyDir/func.yaml $func_file
         fi
 
@@ -413,13 +416,16 @@ spec:
     - name: image
       description: Container image to be deployed
       default: ""
+    - name: subpath
+      default: ""
+      description: Optional Subpath to where func.yaml is
   workspaces:
     - name: source
       description: The workspace containing the function project
   steps:
     - name: func-deploy
       image: "%s"
-      command: ["deploy", "$(params.path)", "$(params.image)"]
+      command: ["deploy", "$(params.path)", "$(params.image)", "$(params.subpath)"]
 `, DeployerImage)
 }
 
