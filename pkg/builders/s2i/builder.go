@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -184,8 +185,17 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{Name: k, Value: v})
 	}
 
+	var artifactsMounted bool
+
 	for _, m := range f.Build.Mounts {
+		if path.Clean(m.Destination) == "/tmp/artifacts" {
+			artifactsMounted = true
+		}
 		cfg.BuildVolumes = append(cfg.BuildVolumes, fmt.Sprintf("%s:%s:ro,Z", m.Source, m.Destination))
+	}
+
+	if !artifactsMounted {
+		cfg.BuildVolumes = append(cfg.BuildVolumes, f.Name+"-s2i-build-cache:/tmp/artifacts")
 	}
 
 	if runtime.GOOS == "linux" {
