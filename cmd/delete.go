@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -36,7 +37,28 @@ No local files are deleted.
 		PreRunE:           bindEnv("path", "confirm", "all", "namespace", "verbose"),
 		SilenceUsage:      true, // no usage dump on error
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDelete(cmd, args, newClient)
+			// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
+			err := runDelete(cmd, args, newClient)
+			if err != nil && errors.Is(err, fn.ErrNameRequiredForDelete) {
+				return fmt.Errorf(`%v
+
+You can delete functions in two ways:
+
+1. By name :
+   func delete myfunction                     Delete function by name
+   func delete myfunction --namespace apps    Delete from specific namespace
+
+2. By path :
+   func delete --path /path/to/function       Delete function at specific path
+
+Examples:
+   func delete myfunction                     Delete 'myfunction' from cluster
+   func delete myfunction --namespace prod    Delete from 'prod' namespace
+   func delete --path ./myfunction            Delete function at path
+  
+For more options, run 'func delete --help'`, err)
+			}
+			return err
 		},
 	}
 
@@ -61,6 +83,19 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	if err != nil {
 		return
 	}
+
+	// If no name provided, check if function exists BEFORE prompting or connecting to cluster
+	if cfg.Name == "" {
+		f, err := fn.NewFunction(cfg.Path)
+		if err != nil {
+			return err
+		}
+		if !f.Initialized() {
+			// Return technical error (Layer 1) - will be caught and enhanced by CLI
+			return fn.ErrNameRequiredForDelete
+		}
+	}
+
 	if cfg, err = cfg.Prompt(); err != nil {
 		return
 	}
