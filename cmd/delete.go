@@ -39,24 +39,8 @@ No local files are deleted.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
 			err := runDelete(cmd, args, newClient)
-			if err != nil && errors.Is(err, fn.ErrNameRequiredForDelete) {
-				return fmt.Errorf(`%v
-
-You can delete functions in two ways:
-
-1. By name :
-   func delete myfunction                     Delete function by name
-   func delete myfunction --namespace apps    Delete from specific namespace
-
-2. By path :
-   func delete --path /path/to/function       Delete function at specific path
-
-Examples:
-   func delete myfunction                     Delete 'myfunction' from cluster
-   func delete myfunction --namespace prod    Delete from 'prod' namespace
-   func delete --path ./myfunction            Delete function at path
-  
-For more options, run 'func delete --help'`, err)
+			if err != nil && errors.Is(err, fn.ErrNameRequired) {
+				return formatDeleteNameRequiredError(err)
 			}
 			return err
 		},
@@ -92,7 +76,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		}
 		if !f.Initialized() {
 			// Return technical error (Layer 1) - will be caught and enhanced by CLI
-			return fn.ErrNameRequiredForDelete
+			return fn.ErrNameRequired
 		}
 	}
 
@@ -190,4 +174,28 @@ func (c deleteConfig) Prompt() (deleteConfig, error) {
 	dc.All = answers.All
 
 	return dc, err
+}
+
+// formatDeleteNameRequiredError provides CLI-specific user-friendly error message
+// for delete command when function name is required
+func formatDeleteNameRequiredError(err error) error {
+	return fmt.Errorf(`%v
+
+Function name is required for deletion (or --path not specified).
+
+You can delete functions in two ways:
+
+1. By name :
+   func delete myfunction                     Delete function by name
+   func delete myfunction --namespace apps    Delete from specific namespace
+
+2. By path :
+   func delete --path /path/to/function       Delete function at specific path
+
+Examples:
+   func delete myfunction                     Delete 'myfunction' from cluster
+   func delete myfunction --namespace prod    Delete from 'prod' namespace
+   func delete --path ./myfunction            Delete function at path
+
+For more options, run 'func delete --help'`, err)
 }
