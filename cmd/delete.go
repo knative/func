@@ -40,7 +40,7 @@ No local files are deleted.
 			// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
 			err := runDelete(cmd, args, newClient)
 			if err != nil && errors.Is(err, fn.ErrNameRequired) {
-				return formatDeleteNameRequiredError(err)
+				return NewErrDeleteNameRequired(err)
 			}
 			return err
 		},
@@ -176,20 +176,31 @@ func (c deleteConfig) Prompt() (deleteConfig, error) {
 	return dc, err
 }
 
-// formatDeleteNameRequiredError provides CLI-specific user-friendly error message
-// for delete command when function name is required
-func formatDeleteNameRequiredError(err error) error {
-	return fmt.Errorf(`%v
+// ErrDeleteNameRequired wraps core library errors with CLI-specific context
+// for delete operations that require a function name or path.
+type ErrDeleteNameRequired struct {
+	// Underlying error from the core library (e.g., fn.ErrNameRequired)
+	Err error
+}
+
+// NewErrDeleteNameRequired creates a new ErrDeleteNameRequired wrapping the given error
+func NewErrDeleteNameRequired(err error) ErrDeleteNameRequired {
+	return ErrDeleteNameRequired{Err: err}
+}
+
+// Error implements the error interface with CLI-specific help text
+func (e ErrDeleteNameRequired) Error() string {
+	return fmt.Sprintf(`%v
 
 Function name is required for deletion (or --path not specified).
 
 You can delete functions in two ways:
 
-1. By name :
+1. By name:
    func delete myfunction                     Delete function by name
    func delete myfunction --namespace apps    Delete from specific namespace
 
-2. By path :
+2. By path:
    func delete --path /path/to/function       Delete function at specific path
 
 Examples:
@@ -197,5 +208,5 @@ Examples:
    func delete myfunction --namespace prod    Delete from 'prod' namespace
    func delete --path ./myfunction            Delete function at path
 
-For more options, run 'func delete --help'`, err)
+For more options, run 'func delete --help'`, e.Err)
 }
