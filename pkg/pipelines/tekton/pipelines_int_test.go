@@ -1,5 +1,4 @@
 //go:build integration
-// +build integration
 
 package tekton_test
 
@@ -12,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -93,6 +93,13 @@ func tektonTestsEnabled(t *testing.T) (enabled bool) {
 	return
 }
 
+func skipOnUnsupportedArch(t *testing.T) {
+	if runtime.GOARCH == "arm64" || runtime.GOARCH == "arm" {
+		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	}
+}
+
 // fromCleanEnvironment of everything except KUBECONFIG. Create a temp directory.
 // Change to that temp directory.  Return the curent path as a convenience.
 func fromCleanEnvironment(t *testing.T) (root string) {
@@ -109,6 +116,7 @@ func TestRemote_Default(t *testing.T) {
 	if !tektonTestsEnabled(t) {
 		t.Skip()
 	}
+	skipOnUnsupportedArch(t)
 	_ = fromCleanEnvironment(t)
 	var (
 		err         error
