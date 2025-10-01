@@ -160,7 +160,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	)
 	if cfg, err = newBuildConfig().Prompt(); err != nil { // gather values into a single instruction set
 		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
-		
+
 		// Check if it's a "not initialized" error (no function found)
 		var errNotInit *fn.ErrNotInitialized
 		if errors.As(err, &errNotInit) {
@@ -182,14 +182,14 @@ Or use --path flag:
 
 For more options, run 'func build --help'`, err)
 		}
-		
+
 		// Check if it's a registry required error (function exists but no registry)
 		if errors.Is(err, fn.ErrRegistryRequired) {
 			return fmt.Errorf(`%w
 
 Try this:
   func build --registry ghcr.io/myuser    Build with registry
-  
+
 Or set the FUNC_REGISTRY environment variable:
   export FUNC_REGISTRY=ghcr.io/myuser
   func build
@@ -371,19 +371,19 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	if err != nil {
 		return c, err
 	}
-	
+
 	// Check if function exists first
 	if !f.Initialized() {
 		// Return a specific error for uninitialized function
 		return c, fn.NewErrNotInitialized(f.Root)
 	}
-	
+
 	// Check if registry/image is missing BEFORE prompting
-	if (f.Registry == "" && c.Registry == "" && c.Image == "") {
+	if f.Registry == "" && c.Registry == "" && c.Image == "" {
 		// Return error immediately - don't prompt
 		return c, fn.ErrRegistryRequired
 	}
-	
+
 	// Only prompt if in confirm mode and registry exists
 	if c.Confirm {
 		fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
