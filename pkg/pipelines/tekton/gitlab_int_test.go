@@ -503,7 +503,7 @@ func getAPIToken(baseURL, username, password string) (string, error) {
 	}
 
 	data := struct {
-		NewToken string `json:"new_token,omitempty"`
+		NewToken string `json:"token,omitempty"`
 	}{}
 	e := json.NewDecoder(resp.Body)
 	err = e.Decode(&data)
