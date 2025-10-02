@@ -281,6 +281,25 @@ For more detailed deployment options, run 'func deploy --help'`)
 		return
 	}
 	if err = cfg.Validate(cmd); err != nil {
+		// Layer 2: Catch platform validation error and provide CLI-specific guidance
+		if errors.Is(err, fn.ErrPlatformNotSupported) {
+			return fmt.Errorf(`%w
+
+The --platform flag is only supported with the S2I builder.
+
+Try this:
+  func deploy --registry <registry> --builder=s2i --platform linux/amd64
+
+Or remove the --platform flag:
+  func deploy --registry <registry>
+
+Builder capabilities:
+  s2i   Supports --platform (Source-to-Image)
+  pack  Does not support --platform (uses default)
+  host  Does not support --platform (uses host architecture)
+
+For more options, run 'func deploy --help'`, err)
+		}
 		return
 	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
