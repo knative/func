@@ -73,15 +73,21 @@ func TestBuilder_BuildGo(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	scaffolder := NewScaffolder(true)
 	builder := NewBuilder("", true)
 
-	if err := builder.Build(context.Background(), f, TestPlatforms); err != nil {
+	ctx := t.Context()
+	if err := scaffolder.Scaffold(ctx, f, ""); err != nil {
 		t.Fatal(err)
 	}
 
-	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	if err := builder.Build(ctx, f, TestPlatforms); err != nil {
+		t.Fatal(err)
+	}
 
-	validateOCIStructure(last, t) // validate OCI compliant
+	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
+
+	validateOCIStructure(oci, t) // validate OCI compliant
 }
 
 // TestBuilder_BuildPython ensures that, when given a Python Function, an
@@ -102,16 +108,20 @@ func TestBuilder_BuildPython(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	ctx := t.Context()
+	scaffolder := NewScaffolder(true)
 	builder := NewBuilder("", true)
 
-	if err := builder.Build(context.Background(), f, TestPlatforms); err != nil {
+	if err := scaffolder.Scaffold(ctx, f, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := builder.Build(ctx, f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
 
-	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
 
-	validateOCIStructure(last, t) // validate OCI compliant
+	validateOCIStructure(oci, t) // validate OCI compliant
 }
 
 // TestBuilder_Files ensures that static files are added to the container
@@ -153,6 +163,11 @@ func TestBuilder_Files(t *testing.T) {
 		}
 	}
 
+	// Scaffold first to copy certs and scaffolding files
+	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := NewBuilder("", true).Build(context.Background(), f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
@@ -171,9 +186,9 @@ func TestBuilder_Files(t *testing.T) {
 		{Path: "/func/handle_test.go"},
 	}
 
-	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
 
-	validateOCIFiles(last, expected, t)
+	validateOCIFiles(oci, expected, t)
 }
 
 // TestBuilder_Concurrency
@@ -186,6 +201,11 @@ func TestBuilder_Concurrency(t *testing.T) {
 	// Initialize a new Go Function
 	f, err := client.Init(fn.Function{Root: root, Runtime: "go"})
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Scaffold first to copy certs and scaffolding files
+	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -416,6 +436,11 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Scaffold first to copy certs and scaffolding files
+	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := NewBuilder("", true).Build(context.Background(), f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
@@ -425,7 +450,7 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 	// variables on each of the constituent containers.
 	// ---
 	// Get the images list (manifest descripors) from the index
-	ociPath := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	ociPath := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
 	data, err := os.ReadFile(filepath.Join(ociPath, "index.json"))
 	if err != nil {
 		t.Fatal(err)
