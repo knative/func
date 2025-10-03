@@ -159,6 +159,52 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		f   fn.Function
 	)
 	if cfg, err = newBuildConfig().Prompt(); err != nil { // gather values into a single instruction set
+		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
+
+		// Check if it's a "not initialized" error (no function found)
+		var errNotInit *fn.ErrNotInitialized
+		if errors.As(err, &errNotInit) {
+			return fmt.Errorf(`%w
+
+No function found in provided path (current directory or via --path).
+You need to be in a function directory (or use --path).
+
+Try this:
+  func create --language go myfunction    Create a new function
+  cd myfunction                          Go into the function directory
+  func build --registry <registry>       Build the function container
+
+Or navigate to an existing function:
+  cd path/to/your/function
+  func build --registry <registry>
+
+Or use --path flag:
+  func build --path /path/to/function --registry <registry>
+
+For more options, run 'func build --help'`, err)
+		}
+
+		// Check if it's a registry required error (function exists but no registry)
+		if errors.Is(err, fn.ErrRegistryRequired) {
+			return fmt.Errorf(`%w
+
+Try this:
+  func build --registry ghcr.io/myuser    Build with registry
+
+Or set the FUNC_REGISTRY environment variable:
+  export FUNC_REGISTRY=ghcr.io/myuser
+  func build
+
+Common registries:
+  ghcr.io/myuser       GitHub Container Registry
+  docker.io/myuser     Docker Hub
+  quay.io/myuser       Quay.io
+
+Or specify full image name:
+  func build --image ghcr.io/myuser/myfunction:latest
+
+For more options, run 'func build --help'`, err)
+		}
 		return
 	}
 	if err = cfg.Validate(); err != nil { // Perform any pre-validation
@@ -297,10 +343,6 @@ func (c buildConfig) Configure(f fn.Function) fn.Function {
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
 // all prompts) was set (default).
 func (c buildConfig) Prompt() (buildConfig, error) {
-	if !interactiveTerminal() {
-		return c, nil
-	}
-
 	// If there is no registry nor explicit image name defined, the
 	// Registry prompt is shown whether or not we are in confirm mode.
 	// Otherwise, it is only showin if in confirm mode
@@ -312,23 +354,38 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	if err != nil {
 		return c, err
 	}
-	if (f.Registry == "" && c.Registry == "" && c.Image == "") || c.Confirm {
-		fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
-		err := survey.AskOne(
-			&survey.Input{Message: "Registry for function images:", Default: c.Registry},
-			&c.Registry,
-			survey.WithValidator(NewRegistryValidator(c.Path)))
-		if err != nil {
-			return c, fn.ErrRegistryRequired
-		}
-		fmt.Println("Note: building a function the first time will take longer than subsequent builds")
+
+	// Check if function exists first
+	if !f.Initialized() {
+		// Return a specific error for uninitialized function
+		return c, fn.NewErrNotInitialized(f.Root)
 	}
 
-	// Remainder of prompts are optional and only shown if in --confirm mode
-	if !c.Confirm {
+	// If function IS initialized AND registry/image is missing
+	if f.Registry == "" && c.Registry == "" && c.Image == "" {
+		// In interactive terminal, prompt for registry (user-friendly workflow)
+		if interactiveTerminal() {
+			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
+			err := survey.AskOne(
+				&survey.Input{Message: "Registry for function images:", Default: c.Registry},
+				&c.Registry,
+				survey.WithValidator(NewRegistryValidator(c.Path)))
+			if err != nil {
+				return c, fn.ErrRegistryRequired
+			}
+			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
+		}
+		// In non-interactive mode (e.g., tests, CI), continue and let the client's
+		// default registry be used if available. ErrRegistryRequired will be returned
+		// later if truly no registry is available.
+	}
+
+	// Early return if not in interactive terminal and not in confirm mode
+	if !interactiveTerminal() || !c.Confirm {
 		return c, nil
 	}
 
+	// Remainder of prompts are optional and only shown if in --confirm mode
 	// Image Name Override
 	// Calculate a better image name message which shows the value of the final
 	// image name as it will be calculated if an explicit image name is not used.
