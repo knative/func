@@ -31,7 +31,6 @@ import (
 //	fs:      filesytem which contains scaffolding at '[runtime]/scaffolding'
 //	         (exclusive with 'repo')
 func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err error) {
-
 	// detect the signature of the source code in the given location, presuming
 	// a runtime and invocation hint (default "http")
 	s, err := detectSignature(src, runtime, invoke)
@@ -43,7 +42,7 @@ func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err erro
 	// This is a defensive check used to allow for simple tests which can
 	// omit providing a fileystem by just expecting this error.
 	if fs == nil {
-		return ErrFilesysetmRequired
+		return ErrFilesystemRequired
 	}
 
 	// Path in the filesystem at which scaffolding is expected to exist

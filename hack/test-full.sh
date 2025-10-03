@@ -107,7 +107,7 @@ preconditions() {
         exit 1
     fi
     MISSING_BINS=""
-    for bin in kubectl kind jq stern dapr helm kn
+    for bin in kubectl kind jq stern dapr helm kn; do
         # Check with and without .exe for Windows compatibility
         if [ ! -f "${PROJECT_ROOT}/hack/bin/${bin}" ] && [ ! -f "${PROJECT_ROOT}/hack/bin/${bin}.exe" ]; then
             MISSING_BINS="${MISSING_BINS} ${bin}"

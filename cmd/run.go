@@ -232,7 +232,7 @@ Or if you have an existing function:
 			}
 		}
 	} else { // if !container
-		// dont run digested image without a container
+		// don't run digested image without a container
 		if cfg.Image != "" {
 			digested, err := isDigested(cfg.Image)
 			if err != nil {

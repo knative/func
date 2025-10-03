@@ -44,7 +44,7 @@ import (
 func main() {
 	// Set up context for possible signal inputs to not disrupt cleanup process.
 	// This is not gonna do much for workflows since they finish and shutdown
-	// but in case of local testing - dont leave left over resources on disk/RAM.
+	// but in case of local testing - don't leave left over resources on disk/RAM.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	sigs := make(chan os.Signal, 1)
@@ -98,7 +98,7 @@ func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlP
 		return "", fmt.Errorf("cannot patch java buildpacks: %w", err)
 	}
 	if arch == "arm64" && variant == "base" {
-		// dotnet,ruby&web-servers are not multiarch & we dont need them
+		// dotnet,ruby&web-servers are not multiarch & we don't need them
 		err = fixupRemoveUnusedBuildpacks(&builderConfig)
 		if err != nil {
 			return "", fmt.Errorf("failed to remove unused buildpacks: %w", err)
@@ -659,7 +659,7 @@ func downloadTarball(tarballUrl, destDir string) error {
 		case tar.TypeDir:
 			err = os.MkdirAll(dest, 0755)
 			if err != nil {
-				return fmt.Errorf("cannmot create a directory: %w", err)
+				return fmt.Errorf("cannot create a directory: %w", err)
 			}
 		case tar.TypeXGlobalHeader:
 			// ignore this type
@@ -780,7 +780,7 @@ func fixupRemoveUnusedBuildpacks(c *builder.Config) error {
 	return nil
 }
 
-// Copy build & run images from stack so that we dont use docker registry based images
+// Copy build & run images from stack so that we don't use docker registry based images
 // Run images are simply copied over to ghcr
 func copyStackImages(ctx context.Context, configPath string) error {
 	var err error

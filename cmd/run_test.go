@@ -459,7 +459,7 @@ func TestRun_DirectOverride(t *testing.T) {
 			return
 		}
 
-		// Ensure invocation doesnt happen for the second time as the image was
+		// Ensure invocation doesn't happen for the second time as the image was
 		// provided with a digest (should not build)
 		if builder2.BuildInvoked {
 			runErrCh <- fmt.Errorf("Function was not expected to build again but it did")

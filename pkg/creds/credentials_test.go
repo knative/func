@@ -768,11 +768,11 @@ func TestCredentialsHomePermissions(t *testing.T) {
 			_, err := testConfigPathError(t)
 			if err != nil { // If error was returned
 				if os.IsPermission(err) { // and its a permission error
-					if !tt.expPermsDeniedErr { // but it wasnt expected
-						t.Fatalf("didnt expect permissions denied error, but got: %s", err)
+					if !tt.expPermsDeniedErr { // but it wasn't expected
+						t.Fatalf("didn't expect permissions denied error, but got: %s", err)
 					}
 
-				} else { // and it wasnt permission error
+				} else { // and it wasn't permission error
 					t.Fatalf("got unexpected error: %v", err)
 				}
 			} else { // Else no error was returned
@@ -1283,7 +1283,7 @@ func setHomeWithPermissions(perm os.FileMode) func(t *testing.T) {
 
 		// if home is empty, nothing to do
 		if homeDir == "" {
-			t.Fatal("home dir is empty, cant set perms")
+			t.Fatal("home dir is empty, can't set perms")
 		}
 
 		fmt.Printf("setting permissions (%v) on home dir: %s\n", perm, homeDir)

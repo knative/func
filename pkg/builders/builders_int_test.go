@@ -157,7 +157,7 @@ password=nbusr123
 		{
 			Name:         "pack",
 			Builder:      buildpacks.NewBuilder(buildpacks.WithVerbose(true)),
-			BuilderImage: buildPatcheBuildpackBuilder,
+			BuilderImage: buildPatchedBuildpackBuilder,
 			Envs: []fn.Env{
 				{
 					Name:  ptr("SERVICE_BINDING_ROOT"),
@@ -280,7 +280,7 @@ USER 1001:0
 }
 
 // Builds a tiny paketo builder that trusts to our self-signed certificate (see createCertificate).
-func buildPatcheBuildpackBuilder(ctx context.Context, t *testing.T, certDir string) string {
+func buildPatchedBuildpackBuilder(ctx context.Context, t *testing.T, certDir string) string {
 	tag := "localhost:50000/builder-jammy-tin:test"
 	dockerfile := `FROM ghcr.io/knative/builder-jammy-tiny:latest
 COPY 85c05568.0 /etc/ssl/certs/

@@ -10,7 +10,7 @@
 // This is running on semi-auto basis where versions are being auto bumped via
 // PRs sent to main. Semi-auto because if repo is missing 'owner' or 'repo' fields
 // in the .json it will not be automatically bumped (it has no repo to look).
-// This is intentional for components we dont want autobumped like this.
+// This is intentional for components we don't want autobumped like this.
 // The source-of-truth file is found in this repo @root/hack/component-versions.json
 //
 // ADD NEW/MODIFY COMPONENTS
@@ -74,7 +74,7 @@ type ComponentList map[string]*Component
 func main() {
 	// Set up context for possible signal inputs to not disrupt cleanup process.
 	// This is not gonna do much for workflows since they finish and shutdown
-	// but in case of local testing - dont leave left over resources on disk/RAM.
+	// but in case of local testing - don't leave left over resources on disk/RAM.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	sigs := make(chan os.Signal, 1)
@@ -194,7 +194,7 @@ func writeFiles(cl ComponentList, script, json string) error {
 func writeSource(cl ComponentList, file string) error {
 	vB, err := json.MarshalIndent(cl, "", "	")
 	if err != nil {
-		return fmt.Errorf("cant Marshal versions: %v", err)
+		return fmt.Errorf("can't Marshal versions: %v", err)
 	}
 	f, err := os.Create(file)
 	if err != nil {

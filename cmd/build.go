@@ -468,8 +468,8 @@ func (c buildConfig) Validate(cmd *cobra.Command) (err error) {
 // for S2I.
 //
 // TODO: As a further optimization, it might be ideal to only build the
-// image necessary for the target cluster, since the end product of  a function
-// deployment is not the contiainer, but rather the running service.
+// image necessary for the target cluster, since the end product of a function
+// deployment is not the container, but rather the running service.
 func (c buildConfig) clientOptions() ([]fn.Option, error) {
 	o := []fn.Option{fn.WithRegistry(c.Registry)}
 

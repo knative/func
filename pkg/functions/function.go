@@ -524,9 +524,9 @@ func WithStampJournal() stampOption {
 // Stamp a function as being built.
 //
 // This is a performance optimization used when updates to the
-// function are known to have no effect on its built container.  This
+// function are known to have no effect on its built container. This
 // stamp is checked before certain operations, and if it has been updated,
-// the build can be skuipped.  If in doubt, just use .Write only.
+// the build can be skipped.  If in doubt, just use .Write only.
 //
 // Updates the build stamp at ./func/built (and the log
 // at .func/built.log) to reflect the current state of the filesystem.
@@ -823,7 +823,7 @@ func (f Function) ImageNameWithDigest(newDigest string) string {
 		return image[:shaIndex] + "@" + newDigest
 	}
 
-	// image doesnt have a digest yet == image not pushed yet
+	// image doesn't have a digest yet == image not pushed yet
 	//parse f.Build.Image to separate its name and tag
 	lastSlashIdx := strings.LastIndexAny(image, "/")
 	imageAsBytes := []byte(image)
