@@ -3,8 +3,6 @@ buildEnvs:
     value: "false"
   - name: BP_JVM_VERSION
     value: "21"
-  - name: BP_MAVEN_ACTIVE_PROFILES
-    value: "native"
 healthEndpoints:
   liveness: /actuator/health
   readiness: /actuator/health

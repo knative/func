@@ -6,7 +6,8 @@ import (
 )
 
 var (
-	FuncUtilImage = "ghcr.io/knative/func-utils:v2"
+	//FuncUtilImage = "ghcr.io/knative/func-utils:v2"
+	FuncUtilImage = "quay.io/dfridric/my-func-util"
 	DeployerImage string
 	ScaffoldImage string
 	S2IImage      string
