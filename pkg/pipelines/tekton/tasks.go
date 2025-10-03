@@ -416,6 +416,12 @@ spec:
   workspaces:
     - name: source
       description: The workspace containing the function project
+    - name: cache
+      optional: true
+    - name: sslcertdir
+      optional: true
+    - name: dockerconfig
+      optional: true
   steps:
     - name: func-deploy
       image: "%s"
@@ -443,6 +449,12 @@ spec:
   workspaces:
     - name: source
       description: The workspace containing the function project
+    - name: cache
+      optional: true
+    - name: sslcertdir
+      optional: true
+    - name: dockerconfig
+      optional: true
   steps:
     - name: func-scaffold
       image: %s
