@@ -31,7 +31,7 @@ import (
 //	fs:      filesytem which contains scaffolding at '[runtime]/scaffolding'
 //	         (exclusive with 'repo')
 func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err error) {
-
+	fmt.Println("#### scaffolding.Write")
 	// detect the signature of the source code in the given location, presuming
 	// a runtime and invocation hint (default "http")
 	s, err := detectSignature(src, runtime, invoke)
