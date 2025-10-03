@@ -41,8 +41,8 @@ func (b pythonBuilder) Base(customBase string) string {
 // ConfigFile that will be used when building the template.
 func (b pythonBuilder) Configure(job buildJob, _ v1.Platform, cf v1.ConfigFile) (v1.ConfigFile, error) {
 	var (
-		svcRelPath, _ = filepath.Rel(job.function.Root, job.buildDir()) // eg .func/builds/by-hash/$HASH
-		svcPath       = filepath.Join("/func", svcRelPath)              // eg /func/.func/builds/by-hash/$HASH
+		svcRelPath, _ = filepath.Rel(job.function.Root, job.buildDir()) // .func/build
+		svcPath       = filepath.Join("/func", svcRelPath)              // /func/.func/build
 		pythonPathEnv = fmt.Sprintf("PYTHONPATH=%v/lib", svcPath)
 		mainPath      = fmt.Sprintf("%v/service/main.py", svcPath)
 		listenAddrEnv = "LISTEN_ADDRESS=[::]:8080"
@@ -128,7 +128,7 @@ func (b pythonBuilder) WriteShared(job buildJob) (layers []imageLayer, err error
 func newPythonLibTarball(job buildJob, root, target string) error {
 	// Create a tarball of the "build directory"
 	// when extracted, it's root will be /func
-	// all files within should have path prefix .func/builds/by-hash/$hash
+	// all files within should have path prefix .func/build
 
 	targetFile, err := os.Create(target) // final .tar.gz
 	if err != nil {

@@ -46,6 +46,8 @@ spec:
       params:
         - name: path
           value: $(workspaces.source.path)/$(params.contextDir)
+        - name: builder
+          value: pack
       workspaces:
         - name: source
           workspace: source-workspace

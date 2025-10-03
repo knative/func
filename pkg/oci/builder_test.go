@@ -73,15 +73,21 @@ func TestBuilder_BuildGo(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	scaffolder := NewScaffolder(true)
 	builder := NewBuilder("", true)
 
-	if err := builder.Build(context.Background(), f, TestPlatforms); err != nil {
+	ctx := t.Context()
+	if err := scaffolder.Scaffold(ctx, f, ""); err != nil {
 		t.Fatal(err)
 	}
 
-	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	if err := builder.Build(ctx, f, TestPlatforms); err != nil {
+		t.Fatal(err)
+	}
 
-	validateOCIStructure(last, t) // validate OCI compliant
+	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
+
+	validateOCIStructure(oci, t) // validate OCI compliant
 }
 
 // TestBuilder_BuildPython ensures that, when given a Python Function, an
@@ -102,16 +108,20 @@ func TestBuilder_BuildPython(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	ctx := t.Context()
+	scaffolder := NewScaffolder(true)
 	builder := NewBuilder("", true)
 
-	if err := builder.Build(context.Background(), f, TestPlatforms); err != nil {
+	if err := scaffolder.Scaffold(ctx, f, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := builder.Build(ctx, f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
 
-	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
 
-	validateOCIStructure(last, t) // validate OCI compliant
+	validateOCIStructure(oci, t) // validate OCI compliant
 }
 
 // TestBuilder_Files ensures that static files are added to the container
@@ -153,6 +163,11 @@ func TestBuilder_Files(t *testing.T) {
 		}
 	}
 
+	// Scaffold first to copy certs and scaffolding files
+	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := NewBuilder("", true).Build(context.Background(), f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
@@ -171,12 +186,16 @@ func TestBuilder_Files(t *testing.T) {
 		{Path: "/func/handle_test.go"},
 	}
 
-	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
 
-	validateOCIFiles(last, expected, t)
+	validateOCIFiles(oci, expected, t)
 }
 
-// TestBuilder_Concurrency
+// TestBuilder_Concurrency tests the full build flow including lock file behavior:
+// 1. Lock file exists during build with correct PID
+// 2. Concurrent build is blocked with ErrBuildInProgress
+// 3. Lock file is cleaned up after build completes
+// 4. Subsequent builds succeed after lock is released
 func TestBuilder_Concurrency(t *testing.T) {
 	root, done := Mktemp(t)
 	defer done()
@@ -188,6 +207,13 @@ func TestBuilder_Concurrency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Scaffold first to copy certs and scaffolding files
+	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	lockFile := filepath.Join(f.Root, fn.RunDataDir, "build.lock")
 
 	// Concurrency
 	//
@@ -235,7 +261,22 @@ func TestBuilder_Concurrency(t *testing.T) {
 	//  Wait until build 1 indicates it is paused
 	<-pausedCh
 
-	// Build B
+	// Verify lock file exists during build
+	if _, err := os.Stat(lockFile); os.IsNotExist(err) {
+		t.Error("lock file should exist during build")
+	}
+
+	// Verify lock file contains current process PID
+	lockContent, err := os.ReadFile(lockFile)
+	if err != nil {
+		t.Errorf("failed to read lock file: %v", err)
+	}
+	expectedPID := strconv.Itoa(os.Getpid())
+	if strings.TrimSpace(string(lockContent)) != expectedPID {
+		t.Errorf("lock file contains %q, expected %q", string(lockContent), expectedPID)
+	}
+
+	// Build B - should fail with ErrBuildInProgress
 	builder2 := NewBuilder("builder2", true)
 	testImplB := NewTestLanguageBuilder()
 	testImplB.WritePlatformFn = func(job buildJob, p v1.Platform) ([]imageLayer, error) {
@@ -246,13 +287,29 @@ func TestBuilder_Concurrency(t *testing.T) {
 		defer wg.Done()
 		err = builder2.Build(context.Background(), f, TestPlatforms)
 		if !errors.As(err, &ErrBuildInProgress{}) {
-			t.Errorf("test build error: %v", err)
+			t.Errorf("expected ErrBuildInProgress, got: %v", err)
 		}
 	}()
 
 	// Release the blocking Build A and wait until complete.
 	continueCh <- true
 	wg.Wait()
+
+	// Verify lock file is cleaned up after build completes
+	if _, err := os.Stat(lockFile); !os.IsNotExist(err) {
+		t.Error("lock file should be removed after build completes")
+	}
+
+	// Build C - verify subsequent build succeeds after lock released
+	builder3 := NewBuilder("builder3", true)
+	if err := builder3.Build(context.Background(), f, TestPlatforms); err != nil {
+		t.Errorf("subsequent build should succeed after lock released: %v", err)
+	}
+
+	// Verify lock file cleaned up after Build C
+	if _, err := os.Stat(lockFile); !os.IsNotExist(err) {
+		t.Error("lock file should be removed after subsequent build")
+	}
 }
 
 func isFirstBuild(cfg buildJob, current v1.Platform) bool {
@@ -416,6 +473,11 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Scaffold first to copy certs and scaffolding files
+	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := NewBuilder("", true).Build(context.Background(), f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
@@ -425,7 +487,7 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 	// variables on each of the constituent containers.
 	// ---
 	// Get the images list (manifest descripors) from the index
-	ociPath := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	ociPath := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
 	data, err := os.ReadFile(filepath.Join(ociPath, "index.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -536,6 +598,63 @@ func (l *TestLanguageBuilder) WritePlatform(job buildJob, p v1.Platform) ([]imag
 func (l *TestLanguageBuilder) Configure(job buildJob, p v1.Platform, c v1.ConfigFile) (v1.ConfigFile, error) {
 	l.ConfigureInvoked = true
 	return l.ConfigureFn(job, p, c)
+}
+
+// TestBuilder_LockLifecycle tests the build lock mechanism with 3 scenarios:
+// 1. Clean build succeeds
+// 2. Active lock (current PID) blocks build with ErrBuildInProgress
+// 3. Stale lock (dead PID) allows build to proceed
+func TestBuilder_LockLifecycle(t *testing.T) {
+	root, done := Mktemp(t)
+	defer done()
+
+	f, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	lockFile := filepath.Join(f.Root, fn.RunDataDir, "build.lock")
+	ctx := context.Background()
+
+	// --- Scenario 1: Clean build succeeds ---
+	if err := NewBuilder("", true).Build(ctx, f, TestPlatforms); err != nil {
+		t.Fatalf("clean build should succeed: %v", err)
+	}
+
+	// --- Scenario 2: Active lock (current PID) blocks build ---
+	// Write current process PID to simulate an active build
+	//
+	// In case we implement some kind of process self-knowledge (checking if
+	// I -as a process- am running this build, therefore am the one locking the
+	// build, perhaps we can change this to os.Getppid() instead.
+	if err := os.MkdirAll(filepath.Dir(lockFile), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(lockFile, []byte(strconv.Itoa(os.Getpid())), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err = NewBuilder("", true).Build(ctx, f, TestPlatforms)
+	if !errors.As(err, &ErrBuildInProgress{}) {
+		t.Fatalf("expected ErrBuildInProgress with active lock, got: %v", err)
+	}
+
+	os.Remove(lockFile) // cleanup for next scenario
+
+	// --- Scenario 3: Stale lock (dead PID) allows build ---
+	// Write a non-existent PID to simulate a stale lock from crashed build
+	if err := os.WriteFile(lockFile, []byte("99999999"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := NewBuilder("", true).Build(ctx, f, TestPlatforms); err != nil {
+		t.Fatalf("build with stale lock should succeed: %v", err)
+	}
 }
 
 // Test_validatedLinkTarget ensures that the function disallows
