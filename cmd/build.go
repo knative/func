@@ -174,11 +174,6 @@ Try this:
 Or remove the --platform flag:
   func build --registry <registry>
 
-Builder capabilities:
-  s2i   Supports --platform (Source-to-Image)
-  pack  Does not support --platform (uses default)
-  host  Does not support --platform (uses host architecture)
-
 For more options, run 'func build --help'`, err)
 		}
 		return
