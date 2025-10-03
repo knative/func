@@ -294,7 +294,7 @@ For more options, run 'func deploy --help'`, notInitErr)
 			return fmt.Errorf(`%w
 
 Try this:
-  func deploy --registry ghcr.io/myuser    
+  func deploy --registry ghcr.io/myuser
 
 Or set the FUNC_REGISTRY environment variable:
   export FUNC_REGISTRY=ghcr.io/myuser

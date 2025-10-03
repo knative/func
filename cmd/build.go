@@ -388,10 +388,10 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 				return c, fn.ErrRegistryRequired
 			}
 			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
-		} else {
-			// In non-interactive mode (e.g., tests, CI), return error immediately
-			return c, fn.ErrRegistryRequired
 		}
+		// In non-interactive mode (e.g., tests, CI), continue and let the client's
+		// default registry be used if available. ErrRegistryRequired will be returned
+		// later if truly no registry is available.
 	}
 
 	// Early return if not in interactive terminal and not in confirm mode
