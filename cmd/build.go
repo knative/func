@@ -166,7 +166,8 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		if errors.As(err, &errNotInit) {
 			return fmt.Errorf(`%w
 
-To build a function, you need to point to a function directory or use a --path flag approach.
+No function found in provided path (current directory or via --path).
+You need to be in a function directory (or use --path).
 
 Try this:
   func create --language go myfunction    Create a new function
@@ -356,10 +357,6 @@ func (c buildConfig) Configure(f fn.Function) fn.Function {
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
 // all prompts) was set (default).
 func (c buildConfig) Prompt() (buildConfig, error) {
-	if !interactiveTerminal() {
-		return c, nil
-	}
-
 	// If there is no registry nor explicit image name defined, the
 	// Registry prompt is shown whether or not we are in confirm mode.
 	// Otherwise, it is only showin if in confirm mode
@@ -378,30 +375,31 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 		return c, fn.NewErrNotInitialized(f.Root)
 	}
 
-	// Check if registry/image is missing BEFORE prompting
+	// If function IS initialized AND registry/image is missing
 	if f.Registry == "" && c.Registry == "" && c.Image == "" {
-		// Return error immediately - don't prompt
-		return c, fn.ErrRegistryRequired
-	}
-
-	// Only prompt if in confirm mode and registry exists
-	if c.Confirm {
-		fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
-		err := survey.AskOne(
-			&survey.Input{Message: "Registry for function images:", Default: c.Registry},
-			&c.Registry,
-			survey.WithValidator(NewRegistryValidator(c.Path)))
-		if err != nil {
+		// In interactive terminal, prompt for registry (user-friendly workflow)
+		if interactiveTerminal() {
+			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
+			err := survey.AskOne(
+				&survey.Input{Message: "Registry for function images:", Default: c.Registry},
+				&c.Registry,
+				survey.WithValidator(NewRegistryValidator(c.Path)))
+			if err != nil {
+				return c, fn.ErrRegistryRequired
+			}
+			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
+		} else {
+			// In non-interactive mode (e.g., tests, CI), return error immediately
 			return c, fn.ErrRegistryRequired
 		}
-		fmt.Println("Note: building a function the first time will take longer than subsequent builds")
 	}
 
-	// Remainder of prompts are optional and only shown if in --confirm mode
-	if !c.Confirm {
+	// Early return if not in interactive terminal and not in confirm mode
+	if !interactiveTerminal() || !c.Confirm {
 		return c, nil
 	}
 
+	// Remainder of prompts are optional and only shown if in --confirm mode
 	// Image Name Override
 	// Calculate a better image name message which shows the value of the final
 	// image name as it will be calculated if an explicit image name is not used.

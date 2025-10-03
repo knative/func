@@ -260,7 +260,8 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			if errors.As(notInitErr, &errNotInit) {
 				return fmt.Errorf(`%w
 
-To deploy a function, you need to point to a function directory or use a --path flag approach.
+No function found in provided path (current directory or via --path).
+You need to be in a function directory (or use --path).
 
 Try this:
   func create --language go myfunction    Create a new function
@@ -293,7 +294,7 @@ For more options, run 'func deploy --help'`, notInitErr)
 			return fmt.Errorf(`%w
 
 Try this:
-  func deploy --registry ghcr.io/myuser    Deploy with registry
+  func deploy --registry ghcr.io/myuser    
 
 Or set the FUNC_REGISTRY environment variable:
   export FUNC_REGISTRY=ghcr.io/myuser
