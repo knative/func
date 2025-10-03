@@ -106,6 +106,7 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 // Returned is the final url, and the input Function with the final results of the run populated
 // (f.Deploy.Image and f.Deploy.Namespace) or an error.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn.Function, error) {
+	fmt.Println("#### pp.Run")
 	var err error
 
 	// Checks builder and registry:
