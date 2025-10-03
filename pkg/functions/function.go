@@ -32,6 +32,11 @@ const (
 	// metadata dir (RunDataDir)
 	BuiltHash = "built-hash"
 
+	// BuildLock indicates that Function is being currently built to prevent
+	// multiple builds occurring at the same time. It contains PID of the process
+	// that's running the build. Found in metadata dir (RunDataDir)
+	BuildLock = "build.lock"
+
 	// BuiltImage is a name of a file that holds name of built image in runtime
 	// metadata dir (RunDataDir)
 	BuiltImage = "built-image"
@@ -528,7 +533,7 @@ func WithStampJournal() stampOption {
 // stamp is checked before certain operations, and if it has been updated,
 // the build can be skipped.  If in doubt, just use .Write only.
 //
-// Updates the build stamp at ./func/built (and the log
+// Updates the build stamp at .func/built-hash (and the log
 // at .func/built.log) to reflect the current state of the filesystem.
 // Note that the caller should call .Write first to flush any changes to the
 // function in-memory to the filesystem prior to calling stamp.
@@ -736,7 +741,7 @@ func (f Function) Built() bool {
 	return true
 }
 
-// BuildStamp accesses the current (last) build stamp for the function.
+// BuildStamp accesses the current build stamp for the function.
 // Unbuilt functions return empty string.
 func (f Function) BuildStamp() string {
 	path := filepath.Join(f.Root, RunDataDir, BuiltHash)

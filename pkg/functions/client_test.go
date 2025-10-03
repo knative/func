@@ -692,10 +692,18 @@ func TestClient_Runner(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 	ctx, cancel := context.WithCancel(context.Background())
-	client := fn.New(fn.WithBuilder(oci.NewBuilder("", true)), fn.WithVerbose(true))
+	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
+		fn.WithBuilder(oci.NewBuilder("", true)), fn.WithVerbose(true))
 
 	// Initialize
 	f, err := client.Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Scaffold
+	err = client.Scaffold(ctx, f, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -784,6 +792,7 @@ func TestClient_RunTimeout(t *testing.T) {
 
 	// A client with a shorter global timeout.
 	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", true)),
 		fn.WithVerbose(true),
 		fn.WithStartTimeout(2*time.Second))
@@ -817,8 +826,13 @@ func TestClient_RunTimeout(t *testing.T) {
 	src.Close()
 	dst.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
+
+	// Scaffold
+	err = client.Scaffold(ctx, f, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build
 	if f, err = client.Build(ctx, f, fn.BuildWithPlatforms(TestPlatforms)); err != nil {
@@ -1592,9 +1606,9 @@ func TestClient_Scaffold(t *testing.T) {
 	defer rm()
 	var out = "result"
 
-	// Assert "scaffolding" is a reserved word; not listed as aavailable
+	// Assert "scaffolding" is a reserved word; not listed as available
 	// template despite being in the templates' directory.
-	client := fn.New()
+	client := fn.New(fn.WithScaffolder(oci.NewScaffolder(true)))
 	tt, err := client.Templates().List("go")
 	if err != nil {
 		t.Fatal(err)
@@ -2020,7 +2034,9 @@ func TestClient_RunRediness(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
-	client := fn.New(fn.WithBuilder(oci.NewBuilder("", true)), fn.WithVerbose(true))
+	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
+		fn.WithBuilder(oci.NewBuilder("", true)), fn.WithVerbose(true))
 
 	// Initialize
 	f, err := client.Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry})
@@ -2051,9 +2067,12 @@ func TestClient_RunRediness(t *testing.T) {
 	src.Close()
 	dst.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
+	// Scaffold
+	if err = client.Scaffold(ctx, f, ""); err != nil {
+		t.Fatal(err)
+	}
 	// Build
 	if f, err = client.Build(ctx, f, fn.BuildWithPlatforms(TestPlatforms)); err != nil {
 		t.Fatal(err)
