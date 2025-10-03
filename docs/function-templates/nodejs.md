@@ -313,9 +313,6 @@ Returns the HTTP major version number as a string.
 ### `httpVersionMinor`
 Returns the HTTP minor version number as a string.
 
-### `httpVersionMinor`
-Returns the HTTP minor version number as a string.
-
 ## Context Methods
 There is a single method on the `Context` object which is a convenience
 function for returning a `CloudEvent` object. In Knative systems, if a function
