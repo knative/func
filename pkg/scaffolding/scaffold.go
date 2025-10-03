@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 
+	"golang.org/x/mod/modfile"
 	"knative.dev/func/pkg/filesystem"
 )
 
@@ -56,30 +56,10 @@ func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err erro
 		return ScaffoldingError{"filesystem copy failed", err}
 	}
 
-	// Not my proudest moment
+	// Slightly prouder moment
 	if runtime == "go" {
-		var data []byte
-		data, err = os.ReadFile(filepath.Join(src, "go.mod"))
-		if err != nil {
-			return fmt.Errorf("cannot read go.mod: %w", err)
-		}
-		r := regexp.MustCompile(`module\s+(\w+)`)
-		matches := r.FindSubmatch(data)
-		if len(matches) != 2 {
-			return fmt.Errorf("cannot parse go.mod")
-		}
-		moduleName := string(matches[1])
-		for _, n := range []string{"go.mod", "main.go"} {
-			p := filepath.Join(out, n)
-			data, err = os.ReadFile(p)
-			if err != nil {
-				return fmt.Errorf("cannot read scaffolding file: %w", err)
-			}
-			data = bytes.ReplaceAll(data, []byte("function"), []byte(moduleName))
-			err = os.WriteFile(p, data, 0644)
-			if err != nil {
-				return fmt.Errorf("cannot patch scaffolding code: %w", err)
-			}
+		if err := patchScaffolding(src, out); err != nil {
+			return fmt.Errorf("failed to patch scaffolding:%w", err)
 		}
 	}
 
@@ -125,4 +105,73 @@ func detectSignature(src, runtime, invoke string) (s Signature, err error) {
 	} else {
 		return toSignature(instanced, invoke), nil
 	}
+}
+
+// patch scaffolding main.go and go.mod based on the users function
+func patchScaffolding(src, out string) error {
+	goModPath := filepath.Join(src, "go.mod")
+	data, err := os.ReadFile(goModPath)
+	if err != nil {
+		return fmt.Errorf("cannot read function go.mod: %w", err)
+	}
+	goMod, err := modfile.Parse(goModPath, data, nil)
+	if err != nil {
+		return fmt.Errorf("cannot parse function go.mod at: %w", err)
+	}
+	if goMod.Module == nil {
+		return fmt.Errorf("cannot parse function go.mod: module not found")
+	}
+
+	moduleName := goMod.Module.Mod.Path
+
+	if err := patchGoMod(out, moduleName, goMod.Go); err != nil {
+		return err
+	}
+	return patchMain(out, moduleName)
+}
+
+func patchGoMod(dir, moduleName string, goDirective *modfile.Go) error {
+	path := filepath.Join(dir, "go.mod")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("cannot read scaffolding go.mod: %w", err)
+	}
+	f, err := modfile.Parse(path, data, nil)
+	if err != nil {
+		return fmt.Errorf("cannot parse scaffolding go.mod: %w", err)
+	}
+
+	if goDirective != nil && goDirective.Version != "" {
+		if err := f.AddGoStmt(goDirective.Version); err != nil {
+			return fmt.Errorf("cannot set go version: %w", err)
+		}
+	}
+	if err := f.DropReplace("function", ""); err != nil {
+		return fmt.Errorf("cannot drop replace: %w", err)
+	}
+	if err := f.AddReplace(moduleName, "", "./f", ""); err != nil {
+		return fmt.Errorf("cannot add replace: %w", err)
+	}
+	if err := f.DropRequire("function"); err != nil {
+		return fmt.Errorf("cannot drop require: %w", err)
+	}
+	if err := f.AddRequire(moduleName, "v0.0.0-00010101000000-000000000000"); err != nil {
+		return fmt.Errorf("cannot add require: %w", err)
+	}
+
+	formatted, err := f.Format()
+	if err != nil {
+		return fmt.Errorf("cannot format scaffolding go.mod: %w", err)
+	}
+	return os.WriteFile(path, formatted, 0644)
+}
+
+func patchMain(out, moduleName string) error {
+	targetMainPath := filepath.Join(out, "main.go")
+	targetMainData, err := os.ReadFile(targetMainPath)
+	if err != nil {
+		return fmt.Errorf("cannot read scaffolding main: %w", err)
+	}
+	targetMainData = bytes.ReplaceAll(targetMainData, []byte("function"), []byte(moduleName))
+	return os.WriteFile(targetMainPath, targetMainData, 0644)
 }

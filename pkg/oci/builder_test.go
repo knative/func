@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -15,7 +14,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -73,15 +71,21 @@ func TestBuilder_BuildGo(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	scaffolder := NewScaffolder(true)
 	builder := NewBuilder("", true)
 
-	if err := builder.Build(context.Background(), f, TestPlatforms); err != nil {
+	ctx := t.Context()
+	if err := scaffolder.Scaffold(ctx, f, ""); err != nil {
 		t.Fatal(err)
 	}
 
-	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	if err := builder.Build(ctx, f, TestPlatforms); err != nil {
+		t.Fatal(err)
+	}
 
-	validateOCIStructure(last, t) // validate OCI compliant
+	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
+
+	validateOCIStructure(oci, t) // validate OCI compliant
 }
 
 // TestBuilder_BuildPython ensures that, when given a Python Function, an
@@ -102,16 +106,20 @@ func TestBuilder_BuildPython(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	ctx := t.Context()
+	scaffolder := NewScaffolder(true)
 	builder := NewBuilder("", true)
 
-	if err := builder.Build(context.Background(), f, TestPlatforms); err != nil {
+	if err := scaffolder.Scaffold(ctx, f, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := builder.Build(ctx, f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
 
-	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
 
-	validateOCIStructure(last, t) // validate OCI compliant
+	validateOCIStructure(oci, t) // validate OCI compliant
 }
 
 // TestBuilder_Files ensures that static files are added to the container
@@ -153,6 +161,11 @@ func TestBuilder_Files(t *testing.T) {
 		}
 	}
 
+	// Scaffold first to copy certs and scaffolding files
+	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := NewBuilder("", true).Build(context.Background(), f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
@@ -171,95 +184,9 @@ func TestBuilder_Files(t *testing.T) {
 		{Path: "/func/handle_test.go"},
 	}
 
-	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
 
-	validateOCIFiles(last, expected, t)
-}
-
-// TestBuilder_Concurrency
-func TestBuilder_Concurrency(t *testing.T) {
-	root, done := Mktemp(t)
-	defer done()
-
-	client := fn.New()
-
-	// Initialize a new Go Function
-	f, err := client.Init(fn.Function{Root: root, Runtime: "go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Concurrency
-	//
-	// The first builder is setup to use a mock implementation of the
-	// builder function which will block until released after first notifying
-	// that it has been paused.
-	//
-	// When the test receives the message that the builder has been paused, it
-	// starts a second, concurrently executing builder to ensure there is a
-	// typed error returned indicating a build is in progress.
-	//
-	// When the second builder completes, having confirmed the error message
-	// received is as expected.  It signals the first (blocked) builder that it
-	// can now continue.
-
-	// Thet test waits until the first builder notifies that it is done, and
-	// has therefore ran its tests as well.
-
-	var (
-		pausedCh   = make(chan bool)
-		continueCh = make(chan bool)
-		wg         sync.WaitGroup
-	)
-
-	// Build A
-	builder1 := NewBuilder("builder1", true)
-	testImplA := NewTestLanguageBuilder()
-	testImplA.WritePlatformFn = func(job buildJob, p v1.Platform) ([]imageLayer, error) {
-		if isFirstBuild(job, p) {
-			pausedCh <- true // Notify of being paused
-			<-continueCh     // Block until released
-		}
-		return []imageLayer{}, nil
-	}
-	builder1.impl = testImplA
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := builder1.Build(context.Background(), f, TestPlatforms); err != nil {
-			t.Errorf("test build error: %v", err)
-		}
-	}()
-
-	//  Wait until build 1 indicates it is paused
-	<-pausedCh
-
-	// Build B
-	builder2 := NewBuilder("builder2", true)
-	testImplB := NewTestLanguageBuilder()
-	testImplB.WritePlatformFn = func(job buildJob, p v1.Platform) ([]imageLayer, error) {
-		return []imageLayer{}, fmt.Errorf("the buildFn should not have been invoked")
-	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err = builder2.Build(context.Background(), f, TestPlatforms)
-		if !errors.As(err, &ErrBuildInProgress{}) {
-			t.Errorf("test build error: %v", err)
-		}
-	}()
-
-	// Release the blocking Build A and wait until complete.
-	continueCh <- true
-	wg.Wait()
-}
-
-func isFirstBuild(cfg buildJob, current v1.Platform) bool {
-	first := cfg.platforms[0]
-	return current.OS == first.OS &&
-		current.Architecture == first.Architecture &&
-		current.Variant == first.Variant
+	validateOCIFiles(oci, expected, t)
 }
 
 // ImageIndex represents the structure of an OCI Image Index.
@@ -416,6 +343,11 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Scaffold first to copy certs and scaffolding files
+	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := NewBuilder("", true).Build(context.Background(), f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
@@ -425,7 +357,7 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 	// variables on each of the constituent containers.
 	// ---
 	// Get the images list (manifest descripors) from the index
-	ociPath := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	ociPath := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
 	data, err := os.ReadFile(filepath.Join(ociPath, "index.json"))
 	if err != nil {
 		t.Fatal(err)

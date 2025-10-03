@@ -126,7 +126,7 @@ spec:
     - name: func-scaffold
       image: %s
       workingDir: $(workspaces.source.path)
-      command: ["scaffold", $(params.SOURCE_SUBPATH)]
+      command: ["scaffold", $(params.SOURCE_SUBPATH), "pack"]
 
     - name: prepare
       image: docker.io/library/bash:5.1
@@ -381,7 +381,7 @@ spec:
     - name: func-scaffold
       image: %s
       workingDir: $(workspaces.source.path)
-      command: ["scaffold", $(params.PATH_CONTEXT)]
+      command: ["scaffold", $(params.PATH_CONTEXT), "s2i"]
 
     - name: generate
       image: %s

@@ -28,8 +28,8 @@ import (
 // DefaultName when no WithName option is provided to NewBuilder
 const DefaultName = builders.Pack
 
-var DefaultBaseBuilder = "ghcr.io/knative/builder-jammy-base:latest"
-var DefaultTinyBuilder = "ghcr.io/knative/builder-jammy-tiny:latest"
+var DefaultBaseBuilder = "ghcr.io/knative/builder-jammy-base:v2"
+var DefaultTinyBuilder = "ghcr.io/knative/builder-jammy-tiny:v2"
 
 var (
 	DefaultBuilderImages = map[string]string{
@@ -184,6 +184,11 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 	if _, ok := opts.Env["BPE_DEFAULT_LISTEN_ADDRESS"]; !ok {
 		opts.Env["BPE_DEFAULT_LISTEN_ADDRESS"] = "[::]:8080"
+	}
+
+	// set scaffolding path to buildpacks builder
+	if f.Runtime == "go" {
+		opts.Env["BP_GO_WORKDIR"] = ".func/build"
 	}
 
 	var bindings = make([]string, 0, len(f.Build.Mounts))

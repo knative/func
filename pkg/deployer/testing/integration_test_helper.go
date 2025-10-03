@@ -42,6 +42,7 @@ func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 	t.Cleanup(cancel)
 
 	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
@@ -62,6 +63,12 @@ func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 	// Not really necessary, but it allows us to reuse the "invoke" method:
 	handlerPath := filepath.Join(root, "handle.go")
 	if err := os.WriteFile(handlerPath, []byte(testHandler), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Scaffold
+	err = client.Scaffold(ctx, f, "")
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -115,6 +122,7 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 	t.Cleanup(cancel)
 
 	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
@@ -156,6 +164,7 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 		t.Fatal(err)
 	}
 	handlerPath := filepath.Join(root, "handle.go")
+
 	if err := os.WriteFile(handlerPath, []byte(testHandler), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -196,6 +205,12 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 
 	// Deploy
 	// ------
+
+	// Scaffold
+	err = client.Scaffold(ctx, f, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build
 	f, err = client.Build(ctx, f)
@@ -283,6 +298,7 @@ func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 	t.Cleanup(cancel)
 
 	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
@@ -310,6 +326,12 @@ func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 
 	// Deploy
 	// ------
+
+	// Scaffold
+	err = client.Scaffold(ctx, f, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build
 	f, err = client.Build(ctx, f)
@@ -361,6 +383,7 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 	t.Cleanup(cancel)
 
 	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
@@ -386,6 +409,12 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 			Min: &minScale,
 			Max: &maxScale,
 		},
+	}
+
+	// Scaffold
+	err = client.Scaffold(ctx, f, "")
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// Build
@@ -467,6 +496,7 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 	t.Cleanup(cancel)
 
 	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
@@ -499,6 +529,12 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 
 	// Deploy
 	// ------
+
+	// Scaffold
+	err = client.Scaffold(ctx, f, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build
 	f, err = client.Build(ctx, f)
