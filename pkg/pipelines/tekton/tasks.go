@@ -2,17 +2,21 @@ package tekton
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
 var (
-	FuncUtilImage = "ghcr.io/knative/func-utils:v2"
-	DeployerImage string
-	ScaffoldImage string
-	S2IImage      string
+	FuncUtilImage        = utilsImage()
+	FuncUtilImageDefault = "ghcr.io/knative/func-utils:v2"
+	DeployerImage        string
+	ScaffoldImage        string
+	S2IImage             string
 )
 
 func init() {
+	fmt.Printf("[DEBUG] pkg/pipelines/tekton/tasks.go: Initial FuncUtilImage = %s\n", FuncUtilImage)
+
 	if DeployerImage == "" {
 		DeployerImage = FuncUtilImage
 	}
@@ -22,6 +26,19 @@ func init() {
 	if S2IImage == "" {
 		S2IImage = FuncUtilImage
 	}
+
+	fmt.Printf("[DEBUG] pkg/pipelines/tekton/tasks.go: DeployerImage = %s\n", DeployerImage)
+	fmt.Printf("[DEBUG] pkg/pipelines/tekton/tasks.go: ScaffoldImage = %s\n", ScaffoldImage)
+	fmt.Printf("[DEBUG] pkg/pipelines/tekton/tasks.go: S2IImage = %s\n", S2IImage)
+}
+
+func utilsImage() string {
+	if val := os.Getenv("FUNC_UTILS_IMG"); val != "" {
+		fmt.Printf("Using '%v' utils image\n", val)
+		return val
+	}
+	fmt.Printf("Using '%v' utils image\n", FuncUtilImageDefault)
+	return FuncUtilImageDefault
 }
 
 func getBuildpackTask() string {

@@ -76,6 +76,7 @@ var TarImage = "ghcr.io/knative/func-utils:v2"
 
 // UploadToVolume uploads files (passed in form of tar stream) into volume.
 func UploadToVolume(ctx context.Context, content io.Reader, claimName, namespace string) error {
+	fmt.Printf("[DEBUG] pkg/k8s/persistent_volumes.go: Using TarImage = %s\n", TarImage)
 	return runWithVolumeMounted(ctx, TarImage, []string{"sh", "-c", "umask 0000 && exec tar -xmf -"}, content, claimName, namespace)
 }
 

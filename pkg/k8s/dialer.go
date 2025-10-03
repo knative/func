@@ -275,6 +275,8 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 		}
 	}()
 
+	fmt.Printf("[DEBUG] pkg/k8s/dialer.go: Using SocatImage = %s\n", SocatImage)
+
 	pod := &coreV1.Pod{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        c.podName,

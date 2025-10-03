@@ -5,6 +5,9 @@ set -o nounset
 set -o pipefail
 
 FUNC_UTILS_IMG="localhost:50000/knative/func-utils:v2"
+if [ -n "$GITHUB_ENV" ]; then
+    echo "FUNC_UTILS_IMG=$FUNC_UTILS_IMG" >> $GITHUB_ENV
+fi
 
 CGO_ENABLED=0 go build -o "func-util" -trimpath -ldflags '-w -s' ./cmd/func-util
 
