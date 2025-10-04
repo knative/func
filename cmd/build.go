@@ -378,12 +378,15 @@ func (c buildConfig) Validate() (err error) {
 
 	// Check for conflicting --image and --registry
 	if c.Image != "" && c.Registry != "" {
-		// Check if image starts with the registry (allows subnamespaces)
-		// Example: --registry=example.com/alice --image=example.com/alice/subns/func is OK
-		// Example: --registry=example.com/alice --image=different.com/func is NOT OK
-		if !strings.HasPrefix(c.Image, c.Registry+"/") && !strings.HasPrefix(c.Image, c.Registry+":") {
-			// Image doesn't use the specified registry
-			return fn.ErrConflictingImageAndRegistry
+		// Skip validation if image has digest (@sha256:...) - digests are immutable overrides
+		if !strings.Contains(c.Image, "@sha256:") {
+			// Only validate if image has explicit registry (contains "/" or ":")
+			// Simple names like "myimage" are compatible - registry will be prepended
+			if strings.Contains(c.Image, "/") || strings.Contains(c.Image, ":") {
+				if !strings.HasPrefix(c.Image, c.Registry+"/") && !strings.HasPrefix(c.Image, c.Registry+":") {
+					return fn.ErrConflictingImageAndRegistry
+				}
+			}
 		}
 	}
 
