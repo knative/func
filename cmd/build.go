@@ -376,6 +376,17 @@ func (c buildConfig) Validate() (err error) {
 		return
 	}
 
+	// Check for conflicting --image and --registry
+	if c.Image != "" && c.Registry != "" {
+		// Check if image starts with the registry (allows subnamespaces)
+		// Example: --registry=example.com/alice --image=example.com/alice/subns/func is OK
+		// Example: --registry=example.com/alice --image=different.com/func is NOT OK
+		if !strings.HasPrefix(c.Image, c.Registry+"/") && !strings.HasPrefix(c.Image, c.Registry+":") {
+			// Image doesn't use the specified registry
+			return fn.ErrConflictingImageAndRegistry
+		}
+	}
+
 	// Platform is only supported with the S2I builder at this time
 	if c.Platform != "" && c.Builder != builders.S2I {
 		err = fn.ErrPlatformNotSupported
