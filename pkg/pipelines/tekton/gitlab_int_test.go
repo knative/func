@@ -4,7 +4,6 @@
 package tekton_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -13,7 +12,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -26,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xanzy/go-gitlab"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/html"
 
@@ -214,10 +212,7 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, baseURL, username, passwo
 		t.Fatal(err)
 	}
 
-	// http client with hacky RoundTripper that removes problematic values from the JSON response
-	httpCli := &http.Client{Transport: rt{}}
-
-	glabCli, err := gitlab.NewClient(rootToken, gitlab.WithBaseURL(baseURL), gitlab.WithHTTPClient(httpCli))
+	glabCli, err := gitlab.NewClient(rootToken, gitlab.WithBaseURL(baseURL))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +312,7 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, baseURL, username, passwo
 	}
 	t.Logf("created project: %q", project.Name)
 	t.Cleanup(func() {
-		_, _ = glabCli.Projects.DeleteProject(project.ID)
+		_, _ = glabCli.Projects.DeleteProject(project.ID, nil)
 	})
 	//endregion
 
@@ -357,51 +352,6 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, baseURL, username, passwo
 		UserToken:        userToken,
 		UserIdentityFile: sshPrivateKeyPath,
 	}
-}
-
-// RoundTripper which only purpose is to ensures that response JSON from the setting endpoint
-// does not contain empty string value the key container_registry_import_created_before.
-// Empty string for date/time causes serialization error.
-type rt struct{}
-
-func (r rt) RoundTrip(request *http.Request) (*http.Response, error) {
-	resp, err := http.DefaultTransport.RoundTrip(request)
-
-	if request.URL.Path != "/api/v4/application/settings" {
-		return resp, err
-	}
-	if resp.Header.Get("Content-Type") != "application/json" {
-		return resp, err
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	origBody := resp.Body
-	defer origBody.Close()
-
-	var data any
-	dec := json.NewDecoder(origBody)
-	err = dec.Decode(&data)
-	if err != nil {
-		return nil, fmt.Errorf("roundtripper could not deserialize data: %v", err)
-	}
-
-	if m, ok := data.(map[string]any); ok {
-		if val, inMap := m["container_registry_import_created_before"]; inMap && val == "" {
-			delete(m, "container_registry_import_created_before")
-		}
-	}
-
-	var newBody bytes.Buffer
-	enc := json.NewEncoder(&newBody)
-	err = enc.Encode(&data)
-	if err != nil {
-		return nil, fmt.Errorf("roundtripper could not serialize data: %v", err)
-	}
-
-	resp.Body = io.NopCloser(&newBody)
-	return resp, nil
 }
 
 func getAPIToken(baseURL, username, password string) (string, error) {
