@@ -162,6 +162,20 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 	if err = cfg.Validate(); err != nil { // Perform any pre-validation
+		// Layer 2: Catch platform validation error and provide CLI-specific guidance
+		if errors.Is(err, fn.ErrPlatformNotSupported) {
+			return fmt.Errorf(`%w
+
+The --platform flag is only supported with the S2I builder.
+
+Try this:
+  func build --registry <registry> --builder=s2i --platform linux/amd64
+
+Or remove the --platform flag:
+  func build --registry <registry>
+
+For more options, run 'func build --help'`, err)
+		}
 		return
 	}
 	if f, err = fn.NewFunction(cfg.Path); err != nil { // Read in the Function
@@ -364,7 +378,7 @@ func (c buildConfig) Validate() (err error) {
 
 	// Platform is only supported with the S2I builder at this time
 	if c.Platform != "" && c.Builder != builders.S2I {
-		err = errors.New("only S2I builds currently support specifying platform")
+		err = fn.ErrPlatformNotSupported
 		return
 	}
 
