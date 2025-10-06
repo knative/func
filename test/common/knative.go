@@ -48,10 +48,21 @@ func GetCurrentServiceRevision(t *testing.T, serviceName string) string {
 }
 
 func GetKnativeServiceRevisionAndUrl(t *testing.T, serviceName string) (revision string, url string) {
+	t.Helper()
+	var ok bool
 	resource := RetrieveKnativeServiceResource(t, serviceName)
 	rootMap := resource.UnstructuredContent()
-	statusMap := rootMap["status"].(map[string]interface{})
-	revision = statusMap["latestReadyRevisionName"].(string)
-	url = statusMap["url"].(string)
+	statusMap, ok := rootMap["status"].(map[string]interface{})
+	if !ok {
+		t.Fatal("absent status")
+	}
+	revision, ok = statusMap["latestReadyRevisionName"].(string)
+	if !ok {
+		t.Fatal("absent ready revision")
+	}
+	url, ok = statusMap["url"].(string)
+	if !ok {
+		t.Fatal("absent url")
+	}
 	return revision, url
 }
