@@ -1368,16 +1368,20 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			expectedImage:    "registry.example.com/charlie/f:latest",
 		},
 		{
-			// Image flag sets the image directly when no registry is present
+			// Image flag overrides registry when both exist:
+			// Function has a pre-existing registry from previous deploy,
+			// but --image flag is provided to use a different image.
+			// Expected: --image takes precedence, registry field remains unchanged
 			name: "image flag overrides",
 			f: fn.Function{
+				Registry: "registry.example.com/alice", // pre-existing registry
 				Build: fn.BuildSpec{
 					Image: "registry.example.com/bob/f:latest",
 				},
 			},
 			args:             []string{"--image=registry.example.com/charlie/f:latest"},
-			expectedRegistry: "",                                      // no registry set
-			expectedImage:    "registry.example.com/charlie/f:latest", // updated
+			expectedRegistry: "registry.example.com/alice",            // registry unchanged
+			expectedImage:    "registry.example.com/charlie/f:latest", // image updated
 		},
 	}
 	for _, test := range tests {
