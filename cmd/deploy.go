@@ -281,7 +281,22 @@ For more detailed deployment options, run 'func deploy --help'`)
 		return
 	}
 	if err = cfg.Validate(cmd); err != nil {
-		// Layer 2: Catch platform validation error and provide CLI-specific guidance
+		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
+		if errors.Is(err, fn.ErrConflictingImageAndRegistry) {
+			return fmt.Errorf(`%w
+
+Cannot use both --image and --registry together. Choose one:
+
+  Use --image for complete image name:
+    func deploy --image example.com/user/myfunc
+
+  Use --registry for automatic naming:
+    func deploy --registry example.com/user
+
+Note: FUNC_REGISTRY environment variable doesn't conflict with --image flag
+
+For more options, run 'func deploy --help'`, err)
+		}
 		if errors.Is(err, fn.ErrPlatformNotSupported) {
 			return fmt.Errorf(`%w
 
@@ -721,7 +736,7 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 // Validate the config passes an initial consistency check
 func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Bubble validation
-	if err = c.buildConfig.Validate(); err != nil {
+	if err = c.buildConfig.Validate(cmd); err != nil {
 		return
 	}
 

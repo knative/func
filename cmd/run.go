@@ -377,7 +377,7 @@ func (c runConfig) Prompt() (runConfig, error) {
 
 func (c runConfig) Validate(cmd *cobra.Command, f fn.Function) (err error) {
 	// Bubble
-	if err = c.buildConfig.Validate(); err != nil {
+	if err = c.buildConfig.Validate(cmd); err != nil {
 		return
 	}
 
