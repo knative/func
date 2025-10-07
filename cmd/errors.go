@@ -96,4 +96,3 @@ For more options, run 'func deploy --help'`, err)
 		return err
 	}
 }
-
