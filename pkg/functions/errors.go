@@ -28,6 +28,9 @@ var (
 	// eg "registry required".  Then catch the error in the CLI and add the
 	// cli-specific usage hints there
 	ErrRegistryRequired = errors.New("registry required")
+
+	// ErrPlatformNotSupported is returned when a platform is specified for a builder that doesn't support it
+	ErrPlatformNotSupported = errors.New("platform not supported by builder")
 )
 
 // ErrNotInitialized indicates that a function is uninitialized

@@ -258,24 +258,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			var errNotInit *fn.ErrNotInitialized
 			notInitErr := fn.NewErrNotInitialized(f.Root)
 			if errors.As(notInitErr, &errNotInit) {
-				return fmt.Errorf(`%w
-
-No function found in provided path (current directory or via --path).
-You need to be in a function directory (or use --path).
-
-Try this:
-  func create --language go myfunction    Create a new function
-  cd myfunction                          Go into the function directory
-  func deploy --registry <registry>      Deploy to the cloud
-
-Or navigate to an existing function:
-  cd path/to/your/function
-  func deploy --registry <registry>
-
-Or use --path to deploy from anywhere:
-  func deploy --path /path/to/function --registry <registry>
-
-For more options, run 'func deploy --help'`, notInitErr)
+				return wrapNotInitializedError(notInitErr, "deploy")
 			}
 			return notInitErr
 		} else {
@@ -291,21 +274,7 @@ For more options, run 'func deploy --help'`, notInitErr)
 	if cfg, err = cfg.Prompt(); err != nil {
 		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
 		if errors.Is(err, fn.ErrRegistryRequired) {
-			return fmt.Errorf(`%w
-
-Try this:
-  func deploy --registry ghcr.io/myuser
-
-Or set the FUNC_REGISTRY environment variable:
-  export FUNC_REGISTRY=ghcr.io/myuser
-  func deploy
-
-Common registries:
-  ghcr.io/myuser       GitHub Container Registry
-  docker.io/myuser     Docker Hub
-  quay.io/myuser       Quay.io
-
-For more options, run 'func deploy --help'`, err)
+			return wrapRegistryRequiredError(err, "deploy")
 		}
 		return
 	}

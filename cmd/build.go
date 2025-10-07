@@ -164,46 +164,12 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		// Check if it's a "not initialized" error (no function found)
 		var errNotInit *fn.ErrNotInitialized
 		if errors.As(err, &errNotInit) {
-			return fmt.Errorf(`%w
-
-No function found in provided path (current directory or via --path).
-You need to be in a function directory (or use --path).
-
-Try this:
-  func create --language go myfunction    Create a new function
-  cd myfunction                          Go into the function directory
-  func build --registry <registry>       Build the function container
-
-Or navigate to an existing function:
-  cd path/to/your/function
-  func build --registry <registry>
-
-Or use --path flag:
-  func build --path /path/to/function --registry <registry>
-
-For more options, run 'func build --help'`, err)
+			return wrapNotInitializedError(err, "build")
 		}
 
 		// Check if it's a registry required error (function exists but no registry)
 		if errors.Is(err, fn.ErrRegistryRequired) {
-			return fmt.Errorf(`%w
-
-Try this:
-  func build --registry ghcr.io/myuser    Build with registry
-
-Or set the FUNC_REGISTRY environment variable:
-  export FUNC_REGISTRY=ghcr.io/myuser
-  func build
-
-Common registries:
-  ghcr.io/myuser       GitHub Container Registry
-  docker.io/myuser     Docker Hub
-  quay.io/myuser       Quay.io
-
-Or specify full image name:
-  func build --image ghcr.io/myuser/myfunction:latest
-
-For more options, run 'func build --help'`, err)
+			return wrapRegistryRequiredError(err, "build")
 		}
 		return
 	}
@@ -375,27 +341,24 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 		return c, fn.NewErrNotInitialized(f.Root)
 	}
 
-	// If function IS initialized AND registry/image is missing
-	if f.Registry == "" && c.Registry == "" && c.Image == "" {
-		// In interactive terminal, prompt for registry (user-friendly workflow)
-		if interactiveTerminal() {
-			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
-			err := survey.AskOne(
-				&survey.Input{Message: "Registry for function images:", Default: c.Registry},
-				&c.Registry,
-				survey.WithValidator(NewRegistryValidator(c.Path)))
-			if err != nil {
-				return c, fn.ErrRegistryRequired
-			}
-			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
-		}
-		// In non-interactive mode (e.g., tests, CI), continue and let the client's
-		// default registry be used if available. ErrRegistryRequired will be returned
-		// later if truly no registry is available.
+	if !interactiveTerminal() {
+		return c, nil
 	}
 
-	// Early return if not in interactive terminal and not in confirm mode
-	if !interactiveTerminal() || !c.Confirm {
+	// If function IS initialized AND registry/image is missing
+	if f.Registry == "" && c.Registry == "" && c.Image == "" {
+		fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
+		err := survey.AskOne(
+			&survey.Input{Message: "Registry for function images:", Default: c.Registry},
+			&c.Registry,
+			survey.WithValidator(NewRegistryValidator(c.Path)))
+		if err != nil {
+			return c, fn.ErrRegistryRequired
+		}
+		fmt.Println("Note: building a function the first time will take longer than subsequent builds")
+	}
+
+	if !c.Confirm {
 		return c, nil
 	}
 
