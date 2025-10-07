@@ -16,14 +16,14 @@
 # Installs binaries on linux systems.
 #
 
-source "$(dirname "$(realpath "$0")")/common.sh"
+source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 
 install_binaries() {
   assert_supported_os
   set_os_arch_vars
   warn_architecture
 
-  local root="$(dirname "$(realpath "$0")")"
+  local root="$(cd "$(dirname "$0")" && pwd)"
   local bin="${root}/bin"
 
   local kubectl_version=1.33.1

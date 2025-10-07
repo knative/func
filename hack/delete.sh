@@ -3,7 +3,7 @@
 # Suitable for use locally during development.
 # CI/CD uses the very similar knative-kind action
 
-source "$(dirname "$(realpath "$0")")/common.sh"
+source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 
 delete_resources() {
   echo "${blue}Deleting Cluster and Registry${reset}"
