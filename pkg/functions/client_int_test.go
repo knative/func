@@ -549,7 +549,7 @@ func Handle(w http.ResponseWriter, req *http.Request) {
 	if route, f, err = client2.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-	defer client2.Remove(ctx, "", "", f, true)
+	defer func() { _ = client2.Remove(ctx, "", "", f, true) }()
 
 	resp, err := http.Get(route)
 	if err != nil {
@@ -568,7 +568,7 @@ func Handle(w http.ResponseWriter, req *http.Request) {
 
 // TestDeployWithoutHome ensures that running client.New works without
 // home
-func TestDeployWithoutHome(t *testing.T) {
+func TestInt_DeployWithoutHome(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
@@ -577,10 +577,32 @@ func TestDeployWithoutHome(t *testing.T) {
 	verbose := false
 	name := "test-deploy-no-home"
 
-	f := fn.Function{Runtime: "node", Name: name, Root: root, Namespace: DefaultIntTestNamespace}
+	f := fn.Function{Runtime: "go", Name: name, Root: root, Namespace: DefaultIntTestNamespace}
 
 	// client with s2i builder because pack needs HOME
 	client := newClientWithS2i(verbose)
+
+	// expect to succeed
+	_, _, err := client.New(context.Background(), f)
+	if err != nil {
+		t.Fatalf("expected no errors but got %v", err)
+	}
+
+	defer del(t, client, name, DefaultIntTestNamespace)
+}
+
+func TestInt_DeployWithoutHomeTEST(t *testing.T) {
+	resetEnv()
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	verbose := false
+	name := "test-deploy-no-home"
+
+	f := fn.Function{Runtime: "go", Name: name, Root: root, Namespace: DefaultIntTestNamespace}
+
+	// client with s2i builder because pack needs HOME
+	client := newClient(verbose)
 
 	// expect to succeed
 	_, _, err := client.New(context.Background(), f)

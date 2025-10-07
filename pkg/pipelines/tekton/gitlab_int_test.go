@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -43,7 +44,7 @@ import (
 	"knative.dev/func/pkg/random"
 )
 
-func TestGitlab(t *testing.T) {
+func TestInt_Gitlab(t *testing.T) {
 	// Skip on ARM64 due to Paketo buildpack limitations
 	if runtime.GOARCH == "arm64" || runtime.GOARCH == "arm" {
 		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
@@ -178,16 +179,16 @@ func TestGitlab(t *testing.T) {
 }
 
 func parseEnv(t *testing.T) (gitlabHostname string, gitlabRootPassword string, pacCtrHostname string, err error) {
-	if enabled, _ := strconv.ParseBool(os.Getenv("GITLAB_TESTS_ENABLED")); !enabled {
+	if enabled, _ := strconv.ParseBool(os.Getenv("FUNC_INT_GITLAB_ENABLED")); !enabled {
 		t.Skip("GitLab tests are disabled")
 	}
 	envs := map[string]*string{
-		"GITLAB_HOSTNAME":         &gitlabHostname,
-		"GITLAB_ROOT_PASSWORD":    &gitlabRootPassword,
-		"PAC_CONTROLLER_HOSTNAME": &pacCtrHostname,
+		"FUNC_INT_GITLAB_HOSTNAME": &gitlabHostname,
+		"FUNC_TEST_GITLAB_PASS":     &gitlabRootPassword,
+		"FUNC_INT_PAC_HOST":         &pacCtrHostname,
 	}
 	var missing []string
-	gitlabHostname = os.Getenv("GITLAB_HOSTNAME")
+	gitlabHostname = os.Getenv("FUNC_INT_GITLAB_HOSTNAME")
 	for name, ptr := range envs {
 		val := os.Getenv(name)
 		if val == "" {

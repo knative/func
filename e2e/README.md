@@ -154,14 +154,14 @@ to be set.
 tests. This is required when `FUNC_E2E_PODMAN` is enabled. Example:
 "unix:///run/user/1000/podman/podman.sock" for rootless Podman.
 
-`FUNC_ALLOCATE_RETRIES`: controls the number of retry attempts for cluster
+`FUNC_CLUSTER_RETRIES`: controls the number of retry attempts for cluster
 allocation. Defaults to "1" (no retries). Set to a higher value (e.g., "5")
 for environments with flaky cluster setup. Used by the cluster.sh script.
 
-`TEKTON_TESTS_ENABLED`: enables Tekton-specific tests. Set to "1" to include
+`FUNC_INT_TEKTON_ENABLED`: enables Tekton-specific tests. Set to "1" to include
 tests that verify Tekton pipeline functionality. Defaults to disabled.
 
-`GITLAB_TESTS_ENABLED`: enables GitLab-specific tests. Set to "1" to include
+`FUNC_INT_GITLAB_ENABLED`: enables GitLab-specific tests. Set to "1" to include
 tests that verify GitLab integration. Requires gitlab.sh to be run. Defaults
 to disabled.
 

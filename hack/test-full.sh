@@ -29,14 +29,14 @@ set -o pipefail
 # Here we toggle on All The Things.  Note that we still allow any settings
 # made explicitly in the current environment to take precidence; just setting
 # new defaults which are more expansive in testing scope.
-export FUNC_ALLOCATE_RETRIES="${FUNC_ALLOCATE_RETRIES:-5}"
+export FUNC_CLUSTER_RETRIES="${FUNC_CLUSTER_RETRIES:-5}"
 export FUNC_E2E_MATRIX="${FUNC_E2E_MATRIX:-true}"
 export FUNC_E2E_VERBOSE="${FUNC_E2E_VERBOSE:-true}"
 export FUNC_E2E_PODMAN="${FUNC_E2E_PODMAN:-true}"
-export TEKTON_TESTS_ENABLED="${TEKTON_TESTS_ENABLED:-1}"
-export GITLAB_TESTS_ENABLED="${GITLAB_TESTS_ENABLED:-1}"
-export GITLAB_HOSTNAME="${GITLAB_HOSTNAME:-gitlab.localtest.me}"
-export PAC_CONTROLLER_HOSTNAME="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.localtest.me}"
+export FUNC_INT_TEKTON_ENABLED="${FUNC_INT_TEKTON_ENABLED:-1}"
+export FUNC_INT_GITLAB_ENABLED="${FUNC_INT_GITLAB_ENABLED:-1}"
+export FUNC_INT_GITLAB_HOSTNAME="${FUNC_INT_GITLAB_HOSTNAME:-gitlab.localtest.me}"
+export FUNC_INT_PAC_HOST="${FUNC_INT_PAC_HOST:-pac-ctr.localtest.me}"
 
 
 # Environment Setup
@@ -55,7 +55,7 @@ export KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/hack/bin/kubeconfig.yaml}"
 # a warning is issued that users should not only use ./hack/gitlab.sh for
 # configuring test cluster available locally, such as that created by
 # hack/cluster.sh
-export GITLAB_ROOT_PASSWORD="${GITLAB_ROOT_PASSWORD:-test-password-123}"
+export FUNC_TEST_GITLAB_PASS="${FUNC_TEST_GITLAB_PASS:-test-password-123}"
 
 # Generate a timestamp for use setting things which require uniqueness
 TIMESTAMP=$(date +%Y%m%d%H%M%S 2>/dev/null || date +%s 2>/dev/null || echo "$(date)")
@@ -113,63 +113,21 @@ if [ "${GITLAB_TESTS_ENABLED}" = "1" ]; then
     fi
 fi
 
-# Check if Podman is available (if Podman tests are enabled)
-if [ "${FUNC_E2E_PODMAN}" = "true" ]; then
-    if ! command -v podman &>/dev/null; then
-        echo "ERROR: Podman not found"
-        echo "Please install Podman to run Podman tests"
-        exit 1
-    fi
-fi
-
 echo ""
 echo "✓ Prerequisites check passed"
 
-# Podman Setup
+# Podman Tests
 # -------------
-
-# Check Podman service if Podman tests are enabled
+# Run Podman-specific E2E tests if enabled
 if [ "${FUNC_E2E_PODMAN}" = "true" ]; then
-    # Check if Podman service is running
-    if ! podman info &>/dev/null; then
-        echo "ERROR: Podman service is not running"
-        echo "Please start Podman service with: podman system service --time=0 &"
-        exit 1
-    fi
-    
-    # Get the socket path
-    # On macOS/Windows, we need the host-accessible socket from podman machine
-    # On Linux, we can use the socket from podman info
-    if [[ "$OSTYPE" == "darwin"* ]] || [[ "$OSTYPE" == "msys" ]]; then
-        # Try to get the socket from podman machine inspect
-        MACHINE_NAME="${PODMAN_MACHINE:-podman-machine-default}"
-        PODMAN_SOCKET="$(podman machine inspect "${MACHINE_NAME}" --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2>/dev/null || true)"
-        
-        if [ -z "${PODMAN_SOCKET}" ]; then
-            # Fallback: check if DOCKER_HOST is already set by podman
-            if [ -n "${DOCKER_HOST}" ]; then
-                export FUNC_E2E_PODMAN_HOST="${DOCKER_HOST}"
-            else
-                echo "Warning: Could not determine Podman socket path"
-                echo "Try running: podman machine stop && podman machine start"
-                echo "Then use the DOCKER_HOST value it provides"
-                PODMAN_SOCKET="$(podman info -f '{{.Host.RemoteSocket.Path}}')"
-                export FUNC_E2E_PODMAN_HOST="unix://${PODMAN_SOCKET}"
-            fi
-        else
-            export FUNC_E2E_PODMAN_HOST="unix://${PODMAN_SOCKET}"
-        fi
-    else
-        # Linux: use the socket from podman info
-        PODMAN_SOCKET="$(podman info -f '{{.Host.RemoteSocket.Path}}')"
-        if [[ "${PODMAN_SOCKET}" == unix://* ]]; then
-            export FUNC_E2E_PODMAN_HOST="${PODMAN_SOCKET}"
-        else
-            export FUNC_E2E_PODMAN_HOST="unix://${PODMAN_SOCKET}"
-        fi
-    fi
     echo ""
-    echo "✓ Podman socket: ${FUNC_E2E_PODMAN_HOST}"
+    echo "Running Podman E2E tests..."
+    PODMAN_START=$SECONDS
+    "$(dirname "$0")/test-podman.sh"
+    PODMAN_DURATION=$((SECONDS - PODMAN_START))
+    PODMAN_MINS=$((PODMAN_DURATION / 60))
+    PODMAN_SECS=$((PODMAN_DURATION % 60))
+    echo "✓ Podman E2E tests completed successfully (duration: ${PODMAN_MINS}m ${PODMAN_SECS}s)"
 fi
 
 # Unit and Integration Tests

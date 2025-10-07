@@ -30,7 +30,7 @@ import (
 // The InClusterDialer allows access to internal services from outside the
 // cluster by creating a temporary socat pod inside the cluster which is used
 // as a TCP proxy/tunnel via kubectl exec.
-func TestDialInClusterService(t *testing.T) {
+func TestInt_DialInClusterService(t *testing.T) {
 	var err error
 	var ctx = context.Background()
 
@@ -218,7 +218,7 @@ func TestDialInClusterService(t *testing.T) {
 	}
 }
 
-func TestDialUnreachable(t *testing.T) {
+func TestInt_DialUnreachable(t *testing.T) {
 	var ctx = context.Background()
 
 	dialer, err := k8s.NewInClusterDialer(ctx, k8s.GetClientConfig())

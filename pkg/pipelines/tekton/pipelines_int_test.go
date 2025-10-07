@@ -86,9 +86,9 @@ func assertFunctionEchoes(url string) (err error) {
 }
 
 func tektonTestsEnabled(t *testing.T) (enabled bool) {
-	enabled, _ = strconv.ParseBool(os.Getenv("TEKTON_TESTS_ENABLED"))
+	enabled, _ = strconv.ParseBool(os.Getenv("FUNC_INT_TEKTON_ENABLED"))
 	if !enabled {
-		t.Log("Tekton tests not enabled.  Enable with TEKTON_TESTS_ENABLED=true")
+		t.Log("Tekton tests not enabled.  Enable with FUNC_INT_TEKTON_ENABLED=true")
 	}
 	return
 }
@@ -112,7 +112,7 @@ func fromCleanEnvironment(t *testing.T) (root string) {
 	return
 }
 
-func TestRemote_Default(t *testing.T) {
+func TestInt_Remote_Default(t *testing.T) {
 	if !tektonTestsEnabled(t) {
 		t.Skip()
 	}
@@ -200,7 +200,7 @@ func setupNS(t *testing.T) string {
 }
 
 func checkTestEnabled(t *testing.T) {
-	val := os.Getenv("TEKTON_TESTS_ENABLED")
+	val := os.Getenv("FUNC_INT_TEKTON_ENABLED")
 	enabled, _ := strconv.ParseBool(val)
 	if !enabled {
 		t.Skip("tekton tests are not enabled")

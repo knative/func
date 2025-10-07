@@ -25,7 +25,7 @@ source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 source "$(cd "$(dirname "$0")" && pwd)/component-versions.sh"
 
 main() {
-  local max_attempts="${FUNC_ALLOCATE_RETRIES:-1}"
+  local max_attempts="${FUNC_CLUSTER_RETRIES:-1}"
   local attempt=0
 
   if [ $max_attempts -gt 1 ]; then
@@ -518,7 +518,7 @@ tekton() {
 pac() {
   echo "${blue}Installing PAC (Pipelines-as-Code) ${pac_version} ${reset}"
 
-  local -r pac_ctr_host="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.localtest.me}"
+  local -r pac_ctr_host="${FUNC_INT_PAC_HOST:-pac-ctr.localtest.me}"
 
   # Install Pipelines as Code
   $KUBECTL apply -f "https://raw.githubusercontent.com/openshift-pipelines/pipelines-as-code/release-${pac_version}/release.k8s.yaml"

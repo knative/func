@@ -16,24 +16,24 @@
 # Install GitLab
 #
 
-source "$(dirname "$(realpath "$0")")/common.sh"
+source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 
 # Default GitLab root password for local testing only
 # WARNING: This is an insecure default. DO NOT use in production!
 # In CI, this should be overridden with a secure random password
-GITLAB_ROOT_PASSWORD=${GITLAB_ROOT_PASSWORD:-"test-password-123"}
+FUNC_TEST_GITLAB_PASS=${FUNC_TEST_GITLAB_PASS:-"test-password-123"}
 
-if [ "$GITLAB_ROOT_PASSWORD" = "test-password-123" ]; then
+if [ "$FUNC_TEST_GITLAB_PASS" = "test-password-123" ]; then
     echo "⚠️  WARNING: Using default GitLab root password for testing."
     echo "   This is insecure and should only be used for local development."
-    echo "   Set GITLAB_ROOT_PASSWORD to override."
+    echo "   Set FUNC_TEST_GITLAB_PASS to override."
     echo ""
 fi
 
 function install_gitlab() {
   echo "${blue}Installing GitLab${reset}"
 
-  local -r gitlab_host="${GITLAB_HOSTNAME:-gitlab.localtest.me}"
+  local -r gitlab_host="${FUNC_INT_GITLAB_HOSTNAME:-gitlab.localtest.me}"
 
   # note: disabling validation allows for laggy setup, with the latter 
   # kubectl wait performing sufficient validation of availablity
@@ -80,7 +80,7 @@ spec:
           mountPath: /var/opt/gitlab
       env:
         - name: GITLAB_ROOT_PASSWORD
-          value: ${GITLAB_ROOT_PASSWORD}
+          value: ${FUNC_TEST_GITLAB_PASS}
         - name: GITLAB_OMNIBUS_CONFIG
           value: |
             external_url 'http://${gitlab_host}'

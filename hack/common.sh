@@ -84,20 +84,20 @@ find_executable() {
   local env=$(echo "FUNC_TEST_$name" | awk '{print toupper($0)}')
   local path="${!env:-}"
   if [[ -x "$path" ]]; then
-    echo "$path" & return 0
+    echo "$path" && return 0
   fi
 
   # Use the binary installed into hack/bin/ by cluster.sh if
   # it exists.
   path=$(cd "$(dirname "$0")" && pwd)"/bin/$name"
   if [[ -x "$path" ]]; then
-    echo "$path" & return 0
+    echo "$path" && return 0
   fi
 
   # Finally fallback to anything matchin in the current PATH
   path=$(command -v "$name")
   if [[ -x "$path" ]]; then
-    echo "$path" & return 0
+    echo "$path" && return 0
   fi
 
   echo "Error: ${name} not found." >&2

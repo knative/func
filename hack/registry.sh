@@ -20,7 +20,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source "$(dirname "$(realpath "$0")")/common.sh"
+source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 
 registry() {
   echo "${blue}Enabling Insecure Local Registry${reset}"
@@ -100,8 +100,8 @@ set_registry_insecure() {
         # macOS: Restart Docker Desktop
         echo "${yellow}*** If Docker Desktop is running, please restart it via the menu bar icon ***${reset}"
     else
-        # Linux: Use service command
-        sudo service docker restart
+        # Linux: Skip restart to avoid breaking func-registry container
+        echo "Skipping Docker restart on Linux (daemon.json updated, restart will break func-registry)"
     fi
 }
 

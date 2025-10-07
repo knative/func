@@ -225,13 +225,25 @@ templates/certs/ca-certificates.crt:
 ##@ Extended Testing (cluster required)
 ###################
 
+.PHONY: test-unit
+test-unit: ## Run integration tests using an available cluster.
+	go test -cover -coverprofile=coverage.txt -timeout 30m ./... -v
+
 .PHONY: test-integration
 test-integration: ## Run integration tests using an available cluster.
-	go test -tags integration -timeout 30m ./... -v
+	go test -cover -coverprofile=coverage.txt -tags integration -timeout 30m ./... -v -run TestInt_
 
 .PHONY: test-e2e
-test-e2e: func-instrumented-bin ## Run all tests (unit, integration, e2e)
-	go test -tags e2e -cover -timeout 30m ./e2e -v
+test-e2e: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
+	go test -cover -coverprofile=coverage.txt -tags e2e -timeout 60m ./e2e -v -run "TestCore_|TestMetadata_|TestRemote_"
+
+test-e2e-matrix: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
+	# Note that the runtime and other options can be configured using the FUNC_E2E_* environment variables
+	go test -cover -coverprofile=coverage.txt -tags e2e -timeout 60m ./e2e -v -run TestMatrix_
+
+.PHONY: test-e2e-podman
+test-e2e-podman: func-instrumented-bin ## Run E2E Podman-specific tests
+	./hack/test-podman.sh
 
 .PHONY: test-full
 test-full: func-instrumented-bin ## Run full test suite with all features enabled

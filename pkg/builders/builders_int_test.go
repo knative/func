@@ -38,7 +38,7 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-func TestPrivateGitRepository(t *testing.T) {
+func TestInt_PrivateGitRepository(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Skipping TestPrivateGitRepository on non-Linux systems due to cluster networking limitations")
 	}
