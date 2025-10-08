@@ -656,12 +656,12 @@ func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	var (
 		builder  = mock.NewBuilder()
 		deployer = mock.NewDeployer()
-		cmd      = cmdFn(NewTestClient(fn.WithBuilder(builder), fn.WithDeployer(deployer), fn.WithRegistry(TestRegistry)))
 	)
 
 	// If only --registry is provided:
 	// the resultant Function should have the registry populated and image
 	// derived from the name.
+	cmd := cmdFn(NewTestClient(fn.WithBuilder(builder), fn.WithDeployer(deployer), fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{"--registry=example.com/alice"})
 	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
 		if f.Registry != "example.com/alice" {
@@ -677,6 +677,7 @@ func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	// the deploy should not fail, and the resultant Function should have the
 	// Image member set to what was explicitly provided via the --image flag
 	// (not a derived name)
+	cmd = cmdFn(NewTestClient(fn.WithBuilder(builder), fn.WithDeployer(deployer))) // No default registry
 	cmd.SetArgs([]string{"--image=example.com/alice/myfunc"})
 	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
 		if f.Image != "example.com/alice/myfunc" {
@@ -689,20 +690,15 @@ func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	// If both --registry and --image are provided:
-	// they should both be plumbed through such that downstream agents (deployer
-	// in this case) see them set on the Function and can act accordingly.
+	// they should be rejected with an error message
+	cmd = cmdFn(NewTestClient(fn.WithBuilder(builder), fn.WithDeployer(deployer)))
 	cmd.SetArgs([]string{"--registry=example.com/alice", "--image=example.com/alice/subnamespace/myfunc"})
-	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
-		if f.Registry != "example.com/alice" {
-			t.Fatal("registry flag value not seen on the Function by the deployer")
-		}
-		if f.Image != "example.com/alice/subnamespace/myfunc" {
-			t.Fatal("image flag value not seen on the Function by deployer")
-		}
-		return
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when both --registry and --image are provided")
 	}
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
+	if !strings.Contains(err.Error(), "both --image and --registry flags") {
+		t.Fatalf("expected error about conflicting flags, got: %v", err)
 	}
 
 	// TODO it may be cleaner to error if both registry and image are provided,
@@ -1372,19 +1368,20 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			expectedImage:    "registry.example.com/charlie/f:latest",
 		},
 		{
-			// Image flag takes highest precidence, but is an override such that the
-			// resultant image member is updated but the registry member is not
-			// updated (subsequent builds will not be affected).
+			// Image flag overrides registry when both exist:
+			// Function has a pre-existing registry from previous deploy,
+			// but --image flag is provided to use a different image.
+			// Expected: --image takes precedence, registry field remains unchanged
 			name: "image flag overrides",
 			f: fn.Function{
-				Registry: "registry.example.com/alice",
+				Registry: "registry.example.com/alice", // pre-existing registry
 				Build: fn.BuildSpec{
 					Image: "registry.example.com/bob/f:latest",
 				},
 			},
 			args:             []string{"--image=registry.example.com/charlie/f:latest"},
-			expectedRegistry: "registry.example.com/alice",            // not updated
-			expectedImage:    "registry.example.com/charlie/f:latest", // updated
+			expectedRegistry: "registry.example.com/alice",            // registry unchanged
+			expectedImage:    "registry.example.com/charlie/f:latest", // image updated
 		},
 	}
 	for _, test := range tests {
@@ -2094,7 +2091,12 @@ func TestDeploy_CorrectImageDeployed(t *testing.T) {
 
 			// prebuild function if desired
 			if tt.shouldBuild {
-				cmd := NewBuildCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
+				// Don't use registry when building with --image flag to avoid validation conflict
+				var clientOptions []fn.Option
+				if len(tt.buildArgs) > 0 && !strings.Contains(strings.Join(tt.buildArgs, " "), "--image") {
+					clientOptions = append(clientOptions, fn.WithRegistry(TestRegistry))
+				}
+				cmd := NewBuildCmd(NewTestClient(clientOptions...))
 				cmd.SetArgs(tt.buildArgs)
 				if err = cmd.Execute(); err != nil {
 					t.Fatal(err)

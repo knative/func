@@ -161,8 +161,23 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if cfg, err = newBuildConfig().Prompt(); err != nil { // gather values into a single instruction set
 		return
 	}
-	if err = cfg.Validate(); err != nil { // Perform any pre-validation
-		// Layer 2: Catch platform validation error and provide CLI-specific guidance
+	if err = cfg.Validate(cmd); err != nil { // Perform any pre-validation
+		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
+		if errors.Is(err, fn.ErrConflictingImageAndRegistry) {
+			return fmt.Errorf(`%w
+
+Cannot use both --image and --registry together. Choose one:
+
+  Use --image for complete image name:
+    func build --image example.com/user/myfunc
+
+  Use --registry for automatic naming:
+    func build --registry example.com/user
+
+Note: FUNC_REGISTRY environment variable doesn't conflict with --image flag
+
+For more options, run 'func build --help'`, err)
+		}
 		if errors.Is(err, fn.ErrPlatformNotSupported) {
 			return fmt.Errorf(`%w
 
@@ -370,10 +385,16 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 }
 
 // Validate the config passes an initial consistency check
-func (c buildConfig) Validate() (err error) {
+func (c buildConfig) Validate(cmd *cobra.Command) (err error) {
 	// Builder value must refer to a known builder short name
 	if err = ValidateBuilder(c.Builder); err != nil {
 		return
+	}
+
+	// Check for conflicting --image and --registry flags
+	// Simply reject if both are explicitly provided - user should choose one or the other
+	if cmd.Flags().Changed("image") && cmd.Flags().Changed("registry") {
+		return fn.ErrConflictingImageAndRegistry
 	}
 
 	// Platform is only supported with the S2I builder at this time

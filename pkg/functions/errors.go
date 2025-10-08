@@ -31,6 +31,9 @@ var (
 
 	// ErrPlatformNotSupported is returned when a platform is specified for a builder that doesn't support it
 	ErrPlatformNotSupported = errors.New("platform not supported by builder")
+
+	// ErrConflictingImageAndRegistry is returned when both --image and --registry flags are explicitly provided
+	ErrConflictingImageAndRegistry = errors.New("both --image and --registry flags provided")
 )
 
 // ErrNotInitialized indicates that a function is uninitialized

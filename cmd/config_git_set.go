@@ -248,7 +248,7 @@ func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 
 func (c configGitSetConfig) Validate(cmd *cobra.Command) (err error) {
 	// Bubble validation
-	if err = c.buildConfig.Validate(); err != nil {
+	if err = c.buildConfig.Validate(cmd); err != nil {
 		return
 	}
 
