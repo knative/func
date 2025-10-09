@@ -23,14 +23,15 @@ import (
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/scaffolding"
 )
 
 // DefaultName when no WithName option is provided to NewBuilder
 const DefaultName = builders.Pack
 
-var DefaultBaseBuilder = "ghcr.io/knative/builder-jammy-base:latest"
-var DefaultTinyBuilder = "ghcr.io/knative/builder-jammy-tiny:latest"
+var DefaultBaseBuilder = "localhost:5000/knative/builder-jammy-base:latest"
 
+var DefaultTinyBuilder = "paketobuildpacks/builder-jammy-tiny:latest"
 var (
 	DefaultBuilderImages = map[string]string{
 		"node":       DefaultBaseBuilder,
@@ -134,7 +135,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	if len(buildpacks) == 0 {
 		buildpacks = defaultBuildpacks[f.Runtime]
 	}
-
 	// Reading .funcignore file
 	var excludes []string
 	filePath := filepath.Join(f.Root, ".funcignore")
@@ -171,6 +171,16 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 			Volumes []string
 		}{Network: "", Volumes: nil},
 	}
+
+	// NOTE: gauron99 - this might be even created into a Client function and
+	// ran before the client.Build() all together (in the CLI). There are gonna
+	// be commonalitites across the builders for scaffolding with some nuances
+	// which could be handled by each "scaffolder" - similarly to builders.
+	// scaffold
+	if err = scaffold(f); err != nil {
+		return
+	}
+
 	if b.withTimestamp {
 		now := time.Now()
 		opts.CreationTime = &now
@@ -184,6 +194,11 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 	if _, ok := opts.Env["BPE_DEFAULT_LISTEN_ADDRESS"]; !ok {
 		opts.Env["BPE_DEFAULT_LISTEN_ADDRESS"] = "[::]:8080"
+	}
+
+	// go specific workdir set to where main is
+	if _, ok := opts.Env["BP_GO_WORKDIR"]; !ok {
+		opts.Env["BP_GO_WORKDIR"] = ".func/builds/last"
 	}
 
 	var bindings = make([]string, 0, len(f.Build.Mounts))
@@ -311,4 +326,33 @@ type ErrRuntimeNotSupported struct {
 
 func (e ErrRuntimeNotSupported) Error() string {
 	return fmt.Sprintf("Pack builder has no default builder image for the '%v' language runtime.  Please provide one.", e.Runtime)
+}
+
+// TODO: gauron99 - unify this with other builders; temporary for the go pack
+//
+// scaffold the project
+func scaffold(f fn.Function) error {
+	// Scafffolding is currently only supported by the Go runtime
+	// Python currently uses an injector instead of this
+	if f.Runtime != "go" {
+		return nil
+	}
+
+	contextDir := filepath.Join(".func", "builds", "last")
+	appRoot := filepath.Join(f.Root, contextDir)
+	_ = os.RemoveAll(appRoot)
+
+	// The embedded repository contains the scaffolding code itself which glues
+	// together the middleware and a function via main
+	embeddedRepo, err := fn.NewRepository("", "") // default is the embedded fs
+	if err != nil {
+		return fmt.Errorf("unable to load the embedded scaffolding. %w", err)
+	}
+
+	// Write scaffolding to .func/builds/last
+	err = scaffolding.Write(appRoot, f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
+	if err != nil {
+		return fmt.Errorf("unable to build due to a scaffold error. %w", err)
+	}
+	return nil
 }
