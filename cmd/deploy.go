@@ -254,19 +254,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if !f.Initialized() {
 		if !cfg.Remote || f.Build.Git.URL == "" {
 			// Only error if this is not a fully remote build
-			return fmt.Errorf(`no function found in current directory.
-You need to be inside a function directory to deploy it.
-
-Try this:
-  func create --language go myfunction    Create a new function
-  cd myfunction                          Go into the function directory
-  func deploy --registry <registry>      Deploy to the cloud
-
-Or if you have an existing function:
-  cd path/to/your/function              Go to your function directory
-  func deploy --registry <registry>     Deploy the function
-
-For more detailed deployment options, run 'func deploy --help'`)
+			// Layer 2: Wrap technical error with CLI-specific guidance
+			var errNotInit *fn.ErrNotInitialized
+			notInitErr := fn.NewErrNotInitialized(f.Root)
+			if errors.As(notInitErr, &errNotInit) {
+				return wrapNotInitializedError(notInitErr, "deploy")
+			}
+			return notInitErr
 		} else {
 			// TODO: this case is not supported because the pipeline
 			// implementation requires the function's name, which is in the
@@ -278,6 +272,10 @@ For more detailed deployment options, run 'func deploy --help'`)
 
 	// Now that we know function exists, proceed with prompting
 	if cfg, err = cfg.Prompt(); err != nil {
+		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
+		if errors.Is(err, fn.ErrRegistryRequired) {
+			return wrapRegistryRequiredError(err, "deploy")
+		}
 		return
 	}
 	if err = cfg.Validate(cmd); err != nil {

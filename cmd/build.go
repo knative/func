@@ -159,6 +159,18 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		f   fn.Function
 	)
 	if cfg, err = newBuildConfig().Prompt(); err != nil { // gather values into a single instruction set
+		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
+
+		// Check if it's a "not initialized" error (no function found)
+		var errNotInit *fn.ErrNotInitialized
+		if errors.As(err, &errNotInit) {
+			return wrapNotInitializedError(err, "build")
+		}
+
+		// Check if it's a registry required error (function exists but no registry)
+		if errors.Is(err, fn.ErrRegistryRequired) {
+			return wrapRegistryRequiredError(err, "build")
+		}
 		return
 	}
 	if err = cfg.Validate(cmd); err != nil { // Perform any pre-validation
@@ -326,10 +338,6 @@ func (c buildConfig) Configure(f fn.Function) fn.Function {
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
 // all prompts) was set (default).
 func (c buildConfig) Prompt() (buildConfig, error) {
-	if !interactiveTerminal() {
-		return c, nil
-	}
-
 	// If there is no registry nor explicit image name defined, the
 	// Registry prompt is shown whether or not we are in confirm mode.
 	// Otherwise, it is only showin if in confirm mode
@@ -341,7 +349,19 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	if err != nil {
 		return c, err
 	}
-	if (f.Registry == "" && c.Registry == "" && c.Image == "") || c.Confirm {
+
+	// Check if function exists first
+	if !f.Initialized() {
+		// Return a specific error for uninitialized function
+		return c, fn.NewErrNotInitialized(f.Root)
+	}
+
+	if !interactiveTerminal() {
+		return c, nil
+	}
+
+	// If function IS initialized AND registry/image is missing
+	if f.Registry == "" && c.Registry == "" && c.Image == "" {
 		fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
 		err := survey.AskOne(
 			&survey.Input{Message: "Registry for function images:", Default: c.Registry},
@@ -353,11 +373,11 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 		fmt.Println("Note: building a function the first time will take longer than subsequent builds")
 	}
 
-	// Remainder of prompts are optional and only shown if in --confirm mode
 	if !c.Confirm {
 		return c, nil
 	}
 
+	// Remainder of prompts are optional and only shown if in --confirm mode
 	// Image Name Override
 	// Calculate a better image name message which shows the value of the final
 	// image name as it will be calculated if an explicit image name is not used.
