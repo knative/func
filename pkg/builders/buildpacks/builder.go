@@ -29,8 +29,7 @@ import (
 // DefaultName when no WithName option is provided to NewBuilder
 const DefaultName = builders.Pack
 
-var DefaultBaseBuilder = "localhost:5000/knative/builder-jammy-base:latest"
-
+var DefaultBaseBuilder = "ghcr.io/knative/builder-jammy-base:latest"
 var DefaultTinyBuilder = "paketobuildpacks/builder-jammy-tiny:latest"
 var (
 	DefaultBuilderImages = map[string]string{
