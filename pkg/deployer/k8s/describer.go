@@ -49,7 +49,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		return fn.Instance{}, fmt.Errorf("unable to get deployment %q: %v", name, err)
 	}
 
-	primaryRouteURL := fmt.Sprintf("%s.%s.svc", name, namespace) // TODO: full URL with scheme?
+	primaryRouteURL := fmt.Sprintf("http://%s.%s.svc", name, namespace) // TODO: get correct scheme?
 
 	description := fn.Instance{
 		Name:      name,
