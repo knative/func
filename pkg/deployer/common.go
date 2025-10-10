@@ -140,20 +140,6 @@ func SetSecurityContext(container *corev1.Container) {
 	}
 }
 
-// ConvertEnvs converts function environment variables to Kubernetes format
-func ConvertEnvs(envs []fn.Env) []corev1.EnvVar {
-	result := []corev1.EnvVar{}
-	for _, env := range envs {
-		if env.Name != nil && env.Value != nil {
-			result = append(result, corev1.EnvVar{
-				Name:  *env.Name,
-				Value: *env.Value,
-			})
-		}
-	}
-	return result
-}
-
 // GenerateDaprAnnotations generates annotations for Dapr support
 // These annotations, if included and Dapr control plane is installed in
 // the target cluster, will result in a sidecar exposing the Dapr HTTP API
