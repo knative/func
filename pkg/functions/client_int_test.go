@@ -662,9 +662,9 @@ func newClient(verbose bool) *fn.Client {
 		fn.WithBuilder(oci.NewBuilder("", verbose)),
 		fn.WithPusher(oci.NewPusher(true, true, verbose)),
 		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(verbose))),
-		fn.WithDescriber(knative.NewDescriber(verbose)),
-		fn.WithRemover(knative.NewRemover(verbose)),
-		fn.WithLister(knative.NewLister(verbose)),
+		fn.WithDescriber(knativedeployer.NewDescriber(verbose)),
+		fn.WithRemover(knativedeployer.NewRemover(verbose)),
+		fn.WithLister(knativedeployer.NewLister(verbose)),
 		fn.WithVerbose(verbose),
 	)
 }
@@ -674,9 +674,9 @@ func newClientWithS2i(verbose bool) *fn.Client {
 	builder := s2i.NewBuilder(s2i.WithVerbose(verbose))
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
 	deployer := knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(verbose))
-	describer := knative.NewDescriber(verbose)
-	remover := knative.NewRemover(verbose)
-	lister := knative.NewLister(verbose)
+	describer := knativedeployer.NewDescriber(verbose)
+	remover := knativedeployer.NewRemover(verbose)
+	lister := knativedeployer.NewLister(verbose)
 
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),

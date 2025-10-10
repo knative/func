@@ -11,5 +11,9 @@ import (
 )
 
 func TestIntegration(t *testing.T) {
-	deployer.IntegrationTest(t, knative.NewDeployer(knative.WithDeployerVerbose(false)))
+	deployer.IntegrationTest(t,
+		knative.NewDeployer(knative.WithDeployerVerbose(false)),
+		knative.NewRemover(false),
+		knative.NewLister(false),
+		knative.NewDescriber(false))
 }

@@ -15,7 +15,6 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	fnhttp "knative.dev/func/pkg/http"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/pipelines/tekton"
 )
@@ -67,9 +66,9 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithTransport(t),
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
-			fn.WithRemover(knative.NewRemover(cfg.Verbose)),
-			fn.WithDescriber(knative.NewDescriber(cfg.Verbose)),
-			fn.WithLister(knative.NewLister(cfg.Verbose)),
+			fn.WithRemover(knativedeployer.NewRemover(cfg.Verbose)),
+			fn.WithDescriber(knativedeployer.NewDescriber(cfg.Verbose)),
+			fn.WithLister(knativedeployer.NewLister(cfg.Verbose)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(

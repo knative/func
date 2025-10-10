@@ -24,7 +24,7 @@ import (
 )
 
 // Basic happy path test of deploy->describe->list->re-deploy->delete.
-func IntegrationTest(t *testing.T, deployer fn.Deployer) {
+func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lister fn.Lister, describer fn.Describer) {
 	var err error
 	functionName := "fn-testing"
 
@@ -194,7 +194,6 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer) {
 		t.Error("config-map was not mounted")
 	}
 
-	describer := knative.NewDescriber(false)
 	instance, err := describer.Describe(ctx, functionName, namespace)
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +227,6 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer) {
 		}
 	}
 
-	lister := knative.NewLister(false)
 	list, err := lister.List(ctx, namespace)
 	if err != nil {
 		t.Fatal(err)
@@ -271,7 +269,6 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer) {
 		t.Error("environment variable was not set from config-map")
 	}
 
-	remover := knative.NewRemover(false)
 	err = remover.Remove(ctx, functionName, namespace)
 	if err != nil {
 		t.Fatal(err)
