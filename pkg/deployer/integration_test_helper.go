@@ -24,7 +24,7 @@ import (
 )
 
 // Basic happy path test of deploy->describe->list->re-deploy->delete.
-func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lister fn.Lister, describer fn.Describer) {
+func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lister fn.Lister, describer fn.Describer, deployType string) {
 	var err error
 	functionName := "fn-testing"
 
@@ -141,6 +141,7 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lis
 					Max: &maxScale,
 				},
 			},
+			DeployType: deployType,
 		},
 		Run: fn.RunSpec{
 			Envs: []fn.Env{
