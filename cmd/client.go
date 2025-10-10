@@ -9,11 +9,12 @@ import (
 	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/creds"
+	k8sdeployer "knative.dev/func/pkg/deployer/k8s"
+	knativedeployer "knative.dev/func/pkg/deployer/knative"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	fnhttp "knative.dev/func/pkg/http"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/pipelines/tekton"
 )
@@ -58,16 +59,16 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
 		t  = newTransport(cfg.InsecureSkipVerify)    // may provide a custom impl which proxies
 		c  = newCredentialsProvider(config.Dir(), t) // for accessing registries
-		d  = newKnativeDeployer(cfg.Verbose)
+		d  = newKnativeDeployer(cfg.Verbose)         // default deployer (can be overridden via options)
 		pp = newTektonPipelinesProvider(c, cfg.Verbose)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
 			fn.WithTransport(t),
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
-			fn.WithRemover(knative.NewRemover(cfg.Verbose)),
-			fn.WithDescriber(knative.NewDescriber(cfg.Verbose)),
-			fn.WithLister(knative.NewLister(cfg.Verbose)),
+			fn.WithRemover(knativedeployer.NewRemover(cfg.Verbose)),
+			fn.WithDescriber(knativedeployer.NewDescriber(cfg.Verbose)),
+			fn.WithLister(knativedeployer.NewLister(cfg.Verbose)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(
@@ -127,12 +128,21 @@ func newTektonPipelinesProvider(creds oci.CredentialsProvider, verbose bool) *te
 }
 
 func newKnativeDeployer(verbose bool) fn.Deployer {
-	options := []knative.DeployerOpt{
-		knative.WithDeployerVerbose(verbose),
-		knative.WithDeployerDecorator(deployDecorator{}),
+	options := []knativedeployer.DeployerOpt{
+		knativedeployer.WithDeployerVerbose(verbose),
+		knativedeployer.WithDeployerDecorator(deployDecorator{}),
 	}
 
-	return knative.NewDeployer(options...)
+	return knativedeployer.NewDeployer(options...)
+}
+
+func newK8sDeployer(verbose bool) fn.Deployer {
+	options := []k8sdeployer.DeployerOpt{
+		k8sdeployer.WithDeployerVerbose(verbose),
+		k8sdeployer.WithDeployerDecorator(deployDecorator{}),
+	}
+
+	return k8sdeployer.NewDeployer(options...)
 }
 
 type deployDecorator struct {

@@ -20,6 +20,7 @@ import (
 	"github.com/docker/docker/client"
 
 	"knative.dev/func/pkg/builders/s2i"
+	knativedeployer "knative.dev/func/pkg/deployer/knative"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/knative"
@@ -660,10 +661,10 @@ func newClient(verbose bool) *fn.Client {
 		fn.WithRegistry(DefaultIntTestRegistry),
 		fn.WithBuilder(oci.NewBuilder("", verbose)),
 		fn.WithPusher(oci.NewPusher(true, true, verbose)),
-		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
-		fn.WithDescriber(knative.NewDescriber(verbose)),
-		fn.WithRemover(knative.NewRemover(verbose)),
-		fn.WithLister(knative.NewLister(verbose)),
+		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(verbose))),
+		fn.WithDescriber(knativedeployer.NewDescriber(verbose)),
+		fn.WithRemover(knativedeployer.NewRemover(verbose)),
+		fn.WithLister(knativedeployer.NewLister(verbose)),
 		fn.WithVerbose(verbose),
 	)
 }
@@ -672,10 +673,10 @@ func newClient(verbose bool) *fn.Client {
 func newClientWithS2i(verbose bool) *fn.Client {
 	builder := s2i.NewBuilder(s2i.WithVerbose(verbose))
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
-	deployer := knative.NewDeployer(knative.WithDeployerVerbose(verbose))
-	describer := knative.NewDescriber(verbose)
-	remover := knative.NewRemover(verbose)
-	lister := knative.NewLister(verbose)
+	deployer := knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(verbose))
+	describer := knativedeployer.NewDescriber(verbose)
+	remover := knativedeployer.NewRemover(verbose)
+	lister := knativedeployer.NewLister(verbose)
 
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),

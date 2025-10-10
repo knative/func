@@ -1,10 +1,11 @@
 //go:build integration
 // +build integration
 
-package knative_test
+package deployer
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -23,7 +24,7 @@ import (
 )
 
 // Basic happy path test of deploy->describe->list->re-deploy->delete.
-func TestIntegration(t *testing.T) {
+func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lister fn.Lister, describer fn.Describer, deployType string) {
 	var err error
 	functionName := "fn-testing"
 
@@ -140,6 +141,7 @@ func TestIntegration(t *testing.T) {
 					Max: &maxScale,
 				},
 			},
+			DeployType: deployType,
 		},
 		Run: fn.RunSpec{
 			Envs: []fn.Env{
@@ -156,10 +158,9 @@ func TestIntegration(t *testing.T) {
 
 	var buff = &knative.SynchronizedBuffer{}
 	go func() {
-		_ = knative.GetKServiceLogs(ctx, namespace, functionName, function.Deploy.Image, &now, buff)
+		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
+		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, buff)
 	}()
-
-	deployer := knative.NewDeployer(knative.WithDeployerVerbose(false))
 
 	depRes, err := deployer.Deploy(ctx, function)
 	if err != nil {
@@ -194,7 +195,6 @@ func TestIntegration(t *testing.T) {
 		t.Error("config-map was not mounted")
 	}
 
-	describer := knative.NewDescriber(false)
 	instance, err := describer.Describe(ctx, functionName, namespace)
 	if err != nil {
 		t.Fatal(err)
@@ -205,7 +205,7 @@ func TestIntegration(t *testing.T) {
 	reqBody := "Hello World!"
 	respBody, err := postText(ctx, instance.Route, reqBody)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("failed to invoke function: %v", err)
 	} else {
 		t.Log("resp body:\n" + respBody)
 		if !strings.Contains(respBody, reqBody) {
@@ -228,7 +228,6 @@ func TestIntegration(t *testing.T) {
 		}
 	}
 
-	lister := knative.NewLister(false)
 	list, err := lister.List(ctx, namespace)
 	if err != nil {
 		t.Fatal(err)
@@ -271,7 +270,6 @@ func TestIntegration(t *testing.T) {
 		t.Error("environment variable was not set from config-map")
 	}
 
-	remover := knative.NewRemover(false)
 	err = remover.Remove(ctx, functionName, namespace)
 	if err != nil {
 		t.Fatal(err)

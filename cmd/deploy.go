@@ -15,6 +15,9 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client/pkg/util"
+	"knative.dev/func/pkg/deployer"
+	k8sdeployer "knative.dev/func/pkg/deployer/k8s"
+	knativedeployer "knative.dev/func/pkg/deployer/knative"
 
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
@@ -131,7 +134,7 @@ EXAMPLES
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
 			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
 			"git-url", "image", "namespace", "path", "platform", "push", "pvc-size",
-			"service-account", "registry", "registry-insecure", "remote",
+			"service-account", "deploy-type", "registry", "registry-insecure", "remote",
 			"username", "password", "token", "verbose", "remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
@@ -192,6 +195,8 @@ EXAMPLES
 		"When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)")
 	cmd.Flags().String("service-account", f.Deploy.ServiceAccountName,
 		"Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)")
+	cmd.Flags().String("deploy-type", f.Deploy.DeployType,
+		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service (default) or '%s' for Kubernetes Deployment ($FUNC_DEPLOY_TYPE)", deployer.KnativeDeployerName, deployer.KubernetesDeployerName))
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
@@ -565,6 +570,9 @@ type deployConfig struct {
 	//Service account to be used in deployed function
 	ServiceAccountName string
 
+	// DeployType specifies the type of deployment: "knative" or "deployment"
+	DeployType string
+
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
 	Remote bool
@@ -598,6 +606,7 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		PVCSize:            viper.GetString("pvc-size"),
 		Timestamp:          viper.GetBool("build-timestamp"),
 		ServiceAccountName: viper.GetString("service-account"),
+		DeployType:         viper.GetString("deploy-type"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
@@ -632,6 +641,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
 	f.Build.RemoteStorageClass = c.RemoteStorageClass
 	f.Deploy.ServiceAccountName = c.ServiceAccountName
+	f.Deploy.DeployType = c.DeployType
 	f.Local.Remote = c.Remote
 
 	// PVCSize
@@ -787,6 +797,40 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// an fn.ErrNameRequired, fn.ErrImageRequired etc. as needed.
 
 	return
+}
+
+// clientOptions returns client options specific to deploy, including the appropriate deployer
+func (c deployConfig) clientOptions() ([]fn.Option, error) {
+	// Start with build config options
+	o, err := c.buildConfig.clientOptions()
+	if err != nil {
+		return o, err
+	}
+
+	// Add the appropriate deployer based on deploy type
+	deployType := c.DeployType
+	if deployType == "" {
+		deployType = deployer.KnativeDeployerName // default to knative for backwards compatibility
+	}
+
+	switch deployType {
+	case deployer.KnativeDeployerName:
+		o = append(o,
+			fn.WithDeployer(newKnativeDeployer(c.Verbose)),
+			fn.WithRemover(knativedeployer.NewRemover(c.Verbose)),
+			fn.WithDescriber(knativedeployer.NewDescriber(c.Verbose)),
+			fn.WithLister(knativedeployer.NewLister(c.Verbose)))
+	case deployer.KubernetesDeployerName:
+		o = append(o,
+			fn.WithDeployer(newK8sDeployer(c.Verbose)),
+			fn.WithRemover(k8sdeployer.NewRemover(c.Verbose)),
+			fn.WithDescriber(k8sdeployer.NewDescriber(c.Verbose)),
+			fn.WithLister(k8sdeployer.NewLister(c.Verbose)))
+	default:
+		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s)", deployType, deployer.KnativeDeployerName, deployer.KubernetesDeployerName)
+	}
+
+	return o, nil
 }
 
 // printDeployMessages to the output.  Non-error deployment messages.
