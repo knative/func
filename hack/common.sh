@@ -19,13 +19,13 @@ init() {
 }
 
 find_executables() {
-  KUBECTL=$(find_executable "kubectl")
-  KIND=$(find_executable "kind")
-  DAPR=$(find_executable "dapr")
-  HELM=$(find_executable "helm")
-  STERN=$(find_executable "stern")
-  KN=$(find_executable "kn")
-  JQ=$(find_executable "jq")
+  KUBECTL=$(find_executable "kubectl" || true)
+  KIND=$(find_executable "kind" || true)
+  DAPR=$(find_executable "dapr" || true)
+  HELM=$(find_executable "helm" || true)
+  STERN=$(find_executable "stern" || true)
+  KN=$(find_executable "kn" || true)
+  JQ=$(find_executable "jq" || true)
 }
 
 populate_environment() {
@@ -74,7 +74,7 @@ define_colors() {
 # find returns the path to an executable by name.
 # An environment variable FUNC_TEST_$name takes precidence.
 # Next is an executable matching the name in hack/bin/
-# (the install location of hack/install-binaries.sh)
+# (the install location of hack/binaries.sh)
 # Finally, a matching executable from the current PATH is used.
 find_executable() {
   local name="$1" # requested binary name
@@ -84,20 +84,20 @@ find_executable() {
   local env=$(echo "FUNC_TEST_$name" | awk '{print toupper($0)}')
   local path="${!env:-}"
   if [[ -x "$path" ]]; then
-    echo "$path" & return 0
+    echo "$path" && return 0
   fi
 
-  # Use the binary installed into hack/bin/ by allocate.sh if
+  # Use the binary installed into hack/bin/ by cluster.sh if
   # it exists.
   path=$(cd "$(dirname "$0")" && pwd)"/bin/$name"
   if [[ -x "$path" ]]; then
-    echo "$path" & return 0
+    echo "$path" && return 0
   fi
 
   # Finally fallback to anything matchin in the current PATH
   path=$(command -v "$name")
   if [[ -x "$path" ]]; then
-    echo "$path" & return 0
+    echo "$path" && return 0
   fi
 
   echo "Error: ${name} not found." >&2

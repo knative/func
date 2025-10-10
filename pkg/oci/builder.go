@@ -113,6 +113,13 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (e
 		return
 	}
 	defer cleanup(job)
+	defer func() {
+		// Always remove our own PID link when build completes
+		if job.verbose {
+			fmt.Fprintf(os.Stderr, "rm %v\n", job.pidLink())
+		}
+		_ = os.Remove(job.pidLink())
+	}()
 
 	if err = scaffold(job); err != nil { // write out the service wrapper
 		return

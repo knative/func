@@ -16,7 +16,7 @@
 # Create DNS A records for 'localtest.me' and '*.localtest.me' pointing to the cluster node.
 #
 
-source "$(dirname "$(realpath "$0")")/common.sh"
+source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 
 function patch_hosts() {
   echo "${blue}Configuring Magic DNS${reset}"

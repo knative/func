@@ -1,5 +1,4 @@
 //go:build integration
-// +build integration
 
 package k8s_test
 
@@ -15,7 +14,7 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-func TestGetPodLogs(t *testing.T) {
+func TestInt_GetPodLogs(t *testing.T) {
 	var err error
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 	t.Cleanup(cancel)
