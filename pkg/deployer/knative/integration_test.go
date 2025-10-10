@@ -15,5 +15,6 @@ func TestIntegration(t *testing.T) {
 		knative.NewDeployer(knative.WithDeployerVerbose(false)),
 		knative.NewRemover(false),
 		knative.NewLister(false),
-		knative.NewDescriber(false))
+		knative.NewDescriber(false),
+		deployer.KnativeDeployerName)
 }
