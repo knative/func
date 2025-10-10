@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-package knative_test
+package deployer
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 )
 
 // Basic happy path test of deploy->describe->list->re-deploy->delete.
-func TestIntegration(t *testing.T) {
+func IntegrationTest(t *testing.T, deployer fn.Deployer) {
 	var err error
 	functionName := "fn-testing"
 
@@ -158,8 +158,6 @@ func TestIntegration(t *testing.T) {
 	go func() {
 		_ = knative.GetKServiceLogs(ctx, namespace, functionName, function.Deploy.Image, &now, buff)
 	}()
-
-	deployer := knative.NewDeployer(knative.WithDeployerVerbose(false))
 
 	depRes, err := deployer.Deploy(ctx, function)
 	if err != nil {
