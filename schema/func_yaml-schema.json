@@ -107,6 +107,14 @@
 					"type": "string",
 					"description": "ServiceAccountName is the name of the service account used for the\nfunction pod. The service account must exist in the namespace to\nsucceed.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/"
 				},
+				"deployType": {
+					"enum": [
+						"knative",
+						"deployment"
+					],
+					"type": "string",
+					"description": "DeployType specifies the type of deployment to use: \"knative\" or \"raw\"\nDefaults to \"knative\" for backwards compatibility"
+				},
 				"subscriptions": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
