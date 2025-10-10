@@ -182,7 +182,7 @@ func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstal
 	}
 
 	container := corev1.Container{
-		Name:  f.Name,
+		Name:  "user-container",
 		Image: f.Deploy.Image,
 		Ports: []corev1.ContainerPort{
 			{

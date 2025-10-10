@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -156,7 +157,8 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer) {
 
 	var buff = &knative.SynchronizedBuffer{}
 	go func() {
-		_ = knative.GetKServiceLogs(ctx, namespace, functionName, function.Deploy.Image, &now, buff)
+		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
+		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, buff)
 	}()
 
 	depRes, err := deployer.Deploy(ctx, function)
@@ -203,7 +205,7 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer) {
 	reqBody := "Hello World!"
 	respBody, err := postText(ctx, instance.Route, reqBody)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("failed to invoke function: %v", err)
 	} else {
 		t.Log("resp body:\n" + respBody)
 		if !strings.Contains(respBody, reqBody) {
