@@ -130,6 +130,7 @@ allow-direct-references = true
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
+function = { path = "fn", develop = true }
 
 [tool.poetry.scripts]
 script = "service.main:main"
