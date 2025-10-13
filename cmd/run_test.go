@@ -301,6 +301,7 @@ func TestRun_CorrectImage(t *testing.T) {
 		buildInvoked bool
 		expectError  bool
 	}{
+		
 		{
 			name:         "image with digest, auto build",
 			args:         []string{"--image", "exampleimage@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
@@ -334,7 +335,9 @@ func TestRun_CorrectImage(t *testing.T) {
 			runner := mock.NewRunner()
 
 			runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
-				// TODO: add if for empty image? -- should fail beforehand
+				if f.Build.Image == "" {
+					return nil, fmt.Errorf("Image is empty, should fail before running")
+				}
 				if f.Build.Image != tt.image {
 					return nil, fmt.Errorf("Expected image: %v but got: %v", tt.image, f.Build.Image)
 				}
