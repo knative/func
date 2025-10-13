@@ -24,7 +24,7 @@ func (b pythonBuilder) Base(customBase string) string {
 	if customBase != "" {
 		return customBase
 	}
-	cmd := exec.Command("python", "-V")
+	cmd := exec.Command(pythonCmd(), "-V")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return defaultPythonBase
@@ -61,7 +61,7 @@ func (b pythonBuilder) WriteShared(job buildJob) (layers []imageLayer, err error
 	if job.verbose {
 		fmt.Printf("python -m venv .venv\n")
 	}
-	cmd := exec.CommandContext(job.ctx, "python", "-m", "venv", ".venv")
+	cmd := exec.CommandContext(job.ctx, pythonCmd(), "-m", "venv", ".venv")
 	cmd.Dir = job.buildDir()
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -204,4 +204,12 @@ func newPythonLibTarball(job buildJob, root, target string) error {
 
 func (b pythonBuilder) WritePlatform(ctx buildJob, p v1.Platform) (layers []imageLayer, err error) {
 	return []imageLayer{}, nil
+}
+
+func pythonCmd() string {
+	_, err := exec.LookPath("python")
+	if err != nil {
+		return "python3"
+	}
+	return "python"
 }
