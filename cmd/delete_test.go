@@ -1,11 +1,11 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"os"
-	"testing"
-	"bytes"
 	"strings"
+	"testing"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
@@ -306,7 +306,7 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
 
 	// Capture command output for inspection
-	buf:= new(bytes.Buffer)
+	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
 
@@ -318,7 +318,7 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 		t.Fatalf("expected error on conflicting flags not received")
 	}
 
-	if !strings.Contains(err.Error(),"only one of --path and [NAME] should be provided") {
+	if !strings.Contains(err.Error(), "only one of --path and [NAME] should be provided") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 
