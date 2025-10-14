@@ -301,7 +301,6 @@ func TestRun_CorrectImage(t *testing.T) {
 		buildInvoked bool
 		expectError  bool
 	}{
-		
 		{
 			name:         "image with digest, auto build",
 			args:         []string{"--image", "exampleimage@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
