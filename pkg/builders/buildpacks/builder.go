@@ -120,6 +120,10 @@ var DefaultLifecycleImage = "docker.io/buildpacksio/lifecycle:553c041"
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {
+	if f.Runtime == "python" {
+		return fmt.Errorf("python is not currently supported with pack builder (use host or s2i builder instead")
+	}
+
 	if len(platforms) != 0 {
 		return errors.New("the pack builder does not support specifying target platforms directly")
 	}
