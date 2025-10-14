@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"testing"
+	"bytes"
+	"strings"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
@@ -306,7 +308,7 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 	// Capture command output for inspection
 	buf:= new(bytes.Buffer)
 	cmd.SetOut(buf)
-	cmd.setErr(buf)
+	cmd.SetErr(buf)
 
 	// Execute the command simulating the invalid argument combination of both
 	// a path and an explicit name.
@@ -316,7 +318,7 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 		t.Fatalf("expected error on conflicting flags not received")
 	}
 
-	if !string.Contains(err.Error(),"only one of --path and [NAME] should be provided") {
+	if !strings.Contains(err.Error(),"only one of --path and [NAME] should be provided") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 
