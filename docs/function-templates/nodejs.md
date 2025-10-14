@@ -5,7 +5,7 @@ looks like a typical Node.js project. Both HTTP and Event functions have the sam
 template structure.
 
 ```
-❯ func create fn
+❯ func create -l node fn
 Project path: /home/developer/projects/fn
 Function name: fn
 Runtime: node
