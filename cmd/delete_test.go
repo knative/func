@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -303,14 +305,21 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 	// Command with a Client constructor using the mock remover.
 	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
 
+	// Capture command output for inspection
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
 	// Execute the command simulating the invalid argument combination of both
 	// a path and an explicit name.
 	cmd.SetArgs([]string{"-p", "./testpath", "testname"})
 	err := cmd.Execute()
 	if err == nil {
-		// TODO should really either parse the output or use typed errors to ensure it's
-		// failing for the expected reason.
 		t.Fatalf("expected error on conflicting flags not received")
+	}
+
+	if !strings.Contains(err.Error(), "only one of --path and [NAME] should be provided") {
+		t.Fatalf("unexpected error message: %v", err)
 	}
 
 	// Also fail if remover's .Remove is invoked.
