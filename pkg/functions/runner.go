@@ -195,7 +195,7 @@ func runPython(ctx context.Context, job *Job) (err error) {
 	if job.verbose {
 		fmt.Printf("python -m venv .venv\n")
 	}
-	cmd := exec.CommandContext(ctx, "python", "-m", "venv", ".venv")
+	cmd := exec.CommandContext(ctx, pythonCmd(), "-m", "venv", ".venv")
 	cmd.Dir = job.Dir()
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -359,4 +359,12 @@ func choosePort(iface, preferredPort string) (string, error) {
 		return "", fmt.Errorf("cannot parse port: %w", err)
 	}
 	return port, nil
+}
+
+func pythonCmd() string {
+	_, err := exec.LookPath("python")
+	if err != nil {
+		return "python3"
+	}
+	return "python"
 }

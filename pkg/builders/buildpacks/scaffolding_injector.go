@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"runtime"
 	"strings"
@@ -17,6 +18,7 @@ import (
 // It basically moves content of /workspace to /workspace/fn and then setup scaffolding code directly in /workspace.
 type pyScaffoldInjector struct {
 	client.CommonAPIClient
+	invoke string
 }
 
 func (s pyScaffoldInjector) CopyToContainer(ctx context.Context, ctr, p string, r io.Reader, opts container.CopyToContainerOptions) error {
@@ -61,7 +63,7 @@ func (s pyScaffoldInjector) CopyToContainer(ctx context.Context, ctr, p string, 
 				return
 			}
 		}
-		err = writePythonScaffolding(tw)
+		err = writePythonScaffolding(tw, s.invoke)
 		if err != nil {
 			return
 		}
@@ -71,7 +73,7 @@ func (s pyScaffoldInjector) CopyToContainer(ctx context.Context, ctr, p string, 
 	return s.CommonAPIClient.CopyToContainer(ctx, ctr, p, pr, opts)
 }
 
-func writePythonScaffolding(tw *tar.Writer) error {
+func writePythonScaffolding(tw *tar.Writer, invoke string) error {
 	for _, f := range []struct {
 		path    string
 		content string
@@ -82,7 +84,7 @@ func writePythonScaffolding(tw *tar.Writer) error {
 		},
 		{
 			path:    "service/main.py",
-			content: serviceMain,
+			content: serviceMain(invoke),
 		},
 		{
 			path:    "service/__init__.py",
@@ -128,19 +130,21 @@ allow-direct-references = true
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
+function = { path = "fn", develop = true }
 
 [tool.poetry.scripts]
 script = "service.main:main"
 `
 
-const serviceMain = `"""
+func serviceMain(invoke string) string {
+	template := `"""
 This code is glue between a user's Function and the middleware which will
 expose it as a network service.  This code is written on-demand when a
 Function is being built, deployed or run.  This will be included in the
 final container.
 """
 import logging
-from func_python.cloudevent import serve
+from func_python.%s import serve
 
 logging.basicConfig(level=logging.INFO)
 
@@ -161,3 +165,5 @@ def main():
 if __name__ == "__main__":
     main()
 `
+	return fmt.Sprintf(template, invoke)
+}

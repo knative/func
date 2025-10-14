@@ -216,7 +216,16 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		}
 
 		if f.Runtime == "python" {
-			cli = pyScaffoldInjector{cli}
+			if fi, _ := os.Lstat(filepath.Join(f.Root, "Procfile")); fi == nil {
+				// HACK (of a hack): need to get the right invocation signature
+				// the standard scaffolding does this in toSignature() func.
+				// we know we have python here.
+				invoke := f.Invoke
+				if invoke == "" {
+					invoke = "http"
+				}
+				cli = pyScaffoldInjector{cli, invoke}
+			}
 		}
 
 		// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.

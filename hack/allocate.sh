@@ -351,9 +351,54 @@ dapr_runtime() {
   # to only start a single instance rather than four.
   # helm repo add bitnami https://charts.bitnami.com/bitnami
   echo "${blue}- Redis ${reset}"
-  $HELM repo add bitnami https://charts.bitnami.com/bitnami
-  $HELM install redis bitnami/redis --set image.tag=6.2
-  $HELM repo update
+  # Deploy Redis using simple manifest with official Redis image
+  # (Bitnami images have migration issues as of Sept 2025)
+  $KUBECTL apply -f - << EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-master
+  namespace: default
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-master
+  namespace: default
+spec:
+  serviceName: redis-master
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+EOF
 
   # 2) Expose a Redis-backed Dapr State Storage component
   echo "${blue}- State Storage Component${reset}"
@@ -370,9 +415,7 @@ spec:
   - name: redisHost
     value: redis-master.default.svc.cluster.local:6379
   - name: redisPassword
-    secretKeyRef:
-      name: redis
-      key: redis-password
+    value: ""
 EOF
 
   # 3) Expose A Redis-backed Dapr Pub/Sub Component
@@ -390,9 +433,7 @@ spec:
   - name: redisHost
     value: redis-master.default.svc.cluster.local:6379
   - name: redisPassword
-    secretKeyRef:
-      name: redis
-      key: redis-password
+    value: ""
 EOF
 
   echo "${green}✅ Dapr Runtime${reset}"

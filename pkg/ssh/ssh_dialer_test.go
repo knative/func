@@ -44,6 +44,7 @@ type testParams struct {
 	setUpEnv    setUpEnvFn
 	skipOnWin   bool
 	skipOnRoot  bool
+	requireIPv6 bool
 	CreateError string
 	DialError   string
 }
@@ -192,7 +193,8 @@ func TestCreateDialer(t *testing.T) {
 				connConfig.hostIPv6,
 				connConfig.portIPv6,
 			)},
-			setUpEnv: all(withoutSSHAgent, withCleanHome, withKnowHosts(connConfig)),
+			requireIPv6: true,
+			setUpEnv:    all(withoutSSHAgent, withCleanHome, withKnowHosts(connConfig)),
 		},
 		{
 			name: "broken known host",
@@ -361,12 +363,12 @@ func TestCreateDialer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u, err := url.Parse(tt.args.connStr)
-			th.AssertNil(t, err)
-
-			if net.ParseIP(u.Hostname()).To4() == nil && connConfig.hostIPv6 == "" {
+			if tt.requireIPv6 && connConfig.hostIPv6 == "" {
 				t.Skip("skipping ipv6 test since test environment doesn't support ipv6 connection")
 			}
+
+			u, err := url.Parse(tt.args.connStr)
+			th.AssertNil(t, err)
 
 			if tt.skipOnWin && runtime.GOOS == "windows" {
 				t.Skip("skipping this test on windows")
