@@ -216,7 +216,9 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		}
 
 		if f.Runtime == "python" {
-			cli = pyScaffoldInjector{cli}
+			if fi, _ := os.Lstat(filepath.Join(f.Root, "Procfile")); fi == nil {
+				cli = pyScaffoldInjector{cli}
+			}
 		}
 
 		// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.
