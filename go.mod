@@ -1,6 +1,6 @@
 module knative.dev/func
 
-go 1.24.0
+go 1.25.0
 
 // this is required bacause of bad dep in github.com/openshift-pipelines/pipelines-as-code
 replace github.com/imdario/mergo => dario.cat/mergo v1.0.1
