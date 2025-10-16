@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -8,9 +9,11 @@ import (
 	"io"
 	"os"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+	
 
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
@@ -66,7 +69,11 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 	if err != nil {
 		return
 	}
-	// TODO cfg.Prompt()
+	if cfg.Name == "" && cfg.Path == "" {
+		if err := cfg.Prompt(newClient); err != nil {
+			return err
+		}
+	}
 
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
@@ -132,6 +139,41 @@ func newDescribeConfig(cmd *cobra.Command, args []string) (cfg describeConfig, e
 	}
 	return
 }
+
+// Prompt interactively asks the user to select a function name
+// if none was provided via args or flags.
+func (c *describeConfig) Prompt(newClient ClientFactory) error {
+	client, done := newClient(ClientConfig{Verbose: c.Verbose})
+	defer done()
+
+	funcs, err := client.List(context.Background(), c.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to list functions: %w", err)
+	}
+
+	if len(funcs) == 0 {
+		return errors.New("no functions found to describe")
+	}
+
+	names := []string{}
+	for _, f := range funcs {
+		names = append(names, f.Name)
+	}
+
+	prompt := &survey.Select{
+		Message: "Select a function to describe:",
+		Options: names,
+	}
+
+	var selected string
+	if err := survey.AskOne(prompt, &selected); err != nil {
+		return err
+	}
+
+	c.Name = selected
+	return nil
+}
+
 
 // Output Formatting (serializers)
 // -------------------------------
