@@ -16,7 +16,7 @@
 # Install GitLab
 #
 
-source "$(dirname "$(realpath "$0")")/common.sh"
+source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 
 function install_gitlab() {
   echo "${blue}Installing GitLab${reset}"

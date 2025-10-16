@@ -5,7 +5,7 @@
 # invoking an http echoing server.
 #
 
-source "$(dirname "$(realpath "$0")")/common.sh"
+source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 
 echo_test() {
   echo "${blue}Testing Cluster via Echo Service${reset}"
