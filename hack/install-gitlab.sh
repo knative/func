@@ -23,7 +23,7 @@ function install_gitlab() {
 
   local -r gitlab_host="${GITLAB_HOSTNAME:-gitlab.localtest.me}"
 
-  $KUBECTL apply -f - <<EOF
+  $KUBECTL apply -f - <<EOF || kubectl -n gitlab get sa
 kind: Namespace
 apiVersion: v1
 metadata:
