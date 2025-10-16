@@ -54,12 +54,12 @@ require (
 	github.com/tektoncd/cli v0.37.0
 	github.com/tektoncd/pipeline v0.65.1
 	gitlab.com/gitlab-org/api/client-go v0.150.0
-	golang.org/x/crypto v0.42.0
-	golang.org/x/net v0.44.0
+	golang.org/x/crypto v0.43.0
+	golang.org/x/net v0.46.0
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sync v0.17.0
-	golang.org/x/sys v0.36.0
-	golang.org/x/term v0.35.0
+	golang.org/x/sys v0.37.0
+	golang.org/x/term v0.36.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/v3 v3.5.1
@@ -67,11 +67,11 @@ require (
 	k8s.io/apimachinery v0.33.5
 	k8s.io/client-go v0.33.5
 	k8s.io/klog/v2 v2.130.1
-	knative.dev/client/pkg v0.0.0-20251013022316-b9b74c22e298
-	knative.dev/eventing v0.46.1-0.20251013143022-7b66944aa456
-	knative.dev/hack v0.0.0-20251013111017-49bc1be5f373
-	knative.dev/pkg v0.0.0-20251014040032-094a61a9ff82
-	knative.dev/serving v0.46.1-0.20251014122132-a40675998016
+	knative.dev/client/pkg v0.0.0-20251016022417-52fd4f084578
+	knative.dev/eventing v0.46.1-0.20251015143023-2bd21f9a58e8
+	knative.dev/hack v0.0.0-20251015104416-f3f2ddfc1eac
+	knative.dev/pkg v0.0.0-20251015132924-aadc6f6a1012
+	knative.dev/serving v0.46.1-0.20251016122318-0ee5fc03ca3a
 )
 
 require (
@@ -280,8 +280,8 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac // indirect
-	golang.org/x/mod v0.28.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/mod v0.29.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/api v0.204.0 // indirect
@@ -298,7 +298,7 @@ require (
 	k8s.io/cli-runtime v0.31.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e // indirect
-	knative.dev/networking v0.0.0-20251009220213-bc97bc3bcfc8 // indirect
+	knative.dev/networking v0.0.0-20251015133420-dd9a9264b907 // indirect
 	sigs.k8s.io/controller-runtime v0.20.4 // indirect
 	sigs.k8s.io/gateway-api v1.1.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
