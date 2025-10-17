@@ -34,7 +34,7 @@ import (
 
 type Opt func(*Pusher)
 
-// PusherDockerClient is sub-interface of client.CommonAPIClient required by pusher.
+// PusherDockerClient is sub-interface of client.APIClient required by pusher.
 type PusherDockerClient interface {
 	daemon.Client
 	ImagePush(ctx context.Context, ref string, options image.PushOptions) (io.ReadCloser, error)

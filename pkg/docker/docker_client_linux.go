@@ -16,7 +16,7 @@ import (
 
 // creates a docker client that has its own podman service associated with it
 // the service is shutdown when Close() is called on the client
-func newClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHost string, err error) {
+func newClientWithPodmanService() (dockerClient client.APIClient, dockerHost string, err error) {
 	tmpDir, err := os.MkdirTemp("", "func-podman-")
 	if err != nil {
 		return
@@ -55,8 +55,8 @@ func newClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHo
 		}
 	}
 	dockerClient = clientWithAdditionalCleanup{
-		CommonAPIClient: dockerClient,
-		cleanUp:         stopPodmanService,
+		APIClient: dockerClient,
+		cleanUp:   stopPodmanService,
 	}
 
 	svcUpCh := make(chan struct{})

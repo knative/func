@@ -35,7 +35,7 @@ var ErrNoDocker = errors.New("docker/podman API not available")
 //   - For TCP connections it returns "" so it defaults in the remote (note that
 //     one should not be use client.DefaultDockerHost in this situation). This is
 //     needed beaus of TCP+tls connections.
-func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerHostInRemote string, err error) {
+func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInRemote string, err error) {
 	var _url *url.URL
 
 	dockerHost := os.Getenv("DOCKER_HOST")
@@ -135,7 +135,7 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 
 	if closer, ok := contextDialer.(io.Closer); ok {
 		dockerClient = clientWithAdditionalCleanup{
-			CommonAPIClient: dockerClient,
+			APIClient: dockerClient,
 			cleanUp: func() {
 				closer.Close()
 			},
@@ -248,12 +248,12 @@ func podmanPresent() bool {
 }
 
 type clientWithAdditionalCleanup struct {
-	client.CommonAPIClient
+	client.APIClient
 	cleanUp func()
 }
 
 // Close function need to stop associated podman service
 func (w clientWithAdditionalCleanup) Close() error {
 	defer w.cleanUp()
-	return w.CommonAPIClient.Close()
+	return w.APIClient.Close()
 }

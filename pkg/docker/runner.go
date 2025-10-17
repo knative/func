@@ -55,9 +55,9 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 	var (
 		host = DefaultHost
 		port = DefaultPort
-		c    client.CommonAPIClient // Docker client
-		id   string                 // ID of running container
-		conn net.Conn               // Connection to container's stdio
+		c    client.APIClient // Docker client
+		id   string           // ID of running container
+		conn net.Conn         // Connection to container's stdio
 
 		// Channels for gathering runtime errors from the container instance
 		copyErrCh  = make(chan error, 10)
@@ -191,7 +191,7 @@ func choosePort(host, preferredPort string, dialTimeout time.Duration) string {
 
 }
 
-func newContainer(ctx context.Context, c client.CommonAPIClient, f fn.Function, host, port string, verbose bool) (id string, err error) {
+func newContainer(ctx context.Context, c client.APIClient, f fn.Function, host, port string, verbose bool) (id string, err error) {
 	var (
 		containerCfg container.Config
 		hostCfg      container.HostConfig
@@ -254,7 +254,7 @@ func newHostConfig(host, port string) (c container.HostConfig, err error) {
 
 // copy stdin and stdout from the container of the given ID.  Errors encountered
 // during copy are communicated via a provided errs channel.
-func copyStdio(ctx context.Context, c client.CommonAPIClient, id string, errs chan error, out, errOut io.Writer) (conn net.Conn, err error) {
+func copyStdio(ctx context.Context, c client.APIClient, id string, errs chan error, out, errOut io.Writer) (conn net.Conn, err error) {
 	var (
 		res types.HijackedResponse
 		opt = container.AttachOptions{
