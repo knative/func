@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -126,8 +127,9 @@ func TestDescribe_NameAndPathExclusivity(t *testing.T) {
 	cmd := NewDescribeCmd(NewTestClient(fn.WithDescriber(d)))
 	cmd.SetArgs([]string{"-p", "./testpath", "testname"})
 	if err := cmd.Execute(); err == nil {
-		// TODO(lkingland): use a typed error
 		t.Fatalf("expected error on conflicting flags not received")
+	} else if !errors.Is(err, ErrNameAndPathConflict) {
+		t.Fatalf("expected ErrNameAndPathExclusivity, got %v", err)
 	}
 	if d.DescribeInvoked {
 		t.Fatal("describer was invoked when conflicting flags were provided")
