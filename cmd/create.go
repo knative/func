@@ -121,11 +121,9 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	// Create a config based on args.  Also uses the newClient to create a
 	// temporary client for completing options such as available runtimes.
 	cfg, err := newCreateConfig(cmd, args, newClient)
-	fmt.Printf("DEBUG: cfg.Path = %s\n", cfg.Path)
 	if err != nil {
 		return
 	}
-	
 
 	// Client
 	// From environment variables, flags, arguments, and user prompts if --confirm
@@ -140,7 +138,6 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	if err = cfg.Validate(client); err != nil {
 		return
 	}
-
 
 	// Create
 	_, err = client.Init(fn.Function{
