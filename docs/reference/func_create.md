@@ -10,7 +10,7 @@ NAME
 
 SYNOPSIS
 	func create [-l|--language] [-t|--template] [-r|--repository]
-	            [-c|--confirm]  [-v|--verbose]  [path]
+	            [--path <dir>] [-c|--confirm]  [-v|--verbose]
 
 DESCRIPTION
 	Creates a new function project.
@@ -70,6 +70,7 @@ func create
   -c, --confirm             Prompt to confirm options interactively ($FUNC_CONFIRM)
   -h, --help                help for create
   -l, --language string     Language Runtime (see help text for list) ($FUNC_LANGUAGE)
+  -p, --path string         Path to the function project directory (default: current directory) ($FUNC_PATH) (default ".")
   -r, --repository string   URI to a Git repository containing the specified template ($FUNC_REPOSITORY)
   -t, --template string     Function template. (see help text for list) ($FUNC_TEMPLATE) (default "http")
   -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
