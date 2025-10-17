@@ -16,6 +16,8 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
+var ErrNameAndPathConflict = errors.New("cannot specify both name and path")
+
 func NewDescribeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "describe <name>",
@@ -128,7 +130,7 @@ func newDescribeConfig(cmd *cobra.Command, args []string) (cfg describeConfig, e
 		// logically inconsistent to provide both a name and a path to source.
 		// Either use the function's local state on disk (--path), or specify
 		// a name and a namespace to ignore any local function source.
-		err = fmt.Errorf("only one of --path and [NAME] should be provided")
+		err = ErrNameAndPathConflict
 	}
 	return
 }
