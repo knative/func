@@ -8,7 +8,7 @@ import (
 
 // Client that panics when used after Close()
 type closeGuardingClient struct {
-	pimpl  client.CommonAPIClient
+	pimpl  client.APIClient
 	m      sync.RWMutex
 	closed bool
 }
