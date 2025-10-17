@@ -24,7 +24,7 @@ func TestDescribe_Default(t *testing.T) {
 	if err == nil {
 		t.Fatal("describing a nonexistent function should error")
 	}
-	if !strings.Contains(err.Error(), "no function found in current directory") {
+	if !strings.Contains(err.Error(), "No function found in provided path") {
 		t.Fatalf("Unexpected error text returned: %v", err)
 	}
 	if describer.DescribeInvoked {
