@@ -236,7 +236,7 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 		fmt.Println(singleCommand(cmd, args, createdCfg))
 		return createdCfg, nil
 	}
-	
+
 	// Confirming, but noninteractive
 	// Print out the final values as a confirmation.  Only show Repository or
 	// Repositories, not both (repository takes precedence) in order to avoid
