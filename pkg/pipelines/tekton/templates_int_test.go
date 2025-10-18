@@ -12,7 +12,7 @@ import (
 	. "knative.dev/func/pkg/testing"
 )
 
-func Test_createAndApplyPipelineTemplate(t *testing.T) {
+func TestInt_createAndApplyPipelineTemplate(t *testing.T) {
 	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
 			// save current function and restore it at the end
