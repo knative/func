@@ -17,7 +17,7 @@ import (
 // The CopyToContainer method hijacks the uploaded project stream and injects function scaffolding to it.
 // It basically moves content of /workspace to /workspace/fn and then setup scaffolding code directly in /workspace.
 type pyScaffoldInjector struct {
-	client.CommonAPIClient
+	client.APIClient
 	invoke string
 }
 
@@ -26,7 +26,7 @@ func (s pyScaffoldInjector) CopyToContainer(ctx context.Context, ctr, p string, 
 	if pc, _, _, ok := runtime.Caller(1); ok &&
 		!strings.Contains(runtime.FuncForPC(pc).Name(), "build.copyDir") {
 		// We are not called by "project dir copy" so we do simple direct forward call.
-		return s.CommonAPIClient.CopyToContainer(ctx, ctr, p, r, opts)
+		return s.APIClient.CopyToContainer(ctx, ctr, p, r, opts)
 	}
 
 	pr, pw := io.Pipe()
@@ -70,7 +70,7 @@ func (s pyScaffoldInjector) CopyToContainer(ctx context.Context, ctr, p string, 
 		err = tw.Close()
 	}()
 
-	return s.CommonAPIClient.CopyToContainer(ctx, ctr, p, pr, opts)
+	return s.APIClient.CopyToContainer(ctx, ctr, p, pr, opts)
 }
 
 func writePythonScaffolding(tw *tar.Writer, invoke string) error {

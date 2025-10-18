@@ -1,12 +1,14 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net"
 	"net/http"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/checkpoint"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -21,7 +23,7 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-func (c *closeGuardingClient) BuildCachePrune(arg0 context.Context, arg1 types.BuildCachePruneOptions) (*types.BuildCachePruneReport, error) {
+func (c *closeGuardingClient) BuildCachePrune(arg0 context.Context, arg1 build.CachePruneOptions) (*build.CachePruneReport, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -48,7 +50,7 @@ func (c *closeGuardingClient) ClientVersion() string {
 	return c.pimpl.ClientVersion()
 }
 
-func (c *closeGuardingClient) ConfigCreate(arg0 context.Context, arg1 swarm.ConfigSpec) (types.ConfigCreateResponse, error) {
+func (c *closeGuardingClient) ConfigCreate(arg0 context.Context, arg1 swarm.ConfigSpec) (swarm.ConfigCreateResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -66,7 +68,7 @@ func (c *closeGuardingClient) ConfigInspectWithRaw(arg0 context.Context, arg1 st
 	return c.pimpl.ConfigInspectWithRaw(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ConfigList(arg0 context.Context, arg1 types.ConfigListOptions) ([]swarm.Config, error) {
+func (c *closeGuardingClient) ConfigList(arg0 context.Context, arg1 swarm.ConfigListOptions) ([]swarm.Config, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -102,7 +104,7 @@ func (c *closeGuardingClient) ContainerAttach(arg0 context.Context, arg1 string,
 	return c.pimpl.ContainerAttach(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ContainerCommit(arg0 context.Context, arg1 string, arg2 container.CommitOptions) (types.IDResponse, error) {
+func (c *closeGuardingClient) ContainerCommit(arg0 context.Context, arg1 string, arg2 container.CommitOptions) (container.CommitResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -138,7 +140,7 @@ func (c *closeGuardingClient) ContainerExecAttach(arg0 context.Context, arg1 str
 	return c.pimpl.ContainerExecAttach(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ContainerExecCreate(arg0 context.Context, arg1 string, arg2 container.ExecOptions) (types.IDResponse, error) {
+func (c *closeGuardingClient) ContainerExecCreate(arg0 context.Context, arg1 string, arg2 container.ExecOptions) (container.ExecCreateResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -183,7 +185,7 @@ func (c *closeGuardingClient) ContainerExport(arg0 context.Context, arg1 string)
 	return c.pimpl.ContainerExport(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ContainerInspect(arg0 context.Context, arg1 string) (types.ContainerJSON, error) {
+func (c *closeGuardingClient) ContainerInspect(arg0 context.Context, arg1 string) (container.InspectResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -192,7 +194,7 @@ func (c *closeGuardingClient) ContainerInspect(arg0 context.Context, arg1 string
 	return c.pimpl.ContainerInspect(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ContainerInspectWithRaw(arg0 context.Context, arg1 string, arg2 bool) (types.ContainerJSON, []uint8, error) {
+func (c *closeGuardingClient) ContainerInspectWithRaw(arg0 context.Context, arg1 string, arg2 bool) (container.InspectResponse, []uint8, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -210,7 +212,7 @@ func (c *closeGuardingClient) ContainerKill(arg0 context.Context, arg1 string, a
 	return c.pimpl.ContainerKill(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ContainerList(arg0 context.Context, arg1 container.ListOptions) ([]types.Container, error) {
+func (c *closeGuardingClient) ContainerList(arg0 context.Context, arg1 container.ListOptions) ([]container.Summary, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -318,7 +320,7 @@ func (c *closeGuardingClient) ContainerStop(arg0 context.Context, arg1 string, a
 	return c.pimpl.ContainerStop(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ContainerTop(arg0 context.Context, arg1 string, arg2 []string) (container.ContainerTopOKBody, error) {
+func (c *closeGuardingClient) ContainerTop(arg0 context.Context, arg1 string, arg2 []string) (container.TopResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -336,7 +338,7 @@ func (c *closeGuardingClient) ContainerUnpause(arg0 context.Context, arg1 string
 	return c.pimpl.ContainerUnpause(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ContainerUpdate(arg0 context.Context, arg1 string, arg2 container.UpdateConfig) (container.ContainerUpdateOKBody, error) {
+func (c *closeGuardingClient) ContainerUpdate(arg0 context.Context, arg1 string, arg2 container.UpdateConfig) (container.UpdateResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -444,7 +446,7 @@ func (c *closeGuardingClient) HTTPClient() *http.Client {
 	return c.pimpl.HTTPClient()
 }
 
-func (c *closeGuardingClient) ImageBuild(arg0 context.Context, arg1 io.Reader, arg2 types.ImageBuildOptions) (types.ImageBuildResponse, error) {
+func (c *closeGuardingClient) ImageBuild(arg0 context.Context, arg1 io.Reader, arg2 build.ImageBuildOptions) (build.ImageBuildResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -480,13 +482,15 @@ func (c *closeGuardingClient) ImageImport(arg0 context.Context, arg1 image.Impor
 	return c.pimpl.ImageImport(arg0, arg1, arg2, arg3)
 }
 
-func (c *closeGuardingClient) ImageInspectWithRaw(arg0 context.Context, arg1 string) (types.ImageInspect, []uint8, error) {
+func (c *closeGuardingClient) ImageInspectWithRaw(arg0 context.Context, arg1 string) (image.InspectResponse, []uint8, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
 		panic("use of closed client")
 	}
-	return c.pimpl.ImageInspectWithRaw(arg0, arg1)
+	var buf bytes.Buffer
+	ii, err := c.pimpl.ImageInspect(arg0, arg1, client.ImageInspectWithRawResponse(&buf))
+	return ii, buf.Bytes(), err
 }
 
 func (c *closeGuardingClient) ImageList(arg0 context.Context, arg1 image.ListOptions) ([]image.Summary, error) {
@@ -678,7 +682,7 @@ func (c *closeGuardingClient) NodeInspectWithRaw(arg0 context.Context, arg1 stri
 	return c.pimpl.NodeInspectWithRaw(arg0, arg1)
 }
 
-func (c *closeGuardingClient) NodeList(arg0 context.Context, arg1 types.NodeListOptions) ([]swarm.Node, error) {
+func (c *closeGuardingClient) NodeList(arg0 context.Context, arg1 swarm.NodeListOptions) ([]swarm.Node, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -687,7 +691,7 @@ func (c *closeGuardingClient) NodeList(arg0 context.Context, arg1 types.NodeList
 	return c.pimpl.NodeList(arg0, arg1)
 }
 
-func (c *closeGuardingClient) NodeRemove(arg0 context.Context, arg1 string, arg2 types.NodeRemoveOptions) error {
+func (c *closeGuardingClient) NodeRemove(arg0 context.Context, arg1 string, arg2 swarm.NodeRemoveOptions) error {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -813,7 +817,7 @@ func (c *closeGuardingClient) RegistryLogin(arg0 context.Context, arg1 registry.
 	return c.pimpl.RegistryLogin(arg0, arg1)
 }
 
-func (c *closeGuardingClient) SecretCreate(arg0 context.Context, arg1 swarm.SecretSpec) (types.SecretCreateResponse, error) {
+func (c *closeGuardingClient) SecretCreate(arg0 context.Context, arg1 swarm.SecretSpec) (swarm.SecretCreateResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -831,7 +835,7 @@ func (c *closeGuardingClient) SecretInspectWithRaw(arg0 context.Context, arg1 st
 	return c.pimpl.SecretInspectWithRaw(arg0, arg1)
 }
 
-func (c *closeGuardingClient) SecretList(arg0 context.Context, arg1 types.SecretListOptions) ([]swarm.Secret, error) {
+func (c *closeGuardingClient) SecretList(arg0 context.Context, arg1 swarm.SecretListOptions) ([]swarm.Secret, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -867,7 +871,7 @@ func (c *closeGuardingClient) ServerVersion(arg0 context.Context) (types.Version
 	return c.pimpl.ServerVersion(arg0)
 }
 
-func (c *closeGuardingClient) ServiceCreate(arg0 context.Context, arg1 swarm.ServiceSpec, arg2 types.ServiceCreateOptions) (swarm.ServiceCreateResponse, error) {
+func (c *closeGuardingClient) ServiceCreate(arg0 context.Context, arg1 swarm.ServiceSpec, arg2 swarm.ServiceCreateOptions) (swarm.ServiceCreateResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -876,7 +880,7 @@ func (c *closeGuardingClient) ServiceCreate(arg0 context.Context, arg1 swarm.Ser
 	return c.pimpl.ServiceCreate(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ServiceInspectWithRaw(arg0 context.Context, arg1 string, arg2 types.ServiceInspectOptions) (swarm.Service, []uint8, error) {
+func (c *closeGuardingClient) ServiceInspectWithRaw(arg0 context.Context, arg1 string, arg2 swarm.ServiceInspectOptions) (swarm.Service, []uint8, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -885,7 +889,7 @@ func (c *closeGuardingClient) ServiceInspectWithRaw(arg0 context.Context, arg1 s
 	return c.pimpl.ServiceInspectWithRaw(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ServiceList(arg0 context.Context, arg1 types.ServiceListOptions) ([]swarm.Service, error) {
+func (c *closeGuardingClient) ServiceList(arg0 context.Context, arg1 swarm.ServiceListOptions) ([]swarm.Service, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -912,7 +916,7 @@ func (c *closeGuardingClient) ServiceRemove(arg0 context.Context, arg1 string) e
 	return c.pimpl.ServiceRemove(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ServiceUpdate(arg0 context.Context, arg1 string, arg2 swarm.Version, arg3 swarm.ServiceSpec, arg4 types.ServiceUpdateOptions) (swarm.ServiceUpdateResponse, error) {
+func (c *closeGuardingClient) ServiceUpdate(arg0 context.Context, arg1 string, arg2 swarm.Version, arg3 swarm.ServiceSpec, arg4 swarm.ServiceUpdateOptions) (swarm.ServiceUpdateResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -921,7 +925,7 @@ func (c *closeGuardingClient) ServiceUpdate(arg0 context.Context, arg1 string, a
 	return c.pimpl.ServiceUpdate(arg0, arg1, arg2, arg3, arg4)
 }
 
-func (c *closeGuardingClient) SwarmGetUnlockKey(arg0 context.Context) (types.SwarmUnlockKeyResponse, error) {
+func (c *closeGuardingClient) SwarmGetUnlockKey(arg0 context.Context) (swarm.UnlockKeyResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -993,7 +997,7 @@ func (c *closeGuardingClient) TaskInspectWithRaw(arg0 context.Context, arg1 stri
 	return c.pimpl.TaskInspectWithRaw(arg0, arg1)
 }
 
-func (c *closeGuardingClient) TaskList(arg0 context.Context, arg1 types.TaskListOptions) ([]swarm.Task, error) {
+func (c *closeGuardingClient) TaskList(arg0 context.Context, arg1 swarm.TaskListOptions) ([]swarm.Task, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {

@@ -130,7 +130,7 @@ func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlP
 	}
 	addGoAndRustBuildpacks(&builderConfig)
 
-	var dockerClient docker.CommonAPIClient
+	var dockerClient docker.APIClient
 	dockerClient, err = docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
 	if err != nil {
 		return "", fmt.Errorf("cannot create docker client")
@@ -819,14 +819,14 @@ func dockerDaemonAuthStr(img string) (string, error) {
 // For some reason moby/docker erroneously returns 500 HTTP code for these missing images.
 // Interestingly podman correctly returns 404 for same request.
 type hackDockerClient struct {
-	docker.CommonAPIClient
+	docker.APIClient
 }
 
 func (c hackDockerClient) ImagePull(ctx context.Context, ref string, options image.PullOptions) (io.ReadCloser, error) {
 	if strings.HasPrefix(ref, "ghcr.io/knative/buildpacks/") {
 		return nil, fmt.Errorf("this image is supposed to exist only in daemon: %w", errdefs.ErrNotFound)
 	}
-	return c.CommonAPIClient.ImagePull(ctx, ref, options)
+	return c.APIClient.ImagePull(ctx, ref, options)
 }
 
 func getReleaseByVersion(ctx context.Context, repo, vers string) (*github.RepositoryRelease, error) {
