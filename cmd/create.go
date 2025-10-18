@@ -37,7 +37,7 @@ NAME
 
 SYNOPSIS
 	{{.Name}} create [-l|--language] [-t|--template] [-r|--repository]
-	            [-c|--confirm]  [-v|--verbose]  [path]
+	            [-p |--path] [-c|--confirm]  [-v|--verbose]
 
 DESCRIPTION
 	Creates a new function project.
@@ -71,7 +71,7 @@ EXAMPLES
 	  $ {{.Name}} create -l go -t cloudevents myfunc
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
-		PreRunE:    bindEnv("language", "template", "repository", "confirm", "verbose"),
+		PreRunE:    bindEnv("language", "template", "repository", "confirm", "verbose", "path"),
 		Aliases:    []string{"init"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreate(cmd, args, newClient)
@@ -90,7 +90,10 @@ EXAMPLES
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template ($FUNC_REPOSITORY)")
 
 	addConfirmFlag(cmd, cfg.Confirm)
-	// TODO: refactor to use --path like all the other commands
+	// Add --path flag (default ".") for consistency with other commands.
+	// Retain positional [path] for backward compatibility (warned later).
+	cmd.Flags().StringP("path", "p", ".", "Path to the function project directory ($FUNC_PATH)")
+
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	// Help Action
@@ -173,22 +176,29 @@ type createConfig struct {
 // current value of the config at time of prompting.
 func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory) (cfg createConfig, err error) {
 	var (
-		path         string
+		pathFlag     string
 		dirName      string
 		absolutePath string
 	)
 
-	if len(args) >= 1 {
-		path = args[0]
+	pathFlag = viper.GetString("path")
+
+	finalPath := "."
+	if pathFlag != "" && pathFlag != "." {
+		finalPath = pathFlag
+	} else if len(args) >= 1 && args[0] != "" {
+		finalPath = args[0]
 	}
+
+	dirName, absolutePath = deriveNameAndAbsolutePathFromPath(finalPath)
 
 	// Convert the path to an absolute path, and extract the ending directory name
 	// as the function name. TODO: refactor to be git-like with no name up-front
 	// and set instead as a named one-to-many deploy target.
-	dirName, absolutePath = deriveNameAndAbsolutePathFromPath(path)
 
 	// Config is the final default values based off the execution context.
 	// When prompting, these become the defaults presented.
+
 	cfg = createConfig{
 		Name:       dirName, // TODO: refactor to be git-like
 		Path:       absolutePath,
@@ -198,6 +208,7 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 		Confirm:    viper.GetBool("confirm"),
 		Verbose:    viper.GetBool("verbose"),
 	}
+
 	// If not in confirm/prompting mode, this cfg structure is complete.
 	if !cfg.Confirm {
 		return
