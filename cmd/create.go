@@ -71,7 +71,7 @@ EXAMPLES
 	  $ {{.Name}} create -l go -t cloudevents myfunc
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
-		PreRunE:    bindEnv("language", "template", "repository", "confirm", "verbose"),
+		PreRunE:    bindEnv("language", "template", "repository", "confirm", "verbose", "path"),
 		Aliases:    []string{"init"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreate(cmd, args, newClient)
@@ -93,11 +93,6 @@ EXAMPLES
 	// Add --path flag (default ".") for consistency with other commands.
 	// Retain positional [path] for backward compatibility (warned later).
 	cmd.Flags().StringP("path", "p", ".", "Path to the function project directory ($FUNC_PATH)")
-
-	// Bind the --path flag to viper so it can be read in newCreateConfig
-	if err := viper.BindPFlag("path", cmd.Flags().Lookup("path")); err != nil {
-		fmt.Fprintf(os.Stderr, "unable to bind path flag: %v\n", err)
-	}
 
 	addVerboseFlag(cmd, cfg.Verbose)
 
