@@ -57,9 +57,9 @@ import (
 const (
 	DefaultIntTestHome       = "./testdata/default_home"
 	DefaultIntTestKubeconfig = "../../hack/bin/kubeconfig.yaml"
-	DefaultIntTestRegistry   = "localhost:50000/func"
 	DefaultIntTestNamespace  = "default"
 	DefaultIntTestVerbose    = false
+	// DefaultIntTestRegistry = // see testing package (it's shared)
 )
 
 var (
