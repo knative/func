@@ -85,7 +85,7 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 			return err
 		}
 		if !f.Initialized() {
-			return errors.New("function not found at this path and no name provided")
+			return formatError(fn.NewErrNotInitialized(f.Root))
 		}
 		details, err = client.Describe(cmd.Context(), "", "", f)
 		if err != nil {
@@ -95,6 +95,32 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 
 	write(os.Stdout, info(details), cfg.Output)
 	return
+}
+
+// formatError wraps ErrNotInitialized with user-friendly guidance
+func formatError(err error) error {
+	var errNotInitialized *fn.ErrNotInitialized
+	if errors.As(err, &errNotInitialized) {
+		return fmt.Errorf(`%s
+
+No function found in provided path (current directory or via --path).
+You need to be in a function directory (or use --path).
+
+Try this:
+  func create --language go myfunction    Create a new function
+  cd myfunction                          Go into the function directory
+  func describe                          Show function description
+
+Or if you have an existing function:
+  cd path/to/your/function              Go to your function directory
+  func describe                         Show function description
+
+Or use --path to describe from anywhere:
+  func describe --path /path/to/function
+
+For more information try 'func describe --help'`, errNotInitialized.Error())
+	}
+	return err
 }
 
 // CLI Configuration (parameters)
