@@ -26,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	api "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -177,8 +176,8 @@ func TestPush(t *testing.T) {
 				dockerClient.imagePush = pushUnreachable
 			}
 
-			dockerClient.imageInspect = func(ctx context.Context, s string) (types.ImageInspect, []byte, error) {
-				return types.ImageInspect{ID: imageID}, []byte{}, nil
+			dockerClient.imageInspect = func(ctx context.Context, s string) (api.InspectResponse, []byte, error) {
+				return api.InspectResponse{ID: imageID}, []byte{}, nil
 			}
 
 			dockerClient.imageSave = func(ctx context.Context, tags []string) (io.ReadCloser, error) {
@@ -275,8 +274,8 @@ func newMockPusherDockerClient() *mockPusherDockerClient {
 		imageSave: func(ctx context.Context, strings []string) (io.ReadCloser, error) {
 			return nil, fmt.Errorf("imageSave not implemented")
 		},
-		imageInspect: func(ctx context.Context, s string) (types.ImageInspect, []byte, error) {
-			return types.ImageInspect{}, nil, fmt.Errorf("imageInspect not implemented")
+		imageInspect: func(ctx context.Context, s string) (api.InspectResponse, []byte, error) {
+			return api.InspectResponse{}, nil, fmt.Errorf("imageInspect not implemented")
 		},
 		negotiateAPIVersion: func(ctx context.Context) {},
 		close:               func() error { return nil },
@@ -287,7 +286,7 @@ type mockPusherDockerClient struct {
 	negotiateAPIVersion func(ctx context.Context)
 	imagePush           func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error)
 	imageSave           func(ctx context.Context, strings []string) (io.ReadCloser, error)
-	imageInspect        func(ctx context.Context, s string) (types.ImageInspect, []byte, error)
+	imageInspect        func(ctx context.Context, s string) (api.InspectResponse, []byte, error)
 	close               func() error
 }
 
@@ -307,7 +306,7 @@ func (m *mockPusherDockerClient) ImageTag(ctx context.Context, s string, s2 stri
 	panic("implement me")
 }
 
-func (m *mockPusherDockerClient) ImageInspectWithRaw(ctx context.Context, s string) (types.ImageInspect, []byte, error) {
+func (m *mockPusherDockerClient) ImageInspectWithRaw(ctx context.Context, s string) (api.InspectResponse, []byte, error) {
 	return m.imageInspect(ctx, s)
 }
 
