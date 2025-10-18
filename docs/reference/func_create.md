@@ -10,7 +10,7 @@ NAME
 
 SYNOPSIS
 	func create [-l|--language] [-t|--template] [-r|--repository]
-	            [--path <dir>] [-c|--confirm]  [-v|--verbose]
+	            [-p |--path] [-c|--confirm]  [-v|--verbose]
 
 DESCRIPTION
 	Creates a new function project.

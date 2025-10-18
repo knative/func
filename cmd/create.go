@@ -37,7 +37,7 @@ NAME
 
 SYNOPSIS
 	{{.Name}} create [-l|--language] [-t|--template] [-r|--repository]
-	            [--path <dir>] [-c|--confirm]  [-v|--verbose]
+	            [-p |--path] [-c|--confirm]  [-v|--verbose]
 
 DESCRIPTION
 	Creates a new function project.
@@ -188,22 +188,6 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 
 	pathFlag = viper.GetString("path")
 
-	// Convert the path to an absolute path, and extract the ending directory name
-	// as the function name. TODO: refactor to be git-like with no name up-front
-	// and set instead as a named one-to-many deploy target.
-
-	// Config is the final default values based off the execution context.
-	// When prompting, these become the defaults presented.
-	cfg = createConfig{
-		Name:       dirName, // TODO: refactor to be git-like
-		Path:       absolutePath,
-		Repository: viper.GetString("repository"),
-		Runtime:    viper.GetString("language"), // users refer to it is language
-		Template:   viper.GetString("template"),
-		Confirm:    viper.GetBool("confirm"),
-		Verbose:    viper.GetBool("verbose"),
-	}
-
 	finalPath := "."
 	if pathFlag != "" && pathFlag != "." {
 		finalPath = pathFlag
@@ -213,8 +197,22 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 
 	dirName, absolutePath = deriveNameAndAbsolutePathFromPath(finalPath)
 
-	cfg.Name = dirName
-	cfg.Path = absolutePath
+	// Convert the path to an absolute path, and extract the ending directory name
+	// as the function name. TODO: refactor to be git-like with no name up-front
+	// and set instead as a named one-to-many deploy target.
+
+	// Config is the final default values based off the execution context.
+	// When prompting, these become the defaults presented.
+	
+	cfg = createConfig{
+		Name:       dirName, // TODO: refactor to be git-like
+		Path:       absolutePath,
+		Repository: viper.GetString("repository"),
+		Runtime:    viper.GetString("language"), // users refer to it is language
+		Template:   viper.GetString("template"),
+		Confirm:    viper.GetBool("confirm"),
+		Verbose:    viper.GetBool("verbose"),
+	}
 
 	// If not in confirm/prompting mode, this cfg structure is complete.
 	if !cfg.Confirm {
