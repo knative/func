@@ -92,7 +92,7 @@ EXAMPLES
 	addConfirmFlag(cmd, cfg.Confirm)
 	// Add --path flag (default ".") for consistency with other commands.
 	// Retain positional [path] for backward compatibility (warned later).
-	cmd.Flags().StringP("path", "p", ".", "Path to the function project directory (default: current directory) ($FUNC_PATH)")
+	cmd.Flags().StringP("path", "p", ".", "Path to the function project directory ($FUNC_PATH)")
 
 	// Bind the --path flag to viper so it can be read in newCreateConfig
 	if err := viper.BindPFlag("path", cmd.Flags().Lookup("path")); err != nil {
@@ -203,7 +203,7 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 
 	// Config is the final default values based off the execution context.
 	// When prompting, these become the defaults presented.
-	
+
 	cfg = createConfig{
 		Name:       dirName, // TODO: refactor to be git-like
 		Path:       absolutePath,
