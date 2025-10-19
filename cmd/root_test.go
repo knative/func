@@ -290,7 +290,6 @@ func Test_defaultNamespace(t *testing.T) {
 		f        fn.Function
 		expected string
 	}{
-		// TODO cases for function state f.Namespace and f.Deploy.Namespace
 		{
 			name:     "function namespace overrides",
 			context:  true,
