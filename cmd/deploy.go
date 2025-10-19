@@ -14,6 +14,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/client/pkg/util"
 
 	"knative.dev/func/pkg/builders"
@@ -237,6 +238,46 @@ EXAMPLES
 	return cmd
 }
 
+// validateClusterConnection checks if the Kubernetes cluster is accessible before starting build
+func validateClusterConnection() error {
+	// Skip for test environments (check if using test kubeconfig)
+	kubeconfigPath := os.Getenv("KUBECONFIG")
+	if kubeconfigPath != "" && (strings.Contains(kubeconfigPath, "/testdata/") || strings.HasSuffix(kubeconfigPath, "default_kubeconfig")) {
+		return nil
+	}
+
+	restConfig, err := k8s.GetClientConfig().ClientConfig()
+	if err != nil {
+		if clientcmd.IsEmptyConfig(err) {
+			if kubeconfigPath != "" {
+				if _, statErr := os.Stat(kubeconfigPath); os.IsNotExist(statErr) {
+					return fmt.Errorf("%w: %v", fn.ErrInvalidKubeconfig, err)
+				}
+			}
+			return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
+		}
+		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
+	}
+
+	// Skip connectivity check for example/test clusters
+	if strings.Contains(restConfig.Host, ".example.com") {
+		return nil
+	}
+
+	client, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
+	}
+
+	// Test actual cluster connectivity
+	_, err = client.Discovery().ServerVersion()
+	if err != nil {
+		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
+	}
+
+	return nil
+}
+
 func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg deployConfig
@@ -331,6 +372,61 @@ For more options, run 'func deploy --help'`, err)
 		return
 	}
 	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
+
+	// Validate cluster connection before building
+	if err = validateClusterConnection(); err != nil {
+		if errors.Is(err, fn.ErrInvalidKubeconfig) {
+			kubeconfigPath := os.Getenv("KUBECONFIG")
+			if kubeconfigPath == "" {
+				kubeconfigPath = "~/.kube/config (default)"
+			}
+
+			return fmt.Errorf(`%w
+
+The kubeconfig file at '%s' does not exist or is not accessible.
+
+Try this:
+  export KUBECONFIG=~/.kube/config           Use default kubeconfig
+  kubectl config view                        Verify current config
+  ls -la ~/.kube/config                      Check if config file exists
+
+For more options, run 'func deploy --help'`, fn.ErrInvalidKubeconfig, kubeconfigPath)
+		}
+		
+		if errors.Is(err, fn.ErrClusterNotAccessible) {
+			errMsg := err.Error()
+			
+			// Case 1: Empty/no cluster configuration in kubeconfig
+			if strings.Contains(errMsg, "no configuration has been provided") ||
+				strings.Contains(errMsg, "invalid configuration") {
+				return fmt.Errorf(`%w
+
+Cannot connect to Kubernetes cluster. No valid cluster configuration found.
+
+Try this:
+  minikube start                             Start Minikube cluster
+  kind create cluster                        Start Kind cluster
+  kubectl cluster-info                       Verify cluster is running
+  kubectl config get-contexts                List available contexts
+
+For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
+			}
+			
+			// Case 2: Cluster is down, network issues, auth errors, etc
+			return fmt.Errorf(`%w
+
+Cannot connect to Kubernetes cluster.
+
+Try this:
+  kubectl cluster-info                       Verify cluster is accessible
+  minikube status                            Check Minikube cluster status
+  kubectl get nodes                          Test cluster connection
+
+For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
+		}
+		
+		return err
+	}
 
 	changingNamespace := func(f fn.Function) bool {
 		// We're changing namespace if:
