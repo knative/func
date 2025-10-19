@@ -179,7 +179,7 @@ func defaultNamespace(f fn.Function, verbose bool) string {
 	if f.Namespace != "" {
 		return f.Namespace
 	}
-	
+
 	// Last deployed
 	if f.Deploy.Namespace != "" {
 		return f.Deploy.Namespace
