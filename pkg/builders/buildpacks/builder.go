@@ -200,7 +200,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// (and update build opts as necessary)
 	if impl == nil {
 		var (
-			cli        client.CommonAPIClient
+			cli        client.APIClient
 			dockerHost string
 		)
 
@@ -248,7 +248,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	return
 }
 
-func isPodmanV43(ctx context.Context, cli client.CommonAPIClient) (b bool, err error) {
+func isPodmanV43(ctx context.Context, cli client.APIClient) (b bool, err error) {
 	version, err := cli.ServerVersion(ctx)
 	if err != nil {
 		return

@@ -7,8 +7,9 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
+	typesImage "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/errdefs"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -211,8 +212,8 @@ func Test_BuildEnvs(t *testing.T) {
 
 func TestBuildFail(t *testing.T) {
 	cli := mockDocker{
-		inspect: func(ctx context.Context, image string) (types.ImageInspect, []byte, error) {
-			return types.ImageInspect{}, nil, errors.New("this is expected")
+		inspect: func(ctx context.Context, image string) (typesImage.InspectResponse, []byte, error) {
+			return typesImage.InspectResponse{}, nil, errors.New("this is expected")
 		},
 	}
 	b := s2i.NewBuilder(s2i.WithDockerClient(cli))
@@ -232,18 +233,18 @@ func (i *mockImpl) Build(cfg *api.Config) (*api.Result, error) {
 }
 
 type mockDocker struct {
-	inspect func(ctx context.Context, image string) (types.ImageInspect, []byte, error)
+	inspect func(ctx context.Context, image string) (typesImage.InspectResponse, []byte, error)
 }
 
-func (m mockDocker) ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error) {
+func (m mockDocker) ImageInspectWithRaw(ctx context.Context, image string) (typesImage.InspectResponse, []byte, error) {
 	if m.inspect != nil {
 		return m.inspect(ctx, image)
 	}
 
-	return types.ImageInspect{}, nil, nil
+	return typesImage.InspectResponse{}, nil, nil
 }
 
-func (m mockDocker) ImageBuild(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
+func (m mockDocker) ImageBuild(ctx context.Context, context io.Reader, options build.ImageBuildOptions) (build.ImageBuildResponse, error) {
 	panic("implement me")
 }
 
@@ -251,7 +252,7 @@ func (m mockDocker) ContainerAttach(ctx context.Context, container string, optio
 	panic("implement me")
 }
 
-func (m mockDocker) ContainerCommit(ctx context.Context, container string, options container.CommitOptions) (types.IDResponse, error) {
+func (m mockDocker) ContainerCommit(ctx context.Context, container string, options container.CommitOptions) (container.CommitResponse, error) {
 	panic("implement me")
 }
 
@@ -259,7 +260,7 @@ func (m mockDocker) ContainerCreate(ctx context.Context, config *container.Confi
 	panic("implement me")
 }
 
-func (m mockDocker) ContainerInspect(ctx context.Context, container string) (types.ContainerJSON, error) {
+func (m mockDocker) ContainerInspect(ctx context.Context, container string) (container.InspectResponse, error) {
 	panic("implement me")
 }
 
@@ -287,16 +288,15 @@ func (m mockDocker) CopyFromContainer(ctx context.Context, container, srcPath st
 	panic("implement me")
 }
 
-func (m mockDocker) ImagePull(ctx context.Context, ref string, options image.PullOptions) (io.ReadCloser, error) {
+func (m mockDocker) ImagePull(ctx context.Context, ref string, options typesImage.PullOptions) (io.ReadCloser, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ImageRemove(ctx context.Context, image string, options image.RemoveOptions) ([]image.DeleteResponse, error) {
+func (m mockDocker) ImageRemove(ctx context.Context, image string, options typesImage.RemoveOptions) ([]typesImage.DeleteResponse, error) {
 	panic("implement me")
 }
 
 func (m mockDocker) ServerVersion(ctx context.Context) (types.Version, error) {
-
 	panic("implement me")
 }
 
