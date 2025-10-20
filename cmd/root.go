@@ -174,7 +174,6 @@ func effectivePath() (path string) {
 // step of using the active Kubernetes namespace after Static Config and before
 // the optional Global Config setting.  The static default is "default"
 func defaultNamespace(f fn.Function, verbose bool) string {
-
 	// Specifically-requested
 	if f.Namespace != "" {
 		return f.Namespace
