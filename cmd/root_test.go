@@ -287,10 +287,31 @@ func Test_defaultNamespace(t *testing.T) {
 		name     string
 		context  bool
 		global   bool
+		f        fn.Function
 		expected string
 	}{
-		// TODO cases for function state f.Namespace and f.Deploy.Namespace
 		{
+			name:     "function namespace overrides",
+			context:  true,
+			global:   true,
+			expected: "functionns",
+			f: fn.Function{
+				Namespace: "functionns",
+				Deploy: fn.DeploySpec{
+					Namespace: "deployns",
+				},
+			},
+		}, {
+			name:     "function already deployed override",
+			context:  true,
+			global:   true,
+			expected: "deployns",
+			f: fn.Function{
+				Deploy: fn.DeploySpec{
+					Namespace: "deployns",
+				},
+			},
+		}, {
 			name:     "static default",
 			context:  false,            // no active kube context
 			global:   false,            // no global
@@ -317,7 +338,7 @@ func Test_defaultNamespace(t *testing.T) {
 				t.Setenv("KUBECONFIG", filepath.Join(cwd, "testdata", "Test_defaultNamespace", "kubeconfig"))
 			}
 
-			namespace := defaultNamespace(fn.Function{}, false)
+			namespace := defaultNamespace(test.f, false)
 			if namespace != test.expected {
 				t.Fatalf("%v:  expected namespace %q, got %q", test.name, test.expected, namespace)
 			}
