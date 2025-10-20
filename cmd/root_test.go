@@ -297,9 +297,12 @@ func Test_defaultNamespace(t *testing.T) {
 			expected: "functionns",
 			f: fn.Function{
 				Namespace: "functionns",
+				Deploy: fn.DeploySpec{
+					Namespace: "deployns",
+				},
 			},
-		}, {
-			name:     "function deploy namespace overrides",
+		},{
+			name:     "function already deployed override",
 			context:  true,
 			global:   true,
 			expected: "deployns",
@@ -308,18 +311,7 @@ func Test_defaultNamespace(t *testing.T) {
 					Namespace: "deployns",
 				},
 			},
-		}, {
-			name:     "function and deploy namespace, deploy overrides",
-			context:  true,
-			global:   true,
-			expected: "deployns",
-			f: fn.Function{
-				Namespace: "functionns",
-				Deploy: fn.DeploySpec{
-					Namespace: "deployns",
-				},
-			},
-		}, {
+		},{
 			name:     "static default",
 			context:  false,            // no active kube context
 			global:   false,            // no global
