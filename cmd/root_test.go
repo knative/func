@@ -308,7 +308,7 @@ func Test_defaultNamespace(t *testing.T) {
 					Namespace: "deployns",
 				},
 			},
-		},{
+		}, {
 			name:     "function and deploy namespace, deploy overrides",
 			context:  true,
 			global:   true,
@@ -319,7 +319,7 @@ func Test_defaultNamespace(t *testing.T) {
 					Namespace: "deployns",
 				},
 			},
-		},{
+		}, {
 			name:     "static default",
 			context:  false,            // no active kube context
 			global:   false,            // no global
