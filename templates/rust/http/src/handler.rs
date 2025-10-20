@@ -6,7 +6,13 @@ use log::info;
 pub async fn index(req: HttpRequest, config: Data<HandlerConfig>) -> HttpResponse {
     info!("{:#?}", req);
     if req.method() == Method::GET {
-        HttpResponse::Ok().body(format!("Hello {}!\n", config.name))
+        // Echo back the query string if present, otherwise return greeting
+        let query = req.query_string();
+        if !query.is_empty() {
+            HttpResponse::Ok().body(query.to_string())
+        } else {
+            HttpResponse::Ok().body(format!("Hello {}!\n", config.name))
+        }
     } else {
         HttpResponse::Ok().body(format!("Thanks {}!\n", config.name))
     }
@@ -28,6 +34,19 @@ mod tests {
         assert_eq!(resp.status(), http::StatusCode::OK);
         assert_eq!(
             &Bytes::from(format!("Hello {}!\n", "world")),
+            to_bytes(resp.into_body()).await.unwrap().as_ref()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn get_with_query() {
+        let req = TestRequest::get()
+            .uri("/?test=param&message=hello")
+            .to_http_request();
+        let resp = index(req, config()).await;
+        assert_eq!(resp.status(), http::StatusCode::OK);
+        assert_eq!(
+            &Bytes::from("test=param&message=hello"),
             to_bytes(resp.into_body()).await.unwrap().as_ref()
         );
     }
