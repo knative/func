@@ -1,4 +1,4 @@
-// package testing includes minor testing helpers.
+// package testing includes minor testing helpers and shared config.
 //
 // These helpers include extensions to the testing nomenclature which exist to
 // ease the development of tests for functions.  It is mostly just syntactic
@@ -29,6 +29,10 @@ import (
 	"strings"
 	"testing"
 )
+
+const DefaultIntTestRegistry = "localhost:50000/func"
+
+const DefaultIntTestNamespacePrefix = "func-int-test"
 
 // Using the given path, create it as a new directory and return a deferrable
 // which will remove it.
