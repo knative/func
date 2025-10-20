@@ -57,7 +57,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 			Name:      service.Name,
 			Namespace: service.Namespace,
 			Runtime:   runtimeLabel,
-			URL:       fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace), // TODO: do we want the full URL with scheme here?
+			URL:       fmt.Sprintf("http://%s.%s.svc", service.Name, service.Namespace), // TODO: use correct scheme
 			Ready:     string(ready),
 		}
 

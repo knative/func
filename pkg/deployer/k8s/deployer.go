@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -58,7 +59,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	// Choosing an image to deploy:
 	// If the service has not been deployed before, but there exists a
 	// build image, this build image should be used for the deploy.
-	// TODO: test/consdier the case where it HAS been deployed, and the
+	// TODO: test/consider the case where it HAS been deployed, and the
 	// build image has been updated /since/ deployment:  do we need a
 	// timestamp? Incrementation?
 	if f.Deploy.Image == "" {
@@ -151,6 +152,10 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		if d.verbose {
 			fmt.Fprintf(os.Stderr, "Created deployment and service %s in namespace %s\n", f.Name, namespace)
 		}
+	}
+
+	if err := k8s.WaitForDeploymentAvailable(ctx, clientset, namespace, f.Name, 2*time.Minute); err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("deployment did not become ready: %w", err)
 	}
 
 	url := fmt.Sprintf("http://%s.%s.svc.cluster.local", f.Name, namespace)

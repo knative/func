@@ -81,19 +81,27 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lis
 		t.Fatal(err)
 	}
 
+	subscriberRef := v1.KReference{
+		Kind:      "Service",
+		Namespace: namespace,
+		Name:      functionName,
+	}
+
+	switch deployType {
+	case KnativeDeployerName:
+		subscriberRef.APIVersion = "serving.knative.dev"
+	case KubernetesDeployerName:
+		subscriberRef.APIVersion = "v1"
+	}
+
 	trigger := "testing-trigger"
 	tr := &eventingv1.Trigger{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: trigger,
 		},
 		Spec: eventingv1.TriggerSpec{
-			Broker: "testing-broker",
-			Subscriber: v1.Destination{Ref: &v1.KReference{
-				Kind:       "Service",
-				Namespace:  namespace,
-				Name:       functionName,
-				APIVersion: "serving.knative.dev/v1",
-			}},
+			Broker:     "testing-broker",
+			Subscriber: v1.Destination{Ref: &subscriberRef},
 			Filter: &eventingv1.TriggerFilter{
 				Attributes: map[string]string{
 					"source": "test-event-source",
@@ -156,28 +164,16 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lis
 		},
 	}
 
+	buff := new(knative.SynchronizedBuffer)
+	go func() {
+		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
+		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, buff)
+	}()
+
 	depRes, err := deployer.Deploy(ctx, function)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// Wait for pods to be running
-	selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
-	t.Log("Waiting for pods to be ready...")
-	err = k8s.WaitForPodsReady(ctx, cliSet, namespace, selector, int(minScale), 2*time.Minute)
-	if err != nil {
-		t.Fatalf("Failed waiting for pods: %v", err)
-	}
-	t.Log("Pods are ready")
-
-	// Now start collecting logs
-	buff := new(knative.SynchronizedBuffer)
-	go func() {
-		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, buff)
-	}()
-
-	// Give a moment for logs to be collected
-	time.Sleep(2 * time.Second)
 
 	outStr := buff.String()
 	t.Logf("deploy result: %+v", depRes)
@@ -215,7 +211,7 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lis
 
 	// try to invoke the function
 	reqBody := "Hello World!"
-	respBody, err := postText(ctx, instance.Route, reqBody)
+	respBody, err := postText(ctx, instance.Route, reqBody, deployType)
 	if err != nil {
 		t.Fatalf("failed to invoke function: %v", err)
 	} else {
@@ -254,18 +250,29 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lis
 		}
 	}
 
-	buff.Reset()
 	t.Setenv("LOCAL_ENV_TO_DEPLOY", "iddqd")
 	function.Run.Envs = []fn.Env{
 		{Name: ptr("FUNC_TEST_VAR"), Value: ptr("{{ env:LOCAL_ENV_TO_DEPLOY }}")},
 		{Value: ptr("{{ secret: " + secret + " }}")},
 		{Name: ptr("FUNC_TEST_CM_A_ALIASED"), Value: ptr("{{configMap:" + configMap + ":FUNC_TEST_CM_A}}")},
 	}
+	now = time.Now() // reset timer for new log receiver
+
+	redeployLogBuff := new(knative.SynchronizedBuffer)
+	go func() {
+		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
+		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, redeployLogBuff)
+	}()
+
 	_, err = deployer.Deploy(ctx, function)
 	if err != nil {
 		t.Fatal(err)
 	}
-	outStr = buff.String()
+
+	// Give logs time to be collected (not sure, why we need this here and not on the first collector too :thinking:)
+	time.Sleep(2 * time.Second)
+
+	outStr = redeployLogBuff.String()
 	t.Log("function output:\n" + outStr)
 
 	// verify that environment variables has been changed by re-deploy
@@ -297,18 +304,45 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lis
 	}
 }
 
-func postText(ctx context.Context, url, reqBody string) (respBody string, err error) {
+func postText(ctx context.Context, url, reqBody, deployType string) (respBody string, err error) {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(reqBody))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Add("Content-Type", "text/plain")
 
-	resp, err := http.DefaultClient.Do(req)
+	var client *http.Client
+
+	// For Kubernetes deployments, use in-cluster dialer to access ClusterIP services
+	if deployType == KubernetesDeployerName {
+		clientConfig := k8s.GetClientConfig()
+		dialer, err := k8s.NewInClusterDialer(ctx, clientConfig)
+		if err != nil {
+			return "", fmt.Errorf("failed to create in-cluster dialer: %w", err)
+		}
+		defer func() {
+			_ = dialer.Close()
+		}()
+
+		transport := &http.Transport{
+			DialContext: dialer.DialContext,
+		}
+		client = &http.Client{
+			Transport: transport,
+			Timeout:   time.Minute,
+		}
+	} else {
+		// For Knative deployments, use default client (service is externally accessible)
+		client = http.DefaultClient
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	bs, err := io.ReadAll(resp.Body)
 	if err != nil {

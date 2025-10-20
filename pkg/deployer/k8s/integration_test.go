@@ -16,5 +16,5 @@ func TestIntegration(t *testing.T) {
 		k8s.NewRemover(false),
 		k8s.NewLister(false),
 		k8s.NewDescriber(false),
-		deployer.KnativeDeployerName)
+		deployer.KubernetesDeployerName)
 }

@@ -123,7 +123,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	// Choosing an image to deploy:
 	// If the service has not been deployed before, but there exists a
 	// build image, this build image should be used for the deploy.
-	// TODO: test/consdier the case where it HAS been deployed, and the
+	// TODO: test/consider the case where it HAS been deployed, and the
 	// build image has been updated /since/ deployment:  do we need a
 	// timestamp? Incrementation?
 	if f.Deploy.Image == "" {
