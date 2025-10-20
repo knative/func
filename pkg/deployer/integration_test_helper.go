@@ -156,16 +156,28 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lis
 		},
 	}
 
-	var buff = &knative.SynchronizedBuffer{}
-	go func() {
-		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
-		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, buff)
-	}()
-
 	depRes, err := deployer.Deploy(ctx, function)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Wait for pods to be running
+	selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
+	t.Log("Waiting for pods to be ready...")
+	err = k8s.WaitForPodsReady(ctx, cliSet, namespace, selector, int(minScale), 2*time.Minute)
+	if err != nil {
+		t.Fatalf("Failed waiting for pods: %v", err)
+	}
+	t.Log("Pods are ready")
+
+	// Now start collecting logs
+	buff := new(knative.SynchronizedBuffer)
+	go func() {
+		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, buff)
+	}()
+
+	// Give a moment for logs to be collected
+	time.Sleep(2 * time.Second)
 
 	outStr := buff.String()
 	t.Logf("deploy result: %+v", depRes)

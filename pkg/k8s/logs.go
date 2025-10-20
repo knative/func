@@ -130,6 +130,8 @@ func GetPodLogsBySelector(ctx context.Context, namespace, labelSelector, contain
 				beingProcessed[pod.Name] = true
 				beingProcessedMu.Unlock()
 
+				// Capture pod value for the goroutine to avoid closure over loop variable
+				pod := pod
 				eg.Go(func() error { return copyLogs(pod) })
 			}
 		}
