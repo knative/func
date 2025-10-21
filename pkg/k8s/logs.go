@@ -54,19 +54,31 @@ func GetPodLogsBySelector(ctx context.Context, namespace, labelSelector, contain
 
 	pods := client.CoreV1().Pods(namespace)
 
-	podListOpts := metav1.ListOptions{
-		Watch:         true,
+	beingProcessed := make(map[string]bool)
+	var beingProcessedMu sync.Mutex
+
+	// First, list existing pods to handle pods that are already running
+	listOpts := metav1.ListOptions{
 		LabelSelector: labelSelector,
 	}
 
-	w, err := pods.Watch(ctx, podListOpts)
+	existingPods, err := pods.List(ctx, listOpts)
+	if err != nil {
+		return fmt.Errorf("cannot list existing pods: %w", err)
+	}
+
+	// Now start watching for future pod events
+	watchOpts := metav1.ListOptions{
+		Watch:           true,
+		LabelSelector:   labelSelector,
+		ResourceVersion: existingPods.ResourceVersion,
+	}
+
+	w, err := pods.Watch(ctx, watchOpts)
 	if err != nil {
 		return fmt.Errorf("cannot create watch: %w", err)
 	}
 	defer w.Stop()
-
-	beingProcessed := make(map[string]bool)
-	var beingProcessedMu sync.Mutex
 
 	copyLogs := func(pod corev1.Pod) error {
 		defer func() {
@@ -116,24 +128,33 @@ func GetPodLogsBySelector(ctx context.Context, namespace, labelSelector, contain
 
 	var eg errgroup.Group
 
+	// Helper function to process a pod and start log collection if appropriate
+	processPod := func(pod corev1.Pod) {
+		beingProcessedMu.Lock()
+		_, loggingAlready := beingProcessed[pod.Name]
+		beingProcessedMu.Unlock()
+
+		if !loggingAlready && (image == "" || image == getImage(pod)) && mayReadLogs(pod) {
+			beingProcessedMu.Lock()
+			beingProcessed[pod.Name] = true
+			beingProcessedMu.Unlock()
+
+			// Capture pod value for the goroutine to avoid closure over loop variable
+			podCopy := pod
+			eg.Go(func() error { return copyLogs(podCopy) })
+		}
+	}
+
+	// Process existing pods first
+	for _, pod := range existingPods.Items {
+		processPod(pod)
+	}
+
+	// Then watch for new/modified pods
 	for event := range w.ResultChan() {
 		if event.Type == watch.Modified || event.Type == watch.Added {
 			pod := *event.Object.(*corev1.Pod)
-
-			beingProcessedMu.Lock()
-			_, loggingAlready := beingProcessed[pod.Name]
-			beingProcessedMu.Unlock()
-
-			if !loggingAlready && (image == "" || image == getImage(pod)) && mayReadLogs(pod) {
-
-				beingProcessedMu.Lock()
-				beingProcessed[pod.Name] = true
-				beingProcessedMu.Unlock()
-
-				// Capture pod value for the goroutine to avoid closure over loop variable
-				pod := pod
-				eg.Go(func() error { return copyLogs(pod) })
-			}
+			processPod(pod)
 		}
 	}
 
