@@ -2,6 +2,7 @@ package docker_test
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -48,9 +49,8 @@ func TestDockerRunImagelessError(t *testing.T) {
 	f := fn.NewFunctionWith(fn.Function{})
 
 	_, err := runner.Run(context.Background(), f, "", fn.DefaultStartTimeout)
-	// TODO: switch to typed error:
-	expectedErrorMessage := "Function has no associated image. Has it been built?"
-	if err == nil || err.Error() != expectedErrorMessage {
-		t.Fatalf("Expected error '%v', got '%v'", expectedErrorMessage, err)
+	var noImageErr docker.ErrNoImage
+	if !errors.As(err, &noImageErr) {
+		t.Fatalf("expected ErrNoImage, got %v", err)
 	}
 }
