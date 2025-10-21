@@ -67,7 +67,11 @@ jobs:
           echo "::group::cluster events" >> cluster_log.txt
           kubectl get events -A  >> cluster_log.txt 2>&1
           echo "::endgroup::"  >> cluster_log.txt
-
+          
+          echo "::group::cluster list pods"  >> cluster_log.txt
+          kubectl get pod -A  >> cluster_log.txt 2>&1
+          echo "::endgroup::"  >> cluster_log.txt
+          
           echo "::group::cluster containers logs"  >> cluster_log.txt
           stern '.*' --all-namespaces --no-follow  >> cluster_log.txt 2>&1
           echo "::endgroup::"  >> cluster_log.txt
