@@ -270,7 +270,7 @@ func IntegrationTest(t *testing.T, deployer fn.Deployer, remover fn.Remover, lis
 	}
 
 	// Give logs time to be collected (not sure, why we need this here and not on the first collector too :thinking:)
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	outStr = redeployLogBuff.String()
 	t.Log("function output:\n" + outStr)
