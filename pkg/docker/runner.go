@@ -85,8 +85,6 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 
 	// Choose an available port
 	port = choosePort(host, port, DefaultDialTimeout)
-	err := ErrNoImage{}
-	fmt.Println(err)
 
 	if f.Build.Image == "" {
 		return job, ErrNoImage{}
