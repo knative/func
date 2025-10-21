@@ -149,11 +149,12 @@ type Lister interface {
 }
 
 type ListItem struct {
-	Name      string `json:"name" yaml:"name"`
-	Namespace string `json:"namespace" yaml:"namespace"`
-	Runtime   string `json:"runtime" yaml:"runtime"`
-	URL       string `json:"url" yaml:"url"`
-	Ready     string `json:"ready" yaml:"ready"`
+	Name       string `json:"name" yaml:"name"`
+	Namespace  string `json:"namespace" yaml:"namespace"`
+	Runtime    string `json:"runtime" yaml:"runtime"`
+	URL        string `json:"url" yaml:"url"`
+	Ready      string `json:"ready" yaml:"ready"`
+	DeployType string `json:"deploy_type" yaml:"deploy_type"`
 }
 
 // Describer of function instances

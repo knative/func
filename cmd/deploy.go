@@ -818,14 +818,14 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 		o = append(o,
 			fn.WithDeployer(newKnativeDeployer(c.Verbose)),
 			fn.WithRemover(knativedeployer.NewRemover(c.Verbose)),
-			fn.WithDescriber(knativedeployer.NewDescriber(c.Verbose)),
-			fn.WithLister(knativedeployer.NewLister(c.Verbose)))
+			fn.WithDescriber(knativedeployer.NewDescriber(c.Verbose)))
+		//fn.WithLister(knativedeployer.NewLister(c.Verbose)))
 	case deployer.KubernetesDeployerName:
 		o = append(o,
 			fn.WithDeployer(newK8sDeployer(c.Verbose)),
 			fn.WithRemover(k8sdeployer.NewRemover(c.Verbose)),
-			fn.WithDescriber(k8sdeployer.NewDescriber(c.Verbose)),
-			fn.WithLister(k8sdeployer.NewLister(c.Verbose)))
+			fn.WithDescriber(k8sdeployer.NewDescriber(c.Verbose)))
+		//fn.WithLister(k8sdeployer.NewLister(c.Verbose)))
 	default:
 		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s)", deployType, deployer.KnativeDeployerName, deployer.KubernetesDeployerName)
 	}
