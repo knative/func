@@ -17,6 +17,7 @@ import (
 // - The number of available replicas matches the desired replicas
 // - All replicas are updated to the latest version
 // - There are no unavailable replicas
+// - All pods associated with the deployment are running
 func WaitForDeploymentAvailable(ctx context.Context, clientset *kubernetes.Clientset, namespace, deploymentName string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -42,7 +43,38 @@ func WaitForDeploymentAvailable(ctx context.Context, clientset *kubernetes.Clien
 					deployment.Status.ReadyReplicas == desiredReplicas &&
 					deployment.Status.AvailableReplicas == desiredReplicas &&
 					deployment.Status.UnavailableReplicas == 0 {
-					return true, nil
+
+					// Verify all pods are actually running
+					labelSelector := metav1.FormatLabelSelector(deployment.Spec.Selector)
+					pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+						LabelSelector: labelSelector,
+					})
+					if err != nil {
+						return false, err
+					}
+
+					// Count running pods
+					runningPods := 0
+					for _, pod := range pods.Items {
+						if pod.Status.Phase == corev1.PodRunning {
+							// Verify all containers in the pod are ready
+							allContainersReady := true
+							for _, containerStatus := range pod.Status.ContainerStatuses {
+								if !containerStatus.Ready {
+									allContainersReady = false
+									break
+								}
+							}
+							if allContainersReady {
+								runningPods++
+							}
+						}
+					}
+
+					// Ensure we have the desired number of running pods
+					if int32(runningPods) == desiredReplicas {
+						return true, nil
+					}
 				}
 			}
 		}
