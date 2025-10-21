@@ -33,6 +33,12 @@ const (
 	DefaultStopTimeout = 10 * time.Second
 )
 
+type ErrNoImage struct{}
+
+func (e ErrNoImage) Error() string {
+	return "Function has no associated image. Has it been built?"
+}
+
 // Runner starts and stops functions as local containers.
 type Runner struct {
 	verbose bool // Verbose logging
@@ -81,7 +87,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 	port = choosePort(host, port, DefaultDialTimeout)
 
 	if f.Build.Image == "" {
-		return job, errors.New("Function has no associated image. Has it been built?")
+		return job, ErrNoImage{}
 	}
 	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {
 		return job, errors.Wrap(err, "failed to create Docker API client")
