@@ -562,8 +562,9 @@ func awaitBuildCompletion(t *testing.T, name, ns string) <-chan struct{} {
 		t.Fatal(err)
 	}
 
+	// Watch for TaskRuns with the build task label and function name label
 	listOpts := metav1.ListOptions{
-		LabelSelector: "tekton.dev/pipelineTask=build",
+		LabelSelector: fmt.Sprintf("tekton.dev/pipelineTask=build,function.knative.dev/name=%s", name),
 		Watch:         true,
 	}
 	w, err := clis.Tekton.TektonV1().TaskRuns(ns).Watch(context.Background(), listOpts)
@@ -580,9 +581,7 @@ func awaitBuildCompletion(t *testing.T, name, ns string) <-chan struct{} {
 			if !ok {
 				continue
 			}
-			if !strings.HasPrefix(taskRun.Name, name) {
-				continue
-			}
+			// No longer need to check name prefix since we're filtering by label
 			for _, condition := range taskRun.Status.Conditions {
 				if condition.Type == apis.ConditionSucceeded && condition.IsTrue() {
 					ch <- struct{}{}

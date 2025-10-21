@@ -2,6 +2,8 @@ package tekton
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -57,7 +59,12 @@ func getPipelineName(f fn.Function) string {
 	} else {
 		source = "git"
 	}
-	return fmt.Sprintf("%s-%s-%s-pipeline", f.Name, f.Build.Builder, source)
+
+	// Kubernetes resource names must be <= 63 characters (RFC 1123)
+	fullIdentifier := fmt.Sprintf("%s-%s-%s", f.Name, f.Build.Builder, source)
+	hash := sha256.Sum256([]byte(fullIdentifier))
+	shortHash := hex.EncodeToString(hash[:4]) // Use first 8 characters
+	return fmt.Sprintf("func-%s-%s-%s", shortHash, f.Build.Builder, source)
 }
 
 func getPipelineRunGenerateName(f fn.Function) string {
