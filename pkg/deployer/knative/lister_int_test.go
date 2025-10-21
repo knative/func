@@ -9,14 +9,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	knativedeployer "knative.dev/func/pkg/deployer/knative"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 )
 
-func TestInt_Remove(t *testing.T) {
+func TestInt_List(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
-	name := "func-int-knative-remove-" + rand.String(5)
+	name := "func-int-knative-list-" + rand.String(5)
 	root := t.TempDir()
 	ns := namespace(t, ctx)
 
@@ -25,10 +25,10 @@ func TestInt_Remove(t *testing.T) {
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
-		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(true))),
-		fn.WithDescriber(knative.NewDescriber(false)),
-		fn.WithLister(knative.NewLister(false)),
-		fn.WithRemover(knative.NewRemover(false)),
+		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
+		fn.WithDescriber(knativedeployer.NewDescriber(false)),
+		fn.WithLister(knativedeployer.NewLister(false)),
+		fn.WithRemover(knativedeployer.NewRemover(false)),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -59,6 +59,12 @@ func TestInt_Remove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		err := client.Remove(ctx, "", "", f, true)
+		if err != nil {
+			t.Logf("error removing Function: %v", err)
+		}
+	})
 
 	// Wait for function to be ready
 	_, err = client.Describe(ctx, "", "", f)
@@ -71,6 +77,8 @@ func TestInt_Remove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Should find at least our function (may have others in namespace)
 	found := false
 	for _, item := range list {
 		if item.Name == f.Name {
@@ -81,28 +89,5 @@ func TestInt_Remove(t *testing.T) {
 	if !found {
 		t.Errorf("function %s not found in list", f.Name)
 	}
-
-	// Remove it
-	if err := client.Remove(ctx, "", "", f, true); err != nil {
-		t.Logf("error removing Function: %v", err)
-	}
-
-	// Verify it is no longer listed
-	list, err = client.List(ctx, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	found = false
-	for _, item := range list {
-		if item.Name == f.Name {
-			found = true
-			break
-		}
-	}
-	if found {
-		t.Errorf("function %s was not removed", f.Name)
-	}
-
-	// Remove
 
 }

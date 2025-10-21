@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
+	knativedeployer "knative.dev/func/pkg/deployer/knative"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
@@ -41,9 +42,9 @@ func TestInt_Deploy(t *testing.T) {
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
-		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(true))),
-		fn.WithDescriber(knative.NewDescriber(false)),
-		fn.WithRemover(knative.NewRemover(false)),
+		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
+		fn.WithDescriber(knativedeployer.NewDescriber(false)),
+		fn.WithRemover(knativedeployer.NewRemover(false)),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -113,9 +114,9 @@ func TestInt_Metadata(t *testing.T) {
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
-		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(true))),
-		fn.WithDescriber(knative.NewDescriber(false)),
-		fn.WithRemover(knative.NewRemover(false)),
+		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
+		fn.WithDescriber(knativedeployer.NewDescriber(false)),
+		fn.WithRemover(knativedeployer.NewRemover(false)),
 	)
 
 	// Cluster Resources
@@ -279,9 +280,9 @@ func TestInt_Events(t *testing.T) {
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
-		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(true))),
-		fn.WithDescriber(knative.NewDescriber(false)),
-		fn.WithRemover(knative.NewRemover(false)),
+		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
+		fn.WithDescriber(knativedeployer.NewDescriber(false)),
+		fn.WithRemover(knativedeployer.NewRemover(false)),
 	)
 
 	// Trigger
@@ -355,9 +356,9 @@ func TestInt_Scale(t *testing.T) {
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
-		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(true))),
-		fn.WithDescriber(knative.NewDescriber(false)),
-		fn.WithRemover(knative.NewRemover(false)),
+		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
+		fn.WithDescriber(knativedeployer.NewDescriber(false)),
+		fn.WithRemover(knativedeployer.NewRemover(false)),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -468,9 +469,9 @@ func TestInt_EnvsUpdate(t *testing.T) {
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
-		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(true))),
-		fn.WithDescriber(knative.NewDescriber(false)),
-		fn.WithRemover(knative.NewRemover(false)),
+		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
+		fn.WithDescriber(knativedeployer.NewDescriber(false)),
+		fn.WithRemover(knativedeployer.NewRemover(false)),
 	)
 
 	// Function
