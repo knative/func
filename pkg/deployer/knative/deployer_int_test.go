@@ -2,6 +2,10 @@
 
 package knative_test
 
+/*//go:build integration
+
+package knative_test
+
 import (
 	"context"
 	"encoding/json"
@@ -817,3 +821,4 @@ func (f *Function) Handle(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 `
+*/

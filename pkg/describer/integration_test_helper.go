@@ -1,6 +1,6 @@
 //go:build integration
 
-package knative_test
+package describer
 
 import (
 	"context"
@@ -8,20 +8,12 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/rand"
-	"knative.dev/func/pkg/describer"
-	k8sdescriber "knative.dev/func/pkg/describer/k8s"
-	knativedescriber "knative.dev/func/pkg/describer/knative"
-	"knative.dev/func/pkg/remover"
-	k8sremover "knative.dev/func/pkg/remover/k8s"
-	knativeremover "knative.dev/func/pkg/remover/knative"
-
-	knativedeployer "knative.dev/func/pkg/deployer/knative"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 	fntest "knative.dev/func/pkg/testing"
 )
 
-func TestInt_Describe(t *testing.T) {
+func DescribeIntegrationTest(t *testing.T, describer fn.Describer, deployer fn.Deployer, remover fn.Remover) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-describe-" + rand.String(5)
 	root := t.TempDir()
@@ -32,9 +24,9 @@ func TestInt_Describe(t *testing.T) {
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
-		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
-		fn.WithDescriber(describer.NewMultiDescriber(true, knativedescriber.NewDescriber(true), k8sdescriber.NewDescriber(true))),
-		fn.WithRemover(remover.NewMultiRemover(true, knativeremover.NewRemover(true), k8sremover.NewRemover(true))),
+		fn.WithDescriber(describer),
+		fn.WithDeployer(deployer),
+		fn.WithRemover(remover),
 	)
 
 	f, err := client.Init(fn.Function{
