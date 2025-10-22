@@ -93,6 +93,33 @@ func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 	assert.Assert(t, yamlContains(result.gwYamlString, "--registry=${{ vars.REGISTRY_URL }}"))
 }
 
+func TestNewConfigCICmd_RemoteBuildAndDeployWorkflow(t *testing.T) {
+	// GIVEN
+	opts := unitTestOpts()
+	opts.args = append(opts.args, "--remote")
+
+	// WHEN
+	result := runConfigCiCmd(t, opts)
+
+	// THEN
+	assert.NilError(t, result.executeErr)
+	assert.Assert(t, yamlContains(result.gwYamlString, "Remote Func Deploy"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "func deploy --remote"))
+}
+
+func TestNewConfigCICmd_HasWorkflowDispatch(t *testing.T) {
+	// GIVEN
+	opts := unitTestOpts()
+	opts.args = append(opts.args, "--workflow-dispatch")
+
+	// WHEN
+	result := runConfigCiCmd(t, opts)
+
+	// THEN
+	assert.NilError(t, result.executeErr)
+	assert.Assert(t, yamlContains(result.gwYamlString, "workflow_dispatch"))
+}
+
 // ---------------------
 // END: Broad Unit Tests
 
@@ -303,8 +330,8 @@ func assertDefaultWorkflow(t *testing.T, actualGw string) {
 	assert.Assert(t, yamlContains(actualGw, "password: ${{ secrets.REGISTRY_PASSWORD }}"))
 
 	assert.Assert(t, yamlContains(actualGw, "Install func cli"))
-	assert.Assert(t, yamlContains(actualGw, "gauron99/knative-func-action@main"))
-	assert.Assert(t, yamlContains(actualGw, "version: knative-v1.19.1"))
+	assert.Assert(t, yamlContains(actualGw, "functions-dev/action@main"))
+	assert.Assert(t, yamlContains(actualGw, "version: knative-v1.20.1"))
 	assert.Assert(t, yamlContains(actualGw, "name: func"))
 
 	assert.Assert(t, yamlContains(actualGw, "Deploy function"))

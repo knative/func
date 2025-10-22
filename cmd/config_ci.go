@@ -16,6 +16,8 @@ func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWr
 		PreRunE: bindEnv(
 			ci.PathFlag,
 			ci.UseRegistryLoginFlag,
+			ci.WorkflowDispatchFlag,
+			ci.UseRemoteBuildFlag,
 			ci.UseSelfHostedRunnerFlag,
 			ci.WorkflowNameFlag,
 			ci.BranchFlag,
@@ -36,6 +38,19 @@ func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWr
 		ci.UseRegistryLoginFlag,
 		ci.DefaultUseRegistryLogin,
 		"Add a registry login step in the github workflow",
+	)
+
+	cmd.Flags().Bool(
+		ci.WorkflowDispatchFlag,
+		ci.DefaultWorkflowDispatch,
+		"Add a workflow dispatch trigger for manual workflow execution",
+	)
+	_ = cmd.Flags().MarkHidden(ci.WorkflowDispatchFlag)
+
+	cmd.Flags().Bool(
+		ci.UseRemoteBuildFlag,
+		ci.DefaultUseRemoteBuild,
+		"Build the function on a Tekton-enabled cluster",
 	)
 
 	cmd.Flags().Bool(

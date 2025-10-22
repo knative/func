@@ -14,7 +14,8 @@ type githubWorkflow struct {
 }
 
 type workflowTriggers struct {
-	Push *pushTrigger `yaml:"push,omitempty"`
+	Push             *pushTrigger `yaml:"push,omitempty"`
+	WorkflowDispatch *struct{}    `yaml:"workflow_dispatch,omitempty"`
 }
 
 type pushTrigger struct {
@@ -34,8 +35,9 @@ type step struct {
 }
 
 func NewGitHubWorkflow(conf CIConfig) *githubWorkflow {
-	runsOn := createRunsOn(conf.UseSelfHostedRunner())
-	pushTrigger := createPushTrigger(conf.Branch())
+	name := createWorkflowName(conf)
+	runsOn := createRunsOn(conf)
+	pushTrigger := createPushTrigger(conf)
 
 	var steps []step
 	steps = createCheckoutStep(steps)
@@ -45,7 +47,7 @@ func NewGitHubWorkflow(conf CIConfig) *githubWorkflow {
 	steps = createFuncDeployStep(conf, steps)
 
 	return &githubWorkflow{
-		Name: conf.WorkflowName(),
+		Name: name,
 		On:   pushTrigger,
 		Jobs: map[string]job{
 			"deploy": {
@@ -56,17 +58,30 @@ func NewGitHubWorkflow(conf CIConfig) *githubWorkflow {
 	}
 }
 
-func createRunsOn(useSelfHostedRunner bool) string {
+func createWorkflowName(conf CIConfig) string {
+	result := conf.WorkflowName()
+	if conf.UseRemoteBuild() {
+		result = "Remote Func Deploy"
+	}
+
+	return result
+}
+
+func createRunsOn(conf CIConfig) string {
 	runsOn := "ubuntu-latest"
-	if useSelfHostedRunner {
+	if conf.UseSelfHostedRunner() {
 		runsOn = "self-hosted"
 	}
 	return runsOn
 }
 
-func createPushTrigger(branch string) workflowTriggers {
+func createPushTrigger(conf CIConfig) workflowTriggers {
 	result := workflowTriggers{
-		Push: &pushTrigger{Branches: []string{branch}},
+		Push: &pushTrigger{Branches: []string{conf.Branch()}},
+	}
+
+	if conf.UseWorkflowDispatch() {
+		result.WorkflowDispatch = &struct{}{}
 	}
 
 	return result
@@ -102,24 +117,29 @@ func createRegistryLoginStep(conf CIConfig, steps []step) []step {
 	return append(steps, *loginToContainerRegistry)
 }
 
+func createFuncCLIInstallStep(steps []step) []step {
+	installFuncCli := newStep("Install func cli").
+		withUses("functions-dev/action@main").
+		withActionConfig("version", "knative-v1.20.1").
+		withActionConfig("name", "func")
+
+	return append(steps, *installFuncCli)
+}
+
 func createFuncDeployStep(conf CIConfig, steps []step) []step {
+	runFuncDeploy := "func deploy"
+	if conf.UseRemoteBuild() {
+		runFuncDeploy += " --remote"
+	}
+
 	registryUrl := newVariable(conf.RegistryUrlVar())
 	if conf.UseRegistryLogin() {
 		registryUrl = newVariable(conf.RegistryLoginUrlVar()) + "/" + newVariable(conf.RegistryUserVar())
 	}
 	deployFunc := newStep("Deploy function").
-		withRun("func deploy --registry=" + registryUrl + " -v")
+		withRun(runFuncDeploy + " --registry=" + registryUrl + " -v")
 
 	return append(steps, *deployFunc)
-}
-
-func createFuncCLIInstallStep(steps []step) []step {
-	installFuncCli := newStep("Install func cli").
-		withUses("gauron99/knative-func-action@main").
-		withActionConfig("version", "knative-v1.19.1").
-		withActionConfig("name", "func")
-
-	return append(steps, *installFuncCli)
 }
 
 func newStep(name string) *step {
