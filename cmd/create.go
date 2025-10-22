@@ -90,9 +90,10 @@ EXAMPLES
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template ($FUNC_REPOSITORY)")
 
 	addConfirmFlag(cmd, cfg.Confirm)
-	// Add --path flag (default ".") for consistency with other commands.
-	// Retain positional [path] for backward compatibility (warned later).
-	cmd.Flags().StringP("path", "p", ".", "Path to the function project directory ($FUNC_PATH)")
+	// Add --path flag (default "") for consistency with other commands.
+	// Retain positional [path] for backward compatibility.
+	// Empty string default means current directory.
+	cmd.Flags().StringP("path", "p", "", "Path to the function project directory ($FUNC_PATH)")
 
 	addVerboseFlag(cmd, cfg.Verbose)
 
@@ -183,11 +184,24 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 
 	pathFlag = viper.GetString("path")
 
-	finalPath := "."
+	// Default to empty string which deriveNameAndAbsolutePathFromPath
+	// interprets as current working directory
+	finalPath := ""
+
+	// Use --path flag if provided (takes precedence)
 	if pathFlag != "" && pathFlag != "." {
 		finalPath = pathFlag
+	} else if pathFlag == "." {
+		// Convert shell convention "." to empty string for internal use
+		finalPath = ""
 	} else if len(args) >= 1 && args[0] != "" {
-		finalPath = args[0]
+		// Fall back to positional argument if no --path flag
+		if args[0] == "." {
+			// Convert shell convention "." to empty string
+			finalPath = ""
+		} else {
+			finalPath = args[0]
+		}
 	}
 
 	dirName, absolutePath = deriveNameAndAbsolutePathFromPath(finalPath)
