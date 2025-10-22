@@ -11,8 +11,8 @@ set_versions() {
 	kind_node_version=v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
 
 	# find source-of-truth in component-versions.json to add/modify components
-	knative_serving_version="v1.19.1"
-	knative_eventing_version="v1.19.1"
+	knative_serving_version="v1.19.6"
+	knative_eventing_version="v1.19.6"
 	contour_version="v1.19.5"
 	tekton_version="v1.1.0"
 	pac_version="v0.35.2"
