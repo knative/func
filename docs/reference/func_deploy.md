@@ -46,7 +46,7 @@ DESCRIPTION
 	  registry after being successfully built.  The --push flag can be used
 	  to disable pushing.  This could be used, for example, to trigger a redeploy
 	  of a service without needing to build, or even have the container available
-	  locally with 'func deploy --build=false --push==false'.
+	  locally with 'func deploy --build=false --push=false'.
 
 	Remote
 	  Building and pushing (deploying) is by default run on localhost.  This

@@ -69,7 +69,7 @@ DESCRIPTION
 	  registry after being successfully built.  The --push flag can be used
 	  to disable pushing.  This could be used, for example, to trigger a redeploy
 	  of a service without needing to build, or even have the container available
-	  locally with '{{rootCmdUse}} deploy --build=false --push==false'.
+	  locally with '{{rootCmdUse}} deploy --build=false --push=false'.
 
 	Remote
 	  Building and pushing (deploying) is by default run on localhost.  This
@@ -682,7 +682,7 @@ type deployConfig struct {
 	// PVCSize configures the PVC size used by the pipeline if --remote flag is set.
 	PVCSize string
 
-	// Timestamp the built contaienr with the current date and time.
+	// Timestamp the built container with the current date and time.
 	// This is currently only supported by the Pack builder.
 	Timestamp bool
 }

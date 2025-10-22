@@ -137,7 +137,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (e
 
 	return
 
-	// TODO: communicating build completeness throgh returning without error
+	// TODO: communicating build completeness through returning without error
 	// is suboptimal.  The system then relies on the implicit availability
 	// of the OCI image in this process' build directory
 	//
@@ -147,7 +147,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (e
 	// than this implicit coupling.
 }
 
-// setup the build task prerequsites on the filesystem
+// setup the build task prerequisites on the filesystem
 func setup(job buildJob) (err error) {
 	// Fail if another build is in progress
 	if job.isActive() {

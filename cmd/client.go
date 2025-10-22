@@ -48,7 +48,7 @@ func NewTestClient(options ...fn.Option) ClientFactory {
 }
 
 // NewClient constructs an fn.Client with the majority of
-// the concrete implementations set.  Provide additional Options to this constructor
+// the concrete implementations set. Provide additional Options to this constructor
 // to override or augment as needed, or override the ClientFactory passed to
 // commands entirely to mock for testing. Note the returned cleanup function.
 // 'Namespace' is optional.  If not provided (see DefaultNamespace commentary),

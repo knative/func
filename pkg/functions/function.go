@@ -62,7 +62,7 @@ type Function struct {
 	// route of the function. By default the cluster's default will be used.
 	// Note that the value defined here must be one which the cluster is
 	// configured to recognize, or this will have no effect and the cluster
-	// default will be applied.  This value shuld therefore ideally be
+	// default will be applied. This value should therefore ideally be
 	// validated by the client.
 	Domain string `yaml:"domain,omitempty"`
 
@@ -229,7 +229,7 @@ type BuildConfig struct {
 
 // NewFunctionWith defaults as provided.
 func NewFunctionWith(defaults Function) Function {
-	// Deprecatded:  these defaults should be used directly from their
+	// Deprecated:  these defaults should be used directly from their
 	// in-code static defaults, config, etc. A function struct is used to hold
 	// overrides (eg. use PVCSize X instead of the default), and to record the
 	// results of operations (eg. the function was deployed with image Y).
@@ -775,7 +775,7 @@ func (f Function) newLocal() (localConfig Local, err error) {
 func (f Function) WriteRuntimeBuiltImage(verbose bool) error {
 	path := filepath.Join(f.Root, RunDataDir, BuiltImage)
 
-	// dont write if empty (not built)
+	// don't write if empty (not built)
 	if f.Build.Image == "" {
 		return nil
 	}
@@ -788,7 +788,7 @@ func (f Function) WriteRuntimeBuiltImage(verbose bool) error {
 }
 
 // getLastBuiltImage reads .func/built-image and returns its value or empty string
-// if the file doesnt exist (not built yet). Other errors are returned as usual.
+// if the file doesn't exist (not built yet). Other errors are returned as usual.
 func (f Function) getLastBuiltImage() (string, error) {
 	path := filepath.Join(f.Root, RunDataDir, BuiltImage)
 	if _, err := os.Stat(path); err != nil {

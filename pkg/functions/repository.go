@@ -41,7 +41,7 @@ type Repository struct {
 	// Runtimes containing Templates loaded from the repo
 	Runtimes []Runtime
 
-	repoConfig // values defineable via a manfest.yaml at root level.
+	repoConfig // values defined via a manifest.yaml at root level.
 
 	fs  filesystem.Filesystem
 	uri string // populated on initial add
@@ -246,8 +246,8 @@ func filesystemFromPath(uri string) (f filesystem.Filesystem, err error) {
 // runtimes returns runtimes defined in this repository's filesystem.
 // The views are denormalized, using the parent repository's values
 // for inherited fields BuildConfig and HealthEndpoints as the default values
-// for the runtimes and templates.  The runtimes and templates themselves can
-// override these values by specifying new values in thir config files.
+// for the runtimes and templates. The runtimes and templates themselves can
+// override these values by specifying new values in their config files.
 func runtimes(fs filesystem.Filesystem, repoCfg repoConfig) (runtimes []Runtime, err error) {
 	// Validate templates path
 	if err = checkDir(fs, repoCfg.TemplatesPath); err != nil {

@@ -10,7 +10,7 @@ import (
 
 const (
 	// DefaultRepositoryName is the name by which the currently default repo can
-	// be referred.  This name is assumed when no template prefix is provided
+	// be referred. This name is assumed when no template prefix is provided
 	// when determining a template canonical (full) name.
 	// Unless a single-repo override is defined, this is usually referring to the
 	// builtin (embedded) repository.
@@ -26,13 +26,13 @@ type Repositories struct {
 	// Optional uri of a single repo to use in leau of embedded and extensible.
 	// Enables single-repository mode.  This replaces the default embedded repo
 	// and extended repositories.  This is an important mode for both diskless
-	// (config-less) operation, such as security-restrited environments, and for
+	// (config-less) operation, such as security-restricted environments, and for
 	// running as a library in which case environmental settings should be
 	// ignored in favor of a more functional approach in which only inputs affect
 	// outputs.
 	remote string
 
-	// backreference to the client enabling this repositorires manager to
+	// backreference to the client enabling this repositories manager to
 	// have full API access.
 	client *Client
 }

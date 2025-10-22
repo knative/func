@@ -1,7 +1,7 @@
 // package testing includes minor testing helpers and shared config.
 //
 // These helpers include extensions to the testing nomenclature which exist to
-// ease the development of tests for functions.  It is mostly just syntactic
+// ease the development of tests for functions. It is mostly just syntactic
 // sugar and closures for creating an removing test directories etc.
 // It was originally included in each of the requisite testing packages, but
 // since we use both private-access enabled tests (in the function package),
@@ -9,9 +9,9 @@
 // increasing in size and complexity, the choice was made to choose a small
 // dependency over a small amount of copying.
 //
-// Another reason for including these in a separate locaiton is that they will
+// Another reason for including these in a separate location is that they will
 // have no tags such that no combination of tags can cause them to either be
-// missing or interfere with eachother (a problem encountered with knative
+// missing or interfere with each other (a problem encountered with knative
 // tooling which by default runs tests with all tags enabled simultaneously)
 package testing
 
@@ -73,8 +73,8 @@ func FileExists(t *testing.T, filePath string) (bool, error) {
 	return true, nil
 }
 
-// Within the given root creates the directory, CDs to it, and rturns a
-// closure that when executed (intended in a defer) removes the given dirctory
+// Within the given root creates the directory, CDs to it, and returns a
+// closure that when executed (intended in a defer) removes the given directory
 // and returns the caller to the initial working directory.
 // usage:
 //
@@ -98,7 +98,7 @@ func Within(t *testing.T, root string) func() {
 //	defer rm()
 //	CWD is now 'path'
 //
-// errors encountererd fail the current test.
+// errors encountered fail the current test.
 func Mktemp(t *testing.T) (string, func()) {
 	t.Helper()
 	tmp := t.TempDir()
@@ -109,7 +109,7 @@ func Mktemp(t *testing.T) (string, func()) {
 	}
 }
 
-// Fromtemp is like Mktemp, but does not bother returing the temp path.
+// Fromtemp is like Mktemp, but does not bother returning the temp path.
 func Fromtemp(t *testing.T) func() {
 	_, done := Mktemp(t)
 	return done
@@ -262,7 +262,7 @@ func RunGitServer(root string, t *testing.T) (url string) {
 }
 
 // FromTempDirectory moves the test into a new temporary directory and
-// clears all known interfering environment variables.  Returned is the
+// clears all known interfering environment variables. Returned is the
 // path to the somewhat isolated test environment.
 // Note that KUBECONFIG is also set to testdata/default_kubeconfig which can
 // be used for tests which are explicitly checking logic which depends on
@@ -289,7 +289,7 @@ func FromTempDirectory(t *testing.T) string {
 
 	// Done and Reset
 	// NOTE:
-	// NO CLI command should require resetting viper.  If a CLI test
+	// NO CLI command should require resetting viper. If a CLI test
 	// is failing, and the following fixes the problem, it's probably because
 	// an instance of a command is being reused multiple times in the same
 	// test when a new instance of the command struct should instead be
@@ -311,7 +311,7 @@ func Cwd() (cwd string) {
 
 // ClearEnvs sets all environment variables with the prefix of FUNC_ to
 // empty (unsets) for the duration of the test t and is used when
-// a test needs to completely clear func-releated envs prior to running.
+// a test needs to completely clear func-related envs prior to running.
 func ClearEnvs(t *testing.T) {
 	t.Helper()
 	for _, v := range os.Environ() {

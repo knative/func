@@ -238,7 +238,7 @@ func BuilderImage(f fn.Function, builderName string) (string, error) {
 // Returns a config with settings suitable for building runtimes which
 // support scaffolding.
 func scaffold(cfg *api.Config, f fn.Function) (*api.Config, error) {
-	// Scafffolding is currently only supported by the Go and Python runtimes
+	// Scaffolding is currently only supported by the Go and Python runtimes
 	if f.Runtime != "go" && f.Runtime != "python" {
 		return cfg, nil
 	}
@@ -247,7 +247,7 @@ func scaffold(cfg *api.Config, f fn.Function) (*api.Config, error) {
 	appRoot := filepath.Join(f.Root, contextDir)
 	_ = os.RemoveAll(appRoot)
 
-	// The enbedded repository contains the scaffolding code itself which glues
+	// The embedded repository contains the scaffolding code itself which glues
 	// together the middleware and a function via main
 	embeddedRepo, err := fn.NewRepository("", "") // default is the embedded fs
 	if err != nil {
