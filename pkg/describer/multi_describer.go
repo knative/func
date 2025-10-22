@@ -1,10 +1,11 @@
-package deployer
+package describer
 
 import (
 	"context"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -38,16 +39,16 @@ func (d *MultiDescriber) Describe(ctx context.Context, name, namespace string) (
 		return fn.Instance{}, fmt.Errorf("unable to get service for function: %v", err)
 	}
 
-	deployType, ok := service.Annotations[DeployTypeAnnotation]
+	deployType, ok := service.Annotations[deployer.DeployTypeAnnotation]
 	if !ok {
 		// fall back to the Knative Describer in case no annotation is given
 		return d.knativeDescriber.Describe(ctx, name, namespace)
 	}
 
 	switch deployType {
-	case KnativeDeployerName:
+	case deployer.KnativeDeployerName:
 		return d.knativeDescriber.Describe(ctx, name, namespace)
-	case KubernetesDeployerName:
+	case deployer.KubernetesDeployerName:
 		return d.kubernetesDescriber.Describe(ctx, name, namespace)
 	default:
 		return fn.Instance{}, fmt.Errorf("unknown deploy type: %s", deployType)

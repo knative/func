@@ -9,15 +9,15 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"knative.dev/func/pkg/deployer"
-	k8sdeployer "knative.dev/func/pkg/deployer/k8s"
+	"knative.dev/func/pkg/lister"
+	k8slister "knative.dev/func/pkg/lister/k8s"
+	knativelister "knative.dev/func/pkg/lister/knative"
 
-	knativedeployer "knative.dev/func/pkg/deployer/knative"
 	fn "knative.dev/func/pkg/functions"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	lister := deployer.NewLister(false, knativedeployer.NewGetter(false), k8sdeployer.NewGetter(false))
+	lister := lister.NewLister(false, knativelister.NewGetter(false), k8slister.NewGetter(false))
 
 	list, err := lister.List(cmd.Context(), "")
 	if err != nil {

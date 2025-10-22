@@ -8,17 +8,19 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/rand"
-
 	knativedeployer "knative.dev/func/pkg/deployer/knative"
+	knativedescriber "knative.dev/func/pkg/describer/knative"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
+	knativeremover "knative.dev/func/pkg/remover/knative"
+	fntesting "knative.dev/func/pkg/testing"
 )
 
 func TestInt_Labels(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-describe-" + rand.String(5)
 	root := t.TempDir()
-	ns := namespace(t, ctx)
+	ns := fntesting.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -26,8 +28,8 @@ func TestInt_Labels(t *testing.T) {
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
-		fn.WithDescriber(knativedeployer.NewDescriber(false)),
-		fn.WithRemover(knativedeployer.NewRemover(false)),
+		fn.WithDescriber(knativedescriber.NewDescriber(false)),
+		fn.WithRemover(knativeremover.NewRemover(false)),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -35,7 +37,7 @@ func TestInt_Labels(t *testing.T) {
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  registry(),
+		Registry:  fntesting.Registry(),
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -1,10 +1,11 @@
-package deployer
+package remover
 
 import (
 	"context"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -37,16 +38,16 @@ func (d *MultiRemover) Remove(ctx context.Context, name, namespace string) (err 
 		return fmt.Errorf("unable to get service for function: %v", err)
 	}
 
-	deployType, ok := service.Annotations[DeployTypeAnnotation]
+	deployType, ok := service.Annotations[deployer.DeployTypeAnnotation]
 	if !ok {
 		// fall back to the Knative Remover in case no annotation is given
 		return d.knativeRemover.Remove(ctx, name, namespace)
 	}
 
 	switch deployType {
-	case KnativeDeployerName:
+	case deployer.KnativeDeployerName:
 		return d.knativeRemover.Remove(ctx, name, namespace)
-	case KubernetesDeployerName:
+	case deployer.KubernetesDeployerName:
 		return d.kubernetesRemover.Remove(ctx, name, namespace)
 	default:
 		return fmt.Errorf("unknown deploy type: %s", deployType)

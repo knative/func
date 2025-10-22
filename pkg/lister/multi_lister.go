@@ -1,10 +1,11 @@
-package deployer
+package lister
 
 import (
 	"context"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -50,7 +51,7 @@ func (d *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 			continue
 		}
 
-		deployType, ok := service.Annotations[DeployTypeAnnotation]
+		deployType, ok := service.Annotations[deployer.DeployTypeAnnotation]
 		if !ok {
 			// fall back to the Knative Describer in case no annotation is given
 			item, err := d.knativeGetter.Get(ctx, service.Name, namespace)
@@ -64,9 +65,9 @@ func (d *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 
 		var item fn.ListItem
 		switch deployType {
-		case KnativeDeployerName:
+		case deployer.KnativeDeployerName:
 			item, err = d.knativeGetter.Get(ctx, service.Name, namespace)
-		case KubernetesDeployerName:
+		case deployer.KubernetesDeployerName:
 			item, err = d.kubernetesGetter.Get(ctx, service.Name, namespace)
 		default:
 			return nil, fmt.Errorf("unknown deploy type %s for function %s/%s", deployType, service.Name, service.Namespace)

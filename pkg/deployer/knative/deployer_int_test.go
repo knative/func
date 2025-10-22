@@ -16,6 +16,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"knative.dev/func/pkg/describer"
+	k8sdescriber "knative.dev/func/pkg/describer/k8s"
+	knativedescriber "knative.dev/func/pkg/describer/knative"
+	"knative.dev/func/pkg/remover"
+	k8sremover "knative.dev/func/pkg/remover/k8s"
+	knativeremover "knative.dev/func/pkg/remover/knative"
 
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	knativedeployer "knative.dev/func/pkg/deployer/knative"
@@ -35,16 +41,15 @@ func TestInt_Deploy(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-deploy-" + rand.String(5)
 	root := t.TempDir()
-	ns := namespace(t, ctx)
+	ns := fntest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
-		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
-		fn.WithDescriber(knativedeployer.NewDescriber(false)),
-		fn.WithRemover(knativedeployer.NewRemover(false)),
+		fn.WithDescriber(describer.NewMultiDescriber(true, knativedescriber.NewDescriber(true), k8sdescriber.NewDescriber(true))),
+		fn.WithRemover(remover.NewMultiRemover(true, knativeremover.NewRemover(true), k8sremover.NewRemover(true))),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -52,7 +57,7 @@ func TestInt_Deploy(t *testing.T) {
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  registry(),
+		Registry:  fntest.Registry(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +112,7 @@ func TestInt_Metadata(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-metadata-" + rand.String(5)
 	root := t.TempDir()
-	ns := namespace(t, ctx)
+	ns := fntest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -115,8 +120,8 @@ func TestInt_Metadata(t *testing.T) {
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
-		fn.WithDescriber(knativedeployer.NewDescriber(false)),
-		fn.WithRemover(knativedeployer.NewRemover(false)),
+		fn.WithDescriber(describer.NewMultiDescriber(true, knativedescriber.NewDescriber(true), k8sdescriber.NewDescriber(true))),
+		fn.WithRemover(remover.NewMultiRemover(true, knativeremover.NewRemover(true), k8sremover.NewRemover(true))),
 	)
 
 	// Cluster Resources
@@ -147,7 +152,7 @@ func TestInt_Metadata(t *testing.T) {
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  registry(),
+		Registry:  fntest.Registry(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -273,7 +278,7 @@ func TestInt_Events(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-events-" + rand.String(5)
 	root := t.TempDir()
-	ns := namespace(t, ctx)
+	ns := fntest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -281,8 +286,8 @@ func TestInt_Events(t *testing.T) {
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
-		fn.WithDescriber(knativedeployer.NewDescriber(false)),
-		fn.WithRemover(knativedeployer.NewRemover(false)),
+		fn.WithDescriber(describer.NewMultiDescriber(true, knativedescriber.NewDescriber(true), k8sdescriber.NewDescriber(true))),
+		fn.WithRemover(remover.NewMultiRemover(true, knativeremover.NewRemover(true), k8sremover.NewRemover(true))),
 	)
 
 	// Trigger
@@ -297,7 +302,7 @@ func TestInt_Events(t *testing.T) {
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  registry(),
+		Registry:  fntest.Registry(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -349,7 +354,7 @@ func TestInt_Scale(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-scale-" + rand.String(5)
 	root := t.TempDir()
-	ns := namespace(t, ctx)
+	ns := fntest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -357,8 +362,8 @@ func TestInt_Scale(t *testing.T) {
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
-		fn.WithDescriber(knativedeployer.NewDescriber(false)),
-		fn.WithRemover(knativedeployer.NewRemover(false)),
+		fn.WithDescriber(describer.NewMultiDescriber(true, knativedescriber.NewDescriber(true), k8sdescriber.NewDescriber(true))),
+		fn.WithRemover(remover.NewMultiRemover(true, knativeremover.NewRemover(true), k8sremover.NewRemover(true))),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -366,7 +371,7 @@ func TestInt_Scale(t *testing.T) {
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  registry(),
+		Registry:  fntest.Registry(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -462,7 +467,7 @@ func TestInt_EnvsUpdate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-envsupdate-" + rand.String(5)
 	root := t.TempDir()
-	ns := namespace(t, ctx)
+	ns := fntest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -470,8 +475,8 @@ func TestInt_EnvsUpdate(t *testing.T) {
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
-		fn.WithDescriber(knativedeployer.NewDescriber(false)),
-		fn.WithRemover(knativedeployer.NewRemover(false)),
+		fn.WithDescriber(describer.NewMultiDescriber(true, knativedescriber.NewDescriber(true), k8sdescriber.NewDescriber(true))),
+		fn.WithRemover(remover.NewMultiRemover(true, knativeremover.NewRemover(true), k8sremover.NewRemover(true))),
 	)
 
 	// Function
@@ -481,7 +486,7 @@ func TestInt_EnvsUpdate(t *testing.T) {
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  registry(),
+		Registry:  fntest.Registry(),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -603,51 +608,6 @@ func TestInt_EnvsUpdate(t *testing.T) {
 
 // Helper functions
 // ================
-
-// namespace returns the integration test namespace or that specified by
-// FUNC_INT_NAMESPACE (creating if necessary)
-func namespace(t *testing.T, ctx context.Context) string {
-	t.Helper()
-
-	cliSet, err := k8s.NewKubernetesClientset()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// TODO: choose FUNC_INT_NAMESPACE if it exists?
-
-	namespace := fntest.DefaultIntTestNamespacePrefix + "-" + rand.String(5)
-
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-		Spec: corev1.NamespaceSpec{},
-	}
-	_, err = cliSet.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		err := cliSet.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
-		if err != nil {
-			t.Logf("error deleting namespace: %v", err)
-		}
-	})
-	t.Log("created namespace: ", namespace)
-
-	return namespace
-}
-
-// registry returns the registry to use for tests
-func registry() string {
-	// Use environment variable if set, otherwise use localhost registry
-	if reg := os.Getenv("FUNC_INT_TEST_REGISTRY"); reg != "" {
-		return reg
-	}
-	// Default to localhost registry (same as E2E tests)
-	return fntest.DefaultIntTestRegistry
-}
 
 // Decode response
 type result struct {

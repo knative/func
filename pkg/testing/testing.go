@@ -16,6 +16,7 @@
 package testing
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -28,6 +29,11 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
+	"knative.dev/func/pkg/k8s"
 )
 
 const DefaultIntTestRegistry = "localhost:50000/func"
@@ -322,4 +328,49 @@ func ClearEnvs(t *testing.T) {
 			t.Setenv(parts[0], "")
 		}
 	}
+}
+
+// Namespace returns the integration test namespace or that specified by
+// FUNC_INT_NAMESPACE (creating if necessary)
+func Namespace(t *testing.T, ctx context.Context) string {
+	t.Helper()
+
+	cliSet, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// TODO: choose FUNC_INT_NAMESPACE if it exists?
+
+	namespace := DefaultIntTestNamespacePrefix + "-" + rand.String(5)
+
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+		Spec: corev1.NamespaceSpec{},
+	}
+	_, err = cliSet.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		err := cliSet.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
+		if err != nil {
+			t.Logf("error deleting namespace: %v", err)
+		}
+	})
+	t.Log("created namespace: ", namespace)
+
+	return namespace
+}
+
+// Registry returns the registry to use for tests
+func Registry() string {
+	// Use environment variable if set, otherwise use localhost registry
+	if reg := os.Getenv("FUNC_INT_TEST_REGISTRY"); reg != "" {
+		return reg
+	}
+	// Default to localhost registry (same as E2E tests)
+	return DefaultIntTestRegistry
 }

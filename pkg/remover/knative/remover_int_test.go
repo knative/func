@@ -8,17 +8,27 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/rand"
+	"knative.dev/func/pkg/describer"
+	k8sdescriber "knative.dev/func/pkg/describer/k8s"
+	knativedescriber "knative.dev/func/pkg/describer/knative"
+	"knative.dev/func/pkg/lister"
+	k8slister "knative.dev/func/pkg/lister/k8s"
+	knativelister "knative.dev/func/pkg/lister/knative"
+	"knative.dev/func/pkg/remover"
+	k8sremover "knative.dev/func/pkg/remover/k8s"
+	knativeremover "knative.dev/func/pkg/remover/knative"
 
 	knativedeployer "knative.dev/func/pkg/deployer/knative"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
+	fntest "knative.dev/func/pkg/testing"
 )
 
 func TestInt_Remove(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-remove-" + rand.String(5)
 	root := t.TempDir()
-	ns := namespace(t, ctx)
+	ns := fntest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -26,9 +36,9 @@ func TestInt_Remove(t *testing.T) {
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true))),
-		fn.WithDescriber(knativedeployer.NewDescriber(false)),
-		fn.WithLister(knativedeployer.NewLister(false)),
-		fn.WithRemover(knativedeployer.NewRemover(false)),
+		fn.WithDescriber(describer.NewMultiDescriber(false, knativedescriber.NewDescriber(false), k8sdescriber.NewDescriber(false))),
+		fn.WithLister(lister.NewLister(false, knativelister.NewGetter(false), k8slister.NewGetter(false))),
+		fn.WithRemover(remover.NewMultiRemover(false, knativeremover.NewRemover(false), k8sremover.NewRemover(false))),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -36,7 +46,7 @@ func TestInt_Remove(t *testing.T) {
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  registry(),
+		Registry:  fntest.Registry(),
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -22,8 +22,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	knativedeployer "knative.dev/func/pkg/deployer/knative"
+	"knative.dev/func/pkg/describer"
+	k8sdescriber "knative.dev/func/pkg/describer/k8s"
+	knativedescriber "knative.dev/func/pkg/describer/knative"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/lister"
+	k8slister "knative.dev/func/pkg/lister/k8s"
+	knativelister "knative.dev/func/pkg/lister/knative"
 	"knative.dev/func/pkg/oci"
+	"knative.dev/func/pkg/remover"
+	k8sremover "knative.dev/func/pkg/remover/k8s"
+	knativeremover "knative.dev/func/pkg/remover/knative"
 
 	"knative.dev/func/pkg/builders/buildpacks"
 	pack "knative.dev/func/pkg/builders/buildpacks"
@@ -53,9 +62,9 @@ func newRemoteTestClient(verbose bool) *fn.Client {
 		fn.WithBuilder(pack.NewBuilder(pack.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithCredentialsProvider(testCP))),
 		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(verbose))),
-		fn.WithRemover(knativedeployer.NewRemover(verbose)),
-		fn.WithDescriber(knativedeployer.NewDescriber(verbose)),
-		fn.WithRemover(knativedeployer.NewRemover(verbose)),
+		fn.WithDescriber(describer.NewMultiDescriber(verbose, knativedescriber.NewDescriber(verbose), k8sdescriber.NewDescriber(verbose))),
+		fn.WithLister(lister.NewLister(verbose, knativelister.NewGetter(verbose), k8slister.NewGetter(verbose))),
+		fn.WithRemover(remover.NewMultiRemover(verbose, knativeremover.NewRemover(verbose), k8sremover.NewRemover(verbose))),
 		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose))),
 	)
 }

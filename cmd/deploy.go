@@ -15,12 +15,9 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client/pkg/util"
-	"knative.dev/func/pkg/deployer"
-	k8sdeployer "knative.dev/func/pkg/deployer/k8s"
-	knativedeployer "knative.dev/func/pkg/deployer/knative"
-
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -815,17 +812,9 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 
 	switch deployType {
 	case deployer.KnativeDeployerName:
-		o = append(o,
-			fn.WithDeployer(newKnativeDeployer(c.Verbose)),
-			fn.WithRemover(knativedeployer.NewRemover(c.Verbose)),
-			fn.WithDescriber(knativedeployer.NewDescriber(c.Verbose)))
-		//fn.WithLister(knativedeployer.NewLister(c.Verbose)))
+		o = append(o, fn.WithDeployer(newKnativeDeployer(c.Verbose)))
 	case deployer.KubernetesDeployerName:
-		o = append(o,
-			fn.WithDeployer(newK8sDeployer(c.Verbose)),
-			fn.WithRemover(k8sdeployer.NewRemover(c.Verbose)),
-			fn.WithDescriber(k8sdeployer.NewDescriber(c.Verbose)))
-		//fn.WithLister(k8sdeployer.NewLister(c.Verbose)))
+		o = append(o, fn.WithDeployer(newK8sDeployer(c.Verbose)))
 	default:
 		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s)", deployType, deployer.KnativeDeployerName, deployer.KubernetesDeployerName)
 	}
