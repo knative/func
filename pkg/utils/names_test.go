@@ -275,9 +275,9 @@ func TestValidateNamespace(t *testing.T) {
 		{"a", true},
 		{"a-b", true},
 		{"abc-123-xyz", true},
-		{"123app", true},      // DNS-1123 allows starting with number
-		{"123invalid", true},  // DNS-1123 allows starting with number
-		{"1", true},           // single number is valid
+		{"123app", true},     // DNS-1123 allows starting with number
+		{"123invalid", true}, // DNS-1123 allows starting with number
+		{"1", true},          // single number is valid
 
 		// Invalid namespaces
 		{"My-App", false},            // uppercase not allowed
