@@ -311,6 +311,7 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 			return nil, 0, &ErrEnvNotExist{Name: name}
 		}
 	}
+	
 	errMsg := fn.ValidateEnvs(envs)
 	if len(errMsg) > 0 {
 		return []fn.Env{}, 0, fmt.Errorf("error(s) while validating envs: %s", strings.Join(errMsg, "\n"))
