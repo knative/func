@@ -31,11 +31,11 @@ import (
 	knativedeployer "knative.dev/func/pkg/deployer/knative"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	k8stest "knative.dev/func/pkg/k8s/testing"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
-	v1 "knative.dev/pkg/apis/duck/v1"
-
 	fntest "knative.dev/func/pkg/testing"
+	v1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // TestInt_Deploy ensures that the deployer creates a callable service.
@@ -45,7 +45,7 @@ func TestInt_Deploy(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-deploy-" + rand.String(5)
 	root := t.TempDir()
-	ns := fntest.Namespace(t, ctx)
+	ns := k8stest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -116,7 +116,7 @@ func TestInt_Metadata(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-metadata-" + rand.String(5)
 	root := t.TempDir()
-	ns := fntest.Namespace(t, ctx)
+	ns := k8stest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -282,7 +282,7 @@ func TestInt_Events(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-events-" + rand.String(5)
 	root := t.TempDir()
-	ns := fntest.Namespace(t, ctx)
+	ns := k8stest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -358,7 +358,7 @@ func TestInt_Scale(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-scale-" + rand.String(5)
 	root := t.TempDir()
-	ns := fntest.Namespace(t, ctx)
+	ns := k8stest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -471,7 +471,7 @@ func TestInt_EnvsUpdate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-envsupdate-" + rand.String(5)
 	root := t.TempDir()
-	ns := fntest.Namespace(t, ctx)
+	ns := k8stest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 

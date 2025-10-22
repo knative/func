@@ -1,10 +1,11 @@
-package functions
+package functions_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
+	. "knative.dev/func/pkg/functions"
 	. "knative.dev/func/pkg/testing"
 )
 

@@ -11,13 +11,14 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 	fntest "knative.dev/func/pkg/testing"
+	fnk8stest "knative.dev/func/pkg/testing/k8s"
 )
 
 func DescribeIntegrationTest(t *testing.T, describer fn.Describer, deployer fn.Deployer, remover fn.Remover) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-describe-" + rand.String(5)
 	root := t.TempDir()
-	ns := fntest.Namespace(t, ctx)
+	ns := fnk8stest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 

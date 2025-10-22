@@ -1,4 +1,4 @@
-package functions
+package functions_test
 
 import (
 	"os"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v2"
+	. "knative.dev/func/pkg/functions"
 	fnlabels "knative.dev/func/pkg/k8s/labels"
 
 	. "knative.dev/func/pkg/testing"

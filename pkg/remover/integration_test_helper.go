@@ -11,13 +11,14 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 	fntest "knative.dev/func/pkg/testing"
+	fnk8stest "knative.dev/func/pkg/testing/k8s"
 )
 
 func IntegrationTest(t *testing.T, remover fn.Remover, deployer fn.Deployer, describer fn.Describer, lister fn.Lister) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-remove-" + rand.String(5)
 	root := t.TempDir()
-	ns := fntest.Namespace(t, ctx)
+	ns := fnk8stest.Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 

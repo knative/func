@@ -74,7 +74,7 @@ const (
 
 var (
 	Go         = getEnvAsBin("FUNC_INT_GO", "go")
-	Git        = getEnvAsBin("FUNC_INT_GIT", "git")
+	GitBin     = getEnvAsBin("FUNC_INT_GIT", "git")
 	Kubeconfig = getEnvAsPath("FUNC_INT_KUBECONFIG", DefaultIntTestKubeconfig)
 	Verbose    = getEnvAsBool("FUNC_INT_VERBOSE", DefaultIntTestVerbose)
 	Home, _    = filepath.Abs(DefaultIntTestHome)
@@ -647,7 +647,7 @@ func resetEnv() {
 	os.Setenv("HOME", Home)
 	os.Setenv("KUBECONFIG", Kubeconfig)
 	os.Setenv("FUNC_GO", Go)
-	os.Setenv("FUNC_GIT", Git)
+	os.Setenv("FUNC_GIT", GitBin)
 	os.Setenv("FUNC_VERBOSE", fmt.Sprintf("%t", Verbose))
 
 	// The Registry will be set either during first-time setup using the
