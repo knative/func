@@ -108,17 +108,12 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 			},
 		},
 		{
-			Header: "MCP Commands:",
-			Commands: []*cobra.Command{
-				NewMCPServerCmd(),
-			},
-		},
-		{
 			Header: "Other Commands:",
 			Commands: []*cobra.Command{
 				NewCompletionCmd(),
 				NewVersionCmd(cfg.Version),
 				NewTektonClusterTasksCmd(),
+				NewMCPCmd(newClient),
 			},
 		},
 	}

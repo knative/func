@@ -14,6 +14,9 @@
 /pkg/functions/testdata/default_home/go
 /pkg/functions/testdata/default_home/.cache
 /pkg/functions/testdata/migrations/*/.gitignore
+/pkg/creds/auth.json
+/pkg/oci/testdata/test-links/absoluteLink
+/pkg/oci/testdata/test-links/absoluteLinkWindows
 
 # Go
 /templates/go/cloudevents/go.sum
