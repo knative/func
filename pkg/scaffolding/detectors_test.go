@@ -67,7 +67,7 @@ func Handle() { }
 		{
 			Name: "Static and Instanced - error",
 			Sig:  UnknownSignature,
-			Err:  errors.New("error expected"), // TODO: typed error and err.Is/As
+			Err:  errors.New("error expected"),
 			Src: `
 package f
 func Handle() { }
@@ -76,7 +76,7 @@ func New() { }
 		{
 			Name: "No Signatures Found - error",
 			Sig:  UnknownSignature,
-			Err:  errors.New("error expected"), // TODO: typed error and err.Is/As
+			Err:  errors.New("error expected"),
 			Src: `
 package f
 // Intentionally Blank
@@ -127,10 +127,11 @@ func (f *MyFunction) Handle() {}
 			}
 
 			if test.Err != nil {
-				if err == nil {
-					t.Fatal("expected error not received")
+				var sigErr *SignatureError
+				if !errors.As(err, &sigErr) {
+					t.Fatalf("expected SignatureError, got:%v", err)
 				} else {
-					t.Logf("received expected error: %v", err)
+					t.Logf("received expected error: %v", sigErr)
 				}
 			}
 

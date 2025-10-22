@@ -10,6 +10,14 @@ import (
 	"strings"
 )
 
+type SignatureError struct {
+	Msg string
+}
+
+func (e *SignatureError) Error() string {
+	return fmt.Sprintf("signature detection error: %s", e.Msg)
+}
+
 // detector of method signatures.  Each instance is for a given runtime.
 type detector interface {
 	Detect(dir string) (static, instanced bool, err error)
@@ -58,7 +66,13 @@ func (d goDetector) Detect(dir string) (static, instanced bool, err error) {
 			static = true
 		}
 	}
-	return
+	if static && instanced {
+		return static, instanced, &SignatureError{Msg: "both static and instanced signatures found"}
+	}
+	if !static && !instanced {
+		return static, instanced, &SignatureError{Msg: "no signatures found"}
+	}
+	return static, instanced, nil
 }
 
 func (d goDetector) hasFunctionDeclaration(filename, function string) bool {
