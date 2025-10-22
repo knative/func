@@ -129,7 +129,7 @@ func (f *MyFunction) Handle() {}
 			if test.Err != nil {
 				var sigErr *SignatureError
 				if !errors.As(err, &sigErr) {
-					t.Fatalf("expected SignatureError, got: %v", err)
+					t.Fatalf("expected SignatureError, got:%v", err)
 				} else {
 					t.Logf("received expected error: %v", sigErr)
 				}
