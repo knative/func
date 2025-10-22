@@ -421,6 +421,14 @@ For more options, run 'func deploy --help'`, err)
 	return f.Stamp()
 }
 
+type ErrEnvNotExist struct {
+	Name string
+}
+
+func (e ErrEnvNotExist) Error() string {
+	return fmt.Sprintf("environment variable %q does not exist", e.Name)
+}
+
 // build when flag == 'auto' and the function is out-of-date, or when the
 // flag value is explicitly truthy such as 'true' or '1'.  Error if flag
 // is neither 'auto' nor parseable as a boolean.  Return CLI-specific error
