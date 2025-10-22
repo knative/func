@@ -275,13 +275,13 @@ func TestValidateNamespace(t *testing.T) {
 		{"a", true},
 		{"a-b", true},
 		{"abc-123-xyz", true},
+		{"123app", true},      // DNS-1123 allows starting with number
+		{"123invalid", true},  // DNS-1123 allows starting with number
+		{"1", true},           // single number is valid
 
 		// Invalid namespaces
-		{"", false},                  // empty
 		{"My-App", false},            // uppercase not allowed
 		{"MY-APP", false},            // uppercase not allowed
-		{"123app", false},            // cannot start with number
-		{"123invalid", false},        // cannot start with number
 		{"my_app", false},            // underscore not allowed
 		{"my app", false},            // spaces not allowed
 		{"invalid namespace", false}, // spaces not allowed
@@ -315,7 +315,7 @@ func TestValidateDomainErrMsg(t *testing.T) {
 
 	err := ValidateDomain(invalidDomain)
 func TestValidateNamespaceErrMsg(t *testing.T) {
-	invalidNamespace := "123invalid"
+	invalidNamespace := "my@app"
 	errMsgPrefix := fmt.Sprintf("Namespace '%v'", invalidNamespace)
 
 	err := ValidateNamespace(invalidNamespace)
