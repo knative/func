@@ -9,40 +9,134 @@ import (
 const (
 	ConfigCIFeatureFlag = "FUNC_ENABLE_CI_CONFIG"
 
-	DefaultGithubWorkflowDir      = ".github/workflows"
-	DefaultGithubWorkflowFilename = "func-deploy.yaml"
+	PathFlag = "path"
 
-	PathOption = "path"
+	DefaultGitHubWorkflowDir      = ".github/workflows"
+	DefaultGitHubWorkflowFilename = "func-deploy.yaml"
 
-	WorkflowNameOption  = "workflow-name"
+	BranchFlag    = "branch"
+	DefaultBranch = "main"
+
+	WorkflowNameFlag    = "workflow-name"
 	DefaultWorkflowName = "Func Deploy"
+
+	KubeconfigSecretNameFlag    = "kubeconfig-secret-name"
+	DefaultKubeconfigSecretName = "KUBECONFIG"
+
+	RegistryLoginUrlVariableNameFlag    = "registry-login-url-variable-name"
+	DefaultRegistryLoginUrlVariableName = "REGISTRY_LOGIN_URL"
+
+	RegistryUserVariableNameFlag    = "registry-user-variable-name"
+	DefaultRegistryUserVariableName = "REGISTRY_USERNAME"
+
+	RegistryPassSecretNameFlag    = "registry-pass-secret-name"
+	DefaultRegistryPassSecretName = "REGISTRY_PASSWORD"
+
+	RegistryUrlVariableNameFlag    = "registry-url-variable-name"
+	DefaultRegistryUrlVariableName = "REGISTRY_URL"
+
+	UseRegistryLoginFlag    = "use-registry-login"
+	DefaultUseRegistryLogin = true
+
+	UseDebugFlag    = "debug"
+	DefaultUseDebug = false
+
+	UseRemoteBuildFlag    = "remote"
+	DefaultUseRemoteBuild = false
+
+	UseSelfHostedRunnerFlag    = "self-hosted-runner"
+	DefaultUseSelfHostedRunner = false
 )
 
-// CIConfig readonly CI configuration
+// CIConfig readonly configuration
 type CIConfig struct {
 	githubWorkflowDir,
 	githubWorkflowFilename,
 	path,
-	workflowName string
+	branch,
+	workflowName,
+	kubeconfigSecret,
+	registryLoginUrlVar,
+	registryUserVar,
+	registryPassSecret,
+	registryUrlVar string
+	useRegistryLogin,
+	useRemoteBuild,
+	useSelfHostedRunner,
+	debug bool
 }
 
-func NewCiGithubConfig() CIConfig {
+func NewCIGitHubConfig() CIConfig {
 	return CIConfig{
-		githubWorkflowDir:      DefaultGithubWorkflowDir,
-		githubWorkflowFilename: DefaultGithubWorkflowFilename,
-		path:                   viper.GetString(PathOption),
-		workflowName:           viper.GetString(WorkflowNameOption),
+		githubWorkflowDir:      DefaultGitHubWorkflowDir,
+		githubWorkflowFilename: DefaultGitHubWorkflowFilename,
+		path:                   viper.GetString(PathFlag),
+		branch:                 viper.GetString(BranchFlag),
+		workflowName:           viper.GetString(WorkflowNameFlag),
+		kubeconfigSecret:       viper.GetString(KubeconfigSecretNameFlag),
+		registryLoginUrlVar:    viper.GetString(RegistryLoginUrlVariableNameFlag),
+		registryUserVar:        viper.GetString(RegistryUserVariableNameFlag),
+		registryPassSecret:     viper.GetString(RegistryPassSecretNameFlag),
+		registryUrlVar:         viper.GetString(RegistryUrlVariableNameFlag),
+		useRegistryLogin:       viper.GetBool(UseRegistryLoginFlag),
+		useRemoteBuild:         viper.GetBool(UseRemoteBuildFlag),
+		useSelfHostedRunner:    viper.GetBool(UseSelfHostedRunnerFlag),
+		debug:                  viper.GetBool(UseDebugFlag),
 	}
 }
 
-func (cc *CIConfig) FnGithubWorkflowDir(fnRoot string) string {
+func (cc *CIConfig) FnGitHubWorkflowDir(fnRoot string) string {
 	return filepath.Join(fnRoot, cc.githubWorkflowDir)
 }
 
-func (cc *CIConfig) FnGithubWorkflowFilepath(fnRoot string) string {
-	return filepath.Join(cc.FnGithubWorkflowDir(fnRoot), cc.githubWorkflowFilename)
+func (cc *CIConfig) FnGitHubWorkflowFilepath(fnRoot string) string {
+	return filepath.Join(cc.FnGitHubWorkflowDir(fnRoot), cc.githubWorkflowFilename)
 }
 
 func (cc *CIConfig) Path() string {
 	return cc.path
+}
+
+func (cc *CIConfig) WorkflowName() string {
+	return cc.workflowName
+}
+
+func (cc *CIConfig) Branch() string {
+	return cc.branch
+}
+
+func (cc *CIConfig) UseRegistryLogin() bool {
+	return cc.useRegistryLogin
+}
+
+func (cc *CIConfig) UseRemoteBuild() bool {
+	return cc.useRemoteBuild
+}
+
+func (cc *CIConfig) UseSelfHostedRunner() bool {
+	return cc.useSelfHostedRunner
+}
+
+func (cc *CIConfig) UseDebug() bool {
+	return cc.debug
+}
+
+func (cc *CIConfig) KubeconfigSecret() string {
+	return cc.kubeconfigSecret
+}
+
+func (cc *CIConfig) RegistryLoginUrlVar() string {
+	return cc.registryLoginUrlVar
+}
+
+func (cc *CIConfig) RegistryUserVar() string {
+	return cc.registryUserVar
+}
+
+func (cc *CIConfig) RegistryPassSecret() string {
+	return cc.registryPassSecret
+}
+
+func (cc *CIConfig) RegistryUrlVar() string {
+	return cc.registryUrlVar
 }
