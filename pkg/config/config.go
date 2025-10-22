@@ -202,7 +202,7 @@ func RepositoriesPath() string {
 }
 
 // CreatePaths is a convenience function for creating the on-disk func config
-// structure.  All operations should be tolerant of nonexistant disk
+// structure. All operations should be tolerant of nonexistent disk
 // footprint where possible (for example listing repositories should not
 // require an extant path, but _adding_ a repository does require that the func
 // config structure exist.

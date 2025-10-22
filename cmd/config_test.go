@@ -43,7 +43,7 @@ func TestListEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !envsEqual(envs, data) {
-		t.Errorf("env mismatch, expedted %v but got %v", envs, data)
+		t.Errorf("env mismatch, expected %v but got %v", envs, data)
 	}
 }
 
