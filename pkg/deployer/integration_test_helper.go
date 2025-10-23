@@ -427,7 +427,6 @@ func IntegrationTest_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remove
 	// ----------
 
 	// Check the actual number of pods running using Kubernetes API
-	// This is much more reliable than checking logs
 	cliSet, err := k8s.NewKubernetesClientset()
 	if err != nil {
 		t.Fatal(err)
@@ -462,12 +461,12 @@ func IntegrationTest_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remove
 // IntegrationTest_EnvsUpdate ensures that removing and updating envs are correctly
 // reflected during a deployment update.
 func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployType string) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	ctx, _ := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-envsupdate-" + rand.String(5)
 	root := t.TempDir()
 	ns := k8stest.Namespace(t, ctx)
 
-	t.Cleanup(cancel)
+	//t.Cleanup(cancel)
 
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", false)),
@@ -523,12 +522,12 @@ func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.R
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
+	/*t.Cleanup(func() {
 		err := client.Remove(ctx, "", "", f, true)
 		if err != nil {
 			t.Logf("error removing Function: %v", err)
 		}
-	})
+	})*/
 
 	// Wait for function to be ready
 	instance, err := client.Describe(ctx, "", "", f)
