@@ -119,7 +119,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 			}
 		}
 	}()
-	
+
 	if err = c.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
 		return job, errors.Wrap(err, "runner unable to start container")
 	}
