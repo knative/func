@@ -572,6 +572,16 @@ func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.R
 		t.Fatal(err)
 	}
 
+	cliSet, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	selector := fmt.Sprintf("function.knative.dev/name=%s", f.Name)
+	err = k8s.WaitForDeploymentAvailableBySelector(ctx, cliSet, ns, selector, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Assertions
 	// ----------
 	_, result = invoke(t, ctx, instance.Route, deployType)

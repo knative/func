@@ -28,57 +28,84 @@ func WaitForDeploymentAvailable(ctx context.Context, clientset *kubernetes.Clien
 			return false, err
 		}
 
-		// Check if the deployment has the desired number of replicas
-		if deployment.Spec.Replicas == nil {
-			return false, fmt.Errorf("deployment %s has nil replicas", deploymentName)
+		return checkIfDeploymentIsAvailable(ctx, clientset, deployment)
+	})
+}
+
+func WaitForDeploymentAvailableBySelector(ctx context.Context, clientset *kubernetes.Clientset, namespace, selector string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	return wait.PollUntilContextCancel(ctx, 1*time.Second, true, func(ctx context.Context) (bool, error) {
+		deployments, err := clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if err != nil {
+			return false, err
 		}
 
-		desiredReplicas := *deployment.Spec.Replicas
-
-		// Check if deployment is available
-		for _, condition := range deployment.Status.Conditions {
-			if condition.Type == appsv1.DeploymentAvailable && condition.Status == corev1.ConditionTrue {
-				// Also verify that all replicas are updated, ready, and available
-				if deployment.Status.UpdatedReplicas == desiredReplicas &&
-					deployment.Status.ReadyReplicas == desiredReplicas &&
-					deployment.Status.AvailableReplicas == desiredReplicas &&
-					deployment.Status.UnavailableReplicas == 0 {
-
-					// Verify all pods are actually running
-					labelSelector := metav1.FormatLabelSelector(deployment.Spec.Selector)
-					pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
-						LabelSelector: labelSelector,
-					})
-					if err != nil {
-						return false, err
-					}
-
-					// Count running pods
-					runningPods := 0
-					for _, pod := range pods.Items {
-						if pod.Status.Phase == corev1.PodRunning {
-							// Verify all containers in the pod are ready
-							allContainersReady := true
-							for _, containerStatus := range pod.Status.ContainerStatuses {
-								if !containerStatus.Ready {
-									allContainersReady = false
-									break
-								}
-							}
-							if allContainersReady {
-								runningPods++
-							}
-						}
-					}
-
-					// Ensure we have the desired number of running pods
-					if int32(runningPods) == desiredReplicas {
-						return true, nil
-					}
-				}
+		for _, deployment := range deployments.Items {
+			ready, err := checkIfDeploymentIsAvailable(ctx, clientset, &deployment)
+			if err != nil || !ready {
+				return ready, err
 			}
 		}
 
-		return false, nil
+		return true, nil
 	})
+}
+
+func checkIfDeploymentIsAvailable(ctx context.Context, clientset *kubernetes.Clientset, deployment *appsv1.Deployment) (bool, error) {
+	// Check if the deployment has the desired number of replicas
+	if deployment.Spec.Replicas == nil {
+		return false, fmt.Errorf("deployment %s has nil replicas", deployment.Name)
+	}
+
+	desiredReplicas := *deployment.Spec.Replicas
+
+	// Check if deployment is available
+	for _, condition := range deployment.Status.Conditions {
+		if condition.Type == appsv1.DeploymentAvailable && condition.Status == corev1.ConditionTrue {
+			// Also verify that all replicas are updated, ready, and available
+			if deployment.Status.UpdatedReplicas == desiredReplicas &&
+				deployment.Status.ReadyReplicas == desiredReplicas &&
+				deployment.Status.AvailableReplicas == desiredReplicas &&
+				deployment.Status.UnavailableReplicas == 0 {
+
+				// Verify all pods are actually running
+				labelSelector := metav1.FormatLabelSelector(deployment.Spec.Selector)
+				pods, err := clientset.CoreV1().Pods(deployment.Namespace).List(ctx, metav1.ListOptions{
+					LabelSelector: labelSelector,
+				})
+				if err != nil {
+					return false, err
+				}
+
+				// Count running pods
+				runningPods := 0
+				for _, pod := range pods.Items {
+					if pod.Status.Phase == corev1.PodRunning {
+						// Verify all containers in the pod are ready
+						allContainersReady := true
+						for _, containerStatus := range pod.Status.ContainerStatuses {
+							if !containerStatus.Ready {
+								allContainersReady = false
+								break
+							}
+						}
+						if allContainersReady {
+							runningPods++
+						}
+					}
+				}
+
+				// Ensure we have the desired number of running pods
+				if int32(runningPods) == desiredReplicas {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
 }
