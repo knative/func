@@ -81,26 +81,19 @@ func checkIfDeploymentIsAvailable(ctx context.Context, clientset *kubernetes.Cli
 					return false, err
 				}
 
-				// Count running pods
-				runningPods := 0
+				// Count ready pods
+				readyPods := 0
 				for _, pod := range pods.Items {
-					if pod.Status.Phase == corev1.PodRunning {
-						// Verify all containers in the pod are ready
-						allContainersReady := true
-						for _, containerStatus := range pod.Status.ContainerStatuses {
-							if !containerStatus.Ready {
-								allContainersReady = false
-								break
-							}
-						}
-						if allContainersReady {
-							runningPods++
+					for _, podCondition := range pod.Status.Conditions {
+						if podCondition.Type == corev1.PodReady && podCondition.Status == corev1.ConditionTrue {
+							readyPods++
+							break
 						}
 					}
 				}
 
 				// Ensure we have the desired number of running pods
-				if int32(runningPods) == desiredReplicas {
+				if int32(readyPods) == desiredReplicas {
 					return true, nil
 				}
 			}
