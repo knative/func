@@ -139,7 +139,7 @@ check-embedded-fs: ## Check the embedded templates FS
 
 # TODO: add linters for other templates
 .PHONY: check-templates
-check-templates: check-go check-rust ## Run template source code checks
+check-templates: check-go check-rust check-node ## Run template source code checks
 
 .PHONY: check-go
 check-go: ## Check Go templates' source
@@ -152,6 +152,11 @@ check-go: ## Check Go templates' source
 check-rust: ## Check Rust templates' source
 	cd templates/rust/cloudevents && cargo clippy && cargo clean
 	cd templates/rust/http && cargo clippy && cargo clean
+
+.PHONY: check-node
+check-node: ## Check Node templates' source
+	cd templates/node/cloudevents && npm ci && npm run lint
+	cd templates/node/http && npm ci && npm run lint
 
 .PHONY: test-templates
 test-templates: test-go test-node test-python test-quarkus test-springboot test-rust test-typescript ## Run all template tests

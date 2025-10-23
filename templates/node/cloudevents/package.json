@@ -10,9 +10,13 @@
   "scripts": {
     "test": "node test/unit.js && node test/integration.js",
     "start": "FUNC_LOG_LEVEL=info faas-js-runtime ./index.js",
+    "lint": "eslint .",
     "debug": "nodemon --inspect ./node_modules/faas-js-runtime/bin/cli.js ./index.js"
   },
   "devDependencies": {
+    "@eslint/js": "^9.38.0",
+    "eslint": "^9.38.0",
+    "globals": "^16.4.0",
     "nodemon": "^3.0.1",
     "supertest": "^6.3.1",
     "tape": "^4.13.0"
