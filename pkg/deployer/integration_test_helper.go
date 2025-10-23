@@ -536,6 +536,10 @@ func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.R
 		t.Fatal(err)
 	}
 
+	// give a bit time to scale down the old deployments
+	// TODO: replace with some wait until the rollout processed
+	time.Sleep(5 * time.Second)
+
 	// Assert Initial ENVS are set
 	// ----------
 	_, result := invoke(t, ctx, instance.Route, deployType)
