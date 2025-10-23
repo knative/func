@@ -2,6 +2,8 @@ package docker
 
 import (
 	"context"
+	"strings"
+	"path/filepath"
 	"fmt"
 	"io"
 	"net"
@@ -205,7 +207,7 @@ func newContainer(ctx context.Context, c client.APIClient, f fn.Function, host, 
 	if containerCfg, err = newContainerConfig(f, port, verbose); err != nil {
 		return
 	}
-	if hostCfg, err = newHostConfig(host, port); err != nil {
+	if hostCfg, err = newHostConfig(f, host, port); err != nil {
 		return
 	}
 	t, err := c.ContainerCreate(ctx, &containerCfg, &hostCfg, nil, nil, "")
@@ -244,7 +246,7 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	return
 }
 
-func newHostConfig(host, port string) (c container.HostConfig, err error) {
+func newHostConfig(f fn.Function, host, port string) (c container.HostConfig, err error) {
 	// httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
 	httpPort := nat.Port("8080/tcp")
 	ports := map[nat.Port][]nat.PortBinding{
@@ -255,7 +257,57 @@ func newHostConfig(host, port string) (c container.HostConfig, err error) {
 			},
 		},
 	}
-	return container.HostConfig{PortBindings: ports}, nil
+
+	c = container.HostConfig{
+		PortBindings: ports,
+		Binds:        []string{},
+	}
+
+	for _, vol := range f.Run.Volumes {
+		var hostPath string
+
+		if vol.ConfigMap != nil {
+			hostPath, _ = filepath.Abs(filepath.Join(".func/run/configmaps", *vol.ConfigMap))
+		} else if vol.Secret != nil {
+			hostPath, _ = filepath.Abs(filepath.Join(".func/run/secrets", *vol.Secret))
+		} else if vol.EmptyDir != nil {
+			if c.Tmpfs == nil {
+				c.Tmpfs = map[string]string{}
+			}
+			c.Tmpfs[*vol.Path] = "size=64m"
+			continue
+		} else if vol.PersistentVolumeClaim != nil {
+			hostPath, _ = filepath.Abs(filepath.Join(".func/run/pvcs", *vol.PersistentVolumeClaim.ClaimName))
+		} else {
+			continue
+		}
+
+
+		// Security: only allow .func folder
+		absHostPath, _ := filepath.Abs(hostPath)
+		absFuncPath, _ := filepath.Abs(".func")
+		if !strings.HasPrefix(absHostPath, absFuncPath) {
+			volIdentifier := ""
+			switch {
+			case vol.ConfigMap != nil:
+				volIdentifier = *vol.ConfigMap
+			case vol.Secret != nil:
+				volIdentifier = *vol.Secret
+			case vol.PersistentVolumeClaim != nil && vol.PersistentVolumeClaim.ClaimName != nil:
+				volIdentifier = *vol.PersistentVolumeClaim.ClaimName
+			case vol.EmptyDir != nil:
+				volIdentifier = "EmptyDir"
+			}
+			fmt.Fprintf(os.Stderr, "Warning: volume %s maps outside .func, skipping\n", volIdentifier)
+			continue
+		}
+
+		if vol.Path != nil {
+			c.Binds = append(c.Binds, fmt.Sprintf("%s:%s", hostPath, *vol.Path))
+		}
+		
+	}
+	return c, nil
 }
 
 // copy stdin and stdout from the container of the given ID.  Errors encountered
