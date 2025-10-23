@@ -14,7 +14,7 @@ import (
 	fnk8stest "knative.dev/func/pkg/testing/k8s"
 )
 
-func IntegrationTest(t *testing.T, remover fn.Remover, deployer fn.Deployer, describer fn.Describer, lister fn.Lister) {
+func IntegrationTest(t *testing.T, remover fn.Remover, deployer fn.Deployer, describer fn.Describer, lister fn.Lister, deployType string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-remove-" + rand.String(5)
 	root := t.TempDir()
@@ -37,6 +37,9 @@ func IntegrationTest(t *testing.T, remover fn.Remover, deployer fn.Deployer, des
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  fntest.Registry(),
+		Deploy: fn.DeploySpec{
+			DeployType: deployType,
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +70,7 @@ func IntegrationTest(t *testing.T, remover fn.Remover, deployer fn.Deployer, des
 	}
 
 	// Verify with list
-	list, err := client.List(ctx, "")
+	list, err := client.List(ctx, ns)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +91,7 @@ func IntegrationTest(t *testing.T, remover fn.Remover, deployer fn.Deployer, des
 	}
 
 	// Verify it is no longer listed
-	list, err = client.List(ctx, "")
+	list, err = client.List(ctx, ns)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,7 +14,7 @@ import (
 	fnk8stest "knative.dev/func/pkg/testing/k8s"
 )
 
-func DescribeIntegrationTest(t *testing.T, describer fn.Describer, deployer fn.Deployer, remover fn.Remover) {
+func DescribeIntegrationTest(t *testing.T, describer fn.Describer, deployer fn.Deployer, remover fn.Remover, deployType string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-describe-" + rand.String(5)
 	root := t.TempDir()
@@ -36,6 +36,9 @@ func DescribeIntegrationTest(t *testing.T, describer fn.Describer, deployer fn.D
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  fntest.Registry(),
+		Deploy: fn.DeploySpec{
+			DeployType: deployType,
+		},
 	})
 	if err != nil {
 		t.Fatal(err)

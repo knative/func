@@ -5,6 +5,7 @@ package knative_test
 import (
 	"testing"
 
+	"knative.dev/func/pkg/deployer"
 	knativedeployer "knative.dev/func/pkg/deployer/knative"
 	knativedescriber "knative.dev/func/pkg/describer/knative"
 	"knative.dev/func/pkg/lister"
@@ -20,5 +21,6 @@ func TestInt_List(t *testing.T) {
 			k8slister.NewGetter(true)),
 		knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true)),
 		knativedescriber.NewDescriber(true),
-		knativeremover.NewRemover(true))
+		knativeremover.NewRemover(true),
+		deployer.KnativeDeployerName)
 }

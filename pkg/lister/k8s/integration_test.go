@@ -5,6 +5,7 @@ package k8s_test
 import (
 	"testing"
 
+	"knative.dev/func/pkg/deployer"
 	k8sdeployer "knative.dev/func/pkg/deployer/k8s"
 	k8sdescriber "knative.dev/func/pkg/describer/k8s"
 	"knative.dev/func/pkg/lister"
@@ -20,5 +21,6 @@ func TestInt_List(t *testing.T) {
 			k8slister.NewGetter(true)),
 		k8sdeployer.NewDeployer(k8sdeployer.WithDeployerVerbose(true)),
 		k8sdescriber.NewDescriber(true),
-		k8sremover.NewRemover(true))
+		k8sremover.NewRemover(true),
+		deployer.KubernetesDeployerName)
 }
