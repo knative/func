@@ -15,10 +15,50 @@ import (
 )
 
 func TestIntegration(t *testing.T) {
-	deployer.IntegrationTest(t,
+	deployer.IntegrationTest_FullPath(t,
 		k8sdeployer.NewDeployer(k8sdeployer.WithDeployerVerbose(false)),
 		k8sremover.NewRemover(false),
 		lister.NewLister(false, nil, k8slister.NewGetter(false)),
+		k8sdescriber.NewDescriber(false),
+		deployer.KubernetesDeployerName)
+}
+
+func TestIntegration_Deploy(t *testing.T) {
+	deployer.IntegrationTest_Deploy(t,
+		k8sdeployer.NewDeployer(k8sdeployer.WithDeployerVerbose(false)),
+		k8sremover.NewRemover(false),
+		k8sdescriber.NewDescriber(false),
+		deployer.KubernetesDeployerName)
+}
+
+func TestIntegration_Metadata(t *testing.T) {
+	deployer.IntegrationTest_Metadata(t,
+		k8sdeployer.NewDeployer(k8sdeployer.WithDeployerVerbose(false)),
+		k8sremover.NewRemover(false),
+		k8sdescriber.NewDescriber(false),
+		deployer.KubernetesDeployerName)
+}
+
+func TestIntegration_Events(t *testing.T) {
+	deployer.IntegrationTest_Events(t,
+		k8sdeployer.NewDeployer(k8sdeployer.WithDeployerVerbose(false)),
+		k8sremover.NewRemover(false),
+		k8sdescriber.NewDescriber(false),
+		deployer.KubernetesDeployerName)
+}
+
+func TestIntegration_Scale(t *testing.T) {
+	deployer.IntegrationTest_Scale(t,
+		k8sdeployer.NewDeployer(k8sdeployer.WithDeployerVerbose(false)),
+		k8sremover.NewRemover(false),
+		k8sdescriber.NewDescriber(false),
+		deployer.KubernetesDeployerName)
+}
+
+func TestIntegration_EnvsUpdate(t *testing.T) {
+	deployer.IntegrationTest_EnvsUpdate(t,
+		k8sdeployer.NewDeployer(k8sdeployer.WithDeployerVerbose(false)),
+		k8sremover.NewRemover(false),
 		k8sdescriber.NewDescriber(false),
 		deployer.KubernetesDeployerName)
 }

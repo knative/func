@@ -15,10 +15,50 @@ import (
 )
 
 func TestIntegration(t *testing.T) {
-	deployer.IntegrationTest(t,
+	deployer.IntegrationTest_FullPath(t,
 		knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true)),
 		knativeremover.NewRemover(true),
 		lister.NewLister(true, knativelister.NewGetter(true), nil),
 		knativedescriber.NewDescriber(true),
+		deployer.KnativeDeployerName)
+}
+
+func TestIntegration_Deploy(t *testing.T) {
+	deployer.IntegrationTest_Deploy(t,
+		knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true)),
+		knativeremover.NewRemover(false),
+		knativedescriber.NewDescriber(false),
+		deployer.KnativeDeployerName)
+}
+
+func TestIntegration_Metadata(t *testing.T) {
+	deployer.IntegrationTest_Metadata(t,
+		knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true)),
+		knativeremover.NewRemover(false),
+		knativedescriber.NewDescriber(false),
+		deployer.KnativeDeployerName)
+}
+
+func TestIntegration_Events(t *testing.T) {
+	deployer.IntegrationTest_Events(t,
+		knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true)),
+		knativeremover.NewRemover(false),
+		knativedescriber.NewDescriber(false),
+		deployer.KnativeDeployerName)
+}
+
+func TestIntegration_Scale(t *testing.T) {
+	deployer.IntegrationTest_Scale(t,
+		knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true)),
+		knativeremover.NewRemover(false),
+		knativedescriber.NewDescriber(false),
+		deployer.KnativeDeployerName)
+}
+
+func TestIntegration_EnvsUpdate(t *testing.T) {
+	deployer.IntegrationTest_EnvsUpdate(t,
+		knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true)),
+		knativeremover.NewRemover(false),
+		knativedescriber.NewDescriber(false),
 		deployer.KnativeDeployerName)
 }
