@@ -19,10 +19,7 @@ import (
 // - There are no unavailable replicas
 // - All pods associated with the deployment are running
 func WaitForDeploymentAvailable(ctx context.Context, clientset *kubernetes.Clientset, namespace, deploymentName string, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	return wait.PollUntilContextCancel(ctx, 1*time.Second, true, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -33,10 +30,7 @@ func WaitForDeploymentAvailable(ctx context.Context, clientset *kubernetes.Clien
 }
 
 func WaitForDeploymentAvailableBySelector(ctx context.Context, clientset *kubernetes.Clientset, namespace, selector string, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	return wait.PollUntilContextCancel(ctx, 1*time.Second, true, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		deployments, err := clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: selector,
 		})
