@@ -448,6 +448,8 @@ func TestDeploy_Envs(t *testing.T) {
 		t.Fatalf("Expected no envs to remain, got '%v'", f.Run.Envs)
 	}
 
+	// TODO: create and test typed errors for ErrEnvNotExist etc.
+
 	cmd = NewDeployCmd(NewTestClient())
 	cmd.SetArgs([]string{"--env=DOES_NOT_EXIST-"})
 	err = cmd.Execute()
