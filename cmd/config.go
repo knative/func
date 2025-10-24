@@ -12,7 +12,8 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-func NewConfigCmd(loadSaver common.FunctionLoaderSaver, newClient ClientFactory) *cobra.Command {
+// TODO(twoGiants): move CIConfig later to a different place, probably to ./pkg/ci/*
+func NewConfigCmd(loadSaver common.FunctionLoaderSaver, newClient ClientFactory, TEMP_ciConfig CIConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Configure a function",
@@ -38,7 +39,7 @@ or from the directory specified with --path.
 	cmd.AddCommand(NewConfigLabelsCmd(loadSaver))
 	cmd.AddCommand(NewConfigEnvsCmd(loadSaver))
 	cmd.AddCommand(NewConfigVolumesCmd())
-	cmd.AddCommand(NewConfigCICmd(loadSaver))
+	cmd.AddCommand(NewConfigCICmd(loadSaver, TEMP_ciConfig))
 
 	return cmd
 }
