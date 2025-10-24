@@ -66,7 +66,31 @@ func checkIfDeploymentIsAvailable(ctx context.Context, clientset *kubernetes.Cli
 				deployment.Status.AvailableReplicas == desiredReplicas &&
 				deployment.Status.UnavailableReplicas == 0 {
 
-				// Verify all pods are actually running
+				// Get the current ReplicaSet for this deployment
+				replicaSets, err := clientset.AppsV1().ReplicaSets(deployment.Namespace).List(ctx, metav1.ListOptions{
+					LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector),
+				})
+				if err != nil {
+					return false, err
+				}
+
+				// Find the current active ReplicaSet (the one with desired replicas > 0)
+				var currentPodTemplateHash string
+				for _, rs := range replicaSets.Items {
+					if rs.Spec.Replicas != nil && *rs.Spec.Replicas > 0 {
+						// The pod-template-hash label identifies pods from this ReplicaSet
+						if hash, ok := rs.Labels["pod-template-hash"]; ok {
+							currentPodTemplateHash = hash
+							break
+						}
+					}
+				}
+
+				if currentPodTemplateHash == "" {
+					return false, fmt.Errorf("could not find current pod-template-hash for deployment %s", deployment.Name)
+				}
+
+				// Verify all pods are from the current ReplicaSet and are running
 				labelSelector := metav1.FormatLabelSelector(deployment.Spec.Selector)
 				pods, err := clientset.CoreV1().Pods(deployment.Namespace).List(ctx, metav1.ListOptions{
 					LabelSelector: labelSelector,
@@ -75,9 +99,21 @@ func checkIfDeploymentIsAvailable(ctx context.Context, clientset *kubernetes.Cli
 					return false, err
 				}
 
-				// Count ready pods
+				// Count ready pods from current ReplicaSet only
 				readyPods := 0
 				for _, pod := range pods.Items {
+					// Check if pod belongs to current ReplicaSet
+					podHash, hasPodHash := pod.Labels["pod-template-hash"]
+					if !hasPodHash || podHash != currentPodTemplateHash {
+						// Pod is from an old ReplicaSet - deployment not fully rolled out
+						if pod.DeletionTimestamp == nil {
+							// Old pod still exists and not being deleted
+							return false, nil
+						}
+						continue
+					}
+
+					// Check if pod is ready
 					for _, podCondition := range pod.Status.Conditions {
 						if podCondition.Type == corev1.PodReady && podCondition.Status == corev1.ConditionTrue {
 							readyPods++
@@ -86,7 +122,7 @@ func checkIfDeploymentIsAvailable(ctx context.Context, clientset *kubernetes.Cli
 					}
 				}
 
-				// Ensure we have the desired number of running pods
+				// Ensure we have the desired number of running pods from current ReplicaSet
 				if int32(readyPods) == desiredReplicas {
 					return true, nil
 				}
