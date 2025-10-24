@@ -21,10 +21,10 @@ func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadU
 	if err != nil {
 		return fmt.Errorf("cannot create GitLab client: %w", err)
 	}
-	
+
 	projectPath := repoOwner + "/" + repoName
 
-	existingHooks, _, err := glabCli.Projects.ListProjectHooks(projectPath)
+	existingHooks, _, err := glabCli.Projects.ListProjectHooks(projectPath, nil)
 	if err != nil {
 		return fmt.Errorf("cannot list existing hooks: %w", err)
 	}
