@@ -18,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/wait"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"knative.dev/func/pkg/oci"
 	fntest "knative.dev/func/pkg/testing"
@@ -864,9 +865,20 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 	}
 
 	// Give logs time to be collected (not sure, why we need this here and not on the first collector too :thinking:)
-	time.Sleep(5 * time.Second)
+	outStr = ""
+	err = wait.PollUntilContextTimeout(ctx, time.Second, time.Minute, true, func(ctx context.Context) (done bool, err error) {
+		outStr = redeployLogBuff.String()
+		if len(outStr) > 0 ||
+			outStr == "Hello World!" { // wait for more as only the "Hello World!"
+			return true, nil
+		}
 
-	outStr = redeployLogBuff.String()
+		return false, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	t.Log("function output:\n" + outStr)
 
 	// verify that environment variables has been changed by re-deploy
