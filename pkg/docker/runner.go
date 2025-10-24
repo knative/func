@@ -2,12 +2,12 @@ package docker
 
 import (
 	"context"
-	"strings"
-	"path/filepath"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -304,7 +304,7 @@ func newHostConfig(f fn.Function, host, port string) (c container.HostConfig, er
 		if vol.Path != nil {
 			c.Binds = append(c.Binds, fmt.Sprintf("%s:%s", hostPath, *vol.Path))
 		}
-		
+
 	}
 	return c, nil
 }
