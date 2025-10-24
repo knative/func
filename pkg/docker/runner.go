@@ -282,7 +282,6 @@ func newHostConfig(f fn.Function, host, port string) (c container.HostConfig, er
 			continue
 		}
 
-
 		// Security: only allow .func folder
 		absHostPath, _ := filepath.Abs(hostPath)
 		absFuncPath, _ := filepath.Abs(".func")
