@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
+	"knative.dev/func/pkg/deployer"
 	"knative.dev/func/pkg/knative"
 
 	fn "knative.dev/func/pkg/functions"
@@ -67,6 +68,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (descr
 	description.Namespace = namespace
 	description.Route = primaryRouteURL
 	description.Routes = routeURLs
+	description.DeployType = deployer.KnativeDeployerName
 
 	triggers, err := eventingClient.ListTriggers(ctx)
 	// IsNotFound -- Eventing is probably not installed on the cluster

@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
+	"knative.dev/func/pkg/deployer"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 
@@ -52,10 +53,11 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	primaryRouteURL := fmt.Sprintf("http://%s.%s.svc", name, namespace) // TODO: get correct scheme?
 
 	description := fn.Instance{
-		Name:      name,
-		Namespace: namespace,
-		Route:     primaryRouteURL,
-		Routes:    []string{primaryRouteURL},
+		Name:       name,
+		Namespace:  namespace,
+		Route:      primaryRouteURL,
+		Routes:     []string{primaryRouteURL},
+		DeployType: deployer.KubernetesDeployerName,
 	}
 
 	triggers, err := eventingClient.ListTriggers(ctx)
