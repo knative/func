@@ -18,3 +18,4 @@ description: Create a git commit
 - Maximum subject width is 50 characters.
 - Maximum body width is 90 characters which means break the line after 90 characters.
 - Add issues reference at the bottom: "Issue $ARGUMENTS"
+- Show me the final message in the end, don't commit it.
