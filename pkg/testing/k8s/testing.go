@@ -37,12 +37,12 @@ func Namespace(t *testing.T, ctx context.Context) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*t.Cleanup(func() {
+	t.Cleanup(func() {
 		err := cliSet.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 		if err != nil {
 			t.Logf("error deleting namespace: %v", err)
 		}
-	})*/
+	})
 	t.Log("created namespace: ", namespace)
 
 	return namespace
