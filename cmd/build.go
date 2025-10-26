@@ -395,10 +395,38 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 				Default: c.Path,
 			},
 		},
+		{
+			Name: "builder",
+			Prompt: &survey.Select{
+				Message: "Select builder:",
+				Options: []string{"pack", "s2i", "host"},
+				Default: c.Builder,
+			},
+		},
+		{
+			Name: "push",
+			Prompt: &survey.Confirm{
+				Message: "Push image after build?",
+				Default: c.Push,
+			},
+		},
+		{
+			Name: "builderImage",
+			Prompt: &survey.Input{
+				Message: "Optional custom builder image:",
+				Default: c.BuilderImage,
+			},
+		},
+		{
+			Name: "baseImage",
+			Prompt: &survey.Input{
+				Message: "Optional base image for your function (host builder only):",
+				Default: c.BaseImage,
+			},
+		},
+
 	}
-	//
-	// TODO(lkingland): add confirmation prompts for other config members here
-	//
+	
 	err = survey.Ask(qs, &c)
 	return c, err
 }
