@@ -424,9 +424,8 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 				Default: c.BaseImage,
 			},
 		},
-
 	}
-	
+
 	err = survey.Ask(qs, &c)
 	return c, err
 }
