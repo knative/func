@@ -2,12 +2,12 @@ package cmd_test
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 	"gotest.tools/v3/assert"
 	fnCmd "knative.dev/func/cmd"
+	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
 	cmdTest "knative.dev/func/cmd/testing"
 	fn "knative.dev/func/pkg/functions"
@@ -40,8 +40,7 @@ func TestNewConfigCICmd_CreatesGithubWorkflowDirectory(t *testing.T) {
 	result := runConfigCiGithubCmd(t, opts{withFuncInTempDir: true})
 	assert.NilError(t, result.err)
 
-	expectedWorkflowPath := filepath.Join(result.f.Root, result.ciConfig.GithubWorkflowDir)
-	_, err := os.Stat(expectedWorkflowPath)
+	_, err := os.Stat(result.ciConfig.FnGithubWorkflowDir(result.f.Root))
 	assert.NilError(t, err)
 }
 
@@ -53,27 +52,46 @@ func TestNewConfigCICmd_GeneratesLocalWorkflowFile(t *testing.T) {
 }
 
 func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
+	// GIVEN: -
+	// WHEN
 	result := runConfigCiGithubCmd(t, opts{withFuncInTempDir: true})
 	assert.NilError(t, result.err)
 
+	// THEN
 	workflowFilepath := assertWorkflowFileExists(t, result)
+	actualWorkflow, err := parseWorkflowYamlFromFS(workflowFilepath)
+	assert.NilError(t, err)
+	assert.Equal(t, actualWorkflow.Name, "Remote Build and Deploy")
+	assert.Equal(t, actualWorkflow.On.Push.Branches[0], "main")
+	assert.Equal(t, actualWorkflow.Jobs["deploy"].RunsOn, "ubuntu-latest")
+	assert.Equal(t, actualWorkflow.Jobs["deploy"].Steps[0].Name, "Checkout code")
+	assert.Equal(t, actualWorkflow.Jobs["deploy"].Steps[0].Uses, "actions/checkout@v4")
+	assert.Equal(t, actualWorkflow.Jobs["deploy"].Steps[1].Name, "Install func cli")
+	assert.Equal(t, actualWorkflow.Jobs["deploy"].Steps[1].Uses, "gauron99/knative-func-action@main")
+	assert.Equal(t, actualWorkflow.Jobs["deploy"].Steps[1].With["version"], "knative-v1.19.1")
+	assert.Equal(t, actualWorkflow.Jobs["deploy"].Steps[1].With["name"], "func")
+	assert.Equal(t, actualWorkflow.Jobs["deploy"].Steps[2].Name, "Deploy function")
+	assert.Equal(t, actualWorkflow.Jobs["deploy"].Steps[2].Run, "func deploy --remote")
+}
 
-	var expectedWorkflow fnCmd.GithubWorkflow
-	workflowAsBytes, err := os.ReadFile(workflowFilepath)
+func TestNewConfigCICmd_WorkflowYAMLHasCustomName(t *testing.T) {
+	// GIVEN
+	expectedName := "Custom workflow name"
+	ciConfig := ci.NewDefaultCIConfigWithName(expectedName)
+	opts := opts{
+		withFuncInTempDir: true,
+		ciConfig:          &ciConfig,
+	}
+
+	// WHEN
+	result := runConfigCiGithubCmd(t, opts)
+	assert.NilError(t, result.err)
+
+	// THEN
+	workflowFilepath := assertWorkflowFileExists(t, result)
+	actualWorkflow, err := parseWorkflowYamlFromFS(workflowFilepath)
 	assert.NilError(t, err)
-	err = yaml.Unmarshal(workflowAsBytes, &expectedWorkflow)
-	assert.NilError(t, err)
-	assert.Equal(t, expectedWorkflow.Name, "Remote Build and Deploy")
-	assert.Equal(t, expectedWorkflow.On.Push.Branches[0], "main")
-	assert.Equal(t, expectedWorkflow.Jobs["deploy"].RunsOn, "ubuntu-latest")
-	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[0].Name, "Checkout code")
-	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[0].Uses, "actions/checkout@v4")
-	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[1].Name, "Install func cli")
-	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[1].Uses, "gauron99/knative-func-action@main")
-	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[1].With["version"], "knative-v1.19.1")
-	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[1].With["name"], "func")
-	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[2].Name, "Deploy function")
-	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[2].Run, "func deploy --remote")
+	assert.Equal(t, actualWorkflow.Name, expectedName)
 }
 
 // START: Testing Framework
@@ -81,11 +99,12 @@ func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
 type opts struct {
 	withFuncInTempDir bool
 	args              []string // default: ci --github
+	ciConfig          *ci.CIConfig
 }
 
 type result struct {
 	f        fn.Function
-	ciConfig fnCmd.CIConfig
+	ciConfig ci.CIConfig
 	err      error
 }
 
@@ -105,11 +124,14 @@ func runConfigCiGithubCmd(
 		args = []string{"ci", "--github"}
 	}
 
-	ciConfig := fnCmd.NewDefaultCIConfig()
+	if opts.ciConfig == nil {
+		ciConf := ci.NewDefaultCIConfig()
+		opts.ciConfig = &ciConf
+	}
 	cmd := fnCmd.NewConfigCmd(
 		common.DefaultLoaderSaver,
 		fnCmd.NewClient,
-		ciConfig,
+		*opts.ciConfig,
 	)
 	cmd.SetArgs(args)
 
@@ -117,17 +139,32 @@ func runConfigCiGithubCmd(
 
 	return result{
 		f,
-		ciConfig,
+		*opts.ciConfig,
 		err,
 	}
 }
 
 func assertWorkflowFileExists(t *testing.T, result result) string {
 	t.Helper()
-	filepath := filepath.Join(result.f.Root, result.ciConfig.GithubWorkflowDir, result.ciConfig.GithubWorkflowFile)
+
+	filepath := result.ciConfig.FnGithubWorkflowYamlPath(result.f.Root)
 	exists, _ := fnTest.FileExists(t, filepath)
 
 	assert.Assert(t, exists, filepath+" does not exist")
 
 	return filepath
+}
+
+func parseWorkflowYamlFromFS(workflowFilepath string) (*ci.GithubWorkflow, error) {
+	workflowAsBytes, err := os.ReadFile(workflowFilepath)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ci.GithubWorkflow
+	if err = yaml.Unmarshal(workflowAsBytes, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
