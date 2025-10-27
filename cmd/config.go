@@ -7,13 +7,14 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
 
-// TODO(twoGiants): move CIConfig later to a different place, probably to ./pkg/ci/*
-func NewConfigCmd(loadSaver common.FunctionLoaderSaver, newClient ClientFactory, TEMP_ciConfig CIConfig) *cobra.Command {
+// TODO(twoGiants): decide if you want to remove TEMP_ciConfig and init somewhere else
+func NewConfigCmd(loadSaver common.FunctionLoaderSaver, newClient ClientFactory, TEMP_ciConfig ci.CIConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Configure a function",
