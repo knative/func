@@ -193,15 +193,41 @@ Implementation:
   - `TestNewConfigCICmd_SuccessWhenInitialized`
 - Commit: `bd22332f` - feat: add config ci command and refactor interfaces
 
+**Phase 2, Step 2.1: Workflow directory/file creation** ✅
+- Created YAML structure types: `GithubWorkflow`, `WorkflowTriggers`, `PushTrigger`, `Job`, `Step`
+- Implemented workflow generation with hardcoded values:
+  - Name: "Remote Build and Deploy"
+  - Trigger: push to main branch
+  - Runner: ubuntu-latest
+  - Steps: checkout → func cli setup → deploy --remote
+- Created `cmd/ci` package for CI logic separation
+  - `cmd/ci/config.go` - CIConfig with path resolution methods
+  - `cmd/ci/workflow.go` - Workflow structs and generation logic
+- Added `NewGithubWorkflow(name)` factory function
+- Added `PersistToDisk()` function for file writing
+- Tests passing (5/5):
+  - `TestNewConfigCICmd_CreatesGithubWorkflowDirectory`
+  - `TestNewConfigCICmd_GeneratesLocalWorkflowFile`
+  - `TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure`
+  - `TestNewConfigCICmd_WorkflowYAMLHasCustomName`
+  - Plus 2 existing tests
+- Commits:
+  - `e4541136` - feat: generate github workflow for remote build
+  - `d2c850fc` - refactor: extract ci logic into dedicated package
+
 ### 🔄 In Progress
 
-**Phase 2, Step 2.1: Workflow directory/file creation**
-- Next: Implement Tests 1-3 (directory creation, file generation, YAML structure)
+**Phase 2, Step 2.2: Go-specific workflow content**
+- Next: Detect runtime and conditionally add test step for Go functions
 
 ### ⏳ Next Steps
 
-1. Complete Phase 2, Step 2.1 (3 tests)
-2. Complete Phase 2, Step 2.2 (4 tests for Go-specific content)
+1. Complete Phase 2, Step 2.2 (4 tests for Go-specific content):
+   - Runtime detection from Function struct
+   - Conditional test step for Go
+   - Validate default triggers
+   - Cluster config placeholders
+2. Begin Phase 3: Remote build support
 
 ---
 
