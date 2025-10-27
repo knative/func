@@ -20,6 +20,7 @@ import (
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/utils"
 )
 
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {
@@ -280,6 +281,22 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 	if err = cfg.Validate(cmd); err != nil {
 		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
+		if errors.Is(err, fn.ErrInvalidDomain) {
+			return fmt.Errorf(`%w
+
+Domain names must be valid DNS subdomains:
+  - Lowercase letters, numbers, hyphens (-), and dots (.) only
+  - Start and end with a letter or number
+  - Max 253 characters total, each part between dots max 63 characters
+
+Valid examples:
+  func deploy --registry ghcr.io/user --domain example.com
+  func deploy --registry ghcr.io/user --domain api.example.com
+
+Note: Domain must be configured on your Knative cluster, or it will be ignored.
+
+For more options, run 'func deploy --help'`, err)
+		}
 		if errors.Is(err, fn.ErrConflictingImageAndRegistry) {
 			return fmt.Errorf(`%w
 
@@ -736,6 +753,14 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Bubble validation
 	if err = c.buildConfig.Validate(cmd); err != nil {
 		return
+	}
+
+	// Validate domain format if provided
+	if c.Domain != "" {
+		if err = utils.ValidateDomain(c.Domain); err != nil {
+			// Wrap the validation error as fn.ErrInvalidDomain for layer consistency
+			return fn.ErrInvalidDomain
+		}
 	}
 
 	// Check Image Digest was included

@@ -34,6 +34,9 @@ var (
 
 	// ErrConflictingImageAndRegistry is returned when both --image and --registry flags are explicitly provided
 	ErrConflictingImageAndRegistry = errors.New("both --image and --registry flags provided")
+
+	// ErrInvalidDomain is returned when a domain name doesn't meet DNS subdomain requirements
+	ErrInvalidDomain = errors.New("invalid domain")
 )
 
 // ErrNotInitialized indicates that a function is uninitialized
