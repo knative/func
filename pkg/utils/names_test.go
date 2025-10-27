@@ -217,42 +217,42 @@ func TestValidateDomain(t *testing.T) {
 		Valid bool
 	}{
 		// Valid domains
-		{"", true},                                  // empty is valid (means use default)
-		{"example.com", true},                       // standard domain
-		{"api.example.com", true},                   // subdomain
-		{"my-app.example.com", true},                // subdomain with hyphen
-		{"app-123.example.com", true},               // subdomain with number
-		{"123.example.com", true},                   // label starting with number
-		{"a.b.c.d.e.com", true},                     // many subdomains
-		{"localhost", true},                         // single label (valid)
-		{"cluster.local", true},                     // Kubernetes internal domain
-		{"my-app-123.staging.example.com", true},    // complex valid domain
-		{"app.staging.v1.example.com", true},        // multi-level subdomain
-		{"example-app.com", true},                   // hyphen in domain
-		{"a.co", true},                              // short domain
-		{"123app.example.com", true},                // label starting with number
+		{"", true},                               // empty is valid (means use default)
+		{"example.com", true},                    // standard domain
+		{"api.example.com", true},                // subdomain
+		{"my-app.example.com", true},             // subdomain with hyphen
+		{"app-123.example.com", true},            // subdomain with number
+		{"123.example.com", true},                // label starting with number
+		{"a.b.c.d.e.com", true},                  // many subdomains
+		{"localhost", true},                      // single label (valid)
+		{"cluster.local", true},                  // Kubernetes internal domain
+		{"my-app-123.staging.example.com", true}, // complex valid domain
+		{"app.staging.v1.example.com", true},     // multi-level subdomain
+		{"example-app.com", true},                // hyphen in domain
+		{"a.co", true},                           // short domain
+		{"123app.example.com", true},             // label starting with number
 		// Invalid domains
-		{"Example.Com", false},                      // uppercase not allowed
-		{"MY-APP.COM", false},                       // uppercase not allowed
-		{"my_app.com", false},                       // underscore not allowed
-		{"my app.com", false},                       // space not allowed
-		{"invalid domain.com", false},               // space not allowed
-		{"my@app.com", false},                       // @ not allowed
-		{"app!.com", false},                         // ! not allowed
-		{"-example.com", false},                     // cannot start with hyphen
-		{"example-.com", false},                     // label cannot end with hyphen
-		{"example.-com.com", false},                 // label cannot start with hyphen
-		{"my..app.com", false},                      // consecutive dots not allowed
-		{".example.com", false},                     // cannot start with dot
-		{"my:app.com", false},                       // colon not allowed
-		{"my;app.com", false},                       // semicolon not allowed
-		{"my,app.com", false},                       // comma not allowed
-		{"my*app.com", false},                       // asterisk not allowed
-		{" example.com", false},                     // leading whitespace not allowed
-		{"example.com ", false},                     // trailing whitespace not allowed
-		{"example.com.", false},                     // trailing dot not allowed
-		{"example@domain.com", false},               // @ not allowed
-		{"ex!ample.com", false},                     // ! not allowed
+		{"Example.Com", false},        // uppercase not allowed
+		{"MY-APP.COM", false},         // uppercase not allowed
+		{"my_app.com", false},         // underscore not allowed
+		{"my app.com", false},         // space not allowed
+		{"invalid domain.com", false}, // space not allowed
+		{"my@app.com", false},         // @ not allowed
+		{"app!.com", false},           // ! not allowed
+		{"-example.com", false},       // cannot start with hyphen
+		{"example-.com", false},       // label cannot end with hyphen
+		{"example.-com.com", false},   // label cannot start with hyphen
+		{"my..app.com", false},        // consecutive dots not allowed
+		{".example.com", false},       // cannot start with dot
+		{"my:app.com", false},         // colon not allowed
+		{"my;app.com", false},         // semicolon not allowed
+		{"my,app.com", false},         // comma not allowed
+		{"my*app.com", false},         // asterisk not allowed
+		{" example.com", false},       // leading whitespace not allowed
+		{"example.com ", false},       // trailing whitespace not allowed
+		{"example.com.", false},       // trailing dot not allowed
+		{"example@domain.com", false}, // @ not allowed
+		{"ex!ample.com", false},       // ! not allowed
 	}
 
 	for _, c := range cases {
