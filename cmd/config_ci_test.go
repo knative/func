@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 	"gotest.tools/v3/assert"
 	fnCmd "knative.dev/func/cmd"
 	"knative.dev/func/cmd/common"
@@ -17,48 +17,63 @@ import (
 func TestNewConfigCICmd_CISubcommandAndGithubOptionExist(t *testing.T) {
 	// leave 'ci --github' to make this test explicitly use this subcommand
 	opts := opts{withFuncInTempDir: true, args: []string{"ci", "--github"}}
-	cmd, _ := setupConfigCmd(t, opts)
+	result := runConfigCiGithubCmd(t, opts)
 
-	executeSuccess(t, cmd)
+	assert.NilError(t, result.err)
 }
 
 func TestNewConfigCICmd_FailsWhenNotInitialized(t *testing.T) {
 	expectedErrMsg := fn.NewErrNotInitialized(fnTest.Cwd()).Error()
-	cmd, _ := setupConfigCmd(t, opts{})
 
-	err := cmd.Execute()
+	result := runConfigCiGithubCmd(t, opts{})
 
-	assert.Error(t, err, expectedErrMsg)
+	assert.Error(t, result.err, expectedErrMsg)
 }
 
 func TestNewConfigCICmd_SuccessWhenInitialized(t *testing.T) {
-	cmd, _ := setupConfigCmd(t, opts{withFuncInTempDir: true})
+	result := runConfigCiGithubCmd(t, opts{withFuncInTempDir: true})
 
-	executeSuccess(t, cmd)
+	assert.NilError(t, result.err)
 }
 
 func TestNewConfigCICmd_CreatesGithubWorkflowDirectory(t *testing.T) {
-	cmd, ta := setupConfigCmd(t, opts{withFuncInTempDir: true})
-	expectedWorkflowPath := filepath.Join(ta.f.Root, ta.ciConfig.GithubWorkflowDir)
+	result := runConfigCiGithubCmd(t, opts{withFuncInTempDir: true})
+	assert.NilError(t, result.err)
 
-	executeSuccess(t, cmd)
-
+	expectedWorkflowPath := filepath.Join(result.f.Root, result.ciConfig.GithubWorkflowDir)
 	_, err := os.Stat(expectedWorkflowPath)
 	assert.NilError(t, err)
 }
 
 func TestNewConfigCICmd_GeneratesLocalWorkflowFile(t *testing.T) {
-	cmd, ta := setupConfigCmd(t, opts{withFuncInTempDir: true})
-	expectedWorkflowPath := filepath.Join(ta.f.Root, ta.ciConfig.GithubWorkflowDir)
-	expectedWorkflowFile := filepath.Join(expectedWorkflowPath, ta.ciConfig.GithubWorkflowFile)
+	result := runConfigCiGithubCmd(t, opts{withFuncInTempDir: true})
+	assert.NilError(t, result.err)
 
-	executeSuccess(t, cmd)
+	_ = assertWorkflowFileExists(t, result)
+}
 
-	_, err := os.Stat(expectedWorkflowPath)
+func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
+	result := runConfigCiGithubCmd(t, opts{withFuncInTempDir: true})
+	assert.NilError(t, result.err)
+
+	workflowFilepath := assertWorkflowFileExists(t, result)
+
+	var expectedWorkflow fnCmd.GithubWorkflow
+	workflowAsBytes, err := os.ReadFile(workflowFilepath)
 	assert.NilError(t, err)
-
-	_, err = os.Stat(expectedWorkflowFile)
+	err = yaml.Unmarshal(workflowAsBytes, &expectedWorkflow)
 	assert.NilError(t, err)
+	assert.Equal(t, expectedWorkflow.Name, "Remote Build and Deploy")
+	assert.Equal(t, expectedWorkflow.On.Push.Branches[0], "main")
+	assert.Equal(t, expectedWorkflow.Jobs["deploy"].RunsOn, "ubuntu-latest")
+	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[0].Name, "Checkout code")
+	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[0].Uses, "actions/checkout@v4")
+	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[1].Name, "Install func cli")
+	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[1].Uses, "gauron99/knative-func-action@main")
+	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[1].With["version"], "knative-v1.19.1")
+	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[1].With["name"], "func")
+	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[2].Name, "Deploy function")
+	assert.Equal(t, expectedWorkflow.Jobs["deploy"].Steps[2].Run, "func deploy --remote")
 }
 
 // START: Testing Framework
@@ -68,24 +83,21 @@ type opts struct {
 	args              []string // default: ci --github
 }
 
-type testArtifacts struct {
+type result struct {
 	f        fn.Function
 	ciConfig fnCmd.CIConfig
+	err      error
 }
 
-func setupConfigCmd(
+func runConfigCiGithubCmd(
 	t *testing.T,
 	opts opts,
-) (*cobra.Command, testArtifacts) {
+) result {
 	t.Helper()
 
-	ta := testArtifacts{
-		fn.Function{},
-		fnCmd.NewDefaultCIConfig(),
-	}
-
+	f := fn.Function{}
 	if opts.withFuncInTempDir {
-		ta.f = cmdTest.CreateFuncInTempDir(t, "github-ci-func")
+		f = cmdTest.CreateFuncInTempDir(t, "github-ci-func")
 	}
 
 	args := opts.args
@@ -93,19 +105,29 @@ func setupConfigCmd(
 		args = []string{"ci", "--github"}
 	}
 
-	result := fnCmd.NewConfigCmd(
+	ciConfig := fnCmd.NewDefaultCIConfig()
+	cmd := fnCmd.NewConfigCmd(
 		common.DefaultLoaderSaver,
 		fnCmd.NewClient,
-		ta.ciConfig,
+		ciConfig,
 	)
-	result.SetArgs(args)
-
-	return result, ta
-}
-
-func executeSuccess(t *testing.T, cmd *cobra.Command) {
-	t.Helper()
+	cmd.SetArgs(args)
 
 	err := cmd.Execute()
-	assert.NilError(t, err)
+
+	return result{
+		f,
+		ciConfig,
+		err,
+	}
+}
+
+func assertWorkflowFileExists(t *testing.T, result result) string {
+	t.Helper()
+	filepath := filepath.Join(result.f.Root, result.ciConfig.GithubWorkflowDir, result.ciConfig.GithubWorkflowFile)
+	exists, _ := fnTest.FileExists(t, filepath)
+
+	assert.Assert(t, exists, filepath+" does not exist")
+
+	return filepath
 }
