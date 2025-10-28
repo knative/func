@@ -73,8 +73,8 @@ test: generate/zz_filesystem_generated.go ## Run core unit tests
 
 .PHONY: check
 check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
-	$(BIN_GOLANGCI_LINT) run --timeout 600s
-	cd test && $(BIN_GOLANGCI_LINT) run --timeout 600s
+	$(BIN_GOLANGCI_LINT) run --timeout 300s
+	cd test && $(BIN_GOLANGCI_LINT) run --timeout 300s
 
 $(BIN_GOLANGCI_LINT):
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v2.5.0
