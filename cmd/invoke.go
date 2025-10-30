@@ -153,6 +153,14 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		fmt.Printf("error validating function at '%v'. %v\n", f.Root, err)
 		return err
 	}
+
+	if cfg.Format != "" && f.Invoke != "" && cfg.Format != f.Invoke {
+		fmt.Fprintf(cmd.OutOrStdout(),
+			"Warning: invoking as %q, but function declares type %q in func.yaml.\n"+
+				"   This may fail unless you rebuild or update func.yaml with `invoke: %s`.\n\n",
+			cfg.Format, f.Invoke, cfg.Format)
+	}
+
 	if !f.Initialized() {
 		return fmt.Errorf("no function found in current directory.\nYou need to be inside a function directory to invoke it.\n\nTry this:\n  func create --language go myfunction    Create a new function\n  cd myfunction                          Go into the function directory\n  func invoke                            Now you can invoke it\n\nOr if you have an existing function:\n  cd path/to/your/function              Go to your function directory\n  func invoke                           Invoke the function")
 	}
