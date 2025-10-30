@@ -12,7 +12,7 @@ set_versions() {
 
 	# find source-of-truth in component-versions.json to add/modify components
 	knative_serving_version="v1.20.0"
-	knative_eventing_version="v1.19.8"
+	knative_eventing_version="v1.20.0"
 	contour_version="v1.20.0"
 	tekton_version="v1.1.0"
 	pac_version="v0.35.2"
