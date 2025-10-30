@@ -119,7 +119,7 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. ($FUNC_FORMAT)")
+	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent(s)'.  Default is to choose automatically. ($FUNC_FORMAT)")
 	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. ($FUNC_TARGET)")
 	cmd.Flags().StringP("id", "", "", "ID for the request data. ($FUNC_ID)")
 	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. ($FUNC_SOURCE)")
