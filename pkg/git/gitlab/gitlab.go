@@ -30,6 +30,7 @@ func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadU
 	}
 	for _, hook := range existingHooks {
 		if hook.URL == payloadURL {
+			fmt.Printf("GitLab webhook already exists for project %s at URL: %s\n", projectPath, payloadURL)
 			return nil
 		}
 	}
