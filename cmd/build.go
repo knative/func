@@ -9,7 +9,6 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-
 	"knative.dev/func/pkg/builders"
 	pack "knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/builders/s2i"
@@ -454,6 +453,7 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 		o = append(o,
 			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
 			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose,
+				oci.WithTransport(newTransport(c.RegistryInsecure)),
 				oci.WithCredentialsProvider(creds),
 				oci.WithVerbose(c.Verbose))),
 		)
