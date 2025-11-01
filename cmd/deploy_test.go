@@ -451,7 +451,7 @@ func TestDeploy_Envs(t *testing.T) {
 	// TODO: create and test typed errors for ErrEnvNotExist etc.
 
 	cmd = NewDeployCmd(NewTestClient())
-	cmd.SetArgs([]string{"--env=DOES_NOT_EXIST-"})
+	cmd.SetArgs([]string{"--env=DOES_NOT_EXIST"})
 	err = cmd.Execute()
 
 	var e *ErrEnvNotExist
