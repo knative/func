@@ -354,7 +354,7 @@ For more options, run 'func deploy --help'`, err)
 
 Invalid namespace name. Kubernetes namespaces must:
   - Contain only lowercase letters, numbers, and hyphens (-)
-  - Start and end with a letter or number
+  - Start with a letter and end with a letter or number
   - Be 63 characters or less
 
 Valid examples:

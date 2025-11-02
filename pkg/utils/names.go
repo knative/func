@@ -127,8 +127,8 @@ func ValidateDomain(domain string) error {
 
 // ValidateNamespace validates that the input name is a valid Kubernetes namespace name, ie. valid DNS-1123 label.
 // It must consist of lower case alphanumeric characters or '-',
-// and must start and end with an alphanumeric character
-// (e.g. 'my-namespace', 'abc-123', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')
+// start with an alphabetic character, and end with an alphanumeric character
+// (e.g. 'my-namespace', 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')
 func ValidateNamespace(namespace string) error {
 	if errs := validation.IsDNS1123Label(namespace); len(errs) > 0 {
 		// Reuse the error message from Kubernetes validation
