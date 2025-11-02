@@ -79,3 +79,11 @@ type ErrRunTimeout struct {
 func (e ErrRunTimeout) Error() string {
 	return fmt.Sprintf("timed out waiting for function to be ready for %s", e.Timeout)
 }
+
+type ErrEnvNotExist struct {
+	Name string
+}
+
+func (e ErrEnvNotExist) Error() string {
+	return fmt.Sprintf("environment variable %q does not exist", e.Name)
+}

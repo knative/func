@@ -449,6 +449,20 @@ func TestDeploy_Envs(t *testing.T) {
 	}
 
 	// TODO: create and test typed errors for ErrEnvNotExist etc.
+
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--env=DOES_NOT_EXIST-"})
+	err = cmd.Execute()
+
+	var e *fn.ErrEnvNotExist
+	if !errors.As(err, &e) {
+		t.Fatalf("expected ErrEnvNotExist, got '%v'", err)
+	}
+
+	if e.Name != "DOES_NOT_EXIST" {
+		t.Fatalf("expected env name 'DOES_NOT_EXIST', got '%v'", e.Name)
+	}
+
 }
 
 // TestDeploy_FunctionContext ensures that the function contextually relevant
