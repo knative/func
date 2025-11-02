@@ -308,7 +308,7 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 			}
 		}
 		if !found {
-			return nil, 0, &ErrEnvNotExist{Name: name}
+			return nil, 0, &fn.ErrEnvNotExist{Name: name}
 		}
 	}
 

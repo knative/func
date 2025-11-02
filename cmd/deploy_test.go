@@ -454,7 +454,7 @@ func TestDeploy_Envs(t *testing.T) {
 	cmd.SetArgs([]string{"--env=DOES_NOT_EXIST-"})
 	err = cmd.Execute()
 
-	var e *ErrEnvNotExist
+	var e *fn.ErrEnvNotExist
 	if !errors.As(err, &e) {
 		t.Fatalf("expected ErrEnvNotExist, got '%v'", err)
 	}
