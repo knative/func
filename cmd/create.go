@@ -108,6 +108,31 @@ EXAMPLES
 		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
 	}
 
+	// Detect hyphen-prefixed arguments mis-parsed as flags
+	cmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
+		for _, arg := range os.Args[1:] {
+			if strings.HasPrefix(arg, "--") {
+				flagName := strings.TrimPrefix(arg, "--")
+				if cmd.Flags().Lookup(flagName) != nil {
+					continue
+				}
+				if strings.Contains(err.Error(), "unknown flag") && strings.Contains(err.Error(), arg) {
+					return wrapFlagParsingError(err, arg)
+				}
+			} else if strings.HasPrefix(arg, "-") && len(arg) > 1 {
+				firstChar := string(arg[1])
+				shortFlag := cmd.Flags().ShorthandLookup(firstChar)
+				
+				if shortFlag != nil && len(arg) > 2 && strings.Contains(arg, "-") {
+					return wrapFlagParsingError(err, arg)
+				} else if strings.Contains(err.Error(), "unknown shorthand flag") && strings.Contains(err.Error(), arg[1:2]) {
+					return wrapFlagParsingError(err, arg)
+				}
+			}
+		}
+		return err
+	})
+
 	return cmd
 }
 
@@ -390,7 +415,20 @@ func newInvalidRuntimeError(client *fn.Client, runtime string) error {
 	for _, v := range runtimes {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return ErrInvalidRuntime(errors.New(b.String()))
+
+	baseErr := ErrInvalidRuntime(errors.New(b.String()))
+	
+	// Check if runtime value indicates mis-parsed function name
+	for _, arg := range os.Args[1:] {
+		if strings.HasPrefix(arg, "-") && len(arg) > 2 && strings.Contains(arg[2:], "-") {
+			if strings.HasPrefix(arg[2:], runtime) || runtime == strings.TrimPrefix(arg, "-"+string(arg[1])) {
+				flagChar := string(arg[1])
+				return wrapFlagParsingErrorWithDetails(baseErr, arg, flagChar, runtime)
+			}
+		}
+	}
+	
+	return baseErr
 }
 
 // newInvalidTemplateError creates an error stating that the given template
@@ -407,7 +445,20 @@ func newInvalidTemplateError(client *fn.Client, runtime, template string) error 
 	for _, v := range templates {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return ErrInvalidTemplate(errors.New(b.String()))
+
+	baseErr := ErrInvalidTemplate(errors.New(b.String()))
+	
+	// Check if template value indicates mis-parsed function name
+	for _, arg := range os.Args[1:] {
+		if strings.HasPrefix(arg, "-") && len(arg) > 2 && strings.Contains(arg[2:], "-") {
+			if strings.HasPrefix(arg[2:], template) || template == strings.TrimPrefix(arg, "-"+string(arg[1])) {
+				flagChar := string(arg[1])
+				return wrapFlagParsingErrorWithDetails(baseErr, arg, flagChar, template)
+			}
+		}
+	}
+	
+	return baseErr
 }
 
 // prompt the user with value of config members, allowing for interactively
