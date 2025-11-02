@@ -130,10 +130,10 @@ func ValidateDomain(domain string) error {
 // start with an alphabetic character, and end with an alphanumeric character
 // (e.g. 'my-namespace', 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')
 func ValidateNamespace(namespace string) error {
-	if errs := validation.IsDNS1123Label(namespace); len(errs) > 0 {
+	if errs := validation.IsDNS1035Label(namespace); len(errs) > 0 {
 		// Reuse the error message from Kubernetes validation
-		// Replace "a lowercase RFC 1123 label" with more user-friendly context
-		errMsg := strings.Replace(strings.Join(errs, ""), "a lowercase RFC 1123 label", fmt.Sprintf("Namespace '%v'", namespace), 1)
+		// Replace "a DNS-1035 label" with more user-friendly context
+		errMsg := strings.Replace(strings.Join(errs, ""), "a DNS-1035 label", fmt.Sprintf("Namespace '%v'", namespace), 1)
 		return ErrInvalidNamespace(errors.New(errMsg))
 	}
 	return nil
