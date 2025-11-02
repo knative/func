@@ -122,7 +122,7 @@ EXAMPLES
 			} else if strings.HasPrefix(arg, "-") && len(arg) > 1 {
 				firstChar := string(arg[1])
 				shortFlag := cmd.Flags().ShorthandLookup(firstChar)
-				
+
 				if shortFlag != nil && len(arg) > 2 && strings.Contains(arg, "-") {
 					return wrapFlagParsingError(err, arg)
 				} else if strings.Contains(err.Error(), "unknown shorthand flag") && strings.Contains(err.Error(), arg[1:2]) {
@@ -417,7 +417,7 @@ func newInvalidRuntimeError(client *fn.Client, runtime string) error {
 	}
 
 	baseErr := ErrInvalidRuntime(errors.New(b.String()))
-	
+
 	// Check if runtime value indicates mis-parsed function name
 	for _, arg := range os.Args[1:] {
 		if strings.HasPrefix(arg, "-") && len(arg) > 2 && strings.Contains(arg[2:], "-") {
@@ -427,7 +427,7 @@ func newInvalidRuntimeError(client *fn.Client, runtime string) error {
 			}
 		}
 	}
-	
+
 	return baseErr
 }
 
@@ -447,7 +447,7 @@ func newInvalidTemplateError(client *fn.Client, runtime, template string) error 
 	}
 
 	baseErr := ErrInvalidTemplate(errors.New(b.String()))
-	
+
 	// Check if template value indicates mis-parsed function name
 	for _, arg := range os.Args[1:] {
 		if strings.HasPrefix(arg, "-") && len(arg) > 2 && strings.Contains(arg[2:], "-") {
@@ -457,7 +457,7 @@ func newInvalidTemplateError(client *fn.Client, runtime, template string) error 
 			}
 		}
 	}
-	
+
 	return baseErr
 }
 

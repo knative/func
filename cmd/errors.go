@@ -110,7 +110,7 @@ func wrapFlagParsingErrorWithDetails(err error, suspectedName, flagChar, parsedV
 		explanation = fmt.Sprintf("It looks like '%s' was interpreted as a long flag.", suspectedName)
 	} else if len(suspectedName) > 1 && suspectedName[0] == '-' {
 		if flagChar != "" && parsedValue != "" {
-			explanation = fmt.Sprintf("It looks like '%s' was interpreted as the flag '-%s' with value '%s'.", 
+			explanation = fmt.Sprintf("It looks like '%s' was interpreted as the flag '-%s' with value '%s'.",
 				suspectedName, flagChar, parsedValue)
 		} else {
 			explanation = fmt.Sprintf("It looks like '%s' was interpreted as a flag.", suspectedName)
@@ -118,10 +118,10 @@ func wrapFlagParsingErrorWithDetails(err error, suspectedName, flagChar, parsedV
 	} else {
 		return err
 	}
-	
-	return fmt.Errorf("%v\n\n"+
-		"Note: %s\n"+
-		"Function names cannot start with hyphens per DNS-1035 naming rules.\n"+
-		"Valid function names must start with a letter (a-z) and can contain letters, numbers, and hyphens.",
-		err, explanation)
+
+	return fmt.Errorf(`%v
+
+Note: %s
+Function names cannot start with hyphens per DNS-1035 naming rules.
+Valid function names must start with a letter (a-z) and can contain letters, numbers, and hyphens`, err, explanation)
 }
