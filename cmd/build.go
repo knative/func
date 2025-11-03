@@ -416,7 +416,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	if err != nil {
 		return c, err
 	}
-	
+
 	if c.Builder == "host" {
 		hostQs := []*survey.Question{
 			{
@@ -432,7 +432,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 			return c, err
 		}
 	}
-	
+
 	return c, nil
 }
 
