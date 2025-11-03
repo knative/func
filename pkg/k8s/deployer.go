@@ -16,8 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 )
@@ -90,7 +88,6 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
 	serviceClient := clientset.CoreV1().Services(namespace)
-	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
@@ -126,11 +123,6 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to get existing service: %w", err)
 		}
 
-		err = createTriggers(ctx, f, serviceClient, eventingClient)
-		if err != nil {
-			return fn.DeploymentResult{}, err
-		}
-
 		status = fn.Updated
 		if d.verbose {
 			fmt.Fprintf(os.Stderr, "Updated deployment and service %s in namespace %s\n", f.Name, namespace)
@@ -151,11 +143,6 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 		if _, err = serviceClient.Create(ctx, svc, metav1.CreateOptions{}); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to create service: %w", err)
-		}
-
-		err = createTriggers(ctx, f, serviceClient, eventingClient)
-		if err != nil {
-			return fn.DeploymentResult{}, err
 		}
 
 		status = fn.Deployed
@@ -276,16 +263,6 @@ func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstal
 	}
 
 	return deployment, service, nil
-}
-
-func createTriggers(ctx context.Context, f fn.Function, serviceClient v1.ServiceInterface, eventingClient clienteventingv1.KnEventingClient) error {
-	svc, err := serviceClient.Get(ctx, f.Name, metav1.GetOptions{})
-	if err != nil {
-		err = fmt.Errorf("failed to get the Service for Trigger: %v", err)
-		return err
-	}
-
-	return deployer.CreateTriggers(ctx, f, svc, eventingClient)
 }
 
 // CheckResourcesArePresent returns error if Secrets or ConfigMaps

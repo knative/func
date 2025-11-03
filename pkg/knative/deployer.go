@@ -17,8 +17,10 @@ import (
 	servingclientlib "knative.dev/client/pkg/serving"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/client/pkg/wait"
+	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
@@ -134,11 +136,11 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// Clients
-	client, err := k8s.NewServingClient(namespace)
+	client, err := NewServingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
-	eventingClient, err := k8s.NewEventingClient(namespace)
+	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
@@ -330,10 +332,51 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 		return err
 	}
 
-	return deployer.CreateTriggers(ctx, f, ksvc, eventingClient)
+	fmt.Fprintf(os.Stderr, "🎯 Creating Triggers on the cluster\n")
+
+	for i, sub := range f.Deploy.Subscriptions {
+		// create the filter:
+		attributes := make(map[string]string)
+		for key, value := range sub.Filters {
+			attributes[key] = value
+		}
+
+		err := eventingClient.CreateTrigger(ctx, &eventingv1.Trigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("%s-function-trigger-%d", ksvc.GetName(), i),
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: ksvc.GroupVersionKind().Version,
+						Kind:       ksvc.GroupVersionKind().Kind,
+						Name:       ksvc.GetName(),
+						UID:        ksvc.GetUID(),
+					},
+				},
+			},
+			Spec: eventingv1.TriggerSpec{
+				Broker: sub.Source,
+
+				Subscriber: duckv1.Destination{
+					Ref: &duckv1.KReference{
+						APIVersion: ksvc.GroupVersionKind().Version,
+						Kind:       ksvc.GroupVersionKind().Kind,
+						Name:       ksvc.GetName(),
+					}},
+
+				Filter: &eventingv1.TriggerFilter{
+					Attributes: attributes,
+				},
+			},
+		})
+		if err != nil && !errors.IsAlreadyExists(err) {
+			err = fmt.Errorf("knative deployer failed to create the Trigger: %v", err)
+			return err
+		}
+	}
+	return nil
 }
 
-func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprInstalled bool) (*v1.Service, error) {
+func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprInstalled bool) (*servingv1.Service, error) {
 	container := corev1.Container{
 		Image: f.Deploy.Image,
 	}
@@ -372,20 +415,20 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 		revisionAnnotations[k] = v
 	}
 
-	service := &v1.Service{
+	service := &servingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        f.Name,
 			Labels:      labels,
 			Annotations: annotations,
 		},
-		Spec: v1.ServiceSpec{
-			ConfigurationSpec: v1.ConfigurationSpec{
-				Template: v1.RevisionTemplateSpec{
+		Spec: servingv1.ServiceSpec{
+			ConfigurationSpec: servingv1.ConfigurationSpec{
+				Template: servingv1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels:      labels,
 						Annotations: revisionAnnotations,
 					},
-					Spec: v1.RevisionSpec{
+					Spec: servingv1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								container,
@@ -409,7 +452,7 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 
 // generateServiceAnnotations creates a final map of service annotations.
 // It uses the common annotation generator and adds Knative-specific annotations.
-func generateServiceAnnotations(f fn.Function, d deployer.DeployDecorator, previousService *v1.Service, daprInstalled bool) (aa map[string]string) {
+func generateServiceAnnotations(f fn.Function, d deployer.DeployDecorator, previousService *servingv1.Service, daprInstalled bool) (aa map[string]string) {
 	// Start with common annotations (includes Dapr, user annotations, and decorator)
 	aa = deployer.GenerateCommonAnnotations(f, d, daprInstalled, f.Deploy.DeployType)
 
@@ -425,8 +468,8 @@ func generateServiceAnnotations(f fn.Function, d deployer.DeployDecorator, previ
 	return
 }
 
-func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator deployer.DeployDecorator, daprInstalled bool) func(service *v1.Service) (*v1.Service, error) {
-	return func(service *v1.Service) (*v1.Service, error) {
+func updateService(f fn.Function, previousService *servingv1.Service, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator deployer.DeployDecorator, daprInstalled bool) func(service *servingv1.Service) (*servingv1.Service, error) {
+	return func(service *servingv1.Service) (*servingv1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
 		service.Spec.Template.Name = ""
@@ -487,7 +530,7 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 
 // setServiceOptions sets annotations on Service Revision Template or in the Service Spec
 // from values specified in function configuration options
-func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) error {
+func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Options) error {
 	toRemove := []string{}
 	toUpdate := map[string]string{}
 

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/func/pkg/k8s"
 	"knative.dev/pkg/apis"
 
 	fn "knative.dev/func/pkg/functions"
@@ -20,7 +19,7 @@ func NewLister(verbose bool) *Lister {
 
 // List functions, optionally specifying a namespace.
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, bool, error) {
-	client, err := k8s.NewServingClient(namespace)
+	client, err := NewServingClient(namespace)
 	if err != nil {
 		return nil, false, err
 	}

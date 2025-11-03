@@ -706,7 +706,7 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 		},
 	}
 
-	eventingClient, err := k8s.NewEventingClient(namespace)
+	eventingClient, err := knative.NewEventingClient(namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -982,7 +982,7 @@ func createTrigger(t *testing.T, ctx context.Context, namespace, triggerName str
 			},
 		},
 	}
-	eventingClient, err := k8s.NewEventingClient(namespace)
+	eventingClient, err := knative.NewEventingClient(namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1085,7 +1085,7 @@ func deferCleanup(t *testing.T, namespace string, resourceType string, name stri
 		})
 	case "trigger":
 		t.Cleanup(func() {
-			if eventingClient, err := k8s.NewEventingClient(namespace); err == nil {
+			if eventingClient, err := knative.NewEventingClient(namespace); err == nil {
 				_ = eventingClient.DeleteTrigger(context.Background(), name)
 			}
 		})
@@ -1177,9 +1177,11 @@ func ptr[T interface{}](s T) *T {
 
 func getHttpClient(ctx context.Context, deployType string) (*http.Client, func(), error) {
 	noopDeferFunc := func() {}
-	// For Kubernetes deployments, use in-cluster dialer to access ClusterIP services
+
 	switch deployType {
 	case k8s.KubernetesDeployerName:
+		// For Kubernetes deployments, use in-cluster dialer to access ClusterIP services
+
 		clientConfig := k8s.GetClientConfig()
 		dialer, err := k8s.NewInClusterDialer(ctx, clientConfig)
 		if err != nil {

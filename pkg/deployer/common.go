@@ -1,17 +1,6 @@
 package deployer
 
 import (
-	"context"
-	"fmt"
-	"os"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
-	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/kmeta"
-
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -93,49 +82,4 @@ func GenerateDaprAnnotations(appID string) map[string]string {
 	aa["dapr.io/app-port"] = "8080"
 	aa["dapr.io/enable-api-logging"] = DaprEnableAPILogging
 	return aa
-}
-
-func CreateTriggers(ctx context.Context, f fn.Function, obj kmeta.Accessor, eventingClient clienteventingv1.KnEventingClient) error {
-	fmt.Fprintf(os.Stderr, "🎯 Creating Triggers on the cluster\n")
-
-	for i, sub := range f.Deploy.Subscriptions {
-		// create the filter:
-		attributes := make(map[string]string)
-		for key, value := range sub.Filters {
-			attributes[key] = value
-		}
-
-		err := eventingClient.CreateTrigger(ctx, &eventingv1.Trigger{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("%s-function-trigger-%d", obj.GetName(), i),
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: obj.GroupVersionKind().Version,
-						Kind:       obj.GroupVersionKind().Kind,
-						Name:       obj.GetName(),
-						UID:        obj.GetUID(),
-					},
-				},
-			},
-			Spec: eventingv1.TriggerSpec{
-				Broker: sub.Source,
-
-				Subscriber: duckv1.Destination{
-					Ref: &duckv1.KReference{
-						APIVersion: obj.GroupVersionKind().Version,
-						Kind:       obj.GroupVersionKind().Kind,
-						Name:       obj.GetName(),
-					}},
-
-				Filter: &eventingv1.TriggerFilter{
-					Attributes: attributes,
-				},
-			},
-		})
-		if err != nil && !errors.IsAlreadyExists(err) {
-			err = fmt.Errorf("knative deployer failed to create the Trigger: %v", err)
-			return err
-		}
-	}
-	return nil
 }

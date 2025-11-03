@@ -213,7 +213,7 @@ func TestInt_Update_WithAnnotationsAndLabels(t *testing.T) {
 	functionName := "updateannlab"
 	verbose := false
 
-	servingClient, err := k8sdescriber.NewServingClient(DefaultIntTestNamespace)
+	servingClient, err := knative.NewServingClient(DefaultIntTestNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}

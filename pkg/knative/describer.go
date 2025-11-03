@@ -8,7 +8,6 @@ import (
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 type Describer struct {
@@ -31,12 +30,12 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 		return nil, fmt.Errorf("function namespace is required when describing %q", name)
 	}
 
-	servingClient, err := k8s.NewServingClient(namespace)
+	servingClient, err := NewServingClient(namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	eventingClient, err := k8s.NewEventingClient(namespace)
+	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
 		return nil, err
 	}

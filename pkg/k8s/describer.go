@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -38,11 +36,6 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
 	serviceClient := clientset.CoreV1().Services(namespace)
 
-	eventingClient, err := NewEventingClient(namespace)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create eventing client: %v", err)
-	}
-
 	service, err := serviceClient.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get service for function: %v", err)
@@ -66,36 +59,6 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 	primaryRouteURL := fmt.Sprintf("http://%s.%s.svc", name, namespace) // TODO: get correct scheme?
 	description.Route = primaryRouteURL
 	description.Routes = []string{primaryRouteURL}
-
-	triggers, err := eventingClient.ListTriggers(ctx)
-	// IsNotFound -- Eventing is probably not installed on the cluster
-	if err != nil && !errors.IsNotFound(err) {
-		return description, nil
-	} else if err != nil {
-		return description, fmt.Errorf("unable to list triggers: %v", err)
-	}
-
-	triggerMatches := func(t *eventingv1.Trigger) bool {
-		return t.Spec.Subscriber.Ref != nil &&
-			t.Spec.Subscriber.Ref.Name == name &&
-			t.Spec.Subscriber.Ref.APIVersion == "v1" &&
-			t.Spec.Subscriber.Ref.Kind == "Service"
-	}
-
-	subscriptions := make([]fn.Subscription, 0, len(triggers.Items))
-	for _, trigger := range triggers.Items {
-		if triggerMatches(&trigger) {
-			filterAttrs := trigger.Spec.Filter.Attributes
-			subscription := fn.Subscription{
-				Source: filterAttrs["source"],
-				Type:   filterAttrs["type"],
-				Broker: trigger.Spec.Broker,
-			}
-			subscriptions = append(subscriptions, subscription)
-		}
-	}
-
-	description.Subscriptions = subscriptions
 
 	// Populate labels from the deployment
 	if deployment.Labels != nil {
