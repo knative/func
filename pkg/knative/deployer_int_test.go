@@ -6,7 +6,6 @@ package knative_test
 import (
 	"testing"
 
-	"knative.dev/func/pkg/deployer"
 	deployertesting "knative.dev/func/pkg/deployer/testing"
 	"knative.dev/func/pkg/knative"
 )
@@ -17,7 +16,7 @@ func TestIntegration(t *testing.T) {
 		knative.NewRemover(true),
 		knative.NewLister(true),
 		knative.NewDescriber(true),
-		deployer.KnativeDeployerName)
+		knative.KnativeDeployerName)
 }
 
 func TestInt_Deploy(t *testing.T) {
@@ -25,7 +24,7 @@ func TestInt_Deploy(t *testing.T) {
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewRemover(false),
 		knative.NewDescriber(false),
-		deployer.KnativeDeployerName)
+		knative.KnativeDeployerName)
 }
 
 func TestInt_Metadata(t *testing.T) {
@@ -33,7 +32,7 @@ func TestInt_Metadata(t *testing.T) {
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewRemover(false),
 		knative.NewDescriber(false),
-		deployer.KnativeDeployerName)
+		knative.KnativeDeployerName)
 }
 
 func TestInt_Events(t *testing.T) {
@@ -41,7 +40,7 @@ func TestInt_Events(t *testing.T) {
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewRemover(false),
 		knative.NewDescriber(false),
-		deployer.KnativeDeployerName)
+		knative.KnativeDeployerName)
 }
 
 func TestInt_Scale(t *testing.T) {
@@ -49,7 +48,7 @@ func TestInt_Scale(t *testing.T) {
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewRemover(false),
 		knative.NewDescriber(false),
-		deployer.KnativeDeployerName)
+		knative.KnativeDeployerName)
 }
 
 func TestInt_EnvsUpdate(t *testing.T) {
@@ -57,5 +56,5 @@ func TestInt_EnvsUpdate(t *testing.T) {
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewRemover(false),
 		knative.NewDescriber(false),
-		deployer.KnativeDeployerName)
+		knative.KnativeDeployerName)
 }

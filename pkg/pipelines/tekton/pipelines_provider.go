@@ -27,8 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
-	"knative.dev/func/pkg/knative"
-
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -237,7 +235,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, fmt.Errorf("function pipeline run has failed with message: \n\n%s", message)
 	}
 
-	kClient, err := knative.NewServingClient(namespace)
+	kClient, err := k8s.NewServingClient(namespace)
 	if err != nil {
 		return "", f, fmt.Errorf("problem in retrieving status of deployed function: %v", err)
 	}

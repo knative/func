@@ -7,7 +7,6 @@ import (
 
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -41,7 +40,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) (bool, erro
 		return false, err
 	}
 
-	if deployer.UsesRawDeployer(svc.Annotations) {
+	if UsesRawDeployer(svc.Annotations) {
 		// if annotation is set and the deployType is set explicitly to the raw deployer, we need to handle this service
 
 		deploymentClient := clientset.AppsV1().Deployments(ns)

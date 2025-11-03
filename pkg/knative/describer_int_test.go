@@ -5,7 +5,6 @@ package knative_test
 import (
 	"testing"
 
-	"knative.dev/func/pkg/deployer"
 	describertesting "knative.dev/func/pkg/describer/testing"
 	"knative.dev/func/pkg/knative"
 )
@@ -15,5 +14,5 @@ func TestInt_Describe(t *testing.T) {
 		knative.NewDescriber(true),
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewRemover(true),
-		deployer.KnativeDeployerName)
+		knative.KnativeDeployerName)
 }

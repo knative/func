@@ -7,8 +7,8 @@ import (
 	"time"
 
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
-	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 const RemoveTimeout = 120 * time.Second
@@ -29,7 +29,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) (bool, erro
 		return false, fn.ErrNamespaceRequired
 	}
 
-	client, err := NewServingClient(ns)
+	client, err := k8s.NewServingClient(ns)
 	if err != nil {
 		return false, err
 	}
@@ -42,7 +42,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) (bool, erro
 		return false, err
 	}
 
-	if deployer.UsesKnativeDeployer(ksvc.Annotations) {
+	if UsesKnativeDeployer(ksvc.Annotations) {
 		err = client.DeleteService(ctx, name, RemoveTimeout)
 		if err != nil {
 			return true, fmt.Errorf("knative remover failed to delete the service: %v", err)

@@ -5,7 +5,6 @@ package k8s_test
 import (
 	"testing"
 
-	"knative.dev/func/pkg/deployer"
 	describertesting "knative.dev/func/pkg/describer/testing"
 	"knative.dev/func/pkg/k8s"
 )
@@ -15,5 +14,5 @@ func TestInt_Describe(t *testing.T) {
 		k8s.NewDescriber(true),
 		k8s.NewDeployer(k8s.WithDeployerVerbose(true)),
 		k8s.NewRemover(true),
-		deployer.KubernetesDeployerName)
+		k8s.KubernetesDeployerName)
 }

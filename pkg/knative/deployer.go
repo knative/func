@@ -25,6 +25,10 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
+const (
+	KnativeDeployerName = "knative"
+)
+
 type DeployerOpt func(*Deployer)
 
 type Deployer struct {
@@ -130,11 +134,11 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// Clients
-	client, err := NewServingClient(namespace)
+	client, err := k8s.NewServingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
-	eventingClient, err := NewEventingClient(namespace)
+	eventingClient, err := k8s.NewEventingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
@@ -266,12 +270,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		referencedConfigMaps := sets.New[string]()
 		referencedPVCs := sets.New[string]()
 
-		newEnv, newEnvFrom, err := deployer.ProcessEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
+		newEnv, newEnvFrom, err := k8s.ProcessEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
 
-		newVolumes, newVolumeMounts, err := deployer.ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+		newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
@@ -334,21 +338,21 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 		Image: f.Deploy.Image,
 	}
 
-	deployer.SetSecurityContext(&container)
-	deployer.SetHealthEndpoints(f, &container)
+	k8s.SetSecurityContext(&container)
+	k8s.SetHealthEndpoints(f, &container)
 
 	referencedSecrets := sets.New[string]()
 	referencedConfigMaps := sets.New[string]()
 	referencedPVC := sets.New[string]()
 
-	newEnv, newEnvFrom, err := deployer.ProcessEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
+	newEnv, newEnvFrom, err := k8s.ProcessEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
 		return nil, err
 	}
 	container.Env = newEnv
 	container.EnvFrom = newEnvFrom
 
-	newVolumes, newVolumeMounts, err := deployer.ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVC)
+	newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVC)
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +456,7 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 		// config. At runtime this configuration file could be consulted. I don't
 		// know what this would mean for developers using the func library directly.
 		cp := &service.Spec.Template.Spec.Containers[0]
-		deployer.SetHealthEndpoints(f, cp)
+		k8s.SetHealthEndpoints(f, cp)
 
 		err := setServiceOptions(&service.Spec.Template, f.Deploy.Options)
 		if err != nil {
@@ -572,4 +576,12 @@ func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) er
 	}
 
 	return servingclientlib.UpdateRevisionTemplateAnnotations(template, toUpdate, toRemove)
+}
+
+func UsesKnativeDeployer(annotations map[string]string) bool {
+	deployType, ok := annotations[deployer.DeployTypeAnnotation]
+
+	// if annotation is not set (which defines for backwards compatibility the knative deployType) or the deployType
+	// is set explicitly to the knative deployer, we need to handle this service
+	return !ok || deployType == KnativeDeployerName
 }

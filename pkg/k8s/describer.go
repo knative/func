@@ -7,9 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
-	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/knative"
 )
 
 type Describer struct {
@@ -40,7 +38,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
 	serviceClient := clientset.CoreV1().Services(namespace)
 
-	eventingClient, err := knative.NewEventingClient(namespace)
+	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create eventing client: %v", err)
 	}
@@ -50,14 +48,14 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 		return nil, fmt.Errorf("unable to get service for function: %v", err)
 	}
 
-	if !deployer.UsesRawDeployer(service.Annotations) {
+	if !UsesRawDeployer(service.Annotations) {
 		return nil, nil
 	}
 
 	description := &fn.Instance{
 		Name:       name,
 		Namespace:  namespace,
-		DeployType: deployer.KubernetesDeployerName,
+		DeployType: KubernetesDeployerName,
 	}
 
 	deployment, err := deploymentClient.Get(ctx, name, metav1.GetOptions{})

@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
-	deployer2 "knative.dev/func/pkg/deployer"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	fntest "knative.dev/func/pkg/testing"
@@ -684,9 +683,9 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 	}
 
 	switch deployType {
-	case deployer2.KnativeDeployerName:
+	case knative.KnativeDeployerName:
 		subscriberRef.APIVersion = "serving.knative.dev"
-	case deployer2.KubernetesDeployerName:
+	case k8s.KubernetesDeployerName:
 		subscriberRef.APIVersion = "v1"
 	}
 
@@ -707,7 +706,7 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 		},
 	}
 
-	eventingClient, err := knative.NewEventingClient(namespace)
+	eventingClient, err := k8s.NewEventingClient(namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -955,9 +954,9 @@ func createTrigger(t *testing.T, ctx context.Context, namespace, triggerName str
 
 	var subscriberAPIVersion string
 	switch function.Deploy.DeployType {
-	case deployer2.KnativeDeployerName:
+	case knative.KnativeDeployerName:
 		subscriberAPIVersion = "serving.knative.dev/v1"
-	case deployer2.KubernetesDeployerName:
+	case k8s.KubernetesDeployerName:
 		subscriberAPIVersion = "v1"
 	default:
 		t.Fatalf("unknown deploy type: %s", function.Deploy.DeployType)
@@ -983,7 +982,7 @@ func createTrigger(t *testing.T, ctx context.Context, namespace, triggerName str
 			},
 		},
 	}
-	eventingClient, err := knative.NewEventingClient(namespace)
+	eventingClient, err := k8s.NewEventingClient(namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1086,7 +1085,7 @@ func deferCleanup(t *testing.T, namespace string, resourceType string, name stri
 		})
 	case "trigger":
 		t.Cleanup(func() {
-			if eventingClient, err := knative.NewEventingClient(namespace); err == nil {
+			if eventingClient, err := k8s.NewEventingClient(namespace); err == nil {
 				_ = eventingClient.DeleteTrigger(context.Background(), name)
 			}
 		})
@@ -1180,7 +1179,7 @@ func getHttpClient(ctx context.Context, deployType string) (*http.Client, func()
 	noopDeferFunc := func() {}
 	// For Kubernetes deployments, use in-cluster dialer to access ClusterIP services
 	switch deployType {
-	case deployer2.KubernetesDeployerName:
+	case k8s.KubernetesDeployerName:
 		clientConfig := k8s.GetClientConfig()
 		dialer, err := k8s.NewInClusterDialer(ctx, clientConfig)
 		if err != nil {
@@ -1199,7 +1198,7 @@ func getHttpClient(ctx context.Context, deployType string) (*http.Client, func()
 			Transport: transport,
 			Timeout:   time.Minute,
 		}, deferFunc, nil
-	case deployer2.KnativeDeployerName:
+	case knative.KnativeDeployerName:
 		// For Knative deployments, use default client (service is externally accessible)
 		return http.DefaultClient, noopDeferFunc, nil
 	default:

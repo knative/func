@@ -4,7 +4,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/func/pkg/deployer"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/pkg/apis"
 
 	fn "knative.dev/func/pkg/functions"
@@ -20,7 +20,7 @@ func NewLister(verbose bool) *Lister {
 
 // List functions, optionally specifying a namespace.
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, bool, error) {
-	client, err := NewServingClient(namespace)
+	client, err := k8s.NewServingClient(namespace)
 	if err != nil {
 		return nil, false, err
 	}
@@ -35,7 +35,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, boo
 	items := make([]fn.ListItem, 0, len(lst.Items))
 	ok := false
 	for _, service := range lst.Items {
-		if !deployer.UsesKnativeDeployer(service.Annotations) {
+		if !UsesKnativeDeployer(service.Annotations) {
 			continue
 		}
 
@@ -58,7 +58,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, boo
 			Runtime:    runtimeLabel,
 			URL:        service.Status.URL.String(),
 			Ready:      string(ready),
-			DeployType: deployer.KnativeDeployerName,
+			DeployType: KnativeDeployerName,
 		}
 
 		items = append(items, listItem)

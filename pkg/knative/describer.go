@@ -7,8 +7,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
-	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 type Describer struct {
@@ -31,12 +31,12 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 		return nil, fmt.Errorf("function namespace is required when describing %q", name)
 	}
 
-	servingClient, err := NewServingClient(namespace)
+	servingClient, err := k8s.NewServingClient(namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	eventingClient, err := NewEventingClient(namespace)
+	eventingClient, err := k8s.NewEventingClient(namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 		return nil, err
 	}
 
-	if !deployer.UsesKnativeDeployer(service.Annotations) {
+	if !UsesKnativeDeployer(service.Annotations) {
 		// no need to handle this service
 		return nil, nil
 	}
@@ -54,7 +54,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 	description := &fn.Instance{
 		Name:       name,
 		Namespace:  namespace,
-		DeployType: deployer.KnativeDeployerName,
+		DeployType: KnativeDeployerName,
 	}
 
 	routes, err := servingClient.ListRoutes(ctx, clientservingv1.WithService(name))

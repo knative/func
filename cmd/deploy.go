@@ -17,9 +17,9 @@ import (
 	"knative.dev/client/pkg/util"
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
-	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/knative"
 )
 
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {
@@ -193,7 +193,7 @@ EXAMPLES
 	cmd.Flags().String("service-account", f.Deploy.ServiceAccountName,
 		"Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)")
 	cmd.Flags().String("deploy-type", f.Deploy.DeployType,
-		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service (default) or '%s' for Kubernetes Deployment ($FUNC_DEPLOY_TYPE)", deployer.KnativeDeployerName, deployer.KubernetesDeployerName))
+		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service (default) or '%s' for Kubernetes Deployment ($FUNC_DEPLOY_TYPE)", knative.KnativeDeployerName, k8s.KubernetesDeployerName))
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
@@ -807,16 +807,16 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 	// Add the appropriate deployer based on deploy type
 	deployType := c.DeployType
 	if deployType == "" {
-		deployType = deployer.KnativeDeployerName // default to knative for backwards compatibility
+		deployType = knative.KnativeDeployerName // default to knative for backwards compatibility
 	}
 
 	switch deployType {
-	case deployer.KnativeDeployerName:
+	case knative.KnativeDeployerName:
 		o = append(o, fn.WithDeployer(newKnativeDeployer(c.Verbose)))
-	case deployer.KubernetesDeployerName:
+	case k8s.KubernetesDeployerName:
 		o = append(o, fn.WithDeployer(newK8sDeployer(c.Verbose)))
 	default:
-		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s)", deployType, deployer.KnativeDeployerName, deployer.KubernetesDeployerName)
+		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s)", deployType, knative.KnativeDeployerName, k8s.KubernetesDeployerName)
 	}
 
 	return o, nil

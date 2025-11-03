@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -40,7 +39,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, boo
 	listItems := make([]fn.ListItem, 0, len(services.Items))
 	ok := false
 	for _, service := range services.Items {
-		if !deployer.UsesRawDeployer(service.Annotations) {
+		if !UsesRawDeployer(service.Annotations) {
 			continue
 		}
 		ok = true
@@ -87,7 +86,7 @@ func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, name,
 		Runtime:    runtimeLabel,
 		URL:        fmt.Sprintf("http://%s.%s.svc", service.Name, service.Namespace), // TODO: use correct scheme
 		Ready:      string(ready),
-		DeployType: deployer.KubernetesDeployerName,
+		DeployType: KubernetesDeployerName,
 	}
 
 	return listItem, nil

@@ -6,7 +6,6 @@ package k8s_test
 import (
 	"testing"
 
-	"knative.dev/func/pkg/deployer"
 	deployertesting "knative.dev/func/pkg/deployer/testing"
 	"knative.dev/func/pkg/k8s"
 )
@@ -17,7 +16,7 @@ func TestIntegration(t *testing.T) {
 		k8s.NewRemover(false),
 		k8s.NewLister(false),
 		k8s.NewDescriber(false),
-		deployer.KubernetesDeployerName)
+		k8s.KubernetesDeployerName)
 }
 
 func TestInt_Deploy(t *testing.T) {
@@ -25,7 +24,7 @@ func TestInt_Deploy(t *testing.T) {
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewDescriber(false),
-		deployer.KubernetesDeployerName)
+		k8s.KubernetesDeployerName)
 }
 
 func TestInt_Metadata(t *testing.T) {
@@ -33,7 +32,7 @@ func TestInt_Metadata(t *testing.T) {
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewDescriber(false),
-		deployer.KubernetesDeployerName)
+		k8s.KubernetesDeployerName)
 }
 
 func TestInt_Events(t *testing.T) {
@@ -41,7 +40,7 @@ func TestInt_Events(t *testing.T) {
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewDescriber(false),
-		deployer.KubernetesDeployerName)
+		k8s.KubernetesDeployerName)
 }
 
 func TestInt_Scale(t *testing.T) {
@@ -49,7 +48,7 @@ func TestInt_Scale(t *testing.T) {
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewDescriber(false),
-		deployer.KubernetesDeployerName)
+		k8s.KubernetesDeployerName)
 }
 
 func TestInt_EnvsUpdate(t *testing.T) {
@@ -57,5 +56,5 @@ func TestInt_EnvsUpdate(t *testing.T) {
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewDescriber(false),
-		deployer.KubernetesDeployerName)
+		k8s.KubernetesDeployerName)
 }
