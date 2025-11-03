@@ -29,43 +29,54 @@ func NewDescriber(verbose bool) *Describer {
 // escaped. Therefor as a knative (kube) implementation detail proper full
 // names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.Instance, error) {
+func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.Instance, error) {
 	if namespace == "" {
-		return fn.Instance{}, fmt.Errorf("function namespace is required when describing %q", name)
+		return nil, fmt.Errorf("function namespace is required when describing %q", name)
 	}
 
 	clientset, err := k8s.NewKubernetesClientset()
 	if err != nil {
-		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %v", err)
+		return nil, fmt.Errorf("unable to create k8s client: %v", err)
 	}
 
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
+	serviceClient := clientset.CoreV1().Services(namespace)
+
 	eventingClient, err := knative.NewEventingClient(namespace)
 	if err != nil {
-		return fn.Instance{}, fmt.Errorf("unable to create eventing client: %v", err)
+		return nil, fmt.Errorf("unable to create eventing client: %v", err)
+	}
+
+	service, err := serviceClient.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get service for function: %v", err)
+	}
+
+	if !deployer.UsesRawDeployer(service.Annotations) {
+		return nil, nil
+	}
+
+	description := &fn.Instance{
+		Name:       name,
+		Namespace:  namespace,
+		DeployType: deployer.KubernetesDeployerName,
 	}
 
 	deployment, err := deploymentClient.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return fn.Instance{}, fmt.Errorf("unable to get deployment %q: %v", name, err)
+		return description, fmt.Errorf("unable to get deployment %q: %v", name, err)
 	}
 
 	primaryRouteURL := fmt.Sprintf("http://%s.%s.svc", name, namespace) // TODO: get correct scheme?
-
-	description := fn.Instance{
-		Name:       name,
-		Namespace:  namespace,
-		Route:      primaryRouteURL,
-		Routes:     []string{primaryRouteURL},
-		DeployType: deployer.KubernetesDeployerName,
-	}
+	description.Route = primaryRouteURL
+	description.Routes = []string{primaryRouteURL}
 
 	triggers, err := eventingClient.ListTriggers(ctx)
 	// IsNotFound -- Eventing is probably not installed on the cluster
 	if err != nil && !errors.IsNotFound(err) {
 		return description, nil
 	} else if err != nil {
-		return fn.Instance{}, fmt.Errorf("unable to list triggers: %v", err)
+		return description, fmt.Errorf("unable to list triggers: %v", err)
 	}
 
 	triggerMatches := func(t *eventingv1.Trigger) bool {

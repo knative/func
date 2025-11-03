@@ -588,3 +588,17 @@ func CreateTriggers(ctx context.Context, f fn.Function, obj kmeta.Accessor, even
 	}
 	return nil
 }
+
+func UsesKnativeDeployer(annoations map[string]string) bool {
+	deployType, ok := annoations[DeployTypeAnnotation]
+
+	// if annotation is not set (which defines for backwards compatibility the knative deployType) or the deployType
+	// is set explicitly to the knative deployer, we need to handle this service
+	return !ok || deployType == KnativeDeployerName
+}
+
+func UsesRawDeployer(annotations map[string]string) bool {
+	deployType, ok := annotations[DeployTypeAnnotation]
+
+	return ok && deployType == KubernetesDeployerName
+}

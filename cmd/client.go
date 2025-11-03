@@ -11,19 +11,16 @@ import (
 	"knative.dev/func/pkg/creds"
 	k8sdeployer "knative.dev/func/pkg/deployer/k8s"
 	knativedeployer "knative.dev/func/pkg/deployer/knative"
-	"knative.dev/func/pkg/describer"
 	k8sdescriber "knative.dev/func/pkg/describer/k8s"
 	knativedescriber "knative.dev/func/pkg/describer/knative"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	fnhttp "knative.dev/func/pkg/http"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/lister"
 	k8slister "knative.dev/func/pkg/lister/k8s"
 	knativelister "knative.dev/func/pkg/lister/knative"
 	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/pipelines/tekton"
-	"knative.dev/func/pkg/remover"
 	k8sremover "knative.dev/func/pkg/remover/k8s"
 	knativeremover "knative.dev/func/pkg/remover/knative"
 )
@@ -75,9 +72,9 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithTransport(t),
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
-			fn.WithRemover(remover.NewMultiRemover(cfg.Verbose, knativeremover.NewRemover(cfg.Verbose), k8sremover.NewRemover(cfg.Verbose))),
-			fn.WithDescriber(describer.NewMultiDescriber(cfg.Verbose, knativedescriber.NewDescriber(cfg.Verbose), k8sdescriber.NewDescriber(cfg.Verbose))),
-			fn.WithLister(lister.NewLister(cfg.Verbose, knativelister.NewGetter(cfg.Verbose), k8slister.NewGetter(cfg.Verbose))),
+			fn.WithRemovers(knativeremover.NewRemover(cfg.Verbose), k8sremover.NewRemover(cfg.Verbose)),
+			fn.WithDescribers(knativedescriber.NewDescriber(cfg.Verbose), k8sdescriber.NewDescriber(cfg.Verbose)),
+			fn.WithListers(knativelister.NewLister(cfg.Verbose), k8slister.NewLister(cfg.Verbose)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(

@@ -7,7 +7,6 @@ import (
 
 	"knative.dev/func/pkg/deployer"
 	k8sdescriber "knative.dev/func/pkg/describer/k8s"
-	"knative.dev/func/pkg/lister"
 	k8slister "knative.dev/func/pkg/lister/k8s"
 	"knative.dev/func/pkg/remover"
 	k8sremover "knative.dev/func/pkg/remover/k8s"
@@ -20,6 +19,6 @@ func TestInt_Remove(t *testing.T) {
 		k8sremover.NewRemover(true),
 		k8sdeployer.NewDeployer(k8sdeployer.WithDeployerVerbose(true)),
 		k8sdescriber.NewDescriber(true),
-		lister.NewLister(true, nil, k8slister.NewGetter(true)),
+		k8slister.NewLister(true),
 		deployer.KubernetesDeployerName)
 }

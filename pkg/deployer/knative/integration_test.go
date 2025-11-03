@@ -9,7 +9,6 @@ import (
 	"knative.dev/func/pkg/deployer"
 	knativedeployer "knative.dev/func/pkg/deployer/knative"
 	knativedescriber "knative.dev/func/pkg/describer/knative"
-	"knative.dev/func/pkg/lister"
 	knativelister "knative.dev/func/pkg/lister/knative"
 	knativeremover "knative.dev/func/pkg/remover/knative"
 )
@@ -18,7 +17,7 @@ func TestIntegration(t *testing.T) {
 	deployer.IntegrationTest_FullPath(t,
 		knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true)),
 		knativeremover.NewRemover(true),
-		lister.NewLister(true, knativelister.NewGetter(true), nil),
+		knativelister.NewLister(true),
 		knativedescriber.NewDescriber(true),
 		deployer.KnativeDeployerName)
 }

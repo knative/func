@@ -7,6 +7,7 @@ import (
 	"time"
 
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/knative"
 )
@@ -23,24 +24,32 @@ type Remover struct {
 	verbose bool
 }
 
-func (remover *Remover) Remove(ctx context.Context, name, ns string) (err error) {
+func (remover *Remover) Remove(ctx context.Context, name, ns string) (bool, error) {
 	if ns == "" {
 		fmt.Fprintf(os.Stderr, "no namespace defined when trying to delete a function in knative remover\n")
-		return fn.ErrNamespaceRequired
+		return false, fn.ErrNamespaceRequired
 	}
 
 	client, err := knative.NewServingClient(ns)
 	if err != nil {
-		return
+		return false, err
 	}
 
-	err = client.DeleteService(ctx, name, RemoveTimeout)
+	ksvc, err := client.GetService(ctx, name)
 	if err != nil {
 		if apiErrors.IsNotFound(err) {
-			return fn.ErrFunctionNotFound
+			return false, fn.ErrFunctionNotFound
 		}
-		err = fmt.Errorf("knative remover failed to delete the service: %v", err)
+		return false, err
 	}
 
-	return
+	if deployer.UsesKnativeDeployer(ksvc.Annotations) {
+		err = client.DeleteService(ctx, name, RemoveTimeout)
+		if err != nil {
+			return true, fmt.Errorf("knative remover failed to delete the service: %v", err)
+		}
+
+		return true, nil
+	}
+	return false, nil
 }

@@ -21,10 +21,10 @@ func Test_NewTestClient(t *testing.T) {
 	)
 
 	// Factory constructor options which should be used when invoking later
-	clientFn := NewTestClient(fn.WithRemover(remover))
+	clientFn := NewTestClient(fn.WithRemovers(remover))
 
 	// Factory should ignore options provided when invoking
-	client, _ := clientFn(ClientConfig{}, fn.WithDescriber(describer))
+	client, _ := clientFn(ClientConfig{}, fn.WithDescribers(describer))
 
 	// Trigger an invocation of the mocks by running the associated client
 	// methods which depend on them

@@ -7,6 +7,7 @@ import (
 
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -21,35 +22,49 @@ type Remover struct {
 	verbose bool
 }
 
-func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
+func (remover *Remover) Remove(ctx context.Context, name, ns string) (bool, error) {
 	if ns == "" {
 		fmt.Fprintf(os.Stderr, "no namespace defined when trying to delete a function in knative remover\n")
-		return fn.ErrNamespaceRequired
+		return false, fn.ErrNamespaceRequired
 	}
 
 	clientset, err := k8s.NewKubernetesClientset()
 	if err != nil {
-		return fmt.Errorf("could not setup kubernetes clientset: %w", err)
+		return false, fmt.Errorf("could not setup kubernetes clientset: %w", err)
 	}
 
-	deploymentClient := clientset.AppsV1().Deployments(ns)
 	serviceClient := clientset.CoreV1().Services(ns)
-
-	err = deploymentClient.Delete(ctx, name, metav1.DeleteOptions{})
+	svc, err := serviceClient.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if apiErrors.IsNotFound(err) {
-			return fn.ErrFunctionNotFound
+			return false, fn.ErrFunctionNotFound
 		}
-		return fmt.Errorf("k8s remover failed to delete the deployment: %v", err)
+		return false, err
 	}
 
-	err = serviceClient.Delete(ctx, name, metav1.DeleteOptions{})
-	if err != nil {
-		if apiErrors.IsNotFound(err) {
-			return fn.ErrFunctionNotFound
-		}
-		return fmt.Errorf("k8s remover failed to delete the service: %v", err)
-	}
+	if deployer.UsesRawDeployer(svc.Annotations) {
+		// if annotation is set and the deployType is set explicitly to the raw deployer, we need to handle this service
 
-	return nil
+		deploymentClient := clientset.AppsV1().Deployments(ns)
+
+		// TODO: delete only one and let the api server handle the other via the owner reference
+		err = deploymentClient.Delete(ctx, name, metav1.DeleteOptions{})
+		if err != nil {
+			if apiErrors.IsNotFound(err) {
+				return true, fn.ErrFunctionNotFound
+			}
+			return true, fmt.Errorf("k8s remover failed to delete the deployment: %v", err)
+		}
+
+		err = serviceClient.Delete(ctx, name, metav1.DeleteOptions{})
+		if err != nil {
+			if apiErrors.IsNotFound(err) {
+				return true, fn.ErrFunctionNotFound
+			}
+			return true, fmt.Errorf("k8s remover failed to delete the service: %v", err)
+		}
+
+		return true, nil
+	}
+	return false, nil
 }

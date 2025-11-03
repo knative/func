@@ -25,9 +25,9 @@ func DescribeIntegrationTest(t *testing.T, describer fn.Describer, deployer fn.D
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
-		fn.WithDescriber(describer),
+		fn.WithDescribers(describer),
 		fn.WithDeployer(deployer),
-		fn.WithRemover(remover),
+		fn.WithRemovers(remover),
 	)
 
 	f, err := client.Init(fn.Function{

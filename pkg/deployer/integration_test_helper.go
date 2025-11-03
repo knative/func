@@ -45,8 +45,8 @@ func IntegrationTest_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remov
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
-		fn.WithDescriber(describer),
-		fn.WithRemover(remover),
+		fn.WithDescribers(describer),
+		fn.WithRemovers(remover),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -119,8 +119,8 @@ func IntegrationTest_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Rem
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
-		fn.WithDescriber(describer),
-		fn.WithRemover(remover),
+		fn.WithDescribers(describer),
+		fn.WithRemovers(remover),
 	)
 
 	// Cluster Resources
@@ -288,8 +288,8 @@ func IntegrationTest_Events(t *testing.T, deployer fn.Deployer, remover fn.Remov
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
-		fn.WithDescriber(describer),
-		fn.WithRemover(remover),
+		fn.WithDescribers(describer),
+		fn.WithRemovers(remover),
 	)
 
 	// Function
@@ -367,8 +367,8 @@ func IntegrationTest_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remove
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
-		fn.WithDescriber(describer),
-		fn.WithRemover(remover),
+		fn.WithDescribers(describer),
+		fn.WithRemovers(remover),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -474,8 +474,8 @@ func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.R
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
-		fn.WithDescriber(describer),
-		fn.WithRemover(remover),
+		fn.WithDescribers(describer),
+		fn.WithRemovers(remover),
 	)
 
 	// Function
@@ -831,10 +831,11 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 		}
 	}
 
-	list, err := lister.List(ctx, namespace)
+	list, _, err := lister.List(ctx, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Logf("functions list: %+v", list)
 
 	if len(list) != 1 {
@@ -895,12 +896,15 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 		t.Error("environment variable was not set from config-map")
 	}
 
-	err = remover.Remove(ctx, functionName, namespace)
+	ok, err := remover.Remove(ctx, functionName, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !ok {
+		t.Fatal("remover did not handle function")
+	}
 
-	list, err = lister.List(ctx, namespace)
+	list, _, err = lister.List(ctx, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}

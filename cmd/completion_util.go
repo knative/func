@@ -9,17 +9,16 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"knative.dev/func/pkg/lister"
-	k8slister "knative.dev/func/pkg/lister/k8s"
 	knativelister "knative.dev/func/pkg/lister/knative"
 
 	fn "knative.dev/func/pkg/functions"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	lister := lister.NewLister(false, knativelister.NewGetter(false), k8slister.NewGetter(false))
+	lister := knativelister.NewLister(false)
 
-	list, err := lister.List(cmd.Context(), "")
+	// TODO: use all listers
+	list, _, err := lister.List(cmd.Context(), "")
 	if err != nil {
 		directive = cobra.ShellCompDirectiveError
 		return

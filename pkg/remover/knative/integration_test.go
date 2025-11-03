@@ -7,7 +7,6 @@ import (
 
 	"knative.dev/func/pkg/deployer"
 	knativedescriber "knative.dev/func/pkg/describer/knative"
-	"knative.dev/func/pkg/lister"
 	knativelister "knative.dev/func/pkg/lister/knative"
 	"knative.dev/func/pkg/remover"
 	knativeremover "knative.dev/func/pkg/remover/knative"
@@ -20,6 +19,6 @@ func TestInt_Remove(t *testing.T) {
 		knativeremover.NewRemover(true),
 		knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(true)),
 		knativedescriber.NewDescriber(true),
-		lister.NewLister(true, knativelister.NewGetter(true), nil),
+		knativelister.NewLister(true),
 		deployer.KnativeDeployerName)
 }

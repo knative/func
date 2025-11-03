@@ -18,13 +18,10 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
-	"knative.dev/func/pkg/describer"
 	k8sdescriber "knative.dev/func/pkg/describer/k8s"
 	knativedescriber "knative.dev/func/pkg/describer/knative"
-	"knative.dev/func/pkg/lister"
 	k8slister "knative.dev/func/pkg/lister/k8s"
 	knativelister "knative.dev/func/pkg/lister/knative"
-	"knative.dev/func/pkg/remover"
 	k8sremover "knative.dev/func/pkg/remover/k8s"
 	knativeremover "knative.dev/func/pkg/remover/knative"
 
@@ -671,9 +668,9 @@ func newClient(verbose bool) *fn.Client {
 		fn.WithBuilder(oci.NewBuilder("", verbose)),
 		fn.WithPusher(oci.NewPusher(true, true, verbose)),
 		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(verbose))),
-		fn.WithDescriber(describer.NewMultiDescriber(verbose, knativedescriber.NewDescriber(verbose), k8sdescriber.NewDescriber(verbose))),
-		fn.WithRemover(remover.NewMultiRemover(verbose, knativeremover.NewRemover(verbose), k8sremover.NewRemover(verbose))),
-		fn.WithLister(lister.NewLister(verbose, knativelister.NewGetter(verbose), k8slister.NewGetter(verbose))),
+		fn.WithDescribers(knativedescriber.NewDescriber(verbose), k8sdescriber.NewDescriber(verbose)),
+		fn.WithRemovers(knativeremover.NewRemover(verbose), k8sremover.NewRemover(verbose)),
+		fn.WithListers(knativelister.NewLister(verbose), k8slister.NewLister(verbose)),
 		fn.WithVerbose(verbose),
 	)
 }
@@ -683,9 +680,6 @@ func newClientWithS2i(verbose bool) *fn.Client {
 	builder := s2i.NewBuilder(s2i.WithVerbose(verbose))
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
 	deployer := knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(verbose))
-	describer := describer.NewMultiDescriber(verbose, knativedescriber.NewDescriber(verbose), k8sdescriber.NewDescriber(verbose))
-	remover := remover.NewMultiRemover(verbose, knativeremover.NewRemover(verbose), k8sremover.NewRemover(verbose))
-	lister := lister.NewLister(verbose, knativelister.NewGetter(verbose), k8slister.NewGetter(verbose))
 
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),
@@ -693,9 +687,9 @@ func newClientWithS2i(verbose bool) *fn.Client {
 		fn.WithBuilder(builder),
 		fn.WithPusher(pusher),
 		fn.WithDeployer(deployer),
-		fn.WithDescriber(describer),
-		fn.WithRemover(remover),
-		fn.WithLister(lister),
+		fn.WithDescribers(knativedescriber.NewDescriber(verbose), k8sdescriber.NewDescriber(verbose)),
+		fn.WithRemovers(knativeremover.NewRemover(verbose), k8sremover.NewRemover(verbose)),
+		fn.WithListers(knativelister.NewLister(verbose), k8slister.NewLister(verbose)),
 	)
 }
 

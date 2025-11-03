@@ -7,26 +7,58 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
 
-type Getter struct {
+type Lister struct {
 	verbose bool
 }
 
-func NewGetter(verbose bool) *Getter {
-	return &Getter{verbose: verbose}
+func NewLister(verbose bool) fn.Lister {
+	return &Lister{
+		verbose: verbose,
+	}
+}
+
+func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, bool, error) {
+	clientset, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		return nil, false, fmt.Errorf("unable to create k8s client: %v", err)
+	}
+
+	serviceClient := clientset.CoreV1().Services(namespace)
+
+	services, err := serviceClient.List(ctx, metav1.ListOptions{
+		LabelSelector: "function.knative.dev/name",
+	})
+	if err != nil {
+		return nil, false, fmt.Errorf("unable to list services: %v", err)
+	}
+
+	listItems := make([]fn.ListItem, 0, len(services.Items))
+	ok := false
+	for _, service := range services.Items {
+		if !deployer.UsesRawDeployer(service.Annotations) {
+			continue
+		}
+		ok = true
+
+		item, err := l.get(ctx, clientset, service.Name, namespace)
+		if err != nil {
+			return nil, true, fmt.Errorf("unable to get details about function: %v", err)
+		}
+
+		listItems = append(listItems, item)
+	}
+
+	return listItems, ok, nil
 }
 
 // Get a function, optionally specifying a namespace.
-func (l *Getter) Get(ctx context.Context, name, namespace string) (fn.ListItem, error) {
-	clientset, err := k8s.NewKubernetesClientset()
-	if err != nil {
-		return fn.ListItem{}, fmt.Errorf("could not setup kubernetes clientset: %w", err)
-	}
-
+func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, name, namespace string) (fn.ListItem, error) {
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
 	serviceClient := clientset.CoreV1().Services(namespace)
 

@@ -26,9 +26,9 @@ func IntegrationTest(t *testing.T, lister fn.Lister, deployer fn.Deployer, descr
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
-		fn.WithLister(lister),
-		fn.WithDescriber(describer),
-		fn.WithRemover(remover),
+		fn.WithListers(lister),
+		fn.WithDescribers(describer),
+		fn.WithRemovers(remover),
 	)
 
 	f, err := client.Init(fn.Function{

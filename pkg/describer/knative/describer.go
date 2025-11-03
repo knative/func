@@ -28,55 +28,60 @@ func NewDescriber(verbose bool) *Describer {
 // escaped. Therefore as a knative (kube) implementation detal proper full
 // names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (d *Describer) Describe(ctx context.Context, name, namespace string) (description fn.Instance, err error) {
+func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.Instance, error) {
 	if namespace == "" {
-		err = fmt.Errorf("function namespace is required when describing %q", name)
-		return
+		return nil, fmt.Errorf("function namespace is required when describing %q", name)
 	}
 
 	servingClient, err := knative.NewServingClient(namespace)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	eventingClient, err := knative.NewEventingClient(namespace)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	service, err := servingClient.GetService(ctx, name)
 	if err != nil {
-		return
+		return nil, err
+	}
+
+	if !deployer.UsesKnativeDeployer(service.Annotations) {
+		// no need to handle this service
+		return nil, nil
+	}
+
+	description := &fn.Instance{
+		Name:       name,
+		Namespace:  namespace,
+		DeployType: deployer.KnativeDeployerName,
 	}
 
 	routes, err := servingClient.ListRoutes(ctx, clientservingv1.WithService(name))
 	if err != nil {
-		return
+		return description, err
 	}
 
 	routeURLs := make([]string, 0, len(routes.Items))
 	for _, route := range routes.Items {
 		routeURLs = append(routeURLs, route.Status.URL.String())
 	}
+	description.Routes = routeURLs
 
 	primaryRouteURL := ""
 	if len(routes.Items) > 0 {
 		primaryRouteURL = routes.Items[0].Status.URL.String()
 	}
-
-	description.Name = name
-	description.Namespace = namespace
 	description.Route = primaryRouteURL
-	description.Routes = routeURLs
-	description.DeployType = deployer.KnativeDeployerName
 
 	triggers, err := eventingClient.ListTriggers(ctx)
 	// IsNotFound -- Eventing is probably not installed on the cluster
 	if err != nil && !errors.IsNotFound(err) {
-		err = nil
-		return
+		return description, nil
 	} else if err != nil {
-		return
+		return description, err
 	}
 
 	triggerMatches := func(t *eventingv1.Trigger) bool {
@@ -106,5 +111,5 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (descr
 		description.Labels = service.Labels
 	}
 
-	return
+	return description, nil
 }
