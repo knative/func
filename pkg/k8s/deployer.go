@@ -88,9 +88,6 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
 	serviceClient := clientset.CoreV1().Services(namespace)
-	if err != nil {
-		return fn.DeploymentResult{}, err
-	}
 
 	existingDeployment, err := deploymentClient.Get(ctx, f.Name, metav1.GetOptions{})
 

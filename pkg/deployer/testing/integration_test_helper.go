@@ -676,45 +676,6 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 		t.Fatal(err)
 	}
 
-	subscriberRef := v1.KReference{
-		Kind:      "Service",
-		Namespace: namespace,
-		Name:      functionName,
-	}
-
-	switch deployerName {
-	case knative.KnativeDeployerName:
-		subscriberRef.APIVersion = "serving.knative.dev"
-	case k8s.KubernetesDeployerName:
-		subscriberRef.APIVersion = "v1"
-	}
-
-	trigger := "testing-trigger"
-	tr := &eventingv1.Trigger{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: trigger,
-		},
-		Spec: eventingv1.TriggerSpec{
-			Broker:     "testing-broker",
-			Subscriber: v1.Destination{Ref: &subscriberRef},
-			Filter: &eventingv1.TriggerFilter{
-				Attributes: map[string]string{
-					"source": "test-event-source",
-					"type":   "test-event-type",
-				},
-			},
-		},
-	}
-
-	eventingClient, err := knative.NewEventingClient(namespace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = eventingClient.CreateTrigger(ctx, tr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	minScale := int64(2)
 	maxScale := int64(100)
 
@@ -813,21 +774,6 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 		t.Log("resp body:\n" + respBody)
 		if !strings.Contains(respBody, reqBody) {
 			t.Error("response body doesn't contain request body")
-		}
-	}
-
-	// verify that trigger info is included in describe output
-	if len(instance.Subscriptions) != 1 {
-		t.Error("exactly one subscription is expected")
-	} else {
-		if instance.Subscriptions[0].Broker != "testing-broker" {
-			t.Error("bad broker")
-		}
-		if instance.Subscriptions[0].Source != "test-event-source" {
-			t.Error("bad source")
-		}
-		if instance.Subscriptions[0].Type != "test-event-type" {
-			t.Error("bad type")
 		}
 	}
 

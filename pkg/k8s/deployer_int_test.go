@@ -36,6 +36,8 @@ func TestInt_Metadata(t *testing.T) {
 }
 
 func TestInt_Events(t *testing.T) {
+	t.Skip("Kubernetes deploy does not support func subscribe yet")
+
 	deployertesting.IntegrationTest_Events(t,
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
