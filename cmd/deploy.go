@@ -235,6 +235,10 @@ EXAMPLES
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 
+	if err := cmd.RegisterFlagCompletionFunc("deployer", CompleteDeployerList); err != nil {
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
+	}
+
 	return cmd
 }
 
