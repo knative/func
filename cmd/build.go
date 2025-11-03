@@ -406,7 +406,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 		{
 			Name: "push",
 			Prompt: &survey.Confirm{
-				Message: "Push image after build?",
+				Message: "Push image to your registry after build?",
 				Default: c.Push,
 			},
 		},
@@ -422,7 +422,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 			{
 				Name: "baseImage",
 				Prompt: &survey.Input{
-					Message: "Optional base image for your function (host builder only):",
+					Message: "Optional base image for your function (empty for default):",
 					Default: c.BaseImage,
 				},
 			},
