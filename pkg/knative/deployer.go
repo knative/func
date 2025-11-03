@@ -454,7 +454,7 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 // It uses the common annotation generator and adds Knative-specific annotations.
 func generateServiceAnnotations(f fn.Function, d deployer.DeployDecorator, previousService *servingv1.Service, daprInstalled bool) (aa map[string]string) {
 	// Start with common annotations (includes Dapr, user annotations, and decorator)
-	aa = deployer.GenerateCommonAnnotations(f, d, daprInstalled, f.Deploy.DeployType)
+	aa = deployer.GenerateCommonAnnotations(f, d, daprInstalled, f.Deploy.Deployer)
 
 	// Set correct creator if we are updating a function (Knative-specific)
 	// This annotation is immutable and must be preserved when updating
@@ -622,9 +622,9 @@ func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Opti
 }
 
 func UsesKnativeDeployer(annotations map[string]string) bool {
-	deployType, ok := annotations[deployer.DeployTypeAnnotation]
+	deployer, ok := annotations[deployer.DeployerNameAnnotation]
 
-	// if annotation is not set (which defines for backwards compatibility the knative deployType) or the deployType
-	// is set explicitly to the knative deployer, we need to handle this service
-	return !ok || deployType == KnativeDeployerName
+	// annotation is not set (which defines for backwards compatibility the knative deployer)
+	// or the deployer is set explicitly to the knative deployer
+	return !ok || deployer == KnativeDeployerName
 }

@@ -187,9 +187,9 @@ func (items listItems) Plain(w io.Writer) error {
 	tabWriter := tabwriter.NewWriter(w, 0, 8, 2, ' ', 0)
 	defer tabWriter.Flush()
 
-	fmt.Fprintf(tabWriter, "%s\t%s\t%s\t%s\t%s\t%s\n", "NAME", "NAMESPACE", "RUNTIME", "DEPLOY-TYPE", "URL", "READY")
+	fmt.Fprintf(tabWriter, "%s\t%s\t%s\t%s\t%s\t%s\n", "NAME", "NAMESPACE", "RUNTIME", "DEPLOYER", "URL", "READY")
 	for _, item := range items {
-		fmt.Fprintf(tabWriter, "%s\t%s\t%s\t%s\t%s\t%s\n", item.Name, item.Namespace, item.Runtime, item.DeployType, item.URL, item.Ready)
+		fmt.Fprintf(tabWriter, "%s\t%s\t%s\t%s\t%s\t%s\n", item.Name, item.Namespace, item.Runtime, item.Deployer, item.URL, item.Ready)
 	}
 	return nil
 }

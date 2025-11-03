@@ -170,7 +170,7 @@ func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstal
 		return nil, nil, err
 	}
 
-	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, daprInstalled, f.Deploy.DeployType)
+	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, daprInstalled, f.Deploy.Deployer)
 
 	// Use annotations for pod template
 	podAnnotations := make(map[string]string)
@@ -699,7 +699,7 @@ func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 }
 
 func UsesRawDeployer(annotations map[string]string) bool {
-	deployType, ok := annotations[deployer.DeployTypeAnnotation]
+	deployer, ok := annotations[deployer.DeployerNameAnnotation]
 
-	return ok && deployType == KubernetesDeployerName
+	return ok && deployer == KubernetesDeployerName
 }

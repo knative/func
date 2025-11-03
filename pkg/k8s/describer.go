@@ -46,9 +46,9 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 	}
 
 	description := &fn.Instance{
-		Name:       name,
-		Namespace:  namespace,
-		DeployType: KubernetesDeployerName,
+		Name:      name,
+		Namespace: namespace,
+		Deployer:  KubernetesDeployerName,
 	}
 
 	deployment, err := deploymentClient.Get(ctx, name, metav1.GetOptions{})

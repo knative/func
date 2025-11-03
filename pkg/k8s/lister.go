@@ -81,12 +81,12 @@ func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, name,
 
 	runtimeLabel := ""
 	listItem := fn.ListItem{
-		Name:       service.Name,
-		Namespace:  service.Namespace,
-		Runtime:    runtimeLabel,
-		URL:        fmt.Sprintf("http://%s.%s.svc", service.Name, service.Namespace), // TODO: use correct scheme
-		Ready:      string(ready),
-		DeployType: KubernetesDeployerName,
+		Name:      service.Name,
+		Namespace: service.Namespace,
+		Runtime:   runtimeLabel,
+		URL:       fmt.Sprintf("http://%s.%s.svc", service.Name, service.Namespace), // TODO: use correct scheme
+		Ready:     string(ready),
+		Deployer:  KubernetesDeployerName,
 	}
 
 	return listItem, nil

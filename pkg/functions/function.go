@@ -208,9 +208,9 @@ type DeploySpec struct {
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	ServiceAccountName string `yaml:"serviceAccountName,omitempty"`
 
-	// DeployType specifies the type of deployment to use: "knative" or "raw"
+	// Deployer specifies the type of deployment to use: "knative" or "raw"
 	// Defaults to "knative" for backwards compatibility
-	DeployType string `yaml:"deployType,omitempty" jsonschema:"enum=knative,enum=deployment"`
+	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw"`
 
 	Subscriptions []KnativeSubscription `yaml:"subscriptions,omitempty"`
 }

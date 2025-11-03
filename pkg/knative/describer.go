@@ -51,9 +51,9 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 	}
 
 	description := &fn.Instance{
-		Name:       name,
-		Namespace:  namespace,
-		DeployType: KnativeDeployerName,
+		Name:      name,
+		Namespace: namespace,
+		Deployer:  KnativeDeployerName,
 	}
 
 	routes, err := servingClient.ListRoutes(ctx, clientservingv1.WithService(name))

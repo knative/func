@@ -151,12 +151,12 @@ type Lister interface {
 }
 
 type ListItem struct {
-	Name       string `json:"name" yaml:"name"`
-	Namespace  string `json:"namespace" yaml:"namespace"`
-	Runtime    string `json:"runtime" yaml:"runtime"`
-	URL        string `json:"url" yaml:"url"`
-	Ready      string `json:"ready" yaml:"ready"`
-	DeployType string `json:"deploy_type" yaml:"deploy_type"`
+	Name      string `json:"name" yaml:"name"`
+	Namespace string `json:"namespace" yaml:"namespace"`
+	Runtime   string `json:"runtime" yaml:"runtime"`
+	URL       string `json:"url" yaml:"url"`
+	Ready     string `json:"ready" yaml:"ready"`
+	Deployer  string `json:"deployer" yaml:"deployer"`
 }
 
 // Describer of function instances
@@ -183,7 +183,7 @@ type Instance struct {
 	Name          string            `json:"name" yaml:"name"`
 	Image         string            `json:"image" yaml:"image"`
 	Namespace     string            `json:"namespace" yaml:"namespace"`
-	DeployType    string            `json:"deploy_type" yaml:"deploy_type"`
+	Deployer      string            `json:"deployer" yaml:"deployer"`
 	Subscriptions []Subscription    `json:"subscriptions" yaml:"subscriptions"`
 	Labels        map[string]string `json:"labels" yaml:"labels" xml:"-"`
 }

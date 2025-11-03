@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	DeployTypeAnnotation = "function.knative.dev/deploy-type"
+	DeployerNameAnnotation = "function.knative.dev/deployer"
 
 	// Dapr constants
 	DaprEnabled          = "true"
@@ -43,7 +43,7 @@ func GenerateCommonLabels(f fn.Function, decorator DeployDecorator) (map[string]
 }
 
 // GenerateCommonAnnotations creates annotations common to both Knative and K8s deployments
-func GenerateCommonAnnotations(f fn.Function, decorator DeployDecorator, daprInstalled bool, deployType string) map[string]string {
+func GenerateCommonAnnotations(f fn.Function, decorator DeployDecorator, daprInstalled bool, deployerName string) map[string]string {
 	aa := make(map[string]string)
 
 	// Add Dapr annotations if Dapr is installed
@@ -53,8 +53,8 @@ func GenerateCommonAnnotations(f fn.Function, decorator DeployDecorator, daprIns
 		}
 	}
 
-	if len(deployType) > 0 {
-		aa[DeployTypeAnnotation] = deployType
+	if len(deployerName) > 0 {
+		aa[DeployerNameAnnotation] = deployerName
 	}
 
 	// Add user-defined annotations

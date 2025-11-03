@@ -33,7 +33,7 @@ import (
 // IntegrationTest_Deploy ensures that the deployer creates a callable service.
 // See TestInt_Metadata for Labels, Volumes, Envs.
 // See TestInt_Events for Subscriptions
-func IntegrationTest_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployType string) {
+func IntegrationTest_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-deploy-" + rand.String(5)
 	root := t.TempDir()
@@ -56,7 +56,7 @@ func IntegrationTest_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remov
 		Namespace: ns,
 		Registry:  fntest.Registry(),
 		Deploy: fn.DeploySpec{
-			DeployType: deployType,
+			Deployer: deployerName,
 		},
 	})
 	if err != nil {
@@ -99,7 +99,7 @@ func IntegrationTest_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remov
 	}
 
 	// Invoke
-	statusCode, _ := invoke(t, ctx, instance.Route, deployType)
+	statusCode, _ := invoke(t, ctx, instance.Route, deployerName)
 	if statusCode != http.StatusOK {
 		t.Fatalf("expected 200 OK, got %d", statusCode)
 	}
@@ -107,7 +107,7 @@ func IntegrationTest_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remov
 
 // IntegrationTest_Metadata ensures that Secrets, Labels, and Volumes are applied
 // when deploying.
-func IntegrationTest_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployType string) {
+func IntegrationTest_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-metadata-" + rand.String(5)
 	root := t.TempDir()
@@ -153,7 +153,7 @@ func IntegrationTest_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Rem
 		Namespace: ns,
 		Registry:  fntest.Registry(),
 		Deploy: fn.DeploySpec{
-			DeployType: deployType,
+			Deployer: deployerName,
 		},
 	})
 	if err != nil {
@@ -235,7 +235,7 @@ func IntegrationTest_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Rem
 	// ----------
 
 	// Invoke
-	_, result := invoke(t, ctx, instance.Route, deployType)
+	_, result := invoke(t, ctx, instance.Route, deployerName)
 
 	// Verify Envs
 	if result.EnvVars["STATIC"] != "static-value" {
@@ -276,7 +276,7 @@ func IntegrationTest_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Rem
 }
 
 // IntegrationTest_Events ensures that eventing triggers work.
-func IntegrationTest_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployType string) {
+func IntegrationTest_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-events-" + rand.String(5)
 	root := t.TempDir()
@@ -301,7 +301,7 @@ func IntegrationTest_Events(t *testing.T, deployer fn.Deployer, remover fn.Remov
 		Namespace: ns,
 		Registry:  fntest.Registry(),
 		Deploy: fn.DeploySpec{
-			DeployType: deployType,
+			Deployer: deployerName,
 		},
 	})
 	if err != nil {
@@ -355,7 +355,7 @@ func IntegrationTest_Events(t *testing.T, deployer fn.Deployer, remover fn.Remov
 
 // IntegrationTest_Scale spot-checks that the scale settings are applied by
 // ensuring the service is started multiple times when minScale=2
-func IntegrationTest_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployType string) {
+func IntegrationTest_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-scale-" + rand.String(5)
 	root := t.TempDir()
@@ -378,7 +378,7 @@ func IntegrationTest_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remove
 		Namespace: ns,
 		Registry:  fntest.Registry(),
 		Deploy: fn.DeploySpec{
-			DeployType: deployType,
+			Deployer: deployerName,
 		},
 	})
 	if err != nil {
@@ -462,7 +462,7 @@ func IntegrationTest_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remove
 
 // IntegrationTest_EnvsUpdate ensures that removing and updating envs are correctly
 // reflected during a deployment update.
-func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployType string) {
+func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-envsupdate-" + rand.String(5)
 	root := t.TempDir()
@@ -487,7 +487,7 @@ func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.R
 		Namespace: ns,
 		Registry:  fntest.Registry(),
 		Deploy: fn.DeploySpec{
-			DeployType: deployType,
+			Deployer: deployerName,
 		},
 	})
 	if err != nil {
@@ -539,7 +539,7 @@ func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.R
 
 	// Assert Initial ENVS are set
 	// ----------
-	_, result := invoke(t, ctx, instance.Route, deployType)
+	_, result := invoke(t, ctx, instance.Route, deployerName)
 
 	// Verify Envs
 	if result.EnvVars["STATIC_A"] != "static-value-a" {
@@ -585,7 +585,7 @@ func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.R
 
 	// Assertions
 	// ----------
-	_, result = invoke(t, ctx, instance.Route, deployType)
+	_, result = invoke(t, ctx, instance.Route, deployerName)
 
 	// Verify Envs
 	// Log all environment variables for debugging
@@ -619,7 +619,7 @@ func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.R
 }
 
 // Basic happy path test of deploy->describe->list->re-deploy->delete.
-func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, lister fn.Lister, describer fn.Describer, deployType string) {
+func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, lister fn.Lister, describer fn.Describer, deployerName string) {
 	var err error
 	functionName := "fn-testing"
 
@@ -682,7 +682,7 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 		Name:      functionName,
 	}
 
-	switch deployType {
+	switch deployerName {
 	case knative.KnativeDeployerName:
 		subscriberRef.APIVersion = "serving.knative.dev"
 	case k8s.KubernetesDeployerName:
@@ -744,7 +744,7 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 					Max: &maxScale,
 				},
 			},
-			DeployType: deployType,
+			Deployer: deployerName,
 		},
 		Run: fn.RunSpec{
 			Envs: []fn.Env{
@@ -806,7 +806,7 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 
 	// try to invoke the function
 	reqBody := "Hello World!"
-	respBody, err := postText(ctx, instance.Route, reqBody, deployType)
+	respBody, err := postText(ctx, instance.Route, reqBody, deployerName)
 	if err != nil {
 		t.Fatalf("failed to invoke function: %v", err)
 	} else {
@@ -923,13 +923,13 @@ type result struct {
 	Mounts  map[string]bool
 }
 
-func invoke(t *testing.T, ctx context.Context, route string, deployType string) (statusCode int, r result) {
+func invoke(t *testing.T, ctx context.Context, route string, deployer string) (statusCode int, r result) {
 	req, err := http.NewRequestWithContext(ctx, "GET", route, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	httpClient, closeFunc, err := getHttpClient(ctx, deployType)
+	httpClient, closeFunc, err := getHttpClient(ctx, deployer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -953,13 +953,13 @@ func createTrigger(t *testing.T, ctx context.Context, namespace, triggerName str
 	t.Helper()
 
 	var subscriberAPIVersion string
-	switch function.Deploy.DeployType {
+	switch function.Deploy.Deployer {
 	case knative.KnativeDeployerName:
 		subscriberAPIVersion = "serving.knative.dev/v1"
 	case k8s.KubernetesDeployerName:
 		subscriberAPIVersion = "v1"
 	default:
-		t.Fatalf("unknown deploy type: %s", function.Deploy.DeployType)
+		t.Fatalf("unknown deploy type: %s", function.Deploy.Deployer)
 	}
 
 	tr := &eventingv1.Trigger{
@@ -1143,14 +1143,14 @@ func (f *Function) Handle(w http.ResponseWriter, req *http.Request) {
 }
 `
 
-func postText(ctx context.Context, url, reqBody, deployType string) (respBody string, err error) {
+func postText(ctx context.Context, url, reqBody, deployer string) (respBody string, err error) {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(reqBody))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Add("Content-Type", "text/plain")
 
-	client, closeFunc, err := getHttpClient(ctx, deployType)
+	client, closeFunc, err := getHttpClient(ctx, deployer)
 	if err != nil {
 		return "", fmt.Errorf("error creating http client: %w", err)
 	}
@@ -1175,10 +1175,10 @@ func ptr[T interface{}](s T) *T {
 	return &s
 }
 
-func getHttpClient(ctx context.Context, deployType string) (*http.Client, func(), error) {
+func getHttpClient(ctx context.Context, deployer string) (*http.Client, func(), error) {
 	noopDeferFunc := func() {}
 
-	switch deployType {
+	switch deployer {
 	case k8s.KubernetesDeployerName:
 		// For Kubernetes deployments, use in-cluster dialer to access ClusterIP services
 
@@ -1204,6 +1204,6 @@ func getHttpClient(ctx context.Context, deployType string) (*http.Client, func()
 		// For Knative deployments, use default client (service is externally accessible)
 		return http.DefaultClient, noopDeferFunc, nil
 	default:
-		return nil, noopDeferFunc, fmt.Errorf("unknown deploy type: %s", deployType)
+		return nil, noopDeferFunc, fmt.Errorf("unknown deploy type: %s", deployer)
 	}
 }

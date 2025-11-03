@@ -52,12 +52,12 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, boo
 		runtimeLabel := ""
 
 		listItem := fn.ListItem{
-			Name:       service.Name,
-			Namespace:  service.Namespace,
-			Runtime:    runtimeLabel,
-			URL:        service.Status.URL.String(),
-			Ready:      string(ready),
-			DeployType: KnativeDeployerName,
+			Name:      service.Name,
+			Namespace: service.Namespace,
+			Runtime:   runtimeLabel,
+			URL:       service.Status.URL.String(),
+			Ready:     string(ready),
+			Deployer:  KnativeDeployerName,
 		}
 
 		items = append(items, listItem)

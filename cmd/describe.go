@@ -153,8 +153,8 @@ func (i info) Human(w io.Writer) error {
 		fmt.Fprintf(w, "  %v\n", route)
 	}
 
-	fmt.Fprintln(w, "Deploy-Type:")
-	fmt.Fprintf(w, "  %v\n", i.DeployType)
+	fmt.Fprintln(w, "Deployer:")
+	fmt.Fprintf(w, "  %v\n", i.Deployer)
 
 	if len(i.Subscriptions) > 0 {
 		fmt.Fprintln(w, "Subscriptions (Source, Type, Broker):")
@@ -181,7 +181,7 @@ func (i info) Plain(w io.Writer) error {
 		fmt.Fprintf(w, "Route %v\n", route)
 	}
 
-	fmt.Fprintf(w, "Deploy-Type %v\n", i.DeployType)
+	fmt.Fprintf(w, "Deployer %v\n", i.Deployer)
 
 	if len(i.Subscriptions) > 0 {
 		for _, s := range i.Subscriptions {

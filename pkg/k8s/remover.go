@@ -41,7 +41,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) (bool, erro
 	}
 
 	if UsesRawDeployer(svc.Annotations) {
-		// if annotation is set and the deployType is set explicitly to the raw deployer, we need to handle this service
+		// if annotation is set and the deployer name is set explicitly to the raw deployer, we need to handle this service
 
 		deploymentClient := clientset.AppsV1().Deployments(ns)
 
