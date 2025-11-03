@@ -27,14 +27,14 @@ func TestDelete_Default(t *testing.T) {
 
 	// Remover which confirms the name and namespace received are those
 	// originally requested via the CLI flags.
-	remover.RemoveFn = func(n, ns string) error {
+	remover.RemoveFn = func(n, ns string) (bool, error) {
 		if n != name {
 			t.Errorf("expected name '%v', got '%v'", name, n)
 		}
 		if ns != namespace {
 			t.Errorf("expected namespace '%v', got '%v'", namespace, ns)
 		}
-		return nil
+		return true, nil
 	}
 
 	// A function which will be created in the requested namespace
@@ -77,11 +77,11 @@ func TestDelete_ByName(t *testing.T) {
 	)
 
 	// Remover fails the test if it receives the incorrect name
-	remover.RemoveFn = func(n, _ string) error {
+	remover.RemoveFn = func(n, _ string) (bool, error) {
 		if n != testname {
 			t.Fatalf("expected delete name %v, got %v", testname, n)
 		}
-		return nil
+		return true, nil
 	}
 
 	f := fn.Function{
@@ -125,11 +125,11 @@ func TestDelete_Namespace(t *testing.T) {
 		testname  = "testname"
 	)
 
-	remover.RemoveFn = func(_, ns string) error {
+	remover.RemoveFn = func(_, ns string) (bool, error) {
 		if ns != namespace {
 			t.Fatalf("expected delete namespace '%v', got '%v'", namespace, ns)
 		}
-		return nil
+		return true, nil
 	}
 
 	cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
@@ -156,11 +156,11 @@ func TestDelete_NamespaceFlagPriority(t *testing.T) {
 		err        error
 	)
 
-	remover.RemoveFn = func(_, ns string) error {
+	remover.RemoveFn = func(_, ns string) (bool, error) {
 		if ns != namespace2 {
 			t.Fatalf("expected delete namespace '%v', got '%v'", namespace2, ns)
 		}
-		return nil
+		return true, nil
 	}
 
 	// Ensure the extant function's namespace is used
@@ -224,11 +224,11 @@ created: 2021-01-01T00:00:00+00:00
 
 	// A mock remover which fails if the name from the func.yaml is not received.
 	remover := mock.NewRemover()
-	remover.RemoveFn = func(n, _ string) error {
+	remover.RemoveFn = func(n, _ string) (bool, error) {
 		if n != "bar" {
 			t.Fatalf("expected name 'bar', got '%v'", n)
 		}
-		return nil
+		return true, nil
 	}
 
 	// Command with a Client constructor that returns  client with the

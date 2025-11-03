@@ -1929,7 +1929,7 @@ func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 	)
 
 	// A remover which can not find the old instance
-	remover.RemoveFn = func(n, ns string) error {
+	remover.RemoveFn = func(n, ns string) (bool, error) {
 		// Note that the knative remover explicitly checks for
 		// if it received an apiErrors.IsNotFound(err) and if so returns
 		// a fn.ErrFunctionNotFound.  This test implementation is dependent
@@ -1939,9 +1939,9 @@ func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 		if ns == nsOne {
 			// Fabricate a not-found error.  For example if the function
 			// or its namespace had been manually removed
-			return fn.ErrFunctionNotFound
+			return true, fn.ErrFunctionNotFound
 		}
-		return nil
+		return true, nil
 	}
 	clientFn := NewTestClient(
 		fn.WithDeployer(mock.NewDeployer()),
