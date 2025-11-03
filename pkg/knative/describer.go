@@ -8,8 +8,6 @@ import (
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"knative.dev/func/pkg/deployer"
-	"knative.dev/func/pkg/knative"
-
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -33,12 +31,12 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 		return nil, fmt.Errorf("function namespace is required when describing %q", name)
 	}
 
-	servingClient, err := knative.NewServingClient(namespace)
+	servingClient, err := NewServingClient(namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	eventingClient, err := knative.NewEventingClient(namespace)
+	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
 		return nil, err
 	}

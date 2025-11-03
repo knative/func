@@ -9,7 +9,6 @@ import (
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/knative"
 )
 
 const RemoveTimeout = 120 * time.Second
@@ -30,7 +29,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) (bool, erro
 		return false, fn.ErrNamespaceRequired
 	}
 
-	client, err := knative.NewServingClient(ns)
+	client, err := NewServingClient(ns)
 	if err != nil {
 		return false, err
 	}

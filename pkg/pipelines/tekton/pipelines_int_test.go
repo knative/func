@@ -21,25 +21,20 @@ import (
 	rbacV1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	knativedeployer "knative.dev/func/pkg/deployer/knative"
+	"knative.dev/func/pkg/builders/buildpacks"
+	pack "knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/describer"
-	k8sdescriber "knative.dev/func/pkg/describer/k8s"
-	knativedescriber "knative.dev/func/pkg/describer/knative"
+	"knative.dev/func/pkg/docker"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	knativedeployer "knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/lister"
 	k8slister "knative.dev/func/pkg/lister/k8s"
 	knativelister "knative.dev/func/pkg/lister/knative"
 	"knative.dev/func/pkg/oci"
-	"knative.dev/func/pkg/remover"
-	k8sremover "knative.dev/func/pkg/remover/k8s"
-	knativeremover "knative.dev/func/pkg/remover/knative"
-
-	"knative.dev/func/pkg/builders/buildpacks"
-	pack "knative.dev/func/pkg/builders/buildpacks"
-	"knative.dev/func/pkg/docker"
-	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/pipelines/tekton"
 	"knative.dev/func/pkg/random"
+	"knative.dev/func/pkg/remover"
 
 	. "knative.dev/func/pkg/testing"
 )
@@ -62,9 +57,9 @@ func newRemoteTestClient(verbose bool) *fn.Client {
 		fn.WithBuilder(pack.NewBuilder(pack.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithCredentialsProvider(testCP))),
 		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(verbose))),
-		fn.WithDescriber(describer.NewMultiDescriber(verbose, knativedescriber.NewDescriber(verbose), k8sdescriber.NewDescriber(verbose))),
+		fn.WithDescriber(describer.NewMultiDescriber(verbose, knativedeployer.NewDescriber(verbose), k8s.NewDescriber(verbose))),
 		fn.WithLister(lister.NewLister(verbose, knativelister.NewGetter(verbose), k8slister.NewGetter(verbose))),
-		fn.WithRemover(remover.NewMultiRemover(verbose, knativeremover.NewRemover(verbose), k8sremover.NewRemover(verbose))),
+		fn.WithRemover(remover.NewMultiRemover(verbose, knativedeployer.NewRemover(verbose), k8s.NewRemover(verbose))),
 		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose))),
 	)
 }

@@ -16,7 +16,6 @@ import (
 	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 )
 
@@ -66,7 +65,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		f.Deploy.Image = f.Build.Image
 	}
 
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := NewKubernetesClientset()
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
@@ -154,7 +153,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		}
 	}
 
-	if err := k8s.WaitForDeploymentAvailable(ctx, clientset, namespace, f.Name, 2*time.Minute); err != nil {
+	if err := WaitForDeploymentAvailable(ctx, clientset, namespace, f.Name, 2*time.Minute); err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("deployment did not become ready: %w", err)
 	}
 
@@ -276,4 +275,48 @@ func createTriggers(ctx context.Context, f fn.Function, serviceClient v1.Service
 	}
 
 	return deployer.CreateTriggers(ctx, f, svc, eventingClient)
+}
+
+// CheckResourcesArePresent returns error if Secrets or ConfigMaps
+// referenced in input sets are not deployed on the cluster in the specified namespace
+func CheckResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount string) error {
+	errMsg := ""
+	for s := range *referencedSecrets {
+		_, err := GetSecret(ctx, s, namespace)
+		if err != nil {
+			if errors.IsForbidden(err) {
+				errMsg += " Ensure that the service account has the necessary permissions to access the secret.\n"
+			} else {
+				errMsg += fmt.Sprintf("  referenced Secret \"%s\" is not present in namespace \"%s\"\n", s, namespace)
+			}
+		}
+	}
+
+	for cm := range *referencedConfigMaps {
+		_, err := GetConfigMap(ctx, cm, namespace)
+		if err != nil {
+			errMsg += fmt.Sprintf("  referenced ConfigMap \"%s\" is not present in namespace \"%s\"\n", cm, namespace)
+		}
+	}
+
+	for pvc := range *referencedPVCs {
+		_, err := GetPersistentVolumeClaim(ctx, pvc, namespace)
+		if err != nil {
+			errMsg += fmt.Sprintf("  referenced PersistentVolumeClaim \"%s\" is not present in namespace \"%s\"\n", pvc, namespace)
+		}
+	}
+
+	// check if referenced ServiceAccount is present in the namespace if it is not default
+	if referencedServiceAccount != "" && referencedServiceAccount != "default" {
+		err := GetServiceAccount(ctx, referencedServiceAccount, namespace)
+		if err != nil {
+			errMsg += fmt.Sprintf("  referenced ServiceAccount \"%s\" is not present in namespace \"%s\"\n", referencedServiceAccount, namespace)
+		}
+	}
+
+	if errMsg != "" {
+		return fmt.Errorf("error(s) while validating resources:\n%s", errMsg)
+	}
+
+	return nil
 }

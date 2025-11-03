@@ -8,10 +8,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"knative.dev/func/pkg/deployer"
-	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/knative"
-
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/knative"
 )
 
 type Describer struct {
@@ -34,7 +32,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 		return nil, fmt.Errorf("function namespace is required when describing %q", name)
 	}
 
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := NewKubernetesClientset()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client: %v", err)
 	}

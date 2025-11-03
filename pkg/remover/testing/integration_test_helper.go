@@ -1,6 +1,6 @@
 //go:build integration
 
-package remover
+package testing
 
 import (
 	"context"

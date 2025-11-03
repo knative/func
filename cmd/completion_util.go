@@ -9,9 +9,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	knativelister "knative.dev/func/pkg/lister/knative"
-
 	fn "knative.dev/func/pkg/functions"
+	knativelister "knative.dev/func/pkg/knative"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {

@@ -21,7 +21,6 @@ import (
 	"knative.dev/pkg/kmeta"
 
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 const (
@@ -498,50 +497,6 @@ func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 	}
 
 	return newVolumes, newVolumeMounts, nil
-}
-
-// CheckResourcesArePresent returns error if Secrets or ConfigMaps
-// referenced in input sets are not deployed on the cluster in the specified namespace
-func CheckResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount string) error {
-	errMsg := ""
-	for s := range *referencedSecrets {
-		_, err := k8s.GetSecret(ctx, s, namespace)
-		if err != nil {
-			if errors.IsForbidden(err) {
-				errMsg += " Ensure that the service account has the necessary permissions to access the secret.\n"
-			} else {
-				errMsg += fmt.Sprintf("  referenced Secret \"%s\" is not present in namespace \"%s\"\n", s, namespace)
-			}
-		}
-	}
-
-	for cm := range *referencedConfigMaps {
-		_, err := k8s.GetConfigMap(ctx, cm, namespace)
-		if err != nil {
-			errMsg += fmt.Sprintf("  referenced ConfigMap \"%s\" is not present in namespace \"%s\"\n", cm, namespace)
-		}
-	}
-
-	for pvc := range *referencedPVCs {
-		_, err := k8s.GetPersistentVolumeClaim(ctx, pvc, namespace)
-		if err != nil {
-			errMsg += fmt.Sprintf("  referenced PersistentVolumeClaim \"%s\" is not present in namespace \"%s\"\n", pvc, namespace)
-		}
-	}
-
-	// check if referenced ServiceAccount is present in the namespace if it is not default
-	if referencedServiceAccount != "" && referencedServiceAccount != "default" {
-		err := k8s.GetServiceAccount(ctx, referencedServiceAccount, namespace)
-		if err != nil {
-			errMsg += fmt.Sprintf("  referenced ServiceAccount \"%s\" is not present in namespace \"%s\"\n", referencedServiceAccount, namespace)
-		}
-	}
-
-	if errMsg != "" {
-		return fmt.Errorf("error(s) while validating resources:\n%s", errMsg)
-	}
-
-	return nil
 }
 
 func CreateTriggers(ctx context.Context, f fn.Function, obj kmeta.Accessor, eventingClient clienteventingv1.KnEventingClient) error {

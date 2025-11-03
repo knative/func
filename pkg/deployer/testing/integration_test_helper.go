@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-package deployer
+package testing
 
 import (
 	"context"
@@ -20,6 +20,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
+	deployer2 "knative.dev/func/pkg/deployer"
+	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	fntest "knative.dev/func/pkg/testing"
 	k8stest "knative.dev/func/pkg/testing/k8s"
@@ -27,7 +29,6 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/knative"
 )
 
 // IntegrationTest_Deploy ensures that the deployer creates a callable service.
@@ -683,9 +684,9 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 	}
 
 	switch deployType {
-	case KnativeDeployerName:
+	case deployer2.KnativeDeployerName:
 		subscriberRef.APIVersion = "serving.knative.dev"
-	case KubernetesDeployerName:
+	case deployer2.KubernetesDeployerName:
 		subscriberRef.APIVersion = "v1"
 	}
 
@@ -954,9 +955,9 @@ func createTrigger(t *testing.T, ctx context.Context, namespace, triggerName str
 
 	var subscriberAPIVersion string
 	switch function.Deploy.DeployType {
-	case KnativeDeployerName:
+	case deployer2.KnativeDeployerName:
 		subscriberAPIVersion = "serving.knative.dev/v1"
-	case KubernetesDeployerName:
+	case deployer2.KubernetesDeployerName:
 		subscriberAPIVersion = "v1"
 	default:
 		t.Fatalf("unknown deploy type: %s", function.Deploy.DeployType)
@@ -1179,7 +1180,7 @@ func getHttpClient(ctx context.Context, deployType string) (*http.Client, func()
 	noopDeferFunc := func() {}
 	// For Kubernetes deployments, use in-cluster dialer to access ClusterIP services
 	switch deployType {
-	case KubernetesDeployerName:
+	case deployer2.KubernetesDeployerName:
 		clientConfig := k8s.GetClientConfig()
 		dialer, err := k8s.NewInClusterDialer(ctx, clientConfig)
 		if err != nil {
@@ -1198,7 +1199,7 @@ func getHttpClient(ctx context.Context, deployType string) (*http.Client, func()
 			Transport: transport,
 			Timeout:   time.Minute,
 		}, deferFunc, nil
-	case KnativeDeployerName:
+	case deployer2.KnativeDeployerName:
 		// For Knative deployments, use default client (service is externally accessible)
 		return http.DefaultClient, noopDeferFunc, nil
 	default:

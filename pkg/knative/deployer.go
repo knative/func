@@ -23,7 +23,6 @@ import (
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/knative"
 )
 
 type DeployerOpt func(*Deployer)
@@ -131,11 +130,11 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// Clients
-	client, err := knative.NewServingClient(namespace)
+	client, err := NewServingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
-	eventingClient, err := knative.NewEventingClient(namespace)
+	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
@@ -150,7 +149,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		daprInstalled = true
 	}
 
-	var outBuff knative.SynchronizedBuffer
+	var outBuff SynchronizedBuffer
 	var out io.Writer = &outBuff
 
 	if d.verbose {
@@ -158,7 +157,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 	since := time.Now()
 	go func() {
-		_ = knative.GetKServiceLogs(ctx, namespace, f.Name, f.Deploy.Image, &since, out)
+		_ = GetKServiceLogs(ctx, namespace, f.Name, f.Deploy.Image, &since, out)
 	}()
 
 	previousService, err := client.GetService(ctx, f.Name)
@@ -175,7 +174,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				return fn.DeploymentResult{}, err
 			}
 
-			err = deployer.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
+			err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -203,7 +202,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			}()
 			go func() {
 				err, _ := client.WaitForService(ctx, f.Name,
-					clientservingv1.WaitConfig{Timeout: knative.DefaultWaitingTimeout, ErrorWindow: knative.DefaultErrorWindowTimeout},
+					clientservingv1.WaitConfig{Timeout: DefaultWaitingTimeout, ErrorWindow: DefaultErrorWindowTimeout},
 					wait.NoopMessageCallback())
 				cherr <- err
 				close(cherr)
@@ -277,7 +276,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
-		err = deployer.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
+		err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -290,7 +289,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		}
 
 		err, _ = client.WaitForService(ctx, f.Name,
-			clientservingv1.WaitConfig{Timeout: knative.DefaultWaitingTimeout, ErrorWindow: knative.DefaultErrorWindowTimeout},
+			clientservingv1.WaitConfig{Timeout: DefaultWaitingTimeout, ErrorWindow: DefaultErrorWindowTimeout},
 			wait.NoopMessageCallback())
 		if err != nil {
 			if !d.verbose {

@@ -10,7 +10,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 type Lister struct {
@@ -24,7 +23,7 @@ func NewLister(verbose bool) fn.Lister {
 }
 
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, bool, error) {
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := NewKubernetesClientset()
 	if err != nil {
 		return nil, false, fmt.Errorf("unable to create k8s client: %v", err)
 	}

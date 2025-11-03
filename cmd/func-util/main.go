@@ -14,12 +14,12 @@ import (
 	"syscall"
 
 	"golang.org/x/sys/unix"
+	"knative.dev/func/pkg/knative"
 
 	"github.com/openshift/source-to-image/pkg/cmd/cli"
 	"k8s.io/klog/v2"
 
 	"knative.dev/func/pkg/builders/s2i"
-	"knative.dev/func/pkg/deployer/knative"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/scaffolding"

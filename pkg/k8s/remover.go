@@ -9,7 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 func NewRemover(verbose bool) *Remover {
@@ -28,7 +27,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) (bool, erro
 		return false, fn.ErrNamespaceRequired
 	}
 
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := NewKubernetesClientset()
 	if err != nil {
 		return false, fmt.Errorf("could not setup kubernetes clientset: %w", err)
 	}
