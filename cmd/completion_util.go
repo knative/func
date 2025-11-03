@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 	fn "knative.dev/func/pkg/functions"
-	knativelister "knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/knative"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	lister := knativelister.NewLister(false)
+	lister := knative.NewLister(false)
 
 	// TODO: use all listers
 	list, _, err := lister.List(cmd.Context(), "")

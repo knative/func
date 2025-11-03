@@ -23,19 +23,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/func/pkg/builders/buildpacks"
 	pack "knative.dev/func/pkg/builders/buildpacks"
-	"knative.dev/func/pkg/describer"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	knativedeployer "knative.dev/func/pkg/knative"
-	"knative.dev/func/pkg/lister"
-	k8slister "knative.dev/func/pkg/lister/k8s"
-	knativelister "knative.dev/func/pkg/lister/knative"
+	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/pipelines/tekton"
 	"knative.dev/func/pkg/random"
-	"knative.dev/func/pkg/remover"
-
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -56,10 +50,10 @@ func newRemoteTestClient(verbose bool) *fn.Client {
 	return fn.New(
 		fn.WithBuilder(pack.NewBuilder(pack.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithCredentialsProvider(testCP))),
-		fn.WithDeployer(knativedeployer.NewDeployer(knativedeployer.WithDeployerVerbose(verbose))),
-		fn.WithDescriber(describer.NewMultiDescriber(verbose, knativedeployer.NewDescriber(verbose), k8s.NewDescriber(verbose))),
-		fn.WithLister(lister.NewLister(verbose, knativelister.NewGetter(verbose), k8slister.NewGetter(verbose))),
-		fn.WithRemover(remover.NewMultiRemover(verbose, knativedeployer.NewRemover(verbose), k8s.NewRemover(verbose))),
+		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
+		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
+		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
+		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
 		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose))),
 	)
 }

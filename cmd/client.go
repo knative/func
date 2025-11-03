@@ -13,7 +13,7 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	fnhttp "knative.dev/func/pkg/http"
 	"knative.dev/func/pkg/k8s"
-	knativedeployer "knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/pipelines/tekton"
 )
@@ -65,9 +65,9 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithTransport(t),
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
-			fn.WithRemovers(knativedeployer.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose)),
-			fn.WithDescribers(knativedeployer.NewDescriber(cfg.Verbose), k8s.NewDescriber(cfg.Verbose)),
-			fn.WithListers(knativedeployer.NewLister(cfg.Verbose), k8s.NewLister(cfg.Verbose)),
+			fn.WithRemovers(knative.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose)),
+			fn.WithDescribers(knative.NewDescriber(cfg.Verbose), k8s.NewDescriber(cfg.Verbose)),
+			fn.WithListers(knative.NewLister(cfg.Verbose), k8s.NewLister(cfg.Verbose)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(
@@ -127,12 +127,12 @@ func newTektonPipelinesProvider(creds oci.CredentialsProvider, verbose bool) *te
 }
 
 func newKnativeDeployer(verbose bool) fn.Deployer {
-	options := []knativedeployer.DeployerOpt{
-		knativedeployer.WithDeployerVerbose(verbose),
-		knativedeployer.WithDeployerDecorator(deployDecorator{}),
+	options := []knative.DeployerOpt{
+		knative.WithDeployerVerbose(verbose),
+		knative.WithDeployerDecorator(deployDecorator{}),
 	}
 
-	return knativedeployer.NewDeployer(options...)
+	return knative.NewDeployer(options...)
 }
 
 func newK8sDeployer(verbose bool) fn.Deployer {

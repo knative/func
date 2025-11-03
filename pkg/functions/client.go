@@ -998,11 +998,12 @@ func (c *Client) Describe(ctx context.Context, name, namespace string, f Functio
 func (c *Client) describeByMatchingDescriber(ctx context.Context, name, namespace string) (d Instance, err error) {
 	for _, describer := range c.describers {
 		d, err := describer.Describe(ctx, name, namespace)
-		if err != nil {
-			return Instance{}, err
-		}
-
 		if d != nil {
+			// describer handled object
+			if err != nil {
+				return Instance{}, err
+			}
+
 			return *d, nil
 		}
 	}
@@ -1018,8 +1019,8 @@ func (c *Client) describeByMatchingDescriber(ctx context.Context, name, namespac
 func (c *Client) List(ctx context.Context, namespace string) ([]ListItem, error) {
 	list := []ListItem{}
 	for _, lister := range c.listers {
-		res, ok, err := lister.List(ctx, namespace)
-		if err != nil && ok {
+		res, handled, err := lister.List(ctx, namespace)
+		if handled && err != nil {
 			return nil, err
 		}
 

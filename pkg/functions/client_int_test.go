@@ -21,7 +21,7 @@ import (
 	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
-	k8sdescriber "knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
@@ -661,9 +661,9 @@ func newClient(verbose bool) *fn.Client {
 		fn.WithBuilder(oci.NewBuilder("", verbose)),
 		fn.WithPusher(oci.NewPusher(true, true, verbose)),
 		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
-		fn.WithDescribers(knative.NewDescriber(verbose), k8sdescriber.NewDescriber(verbose)),
-		fn.WithRemovers(knative.NewRemover(verbose), k8sdescriber.NewRemover(verbose)),
-		fn.WithListers(knative.NewLister(verbose), k8sdescriber.NewLister(verbose)),
+		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
+		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
+		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
 		fn.WithVerbose(verbose),
 	)
 }
@@ -680,9 +680,9 @@ func newClientWithS2i(verbose bool) *fn.Client {
 		fn.WithBuilder(builder),
 		fn.WithPusher(pusher),
 		fn.WithDeployer(deployer),
-		fn.WithDescribers(knative.NewDescriber(verbose), k8sdescriber.NewDescriber(verbose)),
-		fn.WithRemovers(knative.NewRemover(verbose), k8sdescriber.NewRemover(verbose)),
-		fn.WithListers(knative.NewLister(verbose), k8sdescriber.NewLister(verbose)),
+		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
+		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
+		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
 	)
 }
 
