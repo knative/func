@@ -410,24 +410,30 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 				Default: c.Push,
 			},
 		},
-		{
-			Name: "builderImage",
-			Prompt: &survey.Input{
-				Message: "Optional custom builder image:",
-				Default: c.BuilderImage,
-			},
-		},
-		{
-			Name: "baseImage",
-			Prompt: &survey.Input{
-				Message: "Optional base image for your function (host builder only):",
-				Default: c.BaseImage,
-			},
-		},
 	}
 
 	err = survey.Ask(qs, &c)
-	return c, err
+	if err != nil {
+		return c, err
+	}
+	
+	if c.Builder == "host" {
+		hostQs := []*survey.Question{
+			{
+				Name: "baseImage",
+				Prompt: &survey.Input{
+					Message: "Optional base image for your function (host builder only):",
+					Default: c.BaseImage,
+				},
+			},
+		}
+		err = survey.Ask(hostQs, &c)
+		if err != nil {
+			return c, err
+		}
+	}
+	
+	return c, nil
 }
 
 // Validate the config passes an initial consistency check
