@@ -208,7 +208,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			}()
 			go func() {
 				err, _ := client.WaitForService(ctx, f.Name,
-					clientservingv1.WaitConfig{Timeout: DefaultWaitingTimeout, ErrorWindow: DefaultErrorWindowTimeout},
+					clientservingv1.WaitConfig{Timeout: k8s.DefaultWaitingTimeout, ErrorWindow: k8s.DefaultErrorWindowTimeout},
 					wait.NoopMessageCallback())
 				cherr <- err
 				close(cherr)
@@ -295,7 +295,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		}
 
 		err, _ = client.WaitForService(ctx, f.Name,
-			clientservingv1.WaitConfig{Timeout: DefaultWaitingTimeout, ErrorWindow: DefaultErrorWindowTimeout},
+			clientservingv1.WaitConfig{Timeout: k8s.DefaultWaitingTimeout, ErrorWindow: k8s.DefaultErrorWindowTimeout},
 			wait.NoopMessageCallback())
 		if err != nil {
 			if !d.verbose {

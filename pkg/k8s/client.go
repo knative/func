@@ -2,11 +2,17 @@ package k8s
 
 import (
 	"fmt"
+	"time"
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
+)
+
+const (
+	DefaultWaitingTimeout     = 120 * time.Second
+	DefaultErrorWindowTimeout = 2 * time.Second
 )
 
 func NewClientAndResolvedNamespace(ns string) (*kubernetes.Clientset, string, error) {
