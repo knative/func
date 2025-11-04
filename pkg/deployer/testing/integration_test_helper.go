@@ -720,7 +720,7 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 		},
 	}
 
-	buff := new(knative.SynchronizedBuffer)
+	buff := new(k8s.SynchronizedBuffer)
 	go func() {
 		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
 		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, buff)
@@ -800,7 +800,7 @@ func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Rem
 	}
 	now = time.Now() // reset timer for new log receiver
 
-	redeployLogBuff := new(knative.SynchronizedBuffer)
+	redeployLogBuff := new(k8s.SynchronizedBuffer)
 	go func() {
 		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
 		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, redeployLogBuff)

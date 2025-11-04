@@ -155,7 +155,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		daprInstalled = true
 	}
 
-	var outBuff SynchronizedBuffer
+	var outBuff k8s.SynchronizedBuffer
 	var out io.Writer = &outBuff
 
 	if d.verbose {
