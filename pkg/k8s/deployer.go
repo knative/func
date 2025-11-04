@@ -55,7 +55,31 @@ func WithDeployerDecorator(decorator deployer.DeployDecorator) DeployerOpt {
 	}
 }
 
+func onClusterFix(f fn.Function) fn.Function {
+	// This only exists because of a bootstapping problem with On-Cluster
+	// builds:  It appears that, when sending a function to be built on-cluster
+	// the target namespace is not being transmitted in the pipeline
+	// configuration.  We should figure out how to transmit this information
+	// to the pipeline run for initial builds.  This is a new problem because
+	// earlier versions of this logic relied entirely on the current
+	// kubernetes context.
+	if f.Namespace == "" && f.Deploy.Namespace == "" {
+		f.Namespace, _ = GetDefaultNamespace()
+	}
+	return f
+}
+
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+	f = onClusterFix(f)
+	// Choosing f.Namespace vs f.Deploy.Namespace:
+	// This is minimal logic currently required of all deployer impls.
+	// If f.Namespace is defined, this is the (possibly new) target
+	// namespace.  Otherwise use the last deployed namespace.  Error if
+	// neither are set.  The logic which arbitrates between curret k8s context,
+	// flags, environment variables and global defaults to determine the
+	// effective namespace is not logic for the deployer implementation, which
+	// should have a minimum of logic.  In this case limited to "new ns or
+	// existing namespace?
 	namespace := f.Namespace
 	if namespace == "" {
 		namespace = f.Deploy.Namespace
@@ -93,6 +117,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 	var status fn.Status
 	if err == nil {
+		// Update the existing function
 		deployment, svc, err := d.generateResources(f, namespace, daprInstalled)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate resources: %w", err)
@@ -148,7 +173,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		}
 	}
 
-	if err := WaitForDeploymentAvailable(ctx, clientset, namespace, f.Name, 2*time.Minute); err != nil {
+	if err := WaitForDeploymentAvailable(ctx, clientset, namespace, f.Name, DefaultWaitingTimeout); err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("deployment did not become ready: %w", err)
 	}
 
