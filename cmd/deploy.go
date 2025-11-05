@@ -14,7 +14,6 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/client/pkg/util"
 
 	"knative.dev/func/pkg/builders"
@@ -290,57 +289,6 @@ Try this:
 For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
 }
 
-// validateClusterConnection checks if the Kubernetes cluster is accessible before starting build
-func validateClusterConnection() error {
-	// Try to get cluster configuration
-	restConfig, err := k8s.GetClientConfig().ClientConfig()
-	if err != nil {
-		kubeconfigPath := os.Getenv("KUBECONFIG")
-
-		// Check if this is an empty/missing config error
-		if clientcmd.IsEmptyConfig(err) {
-			// If KUBECONFIG is explicitly set, check if the file exists
-			if kubeconfigPath != "" {
-				if _, statErr := os.Stat(kubeconfigPath); os.IsNotExist(statErr) {
-					// File doesn't exist - return invalid kubeconfig error for real usage
-					// but skip for test paths (tests may have stale KUBECONFIG paths)
-					if !strings.Contains(kubeconfigPath, "/testdata/") &&
-						!strings.Contains(kubeconfigPath, "\\testdata\\") {
-						return fmt.Errorf("%w: %v", fn.ErrInvalidKubeconfig, err)
-					}
-					// Test path - skip validation
-					return nil
-				}
-			}
-			return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
-		}
-		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
-	}
-
-	// Skip connectivity check for non-production clusters (example, test, localhost)
-	host := restConfig.Host
-	if strings.Contains(host, ".example.com") ||
-		strings.Contains(host, "example.com:") ||
-		strings.Contains(host, "localhost") ||
-		strings.Contains(host, "127.0.0.1") {
-		return nil
-	}
-
-	// Create Kubernetes client to test connectivity
-	client, err := k8s.NewKubernetesClientset()
-	if err != nil {
-		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
-	}
-
-	// Verify cluster is actually reachable with an API call
-	_, err = client.Discovery().ServerVersion()
-	if err != nil {
-		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
-	}
-
-	return nil
-}
-
 func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg deployConfig
@@ -436,17 +384,6 @@ For more options, run 'func deploy --help'`, err)
 	}
 	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
 
-	// Validate cluster connection before building
-	if err = validateClusterConnection(); err != nil {
-		if errors.Is(err, fn.ErrInvalidKubeconfig) {
-			return wrapInvalidKubeconfigError(err)
-		}
-		if errors.Is(err, fn.ErrClusterNotAccessible) {
-			return wrapClusterNotAccessibleError(err)
-		}
-		return err
-	}
-
 	changingNamespace := func(f fn.Function) bool {
 		// We're changing namespace if:
 		return f.Deploy.Namespace != "" && // it's already deployed
@@ -486,6 +423,12 @@ For more options, run 'func deploy --help'`, err)
 		// Returned is the function with fields like Registry, f.Deploy.Image &
 		// f.Deploy.Namespace populated.
 		if url, f, err = client.RunPipeline(cmd.Context(), f); err != nil {
+			if errors.Is(err, fn.ErrInvalidKubeconfig) {
+				return wrapInvalidKubeconfigError(err)
+			}
+			if errors.Is(err, fn.ErrClusterNotAccessible) {
+				return wrapClusterNotAccessibleError(err)
+			}
 			return
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Function Deployed at %v\n", url)
@@ -537,6 +480,12 @@ For more options, run 'func deploy --help'`, err)
 			}
 		}
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
+			if errors.Is(err, fn.ErrInvalidKubeconfig) {
+				return wrapInvalidKubeconfigError(err)
+			}
+			if errors.Is(err, fn.ErrClusterNotAccessible) {
+				return wrapClusterNotAccessibleError(err)
+			}
 			return
 		}
 	}
