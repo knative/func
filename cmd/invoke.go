@@ -261,7 +261,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 
 	switch strings.ToLower(cfg.Format) {
 	case "cloudevent", "cloudevents":
-		cfg.Format = "cloudevents"
+		cfg.Format = "cloudevent"
 	}
 
 	// if not in confirm/prompting mode, the cfg structure is complete.
