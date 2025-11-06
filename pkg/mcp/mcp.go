@@ -2,362 +2,164 @@ package mcp
 
 import (
 	"context"
+	"errors"
+	"os/exec"
+	"strings"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-var TEMPLATE_RESOURCE_URIS = []string{
-	"https://github.com/functions-dev/templates",
+const (
+	Name    = "func"
+	Title   = "func"
+	Version = "0.1.0"
+)
+
+// NOTE: Invoking prompts in some interfaces (such as Claude Code) when all
+// tool parameters are optional parameters requires at least one character of
+// input. See issue: https://github.com/anthropics/claude-code/issues/5597
+
+// Server is an MCP Server instance
+type Server struct {
+	OnInit    func(context.Context) // Invoked when the server is initialized
+	prefix    string                // Command prefix ("func" or "kn func")
+	readonly  bool                  // enables deploy and delete
+	executor  executor
+	transport mcp.Transport // Transport to use (defaults to StdioTransport)
+	impl      *mcp.Server   // implements the protocol
 }
 
-type MCPServer struct {
-	server *server.MCPServer
+type executor interface {
+	Execute(ctx context.Context, subcommand string, args ...string) ([]byte, error)
 }
 
-func NewServer() *MCPServer {
-	mcpServer := server.NewMCPServer(
-		"func-mcp",
-		"1.0.0",
-		server.WithToolCapabilities(true),
-	)
+type Option func(*Server)
 
-	mcpServer.AddTool(
-		mcp.NewTool("healthcheck",
-			mcp.WithDescription("Checks if the server is running"),
-		),
-		handleHealthCheckTool,
-	)
-
-	mcpServer.AddTool(
-		mcp.NewTool("create",
-			mcp.WithDescription("Creates a Knative function project in the current or specified directory"),
-			mcp.WithString("cwd",
-				mcp.Required(),
-				mcp.Description("Current working directory of the MCP client"),
-			),
-			mcp.WithString("name",
-				mcp.Required(),
-				mcp.Description("Name of the function to be created (used as subdirectory)"),
-			),
-			mcp.WithString("language",
-				mcp.Required(),
-				mcp.Description("Language runtime to use (e.g., node, go, python)"),
-			),
-
-			// Optional flags
-			mcp.WithString("template", mcp.Description("Function template (e.g., http, cloudevents)")),
-			mcp.WithString("repository", mcp.Description("URI to Git repo containing the template. Overrides default template selection when provided.")),
-			mcp.WithBoolean("confirm", mcp.Description("Prompt to confirm options interactively")),
-			mcp.WithBoolean("verbose", mcp.Description("Print verbose logs")),
-		),
-		handleCreateTool,
-	)
-
-	mcpServer.AddTool(
-		mcp.NewTool("deploy",
-			mcp.WithDescription("Deploys the function to the cluster"),
-			mcp.WithString("registry",
-				mcp.Required(),
-				mcp.Description("Registry to be used to push the function image"),
-			),
-			mcp.WithString("cwd",
-				mcp.Required(),
-				mcp.Description("Full path of the function to be deployed"),
-			),
-			mcp.WithString("builder",
-				mcp.Required(),
-				mcp.Description("Builder to be used to build the function image"),
-			),
-
-			// Optional flags
-			mcp.WithString("image", mcp.Description("Full image name (overrides registry)")),
-			mcp.WithString("namespace", mcp.Description("Namespace to deploy the function into")),
-			mcp.WithString("git-url", mcp.Description("Git URL containing the function source")),
-			mcp.WithString("git-branch", mcp.Description("Git branch for remote deployment")),
-			mcp.WithString("git-dir", mcp.Description("Directory inside the Git repository")),
-			mcp.WithString("builder-image", mcp.Description("Custom builder image")),
-			mcp.WithString("domain", mcp.Description("Domain for the function route")),
-			mcp.WithString("platform", mcp.Description("Target platform to build for (e.g., linux/amd64)")),
-			mcp.WithString("path", mcp.Description("Path to the function directory")),
-			mcp.WithString("build", mcp.Description(`Build control: "true", "false", or "auto"`)),
-			mcp.WithString("pvc-size", mcp.Description("Custom volume size for remote builds")),
-			mcp.WithString("service-account", mcp.Description("Kubernetes ServiceAccount to use")),
-			mcp.WithString("remote-storage-class", mcp.Description("Storage class for remote volume")),
-
-			mcp.WithBoolean("confirm", mcp.Description("Prompt for confirmation before deploying")),
-			mcp.WithBoolean("push", mcp.Description("Push image to registry before deployment")),
-			mcp.WithBoolean("verbose", mcp.Description("Print verbose logs")),
-			mcp.WithBoolean("registry-insecure", mcp.Description("Skip TLS verification for registry")),
-			mcp.WithBoolean("build-timestamp", mcp.Description("Use actual time in image metadata")),
-			mcp.WithBoolean("remote", mcp.Description("Trigger remote deployment")),
-		),
-		handleDeployTool,
-	)
-
-	mcpServer.AddTool(
-		mcp.NewTool("list",
-			mcp.WithDescription("Lists all deployed functions in the current or specified namespace"),
-
-			// Optional flags
-			mcp.WithBoolean("all-namespaces", mcp.Description("List functions in all namespaces (overrides --namespace)")),
-			mcp.WithString("namespace", mcp.Description("The namespace to list functions in (default is current/active)")),
-			mcp.WithString("output", mcp.Description("Output format: human, plain, json, xml, yaml")),
-			mcp.WithBoolean("verbose", mcp.Description("Enable verbose output")),
-		),
-		handleListTool,
-	)
-
-	mcpServer.AddTool(
-		mcp.NewTool("build",
-			mcp.WithDescription("Builds the function image in the current directory"),
-			mcp.WithString("cwd",
-				mcp.Required(),
-				mcp.Description("Current working directory of the MCP client"),
-			),
-			mcp.WithString("builder",
-				mcp.Required(),
-				mcp.Description("Builder to be used to build the function image (pack, s2i, host)"),
-			),
-			mcp.WithString("registry",
-				mcp.Required(),
-				mcp.Description("Registry to be used to push the function image (e.g. ghcr.io/user)"),
-			),
-
-			// Optional flags
-			mcp.WithString("builder-image", mcp.Description("Custom builder image to use with buildpacks")),
-			mcp.WithString("image", mcp.Description("Full image name (overrides registry + function name)")),
-			mcp.WithString("path", mcp.Description("Path to the function directory (default is current dir)")),
-			mcp.WithString("platform", mcp.Description("Target platform, e.g. linux/amd64 (for s2i builds)")),
-
-			mcp.WithBoolean("confirm", mcp.Description("Prompt for confirmation before proceeding")),
-			mcp.WithBoolean("push", mcp.Description("Push image to registry after building")),
-			mcp.WithBoolean("verbose", mcp.Description("Enable verbose logging output")),
-			mcp.WithBoolean("registry-insecure", mcp.Description("Skip TLS verification for insecure registries")),
-			mcp.WithBoolean("build-timestamp", mcp.Description("Use actual time for image timestamp (buildpacks only)")),
-		),
-		handleBuildTool,
-	)
-
-	mcpServer.AddTool(
-		mcp.NewTool("delete",
-			mcp.WithDescription("Deletes a function from the cluster"),
-			mcp.WithString("name",
-				mcp.Required(),
-				mcp.Description("Name of the function to be deleted"),
-			),
-
-			// Optional flags
-			mcp.WithString("namespace", mcp.Description("Namespace to delete from (default: current or active)")),
-			mcp.WithString("path", mcp.Description("Path to the function project (default is current directory)")),
-			mcp.WithString("all", mcp.Description(`Delete all related resources like Pipelines, Secrets ("true"/"false")`)),
-
-			mcp.WithBoolean("confirm", mcp.Description("Prompt to confirm before deletion")),
-			mcp.WithBoolean("verbose", mcp.Description("Enable verbose output")),
-		),
-		handleDeleteTool,
-	)
-
-	mcpServer.AddTool(
-		mcp.NewTool("config_volumes",
-			mcp.WithDescription("Lists and manages configured volumes for a function"),
-			mcp.WithString("action",
-				mcp.Required(),
-				mcp.Description("The action to perform: 'add' to add a volume, 'remove' to remove a volume, 'list' to list volumes"),
-			),
-			mcp.WithString("path",
-				mcp.Required(),
-				mcp.Description("Path to the function. Default is current directory ($FUNC_PATH)"),
-			),
-
-			// Optional flags
-			mcp.WithString("type", mcp.Description("Volume type: configmap, secret, pvc, or emptydir")),
-			mcp.WithString("mount_path", mcp.Description("Mount path for the volume in the function container")),
-			mcp.WithString("source", mcp.Description("Name of the ConfigMap, Secret, or PVC to mount (not used for emptydir)")),
-			mcp.WithString("medium", mcp.Description("Storage medium for EmptyDir volume: 'Memory' or '' (default)")),
-			mcp.WithString("size", mcp.Description("Maximum size limit for EmptyDir volume (e.g., 1Gi)")),
-			mcp.WithBoolean("read_only", mcp.Description("Mount volume as read-only (only for PVC)")),
-			mcp.WithBoolean("verbose", mcp.Description("Print verbose logs ($FUNC_VERBOSE)")),
-		),
-		handleConfigVolumesTool,
-	)
-
-	mcpServer.AddTool(
-		mcp.NewTool("config_labels",
-			mcp.WithDescription("Lists and manages labels for a function"),
-			mcp.WithString("action",
-				mcp.Required(),
-				mcp.Description("The action to perform: 'add' to add a label, 'remove' to remove a label, 'list' to list labels"),
-			),
-			mcp.WithString("path",
-				mcp.Required(),
-				mcp.Description("Path to the function. Default is current directory ($FUNC_PATH)"),
-			),
-
-			// Optional flags
-			mcp.WithString("name", mcp.Description("Name of the label.")),
-			mcp.WithString("value", mcp.Description("Value of the label.")),
-			mcp.WithBoolean("verbose", mcp.Description("Print verbose logs ($FUNC_VERBOSE)")),
-		),
-		handleConfigLabelsTool,
-	)
-
-	mcpServer.AddTool(
-		mcp.NewTool("config_envs",
-			mcp.WithDescription("Lists and manages environment variables for a function"),
-			mcp.WithString("action",
-				mcp.Required(),
-				mcp.Description("The action to perform: 'add' to add an env var, 'remove' to remove, 'list' to list env vars"),
-			),
-			mcp.WithString("path",
-				mcp.Required(),
-				mcp.Description("Path to the function. Default is current directory ($FUNC_PATH)"),
-			),
-
-			// Optional flags
-			mcp.WithString("name", mcp.Description("Name of the environment variable.")),
-			mcp.WithString("value", mcp.Description("Value of the environment variable.")),
-			mcp.WithBoolean("verbose", mcp.Description("Print verbose logs ($FUNC_VERBOSE)")),
-		),
-		handleConfigEnvsTool,
-	)
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://docs",
-		"Root Help Command",
-		mcp.WithResourceDescription("--help output of the func command"),
-		mcp.WithMIMEType("text/plain"),
-	), handleRootHelpResource)
-
-	// Static help resources for each command
-	mcpServer.AddResource(mcp.NewResource(
-		"func://create/docs",
-		"Create Command Help",
-		mcp.WithResourceDescription("--help output of the 'create' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"create"}, "func://create/docs")
-	})
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://build/docs",
-		"Build Command Help",
-		mcp.WithResourceDescription("--help output of the 'build' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"build"}, "func://build/docs")
-	})
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://deploy/docs",
-		"Deploy Command Help",
-		mcp.WithResourceDescription("--help output of the 'deploy' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"deploy"}, "func://deploy/docs")
-	})
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://list/docs",
-		"List Command Help",
-		mcp.WithResourceDescription("--help output of the 'list' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"list"}, "func://list/docs")
-	})
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://delete/docs",
-		"Delete Command Help",
-		mcp.WithResourceDescription("--help output of the 'delete' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"delete"}, "func://delete/docs")
-	})
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://config/volumes/add/docs",
-		"Config Volumes Add Command Help",
-		mcp.WithResourceDescription("--help output of the 'config volumes add' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"config", "volumes", "add"}, "func://config/volumes/add/docs")
-	})
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://config/volumes/remove/docs",
-		"Config Volumes Remove Command Help",
-		mcp.WithResourceDescription("--help output of the 'config volumes remove' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"config", "volumes", "remove"}, "func://config/volumes/remove/docs")
-	})
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://config/labels/add/docs",
-		"Config Labels Add Command Help",
-		mcp.WithResourceDescription("--help output of the 'config labels add' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"config", "labels", "add"}, "func://config/labels/add/docs")
-	})
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://config/labels/remove/docs",
-		"Config Labels Remove Command Help",
-		mcp.WithResourceDescription("--help output of the 'config labels remove' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"config", "labels", "remove"}, "func://config/labels/remove/docs")
-	})
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://config/envs/add/docs",
-		"Config Envs Add Command Help",
-		mcp.WithResourceDescription("--help output of the 'config envs add' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"config", "envs", "add"}, "func://config/envs/add/docs")
-	})
-
-	mcpServer.AddResource(mcp.NewResource(
-		"func://config/envs/remove/docs",
-		"Config Envs Remove Command Help",
-		mcp.WithResourceDescription("--help output of the 'config envs remove' command"),
-		mcp.WithMIMEType("text/plain"),
-	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		return runHelpCommand([]string{"config", "envs", "remove"}, "func://config/envs/remove/docs")
-	})
-
-	// Static resource for listing available templates
-	mcpServer.AddResource(mcp.NewResource(
-		"func://templates",
-		"Available Templates",
-		mcp.WithResourceDescription("List of available function templates"),
-		mcp.WithMIMEType("plain/text"),
-	), handleListTemplatesResource)
-
-	mcpServer.AddPrompt(mcp.NewPrompt("help",
-		mcp.WithPromptDescription("help prompt for the root command"),
-	), handleRootHelpPrompt)
-
-	mcpServer.AddPrompt(mcp.NewPrompt("cmd_help",
-		mcp.WithPromptDescription("help prompt for a specific command"),
-		mcp.WithArgument("cmd",
-			mcp.ArgumentDescription("The command for which help is requested"),
-			mcp.RequiredArgument(),
-		),
-	), handleCmdHelpPrompt)
-
-	mcpServer.AddPrompt(mcp.NewPrompt("list_templates",
-		mcp.WithPromptDescription("prompt to list available function templates"),
-	), handleListTemplatesPrompt)
-
-	return &MCPServer{
-		server: mcpServer,
+// WithPrefix sets the command prefix (e.g., "func" or "kn func")
+func WithPrefix(prefix string) Option {
+	return func(s *Server) {
+		s.prefix = prefix
 	}
 }
 
-func (s *MCPServer) Start() error {
-	return server.ServeStdio(s.server)
+// WithExecutor sets a custom executor for running commands; used in tests.
+func WithExecutor(executor executor) Option {
+	return func(s *Server) {
+		s.executor = executor
+	}
 }
+
+// WithTransport sets a custom transport for the server; used in tests.
+func WithTransport(transport mcp.Transport) Option {
+	return func(s *Server) {
+		s.transport = transport
+	}
+}
+
+// WithReadonly sets the server to readonly mode.
+func WithReadonly(readonly bool) Option {
+	return func(s *Server) {
+		s.readonly = readonly
+	}
+}
+
+// New MCP Server
+func New(options ...Option) *Server {
+	s := &Server{
+		prefix:    "func",
+		transport: &mcp.StdioTransport{},
+		OnInit:    func(_ context.Context) {},
+	}
+	s.executor = defaultExecutor{s}
+	for _, o := range options {
+		o(s)
+	}
+
+	i := mcp.NewServer(
+		&mcp.Implementation{
+			Name:    Name,
+			Title:   Title,
+			Version: Version},
+		&mcp.ServerOptions{
+			Instructions:       instructions(s.readonly),
+			HasPrompts:         true,
+			HasResources:       true,
+			HasTools:           true,
+			InitializedHandler: func(ctx context.Context, _ *mcp.InitializedRequest) { s.OnInit(ctx) },
+		})
+
+	// Tools
+	// -----
+	// One for each command or command group
+	mcp.AddTool(i, healthCheckTool, s.healthcheckHandler)
+	mcp.AddTool(i, createTool, s.createHandler)
+	mcp.AddTool(i, buildTool, s.buildHandler)
+	mcp.AddTool(i, deployTool, s.deployHandler)
+	mcp.AddTool(i, listTool, s.listHandler)
+	mcp.AddTool(i, deleteTool, s.deleteHandler)
+	mcp.AddTool(i, configVolumesTool, s.configVolumesHandler)
+	mcp.AddTool(i, configLabelsTool, s.configLabelsHandler)
+	mcp.AddTool(i, configEnvsTool, s.configEnvsHandler)
+
+	// Resources
+	// ---------
+	// Current Function state
+	i.AddResource(functionStateResource, s.functionStateHandler)
+
+	// Available languages (output of the languages subcommand)
+	i.AddResource(languagesResource, s.languagesHandler)
+
+	// Available templates
+	i.AddResource(templatesResource, s.templatesHandler)
+
+	// Help
+	// A resource for each command which returns its help
+	// eg. "config volumes add" -> "func://help/config/volumes/add")
+	i.AddResource(newHelpResource(s, "Help", "help for the command root", ""))
+	i.AddResource(newHelpResource(s, "Create Help", "help for 'create'", "create"))
+	i.AddResource(newHelpResource(s, "Build Help", "help for 'build'", "build"))
+	i.AddResource(newHelpResource(s, "Deploy Help", "help for 'deploy'", "deploy"))
+	i.AddResource(newHelpResource(s, "List Help", "help for 'list'", "list"))
+
+	i.AddResource(newHelpResource(s, "Volumes Help", "general help for volumes", "config", "volumes"))
+	i.AddResource(newHelpResource(s, "Volumes Add Help", "help for 'config volumes add'", "config", "volumes", "add"))
+	i.AddResource(newHelpResource(s, "Volumes Remove Help", "help for 'config volumes remove'", "list", "volumes", "remove"))
+
+	i.AddResource(newHelpResource(s, "Labels Help", "general help for labels", "config", "labels"))
+	i.AddResource(newHelpResource(s, "Labels Add Help", "help for 'config labels add'", "config", "labels", "add"))
+	i.AddResource(newHelpResource(s, "Labels Remove Help", "help for 'config labels remove'", "list", "labels", "remove"))
+
+	i.AddResource(newHelpResource(s, "Envs Help", "general help for environment variables", "config", "envs"))
+	i.AddResource(newHelpResource(s, "Envs Add Help", "help for 'config envs add'", "config", "envs", "add"))
+	i.AddResource(newHelpResource(s, "Envs Remove Help", "help for 'config envs remove'", "list", "envs", "remove"))
+
+	s.impl = i
+
+	return s
+}
+
+// Start the MCP server using the configured transport
+func (s *Server) Start(ctx context.Context, writeEnabled bool) error {
+	s.readonly = !writeEnabled
+	return s.impl.Run(ctx, s.transport)
+}
+
+// For now the executor is a simple run of the command "func" or "kn func"
+// etc.  This should be replaced with a direct integration with the functions
+// client API.
+type defaultExecutor struct {
+	s *Server
+}
+
+func (e defaultExecutor) Execute(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+	// Parse prefix: "func" or "kn func" -> ["func"] or ["kn", "func"]
+	cmdParts := strings.Fields(e.s.prefix)
+	cmdParts = append(cmdParts, subcommand)
+	cmdParts = append(cmdParts, args...)
+
+	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
+	// Commands always execute in current working directory
+	return cmd.CombinedOutput()
+}
+
+var ErrWriteDisabled = errors.New("server is not write enabled")
