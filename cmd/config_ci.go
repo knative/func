@@ -30,12 +30,7 @@ func runConfigCIGithub(
 	}
 
 	githubWorkflow := ci.NewGithubWorkflow(ciConfig.WorkflowName())
-	githubWorkflowAsYamlBytes, err := githubWorkflow.AsYaml()
-	if err != nil {
-		return err
-	}
-
-	if err := ci.PersistToDisk(githubWorkflowAsYamlBytes, ciConfig.FnGithubWorkflowYamlPath(f.Root)); err != nil {
+	if err := githubWorkflow.Persist(ciConfig.FnGithubWorkflowFilepath(f.Root)); err != nil {
 		return err
 	}
 
