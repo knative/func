@@ -68,12 +68,20 @@ func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
 	assert.NilError(t, result.executeErr)
 	assertWorkflowFileExists(t, result)
 	assert.NilError(t, result.gwLoadError)
-	assertWorkflowFileContent(t, result.gw, "Remote Build and Deploy")
+	assertWorkflowFileContent(t, result.gw)
 }
 
-func TestNewConfigCICmd_WorkflowYAMLHasCustomName(t *testing.T) {
+func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	// GIVEN
-	ciConfig := ci.NewDefaultCIConfigWithName("Project Sunrise")
+	name := "Dev Cluster Remote Build and Deploy"
+	key := "DEV_CLUSTER_KUBECONFIG"
+	ciConfig := ci.NewCIConfig(
+		".github/workflows",
+		"remote-build-and-deploy.yaml",
+		name,
+		key,
+		true,
+	)
 	options := opts{
 		withFuncInTempDir: true,
 		ciConfig:          &ciConfig,
@@ -85,8 +93,9 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomName(t *testing.T) {
 	// THEN
 	assert.NilError(t, result.executeErr)
 	assertWorkflowFileExists(t, result)
-	assert.NilError(t, result.gwLoadError)
-	assertWorkflowFileContent(t, result.gw, ciConfig.WorkflowName())
+	assert.Equal(t, result.gw.Name, name)
+	assert.Equal(t, result.gw.Jobs["deploy"].RunsOn, "self-hosted")
+	assert.Equal(t, result.gw.Jobs["deploy"].Steps[1].With["kubeconfig"], ci.NewSecret(key))
 }
 
 // START: Testing Framework
@@ -159,18 +168,49 @@ func assertWorkflowFileExists(t *testing.T, result result) {
 	assert.Assert(t, exists, filepath+" does not exist")
 }
 
-func assertWorkflowFileContent(t *testing.T, actualGw *ci.GithubWorkflow, name string) {
+// assertWorkflowFileContent asserts all the Github workflow value for correct values
+// including the default values which can be changed:
+//   - runs-on: ubuntu-latest
+//   - kubeconfig: ${{ secrets.KUBECONFIG }}
+//   - if: ${{ vars.USE_REGISTRY_AUTH == 'true' }
+//   - registry: ${{ secrets.REGISTRY_URL }}")
+//   - username: ${{ secrets.REGISTRY_USERNAME }}
+//   - password: ${{ secrets.REGISTRY_PASSWORD }}
+//   - run: func deploy --remote --registry=${{ secrets.REGISTRY_URL }} -v
+func assertWorkflowFileContent(t *testing.T, actualGw *ci.GithubWorkflow) {
 	t.Helper()
 
-	assert.Equal(t, actualGw.Name, name)
+	assert.Equal(t, actualGw.Name, "Remote Build and Deploy")
 	assert.Equal(t, actualGw.On.Push.Branches[0], "main")
-	assert.Equal(t, actualGw.Jobs["deploy"].RunsOn, "ubuntu-latest")
-	assert.Equal(t, actualGw.Jobs["deploy"].Steps[0].Name, "Checkout code")
-	assert.Equal(t, actualGw.Jobs["deploy"].Steps[0].Uses, "actions/checkout@v4")
-	assert.Equal(t, actualGw.Jobs["deploy"].Steps[1].Name, "Install func cli")
-	assert.Equal(t, actualGw.Jobs["deploy"].Steps[1].Uses, "gauron99/knative-func-action@main")
-	assert.Equal(t, actualGw.Jobs["deploy"].Steps[1].With["version"], "knative-v1.19.1")
-	assert.Equal(t, actualGw.Jobs["deploy"].Steps[1].With["name"], "func")
-	assert.Equal(t, actualGw.Jobs["deploy"].Steps[2].Name, "Deploy function")
-	assert.Equal(t, actualGw.Jobs["deploy"].Steps[2].Run, "func deploy --remote")
+
+	deployJob := actualGw.Jobs["deploy"]
+	assert.Equal(t, deployJob.RunsOn, "ubuntu-latest")
+
+	deployJobStep1 := deployJob.Steps[0]
+	assert.Equal(t, deployJobStep1.Name, "1. Checkout code")
+	assert.Equal(t, deployJobStep1.Uses, "actions/checkout@v4")
+
+	deployJobStep2 := deployJob.Steps[1]
+	assert.Equal(t, deployJobStep2.Name, "2. Setup Kubernetes context")
+	assert.Equal(t, deployJobStep2.Uses, "azure/k8s-set-context@v4")
+	assert.Equal(t, deployJobStep2.With["method"], "kubeconfig")
+	assert.Equal(t, deployJobStep2.With["kubeconfig"], "${{ secrets.KUBECONFIG }}")
+
+	deployJobStep3 := deployJob.Steps[2]
+	assert.Equal(t, deployJobStep3.Name, "3. Login to container registry")
+	assert.Equal(t, deployJobStep3.If, "${{ vars.USE_REGISTRY_AUTH == 'true' }}")
+	assert.Equal(t, deployJobStep3.Uses, "docker/login-action@v3")
+	assert.Equal(t, deployJobStep3.With["registry"], "${{ secrets.REGISTRY_URL }}")
+	assert.Equal(t, deployJobStep3.With["username"], "${{ secrets.REGISTRY_USERNAME }}")
+	assert.Equal(t, deployJobStep3.With["password"], "${{ secrets.REGISTRY_PASSWORD }}")
+
+	deployJobStep4 := deployJob.Steps[3]
+	assert.Equal(t, deployJobStep4.Name, "4. Install func cli")
+	assert.Equal(t, deployJobStep4.Uses, "gauron99/knative-func-action@main")
+	assert.Equal(t, deployJobStep4.With["version"], "knative-v1.19.1")
+	assert.Equal(t, deployJobStep4.With["name"], "func")
+
+	deployJobStep5 := deployJob.Steps[4]
+	assert.Equal(t, deployJobStep5.Name, "5. Deploy function")
+	assert.Equal(t, deployJobStep5.Run, "func deploy --remote --registry=${{ secrets.REGISTRY_URL }} -v")
 }

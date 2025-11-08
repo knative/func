@@ -29,7 +29,11 @@ func runConfigCIGithub(
 		return err
 	}
 
-	githubWorkflow := ci.NewGithubWorkflow(ciConfig.WorkflowName())
+	githubWorkflow := ci.NewGithubWorkflow(
+		ciConfig.WorkflowName(),
+		ciConfig.KubeconfigSecretKey(),
+		ciConfig.SelfHostedRunner(),
+	)
 	if err := githubWorkflow.Persist(ciConfig.FnGithubWorkflowFilepath(f.Root)); err != nil {
 		return err
 	}

@@ -1,6 +1,7 @@
 package ci
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -35,10 +36,20 @@ type Step struct {
 	Name string            `yaml:"name,omitempty"`
 	Uses string            `yaml:"uses,omitempty"`
 	Run  string            `yaml:"run,omitempty"`
+	If   string            `yaml:"if,omitempty"`
 	With map[string]string `yaml:"with,omitempty"`
 }
 
-func NewGithubWorkflow(name string) *GithubWorkflow {
+func NewGithubWorkflow(
+	name,
+	kubeconfigSecretKey string,
+	selfHosted bool,
+) *GithubWorkflow {
+	runsOn := "ubuntu-latest"
+	if selfHosted {
+		runsOn = "self-hosted"
+	}
+
 	return &GithubWorkflow{
 		Name: name,
 		On: WorkflowTriggers{
@@ -46,14 +57,32 @@ func NewGithubWorkflow(name string) *GithubWorkflow {
 		},
 		Jobs: map[string]Job{
 			"deploy": {
-				RunsOn: "ubuntu-latest",
+				RunsOn: runsOn,
 				Steps: []Step{
 					{
-						Name: "Checkout code",
+						Name: "1. Checkout code",
 						Uses: "actions/checkout@v4",
 					},
 					{
-						Name: "Install func cli",
+						Name: "2. Setup Kubernetes context",
+						Uses: "azure/k8s-set-context@v4",
+						With: map[string]string{
+							"method":     "kubeconfig",
+							"kubeconfig": NewSecret(kubeconfigSecretKey),
+						},
+					},
+					{
+						Name: "3. Login to container registry",
+						If:   "${{ vars.USE_REGISTRY_AUTH == 'true' }}",
+						Uses: "docker/login-action@v3",
+						With: map[string]string{
+							"registry": "${{ secrets.REGISTRY_URL }}",
+							"username": "${{ secrets.REGISTRY_USERNAME }}",
+							"password": "${{ secrets.REGISTRY_PASSWORD }}",
+						},
+					},
+					{
+						Name: "4. Install func cli",
 						Uses: "gauron99/knative-func-action@main",
 						With: map[string]string{
 							"version": "knative-v1.19.1",
@@ -61,8 +90,8 @@ func NewGithubWorkflow(name string) *GithubWorkflow {
 						},
 					},
 					{
-						Name: "Deploy function",
-						Run:  "func deploy --remote",
+						Name: "5. Deploy function",
+						Run:  "func deploy --remote --registry=${{ secrets.REGISTRY_URL }} -v",
 					},
 				},
 			},
@@ -99,4 +128,8 @@ func (gw *GithubWorkflow) Persist(path string) error {
 	}
 
 	return nil
+}
+
+func NewSecret(key string) string {
+	return fmt.Sprintf("${{ secrets.%s }}", key)
 }
