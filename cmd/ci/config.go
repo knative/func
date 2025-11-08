@@ -39,7 +39,7 @@ func (cc *CIConfig) FnGithubWorkflowDir(fnRoot string) string {
 	return filepath.Join(fnRoot, cc.githubWorkflowDir)
 }
 
-func (cc *CIConfig) FnGithubWorkflowYamlPath(fnRoot string) string {
+func (cc *CIConfig) FnGithubWorkflowFilepath(fnRoot string) string {
 	return filepath.Join(cc.FnGithubWorkflowDir(fnRoot), cc.githubWorkflowFile)
 }
 

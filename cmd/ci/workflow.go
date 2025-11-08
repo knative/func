@@ -7,6 +7,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	dirPerm  = 0755 // o: rwx, g|u: r-x
+	filePerm = 0644 // o: rw,  g|u: r
+)
+
 type GithubWorkflow struct {
 	Name string           `yaml:"name"`
 	On   WorkflowTriggers `yaml:"on"`
@@ -65,21 +70,31 @@ func NewGithubWorkflow(name string) *GithubWorkflow {
 	}
 }
 
-func (gw *GithubWorkflow) AsYaml() ([]byte, error) {
-	return yaml.Marshal(gw)
+func NewGithubWorkflowFromPath(path string) (*GithubWorkflow, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var result GithubWorkflow
+	if err = yaml.Unmarshal(raw, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
 
-const (
-	dirPerm  = 0755 // o: rwx, g|u: r-x
-	filePerm = 0644 // o: rw,  g|u: r
-)
-
-func PersistToDisk(workflowYamlAsBytes []byte, workflowFilepath string) error {
-	if err := os.MkdirAll(filepath.Dir(workflowFilepath), dirPerm); err != nil {
+func (gw *GithubWorkflow) Persist(path string) error {
+	raw, err := yaml.Marshal(gw)
+	if err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(workflowFilepath, workflowYamlAsBytes, filePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(path, raw, filePerm); err != nil {
 		return err
 	}
 
