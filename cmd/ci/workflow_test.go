@@ -7,9 +7,9 @@ import (
 	"knative.dev/func/cmd/ci"
 )
 
-func TestGithubWorkflow_PersistToDisk(t *testing.T) {
+func TestGithubWorkflow_PersistAndLoad(t *testing.T) {
 	// GIVEN
-	gw := ci.NewGithubWorkflow("gw-test")
+	gw := ci.NewGithubWorkflow("gw-test", "KUBECONFIG", false)
 	tempDir := t.TempDir()
 	targetPath := tempDir + "/" + gw.Name + ".yaml"
 

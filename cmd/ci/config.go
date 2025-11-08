@@ -4,19 +4,10 @@ import "path/filepath"
 
 type CIConfig struct {
 	githubWorkflowDir,
-	githubWorkflowFile,
-	workflowName string
-}
-
-func NewDefaultCIConfigWithName(name string) CIConfig {
-	result := NewCIConfig(
-		".github/workflows",
-		"remote-build-and-deploy.yaml",
-		"Remote Build and Deploy",
-	)
-	result.workflowName = name
-
-	return result
+	githubWorkflowFilename,
+	workflowName,
+	kubeconfigSecretKey string
+	selfHostedRunner bool
 }
 
 func NewDefaultCIConfig() CIConfig {
@@ -24,14 +15,23 @@ func NewDefaultCIConfig() CIConfig {
 		".github/workflows",
 		"remote-build-and-deploy.yaml",
 		"Remote Build and Deploy",
+		"KUBECONFIG",
+		false,
 	)
 }
 
-func NewCIConfig(workflowDir, workflowFile, workflowName string) CIConfig {
+func NewCIConfig(
+	workflowDir,
+	workflowFilename,
+	workflowName,
+	kubeconfigSecretKey string,
+	selfHostedRunner bool) CIConfig {
 	return CIConfig{
 		workflowDir,
-		workflowFile,
+		workflowFilename,
 		workflowName,
+		kubeconfigSecretKey,
+		selfHostedRunner,
 	}
 }
 
@@ -40,9 +40,17 @@ func (cc *CIConfig) FnGithubWorkflowDir(fnRoot string) string {
 }
 
 func (cc *CIConfig) FnGithubWorkflowFilepath(fnRoot string) string {
-	return filepath.Join(cc.FnGithubWorkflowDir(fnRoot), cc.githubWorkflowFile)
+	return filepath.Join(cc.FnGithubWorkflowDir(fnRoot), cc.githubWorkflowFilename)
 }
 
 func (cc *CIConfig) WorkflowName() string {
 	return cc.workflowName
+}
+
+func (cc *CIConfig) SelfHostedRunner() bool {
+	return cc.selfHostedRunner
+}
+
+func (cc *CIConfig) KubeconfigSecretKey() string {
+	return cc.kubeconfigSecretKey
 }
