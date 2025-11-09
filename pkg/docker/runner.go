@@ -120,11 +120,6 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 		}
 	}()
 
-	// TODO: use StartTimeout
-	//  - Start a goroutine which queries for, or will be notified when, the
-	// container has successfully started.  If the startTimeout is reached
-	// before then, send a timeout error to the runtimeErrCh
-
 	if err = c.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
 		return job, errors.Wrap(err, "runner unable to start container")
 	}
