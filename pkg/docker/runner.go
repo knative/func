@@ -151,38 +151,38 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 
 	if startTimeout > 0 {
 		startCtx, cancel := context.WithTimeout(context.Background(), startTimeout)
-        defer cancel()
+		defer cancel()
 
-        readyCh := make(chan struct{})
-        go func() {
-            ticker := time.NewTicker(100 * time.Millisecond)
-            defer ticker.Stop()
-            for {
-                if err := dial(host, port, DefaultDialTimeout); err == nil {
-                    select {
-                    case readyCh <- struct{}{}:
-                    default:
-                    }
-                    return
-                }
-                select {
-                case <-startCtx.Done():
-                    return
-                case <-ticker.C:
-                }
-            }
-        }()
+		readyCh := make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(100 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				if err := dial(host, port, DefaultDialTimeout); err == nil {
+					select {
+					case readyCh <- struct{}{}:
+					default:
+					}
+					return
+				}
+				select {
+				case <-startCtx.Done():
+					return
+				case <-ticker.C:
+				}
+			}
+		}()
 
 		select {
-        case <-readyCh:
-           
-        case err := <-runtimeErrCh:
-            _ = stop()
-            return nil, fmt.Errorf("container error before readiness: %w", err)
-        case <-startCtx.Done():
-            _ = stop()
-            return nil, fmt.Errorf("timeout waiting for function to start")
-        }
+		case <-readyCh:
+
+		case err := <-runtimeErrCh:
+			_ = stop()
+			return nil, fmt.Errorf("container error before readiness: %w", err)
+		case <-startCtx.Done():
+			_ = stop()
+			return nil, fmt.Errorf("timeout waiting for function to start")
+		}
 
 	}
 
