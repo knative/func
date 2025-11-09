@@ -154,6 +154,43 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 		return nil
 	}
 
+	if startTimeout > 0 {
+		startCtx, cancel := context.WithTimeout(context.Background(), startTimeout)
+        defer cancel()
+
+        readyCh := make(chan struct{})
+        go func() {
+            ticker := time.NewTicker(100 * time.Millisecond)
+            defer ticker.Stop()
+            for {
+                if err := dial(host, port, DefaultDialTimeout); err == nil {
+                    select {
+                    case readyCh <- struct{}{}:
+                    default:
+                    }
+                    return
+                }
+                select {
+                case <-startCtx.Done():
+                    return
+                case <-ticker.C:
+                }
+            }
+        }()
+
+		select {
+        case <-readyCh:
+           
+        case err := <-runtimeErrCh:
+            _ = stop()
+            return nil, fmt.Errorf("container error before readiness: %w", err)
+        case <-startCtx.Done():
+            _ = stop()
+            return nil, fmt.Errorf("timeout waiting for function to start")
+        }
+
+	}
+
 	// Job reporting port, runtime errors and provides a mechanism for stopping.
 	return fn.NewJob(f, host, port, runtimeErrCh, stop, n.verbose)
 }
