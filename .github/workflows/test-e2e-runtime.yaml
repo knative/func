@@ -13,10 +13,8 @@ jobs:
     strategy:
       matrix:
         os: [ "ubuntu-latest", "ubuntu-24.04-arm" ]
-        runtime: ["go", "quarkus"]
+        runtime: ["go", "quarkus", "node", "python"]
         include:
-          - os: ubuntu-latest
-            runtime: node
           - os: ubuntu-latest
             runtime: typescript
           - os: ubuntu-latest
