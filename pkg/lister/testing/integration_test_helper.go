@@ -9,6 +9,7 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
+	. "knative.dev/func/pkg/testing/k8s"
 )
 
 func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describer fn.Describer, remover fn.Remover, deployerName string) {

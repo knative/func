@@ -1,11 +1,12 @@
-package testing
+// package testing includes Kubernetes-specific testing helpers.
+package k8s
 
 import (
 	"context"
-	testing2 "testing"
+	"testing"
 
-	"k8s.io/api/core/v1"
-	v2 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"knative.dev/func/pkg/k8s"
 )
@@ -14,7 +15,7 @@ const DefaultIntTestNamespacePrefix = "func-int-test"
 
 // Namespace returns the integration test namespace or that specified by
 // FUNC_INT_NAMESPACE (creating if necessary)
-func Namespace(t *testing2.T, ctx context.Context) string {
+func Namespace(t *testing.T, ctx context.Context) string {
 	t.Helper()
 
 	cliSet, err := k8s.NewKubernetesClientset()
@@ -26,18 +27,18 @@ func Namespace(t *testing2.T, ctx context.Context) string {
 
 	namespace := DefaultIntTestNamespacePrefix + "-" + rand.String(5)
 
-	ns := &v1.Namespace{
-		ObjectMeta: v2.ObjectMeta{
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
-		Spec: v1.NamespaceSpec{},
+		Spec: corev1.NamespaceSpec{},
 	}
-	_, err = cliSet.CoreV1().Namespaces().Create(ctx, ns, v2.CreateOptions{})
+	_, err = cliSet.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		err := cliSet.CoreV1().Namespaces().Delete(context.Background(), namespace, v2.DeleteOptions{})
+		err := cliSet.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 		if err != nil {
 			t.Logf("error deleting namespace: %v", err)
 		}
