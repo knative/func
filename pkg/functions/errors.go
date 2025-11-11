@@ -3,6 +3,7 @@ package functions
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -89,4 +90,32 @@ type ErrEnvNotExist struct {
 
 func (e ErrEnvNotExist) Error() string {
 	return fmt.Sprintf("environment variable %q does not exist", e.Name)
+}
+
+// ErrPortUnavailableError indicates that a port cannot be bound
+type ErrPortUnavailableError struct {
+	Port string
+	Err  error
+}
+
+func (e *ErrPortUnavailableError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("port %s is not available: %v", e.Port, e.Err)
+	}
+	return fmt.Sprintf("port %s is not available", e.Port)
+}
+
+func (e *ErrPortUnavailableError) Unwrap() error {
+	return e.Err
+}
+
+// IsPermissionDenied checks if the underlying error is a permission error
+func (e *ErrPortUnavailableError) IsPermissionDenied() bool {
+	if e.Err == nil {
+		return false
+	}
+	errStr := strings.ToLower(e.Err.Error())
+	return strings.Contains(errStr, "permission denied") ||
+		strings.Contains(errStr, "access denied") ||
+		strings.Contains(errStr, "operation not permitted")
 }
