@@ -27,10 +27,10 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-// IntegrationTest_Deploy ensures that the deployer creates a callable service.
+// TestInt_Deploy ensures that the deployer creates a callable service.
 // See TestInt_Metadata for Labels, Volumes, Envs.
 // See TestInt_Events for Subscriptions
-func IntegrationTest_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-deploy-" + rand.String(5)
 	root := t.TempDir()
@@ -102,9 +102,9 @@ func IntegrationTest_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remov
 	}
 }
 
-// IntegrationTest_Metadata ensures that Secrets, Labels, and Volumes are applied
+// TestInt_Metadata ensures that Secrets, Labels, and Volumes are applied
 // when deploying.
-func IntegrationTest_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-metadata-" + rand.String(5)
 	root := t.TempDir()
@@ -272,8 +272,8 @@ func IntegrationTest_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Rem
 	}
 }
 
-// IntegrationTest_Events ensures that eventing triggers work.
-func IntegrationTest_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+// TestInt_Events ensures that eventing triggers work.
+func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-events-" + rand.String(5)
 	root := t.TempDir()
@@ -350,9 +350,9 @@ func IntegrationTest_Events(t *testing.T, deployer fn.Deployer, remover fn.Remov
 	}
 }
 
-// IntegrationTest_Scale spot-checks that the scale settings are applied by
+// TestInt_Scale spot-checks that the scale settings are applied by
 // ensuring the service is started multiple times when minScale=2
-func IntegrationTest_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-scale-" + rand.String(5)
 	root := t.TempDir()
@@ -457,9 +457,9 @@ func IntegrationTest_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remove
 	// }
 }
 
-// IntegrationTest_EnvsUpdate ensures that removing and updating envs are correctly
+// TestInt_EnvsUpdate ensures that removing and updating envs are correctly
 // reflected during a deployment update.
-func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-envsupdate-" + rand.String(5)
 	root := t.TempDir()
@@ -616,7 +616,7 @@ func IntegrationTest_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.R
 }
 
 // Basic happy path test of deploy->describe->list->re-deploy->delete.
-func IntegrationTest_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, lister fn.Lister, describer fn.Describer, deployerName string) {
+func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, lister fn.Lister, describer fn.Describer, deployerName string) {
 	var err error
 	functionName := "fn-testing"
 

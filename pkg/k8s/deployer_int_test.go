@@ -10,8 +10,8 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-func TestIntegration(t *testing.T) {
-	deployertesting.IntegrationTest_FullPath(t,
+func TestInt_FullPath(t *testing.T) {
+	deployertesting.TestInt_FullPath(t,
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewLister(false),
@@ -20,7 +20,7 @@ func TestIntegration(t *testing.T) {
 }
 
 func TestInt_Deploy(t *testing.T) {
-	deployertesting.IntegrationTest_Deploy(t,
+	deployertesting.TestInt_Deploy(t,
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewDescriber(false),
@@ -28,7 +28,7 @@ func TestInt_Deploy(t *testing.T) {
 }
 
 func TestInt_Metadata(t *testing.T) {
-	deployertesting.IntegrationTest_Metadata(t,
+	deployertesting.TestInt_Metadata(t,
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewDescriber(false),
@@ -38,7 +38,7 @@ func TestInt_Metadata(t *testing.T) {
 func TestInt_Events(t *testing.T) {
 	t.Skip("Kubernetes deploy does not support func subscribe yet")
 
-	deployertesting.IntegrationTest_Events(t,
+	deployertesting.TestInt_Events(t,
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewDescriber(false),
@@ -46,7 +46,7 @@ func TestInt_Events(t *testing.T) {
 }
 
 func TestInt_Scale(t *testing.T) {
-	deployertesting.IntegrationTest_Scale(t,
+	deployertesting.TestInt_Scale(t,
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewDescriber(false),
@@ -54,7 +54,7 @@ func TestInt_Scale(t *testing.T) {
 }
 
 func TestInt_EnvsUpdate(t *testing.T) {
-	deployertesting.IntegrationTest_EnvsUpdate(t,
+	deployertesting.TestInt_EnvsUpdate(t,
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
 		k8s.NewDescriber(false),
