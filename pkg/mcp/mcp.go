@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	Name    = "func"
-	Title   = "func"
-	Version = "0.1.0"
+	name    = "func"
+	title   = "func"
+	version = "0.1.0"
 )
 
 // NOTE: Invoking prompts in some interfaces (such as Claude Code) when all
@@ -77,9 +77,9 @@ func New(options ...Option) *Server {
 
 	i := mcp.NewServer(
 		&mcp.Implementation{
-			Name:    Name,
-			Title:   Title,
-			Version: Version},
+			Name:    name,
+			Title:   title,
+			Version: version},
 		&mcp.ServerOptions{
 			Instructions:       instructions(s.readonly),
 			HasPrompts:         true,
@@ -158,7 +158,7 @@ func (e defaultExecutor) Execute(ctx context.Context, subcommand string, args ..
 	cmdParts = append(cmdParts, args...)
 
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
-	// Commands always execute in current working directory
+	// cmd.Dir not set - inherits process working directory which is the current working directory
 	return cmd.CombinedOutput()
 }
 
