@@ -237,6 +237,58 @@ EXAMPLES
 	return cmd
 }
 
+// wrapInvalidKubeconfigError returns a user-friendly error for invalid kubeconfig paths
+func wrapInvalidKubeconfigError(err error) error {
+	kubeconfigPath := os.Getenv("KUBECONFIG")
+	if kubeconfigPath == "" {
+		kubeconfigPath = "~/.kube/config (default)"
+	}
+
+	return fmt.Errorf(`%w
+
+The kubeconfig file at '%s' does not exist or is not accessible.
+
+Try this:
+  export KUBECONFIG=~/.kube/config           Use default kubeconfig
+  kubectl config view                        Verify current config
+  ls -la ~/.kube/config                      Check if config file exists
+
+For more options, run 'func deploy --help'`, fn.ErrInvalidKubeconfig, kubeconfigPath)
+}
+
+// wrapClusterNotAccessibleError returns a user-friendly error for cluster connection failures
+func wrapClusterNotAccessibleError(err error) error {
+	errMsg := err.Error()
+
+	// Case 1: Empty/no cluster configuration in kubeconfig
+	if strings.Contains(errMsg, "no configuration has been provided") ||
+		strings.Contains(errMsg, "invalid configuration") {
+		return fmt.Errorf(`%w
+
+Cannot connect to Kubernetes cluster. No valid cluster configuration found.
+
+Try this:
+  minikube start                             Start Minikube cluster
+  kind create cluster                        Start Kind cluster
+  kubectl cluster-info                       Verify cluster is running
+  kubectl config get-contexts                List available contexts
+
+For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
+	}
+
+	// Case 2: Cluster is down, network issues, auth errors, etc
+	return fmt.Errorf(`%w
+
+Cannot connect to Kubernetes cluster.
+
+Try this:
+  kubectl cluster-info                       Verify cluster is accessible
+  minikube status                            Check Minikube cluster status
+  kubectl get nodes                          Test cluster connection
+
+For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
+}
+
 func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg deployConfig
@@ -371,6 +423,12 @@ For more options, run 'func deploy --help'`, err)
 		// Returned is the function with fields like Registry, f.Deploy.Image &
 		// f.Deploy.Namespace populated.
 		if url, f, err = client.RunPipeline(cmd.Context(), f); err != nil {
+			if errors.Is(err, fn.ErrInvalidKubeconfig) {
+				return wrapInvalidKubeconfigError(err)
+			}
+			if errors.Is(err, fn.ErrClusterNotAccessible) {
+				return wrapClusterNotAccessibleError(err)
+			}
 			return
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Function Deployed at %v\n", url)
@@ -422,6 +480,12 @@ For more options, run 'func deploy --help'`, err)
 			}
 		}
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
+			if errors.Is(err, fn.ErrInvalidKubeconfig) {
+				return wrapInvalidKubeconfigError(err)
+			}
+			if errors.Is(err, fn.ErrClusterNotAccessible) {
+				return wrapClusterNotAccessibleError(err)
+			}
 			return
 		}
 	}

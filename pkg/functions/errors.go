@@ -38,6 +38,12 @@ var (
 
 	// ErrInvalidDomain is returned when a domain name doesn't meet DNS subdomain requirements
 	ErrInvalidDomain = errors.New("invalid domain")
+
+	// ErrInvalidKubeconfig is returned when the kubeconfig file path is invalid or inaccessible
+	ErrInvalidKubeconfig = errors.New("invalid kubeconfig")
+
+	// ErrClusterNotAccessible is returned when cluster connection fails (network, auth, etc)
+	ErrClusterNotAccessible = errors.New("cluster not accessible")
 )
 
 // ErrNotInitialized indicates that a function is uninitialized
