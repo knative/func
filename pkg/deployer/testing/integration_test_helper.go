@@ -31,6 +31,8 @@ import (
 // See TestInt_Metadata for Labels, Volumes, Envs.
 // See TestInt_Events for Subscriptions
 func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+	t.Helper()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-deploy-" + rand.String(5)
 	root := t.TempDir()
@@ -105,6 +107,8 @@ func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 // TestInt_Metadata ensures that Secrets, Labels, and Volumes are applied
 // when deploying.
 func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+	t.Helper()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-metadata-" + rand.String(5)
 	root := t.TempDir()
@@ -274,6 +278,8 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 
 // TestInt_Events ensures that eventing triggers work.
 func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+	t.Helper()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-events-" + rand.String(5)
 	root := t.TempDir()
@@ -353,6 +359,8 @@ func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 // TestInt_Scale spot-checks that the scale settings are applied by
 // ensuring the service is started multiple times when minScale=2
 func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+	t.Helper()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-scale-" + rand.String(5)
 	root := t.TempDir()
@@ -460,6 +468,8 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 // TestInt_EnvsUpdate ensures that removing and updating envs are correctly
 // reflected during a deployment update.
 func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+	t.Helper()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-envsupdate-" + rand.String(5)
 	root := t.TempDir()
@@ -617,6 +627,8 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 
 // Basic happy path test of deploy->describe->list->re-deploy->delete.
 func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, lister fn.Lister, describer fn.Describer, deployerName string) {
+	t.Helper()
+
 	var err error
 	functionName := "fn-testing"
 
