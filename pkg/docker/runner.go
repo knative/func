@@ -120,11 +120,6 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 		}
 	}()
 
-	// TODO: use StartTimeout
-	//  - Start a goroutine which queries for, or will be notified when, the
-	// container has successfully started.  If the startTimeout is reached
-	// before then, send a timeout error to the runtimeErrCh
-
 	if err = c.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
 		return job, errors.Wrap(err, "runner unable to start container")
 	}
@@ -152,6 +147,43 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 			return fmt.Errorf("error closing daemon client: %v", err)
 		}
 		return nil
+	}
+
+	if startTimeout > 0 {
+		startCtx, cancel := context.WithTimeout(context.Background(), startTimeout)
+		defer cancel()
+
+		readyCh := make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(100 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				if err := dial(host, port, DefaultDialTimeout); err == nil {
+					select {
+					case readyCh <- struct{}{}:
+					default:
+					}
+					return
+				}
+				select {
+				case <-startCtx.Done():
+					return
+				case <-ticker.C:
+				}
+			}
+		}()
+
+		select {
+		case <-readyCh:
+
+		case err := <-runtimeErrCh:
+			_ = stop()
+			return nil, fmt.Errorf("container error before readiness: %w", err)
+		case <-startCtx.Done():
+			_ = stop()
+			return nil, fmt.Errorf("timeout waiting for function to start")
+		}
+
 	}
 
 	// Job reporting port, runtime errors and provides a mechanism for stopping.
