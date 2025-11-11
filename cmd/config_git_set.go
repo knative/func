@@ -263,7 +263,7 @@ func (c configGitSetConfig) Configure(f fn.Function) (fn.Function, error) {
 
 	// Bubble configure request
 	//
-	// The member values on the config object now take absolute precidence
+	// The member values on the config object now take absolute precedence
 	// because they include 1) static config 2) user's global config
 	// 3) Environment variables and 4) flag values (which were set with their
 	// default being 1-3).

@@ -253,7 +253,7 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 		return
 	}
 
-	// Create a tempoarary client for use by the following prompts to complete
+	// Create a temporary client for use by the following prompts to complete
 	// runtime/template suggestions etc
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()

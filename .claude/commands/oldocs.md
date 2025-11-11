@@ -1,0 +1,1 @@
+Generate "one liner" docs for $ARGUMENTS and break the line after 90 characters.

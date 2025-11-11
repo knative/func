@@ -15,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
 
+	"knative.dev/func/cmd/ci"
+	"knative.dev/func/cmd/common"
 	"knative.dev/func/cmd/templates"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
@@ -100,7 +102,7 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 		{
 			Header: "System Commands:",
 			Commands: []*cobra.Command{
-				NewConfigCmd(defaultLoaderSaver, newClient),
+				NewConfigCmd(common.DefaultLoaderSaver, newClient, ci.NewDefaultCIConfig()),
 				NewLanguagesCmd(newClient),
 				NewTemplatesCmd(newClient),
 				NewRepositoryCmd(newClient),
@@ -315,7 +317,7 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 	return envs, counter, nil
 }
 
-// addConfirmFlag ensures common text/wording when the --path flag is used
+// addConfirmFlag ensures common text/wording when the --confirm flag is used
 func addConfirmFlag(cmd *cobra.Command, dflt bool) {
 	cmd.Flags().BoolP("confirm", "c", dflt, "Prompt to confirm options interactively ($FUNC_CONFIRM)")
 }
@@ -325,7 +327,7 @@ func addPathFlag(cmd *cobra.Command) {
 	cmd.Flags().StringP("path", "p", "", "Path to the function.  Default is current directory ($FUNC_PATH)")
 }
 
-// addVerboseFlag ensures common text/wording when the --path flag is used
+// addVerboseFlag ensures common text/wording when the --verbose flag is used
 func addVerboseFlag(cmd *cobra.Command, dflt bool) {
 	cmd.Flags().BoolP("verbose", "v", dflt, "Print verbose logs ($FUNC_VERBOSE)")
 }

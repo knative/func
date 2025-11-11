@@ -27,7 +27,7 @@ func TestBuild_ConfigApplied(t *testing.T) {
 	testConfigApplied(NewBuildCmd, t)
 }
 
-// TestBuild_ConfigPrecedence ensures that the correct precidence for config
+// TestBuild_ConfigPrecedence ensures that the correct precedence for config
 // are applied: static < global < function context < envs < flags
 func TestBuild_ConfigPrecedence(t *testing.T) {
 	testConfigPrecedence(NewBuildCmd, t)
@@ -39,7 +39,7 @@ func TestBuild_Default(t *testing.T) {
 	testDefault(NewBuildCmd, t)
 }
 
-// TestBuild_FunctionContext ensures that the function contectually relevant
+// TestBuild_FunctionContext ensures that the function contextually relevant
 // to the current command execution is loaded and used for flag defaults by
 // spot-checking the builder setting.
 func TestBuild_FunctionContext(t *testing.T) {
