@@ -20,7 +20,6 @@ import (
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
-	. "knative.dev/func/pkg/testing/k8s"
 	v1 "knative.dev/pkg/apis/duck/v1"
 
 	fn "knative.dev/func/pkg/functions"

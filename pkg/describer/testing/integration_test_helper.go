@@ -9,7 +9,6 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
-	. "knative.dev/func/pkg/testing/k8s"
 )
 
 func TestInt_Describe(t *testing.T, describer fn.Describer, deployer fn.Deployer, remover fn.Remover, deployerName string) {
