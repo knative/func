@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v2"
-	. "knative.dev/func/pkg/functions"
+	fn "knative.dev/func/pkg/functions"
 	fnlabels "knative.dev/func/pkg/k8s/labels"
 
 	. "knative.dev/func/pkg/testing"
@@ -23,19 +23,19 @@ func TestFunction_Validate(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	t.Cleanup(cleanup)
 
-	var f Function
+	var f fn.Function
 	var err error
 
 	// Loading a nonexistent (new) function should not fail
 	// I.e. it will not run .Validate, or it would error that the function at
 	// root has no language or name.
-	if f, err = NewFunction(root); err != nil {
+	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
 
 	// Attempting to write the function will fail as being invalid
 	invalidEnv := "*invalid"
-	f.Build.BuildEnvs = []Env{{Name: &invalidEnv}}
+	f.Build.BuildEnvs = []fn.Env{{Name: &invalidEnv}}
 	if err = f.Write(); err == nil {
 		t.Fatalf("expected error writing an incomplete (invalid) function")
 	}
@@ -47,7 +47,7 @@ func TestFunction_Validate(t *testing.T) {
 	// serialization of the Function struct to a known filename. This is why this
 	// test belongs here in the same package as the implementation rather than in
 	// package functions_test which treats the function package as an opaque-box.
-	path := filepath.Join(root, FunctionFile)
+	path := filepath.Join(root, fn.FunctionFile)
 	bb, err := yaml.Marshal(&f)
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +57,7 @@ func TestFunction_Validate(t *testing.T) {
 	}
 
 	// Loading the invalid function should not fail, but validation should.
-	if f, err = NewFunction(root); err != nil {
+	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
 	if err = f.Validate(); err == nil { // axiom check; not strictly part of this test
@@ -65,11 +65,11 @@ func TestFunction_Validate(t *testing.T) {
 	}
 
 	// Remove the invalid structures... write should complete without error.
-	f.Build.BuildEnvs = []Env{}
+	f.Build.BuildEnvs = []fn.Env{}
 	if err = f.Write(); err != nil {
 		t.Fatal(err)
 	}
-	if f, err = NewFunction(root); err != nil {
+	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
 	if err = f.Validate(); err != nil {
@@ -119,8 +119,8 @@ func TestFunction_ImageWithDigest(t *testing.T) {
 	// 2: is still fetched after pushing the Function (which is a temporary fix -- it really should be during build)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := Function{
-				Build: BuildSpec{
+			f := fn.Function{
+				Build: fn.BuildSpec{
 					Image: tt.fields.Image,
 				},
 			}
@@ -137,7 +137,7 @@ func TestFunction_ImageWithDigest(t *testing.T) {
 // registry is a single token (just the namespace).
 func TestFunction_ImageName(t *testing.T) {
 	var (
-		f   Function
+		f   fn.Function
 		got string
 		err error
 	)
@@ -148,11 +148,11 @@ func TestFunction_ImageName(t *testing.T) {
 		expectedImage string
 		expectError   bool
 	}{
-		{"short-name", "alice", "myfunc", DefaultRegistry + "/alice/myfunc:latest", false},
-		{"short-name-trailing-slash", "alice/", "myfunc", DefaultRegistry + "/alice/myfunc:latest", false},
+		{"short-name", "alice", "myfunc", fn.DefaultRegistry + "/alice/myfunc:latest", false},
+		{"short-name-trailing-slash", "alice/", "myfunc", fn.DefaultRegistry + "/alice/myfunc:latest", false},
 		{"full-name-quay-io", "quay.io/alice", "myfunc", "quay.io/alice/myfunc:latest", false},
-		{"full-name-docker-io", "docker.io/alice", "myfunc", DefaultRegistry + "/alice/myfunc:latest", false},
-		{"full-name-with-sub-path", "docker.io/alice/sub", "myfunc", DefaultRegistry + "/alice/sub/myfunc:latest", false},
+		{"full-name-docker-io", "docker.io/alice", "myfunc", fn.DefaultRegistry + "/alice/myfunc:latest", false},
+		{"full-name-with-sub-path", "docker.io/alice/sub", "myfunc", fn.DefaultRegistry + "/alice/sub/myfunc:latest", false},
 		{"localhost-direct", "localhost:5000", "myfunc", "localhost:5000/myfunc:latest", false},
 		{"full-name-with-sub-sub-path", "us-central1-docker.pkg.dev/my-gcpproject/team/user", "myfunc", "us-central1-docker.pkg.dev/my-gcpproject/team/user/myfunc:latest", false},
 		{"missing-func-name", "alice", "", "", true},
@@ -160,7 +160,7 @@ func TestFunction_ImageName(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			f = Function{Registry: test.registry, Name: test.funcName}
+			f = fn.Function{Registry: test.registry, Name: test.funcName}
 			got, err = f.ImageName()
 			if test.expectError && err == nil {
 				t.Errorf("registry '%v' and name '%v' did not yield the expected error",
@@ -191,13 +191,13 @@ func Test_LabelsMap(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		labels      []Label
+		labels      []fn.Label
 		expectErr   bool
 		expectedMap map[string]string
 	}{
 		{
 			name: "invalid Labels should return err",
-			labels: []Label{
+			labels: []fn.Label{
 				{
 					Value: &value1,
 				},
@@ -206,7 +206,7 @@ func Test_LabelsMap(t *testing.T) {
 		},
 		{
 			name: "with valid env var",
-			labels: []Label{
+			labels: []fn.Label{
 				{
 					Key:   &key1,
 					Value: &valueLocalEnv4,
@@ -219,7 +219,7 @@ func Test_LabelsMap(t *testing.T) {
 		},
 		{
 			name: "with invalid env var",
-			labels: []Label{
+			labels: []fn.Label{
 				{
 					Key:   &key1,
 					Value: &valueLocalEnvIncorrect4,
@@ -229,7 +229,7 @@ func Test_LabelsMap(t *testing.T) {
 		},
 		{
 			name: "empty labels allowed. returns default labels",
-			labels: []Label{
+			labels: []fn.Label{
 				{
 					Key: &key1,
 				},
@@ -241,7 +241,7 @@ func Test_LabelsMap(t *testing.T) {
 		},
 		{
 			name: "full set of labels",
-			labels: []Label{
+			labels: []fn.Label{
 				{
 					Key:   &key1,
 					Value: &value1,
@@ -261,10 +261,10 @@ func Test_LabelsMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := Function{
+			f := fn.Function{
 				Name:    "some-function",
 				Runtime: "golang",
-				Deploy:  DeploySpec{Labels: tt.labels},
+				Deploy:  fn.DeploySpec{Labels: tt.labels},
 			}
 			got, err := f.LabelsMap()
 
@@ -290,7 +290,7 @@ func Test_LabelsMap(t *testing.T) {
 	}
 }
 
-func expectedDefaultLabels(f Function) map[string]string {
+func expectedDefaultLabels(f fn.Function) map[string]string {
 	return map[string]string{
 		fnlabels.FunctionNameKey:    f.Name,
 		fnlabels.FunctionRuntimeKey: f.Runtime,
