@@ -37,7 +37,7 @@ var (
 
 	// ErrInvalidDomain is returned when a domain name doesn't meet DNS subdomain requirements
 	ErrInvalidDomain = errors.New("invalid domain")
-	
+
 	// ErrInvalidKubeconfig is returned when the kubeconfig file path is invalid or inaccessible
 	ErrInvalidKubeconfig = errors.New("invalid kubeconfig")
 
