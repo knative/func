@@ -19,7 +19,7 @@ import (
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
-	fntest "knative.dev/func/pkg/testing"
+	. "knative.dev/func/pkg/testing"
 	k8stest "knative.dev/func/pkg/testing/k8s"
 	v1 "knative.dev/pkg/apis/duck/v1"
 
@@ -51,7 +51,7 @@ func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  fntest.Registry(),
+		Registry:  Registry(),
 		Deploy: fn.DeploySpec{
 			Deployer: deployerName,
 		},
@@ -148,7 +148,7 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  fntest.Registry(),
+		Registry:  Registry(),
 		Deploy: fn.DeploySpec{
 			Deployer: deployerName,
 		},
@@ -296,7 +296,7 @@ func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  fntest.Registry(),
+		Registry:  Registry(),
 		Deploy: fn.DeploySpec{
 			Deployer: deployerName,
 		},
@@ -373,7 +373,7 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  fntest.Registry(),
+		Registry:  Registry(),
 		Deploy: fn.DeploySpec{
 			Deployer: deployerName,
 		},
@@ -482,7 +482,7 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  fntest.Registry(),
+		Registry:  Registry(),
 		Deploy: fn.DeploySpec{
 			Deployer: deployerName,
 		},
