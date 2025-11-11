@@ -8,8 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
-	fntest "knative.dev/func/pkg/testing"
-	fnk8stest "knative.dev/func/pkg/testing/k8s"
+	. "knative.dev/func/pkg/testing"
+	. "knative.dev/func/pkg/testing/k8s"
 )
 
 func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describer fn.Describer, remover fn.Remover, deployerName string) {
@@ -18,7 +18,7 @@ func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describe
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-list-" + rand.String(5)
 	root := t.TempDir()
-	ns := fnk8stest.Namespace(t, ctx)
+	ns := Namespace(t, ctx)
 
 	t.Cleanup(cancel)
 
@@ -36,7 +36,7 @@ func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describe
 		Name:      name,
 		Runtime:   "go",
 		Namespace: ns,
-		Registry:  fntest.Registry(),
+		Registry:  Registry(),
 		Deploy: fn.DeploySpec{
 			Deployer: deployerName,
 		},
