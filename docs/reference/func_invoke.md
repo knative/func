@@ -100,7 +100,7 @@ func invoke
       --content-type string   Content Type of the data. ($FUNC_CONTENT_TYPE) (default "application/json")
       --data string           Data to send in the request. ($FUNC_DATA) (default "{\"message\":\"Hello World\"}")
       --file string           Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. ($FUNC_FILE)
-  -f, --format string         Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. ($FUNC_FORMAT)
+  -f, --format string         Format of message to send, 'http' or 'cloudevent(s)'.  Default is to choose automatically. ($FUNC_FORMAT)
   -h, --help                  help for invoke
       --id string             ID for the request data. ($FUNC_ID)
   -i, --insecure              Allow insecure server connections when using SSL. ($FUNC_INSECURE)
