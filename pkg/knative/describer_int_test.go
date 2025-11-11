@@ -10,7 +10,7 @@ import (
 )
 
 func TestInt_Describe(t *testing.T) {
-	describertesting.DescribeIntegrationTest(t,
+	describertesting.TestInt_Describe(t,
 		knative.NewDescriber(true),
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewRemover(true),

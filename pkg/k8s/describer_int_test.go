@@ -10,7 +10,7 @@ import (
 )
 
 func TestInt_Describe(t *testing.T) {
-	describertesting.DescribeIntegrationTest(t,
+	describertesting.TestInt_Describe(t,
 		k8s.NewDescriber(true),
 		k8s.NewDeployer(k8s.WithDeployerVerbose(true)),
 		k8s.NewRemover(true),

@@ -15,6 +15,7 @@ import (
 )
 
 func IntegrationTest(t *testing.T, lister fn.Lister, deployer fn.Deployer, describer fn.Describer, remover fn.Remover, deployerName string) {
+func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describer fn.Describer, remover fn.Remover, deployerName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	name := "func-int-knative-list-" + rand.String(5)
 	root := t.TempDir()

@@ -10,7 +10,7 @@ import (
 )
 
 func TestInt_List(t *testing.T) {
-	listertesting.IntegrationTest(t,
+	listertesting.TestInt_List(t,
 		knative.NewLister(true),
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewDescriber(true),

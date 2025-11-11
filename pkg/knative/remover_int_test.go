@@ -10,7 +10,7 @@ import (
 )
 
 func TestInt_Remove(t *testing.T) {
-	removertesting.IntegrationTest(t,
+	removertesting.TestInt_Remove(t,
 		knative.NewRemover(true),
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewDescriber(true),

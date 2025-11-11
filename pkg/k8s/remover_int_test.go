@@ -10,7 +10,7 @@ import (
 )
 
 func TestInt_Remove(t *testing.T) {
-	removertesting.IntegrationTest(t,
+	removertesting.TestInt_Remove(t,
 		k8s.NewRemover(true),
 		k8s.NewDeployer(k8s.WithDeployerVerbose(true)),
 		k8s.NewDescriber(true),
