@@ -25,6 +25,7 @@ type ErrInvalidLabel error
 
 // ErrInvalidDomain indicates the domain name did not pass DNS subdomain validation.
 type ErrInvalidDomain error
+
 // ErrInvalidNamespace indicates the namespace name did not pass Kubernetes namespace validation.
 type ErrInvalidNamespace error
 
@@ -124,6 +125,9 @@ func ValidateDomain(domain string) error {
 		)
 		return ErrInvalidDomain(errors.New(errMsg))
 	}
+
+	return nil
+}
 
 // ValidateNamespace validates that the input name is a valid Kubernetes namespace name, ie. valid DNS-1123 label.
 // It must consist of lower case alphanumeric characters or '-',

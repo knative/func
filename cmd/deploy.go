@@ -363,9 +363,6 @@ Valid examples:
 
 For more options, run 'func deploy --help'`, err)
 		}
-
-For more options, run 'func deploy --help'`, err)
-		}
 		if errors.Is(err, fn.ErrConflictingImageAndRegistry) {
 			return fmt.Errorf(`%w
 
@@ -850,8 +847,6 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 			return fn.ErrInvalidNamespace
 		}
 	}
-		}
-
 
 	// Check Image Digest was included
 	var digest bool

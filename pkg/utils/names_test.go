@@ -212,8 +212,6 @@ func TestValidateLabelValue(t *testing.T) {
 
 // TestValidateDomain tests that only correct DNS subdomain names are accepted
 func TestValidateDomain(t *testing.T) {
-// TestValidateNamespace tests that only correct Kubernetes namespace names are accepted
-func TestValidateNamespace(t *testing.T) {
 	cases := []struct {
 		In    string
 		Valid bool
@@ -233,6 +231,7 @@ func TestValidateNamespace(t *testing.T) {
 		{"example-app.com", true},                // hyphen in domain
 		{"a.co", true},                           // short domain
 		{"123app.example.com", true},             // label starting with number
+
 		// Invalid domains
 		{"Example.Com", false},        // uppercase not allowed
 		{"MY-APP.COM", false},         // uppercase not allowed
@@ -264,6 +263,45 @@ func TestValidateNamespace(t *testing.T) {
 		}
 		if err == nil && !c.Valid {
 			t.Fatalf("Expected error for invalid domain: '%v'", c.In)
+		}
+	}
+}
+
+func TestValidateDomainErrMsg(t *testing.T) {
+	invalidDomain := "my@app.com"
+	errMsgPrefix := fmt.Sprintf("Domain '%v'", invalidDomain)
+
+	err := ValidateDomain(invalidDomain)
+	if err != nil {
+		if !strings.HasPrefix(err.Error(), errMsgPrefix) {
+			t.Fatalf("Unexpected error message: %v, the message should start with '%v' string", err.Error(), errMsgPrefix)
+		}
+	} else {
+		t.Fatalf("Expected error for invalid domain: %v", invalidDomain)
+	}
+}
+
+// TestValidateDomainEmptyString ensures empty string is handled specially
+func TestValidateDomainEmptyString(t *testing.T) {
+	// Empty string should be valid (means use cluster default)
+	err := ValidateDomain("")
+	if err != nil {
+		t.Fatalf("Empty string should be valid (means use default): %v", err)
+	}
+
+	// String with only whitespace should error
+	err = ValidateDomain("   ")
+	if err == nil {
+		t.Fatal("String with only whitespace should be invalid")
+	}
+}
+
+// TestValidateNamespace tests that only correct Kubernetes namespace names are accepted
+func TestValidateNamespace(t *testing.T) {
+	cases := []struct {
+		In    string
+		Valid bool
+	}{
 		// Valid namespaces
 		{"default", true},
 		{"kube-system", true},
@@ -309,11 +347,6 @@ func TestValidateNamespace(t *testing.T) {
 	}
 }
 
-func TestValidateDomainErrMsg(t *testing.T) {
-	invalidDomain := "my@app.com"
-	errMsgPrefix := fmt.Sprintf("Domain '%v'", invalidDomain)
-
-	err := ValidateDomain(invalidDomain)
 func TestValidateNamespaceErrMsg(t *testing.T) {
 	invalidNamespace := "my@app"
 	errMsgPrefix := fmt.Sprintf("Namespace '%v'", invalidNamespace)
@@ -324,24 +357,6 @@ func TestValidateNamespaceErrMsg(t *testing.T) {
 			t.Fatalf("Unexpected error message: %v, the message should start with '%v' string", err.Error(), errMsgPrefix)
 		}
 	} else {
-		t.Fatalf("Expected error for invalid domain: %v", invalidDomain)
-	}
-}
-
-// TestValidateDomainEmptyString ensures empty string is handled specially
-func TestValidateDomainEmptyString(t *testing.T) {
-	// Empty string should be valid (means use cluster default)
-	err := ValidateDomain("")
-	if err != nil {
-		t.Fatalf("Empty string should be valid (means use default): %v", err)
-	}
-
-	// String with only whitespace should error
-	err = ValidateDomain("   ")
-	if err == nil {
-		t.Fatal("String with only whitespace should be invalid")
-	}
-}
 		t.Fatalf("Expected error for invalid namespace: %v", invalidNamespace)
 	}
 }
