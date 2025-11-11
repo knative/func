@@ -108,17 +108,12 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 			},
 		},
 		{
-			Header: "MCP Commands:",
-			Commands: []*cobra.Command{
-				NewMCPServerCmd(),
-			},
-		},
-		{
 			Header: "Other Commands:",
 			Commands: []*cobra.Command{
 				NewCompletionCmd(),
 				NewVersionCmd(cfg.Version),
 				NewTektonClusterTasksCmd(),
+				NewMCPCmd(newClient),
 			},
 		},
 	}
@@ -298,12 +293,17 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 	}
 
 	for _, name := range envToRemove {
+		found := false
 		for i, envVar := range envs {
 			if *envVar.Name == name {
 				envs = append(envs[:i], envs[i+1:]...)
 				counter++
+				found = true
 				break
 			}
+		}
+		if !found {
+			return nil, 0, &fn.ErrEnvNotExist{Name: name}
 		}
 	}
 

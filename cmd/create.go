@@ -90,9 +90,10 @@ EXAMPLES
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template ($FUNC_REPOSITORY)")
 
 	addConfirmFlag(cmd, cfg.Confirm)
-	// Add --path flag (default ".") for consistency with other commands.
-	// Retain positional [path] for backward compatibility (warned later).
-	cmd.Flags().StringP("path", "p", ".", "Path to the function project directory ($FUNC_PATH)")
+	// Add --path flag (default "") for consistency with other commands.
+	// Retain positional [path] for backward compatibility.
+	// Empty string default means current directory.
+	cmd.Flags().StringP("path", "p", "", "Path to the function project directory ($FUNC_PATH)")
 
 	addVerboseFlag(cmd, cfg.Verbose)
 
@@ -106,6 +107,31 @@ EXAMPLES
 	if err := cmd.RegisterFlagCompletionFunc("template", newTemplateCompletionFunc(newClient)); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
 	}
+
+	// Detect hyphen-prefixed arguments mis-parsed as flags
+	cmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
+		for _, arg := range os.Args[1:] {
+			if strings.HasPrefix(arg, "--") {
+				flagName := strings.TrimPrefix(arg, "--")
+				if cmd.Flags().Lookup(flagName) != nil {
+					continue
+				}
+				if strings.Contains(err.Error(), "unknown flag") && strings.Contains(err.Error(), arg) {
+					return wrapFlagParsingError(err, arg)
+				}
+			} else if strings.HasPrefix(arg, "-") && len(arg) > 1 {
+				firstChar := string(arg[1])
+				shortFlag := cmd.Flags().ShorthandLookup(firstChar)
+
+				if shortFlag != nil && len(arg) > 2 && strings.Contains(arg, "-") {
+					return wrapFlagParsingError(err, arg)
+				} else if strings.Contains(err.Error(), "unknown shorthand flag") && strings.Contains(err.Error(), arg[1:2]) {
+					return wrapFlagParsingError(err, arg)
+				}
+			}
+		}
+		return err
+	})
 
 	return cmd
 }
@@ -183,11 +209,24 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 
 	pathFlag = viper.GetString("path")
 
-	finalPath := "."
+	// Default to empty string which deriveNameAndAbsolutePathFromPath
+	// interprets as current working directory
+	finalPath := ""
+
+	// Use --path flag if provided (takes precedence)
 	if pathFlag != "" && pathFlag != "." {
 		finalPath = pathFlag
+	} else if pathFlag == "." {
+		// Convert shell convention "." to empty string for internal use
+		finalPath = ""
 	} else if len(args) >= 1 && args[0] != "" {
-		finalPath = args[0]
+		// Fall back to positional argument if no --path flag
+		if args[0] == "." {
+			// Convert shell convention "." to empty string
+			finalPath = ""
+		} else {
+			finalPath = args[0]
+		}
 	}
 
 	dirName, absolutePath = deriveNameAndAbsolutePathFromPath(finalPath)
@@ -376,7 +415,20 @@ func newInvalidRuntimeError(client *fn.Client, runtime string) error {
 	for _, v := range runtimes {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return ErrInvalidRuntime(errors.New(b.String()))
+
+	baseErr := ErrInvalidRuntime(errors.New(b.String()))
+
+	// Check if runtime value indicates mis-parsed function name
+	for _, arg := range os.Args[1:] {
+		if strings.HasPrefix(arg, "-") && len(arg) > 2 && strings.Contains(arg[2:], "-") {
+			if strings.HasPrefix(arg[2:], runtime) || runtime == strings.TrimPrefix(arg, "-"+string(arg[1])) {
+				flagChar := string(arg[1])
+				return wrapFlagParsingErrorWithDetails(baseErr, arg, flagChar, runtime)
+			}
+		}
+	}
+
+	return baseErr
 }
 
 // newInvalidTemplateError creates an error stating that the given template
@@ -393,7 +445,20 @@ func newInvalidTemplateError(client *fn.Client, runtime, template string) error 
 	for _, v := range templates {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return ErrInvalidTemplate(errors.New(b.String()))
+
+	baseErr := ErrInvalidTemplate(errors.New(b.String()))
+
+	// Check if template value indicates mis-parsed function name
+	for _, arg := range os.Args[1:] {
+		if strings.HasPrefix(arg, "-") && len(arg) > 2 && strings.Contains(arg[2:], "-") {
+			if strings.HasPrefix(arg[2:], template) || template == strings.TrimPrefix(arg, "-"+string(arg[1])) {
+				flagChar := string(arg[1])
+				return wrapFlagParsingErrorWithDetails(baseErr, arg, flagChar, template)
+			}
+		}
+	}
+
+	return baseErr
 }
 
 // prompt the user with value of config members, allowing for interactively

@@ -23,6 +23,9 @@ type ErrInvalidSecretKey error
 // ErrInvalidLabel indicates the name did not pass label key validation, or the value did not pass label value validation.
 type ErrInvalidLabel error
 
+// ErrInvalidDomain indicates the domain name did not pass DNS subdomain validation.
+type ErrInvalidDomain error
+
 // ValidateFunctionName validates that the input name is a valid function name, ie. valid DNS-1035 label.
 // It must consist of lower case alphanumeric characters or '-' and start with an alphabetic character and end with an alphanumeric character.
 // (e.g. 'my-name',  or 'abc-1', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')
@@ -100,5 +103,25 @@ func ValidateLabelValue(value string) error {
 	if len(errs) > 0 {
 		return ErrInvalidLabel(errors.New(strings.Join(errs, "")))
 	}
+	return nil
+}
+
+// ValidateDomain validates that the input is a valid DNS subdomain name (RFC 1123).
+// Examples: "example.com", "api.example.com", "my-app.staging.example.com"
+func ValidateDomain(domain string) error {
+	if domain == "" {
+		return nil
+	}
+
+	if errs := validation.IsDNS1123Subdomain(domain); len(errs) > 0 {
+		errMsg := strings.Replace(
+			strings.Join(errs, ""),
+			"a lowercase RFC 1123 subdomain",
+			fmt.Sprintf("Domain '%v'", domain),
+			1,
+		)
+		return ErrInvalidDomain(errors.New(errMsg))
+	}
+
 	return nil
 }

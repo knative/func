@@ -79,6 +79,7 @@ type Client struct {
 	instances         *InstanceRefs     // Function Instances management
 	transport         http.RoundTripper // Customizable internal transport
 	pipelinesProvider PipelinesProvider // CI/CD pipelines management
+	mcpServer         MCPServer         // MCP Server
 	startTimeout      time.Duration     // default start timeout for all runs
 }
 
@@ -209,6 +210,12 @@ type PipelinesProvider interface {
 	RemovePAC(context.Context, Function, any) error
 }
 
+// MCPServer for a given client instance which performs bidirectional
+// communication with a client agent.
+type MCPServer interface {
+	Start(context.Context, bool) error
+}
+
 // New client for function management.
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
@@ -221,6 +228,7 @@ func New(options ...Option) *Client {
 		describers:        []Describer{&noopDescriber{output: os.Stdout}},
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
 		pipelinesProvider: &noopPipelinesProvider{},
+		mcpServer:         &noopMCPServer{},
 		transport:         http.DefaultTransport,
 		startTimeout:      DefaultStartTimeout,
 	}
@@ -363,6 +371,13 @@ func WithTransport(t http.RoundTripper) Option {
 func WithPipelinesProvider(pp PipelinesProvider) Option {
 	return func(c *Client) {
 		c.pipelinesProvider = pp
+	}
+}
+
+// WithMCPServer sets the MCP Server instance.
+func WithMCPServer(s MCPServer) Option {
+	return func(c *Client) {
+		c.mcpServer = s
 	}
 }
 
@@ -1154,6 +1169,12 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, bool, error) {
 	return f, true, err
 }
 
+// StartMCPServer is currently a passthrough to the configured MCP Server
+// intance.
+func (c *Client) StartMCPServer(ctx context.Context, writeEnabled bool) error {
+	return c.mcpServer.Start(ctx, writeEnabled)
+}
+
 // ensureRunDataDir creates a .func directory at the given path, and
 // registers it as ignored in a .gitignore file.
 func ensureRunDataDir(root string) error {
@@ -1430,3 +1451,8 @@ func (n *noopPipelinesProvider) RemovePAC(ctx context.Context, _ Function, _ any
 type noopDNSProvider struct{ output io.Writer }
 
 func (n *noopDNSProvider) Provide(_ Function) error { return nil }
+
+// MCPServer
+type noopMCPServer struct{}
+
+func (n *noopMCPServer) Start(_ context.Context, _ bool) error { return nil }

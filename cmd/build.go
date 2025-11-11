@@ -395,12 +395,45 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 				Default: c.Path,
 			},
 		},
+		{
+			Name: "builder",
+			Prompt: &survey.Select{
+				Message: "Select builder:",
+				Options: []string{"pack", "s2i", "host"},
+				Default: c.Builder,
+			},
+		},
+		{
+			Name: "push",
+			Prompt: &survey.Confirm{
+				Message: "Push image to your registry after build?",
+				Default: c.Push,
+			},
+		},
 	}
-	//
-	// TODO(lkingland): add confirmation prompts for other config members here
-	//
+
 	err = survey.Ask(qs, &c)
-	return c, err
+	if err != nil {
+		return c, err
+	}
+
+	if c.Builder == "host" {
+		hostQs := []*survey.Question{
+			{
+				Name: "baseImage",
+				Prompt: &survey.Input{
+					Message: "Optional base image for your function (empty for default):",
+					Default: c.BaseImage,
+				},
+			},
+		}
+		err = survey.Ask(hostQs, &c)
+		if err != nil {
+			return c, err
+		}
+	}
+
+	return c, nil
 }
 
 // Validate the config passes an initial consistency check

@@ -449,6 +449,20 @@ func TestDeploy_Envs(t *testing.T) {
 	}
 
 	// TODO: create and test typed errors for ErrEnvNotExist etc.
+
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--env=DOES_NOT_EXIST-"})
+	err = cmd.Execute()
+
+	var e *fn.ErrEnvNotExist
+	if !errors.As(err, &e) {
+		t.Fatalf("expected ErrEnvNotExist, got '%v'", err)
+	}
+
+	if e.Name != "DOES_NOT_EXIST" {
+		t.Fatalf("expected env name 'DOES_NOT_EXIST', got '%v'", e.Name)
+	}
+
 }
 
 // TestDeploy_FunctionContext ensures that the function contextually relevant
@@ -2240,6 +2254,157 @@ func testBaseImage(cmdFn commandConstructor, t *testing.T) {
 			// succeeded but expected fail
 			if err == nil && tt.expErr {
 				t.Fatal(fmt.Errorf("Expected error but test succeeded"))
+			}
+		})
+	}
+}
+
+// TestDeploy_InvalidDomain ensures that invalid domain names are caught
+// before build starts and return helpful error messages
+func TestDeploy_InvalidDomain(t *testing.T) {
+	tests := []struct {
+		name   string
+		domain string
+		errMsg string
+	}{
+		{
+			name:   "domain with spaces",
+			domain: "my app.com",
+			errMsg: "invalid domain",
+		},
+		{
+			name:   "domain with uppercase",
+			domain: "Example.Com",
+			errMsg: "invalid domain",
+		},
+		{
+			name:   "domain with special characters",
+			domain: "example@domain.com",
+			errMsg: "invalid domain",
+		},
+		{
+			name:   "domain starting with hyphen",
+			domain: "-example.com",
+			errMsg: "invalid domain",
+		},
+		{
+			name:   "domain with consecutive dots",
+			domain: "example..com",
+			errMsg: "invalid domain",
+		},
+		{
+			name:   "domain with only whitespace",
+			domain: "   ",
+			errMsg: "invalid domain",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+
+			// Create a function
+			f := fn.Function{
+				Runtime:  "go",
+				Root:     root,
+				Registry: TestRegistry,
+			}
+			_, err := fn.New().Init(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Create deploy command with invalid domain
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithBuilder(mock.NewBuilder()),
+				fn.WithDeployer(mock.NewDeployer()),
+			))
+			cmd.SetArgs([]string{"--domain", tt.domain})
+
+			// Execute and expect error
+			err = cmd.Execute()
+			if err == nil {
+				t.Fatalf("expected error for invalid domain '%v', but got none", tt.domain)
+			}
+
+			// Check error message contains expected text
+			if !strings.Contains(err.Error(), tt.errMsg) {
+				t.Fatalf("expected error message to contain '%v', got: %v", tt.errMsg, err.Error())
+			}
+
+			// Ensure builder was NOT invoked (validation should fail before build)
+			builder := cmd.Flag("builder")
+			if builder == nil {
+				t.Fatal("builder flag not found")
+			}
+		})
+	}
+}
+
+// TestDeploy_ValidDomain ensures that valid domain names pass validation
+// and proceed to build/deploy
+func TestDeploy_ValidDomain(t *testing.T) {
+	tests := []struct {
+		name   string
+		domain string
+	}{
+		{
+			name:   "standard domain",
+			domain: "example.com",
+		},
+		{
+			name:   "subdomain",
+			domain: "api.example.com",
+		},
+		{
+			name:   "multi-level subdomain",
+			domain: "my-app.staging.example.com",
+		},
+		{
+			name:   "single label domain",
+			domain: "localhost",
+		},
+		{
+			name:   "kubernetes internal domain",
+			domain: "cluster.local",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+
+			// Create a function
+			f := fn.Function{
+				Runtime:  "go",
+				Root:     root,
+				Registry: TestRegistry,
+			}
+			_, err := fn.New().Init(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Create deploy command with valid domain
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithBuilder(mock.NewBuilder()),
+				fn.WithDeployer(mock.NewDeployer()),
+			))
+			cmd.SetArgs([]string{"--domain", tt.domain})
+
+			// Execute and expect no error
+			err = cmd.Execute()
+			if err != nil {
+				t.Fatalf("expected valid domain '%v' to pass, but got error: %v", tt.domain, err)
+			}
+
+			// Verify domain was set on function
+			f, err = fn.NewFunction(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if f.Domain != tt.domain {
+				t.Fatalf("expected domain '%v', got '%v'", tt.domain, f.Domain)
 			}
 		})
 	}

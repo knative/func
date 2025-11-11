@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 )
 
 // wrapNotInitializedError wraps an ErrNotInitialized error with CLI-specific guidance
@@ -95,4 +96,32 @@ For more options, run 'func deploy --help'`, err)
 	default:
 		return err
 	}
+}
+
+// wrapFlagParsingError adds DNS-1035 naming guidance to flag parsing errors
+func wrapFlagParsingError(err error, suspectedName string) error {
+	return wrapFlagParsingErrorWithDetails(err, suspectedName, "", "")
+}
+
+// wrapFlagParsingErrorWithDetails adds DNS-1035 naming guidance with specific flag details
+func wrapFlagParsingErrorWithDetails(err error, suspectedName, flagChar, parsedValue string) error {
+	var explanation string
+	if strings.HasPrefix(suspectedName, "--") {
+		explanation = fmt.Sprintf("It looks like '%s' was interpreted as a long flag.", suspectedName)
+	} else if len(suspectedName) > 1 && suspectedName[0] == '-' {
+		if flagChar != "" && parsedValue != "" {
+			explanation = fmt.Sprintf("It looks like '%s' was interpreted as the flag '-%s' with value '%s'.",
+				suspectedName, flagChar, parsedValue)
+		} else {
+			explanation = fmt.Sprintf("It looks like '%s' was interpreted as a flag.", suspectedName)
+		}
+	} else {
+		return err
+	}
+
+	return fmt.Errorf(`%v
+
+Note: %s
+Function names cannot start with hyphens per DNS-1035 naming rules.
+Valid function names must start with a letter (a-z) and can contain letters, numbers, and hyphens`, err, explanation)
 }

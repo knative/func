@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -138,17 +139,17 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	// Clients
 	client, err := NewServingClient(namespace)
 	if err != nil {
-		return fn.DeploymentResult{}, err
+		return fn.DeploymentResult{}, wrapDeployerClientError(err)
 	}
 	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
-		return fn.DeploymentResult{}, err
+		return fn.DeploymentResult{}, wrapDeployerClientError(err)
 	}
 	// check if 'dapr-system' namespace exists
 	daprInstalled := false
 	k8sClient, err := k8s.NewKubernetesClientset()
 	if err != nil {
-		return fn.DeploymentResult{}, err
+		return fn.DeploymentResult{}, wrapDeployerClientError(err)
 	}
 	_, err = k8sClient.CoreV1().Namespaces().Get(ctx, "dapr-system", metav1.GetOptions{})
 	if err == nil {
@@ -168,6 +169,9 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 	previousService, err := client.GetService(ctx, f.Name)
 	if err != nil {
+		if wrappedErr := wrapK8sConnectionError(err); wrappedErr != nil {
+			return fn.DeploymentResult{}, wrappedErr
+		}
 		if errors.IsNotFound(err) {
 
 			referencedSecrets := sets.New[string]()
@@ -627,4 +631,45 @@ func UsesKnativeDeployer(annotations map[string]string) bool {
 	// annotation is not set (which defines for backwards compatibility the knative deployer)
 	// or the deployer is set explicitly to the knative deployer
 	return !ok || deployer == KnativeDeployerName
+}
+
+// wrapDeployerClientError wraps Kubernetes client creation errors with typed errors
+func wrapDeployerClientError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	errMsg := err.Error()
+
+	// Missing kubeconfig file
+	if strings.Contains(errMsg, "kubeconfig file does not exist at path") {
+		return fmt.Errorf("%w: %v", fn.ErrInvalidKubeconfig, err)
+	}
+
+	// Empty config or cluster not accessible
+	if strings.Contains(errMsg, "no configuration has been provided") ||
+		strings.Contains(errMsg, "invalid configuration") {
+		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
+	}
+
+	return err
+}
+
+// wrapK8sConnectionError wraps connection errors during API calls
+func wrapK8sConnectionError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	errMsg := err.Error()
+
+	// Connection errors (refused, timeout, certificate issues)
+	if strings.Contains(errMsg, "connection refused") ||
+		strings.Contains(errMsg, "dial tcp") ||
+		strings.Contains(errMsg, "i/o timeout") ||
+		strings.Contains(errMsg, "x509:") {
+		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
+	}
+
+	return nil
 }

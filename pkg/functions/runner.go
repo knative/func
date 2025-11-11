@@ -45,6 +45,7 @@ func (r *defaultRunner) Run(ctx context.Context, f Function, address string, sta
 	// Parse address if provided, otherwise use defaults
 	host := defaultRunHost
 	port := defaultRunPort
+	explicitPort := address != ""
 
 	if address != "" {
 		var err error
@@ -54,7 +55,7 @@ func (r *defaultRunner) Run(ctx context.Context, f Function, address string, sta
 		}
 	}
 
-	port, err = choosePort(host, port)
+	port, err = choosePort(host, port, explicitPort)
 	if err != nil {
 		return nil, fmt.Errorf("cannot choose port: %w", err)
 	}
@@ -332,25 +333,35 @@ func isReady(ctx context.Context, uri string, timeout time.Duration, verbose boo
 	return true, nil
 }
 
-// choosePort returns an unused port on the given interface (host)
-// Note this is not fool-proof becase of a race with any other processes
+// choosePort returns an unused port on the given interface (host).
+// If explicitPort is true and the preferred port cannot be bound, an error is returned.
+// If explicitPort is false (default port), it falls back to an OS-chosen port if the preferred port is unavailable.
+// Note this is not fool-proof because of a race with any other processes
 // looking for a port at the same time.  If that is important, we can implement
 // a check-lock-check via the filesystem.
 // Also note that TCP is presumed.
-func choosePort(iface, preferredPort string) (string, error) {
+func choosePort(iface, preferredPort string, explicitPort bool) (string, error) {
 	var (
 		port = preferredPort
 		l    net.Listener
 		err  error
 	)
 
-	// Try preferred
+	// Try preferred port
 	if l, err = net.Listen("tcp", net.JoinHostPort(iface, port)); err == nil {
-		l.Close() // note err==nil
+		l.Close()
 		return port, nil
 	}
 
-	// OS-chosen
+	// If user explicitly provided a port and it's unavailable, return typed error
+	if explicitPort {
+		return "", &ErrPortUnavailableError{
+			Port: port,
+			Err:  err,
+		}
+	}
+
+	// For default ports, fall back to OS-chosen port
 	if l, err = net.Listen("tcp", net.JoinHostPort(iface, "")); err != nil {
 		return "", fmt.Errorf("cannot bind tcp: %w", err)
 	}

@@ -119,7 +119,7 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. ($FUNC_FORMAT)")
+	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent(s)'.  Default is to choose automatically. ($FUNC_FORMAT)")
 	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. ($FUNC_TARGET)")
 	cmd.Flags().StringP("id", "", "", "ID for the request data. ($FUNC_ID)")
 	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. ($FUNC_SOURCE)")
@@ -153,6 +153,14 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		fmt.Printf("error validating function at '%v'. %v\n", f.Root, err)
 		return err
 	}
+
+	if cfg.Format != "" && f.Invoke != "" && cfg.Format != f.Invoke {
+		fmt.Fprintf(cmd.OutOrStdout(),
+			"Warning: invoking as %q, but function declares type %q in func.yaml.\n"+
+				"   This may fail unless you rebuild or update func.yaml with `invoke: %s`.\n\n",
+			cfg.Format, f.Invoke, cfg.Format)
+	}
+
 	if !f.Initialized() {
 		return fmt.Errorf("no function found in current directory.\nYou need to be inside a function directory to invoke it.\n\nTry this:\n  func create --language go myfunction    Create a new function\n  cd myfunction                          Go into the function directory\n  func invoke                            Now you can invoke it\n\nOr if you have an existing function:\n  cd path/to/your/function              Go to your function directory\n  func invoke                           Invoke the function")
 	}
@@ -257,6 +265,11 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 			return cfg, err
 		}
 		cfg.Data = b
+	}
+
+	switch strings.ToLower(cfg.Format) {
+	case "cloudevent", "cloudevents":
+		cfg.Format = "cloudevent"
 	}
 
 	// if not in confirm/prompting mode, the cfg structure is complete.

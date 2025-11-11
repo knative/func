@@ -1264,6 +1264,22 @@ func TestClient_List(t *testing.T) {
 	}
 }
 
+// TestClient_StartMCPServer merely ensures the client invokes the configured
+// MCP server.
+func TestClient_StartMCPServer(t *testing.T) {
+	server := mock.NewMCPServer()
+
+	client := fn.New(fn.WithMCPServer(server))
+
+	if err := client.StartMCPServer(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+
+	if !server.StartInvoked {
+		t.Fatal("MCP server was not invoked")
+	}
+}
+
 // TestClient_List_OutsideRoot ensures that a call to a function (in this case list)
 // that is not contextually dependent on being associated with a function,
 // can be run from anywhere, thus ensuring that the client itself makes

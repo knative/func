@@ -20,6 +20,7 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/utils"
 )
 
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {
@@ -242,6 +243,58 @@ EXAMPLES
 	return cmd
 }
 
+// wrapInvalidKubeconfigError returns a user-friendly error for invalid kubeconfig paths
+func wrapInvalidKubeconfigError(err error) error {
+	kubeconfigPath := os.Getenv("KUBECONFIG")
+	if kubeconfigPath == "" {
+		kubeconfigPath = "~/.kube/config (default)"
+	}
+
+	return fmt.Errorf(`%w
+
+The kubeconfig file at '%s' does not exist or is not accessible.
+
+Try this:
+  export KUBECONFIG=~/.kube/config           Use default kubeconfig
+  kubectl config view                        Verify current config
+  ls -la ~/.kube/config                      Check if config file exists
+
+For more options, run 'func deploy --help'`, fn.ErrInvalidKubeconfig, kubeconfigPath)
+}
+
+// wrapClusterNotAccessibleError returns a user-friendly error for cluster connection failures
+func wrapClusterNotAccessibleError(err error) error {
+	errMsg := err.Error()
+
+	// Case 1: Empty/no cluster configuration in kubeconfig
+	if strings.Contains(errMsg, "no configuration has been provided") ||
+		strings.Contains(errMsg, "invalid configuration") {
+		return fmt.Errorf(`%w
+
+Cannot connect to Kubernetes cluster. No valid cluster configuration found.
+
+Try this:
+  minikube start                             Start Minikube cluster
+  kind create cluster                        Start Kind cluster
+  kubectl cluster-info                       Verify cluster is running
+  kubectl config get-contexts                List available contexts
+
+For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
+	}
+
+	// Case 2: Cluster is down, network issues, auth errors, etc
+	return fmt.Errorf(`%w
+
+Cannot connect to Kubernetes cluster.
+
+Try this:
+  kubectl cluster-info                       Verify cluster is accessible
+  minikube status                            Check Minikube cluster status
+  kubectl get nodes                          Test cluster connection
+
+For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
+}
+
 func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg deployConfig
@@ -286,6 +339,22 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 	if err = cfg.Validate(cmd); err != nil {
 		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
+		if errors.Is(err, fn.ErrInvalidDomain) {
+			return fmt.Errorf(`%w
+
+Domain names must be valid DNS subdomains:
+  - Lowercase letters, numbers, hyphens (-), and dots (.) only
+  - Start and end with a letter or number
+  - Max 253 characters total, each part between dots max 63 characters
+
+Valid examples:
+  func deploy --registry ghcr.io/user --domain example.com
+  func deploy --registry ghcr.io/user --domain api.example.com
+
+Note: Domain must be configured on your Knative cluster, or it will be ignored.
+
+For more options, run 'func deploy --help'`, err)
+		}
 		if errors.Is(err, fn.ErrConflictingImageAndRegistry) {
 			return fmt.Errorf(`%w
 
@@ -360,6 +429,12 @@ For more options, run 'func deploy --help'`, err)
 		// Returned is the function with fields like Registry, f.Deploy.Image &
 		// f.Deploy.Namespace populated.
 		if url, f, err = client.RunPipeline(cmd.Context(), f); err != nil {
+			if errors.Is(err, fn.ErrInvalidKubeconfig) {
+				return wrapInvalidKubeconfigError(err)
+			}
+			if errors.Is(err, fn.ErrClusterNotAccessible) {
+				return wrapClusterNotAccessibleError(err)
+			}
 			return
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Function Deployed at %v\n", url)
@@ -411,6 +486,12 @@ For more options, run 'func deploy --help'`, err)
 			}
 		}
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
+			if errors.Is(err, fn.ErrInvalidKubeconfig) {
+				return wrapInvalidKubeconfigError(err)
+			}
+			if errors.Is(err, fn.ErrClusterNotAccessible) {
+				return wrapClusterNotAccessibleError(err)
+			}
 			return
 		}
 	}
@@ -747,6 +828,14 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Bubble validation
 	if err = c.buildConfig.Validate(cmd); err != nil {
 		return
+	}
+
+	// Validate domain format if provided
+	if c.Domain != "" {
+		if err = utils.ValidateDomain(c.Domain); err != nil {
+			// Wrap the validation error as fn.ErrInvalidDomain for layer consistency
+			return fn.ErrInvalidDomain
+		}
 	}
 
 	// Check Image Digest was included

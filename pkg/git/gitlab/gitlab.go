@@ -21,14 +21,28 @@ func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadU
 	if err != nil {
 		return fmt.Errorf("cannot create GitLab client: %w", err)
 	}
+
+	projectPath := repoOwner + "/" + repoName
+
+	existingHooks, _, err := glabCli.Projects.ListProjectHooks(projectPath, nil)
+	if err != nil {
+		return fmt.Errorf("cannot list existing hooks: %w", err)
+	}
+	for _, hook := range existingHooks {
+		if hook.URL == payloadURL {
+			fmt.Printf("GitLab webhook already exists for project %s at URL: %s\n", projectPath, payloadURL)
+			return nil
+		}
+	}
+
 	webhook := &gitlab.AddProjectHookOptions{
 		EnableSSLVerification: &f,
 		PushEvents:            &t,
 		Token:                 &webhookSecret,
 		URL:                   &payloadURL,
 	}
-	// TODO check if the WebHook already exists. GitLab doesn't name WebHooks so there is never 403.
-	_, _, err = glabCli.Projects.AddProjectHook(repoOwner+"/"+repoName, webhook)
+
+	_, _, err = glabCli.Projects.AddProjectHook(projectPath, webhook)
 	if err != nil {
 		return fmt.Errorf("cannot create gitlab webhook: %w", err)
 	}
