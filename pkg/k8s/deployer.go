@@ -192,7 +192,7 @@ func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstal
 		return nil, nil, err
 	}
 
-	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, daprInstalled, f.Deploy.Deployer)
+	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, daprInstalled, KubernetesDeployerName)
 
 	// Use annotations for pod template
 	podAnnotations := make(map[string]string)

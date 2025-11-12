@@ -54,9 +54,6 @@ func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy: fn.DeploySpec{
-			Deployer: deployerName,
-		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -153,9 +150,6 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy: fn.DeploySpec{
-			Deployer: deployerName,
-		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -303,9 +297,6 @@ func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy: fn.DeploySpec{
-			Deployer: deployerName,
-		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -382,9 +373,6 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy: fn.DeploySpec{
-			Deployer: deployerName,
-		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -493,9 +481,6 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy: fn.DeploySpec{
-			Deployer: deployerName,
-		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -714,7 +699,6 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 					Max: &maxScale,
 				},
 			},
-			Deployer: deployerName,
 		},
 		Run: fn.RunSpec{
 			Envs: []fn.Env{

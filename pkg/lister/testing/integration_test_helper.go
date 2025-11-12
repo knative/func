@@ -37,9 +37,6 @@ func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describe
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy: fn.DeploySpec{
-			Deployer: deployerName,
-		},
 	})
 	if err != nil {
 		t.Fatal(err)
