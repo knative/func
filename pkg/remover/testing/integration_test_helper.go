@@ -105,7 +105,4 @@ func TestInt_Remove(t *testing.T, remover fn.Remover, deployer fn.Deployer, desc
 	if found {
 		t.Errorf("function %s was not removed", f.Name)
 	}
-
-	// Remove
-
 }
