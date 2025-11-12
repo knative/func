@@ -1,4 +1,3 @@
-// package testing includes Kubernetes-specific testing helpers.
 package k8s
 
 import (
