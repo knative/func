@@ -786,7 +786,7 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		}
 	}
 
-	list, _, err := lister.List(ctx, namespace)
+	list, err := lister.List(ctx, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -851,15 +851,11 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		t.Error("environment variable was not set from config-map")
 	}
 
-	ok, err := remover.Remove(ctx, functionName, namespace)
-	if err != nil {
+	if err = remover.Remove(ctx, functionName, namespace); err != nil {
 		t.Fatal(err)
 	}
-	if !ok {
-		t.Fatal("remover did not handle function")
-	}
 
-	list, _, err = lister.List(ctx, namespace)
+	list, err = lister.List(ctx, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}

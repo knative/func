@@ -1069,11 +1069,11 @@ func TestClient_Remove_ByPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name, _ string) (bool, error) {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
-		return true, nil
+		return nil
 	}
 
 	if err := client.Remove(context.Background(), "", "", f, false); err != nil {
@@ -1112,11 +1112,11 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name, _ string) (bool, error) {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
-		return true, nil
+		return nil
 	}
 
 	if err := client.Remove(context.Background(), "", "", f, deleteAll); err != nil {
@@ -1159,11 +1159,11 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name, _ string) (bool, error) {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
-		return true, nil
+		return nil
 	}
 
 	if err := client.Remove(context.Background(), "", "", f, deleteAll); err != nil {
@@ -1200,11 +1200,11 @@ func TestClient_Remove_ByName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name, _ string) (bool, error) {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
-		return true, nil
+		return nil
 	}
 
 	// Run remove with name (and namespace in .Deploy to simulate deployed function)
@@ -1234,8 +1234,8 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 	defer Using(t, root)()
 
 	// remover fails if invoked
-	remover.RemoveFn = func(name, _ string) (bool, error) {
-		return true, fmt.Errorf("remove invoked for unitialized function %v", name)
+	remover.RemoveFn = func(name, _ string) error {
+		return fmt.Errorf("remove invoked for unitialized function %v", name)
 	}
 
 	// Instantiate the client with the failing remover.
@@ -2142,14 +2142,14 @@ func TestClient_DeployRemoves(t *testing.T) {
 		remover  = mock.NewRemover()
 	)
 
-	remover.RemoveFn = func(n, ns string) (bool, error) {
+	remover.RemoveFn = func(n, ns string) error {
 		if ns != nsOne {
 			t.Fatalf("expected delete namespace %v, got %v", nsOne, ns)
 		}
 		if n != testname {
 			t.Fatalf("expected delete name %v, got %v", testname, n)
 		}
-		return true, nil
+		return nil
 	}
 
 	client := fn.New(fn.WithRemovers(remover))

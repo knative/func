@@ -71,11 +71,11 @@ func TestDescribe_ByName(t *testing.T) {
 		describer = mock.NewDescriber()
 	)
 
-	describer.DescribeFn = func(_ context.Context, name, namespace string) (*fn.Instance, error) {
+	describer.DescribeFn = func(_ context.Context, name, namespace string) (fn.Instance, error) {
 		if name != testname {
 			t.Fatalf("expected describe name '%v', got '%v'", testname, name)
 		}
-		return &fn.Instance{}, nil
+		return fn.Instance{}, nil
 	}
 
 	cmd := NewDescribeCmd(NewTestClient(fn.WithDescribers(describer)))
@@ -107,11 +107,11 @@ func TestDescribe_ByProject(t *testing.T) {
 	}
 
 	describer := mock.NewDescriber()
-	describer.DescribeFn = func(_ context.Context, name, namespace string) (i *fn.Instance, err error) {
+	describer.DescribeFn = func(_ context.Context, name, namespace string) (i fn.Instance, err error) {
 		if name != expected {
 			t.Fatalf("expected describer to receive name %q, got %q", expected, name)
 		}
-		return &fn.Instance{}, nil
+		return fn.Instance{}, nil
 	}
 	cmd := NewDescribeCmd(NewTestClient(fn.WithDescribers(describer)))
 	cmd.SetArgs([]string{})

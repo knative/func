@@ -62,11 +62,11 @@ func TestList_Namespace(t *testing.T) {
 			// create a mock lister implementation which validates the expected
 			// value has been passed.
 			lister := mock.NewLister()
-			lister.ListFn = func(_ context.Context, namespace string) ([]fn.ListItem, bool, error) {
+			lister.ListFn = func(_ context.Context, namespace string) ([]fn.ListItem, error) {
 				if namespace != test.expected {
 					t.Fatalf("expected list namespace %q, got %q", test.expected, namespace)
 				}
-				return []fn.ListItem{}, true, nil
+				return []fn.ListItem{}, nil
 			}
 
 			// Create an instance of the command which sets the flags
