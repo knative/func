@@ -19,6 +19,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
+	"knative.dev/func/pkg/describer"
 	"knative.dev/func/pkg/scaffolding"
 	"knative.dev/func/pkg/utils"
 )
@@ -163,7 +164,7 @@ type ListItem struct {
 // Describer of function instances
 type Describer interface {
 	// Describe the named function in the remote environment.
-	Describe(ctx context.Context, name, namespace string) (*Instance, error)
+	Describe(ctx context.Context, name, namespace string) (Instance, error)
 }
 
 // Instance data about the runtime state of a function in a given environment.
@@ -1011,16 +1012,16 @@ func (c *Client) Describe(ctx context.Context, name, namespace string, f Functio
 
 // describeByMatchingDescriber iterates over the registered describers and executes them on the given object.
 func (c *Client) describeByMatchingDescriber(ctx context.Context, name, namespace string) (d Instance, err error) {
-	for _, describer := range c.describers {
-		d, err := describer.Describe(ctx, name, namespace)
-		if d != nil {
-			// describer handled object
-			if err != nil {
-				return Instance{}, err
-			}
-
-			return *d, nil
+	for _, descr := range c.describers {
+		d, err := descr.Describe(ctx, name, namespace)
+		if errors.Is(err, describer.ErrNotHandled) {
+			continue // Try next describer
 		}
+		if err != nil {
+			return Instance{}, fmt.Errorf("could not run describer on function: %w", err)
+		}
+
+		return d, nil
 	}
 
 	return Instance{}, fmt.Errorf("no describe function for %s in namespace %s found", name, namespace)
@@ -1429,8 +1430,8 @@ func (n *noopLister) List(context.Context, string) ([]ListItem, bool, error) {
 // Describer
 type noopDescriber struct{ output io.Writer }
 
-func (n *noopDescriber) Describe(context.Context, string, string) (*Instance, error) {
-	return &Instance{}, nil
+func (n *noopDescriber) Describe(context.Context, string, string) (Instance, error) {
+	return Instance{}, nil
 }
 
 // PipelinesProvider

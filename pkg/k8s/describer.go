@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/func/pkg/describer"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -19,14 +21,14 @@ func NewDescriber(verbose bool) *Describer {
 }
 
 // Describe a function by name.
-func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.Instance, error) {
+func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.Instance, error) {
 	if namespace == "" {
-		return nil, fmt.Errorf("function namespace is required when describing %q", name)
+		return fn.Instance{}, fmt.Errorf("function namespace is required when describing %q", name)
 	}
 
 	clientset, err := NewKubernetesClientset()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client: %v", err)
+		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %v", err)
 	}
 
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
@@ -34,31 +36,35 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (*fn.I
 
 	service, err := serviceClient.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to get service for function: %v", err)
+		if errors.IsNotFound(err) {
+			// Service doesn't exist - we don't handle this
+			return fn.Instance{}, describer.ErrNotHandled
+		}
+
+		// Other errors (permissions, network, etc.) - real error
+		return fn.Instance{}, fmt.Errorf("failed to check if service uses raw K8s deployer: %w", err)
 	}
 
 	if !UsesRawDeployer(service.Annotations) {
-		return nil, nil
+		return fn.Instance{}, describer.ErrNotHandled
 	}
 
-	description := &fn.Instance{
-		Name:      name,
-		Namespace: namespace,
-		Deployer:  KubernetesDeployerName,
-	}
+	// We're responsible, for this function --> proceed...
 
 	deployment, err := deploymentClient.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return description, fmt.Errorf("unable to get deployment %q: %v", name, err)
+		return fn.Instance{}, fmt.Errorf("unable to get deployment %q: %v", name, err)
 	}
 
 	primaryRouteURL := fmt.Sprintf("http://%s.%s.svc", name, namespace) // TODO: get correct scheme?
-	description.Route = primaryRouteURL
-	description.Routes = []string{primaryRouteURL}
 
-	// Populate labels from the deployment
-	if deployment.Labels != nil {
-		description.Labels = deployment.Labels
+	description := fn.Instance{
+		Name:      name,
+		Namespace: namespace,
+		Deployer:  KubernetesDeployerName,
+		Labels:    deployment.Labels,
+		Route:     primaryRouteURL,
+		Routes:    []string{primaryRouteURL},
 	}
 
 	return description, nil
