@@ -21,10 +21,10 @@ func NewLister(verbose bool) fn.Lister {
 	}
 }
 
-func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, bool, error) {
+func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
 	clientset, err := NewKubernetesClientset()
 	if err != nil {
-		return nil, false, fmt.Errorf("unable to create k8s client: %v", err)
+		return nil, fmt.Errorf("unable to create k8s client: %v", err)
 	}
 
 	serviceClient := clientset.CoreV1().Services(namespace)
@@ -33,26 +33,24 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, boo
 		LabelSelector: "function.knative.dev/name",
 	})
 	if err != nil {
-		return nil, false, fmt.Errorf("unable to list services: %v", err)
+		return nil, fmt.Errorf("unable to list services: %v", err)
 	}
 
 	listItems := make([]fn.ListItem, 0, len(services.Items))
-	ok := false
 	for _, service := range services.Items {
 		if !UsesRawDeployer(service.Annotations) {
 			continue
 		}
-		ok = true
 
 		item, err := l.get(ctx, clientset, service.Name, namespace)
 		if err != nil {
-			return nil, true, fmt.Errorf("unable to get details about function: %v", err)
+			return nil, fmt.Errorf("unable to get details about function: %v", err)
 		}
 
 		listItems = append(listItems, item)
 	}
 
-	return listItems, ok, nil
+	return listItems, nil
 }
 
 // Get a function, optionally specifying a namespace.

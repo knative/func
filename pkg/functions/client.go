@@ -147,8 +147,7 @@ type Remover interface {
 // Lister of deployed functions.
 type Lister interface {
 	// List the functions currently deployed.
-	// the 2nd argument (bool) indicates it the lister had to handle any function at all
-	List(ctx context.Context, namespace string) ([]ListItem, bool, error)
+	List(ctx context.Context, namespace string) ([]ListItem, error)
 }
 
 type ListItem struct {
@@ -1034,8 +1033,8 @@ func (c *Client) describeByMatchingDescriber(ctx context.Context, name, namespac
 func (c *Client) List(ctx context.Context, namespace string) ([]ListItem, error) {
 	list := []ListItem{}
 	for _, lister := range c.listers {
-		res, handled, err := lister.List(ctx, namespace)
-		if handled && err != nil {
+		res, err := lister.List(ctx, namespace)
+		if err != nil {
 			return nil, err
 		}
 
@@ -1429,8 +1428,8 @@ func (n *noopRemover) Remove(context.Context, string, string) error { return nil
 // Lister
 type noopLister struct{ output io.Writer }
 
-func (n *noopLister) List(context.Context, string) ([]ListItem, bool, error) {
-	return []ListItem{}, true, nil
+func (n *noopLister) List(context.Context, string) ([]ListItem, error) {
+	return []ListItem{}, nil
 }
 
 // Describer

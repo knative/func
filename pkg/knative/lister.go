@@ -4,6 +4,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/pkg/apis"
 
 	fn "knative.dev/func/pkg/functions"
@@ -18,27 +19,28 @@ func NewLister(verbose bool) *Lister {
 }
 
 // List functions, optionally specifying a namespace.
-func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, bool, error) {
+func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
 	client, err := NewServingClient(namespace)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	// TODO: shouldn't this list only services for functions (-> having the function.knative.dev/name label)?!?
 
 	lst, err := client.ListServices(ctx)
 	if err != nil {
-		return nil, false, err
+		if k8s.IsCRDNotFoundError(err) {
+			// no services found --> nothing to return
+			return nil, nil
+		}
+		return nil, err
 	}
 
 	items := make([]fn.ListItem, 0, len(lst.Items))
-	ok := false
 	for _, service := range lst.Items {
 		if !UsesKnativeDeployer(service.Annotations) {
 			continue
 		}
-
-		ok = true
 
 		// get status
 		ready := corev1.ConditionUnknown
@@ -63,5 +65,5 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, boo
 		items = append(items, listItem)
 	}
 
-	return items, ok, nil
+	return items, nil
 }

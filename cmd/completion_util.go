@@ -22,8 +22,8 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 
 	items := []fn.ListItem{}
 	for _, lister := range listers {
-		list, handled, err := lister.List(cmd.Context(), "")
-		if handled && err != nil {
+		list, err := lister.List(cmd.Context(), "")
+		if err != nil {
 			directive = cobra.ShellCompDirectiveError
 			return
 		}
