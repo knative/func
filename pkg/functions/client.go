@@ -141,12 +141,15 @@ type Runner interface {
 // Remover of deployed services.
 type Remover interface {
 	// Remove the function from remote.
+	// It should only return nil, when the Function was removed.
+	// In case the remover is not responsible for a Function, it should return a ErrNotHandled error.
 	Remove(ctx context.Context, name string, namespace string) error
 }
 
 // Lister of deployed functions.
 type Lister interface {
 	// List the functions currently deployed.
+	// It should only return Functions/Items for which the lister is responsible for
 	List(ctx context.Context, namespace string) ([]ListItem, error)
 }
 
@@ -162,6 +165,8 @@ type ListItem struct {
 // Describer of function instances
 type Describer interface {
 	// Describe the named function in the remote environment.
+	// In case the describer is not responsible for a Function, it should return a ErrNotHandled error.
+	// It should return a nil error in case the describer was responsible for the Function and could describe it.
 	Describe(ctx context.Context, name, namespace string) (Instance, error)
 }
 
@@ -1010,8 +1015,12 @@ func (c *Client) Describe(ctx context.Context, name, namespace string, f Functio
 
 // describeByMatchingDescriber iterates over the registered describers and executes them on the given object.
 func (c *Client) describeByMatchingDescriber(ctx context.Context, name, namespace string) (d Instance, err error) {
-	for _, descr := range c.describers {
-		d, err := descr.Describe(ctx, name, namespace)
+	// iterate over all registered describers. As soon as a describer returns a nil error, this means it was
+	// responsible for the Function and was able to describe it.
+	// Returning a ErrNotHandled error means the describer was not responsible for the Function and we need to try
+	// the next describer.
+	for _, describer := range c.describers {
+		d, err := describer.Describe(ctx, name, namespace)
 		if errors.Is(err, ErrNotHandled) {
 			continue // Try next describer
 		}
@@ -1032,6 +1041,7 @@ func (c *Client) describeByMatchingDescriber(ctx context.Context, name, namespac
 // default "namespace".
 func (c *Client) List(ctx context.Context, namespace string) ([]ListItem, error) {
 	list := []ListItem{}
+	// iterate over all registered listers. A lister should only return Items for which it is responsible for
 	for _, lister := range c.listers {
 		res, err := lister.List(ctx, namespace)
 		if err != nil {
