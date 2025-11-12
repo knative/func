@@ -19,7 +19,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
-	"knative.dev/func/pkg/describer"
 	"knative.dev/func/pkg/scaffolding"
 	"knative.dev/func/pkg/utils"
 )
@@ -142,7 +141,7 @@ type Runner interface {
 // Remover of deployed services.
 type Remover interface {
 	// Remove the function from remote.
-	Remove(ctx context.Context, name string, namespace string) (bool, error)
+	Remove(ctx context.Context, name string, namespace string) error
 }
 
 // Lister of deployed functions.
@@ -1014,7 +1013,7 @@ func (c *Client) Describe(ctx context.Context, name, namespace string, f Functio
 func (c *Client) describeByMatchingDescriber(ctx context.Context, name, namespace string) (d Instance, err error) {
 	for _, descr := range c.describers {
 		d, err := descr.Describe(ctx, name, namespace)
-		if errors.Is(err, describer.ErrNotHandled) {
+		if errors.Is(err, ErrNotHandled) {
 			continue // Try next describer
 		}
 		if err != nil {
@@ -1086,12 +1085,19 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 		remover := remover
 
 		serviceRemovalErrGroup.Go(func() error {
-			ok, err := remover.Remove(ctx, name, namespace)
-			if ok {
-				// set handled
-				removeHandled.Store(true)
+			err := remover.Remove(ctx, name, namespace)
+			if err != nil {
+				if errors.Is(err, ErrNotHandled) {
+					// remover didn't need to handle it
+					return nil
+				}
+				return err
 			}
-			return err
+
+			// no error -> was removed -> set handled
+			removeHandled.Store(true)
+
+			return nil
 		})
 	}
 
@@ -1418,7 +1424,7 @@ func (n *noopDeployer) Deploy(ctx context.Context, f Function) (DeploymentResult
 // Remover
 type noopRemover struct{ output io.Writer }
 
-func (n *noopRemover) Remove(context.Context, string, string) (bool, error) { return true, nil }
+func (n *noopRemover) Remove(context.Context, string, string) error { return nil }
 
 // Lister
 type noopLister struct{ output io.Writer }

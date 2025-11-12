@@ -6,7 +6,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/func/pkg/describer"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -38,7 +37,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Service doesn't exist - we don't handle this
-			return fn.Instance{}, describer.ErrNotHandled
+			return fn.Instance{}, fn.ErrNotHandled
 		}
 
 		// Other errors (permissions, network, etc.) - real error
@@ -46,7 +45,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	}
 
 	if !UsesRawDeployer(service.Annotations) {
-		return fn.Instance{}, describer.ErrNotHandled
+		return fn.Instance{}, fn.ErrNotHandled
 	}
 
 	// We're responsible, for this function --> proceed...

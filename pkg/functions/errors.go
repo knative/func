@@ -44,6 +44,9 @@ var (
 
 	// ErrClusterNotAccessible is returned when cluster connection fails (network, auth, etc)
 	ErrClusterNotAccessible = errors.New("cluster not accessible")
+
+	// ErrNotHandled is returned when a handler (describer, remover, ...) was not responsible for the function
+	ErrNotHandled = errors.New("describer does not handle this function")
 )
 
 // ErrNotInitialized indicates that a function is uninitialized

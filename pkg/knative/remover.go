@@ -8,6 +8,7 @@ import (
 
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 const RemoveTimeout = 120 * time.Second
@@ -22,32 +23,43 @@ type Remover struct {
 	verbose bool
 }
 
-func (remover *Remover) Remove(ctx context.Context, name, ns string) (bool, error) {
+func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 	if ns == "" {
 		fmt.Fprintf(os.Stderr, "no namespace defined when trying to delete a function in knative remover\n")
-		return false, fn.ErrNamespaceRequired
+		return fn.ErrNamespaceRequired
 	}
 
 	client, err := NewServingClient(ns)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	ksvc, err := client.GetService(ctx, name)
 	if err != nil {
+		// If we can't get the service, check why
+		if k8s.IsCRDNotFoundError(err) {
+			// Knative Serving not installed - we don't handle this
+			return fn.ErrNotHandled
+		}
 		if apiErrors.IsNotFound(err) {
-			return false, fn.ErrFunctionNotFound
+			// Service doesn't exist as a Knative service - we don't handle this
+			return fn.ErrNotHandled
 		}
-		return false, err
+		// Some other error (permissions, network, etc.) - this is a real error
+		// We can't determine if we should handle it, so propagate it
+		return fmt.Errorf("failed to get knative service: %w", err)
 	}
 
-	if UsesKnativeDeployer(ksvc.Annotations) {
-		err = client.DeleteService(ctx, name, RemoveTimeout)
-		if err != nil {
-			return true, fmt.Errorf("knative remover failed to delete the service: %v", err)
-		}
-
-		return true, nil
+	if !UsesKnativeDeployer(ksvc.Annotations) {
+		return fn.ErrNotHandled
 	}
-	return false, nil
+
+	// We're responsible, for this function --> proceed...
+
+	err = client.DeleteService(ctx, name, RemoveTimeout)
+	if err != nil {
+		return fmt.Errorf("knative remover failed to delete the service: %v", err)
+	}
+
+	return nil
 }

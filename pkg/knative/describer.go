@@ -7,7 +7,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
-	"knative.dev/func/pkg/describer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -47,11 +46,11 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		// If we can't get the service, check why
 		if k8s.IsCRDNotFoundError(err) {
 			// Knative Serving not installed - we don't handle this
-			return fn.Instance{}, describer.ErrNotHandled
+			return fn.Instance{}, fn.ErrNotHandled
 		}
 		if errors.IsNotFound(err) {
 			// Service doesn't exist as a Knative service - we don't handle this
-			return fn.Instance{}, describer.ErrNotHandled
+			return fn.Instance{}, fn.ErrNotHandled
 		}
 		// Some other error (permissions, network, etc.) - this is a real error
 		// We can't determine if we should handle it, so propagate it
@@ -61,7 +60,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	// We got the service, now check if we should handle it
 	if !UsesKnativeDeployer(service.Annotations) {
 		// no need to handle this service
-		return fn.Instance{}, describer.ErrNotHandled
+		return fn.Instance{}, fn.ErrNotHandled
 	}
 
 	// We're responsible, for this function --> proceed...
