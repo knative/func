@@ -44,7 +44,7 @@ var (
 
 	// ErrClusterNotAccessible is returned when cluster connection fails (network, auth, etc)
 	ErrClusterNotAccessible = errors.New("cluster not accessible")
-	
+
 	// ErrInvalidNamespace is returned when a namespace name doesn't meet Kubernetes naming requirements
 	ErrInvalidNamespace = errors.New("invalid namespace")
 )
