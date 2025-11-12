@@ -1,4 +1,4 @@
-package k8s
+package knative
 
 import (
 	"strings"
@@ -15,5 +15,9 @@ func IsCRDNotFoundError(err error) bool {
 
 	return meta.IsNoMatchError(err) ||
 		strings.Contains(err.Error(), "no matches for kind") ||
-		strings.Contains(err.Error(), "the server could not find the requested resource")
+		strings.Contains(err.Error(), "the server could not find the requested resource") ||
+		(
+		// check if it's a "knclient.NewInvalidCRD(...)" error)
+		strings.HasPrefix(err.Error(), "no or newer Knative ") &&
+			strings.HasSuffix(err.Error(), " API found on the backend, please verify the installation or update the 'kn' client"))
 }

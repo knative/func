@@ -8,7 +8,6 @@ import (
 
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 const RemoveTimeout = 120 * time.Second
@@ -37,7 +36,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 	ksvc, err := client.GetService(ctx, name)
 	if err != nil {
 		// If we can't get the service, check why
-		if k8s.IsCRDNotFoundError(err) {
+		if IsCRDNotFoundError(err) {
 			// Knative Serving not installed - we don't handle this
 			return fn.ErrNotHandled
 		}

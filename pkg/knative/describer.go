@@ -8,7 +8,6 @@ import (
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 type Describer struct {
@@ -44,7 +43,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	service, err := servingClient.GetService(ctx, name)
 	if err != nil {
 		// If we can't get the service, check why
-		if k8s.IsCRDNotFoundError(err) {
+		if IsCRDNotFoundError(err) {
 			// Knative Serving not installed - we don't handle this
 			return fn.Instance{}, fn.ErrNotHandled
 		}
@@ -91,7 +90,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	triggers, err := eventingClient.ListTriggers(ctx)
 	if err != nil {
-		if errors.IsNotFound(err) || k8s.IsCRDNotFoundError(err) {
+		if errors.IsNotFound(err) || IsCRDNotFoundError(err) {
 			// No trigger found or Eventing is probably not installed on the cluster --> we're done here
 			return description, nil
 		}

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/func/pkg/k8s"
 	"knative.dev/pkg/apis"
 
 	fn "knative.dev/func/pkg/functions"
@@ -29,7 +28,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 
 	lst, err := client.ListServices(ctx)
 	if err != nil {
-		if k8s.IsCRDNotFoundError(err) {
+		if IsCRDNotFoundError(err) {
 			// no services found --> nothing to return
 			return nil, nil
 		}
