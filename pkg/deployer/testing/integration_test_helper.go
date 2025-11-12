@@ -887,16 +887,6 @@ func invoke(t *testing.T, ctx context.Context, route string, deployer string) (s
 func createTrigger(t *testing.T, ctx context.Context, namespace, triggerName string, function fn.Function) func(fn.Instance) error {
 	t.Helper()
 
-	var subscriberAPIVersion string
-	switch function.Deploy.Deployer {
-	case knative.KnativeDeployerName:
-		subscriberAPIVersion = "serving.knative.dev/v1"
-	case k8s.KubernetesDeployerName:
-		subscriberAPIVersion = "v1"
-	default:
-		t.Fatalf("unknown deploy type: %s", function.Deploy.Deployer)
-	}
-
 	tr := &eventingv1.Trigger{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: triggerName,
@@ -907,7 +897,7 @@ func createTrigger(t *testing.T, ctx context.Context, namespace, triggerName str
 				Kind:       "Service",
 				Namespace:  namespace,
 				Name:       function.Name,
-				APIVersion: subscriberAPIVersion,
+				APIVersion: "serving.knative.dev/v1",
 			}},
 			Filter: &eventingv1.TriggerFilter{
 				Attributes: map[string]string{
