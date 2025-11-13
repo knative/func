@@ -1,5 +1,6 @@
 package testing
 
+//nolint:staticcheck  // ST1001: should not use dot imports
 import (
 	"context"
 	"encoding/json"
