@@ -53,7 +53,7 @@ func TestDelete_Default(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ func TestDelete_ByName(t *testing.T) {
 
 	// Create a command with a client constructor fn that instantiates a client
 	// with a mocked remover.
-	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
 	cmd.SetArgs([]string{testname}) // run: func delete <name>
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -132,7 +132,7 @@ func TestDelete_Namespace(t *testing.T) {
 		return nil
 	}
 
-	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
 	cmd.SetArgs([]string{testname, "--namespace", namespace})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -177,7 +177,7 @@ func TestDelete_NamespaceFlagPriority(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
 	cmd.SetArgs([]string{testname, "--namespace", namespace2})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -233,7 +233,7 @@ created: 2021-01-01T00:00:00+00:00
 
 	// Command with a Client constructor that returns  client with the
 	// mocked remover.
-	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
 	cmd.SetArgs([]string{}) // Do not use test command args
 
 	// Execute the command simulating no arguments.
@@ -277,7 +277,7 @@ func TestDelete_ByPath(t *testing.T) {
 	}
 
 	// Command with a Client constructor using the mock remover.
-	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
 
 	// Execute the command only with the path argument
 	cmd.SetArgs([]string{"-p", root})
@@ -303,7 +303,7 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 	remover := mock.NewRemover()
 
 	// Command with a Client constructor using the mock remover.
-	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
 
 	// Capture command output for inspection
 	buf := new(bytes.Buffer)

@@ -1,15 +1,14 @@
-package knative
+package k8s
 
 import (
 	"os"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-
 	fn "knative.dev/func/pkg/functions"
 )
 
-func Test_setHealthEndpoints(t *testing.T) {
+func Test_SetHealthEndpoints(t *testing.T) {
 	f := fn.Function{
 		Name: "testing",
 		Deploy: fn.DeploySpec{
@@ -20,7 +19,7 @@ func Test_setHealthEndpoints(t *testing.T) {
 		},
 	}
 	c := corev1.Container{}
-	setHealthEndpoints(f, &c)
+	SetHealthEndpoints(f, &c)
 	got := c.LivenessProbe.HTTPGet.Path
 	if got != "/lively" {
 		t.Errorf("expected \"/lively\" but got %v", got)
@@ -31,19 +30,19 @@ func Test_setHealthEndpoints(t *testing.T) {
 	}
 }
 
-func Test_setHealthEndpointDefaults(t *testing.T) {
+func Test_SetHealthEndpointDefaults(t *testing.T) {
 	f := fn.Function{
 		Name: "testing",
 	}
 	c := corev1.Container{}
-	setHealthEndpoints(f, &c)
+	SetHealthEndpoints(f, &c)
 	got := c.LivenessProbe.HTTPGet.Path
-	if got != LIVENESS_ENDPOINT {
-		t.Errorf("expected \"%v\" but got %v", LIVENESS_ENDPOINT, got)
+	if got != DefaultLivenessEndpoint {
+		t.Errorf("expected \"%v\" but got %v", DefaultLivenessEndpoint, got)
 	}
 	got = c.ReadinessProbe.HTTPGet.Path
-	if got != READINESS_ENDPOINT {
-		t.Errorf("expected \"%v\" but got %v", READINESS_ENDPOINT, got)
+	if got != DefaultReadinessEndpoint {
+		t.Errorf("expected \"%v\" but got %v", DefaultReadinessEndpoint, got)
 	}
 }
 

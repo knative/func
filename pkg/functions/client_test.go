@@ -1061,7 +1061,7 @@ func TestClient_Remove_ByPath(t *testing.T) {
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRemover(remover))
+		fn.WithRemovers(remover))
 
 	var f fn.Function
 	var err error
@@ -1103,7 +1103,7 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRemover(remover),
+		fn.WithRemovers(remover),
 		fn.WithPipelinesProvider(pipelinesProvider))
 
 	var f fn.Function
@@ -1150,7 +1150,7 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRemover(remover),
+		fn.WithRemovers(remover),
 		fn.WithPipelinesProvider(pipelinesProvider))
 
 	var f fn.Function
@@ -1194,7 +1194,7 @@ func TestClient_Remove_ByName(t *testing.T) {
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRemover(remover))
+		fn.WithRemovers(remover))
 
 	if _, err := client.Init(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
@@ -1241,7 +1241,7 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 	// Instantiate the client with the failing remover.
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRemover(remover))
+		fn.WithRemovers(remover))
 
 	// Attempt to remove by path (uninitialized), expecting an error.
 	if err := client.Remove(context.Background(), "", "", fn.Function{Root: root}, false); err == nil {
@@ -1253,7 +1253,7 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 func TestClient_List(t *testing.T) {
 	lister := mock.NewLister()
 
-	client := fn.New(fn.WithLister(lister)) // lists deployed functions.
+	client := fn.New(fn.WithListers(lister)) // lists deployed functions.
 
 	if _, err := client.List(context.Background(), ""); err != nil {
 		t.Fatal(err)
@@ -1288,7 +1288,7 @@ func TestClient_List_OutsideRoot(t *testing.T) {
 	lister := mock.NewLister()
 
 	// Instantiate in the current working directory, with no name.
-	client := fn.New(fn.WithLister(lister))
+	client := fn.New(fn.WithListers(lister))
 
 	if _, err := client.List(context.Background(), ""); err != nil {
 		t.Fatal(err)
@@ -2152,7 +2152,7 @@ func TestClient_DeployRemoves(t *testing.T) {
 		return nil
 	}
 
-	client := fn.New(fn.WithRemover(remover))
+	client := fn.New(fn.WithRemovers(remover))
 	// initialize function with namespace defined as nsone
 
 	f, err := client.Init(fn.Function{Runtime: "go", Root: root,

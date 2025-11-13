@@ -3,7 +3,6 @@ package knative
 import (
 	"fmt"
 	"os"
-	"time"
 
 	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
@@ -12,11 +11,6 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-)
-
-const (
-	DefaultWaitingTimeout     = 120 * time.Second
-	DefaultErrorWindowTimeout = 2 * time.Second
 )
 
 func NewServingClient(namespace string) (clientservingv1.KnServingClient, error) {

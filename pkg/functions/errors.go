@@ -47,6 +47,9 @@ var (
 
 	// ErrInvalidNamespace is returned when a namespace name doesn't meet Kubernetes naming requirements
 	ErrInvalidNamespace = errors.New("invalid namespace")
+
+	// ErrNotHandled is returned when a handler (describer, remover, ...) was not responsible for the function
+	ErrNotHandled = errors.New("describer does not handle this function")
 )
 
 // ErrNotInitialized indicates that a function is uninitialized

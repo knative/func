@@ -32,8 +32,6 @@ import (
 
 const DefaultIntTestRegistry = "localhost:50000/func"
 
-const DefaultIntTestNamespacePrefix = "func-int-test"
-
 // Using the given path, create it as a new directory and return a deferrable
 // which will remove it.
 // usage:
@@ -322,4 +320,14 @@ func ClearEnvs(t *testing.T) {
 			t.Setenv(parts[0], "")
 		}
 	}
+}
+
+// Registry returns the registry to use for tests
+func Registry() string {
+	// Use environment variable if set, otherwise use localhost registry
+	if reg := os.Getenv("FUNC_INT_TEST_REGISTRY"); reg != "" {
+		return reg
+	}
+	// Default to localhost registry (same as E2E tests)
+	return DefaultIntTestRegistry
 }

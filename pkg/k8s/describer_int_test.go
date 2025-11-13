@@ -1,19 +1,19 @@
 //go:build integration
 // +build integration
 
-package knative_test
+package k8s_test
 
 import (
 	"testing"
 
 	describertesting "knative.dev/func/pkg/describer/testing"
-	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/k8s"
 )
 
 func TestInt_Describe(t *testing.T) {
 	describertesting.TestInt_Describe(t,
-		knative.NewDescriber(true),
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewRemover(true),
-		knative.KnativeDeployerName)
+		k8s.NewDescriber(true),
+		k8s.NewDeployer(k8s.WithDeployerVerbose(true)),
+		k8s.NewRemover(true),
+		k8s.KubernetesDeployerName)
 }

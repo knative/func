@@ -7,7 +7,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
-
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -26,30 +25,48 @@ func NewDescriber(verbose bool) *Describer {
 // escaped. Therefore as a knative (kube) implementation detal proper full
 // names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (d *Describer) Describe(ctx context.Context, name, namespace string) (description fn.Instance, err error) {
+func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.Instance, error) {
 	if namespace == "" {
-		err = fmt.Errorf("function namespace is required when describing %q", name)
-		return
+		return fn.Instance{}, fmt.Errorf("function namespace is required when describing %q", name)
 	}
 
 	servingClient, err := NewServingClient(namespace)
 	if err != nil {
-		return
+		return fn.Instance{}, err
 	}
 
 	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
-		return
+		return fn.Instance{}, err
 	}
 
 	service, err := servingClient.GetService(ctx, name)
 	if err != nil {
-		return
+		// If we can't get the service, check why
+		if IsCRDNotFoundError(err) {
+			// Knative Serving not installed - we don't handle this
+			return fn.Instance{}, fn.ErrNotHandled
+		}
+		if errors.IsNotFound(err) {
+			// Service doesn't exist as a Knative service - we don't handle this
+			return fn.Instance{}, fn.ErrNotHandled
+		}
+		// Some other error (permissions, network, etc.) - this is a real error
+		// We can't determine if we should handle it, so propagate it
+		return fn.Instance{}, fmt.Errorf("failed to check if service uses Knative: %w", err)
 	}
+
+	// We got the service, now check if we should handle it
+	if !UsesKnativeDeployer(service.Annotations) {
+		// no need to handle this service
+		return fn.Instance{}, fn.ErrNotHandled
+	}
+
+	// We're responsible, for this function --> proceed...
 
 	routes, err := servingClient.ListRoutes(ctx, clientservingv1.WithService(name))
 	if err != nil {
-		return
+		return fn.Instance{}, err
 	}
 
 	routeURLs := make([]string, 0, len(routes.Items))
@@ -62,18 +79,23 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (descr
 		primaryRouteURL = routes.Items[0].Status.URL.String()
 	}
 
-	description.Name = name
-	description.Namespace = namespace
-	description.Route = primaryRouteURL
-	description.Routes = routeURLs
+	description := fn.Instance{
+		Name:      name,
+		Namespace: namespace,
+		Deployer:  KnativeDeployerName,
+		Route:     primaryRouteURL,
+		Routes:    routeURLs,
+		Labels:    service.Labels,
+	}
 
 	triggers, err := eventingClient.ListTriggers(ctx)
-	// IsNotFound -- Eventing is probably not installed on the cluster
-	if err != nil && !errors.IsNotFound(err) {
-		err = nil
-		return
-	} else if err != nil {
-		return
+	if err != nil {
+		if errors.IsNotFound(err) || IsCRDNotFoundError(err) {
+			// No trigger found or Eventing is probably not installed on the cluster --> we're done here
+			return description, nil
+		}
+
+		return fn.Instance{}, err
 	}
 
 	triggerMatches := func(t *eventingv1.Trigger) bool {
@@ -98,10 +120,5 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (descr
 
 	description.Subscriptions = subscriptions
 
-	// Populate labels from the service
-	if service.Labels != nil {
-		description.Labels = service.Labels
-	}
-
-	return
+	return description, nil
 }

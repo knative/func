@@ -9,21 +9,28 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	lister := knative.NewLister(false)
-
-	list, err := lister.List(cmd.Context(), "")
-	if err != nil {
-		directive = cobra.ShellCompDirectiveError
-		return
+	listers := []fn.Lister{
+		knative.NewLister(false),
+		k8s.NewLister(false),
 	}
 
-	for _, item := range list {
+	items := []fn.ListItem{}
+	for _, lister := range listers {
+		list, err := lister.List(cmd.Context(), "")
+		if err != nil {
+			directive = cobra.ShellCompDirectiveError
+			return
+		}
+		items = append(items, list...)
+	}
+
+	for _, item := range items {
 		strings = append(strings, item.Name)
 	}
 	directive = cobra.ShellCompDirectiveDefault
@@ -151,6 +158,29 @@ func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (ma
 	}
 
 	for _, b := range KnownBuilders() {
+		if strings.HasPrefix(b, complete) {
+			matches = append(matches, b)
+		}
+	}
+
+	return
+}
+
+func CompleteDeployerList(cmd *cobra.Command, args []string, complete string) (matches []string, d cobra.ShellCompDirective) {
+	deployers := []string{
+		knative.KnativeDeployerName,
+		k8s.KubernetesDeployerName,
+	}
+
+	d = cobra.ShellCompDirectiveNoFileComp
+	matches = []string{}
+
+	if len(complete) == 0 {
+		matches = deployers
+		return
+	}
+
+	for _, b := range deployers {
 		if strings.HasPrefix(b, complete) {
 			matches = append(matches, b)
 		}

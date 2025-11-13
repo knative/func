@@ -1959,7 +1959,7 @@ func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 	}
 	clientFn := NewTestClient(
 		fn.WithDeployer(mock.NewDeployer()),
-		fn.WithRemover(remover),
+		fn.WithRemovers(remover),
 	)
 
 	// Create a basic go Function

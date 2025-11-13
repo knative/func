@@ -84,5 +84,5 @@ func (s *InstanceRefs) Remote(ctx context.Context, name, namespace string) (i In
 		return i, errors.New("fetching remote instances requires namespace")
 	}
 
-	return s.client.describer.Describe(ctx, name, namespace)
+	return s.client.Describe(ctx, name, namespace, Function{})
 }

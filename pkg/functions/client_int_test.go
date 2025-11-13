@@ -18,10 +18,10 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
-
 	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
@@ -64,11 +64,11 @@ const (
 
 var (
 	Go         = getEnvAsBin("FUNC_INT_GO", "go")
-	Git        = getEnvAsBin("FUNC_INT_GIT", "git")
+	GitBin     = getEnvAsBin("FUNC_INT_GIT", "git")
 	Kubeconfig = getEnvAsPath("FUNC_INT_KUBECONFIG", DefaultIntTestKubeconfig)
 	Verbose    = getEnvAsBool("FUNC_INT_VERBOSE", DefaultIntTestVerbose)
-	Registry   = getEnv("FUNC_INT_REGISTRY", DefaultIntTestRegistry)
 	Home, _    = filepath.Abs(DefaultIntTestHome)
+	//Registry = // see testing package (it's shared)
 )
 
 // containsInstance checks if the list includes the given instance.
@@ -637,12 +637,12 @@ func resetEnv() {
 	os.Setenv("HOME", Home)
 	os.Setenv("KUBECONFIG", Kubeconfig)
 	os.Setenv("FUNC_GO", Go)
-	os.Setenv("FUNC_GIT", Git)
+	os.Setenv("FUNC_GIT", GitBin)
 	os.Setenv("FUNC_VERBOSE", fmt.Sprintf("%t", Verbose))
 
 	// The Registry will be set either during first-time setup using the
 	// global config, or already defaulted by the user via environment variable.
-	os.Setenv("FUNC_REGISTRY", Registry)
+	os.Setenv("FUNC_REGISTRY", Registry())
 
 	// The following host-builder related settings will become the defaults
 	// once the host builder supports the core runtimes.  Setting them here in
@@ -661,9 +661,9 @@ func newClient(verbose bool) *fn.Client {
 		fn.WithBuilder(oci.NewBuilder("", verbose)),
 		fn.WithPusher(oci.NewPusher(true, true, verbose)),
 		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
-		fn.WithDescriber(knative.NewDescriber(verbose)),
-		fn.WithRemover(knative.NewRemover(verbose)),
-		fn.WithLister(knative.NewLister(verbose)),
+		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
+		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
+		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
 		fn.WithVerbose(verbose),
 	)
 }
@@ -673,9 +673,6 @@ func newClientWithS2i(verbose bool) *fn.Client {
 	builder := s2i.NewBuilder(s2i.WithVerbose(verbose))
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
 	deployer := knative.NewDeployer(knative.WithDeployerVerbose(verbose))
-	describer := knative.NewDescriber(verbose)
-	remover := knative.NewRemover(verbose)
-	lister := knative.NewLister(verbose)
 
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),
@@ -683,9 +680,9 @@ func newClientWithS2i(verbose bool) *fn.Client {
 		fn.WithBuilder(builder),
 		fn.WithPusher(pusher),
 		fn.WithDeployer(deployer),
-		fn.WithDescriber(describer),
-		fn.WithRemover(remover),
-		fn.WithLister(lister),
+		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
+		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
+		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
 	)
 }
 

@@ -1,4 +1,4 @@
-package functions
+package functions_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	fn "knative.dev/func/pkg/functions"
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -16,36 +17,36 @@ func TestInstances_LocalErrors(t *testing.T) {
 	defer rm()
 
 	// Create a function that will not be running
-	f, err := New().Init(Function{Runtime: "go", Root: root})
+	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	tests := []struct {
 		name   string
-		f      Function
+		f      fn.Function
 		wantIs error
 		wantAs any
 	}{
 		{
 			name:   "Not running", // Function exists but is not running
 			f:      f,
-			wantIs: ErrNotRunning,
+			wantIs: fn.ErrNotRunning,
 		},
 		{
 			name:   "Not initialized", // A function directory is provided, but no function exists
-			f:      Function{Root: "testdata/not-initialized"},
-			wantAs: &ErrNotInitialized{},
+			f:      fn.Function{Root: "testdata/not-initialized"},
+			wantAs: &fn.ErrNotInitialized{},
 		},
 		{
 			name:   "Root required", // No root directory is provided
-			f:      Function{},
-			wantIs: ErrRootRequired,
+			f:      fn.Function{},
+			wantIs: fn.ErrRootRequired,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := InstanceRefs{}
+			i := fn.InstanceRefs{}
 			_, err := i.Local(context.Background(), tt.f)
 			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
 				t.Errorf("Local() error = %v, want %#v", err, tt.wantIs)
@@ -64,13 +65,13 @@ func TestInstance_RemoteErrors(t *testing.T) {
 	defer rm()
 
 	// Create a function that will not be running
-	_, err := New().Init(Function{Runtime: "go", Namespace: "ns1", Root: root})
+	_, err := fn.New().Init(fn.Function{Runtime: "go", Namespace: "ns1", Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Load the function
-	if _, err := NewFunction(root); err != nil {
+	if _, err := fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
 
@@ -104,7 +105,7 @@ func TestInstance_RemoteErrors(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.test, func(t *testing.T) {
-			i := InstanceRefs{}
+			i := fn.InstanceRefs{}
 			_, err := i.Remote(context.Background(), test.name, test.namespace)
 			if err == nil {
 				t.Fatal("did not receive expected error")

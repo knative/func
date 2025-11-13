@@ -14,10 +14,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
-
 	"knative.dev/func/pkg/scaffolding"
 	"knative.dev/func/pkg/utils"
 )
@@ -68,9 +69,9 @@ type Client struct {
 	pusher            Pusher            // Pushes function image to a remote
 	deployer          Deployer          // Deploys or Updates a function
 	runner            Runner            // Runs the function locally
-	remover           Remover           // Removes remote services
-	lister            Lister            // Lists remote services
-	describer         Describer         // Describes function instances
+	removers          []Remover         // Removes remote services
+	listers           []Lister          // Lists remote services
+	describers        []Describer       // Describes function instances
 	dnsProvider       DNSProvider       // Provider of DNS services
 	registry          string            // default registry for OCI image tags
 	repositories      *Repositories     // Repositories management
@@ -140,12 +141,15 @@ type Runner interface {
 // Remover of deployed services.
 type Remover interface {
 	// Remove the function from remote.
+	// It should only return nil, when the Function was removed.
+	// In case the remover is not responsible for a Function, it should return a ErrNotHandled error.
 	Remove(ctx context.Context, name string, namespace string) error
 }
 
 // Lister of deployed functions.
 type Lister interface {
 	// List the functions currently deployed.
+	// It should only return Functions/Items for which the lister is responsible for
 	List(ctx context.Context, namespace string) ([]ListItem, error)
 }
 
@@ -155,11 +159,14 @@ type ListItem struct {
 	Runtime   string `json:"runtime" yaml:"runtime"`
 	URL       string `json:"url" yaml:"url"`
 	Ready     string `json:"ready" yaml:"ready"`
+	Deployer  string `json:"deployer" yaml:"deployer"`
 }
 
 // Describer of function instances
 type Describer interface {
 	// Describe the named function in the remote environment.
+	// In case the describer is not responsible for a Function, it should return a ErrNotHandled error.
+	// It should return a nil error in case the describer was responsible for the Function and could describe it.
 	Describe(ctx context.Context, name, namespace string) (Instance, error)
 }
 
@@ -181,6 +188,7 @@ type Instance struct {
 	Name          string            `json:"name" yaml:"name"`
 	Image         string            `json:"image" yaml:"image"`
 	Namespace     string            `json:"namespace" yaml:"namespace"`
+	Deployer      string            `json:"deployer" yaml:"deployer"`
 	Subscriptions []Subscription    `json:"subscriptions" yaml:"subscriptions"`
 	Labels        map[string]string `json:"labels" yaml:"labels" xml:"-"`
 }
@@ -219,9 +227,9 @@ func New(options ...Option) *Client {
 		builder:           &noopBuilder{output: os.Stdout},
 		pusher:            &noopPusher{output: os.Stdout},
 		deployer:          &noopDeployer{output: os.Stdout},
-		remover:           &noopRemover{output: os.Stdout},
-		lister:            &noopLister{output: os.Stdout},
-		describer:         &noopDescriber{output: os.Stdout},
+		removers:          []Remover{&noopRemover{output: os.Stdout}},
+		listers:           []Lister{&noopLister{output: os.Stdout}},
+		describers:        []Describer{&noopDescriber{output: os.Stdout}},
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
 		pipelinesProvider: &noopPipelinesProvider{},
 		mcpServer:         &noopMCPServer{},
@@ -298,24 +306,24 @@ func WithRunner(r Runner) Option {
 	}
 }
 
-// WithRemover provides the concrete implementation of a remover.
-func WithRemover(r Remover) Option {
+// WithRemovers provides the concrete implementation of a remover.
+func WithRemovers(r ...Remover) Option {
 	return func(c *Client) {
-		c.remover = r
+		c.removers = r
 	}
 }
 
-// WithLister provides the concrete implementation of a lister.
-func WithLister(l Lister) Option {
+// WithListers provides the concrete implementation of a lister.
+func WithListers(l ...Lister) Option {
 	return func(c *Client) {
-		c.lister = l
+		c.listers = l
 	}
 }
 
-// WithDescriber provides a concrete implementation of a function describer.
-func WithDescriber(describer Describer) Option {
+// WithDescribers provides a concrete implementation of a function describer.
+func WithDescribers(describers ...Describer) Option {
 	return func(c *Client) {
-		c.describer = describer
+		c.describers = describers
 	}
 }
 
@@ -797,7 +805,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 		err := c.Remove(ctx, "", "", f, true)
 		if err != nil {
 			// Warn when service is not found and set err to nil to continue. Function's
-			// service mightve been manually deleted prior to the subsequent deploy or the
+			// service might have been manually deleted prior to the subsequent deploy or the
 			// namespace is already deleted therefore there is nothing to delete
 			if errors.Is(err, ErrFunctionNotFound) {
 				fmt.Fprintf(os.Stderr, "Warning: Can't undeploy Function from namespace '%s'. The Function's service was not found. The namespace or service may have already been removed\n", f.Deploy.Namespace)
@@ -985,7 +993,7 @@ func (c *Client) Describe(ctx context.Context, name, namespace string, f Functio
 	// It is up to the concrete implementation whether or not namespace is
 	// also required.
 	if name != "" {
-		return c.describer.Describe(ctx, name, namespace)
+		return c.describeByMatchingDescriber(ctx, name, namespace)
 	}
 
 	// Desribe Current Function
@@ -1002,7 +1010,28 @@ func (c *Client) Describe(ctx context.Context, name, namespace string, f Functio
 	// If it has a populated deployed namespace, we can presume it's deployed
 	// and attempt to describe.
 
-	return c.describer.Describe(ctx, f.Name, f.Deploy.Namespace)
+	return c.describeByMatchingDescriber(ctx, f.Name, f.Deploy.Namespace)
+}
+
+// describeByMatchingDescriber iterates over the registered describers and executes them on the given object.
+func (c *Client) describeByMatchingDescriber(ctx context.Context, name, namespace string) (d Instance, err error) {
+	// iterate over all registered describers. As soon as a describer returns a nil error, this means it was
+	// responsible for the Function and was able to describe it.
+	// Returning a ErrNotHandled error means the describer was not responsible for the Function and we need to try
+	// the next describer.
+	for _, describer := range c.describers {
+		d, err := describer.Describe(ctx, name, namespace)
+		if errors.Is(err, ErrNotHandled) {
+			continue // Try next describer
+		}
+		if err != nil {
+			return Instance{}, fmt.Errorf("could not run describer on function: %w", err)
+		}
+
+		return d, nil
+	}
+
+	return Instance{}, fmt.Errorf("no describe function for %s in namespace %s found", name, namespace)
 }
 
 // List currently deployed functions.
@@ -1011,8 +1040,18 @@ func (c *Client) Describe(ctx context.Context, name, namespace string, f Functio
 // using the current kubernetes context namespace, falling back to the static
 // default "namespace".
 func (c *Client) List(ctx context.Context, namespace string) ([]ListItem, error) {
-	// delegate to concrete implementation of lister entirely.
-	return c.lister.List(ctx, namespace)
+	list := []ListItem{}
+	// iterate over all registered listers. A lister should only return Items for which it is responsible for
+	for _, lister := range c.listers {
+		res, err := lister.List(ctx, namespace)
+		if err != nil {
+			return nil, err
+		}
+
+		list = append(list, res...)
+	}
+
+	return list, nil
 }
 
 // Remove a function. Name takes precedence. If no name is provided, the
@@ -1046,17 +1085,40 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 
 	// Perform the Removal
 	var (
-		serviceRemovalErrCh  = make(chan error)
 		resourceRemovalError error
 	)
-	go func() {
-		serviceRemovalErrCh <- c.remover.Remove(ctx, name, namespace)
-	}()
+
+	serviceRemovalErrGroup := &errgroup.Group{}
+	var removeHandled atomic.Bool
+	for _, remover := range c.removers {
+		remover := remover
+
+		serviceRemovalErrGroup.Go(func() error {
+			err := remover.Remove(ctx, name, namespace)
+			if err != nil {
+				if errors.Is(err, ErrNotHandled) {
+					// remover didn't need to handle it
+					return nil
+				}
+				return err
+			}
+
+			// no error -> was removed -> set handled
+			removeHandled.Store(true)
+
+			return nil
+		})
+	}
+
 	if all {
 		resourceRemovalError = c.pipelinesProvider.Remove(ctx,
 			Function{Name: name, Deploy: DeploySpec{Namespace: namespace}})
 	}
-	serviceRemovalError := <-serviceRemovalErrCh
+	serviceRemovalError := serviceRemovalErrGroup.Wait()
+	if serviceRemovalError == nil && resourceRemovalError == nil && !removeHandled.Load() {
+		// no error, but resource was not handled by any of the removers
+		return fmt.Errorf("no remover handled %s in %s", name, namespace)
+	}
 
 	// Return a combined error
 	return func(e1, e2 error) error {
@@ -1376,7 +1438,9 @@ func (n *noopRemover) Remove(context.Context, string, string) error { return nil
 // Lister
 type noopLister struct{ output io.Writer }
 
-func (n *noopLister) List(context.Context, string) ([]ListItem, error) { return []ListItem{}, nil }
+func (n *noopLister) List(context.Context, string) ([]ListItem, error) {
+	return []ListItem{}, nil
+}
 
 // Describer
 type noopDescriber struct{ output io.Writer }

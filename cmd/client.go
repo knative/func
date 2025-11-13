@@ -58,16 +58,16 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
 		t  = newTransport(cfg.InsecureSkipVerify)    // may provide a custom impl which proxies
 		c  = newCredentialsProvider(config.Dir(), t) // for accessing registries
-		d  = newKnativeDeployer(cfg.Verbose)
+		d  = newKnativeDeployer(cfg.Verbose)         // default deployer (can be overridden via options)
 		pp = newTektonPipelinesProvider(c, cfg.Verbose)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
 			fn.WithTransport(t),
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
-			fn.WithRemover(knative.NewRemover(cfg.Verbose)),
-			fn.WithDescriber(knative.NewDescriber(cfg.Verbose)),
-			fn.WithLister(knative.NewLister(cfg.Verbose)),
+			fn.WithRemovers(knative.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose)),
+			fn.WithDescribers(knative.NewDescriber(cfg.Verbose), k8s.NewDescriber(cfg.Verbose)),
+			fn.WithListers(knative.NewLister(cfg.Verbose), k8s.NewLister(cfg.Verbose)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(
@@ -133,6 +133,15 @@ func newKnativeDeployer(verbose bool) fn.Deployer {
 	}
 
 	return knative.NewDeployer(options...)
+}
+
+func newK8sDeployer(verbose bool) fn.Deployer {
+	options := []k8s.DeployerOpt{
+		k8s.WithDeployerVerbose(verbose),
+		k8s.WithDeployerDecorator(deployDecorator{}),
+	}
+
+	return k8s.NewDeployer(options...)
 }
 
 type deployDecorator struct {

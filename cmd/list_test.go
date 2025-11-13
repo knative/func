@@ -71,7 +71,7 @@ func TestList_Namespace(t *testing.T) {
 
 			// Create an instance of the command which sets the flags
 			// according to the test case
-			cmd := NewListCmd(NewTestClient(fn.WithLister(lister)))
+			cmd := NewListCmd(NewTestClient(fn.WithListers(lister)))
 			args := []string{}
 			if test.namespace != "" {
 				args = append(args, "--namespace", test.namespace)

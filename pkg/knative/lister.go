@@ -18,20 +18,28 @@ func NewLister(verbose bool) *Lister {
 }
 
 // List functions, optionally specifying a namespace.
-func (l *Lister) List(ctx context.Context, namespace string) (items []fn.ListItem, err error) {
+func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
 	client, err := NewServingClient(namespace)
 	if err != nil {
-		return
+		return nil, err
 	}
+
+	// TODO: shouldn't this list only services for functions (-> having the function.knative.dev/name label)?!?
 
 	lst, err := client.ListServices(ctx)
 	if err != nil {
-		return
+		if IsCRDNotFoundError(err) {
+			// no services found --> nothing to return
+			return nil, nil
+		}
+		return nil, err
 	}
 
-	services := lst.Items[:]
-
-	for _, service := range services {
+	items := make([]fn.ListItem, 0, len(lst.Items))
+	for _, service := range lst.Items {
+		if !UsesKnativeDeployer(service.Annotations) {
+			continue
+		}
 
 		// get status
 		ready := corev1.ConditionUnknown
@@ -50,9 +58,11 @@ func (l *Lister) List(ctx context.Context, namespace string) (items []fn.ListIte
 			Runtime:   runtimeLabel,
 			URL:       service.Status.URL.String(),
 			Ready:     string(ready),
+			Deployer:  KnativeDeployerName,
 		}
 
 		items = append(items, listItem)
 	}
-	return
+
+	return items, nil
 }

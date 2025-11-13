@@ -1,10 +1,11 @@
-package functions
+package functions_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
+	fn "knative.dev/func/pkg/functions"
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -21,25 +22,25 @@ import (
 func TestJob_New(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
-	client := New()
+	client := fn.New()
 
 	// create a new function
-	f, err := client.Init(Function{Runtime: "go", Root: root})
+	f, err := client.Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Assert that an initialized function and port are required
 	onStop := func() error { return nil }
-	if _, err := NewJob(Function{}, "127.0.0.1", "8080", nil, onStop, false); err == nil {
+	if _, err := fn.NewJob(fn.Function{}, "127.0.0.1", "8080", nil, onStop, false); err == nil {
 		t.Fatal("expected NewJob to require an initialized functoin")
 	}
-	if _, err := NewJob(f, "127.0.0.1", "", nil, onStop, false); err == nil {
+	if _, err := fn.NewJob(f, "127.0.0.1", "", nil, onStop, false); err == nil {
 		t.Fatal("expected NewJob to require a port")
 	}
 
 	// Assert creating a Job with the required arguments succeeds.
-	_, err = NewJob(f, "127.0.0.1", "8080", nil, onStop, false)
+	_, err = fn.NewJob(f, "127.0.0.1", "8080", nil, onStop, false)
 	if err != nil {
 		t.Fatalf("creating job failed. %s", err)
 	}
@@ -49,7 +50,7 @@ func TestJob_New(t *testing.T) {
 	// that the system supports multiple instances running simultaneously.
 	_, err = client.Instances().Local(context.Background(), f)
 	if err != nil {
-		if errors.Is(err, ErrNotRunning) {
+		if errors.Is(err, fn.ErrNotRunning) {
 			t.Fatalf("client does not recognize job as running. %s", err)
 		} else {
 			t.Fatalf("unexpected error checking client for instance's existence. %s", err)
@@ -63,9 +64,9 @@ func TestJob_New(t *testing.T) {
 func TestJob_Stop(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
-	client := New()
+	client := fn.New()
 
-	f, err := client.Init(Function{Runtime: "go", Root: root})
+	f, err := client.Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,13 +76,13 @@ func TestJob_Stop(t *testing.T) {
 	onStop := func() error { onStopInvoked = true; return nil }
 
 	// Assert creating a Job with the required arguments succeeds.
-	j, err := NewJob(f, "127.0.0.1", "8080", nil, onStop, false)
+	j, err := fn.NewJob(f, "127.0.0.1", "8080", nil, onStop, false)
 	if err != nil {
 		t.Fatalf("creating job failed. %s", err)
 	}
 	_, err = client.Instances().Local(context.Background(), f)
 	if err != nil {
-		if errors.Is(err, ErrNotRunning) {
+		if errors.Is(err, fn.ErrNotRunning) {
 			t.Fatalf("client does not recognize job as running. %s", err)
 		} else {
 			t.Fatalf("unexpected error checking client for instance's existence. %s", err)
