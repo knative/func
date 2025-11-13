@@ -61,49 +61,8 @@ func TestInstructions(t *testing.T) {
 	}
 }
 
-// newTestPairWithReadonly returns a ClientSession and Server with the specified readonly mode.
-func newTestPairWithReadonly(t *testing.T, readonly bool) (*mcp.ClientSession, *Server, error) {
-	t.Helper()
-	var (
-		errCh                = make(chan error, 1)
-		initCh               = make(chan struct{})
-		serverTpt, clientTpt = mcp.NewInMemoryTransports()
-	)
-
-	// Create a test server with in-memory transport and readonly flag set
-	server := New(WithTransport(serverTpt), WithReadonly(readonly))
-	server.OnInit = func(ctx context.Context) {
-		close(initCh)
-	}
-
-	// Start the Server (readonly already set via WithReadonly option)
-	go func() {
-		errCh <- server.Start(t.Context(), !readonly)
-	}()
-
-	// Connect a client to trigger initialization
-	client := mcp.NewClient(&mcp.Implementation{
-		Name:    "test-client",
-		Version: "1.0.0",
-	}, nil)
-	session, err := client.Connect(t.Context(), clientTpt, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("client connection failed: %v", err)
-	}
-
-	// Wait for init
-	select {
-	case err = <-errCh:
-		return nil, nil, fmt.Errorf("server exited prematurely %v", err)
-	case <-t.Context().Done():
-		return nil, nil, fmt.Errorf("timeout waiting for server initialization")
-	case <-initCh: // Successful start; continue.
-	}
-	return session, server, nil
-}
-
-// newTestPair returns a ClientSession and Server connected over an in-memory transport.
-func newTestPair(t *testing.T, options ...Option) (session *mcp.ClientSession, server *Server, err error) {
+// newTestPairCore is the core logic for creating a ClientSession and Server connected over an in-memory transport.
+func newTestPairCore(t *testing.T, readonly bool, options ...Option) (session *mcp.ClientSession, server *Server, err error) {
 	t.Helper()
 	var (
 		errCh                = make(chan error, 1)
@@ -125,7 +84,7 @@ func newTestPair(t *testing.T, options ...Option) (session *mcp.ClientSession, s
 
 	// Start the Server
 	go func() {
-		errCh <- server.Start(t.Context(), false)
+		errCh <- server.Start(t.Context(), !readonly)
 	}()
 
 	// Connect a client to trigger initialization
@@ -148,4 +107,14 @@ func newTestPair(t *testing.T, options ...Option) (session *mcp.ClientSession, s
 	case <-initCh: // Successful start; continue.
 	}
 	return
+}
+
+// newTestPairWithReadonly returns a ClientSession and Server with the specified readonly mode.
+func newTestPairWithReadonly(t *testing.T, readonly bool) (*mcp.ClientSession, *Server, error) {
+	return newTestPairCore(t, readonly, WithReadonly(readonly))
+}
+
+// newTestPair returns a ClientSession and Server connected over an in-memory transport.
+func newTestPair(t *testing.T, options ...Option) (session *mcp.ClientSession, server *Server, err error) {
+	return newTestPairCore(t, false, options...)
 }
