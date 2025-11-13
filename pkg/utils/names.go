@@ -26,6 +26,9 @@ type ErrInvalidLabel error
 // ErrInvalidDomain indicates the domain name did not pass DNS subdomain validation.
 type ErrInvalidDomain error
 
+// ErrInvalidNamespace indicates the namespace name did not pass Kubernetes namespace validation.
+type ErrInvalidNamespace error
+
 // ValidateFunctionName validates that the input name is a valid function name, ie. valid DNS-1035 label.
 // It must consist of lower case alphanumeric characters or '-' and start with an alphabetic character and end with an alphanumeric character.
 // (e.g. 'my-name',  or 'abc-1', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')
@@ -123,5 +126,19 @@ func ValidateDomain(domain string) error {
 		return ErrInvalidDomain(errors.New(errMsg))
 	}
 
+	return nil
+}
+
+// ValidateNamespace validates that the input name is a valid Kubernetes namespace name, ie. valid DNS-1123 label.
+// It must consist of lower case alphanumeric characters or '-',
+// start with an alphabetic character, and end with an alphanumeric character
+// (e.g. 'my-namespace', 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')
+func ValidateNamespace(namespace string) error {
+	if errs := validation.IsDNS1035Label(namespace); len(errs) > 0 {
+		// Reuse the error message from Kubernetes validation
+		// Replace "a DNS-1035 label" with more user-friendly context
+		errMsg := strings.Replace(strings.Join(errs, ""), "a DNS-1035 label", fmt.Sprintf("Namespace '%v'", namespace), 1)
+		return ErrInvalidNamespace(errors.New(errMsg))
+	}
 	return nil
 }

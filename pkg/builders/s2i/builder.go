@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/source-to-image/pkg/build"
 	"github.com/openshift/source-to-image/pkg/build/strategies"
 	s2idocker "github.com/openshift/source-to-image/pkg/docker"
+	s2iError "github.com/openshift/source-to-image/pkg/errors"
 	"github.com/openshift/source-to-image/pkg/scm/git"
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/docker"
@@ -205,6 +206,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	if impl == nil {
 		impl, _, err = strategies.Strategy(client, cfg, build.Overrides{})
 		if err != nil {
+			var s2iErr s2iError.Error
+			if errors.As(err, &s2iErr) {
+				err = fmt.Errorf("%s: %w", s2iErr.Error(), s2iErr.Details)
+			}
 			return fmt.Errorf("cannot create s2i builder: %w", err)
 		}
 	}
