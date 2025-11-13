@@ -231,6 +231,7 @@ func TestValidateDomain(t *testing.T) {
 		{"example-app.com", true},                // hyphen in domain
 		{"a.co", true},                           // short domain
 		{"123app.example.com", true},             // label starting with number
+
 		// Invalid domains
 		{"Example.Com", false},        // uppercase not allowed
 		{"MY-APP.COM", false},         // uppercase not allowed
@@ -292,5 +293,70 @@ func TestValidateDomainEmptyString(t *testing.T) {
 	err = ValidateDomain("   ")
 	if err == nil {
 		t.Fatal("String with only whitespace should be invalid")
+	}
+}
+
+// TestValidateNamespace tests that only correct Kubernetes namespace names are accepted
+func TestValidateNamespace(t *testing.T) {
+	cases := []struct {
+		In    string
+		Valid bool
+	}{
+		// Valid namespaces
+		{"default", true},
+		{"kube-system", true},
+		{"my-namespace", true},
+		{"myapp", true},
+		{"my-app-123", true},
+		{"prod", true},
+		{"test-123", true},
+		{"a", true},
+		{"a-b", true},
+		{"abc-123-xyz", true},
+
+		// Invalid namespaces
+		{"123app", false},            // cannot start with number (K8s requirement)
+		{"123invalid", false},        // cannot start with number (K8s requirement)
+		{"1", false},                 // cannot start with number (K8s requirement)
+		{"My-App", false},            // uppercase not allowed
+		{"MY-APP", false},            // uppercase not allowed
+		{"my_app", false},            // underscore not allowed
+		{"my app", false},            // spaces not allowed
+		{"invalid namespace", false}, // spaces not allowed
+		{"my@app", false},            // @ not allowed
+		{"invalid@namespace", false}, // @ not allowed
+		{"-myapp", false},            // cannot start with hyphen
+		{"myapp-", false},            // cannot end with hyphen
+		{"my..app", false},           // dots not allowed
+		{"my/app", false},            // slash not allowed
+		{"my:app", false},            // colon not allowed
+		{"my;app", false},            // semicolon not allowed
+		{"my,app", false},            // comma not allowed
+		{"my*app", false},            // asterisk not allowed
+		{"my!app", false},            // exclamation not allowed
+	}
+
+	for _, c := range cases {
+		err := ValidateNamespace(c.In)
+		if err != nil && c.Valid {
+			t.Fatalf("Unexpected error for valid namespace: %v, namespace: '%v'", err, c.In)
+		}
+		if err == nil && !c.Valid {
+			t.Fatalf("Expected error for invalid namespace: '%v'", c.In)
+		}
+	}
+}
+
+func TestValidateNamespaceErrMsg(t *testing.T) {
+	invalidNamespace := "my@app"
+	errMsgPrefix := fmt.Sprintf("Namespace '%v'", invalidNamespace)
+
+	err := ValidateNamespace(invalidNamespace)
+	if err != nil {
+		if !strings.HasPrefix(err.Error(), errMsgPrefix) {
+			t.Fatalf("Unexpected error message: %v, the message should start with '%v' string", err.Error(), errMsgPrefix)
+		}
+	} else {
+		t.Fatalf("Expected error for invalid namespace: %v", invalidNamespace)
 	}
 }

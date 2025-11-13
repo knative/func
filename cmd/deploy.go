@@ -349,6 +349,20 @@ Note: Domain must be configured on your Knative cluster, or it will be ignored.
 
 For more options, run 'func deploy --help'`, err)
 		}
+		if errors.Is(err, fn.ErrInvalidNamespace) {
+			return fmt.Errorf(`%w
+
+Invalid namespace name. Kubernetes namespaces must:
+  - Contain only lowercase letters, numbers, and hyphens (-)
+  - Start with a letter and end with a letter or number
+  - Be 63 characters or less
+
+Valid examples:
+  func deploy --namespace myapp
+  func deploy --namespace my-app-123
+
+For more options, run 'func deploy --help'`, err)
+		}
 		if errors.Is(err, fn.ErrConflictingImageAndRegistry) {
 			return fmt.Errorf(`%w
 
@@ -824,6 +838,13 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 		if err = utils.ValidateDomain(c.Domain); err != nil {
 			// Wrap the validation error as fn.ErrInvalidDomain for layer consistency
 			return fn.ErrInvalidDomain
+		}
+	}
+	// Validate namespace format if provided
+	if c.Namespace != "" {
+		if err = utils.ValidateNamespace(c.Namespace); err != nil {
+			// Wrap the validation error as fn.ErrInvalidNamespace for layer consistency
+			return fn.ErrInvalidNamespace
 		}
 	}
 
