@@ -350,8 +350,8 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 				Name: fmt.Sprintf("%s-function-trigger-%d", ksvc.GetName(), i),
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: ksvc.GroupVersionKind().Version,
-						Kind:       ksvc.GroupVersionKind().Kind,
+						APIVersion: ksvc.APIVersion,
+						Kind:       ksvc.Kind,
 						Name:       ksvc.GetName(),
 						UID:        ksvc.GetUID(),
 					},
@@ -362,8 +362,8 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 
 				Subscriber: duckv1.Destination{
 					Ref: &duckv1.KReference{
-						APIVersion: ksvc.GroupVersionKind().Version,
-						Kind:       ksvc.GroupVersionKind().Kind,
+						APIVersion: ksvc.APIVersion,
+						Kind:       ksvc.Kind,
 						Name:       ksvc.GetName(),
 					}},
 
