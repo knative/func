@@ -19,9 +19,5 @@ func (s *Server) languagesHandler(ctx context.Context, r *mcp.ReadResourceReques
 		return result, err
 	}
 
-	return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{
-		URI:      "func://languages",
-		MIMEType: "text/plain",
-		Text:     string(out),
-	}}}, nil
+	return newSuccessResult("func://languages", "text/plain", out), nil
 }
