@@ -19,3 +19,15 @@ func newErrorResult(uri string, err error) *mcp.ReadResourceResult {
 		},
 	}
 }
+
+func newSuccessResult(uri, mime string, text []byte) *mcp.ReadResourceResult {
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			{
+				URI:      uri,
+				MIMEType: mime,
+				Text:     string(text),
+			},
+		},
+	}
+}
