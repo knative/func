@@ -97,31 +97,38 @@ func scaffold(ctx context.Context) error {
 	}
 
 	appRoot := filepath.Join(f.Root, ".s2i", "builds", "last")
+	if f.Build.Builder != "s2i" {
+		// TODO: gauron99 - change this completely
+		// non-s2i override
+		appRoot = filepath.Join(f.Root, ".func", "builds", "last")
+	}
+	fmt.Printf("appRoot is '%s'\n", appRoot)
 	_ = os.RemoveAll(appRoot)
 
+	// build step now includes scaffolding for go-pack
 	err = scaffolding.Write(appRoot, f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
 	if err != nil {
 		return fmt.Errorf("cannot write the scaffolding: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Join(f.Root, ".s2i", "bin"), 0755); err != nil {
-		return fmt.Errorf("unable to create .s2i bin dir. %w", err)
-	}
+	if f.Build.Builder == "s2i" {
+		if err := os.MkdirAll(filepath.Join(f.Root, ".s2i", "bin"), 0755); err != nil {
+			return fmt.Errorf("unable to create .s2i bin dir. %w", err)
+		}
+		var asm string
+		switch f.Runtime {
+		case "go":
+			asm = s2i.GoAssembler
+		case "python":
+			asm = s2i.PythonAssembler
+		default:
+			panic("unreachable")
+		}
 
-	var asm string
-	switch f.Runtime {
-	case "go":
-		asm = s2i.GoAssembler
-	case "python":
-		asm = s2i.PythonAssembler
-	default:
-		panic("unreachable")
+		if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(asm), 0755); err != nil {
+			return fmt.Errorf("unable to write go assembler. %w", err)
+		}
 	}
-
-	if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(asm), 0755); err != nil {
-		return fmt.Errorf("unable to write go assembler. %w", err)
-	}
-
 	return nil
 }
 

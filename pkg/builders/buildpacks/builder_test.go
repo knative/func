@@ -86,11 +86,11 @@ func TestBuild_BuildpacksDefault(t *testing.T) {
 	var (
 		i = &mockImpl{}
 		b = NewBuilder(WithImpl(i))
-		f = fn.Function{Runtime: "go"}
+		f = fn.Function{Runtime: "node"}
 	)
 
 	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
-		expected := defaultBuildpacks["go"]
+		expected := defaultBuildpacks["node"]
 		if !reflect.DeepEqual(expected, opts.Buildpacks) {
 			t.Fatalf("expected buildpacks '%v', got '%v'", expected, opts.Buildpacks)
 		}
@@ -141,7 +141,7 @@ func TestBuild_BuilderImageExclude(t *testing.T) {
 		b = NewBuilder( // Func Builder logic
 			WithName(builders.Pack), WithImpl(i))
 		f = fn.Function{
-			Runtime: "go",
+			Runtime: "node",
 		}
 	)
 	funcIgnoreContent := []byte(`#testing comments
