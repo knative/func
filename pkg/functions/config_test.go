@@ -90,4 +90,3 @@ func TestConfig_RepositoriesPath(t *testing.T) {
 		t.Fatalf("expected repositories path to be a directory: %s", reposPath)
 	}
 }
-
