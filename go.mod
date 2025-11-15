@@ -42,7 +42,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.1.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/openshift-pipelines/pipelines-as-code v0.31.0
-	github.com/openshift/source-to-image v1.6.0
+	github.com/openshift/source-to-image v1.5.1
 	github.com/ory/viper v1.7.5
 	github.com/paketo-buildpacks/libpak v1.70.0
 	github.com/pelletier/go-toml v1.9.5
@@ -314,3 +314,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
