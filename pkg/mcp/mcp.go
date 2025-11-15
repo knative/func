@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"os/exec"
 	"strings"
 
@@ -161,5 +160,3 @@ func (e defaultExecutor) Execute(ctx context.Context, subcommand string, args ..
 	// cmd.Dir not set - inherits process working directory which is the current working directory
 	return cmd.CombinedOutput()
 }
-
-var ErrWriteDisabled = errors.New("server is not write enabled")
