@@ -226,10 +226,6 @@ func (i info) JSON(w io.Writer) error {
 	return json.NewEncoder(w).Encode(i)
 }
 
-func (i info) XML(w io.Writer) error {
-	return errors.New("XML export not currently supported")
-}
-
 func (i info) YAML(w io.Writer) error {
 	return yaml.NewEncoder(w).Encode(i)
 }

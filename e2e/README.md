@@ -8,12 +8,12 @@ E2E tests are designed in a way that they can be easily runnable (and thus
 debuggable) locally by a developer, in addition to remotely in CI as
 acceptance criteria for pull requests.
 
-## Runnning E2Es locally: a Quick-start
+## Running E2Es locally: a Quick-start
 
 - `./hack/binaries.sh`          Fetch binaries into `./hack/bin`
-- `./hack/registry.sh`          (once) Configure insecure local registriry
+- `./hack/registry.sh`          (once) Configure insecure local registry
 - `./hack/cluster.sh`           Create a cluster and kube config in `./hack/bin`
-- `make test-all`               Run all tests using these binaries and cluster
+- `make test-full`               Run all tests using these binaries and cluster
 - `./hack/delete.sh`            Remove the cluster
 
 
@@ -80,7 +80,7 @@ Note that if providing a relative path, this path is relative to this test
 package, not the directory from which `go test` was run.
 
 `FUNC_E2E_PLUGIN`: if set, the command run by the tests will be
-`${FUNC_E2E_BIN} func`, allowing for running all tests when func is installed
+`${FUNC_E2E_BIN} ${FUNC_E2E_PLUGIN}`, allowing for running all tests when func is installed
 as a plugin; such as when used as a plugin for the Knative cluster admin
 tool `kn`.  The value should be set to the name of the subcommand for the
 func plugin (usually `func`).  For example to run E2E tests on `kn` with
@@ -178,7 +178,7 @@ to disabled.
 
 ## Running
 
-From the root of the repository, run `make test-all`.  This will compile
+From the root of the repository, run `make test-full`.  This will compile
 the current source, creating the binary `./func` if it does not already exist,
 or is out of date. It will then run `go test -tags e2e ./e2e`.  By default the
 tests will use the locally compiled `func` binary unless `FUNC_E2E_BIN` is
@@ -205,13 +205,9 @@ the cluster between full test runs. To remove the local cluster, use the
 `delete.sh` script described above.  If you do plan to remove the cluster, tests
 can be sped up by disabling cleanup with FUNC_E2E_CLEAN=false
 
-## TODO
-- Core tests should also test w/ CloudEvents template
-- Add OpenShift registry detection support (k8s.IsOpenShift() -> k8s.GetDefaultOpenShiftRegistry())
-
 ## Migration Notes
 
-Replace script executions with "make test-all" (backwards compatibility for
+Replace script executions with "make test-full" (backwards compatibility for
 environment variables is implemented).
 
 The binary is compiled automatically via the make target.

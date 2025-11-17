@@ -38,7 +38,7 @@ const (
 	// DefaultBin is the default binary to run, relative to this test file.
 	// This is the binary built by default when running 'make'.
 	// This can be customized with FUNC_E2E_BIN.
-	// NOte this is always relative to this test file.
+	// Note this is always relative to this test file.
 	DefaultBin = "../func"
 
 	// DefaultClean indicates whether or not tests should clean up after
@@ -206,11 +206,17 @@ var (
 func init() {
 	fmt.Fprintln(os.Stderr, "Initializing E2E Tests")
 	fmt.Fprintln(os.Stderr, "----------------------")
-	// Useful for CI debugging:
-	// fmt.Fprintln(os.Stderr, "--  Initial Environment: ")
-	// for _, env := range os.Environ() {
-	// 	fmt.Println(env)
-	// }
+
+	// Dump full environment when CI_DEBUGGING is set
+	// (useful primarily when debugging a CI environment)
+	if os.Getenv("CI_DEBUGGING") != "" {
+		fmt.Fprintln(os.Stderr, "--  Initial Environment: ")
+		for _, env := range os.Environ() {
+			fmt.Fprintln(os.Stderr, "  ", env)
+		}
+		fmt.Fprintln(os.Stderr, "---------------------")
+	}
+
 	fmt.Fprintln(os.Stderr, "--  Preserved Environment: ")
 	fmt.Fprintf(os.Stderr, "  HOME=%v\n", os.Getenv("HOME"))
 	fmt.Fprintf(os.Stderr, "  PATH=%v\n", os.Getenv("PATH"))
@@ -275,10 +281,8 @@ func init() {
 	// Version
 	fmt.Fprintln(os.Stderr, "---------------------")
 	fmt.Fprintln(os.Stderr, "Func Version:")
-	printVersion()
-
+	printVersion() // TODO: `version` outputs a superfluous linebreak
 	fmt.Fprintln(os.Stderr, "--- init complete ---")
-	fmt.Fprintln(os.Stderr, "") // TODO: there is a superfluous linebreak from "func version".  This balances the whitespace.
 }
 
 // readEnvs and apply defaults, populating the named global variables with
@@ -595,6 +599,9 @@ func TestCore_Describe(t *testing.T) {
 	}
 }
 
+func asFunction(t *testing.T, out bytes.Buffer) fn.Instance {
+}
+
 // TestCore_Invoke ensures that the invoke helper functions for both
 // local and remote function instances.
 //
@@ -631,21 +638,26 @@ func TestCore_Invoke(t *testing.T) {
 	// TODO: complete implementation of `func run --json` structured output
 	// such that we can parse it for the actual listen address in the case
 	// that there is already something else running on 8080
+	// https://github.com/knative/func/issues/3198
+	// https://github.com/knative/func/issues/3199
 	if !waitForEcho(t, "http://"+address) {
 		t.Fatalf("service does not appear to have started correctly.")
 	}
 
 	// Check invoke
-	cmd = newCmd(t, "invoke", "--data=func-e2e-test-core-invoke-local")
-	out := bytes.Buffer{}
-	cmd.Stdout = &out
-	if err := cmd.Run(); err != nil {
-		t.Fatal(err)
+	checkInvoke := func(data string) {
+		cmd = newCmd(t, "invoke", "--data="+data)
+		out := bytes.Buffer{}
+		cmd.Stdout = &out
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), data) {
+			t.Logf("out: %v", out.String())
+			t.Fatal("function invocation did not echo data")
+		}
 	}
-	if !strings.Contains(out.String(), "func-e2e-test-core-invoke-local") {
-		t.Logf("out: %v", out.String())
-		t.Fatal("function invocation did not echo data provided")
-	}
+	checkInvoke("func-e2e-test-core-invoke-local")
 
 	// Test remote invocation
 	// ----------------------------------------
@@ -657,19 +669,11 @@ func TestCore_Invoke(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitForEcho(t, fmt.Sprintf("http://func-e2e-test-core-invoke.%s.localtest.me", Namespace)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%s.%s.%s", name, Namespace, Domain)) {
 		t.Fatalf("function did not deploy correctly")
 	}
-	cmd = newCmd(t, "invoke", "--data=func-e2e-test-core-invoke-remote")
-	out = bytes.Buffer{}
-	cmd.Stdout = &out
-	if err := cmd.Run(); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), "func-e2e-test-core-invoke-remote") {
-		t.Logf("out: %v", out.String())
-		t.Fatal("function invocation did not echo data provided")
-	}
+
+	checkInvoke("func-e2e-test-core-invoke-remote")
 }
 
 // TestCore_Delete ensures that a function registered as deleted when deleted.
@@ -841,9 +845,6 @@ func TestMetadata_Envs_Add(t *testing.T) {
 	if !waitForContent(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace), "OK") {
 		t.Fatalf("handler failed")
 	}
-
-	// Set a test Environment Variable
-	// Add
 }
 
 // TestMetadata_Envs_Remove ensures that environment variables can be removed.
@@ -973,8 +974,7 @@ func TestMetadata_Labels_Add(t *testing.T) {
 		t.Fatalf("function did not deploy correctly")
 	}
 
-	// Use the output from "func describe" (json output) to verify the
-	// function contains the both the test labels as expected.
+	// structured output of description should have expected labels
 	cmd := newCmd(t, "describe", name, "--output=json", "--namespace", Namespace)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -1076,7 +1076,7 @@ func TestMetadata_Labels_Remove(t *testing.T) {
 	}
 }
 
-// TestMetadta_Volumes ensures that adding volumes of various types are
+// TestMetadata_Volumes ensures that adding volumes of various types are
 // made available to the running function, and can be removed.
 //
 // func config volumes add
@@ -1268,7 +1268,8 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	// Create a function which emits an event with as much defaults as possible
 	// Create a function which subscribes to those events
 	// Succeed the test as soon as it receives the event
-	t.Skip("Subscritions E2E tests not yet implemented")
+	// https://github.com/knative/func/issues/3202
+	t.Skip("Subscription E2E tests not yet implemented")
 }
 
 // ---------------------------------------------------------------------------
@@ -1278,8 +1279,8 @@ func TestMetadata_Subscriptions(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestRemote_Deploy ensures that the default action of running a remote
-// build succeeds:  uploading local souce code to the cluster for build and
-// delpoy in-cluster.
+// build succeeds:  uploading local source code to the cluster for build and
+// deploy in-cluster.
 //
 //	func deploy --remote
 func TestRemote_Deploy(t *testing.T) {
@@ -1353,6 +1354,7 @@ func TestRemote_Ref(t *testing.T) {
 	// source to determine function metadata (name, runtime, etc).
 	// TODO: Remove this checkout once the implementation supports fetching
 	// function metadata from the remote repository.
+	// https://github.com/knative/func/issues/3203
 	cmd = exec.Command("git", "checkout", name)
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
@@ -1400,6 +1402,7 @@ func TestRemote_Dir(t *testing.T) {
 	// determine function metadata (name, runtime, etc).
 	// TODO: Remove this cd once the implementation supports fetching function metadata
 	// from the remote repository subdirectory.
+	// https://github.com/knative/func/issues/3203
 	if err := os.Chdir(name); err != nil {
 		t.Fatalf("failed to change to subdirectory %s: %v", name, err)
 	}
@@ -1427,17 +1430,11 @@ func TestRemote_Dir(t *testing.T) {
 // TestPodman_Pack ensures that the Podman container engine can be used to
 // deploy functions built with Pack.
 func TestPodman_Pack(t *testing.T) {
+	skipUnlessPodmanEnabled(t) // naming suggestions welcome
 	name := "func-e2e-test-podman-pack"
 	_ = fromCleanEnv(t, name)
 	if err := setupPodman(t); err != nil {
 		t.Fatal(err)
-	}
-
-	if !Podman {
-		t.Skip("Podman tests not enabled. Enable with FUNC_E2E_PODMAN=true and set FUNC_E2E_PODMAN_HOST to the Podman socket")
-	}
-	if PodmanHost == "" {
-		t.Skip("FUNC_E2E_PODMAN_HOST must be set to the Podman socket path")
 	}
 
 	// Create a Function
@@ -1462,17 +1459,11 @@ func TestPodman_Pack(t *testing.T) {
 // TestPodman_S2I ensures that the Podman container engine can be used to
 // deploy functions built with S2I.
 func TestPodman_S2I(t *testing.T) {
+	skipUnlessPodmanEnabled(t) // naming suggestions welcome
 	name := "func-e2e-test-podman-s2i"
 	_ = fromCleanEnv(t, name)
 	if err := setupPodman(t); err != nil {
 		t.Fatal(err)
-	}
-
-	if !Podman {
-		t.Skip("Podman tests not enabled. Enable with FUNC_E2E_TEST_PODMAN=true and set FUNC_E2E_PODMAN_HOST to the Podman socket")
-	}
-	if PodmanHost == "" {
-		t.Skip("FUNC_E2E_PODMAN_HOST must be set to the Podman socket path")
 	}
 
 	// Create a Function
@@ -1511,207 +1502,176 @@ func TestPodman_S2I(t *testing.T) {
 //	 1.  Run locally on the host (func run)
 //	 3.  Deploy and receive the default response (an echo)
 //	 4.  Remote build and run via an in-cluster build
-// -----------------
+// ---------------------------------------------------------------------------
 
 // TestMatrix_Run ensures that supported runtimes and builders can run both
 // builtin templates locally.
 func TestMatrix_Run(t *testing.T) {
-	if !Matrix {
-		t.Skip("Matrix tests not enabled. Enable with FUNC_E2E_MATRIX=true")
-	}
-	for _, runtime := range MatrixRuntimes {
-		for _, builder := range MatrixBuilders {
-			for _, template := range MatrixTemplates {
-				name := fmt.Sprintf("func-e2e-matrix-%s-%s-%s-run", runtime, builder, template)
-				// Test Running Locally
-				// --------------------
-				t.Run(name, func(t *testing.T) {
-					doMatrixRun(t, name, runtime, builder, template)
-				})
-			}
+	forEachPermutation("run", func(t *testing.T, name, runtime, builder, template string) {
+		t.Helper()
+		_ = fromCleanEnv(t, name)
+
+		// Clean up container images and volumes when done
+		t.Cleanup(func() {
+			cleanImages(t, name)
+		})
+
+		// Choose an address ahead of time
+		address, err := chooseOpenAddress(t)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-}
 
-// doMatrixRun implements a specific permutation of the local run matrix test.
-func doMatrixRun(t *testing.T, name, runtime, builder, template string) {
-	t.Helper()
-	_ = fromCleanEnv(t, name)
+		// func init
+		init := []string{"init", "-l", runtime, "-t", template}
 
-	// Clean up container images and volumes when done
-	t.Cleanup(func() {
-		cleanImages(t, name)
+		// func run
+		run := []string{"run", "--builder", builder, "--address", address}
+
+		// Language and architecture special treatment
+		// - Skips tests if the builder is not supported
+		// - Skips tests for the pack builder if on ARM
+		// - adds arguments as necessary
+		init, timeout := matrixExceptionsLocal(t, init, runtime, builder, template)
+
+		// Initialize
+		// ----------
+		if err := newCmd(t, init...).Run(); err != nil {
+			t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
+		}
+
+		// Run
+		// ---
+		cmd := newCmd(t, run...)
+		if err := cmd.Start(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Wait for the function to be ready, using the appropriate method based
+		// on template
+		httpAddress := "http://" + address
+		var ready bool
+		if template == "cloudevents" {
+			ready = waitForCloudevent(t, httpAddress, withWaitTimeout(timeout))
+		} else { // default is http:
+			ready = waitForEcho(t, httpAddress, withWaitTimeout(timeout))
+		}
+
+		if !ready {
+			t.Fatalf("service does not appear to have started correctly.")
+		}
+
+		// ^C the running function
+		if err := cmd.Process.Signal(os.Interrupt); err != nil {
+			fmt.Fprintf(os.Stderr, "error interrupting. %v", err)
+		}
+
+		// Wait for exit and error if anything other than 130 (^C/interrupt)
+		if err := cmd.Wait(); isAbnormalExit(t, err) {
+			t.Fatalf("function exited abnormally %v", err)
+		}
 	})
-
-	// Choose an address ahead of time
-	address, err := chooseOpenAddress(t)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// func init
-	init := []string{"init", "-l", runtime, "-t", template}
-
-	// func run
-	run := []string{"run", "--builder", builder, "--address", address}
-
-	// Language and architecture special treatment
-	// - Skips tests if the builder is not supported
-	// - Skips tests for the pack builder if on ARM
-	// - adds arguments as necessary
-	init, timeout := matrixExceptionsLocal(t, init, runtime, builder, template)
-
-	// Initialize
-	// ----------
-	if err := newCmd(t, init...).Run(); err != nil {
-		t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
-	}
-
-	// Run
-	// ---
-	cmd := newCmd(t, run...)
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Wait for the function to be ready, using the appropriate method based
-	// on template
-	httpAddress := "http://" + address
-	var ready bool
-	if template == "cloudevents" {
-		ready = waitForCloudevent(t, httpAddress, withWaitTimeout(timeout))
-	} else { // default is http:
-		ready = waitForEcho(t, httpAddress, withWaitTimeout(timeout))
-	}
-
-	if !ready {
-		t.Fatalf("service does not appear to have started correctly.")
-	}
-
-	// ^C the running function
-	if err := cmd.Process.Signal(os.Interrupt); err != nil {
-		fmt.Fprintf(os.Stderr, "error interrupting. %v", err)
-	}
-
-	// Wait for exit and error if anything other than 130 (^C/interrupt)
-	if err := cmd.Wait(); isAbnormalExit(t, err) {
-		t.Fatalf("function exited abnormally %v", err)
-	}
 }
 
 // TestMatrix_Deploy ensures that supported runtimes and builders can deploy
 // builtin templates successfully.
 func TestMatrix_Deploy(t *testing.T) {
-	if !Matrix {
-		t.Skip("Matrix tests not enabled. Enable with FUNC_E2E_MATRIX=true")
-	}
-	for _, runtime := range MatrixRuntimes {
-		for _, builder := range MatrixBuilders {
-			for _, template := range MatrixTemplates {
-				name := fmt.Sprintf("func-e2e-matrix-%s-%s-%s-deploy", runtime, builder, template)
-				t.Run(name, func(t *testing.T) {
-					doMatrixDeploy(t, name, runtime, builder, template)
-				})
-			}
+	forEachPermutation("deploy", func(t *testing.T, name, runtime, builder, template string) {
+		t.Helper()
+		_ = fromCleanEnv(t, name)
+
+		// Register cleanup functions (runs in LIFO order - image cleanup will run after cluster cleanup)
+		t.Cleanup(func() {
+			cleanImages(t, name)
+		})
+		t.Cleanup(func() {
+			clean(t, name, Namespace)
+		})
+
+		// Initialize
+		initArgs := []string{"init", "-l", runtime, "-t", template}
+		initArgs, timeout := matrixExceptionsLocal(t, initArgs, runtime, builder, template)
+		if err := newCmd(t, initArgs...).Run(); err != nil {
+			t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
 		}
-	}
-}
 
-// doMatrixDeploy implements a specific permutation of the deploy matrix tests.
-func doMatrixDeploy(t *testing.T, name, runtime, builder, template string) {
-	t.Helper()
-	_ = fromCleanEnv(t, name)
+		// Deploy
+		deployArgs := []string{"deploy", "--builder", builder}
+		if err := newCmd(t, deployArgs...).Run(); err != nil {
+			t.Fatal(err)
+		}
 
-	// Register cleanup functions (runs in LIFO order - image cleanup will run after cluster cleanup)
-	t.Cleanup(func() {
-		cleanImages(t, name)
+		// Wait for the function to be ready, using the appropriate method based
+		// on template
+		httpAddress := fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)
+		var ready bool
+		if template == "cloudevents" {
+			ready = waitForCloudevent(t, httpAddress, withWaitTimeout(timeout))
+		} else {
+			ready = waitForEcho(t, httpAddress, withWaitTimeout(timeout))
+		}
+
+		if !ready {
+			t.Fatalf("function did not deploy correctly")
+		}
 	})
-	t.Cleanup(func() {
-		clean(t, name, Namespace)
-	})
-
-	// Initialize
-	initArgs := []string{"init", "-l", runtime, "-t", template}
-	initArgs, timeout := matrixExceptionsLocal(t, initArgs, runtime, builder, template)
-	if err := newCmd(t, initArgs...).Run(); err != nil {
-		t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
-	}
-
-	// Deploy
-	deployArgs := []string{"deploy", "--builder", builder}
-	if err := newCmd(t, deployArgs...).Run(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Wait for the function to be ready, using the appropriate method based
-	// on template
-	httpAddress := fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)
-	var ready bool
-	if template == "cloudevents" {
-		ready = waitForCloudevent(t, httpAddress, withWaitTimeout(timeout))
-	} else {
-		ready = waitForEcho(t, httpAddress, withWaitTimeout(timeout))
-	}
-
-	if !ready {
-		t.Fatalf("function did not deploy correctly")
-	}
 }
 
 // TestMatrix_Remote ensures that supported runtimes and builders can deploy
 // builtin templates remotely.
 func TestMatrix_Remote(t *testing.T) {
+	forEachPermutation("remote", func(t *testing.T, name, runtime, builder, template string) {
+		t.Helper()
+		_ = fromCleanEnv(t, name)
+
+		// Register cleanup functions (runs in LIFO order - image cleanup will run after cluster cleanup)
+		t.Cleanup(func() {
+			cleanImages(t, name)
+		})
+		t.Cleanup(func() {
+			clean(t, name, Namespace)
+		})
+
+		// Initialize
+		initArgs := []string{"init", "-l", runtime, "-t", template}
+		initArgs, timeout := matrixExceptionsRemote(t, initArgs, runtime, builder, template)
+		if err := newCmd(t, initArgs...).Run(); err != nil {
+			t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
+		}
+
+		// Deploy
+		if err := newCmd(t, "deploy", "--builder", builder, "--remote", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Wait for the function to be ready, using the appropriate method based on template
+		functionURL := fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)
+		var ready bool
+		if template == "cloudevents" {
+			ready = waitForCloudevent(t, functionURL, withWaitTimeout(timeout))
+		} else {
+			ready = waitForEcho(t, functionURL, withWaitTimeout(timeout))
+		}
+
+		if !ready {
+			t.Fatalf("function did not deploy correctly")
+		}
+	})
+}
+
+// forEachPermutation of runtime, builder, and template, run the given test.
+func forEachPermutation(group string, do func(t *testing.T, name, runtime, builder, template string)) {
+	t.Helper()
 	if !Matrix {
 		t.Skip("Matrix tests not enabled. Enable with FUNC_E2E_MATRIX=true")
 	}
 	for _, runtime := range MatrixRuntimes {
 		for _, builder := range MatrixBuilders {
 			for _, template := range MatrixTemplates {
-				name := fmt.Sprintf("func-e2e-matrix-%s-%s-%s-remote", runtime, builder, template)
-				t.Run(name, func(t *testing.T) {
-					doMatrixRemote(t, name, runtime, builder, template)
-				})
+				name := fmt.Sprintf("func-e2e-matrix-%s-%s-%s-%s", group, runtime, builder, template)
+				t.Run(name, do)
 			}
 		}
-	}
-}
-
-// doMatrixRemote implements a specific permutation of the remote deploy matrix tests.
-func doMatrixRemote(t *testing.T, name, runtime, builder, template string) {
-	t.Helper()
-	_ = fromCleanEnv(t, name)
-
-	// Register cleanup functions (runs in LIFO order - image cleanup will run after cluster cleanup)
-	t.Cleanup(func() {
-		cleanImages(t, name)
-	})
-	t.Cleanup(func() {
-		clean(t, name, Namespace)
-	})
-
-	// Initialize
-	initArgs := []string{"init", "-l", runtime, "-t", template}
-	initArgs, timeout := matrixExceptionsRemote(t, initArgs, runtime, builder, template)
-	if err := newCmd(t, initArgs...).Run(); err != nil {
-		t.Fatalf("Failed to create %s function with %s template: %v", runtime, template, err)
-	}
-
-	// Deploy
-	if err := newCmd(t, "deploy", "--builder", builder, "--remote", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Wait for the function to be ready, using the appropriate method based on template
-	functionURL := fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)
-	var ready bool
-	if template == "cloudevents" {
-		ready = waitForCloudevent(t, functionURL, withWaitTimeout(timeout))
-	} else {
-		ready = waitForEcho(t, functionURL, withWaitTimeout(timeout))
-	}
-
-	if !ready {
-		t.Fatalf("function did not deploy correctly")
 	}
 }
 
@@ -2615,4 +2575,13 @@ func chooseOpenAddress(t *testing.T) (address string, err error) {
 	}
 	defer l.Close()
 	return l.Addr().String(), nil
+}
+
+func skipUnlessPodmanEnabled(t *testing.T) {
+	if !Podman {
+		t.Skip("Podman tests not enabled. Enable with FUNC_E2E_PODMAN=true and set FUNC_E2E_PODMAN_HOST to the Podman socket")
+	}
+	if PodmanHost == "" {
+		t.Skip("FUNC_E2E_PODMAN_HOST must be set to the Podman socket path")
+	}
 }

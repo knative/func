@@ -46,11 +46,14 @@ CLAUDE.md
 .DS_Store
 
 # TODO: Update this test to be from a temp directory with a hard-coded impl:
+# https://github.com/knative/func/issues/3196
 /pkg/builders/testdata/go-fn-with-private-deps/.s2i
 
 # TODO: Run this test from a temp directory instead:
+# https://github.com/knative/func/issues/3197
 pkg/oci/testdata/test-links/absoluteLink
 pkg/oci/testdata/test-links/absoluteLinkWindows
 
 # TODO: update the test which creates this to run in a temp directory:
+# https://github.com/knative/func/issues/3158
 /pkg/creds/auth.json
