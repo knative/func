@@ -9,7 +9,14 @@ import (
 
 func TestGithubWorkflow_PersistAndLoad(t *testing.T) {
 	// GIVEN
-	gw := ci.NewGithubWorkflow("gw-test", "KUBECONFIG", false)
+	gw := ci.NewGithubWorkflow(
+		"gw-test",
+		"KUBECONFIG",
+		"REGISTRY_URL",
+		"REGISTRY_USERNAME",
+		"REGISTRY_PASSWORD",
+		false,
+		false)
 	tempDir := t.TempDir()
 	targetPath := tempDir + "/" + gw.Name + ".yaml"
 
