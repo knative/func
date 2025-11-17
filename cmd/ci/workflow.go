@@ -36,19 +36,76 @@ type Step struct {
 	Name string            `yaml:"name,omitempty"`
 	Uses string            `yaml:"uses,omitempty"`
 	Run  string            `yaml:"run,omitempty"`
-	If   string            `yaml:"if,omitempty"`
 	With map[string]string `yaml:"with,omitempty"`
+}
+
+func newStep(name string) *Step {
+	return &Step{Name: name}
+}
+
+func (s *Step) withUses(u string) *Step {
+	s.Uses = u
+	return s
+}
+
+func (s *Step) withRun(r string) *Step {
+	s.Run = r
+	return s
+}
+
+func (s *Step) withActionConfig(key, value string) *Step {
+	if s.With == nil {
+		s.With = make(map[string]string)
+	}
+
+	s.With[key] = value
+
+	return s
 }
 
 func NewGithubWorkflow(
 	name,
-	kubeconfigSecretKey string,
+	kubeconfigSecretKey,
+	registryUrlSecretKey,
+	registryUserSecretKey,
+	registryPassSecretKey string,
+	useRegistryLogin,
 	selfHosted bool,
 ) *GithubWorkflow {
 	runsOn := "ubuntu-latest"
 	if selfHosted {
 		runsOn = "self-hosted"
 	}
+
+	var steps []Step
+	checkoutCode := newStep("Checkout code").
+		withUses("actions/checkout@v4")
+	steps = append(steps, *checkoutCode)
+
+	setupK8Context := newStep("Setup Kubernetes context").
+		withUses("azure/k8s-set-context@v4").
+		withActionConfig("method", "kubeconfig").
+		withActionConfig("kubeconfig", newSecret(kubeconfigSecretKey))
+	steps = append(steps, *setupK8Context)
+
+	if useRegistryLogin {
+		loginToContainerRegistry := newStep("Login to container registry").
+			withUses("docker/login-action@v3").
+			withActionConfig("registry", newSecret(registryUrlSecretKey)).
+			withActionConfig("username", newSecret(registryUserSecretKey)).
+			withActionConfig("password", newSecret(registryPassSecretKey))
+		steps = append(steps, *loginToContainerRegistry)
+	}
+
+	installFuncCli := newStep("Install func cli").
+		withUses("gauron99/knative-func-action@main").
+		withActionConfig("version", "knative-v1.19.1").
+		withActionConfig("name", "func")
+	steps = append(steps, *installFuncCli)
+
+	deployFunc := newStep("Deploy function").
+		withRun("func deploy --remote --registry=" + newSecret(registryUrlSecretKey) + " -v")
+	steps = append(steps, *deployFunc)
 
 	return &GithubWorkflow{
 		Name: name,
@@ -58,42 +115,7 @@ func NewGithubWorkflow(
 		Jobs: map[string]Job{
 			"deploy": {
 				RunsOn: runsOn,
-				Steps: []Step{
-					{
-						Name: "1. Checkout code",
-						Uses: "actions/checkout@v4",
-					},
-					{
-						Name: "2. Setup Kubernetes context",
-						Uses: "azure/k8s-set-context@v4",
-						With: map[string]string{
-							"method":     "kubeconfig",
-							"kubeconfig": NewSecret(kubeconfigSecretKey),
-						},
-					},
-					{
-						Name: "3. Login to container registry",
-						If:   "${{ vars.USE_REGISTRY_AUTH == 'true' }}",
-						Uses: "docker/login-action@v3",
-						With: map[string]string{
-							"registry": "${{ secrets.REGISTRY_URL }}",
-							"username": "${{ secrets.REGISTRY_USERNAME }}",
-							"password": "${{ secrets.REGISTRY_PASSWORD }}",
-						},
-					},
-					{
-						Name: "4. Install func cli",
-						Uses: "gauron99/knative-func-action@main",
-						With: map[string]string{
-							"version": "knative-v1.19.1",
-							"name":    "func",
-						},
-					},
-					{
-						Name: "5. Deploy function",
-						Run:  "func deploy --remote --registry=${{ secrets.REGISTRY_URL }} -v",
-					},
-				},
+				Steps:  steps,
 			},
 		},
 	}
@@ -130,6 +152,15 @@ func (gw *GithubWorkflow) Persist(path string) error {
 	return nil
 }
 
-func NewSecret(key string) string {
+func (gw *GithubWorkflow) YamlString() (string, error) {
+	raw, err := yaml.Marshal(gw)
+	if err != nil {
+		return "", err
+	}
+
+	return string(raw), nil
+}
+
+func newSecret(key string) string {
 	return fmt.Sprintf("${{ secrets.%s }}", key)
 }

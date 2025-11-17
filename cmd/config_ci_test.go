@@ -2,9 +2,11 @@ package cmd_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/assert/cmp"
 	fnCmd "knative.dev/func/cmd"
 	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
@@ -67,21 +69,20 @@ func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
 	// THEN
 	assert.NilError(t, result.executeErr)
 	assertWorkflowFileExists(t, result)
-	assert.NilError(t, result.gwLoadError)
-	assertWorkflowFileContent(t, result.gw)
+	assert.NilError(t, result.gwLoadErr)
+	assertWorkflowFileContent(t, result.gwYamlString)
 }
 
 func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	// GIVEN
-	name := "Dev Cluster Remote Build and Deploy"
-	key := "DEV_CLUSTER_KUBECONFIG"
-	ciConfig := ci.NewCIConfig(
-		".github/workflows",
-		"remote-build-and-deploy.yaml",
-		name,
-		key,
-		true,
-	)
+	ciConfig := ci.NewCIConfigBuilder().
+		WithWorkflowName("remote-build-and-deploy.yaml").
+		WithKubeconfigKey("DEV_CLUSTER_KUBECONFIG").
+		WithRegistryUrlKey("DEV_REGISTRY_URL").
+		WithRegistryUserKey("DEV_REGISTRY_USER").
+		WithRegistryPassKey("DEV_REGISTRY_PASS").
+		WithSelfHosted(true).
+		Build()
 	options := opts{
 		withFuncInTempDir: true,
 		ciConfig:          &ciConfig,
@@ -93,9 +94,31 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	// THEN
 	assert.NilError(t, result.executeErr)
 	assertWorkflowFileExists(t, result)
-	assert.Equal(t, result.gw.Name, name)
-	assert.Equal(t, result.gw.Jobs["deploy"].RunsOn, "self-hosted")
-	assert.Equal(t, result.gw.Jobs["deploy"].Steps[1].With["kubeconfig"], ci.NewSecret(key))
+	assert.Assert(t, cmp.Contains(result.gwYamlString, ciConfig.WorkflowName()))
+	assert.Assert(t, cmp.Contains(result.gwYamlString, "self-hosted"))
+	assert.Assert(t, cmp.Contains(result.gwYamlString, ciConfig.KubeconfigSecretKey()))
+	assert.Assert(t, cmp.Contains(result.gwYamlString, ciConfig.RegistryUrlSecretKey()))
+	assert.Assert(t, cmp.Contains(result.gwYamlString, ciConfig.RegistryUserSecretKey()))
+	assert.Assert(t, cmp.Contains(result.gwYamlString, ciConfig.RegistryPassSecretKey()))
+}
+
+func TestNewConfigCICmd_WorkflowUsesInsecureRegistry(t *testing.T) {
+	// GIVEN
+	ciConfig := ci.NewCIConfigBuilder().
+		WithRegistryLogin(false).
+		Build()
+	options := opts{
+		withFuncInTempDir: true,
+		ciConfig:          &ciConfig,
+	}
+
+	// WHEN
+	result := runConfigCiGithubCmd(t, options)
+
+	// THEN
+	assert.NilError(t, result.executeErr)
+	assertWorkflowFileExists(t, result)
+	assert.Assert(t, !strings.Contains(result.gwYamlString, "docker/login-action@v3"))
 }
 
 // START: Testing Framework
@@ -107,11 +130,12 @@ type opts struct {
 }
 
 type result struct {
-	f           fn.Function
-	ciConfig    ci.CIConfig
-	executeErr  error
-	gw          *ci.GithubWorkflow
-	gwLoadError error
+	f            fn.Function
+	ciConfig     ci.CIConfig
+	executeErr   error
+	gwLoadErr    error
+	gwYamlString string
+	gwYamlMarshalErr error
 }
 
 func runConfigCiGithubCmd(
@@ -133,7 +157,7 @@ func runConfigCiGithubCmd(
 	}
 
 	if opts.ciConfig == nil {
-		ciConf := ci.NewDefaultCIConfig()
+		ciConf := ci.NewCIConfigBuilder().Build()
 		opts.ciConfig = &ciConf
 	}
 	cmd := fnCmd.NewConfigCmd(
@@ -149,13 +173,15 @@ func runConfigCiGithubCmd(
 	// POST-RUN GATHER
 	gwPath := opts.ciConfig.FnGithubWorkflowFilepath(f.Root)
 	gw, gwLoadErr := ci.NewGithubWorkflowFromPath(gwPath)
+	gwYamlString, gwYamlMarshalErr := gw.YamlString()
 
 	return result{
 		f,
 		*opts.ciConfig,
 		err,
-		gw,
 		gwLoadErr,
+		gwYamlString,
+		gwYamlMarshalErr,
 	}
 }
 
@@ -177,40 +203,35 @@ func assertWorkflowFileExists(t *testing.T, result result) {
 //   - username: ${{ secrets.REGISTRY_USERNAME }}
 //   - password: ${{ secrets.REGISTRY_PASSWORD }}
 //   - run: func deploy --remote --registry=${{ secrets.REGISTRY_URL }} -v
-func assertWorkflowFileContent(t *testing.T, actualGw *ci.GithubWorkflow) {
+func assertWorkflowFileContent(t *testing.T, actualGw string) {
 	t.Helper()
 
-	assert.Equal(t, actualGw.Name, "Remote Build and Deploy")
-	assert.Equal(t, actualGw.On.Push.Branches[0], "main")
+	assert.Assert(t, cmp.Contains(actualGw, "Remote Build and Deploy"))
+	assert.Assert(t, cmp.Contains(actualGw, "main"))
 
-	deployJob := actualGw.Jobs["deploy"]
-	assert.Equal(t, deployJob.RunsOn, "ubuntu-latest")
+	assert.Assert(t, cmp.Contains(actualGw, "ubuntu-latest"))
 
-	deployJobStep1 := deployJob.Steps[0]
-	assert.Equal(t, deployJobStep1.Name, "1. Checkout code")
-	assert.Equal(t, deployJobStep1.Uses, "actions/checkout@v4")
+	assert.Assert(t, strings.Count(actualGw, "- name:") == 5)
 
-	deployJobStep2 := deployJob.Steps[1]
-	assert.Equal(t, deployJobStep2.Name, "2. Setup Kubernetes context")
-	assert.Equal(t, deployJobStep2.Uses, "azure/k8s-set-context@v4")
-	assert.Equal(t, deployJobStep2.With["method"], "kubeconfig")
-	assert.Equal(t, deployJobStep2.With["kubeconfig"], "${{ secrets.KUBECONFIG }}")
+	assert.Assert(t, cmp.Contains(actualGw, "Checkout code"))
+	assert.Assert(t, cmp.Contains(actualGw, "actions/checkout@v4"))
 
-	deployJobStep3 := deployJob.Steps[2]
-	assert.Equal(t, deployJobStep3.Name, "3. Login to container registry")
-	assert.Equal(t, deployJobStep3.If, "${{ vars.USE_REGISTRY_AUTH == 'true' }}")
-	assert.Equal(t, deployJobStep3.Uses, "docker/login-action@v3")
-	assert.Equal(t, deployJobStep3.With["registry"], "${{ secrets.REGISTRY_URL }}")
-	assert.Equal(t, deployJobStep3.With["username"], "${{ secrets.REGISTRY_USERNAME }}")
-	assert.Equal(t, deployJobStep3.With["password"], "${{ secrets.REGISTRY_PASSWORD }}")
+	assert.Assert(t, cmp.Contains(actualGw, "Setup Kubernetes context"))
+	assert.Assert(t, cmp.Contains(actualGw, "azure/k8s-set-context@v4"))
+	assert.Assert(t, cmp.Contains(actualGw, "method: kubeconfig"))
+	assert.Assert(t, cmp.Contains(actualGw, "kubeconfig: ${{ secrets.KUBECONFIG }}"))
 
-	deployJobStep4 := deployJob.Steps[3]
-	assert.Equal(t, deployJobStep4.Name, "4. Install func cli")
-	assert.Equal(t, deployJobStep4.Uses, "gauron99/knative-func-action@main")
-	assert.Equal(t, deployJobStep4.With["version"], "knative-v1.19.1")
-	assert.Equal(t, deployJobStep4.With["name"], "func")
+	assert.Assert(t, cmp.Contains(actualGw, "Login to container registry"))
+	assert.Assert(t, cmp.Contains(actualGw, "docker/login-action@v3"))
+	assert.Assert(t, cmp.Contains(actualGw, "registry: ${{ secrets.REGISTRY_URL }}"))
+	assert.Assert(t, cmp.Contains(actualGw, "username: ${{ secrets.REGISTRY_USERNAME }}"))
+	assert.Assert(t, cmp.Contains(actualGw, "password: ${{ secrets.REGISTRY_PASSWORD }}"))
 
-	deployJobStep5 := deployJob.Steps[4]
-	assert.Equal(t, deployJobStep5.Name, "5. Deploy function")
-	assert.Equal(t, deployJobStep5.Run, "func deploy --remote --registry=${{ secrets.REGISTRY_URL }} -v")
+	assert.Assert(t, cmp.Contains(actualGw, "Install func cli"))
+	assert.Assert(t, cmp.Contains(actualGw, "gauron99/knative-func-action@main"))
+	assert.Assert(t, cmp.Contains(actualGw, "version: knative-v1.19.1"))
+	assert.Assert(t, cmp.Contains(actualGw, "name: func"))
+
+	assert.Assert(t, cmp.Contains(actualGw, "Deploy function"))
+	assert.Assert(t, cmp.Contains(actualGw, "func deploy --remote --registry=${{ secrets.REGISTRY_URL }} -v"))
 }
