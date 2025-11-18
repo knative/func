@@ -384,13 +384,22 @@ func TestCore_Init(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Assert
+	// Assert we got an initialized Function (language, name, root and spec)
 	f, err := fn.NewFunction(root)
 	if err != nil {
 		t.Fatalf("expected an initialized function, but when reading it, got error. %v", err)
 	}
 	if f.Runtime != "go" {
 		t.Fatalf("expected initialized function with runtime 'go' got '%v'", f.Runtime)
+	}
+	if f.Name != name {
+		t.Fatalf("expected initialized function with name '%v' got '%v'", name, f.Name)
+	}
+	if f.Root != root {
+		t.Fatalf("expected initialized function with root '%v' got '%v'", root, f.Root)
+	}
+	if f.SpecVersion == "" {
+		t.Fatal("expected initialized function to have a spec version set")
 	}
 }
 
