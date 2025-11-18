@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/func/cmd"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/knative"
 
@@ -72,9 +71,9 @@ const (
 	// overridden using FUNC_E2E_KUBECONFIG.
 	DefaultKubeconfig = "../hack/bin/kubeconfig.yaml"
 
-	// DefaultNamespace for E2E tests is that used by default in the
-	// CLI being tested.
-	DefaultNamespace = cmd.DefaultNamespace
+	// DefaultNamespace for E2E tests. Defaults to "default" but can be
+	// overridden using FUNC_E2E_NAMESPACE environment variable.
+	DefaultNamespace = "default"
 
 	// DefaultRegistry to use when running the e2e tests.  This is the URL
 	// of the registry created by default when using the cluster.sh script
@@ -133,7 +132,6 @@ var (
 
 	// MatrixBuilders specifies builders to check during matrix tests.
 	// Can be set with FUNC_E2E_MATRIX_BUILDERS.
-	// MatrixBuilders = []string{"host", "s2i", "pack"}
 	MatrixBuilders = []string{"host", "s2i", "pack"}
 
 	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
@@ -141,8 +139,13 @@ var (
 	MatrixRuntimes = []string{"go", "python", "node", "typescript", "rust", "quarkus", "springboot"}
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
-	// MatrixTemplates = []string{"http", "cloudevents"}
 	MatrixTemplates = []string{"http", "cloudevents"}
+
+	// Namespace is the Kubernetes namespace where functions will be deployed
+	// during tests. Defaults to "default". When using a custom namespace,
+	// ensure DNS is configured for {function}.{namespace}.localtest.me patterns.
+	// Can be set with FUNC_E2E_NAMESPACE
+	Namespace string
 
 	// Plugin indicates func is being run as a plugin within Bin, and
 	// the value of this argument is the subcommand.  For example, when
@@ -158,7 +161,7 @@ var (
 
 	// Registry is the container registry to use by default for tests;
 	// defaulting to the local container registry set up by the allocation
-	// scripts running on localhost:5000.
+	// script running on localhost:5000.
 	// Can be set with FUNC_E2E_REGISTRY
 	Registry string
 
@@ -172,7 +175,7 @@ var (
 	Verbose bool
 
 	// Tools is the path to tools which the E2E tests should use with
-	// precidence.  It's a path, and is prepended to PATH.  By default this
+	// precedence.  It's a path, and is prepended to PATH.  By default this
 	// is ./hack/bin which contains commands installed via ./hack/binaries.sh
 	// (and should be of a known compatible version). Set with FUNC_E2E_TOOLS
 	Tools string
@@ -224,6 +227,7 @@ func init() {
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_MATRIX=%v\n", os.Getenv("FUNC_E2E_MATRIX"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_MATRIX_BUILDERS=%v\n", os.Getenv("FUNC_E2E_MATRIX_BUILDERS"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_MATRIX_RUNTIMES=%v\n", os.Getenv("FUNC_E2E_MATRIX_RUNTIMES"))
+	fmt.Fprintf(os.Stderr, "  FUNC_E2E_NAMESPACE=%v\n", os.Getenv("FUNC_E2E_NAMESPACE"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_PLUGIN=%v\n", os.Getenv("FUNC_E2E_PLUGIN"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_PODMAN_HOST=%v\n", os.Getenv("FUNC_E2E_PODMAN_HOST"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_REGISTRY=%v\n", os.Getenv("FUNC_E2E_REGISTRY"))
@@ -252,6 +256,7 @@ func init() {
 	fmt.Fprintf(os.Stderr, "  MatrixBuilders=%v\n", toCSV(MatrixBuilders))
 	fmt.Fprintf(os.Stderr, "  MatrixRuntimes=%v\n", toCSV(MatrixRuntimes))
 	fmt.Fprintf(os.Stderr, "  MatrixTemplates=%v\n", toCSV(MatrixTemplates))
+	fmt.Fprintf(os.Stderr, "  Namespace=%v\n", Namespace)
 	fmt.Fprintf(os.Stderr, "  Plugin=%v\n", Plugin)
 	fmt.Fprintf(os.Stderr, "  PodmanHost=%v\n", PodmanHost)
 	fmt.Fprintf(os.Stderr, "  Registry=%v\n", Registry)
@@ -313,6 +318,9 @@ func readEnvs() {
 
 	// Templates
 	MatrixTemplates = getEnvList("FUNC_E2E_MATRIX_TEMPLATES", "", toCSV(MatrixTemplates))
+
+	// Namespace - the Kubernetes namespace where functions will be deployed
+	Namespace = getEnv("FUNC_E2E_NAMESPACE", "", DefaultNamespace)
 
 	// Plugin - if set, func is a plugin and Bin is the one plugging. The value
 	// is the name of the subcommand.
@@ -434,10 +442,10 @@ func TestCore_Deploy_Basic(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
 
-	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)) {
 		t.Fatalf("function did not deploy correctly")
 	}
 }
@@ -461,12 +469,12 @@ func TestCore_Deploy_Template(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
 
 	// The default implementation responds with HTTP 200 and the string
 	// "testcore-deploy-template" for all requests.
-	if !waitForContent(t, fmt.Sprintf("http://%v.default.localtest.me", name), name) {
+	if !waitForContent(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace), name) {
 		t.Fatalf("function did not update correctly")
 	}
 }
@@ -488,9 +496,9 @@ func TestCore_Deploy_Source(t *testing.T) {
 	// 	t.Fatal(err)
 	// }
 	// defer func() {
-	// 	clean(t, name, DefaultNamespace)
+	// 	clean(t, name, Namespace)
 	// }()
-	// if !waitForContent(t, "http://func-e2e-test-deploy-source.default.localtest.me", "func-e2e-test-deploy-source") {
+	// if !waitForContent(t, fmt.Sprintf("http://func-e2e-test-deploy-source.%s.localtest.me", Namespace), "func-e2e-test-deploy-source") {
 	// 	t.Fatalf("function did not update correctly")
 	// }
 }
@@ -512,9 +520,9 @@ func TestCore_Update(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
-	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)) {
 		t.Fatalf("function did not deploy correctly")
 	}
 
@@ -534,7 +542,7 @@ func TestCore_Update(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitForContent(t, fmt.Sprintf("http://%v.default.localtest.me", name), "UPDATED") {
+	if !waitForContent(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace), "UPDATED") {
 		t.Fatalf("function did not update correctly")
 	}
 }
@@ -556,14 +564,14 @@ func TestCore_Describe(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
 
 	if err := cmd.Wait(); err != nil {
 		t.Fatalf("deploy error. %v", err)
 	}
 
-	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)) {
 		t.Fatalf("function did not deploy correctly")
 	}
 
@@ -647,9 +655,9 @@ func TestCore_Invoke(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
-	if !waitForEcho(t, "http://func-e2e-test-core-invoke.default.localtest.me") {
+	if !waitForEcho(t, fmt.Sprintf("http://func-e2e-test-core-invoke.%s.localtest.me", Namespace)) {
 		t.Fatalf("function did not deploy correctly")
 	}
 	cmd = newCmd(t, "invoke", "--data=func-e2e-test-core-invoke-remote")
@@ -681,20 +689,20 @@ func TestCore_Delete(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
-	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)) {
 		t.Fatalf("function did not deploy correctly")
 	}
 
 	// Check it appears in the list
 	client := fn.New(fn.WithLister(knative.NewLister(false)))
-	list, err := client.List(context.Background(), DefaultNamespace)
+	list, err := client.List(context.Background(), Namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !containsInstance(t, list, name, DefaultNamespace) {
+	if !containsInstance(t, list, name, Namespace) {
 		t.Logf("list: %v", list)
 		t.Fatal("Instance list did not contain the 'delete' test service")
 	}
@@ -704,13 +712,13 @@ func TestCore_Delete(t *testing.T) {
 		t.Logf("Error deleting function. %v", err)
 	}
 
-	list, err = client.List(context.Background(), DefaultNamespace)
+	list, err = client.List(context.Background(), Namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Check it no longer appears in the list
-	if containsInstance(t, list, name, DefaultNamespace) {
+	if containsInstance(t, list, name, Namespace) {
 		t.Logf("list: %v", list)
 		t.Fatalf("Instance %q is still shown as available", name)
 	}
@@ -754,7 +762,7 @@ func TestMetadata_Envs_Add(t *testing.T) {
 	}
 
 	// Set Env: from cluster secret (single)
-	setSecret(t, "test-secret-single", DefaultNamespace, map[string][]byte{
+	setSecret(t, "test-secret-single", Namespace, map[string][]byte{
 		"C": []byte("c"),
 	})
 	if err := newCmd(t, "config", "envs", "add",
@@ -763,7 +771,7 @@ func TestMetadata_Envs_Add(t *testing.T) {
 	}
 
 	// Set Env: from all the keys in a secret (multi)
-	setSecret(t, "test-secret-multi", DefaultNamespace, map[string][]byte{
+	setSecret(t, "test-secret-multi", Namespace, map[string][]byte{
 		"D": []byte("d"),
 		"E": []byte("e"),
 	})
@@ -773,7 +781,7 @@ func TestMetadata_Envs_Add(t *testing.T) {
 	}
 
 	// Set Env: from cluster config map (single)
-	setConfigMap(t, "test-config-map-single", DefaultNamespace, map[string]string{
+	setConfigMap(t, "test-config-map-single", Namespace, map[string]string{
 		"F": "f",
 	})
 	if err := newCmd(t, "config", "envs", "add",
@@ -782,7 +790,7 @@ func TestMetadata_Envs_Add(t *testing.T) {
 	}
 
 	// Set Env: from all keys in a configMap (multi)
-	setConfigMap(t, "test-config-map-multi", DefaultNamespace, map[string]string{
+	setConfigMap(t, "test-config-map-multi", Namespace, map[string]string{
 		"G": "g",
 		"H": "h",
 	})
@@ -828,9 +836,9 @@ func TestMetadata_Envs_Add(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
-	if !waitForContent(t, fmt.Sprintf("http://%v.default.localtest.me", name), "OK") {
+	if !waitForContent(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace), "OK") {
 		t.Fatalf("handler failed")
 	}
 
@@ -887,9 +895,9 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
-	if !waitForContent(t, fmt.Sprintf("http://%v.default.localtest.me", name), "OK") {
+	if !waitForContent(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace), "OK") {
 		t.Fatalf("handler failed")
 	}
 
@@ -924,7 +932,7 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitForContent(t, fmt.Sprintf("http://%v.default.localtest.me", name), "OK") {
+	if !waitForContent(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace), "OK") {
 		t.Fatalf("handler failed")
 	}
 }
@@ -959,15 +967,15 @@ func TestMetadata_Labels_Add(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
-	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)) {
 		t.Fatalf("function did not deploy correctly")
 	}
 
 	// Use the output from "func describe" (json output) to verify the
 	// function contains the both the test labels as expected.
-	cmd := newCmd(t, "describe", name, "--output=json", "--namespace", DefaultNamespace)
+	cmd := newCmd(t, "describe", name, "--output=json", "--namespace", Namespace)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
@@ -1010,14 +1018,14 @@ func TestMetadata_Labels_Remove(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
-	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)) {
 		t.Fatalf("function did not deploy correctly")
 	}
 
 	// Verify the labels were applied
-	cmd := newCmd(t, "describe", name, "--output=json", "--namespace", DefaultNamespace)
+	cmd := newCmd(t, "describe", name, "--output=json", "--namespace", Namespace)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
@@ -1044,7 +1052,7 @@ func TestMetadata_Labels_Remove(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)) {
 		t.Fatalf("function did not redeploy correctly")
 	}
 
@@ -1088,13 +1096,13 @@ func TestMetadata_Volumes(t *testing.T) {
 
 	// Create a ConfigMap with test data
 	configMapName := fmt.Sprintf("%s-configmap", name)
-	setConfigMap(t, configMapName, DefaultNamespace, map[string]string{
+	setConfigMap(t, configMapName, Namespace, map[string]string{
 		"config.txt": "configmap-data",
 	})
 
 	// Create a Secret with test data
 	secretName := fmt.Sprintf("%s-secret", name)
-	setSecret(t, secretName, DefaultNamespace, map[string][]byte{
+	setSecret(t, secretName, Namespace, map[string][]byte{
 		"secret.txt": []byte("secret-data"),
 	})
 
@@ -1184,11 +1192,11 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
 
 	// Verify the function has access to all volumes
-	if !waitForContent(t, fmt.Sprintf("http://%s.default.localtest.me", name), "OK") {
+	if !waitForContent(t, fmt.Sprintf("http://%s.%s.localtest.me", name, Namespace), "OK") {
 		t.Fatalf("function failed to access volumes correctly")
 	}
 
@@ -1248,7 +1256,7 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 		t.Fatal(err)
 	}
 
-	if !waitForContent(t, fmt.Sprintf("http://%s.default.localtest.me", name), "OK") {
+	if !waitForContent(t, fmt.Sprintf("http://%s.%s.localtest.me", name, Namespace), "OK") {
 		t.Fatalf("function failed after volume removal")
 	}
 }
@@ -1285,10 +1293,10 @@ func TestRemote_Deploy(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
 
-	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)) {
 		t.Fatalf("function did not deploy correctly")
 	}
 }
@@ -1317,11 +1325,11 @@ func TestRemote_Source(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
 
 	if !waitForContent(t,
-		fmt.Sprintf("http://%v.default.localtest.me", name), name) {
+		fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace), name) {
 		t.Fatalf("function did not deploy correctly")
 	}
 
@@ -1361,11 +1369,11 @@ func TestRemote_Ref(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
 
 	if !waitForContent(t,
-		fmt.Sprintf("http://%v.default.localtest.me", name), name) {
+		fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace), name) {
 		t.Fatalf("function did not deploy correctly")
 	}
 }
@@ -1407,11 +1415,11 @@ func TestRemote_Dir(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
 
 	if !waitForContent(t,
-		fmt.Sprintf("http://%v.default.localtest.me", name), name) {
+		fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace), name) {
 		t.Fatalf("function did not deploy correctly")
 	}
 }
@@ -1443,10 +1451,10 @@ func TestPodman_Pack(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
 
-	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)) {
 		t.Fatalf("function did not deploy correctly")
 	}
 }
@@ -1478,10 +1486,10 @@ func TestPodman_S2I(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	}()
 
-	if !waitForEcho(t, fmt.Sprintf("http://%v.default.localtest.me", name)) {
+	if !waitForEcho(t, fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)) {
 		t.Fatalf("function did not deploy correctly")
 	}
 
@@ -1619,7 +1627,7 @@ func doMatrixDeploy(t *testing.T, name, runtime, builder, template string) {
 		cleanImages(t, name)
 	})
 	t.Cleanup(func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	})
 
 	// Initialize
@@ -1637,7 +1645,7 @@ func doMatrixDeploy(t *testing.T, name, runtime, builder, template string) {
 
 	// Wait for the function to be ready, using the appropriate method based
 	// on template
-	httpAddress := fmt.Sprintf("http://%v.default.localtest.me", name)
+	httpAddress := fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)
 	var ready bool
 	if template == "cloudevents" {
 		ready = waitForCloudevent(t, httpAddress, withWaitTimeout(timeout))
@@ -1678,7 +1686,7 @@ func doMatrixRemote(t *testing.T, name, runtime, builder, template string) {
 		cleanImages(t, name)
 	})
 	t.Cleanup(func() {
-		clean(t, name, DefaultNamespace)
+		clean(t, name, Namespace)
 	})
 
 	// Initialize
@@ -1694,7 +1702,7 @@ func doMatrixRemote(t *testing.T, name, runtime, builder, template string) {
 	}
 
 	// Wait for the function to be ready, using the appropriate method based on template
-	functionURL := fmt.Sprintf("http://%v.default.localtest.me", name)
+	functionURL := fmt.Sprintf("http://%v.%s.localtest.me", name, Namespace)
 	var ready bool
 	if template == "cloudevents" {
 		ready = waitForCloudevent(t, functionURL, withWaitTimeout(timeout))
@@ -2556,7 +2564,7 @@ func getEnv(env, deprecated, dflt string) (val string) {
 			fmt.Fprintf(os.Stderr, "warning:  the env var %v is deprecated and support will be removed in a future release.   please use %v.", deprecated, env)
 		}
 	}
-	// Current env takes precidence
+	// Current env takes precedence
 	if v := os.Getenv(env); v != "" {
 		val = v
 	}
