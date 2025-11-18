@@ -98,7 +98,7 @@ On other systems, add `127.0.0.1 kind-registry` to your local `hosts` file and `
 
 Once the cluster has been allocated, the `func` CLI (or client library) will automatically use it (see the [Kubeconfig Docs](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) for more)
 
-Functions will be available at the address `[Function Name].default.localtest.me`
+Functions will be available at the address `[Function Name].[Namespace].[Domain]` where Namespace defaults to `default` and Domain defaults to `localtest.me`. These can be configured via `FUNC_E2E_NAMESPACE` and `FUNC_E2E_DOMAIN` environment variables.
 
 To run integration tests, use `make test-integration`.
 
