@@ -18,6 +18,7 @@ init() {
   define_colors
 }
 
+# find executables opportunistically (not all scripts require all binaries)
 find_executables() {
   KUBECTL=$(find_executable "kubectl" || true)
   KIND=$(find_executable "kind" || true)
@@ -72,7 +73,7 @@ define_colors() {
 }
 
 # find returns the path to an executable by name.
-# An environment variable FUNC_TEST_$name takes precidence.
+# An environment variable FUNC_TEST_$name takes precedence.
 # Next is an executable matching the name in hack/bin/
 # (the install location of hack/binaries.sh)
 # Finally, a matching executable from the current PATH is used.

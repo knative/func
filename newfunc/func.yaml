@@ -1,6 +1,0 @@
-# $schema: https://raw.githubusercontent.com/knative/func/main/schema/func_yaml-schema.json
-# yaml-language-server: $schema=https://raw.githubusercontent.com/knative/func/main/schema/func_yaml-schema.json
-specVersion: 0.36.0
-name: newfunc
-runtime: go
-created: 2025-11-13T22:27:22.804459+09:00

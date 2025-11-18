@@ -27,7 +27,7 @@ func TestBuild_ConfigApplied(t *testing.T) {
 	testConfigApplied(NewBuildCmd, t)
 }
 
-// TestBuild_ConfigPrecedence ensures that the correct precidence for config
+// TestBuild_ConfigPrecedence ensures that the correct precedence for config
 // are applied: static < global < function context < envs < flags
 func TestBuild_ConfigPrecedence(t *testing.T) {
 	testConfigPrecedence(NewBuildCmd, t)

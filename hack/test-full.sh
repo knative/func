@@ -12,14 +12,14 @@
 #
 # By running `make test-full`, this script intends to roughly
 # replicate what is run in GitHub CI, but locally and without
-# parellelization.
+# parallelization.
 #
 # This script presumes a local testing environment set up using the
 # helper scripts in ./hack and performs some precondition checks to ensure
 # resources are available for the features enabled (nonexhaustive).
 #     hack/binaries.sh   - Installs necessary binaries in ./hack/bin
-#     hack/cluster.sh    - Start test cluster with Knative Serving/Eventing
 #     hack/registry.sh   - Starts and configures a local container registry
+#     hack/cluster.sh    - Start test cluster with Knative Serving/Eventing
 #     hack/gitlab.sh     - Installs GitLab in-cluster
 #     hack/git-server.sh - Starts a git server in-cluster
 #
@@ -42,7 +42,7 @@ source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 # ---------------------
 # The defaults in the e2e test implementation are a bit more conservative.
 # Here we toggle on All The Things.  Note that we still allow any settings
-# made explicitly in the current environment to take precidence; just setting
+# made explicitly in the current environment to take precedence; just setting
 # new defaults which are more expansive in testing scope.
 export FUNC_CLUSTER_RETRIES="${FUNC_CLUSTER_RETRIES:-5}"
 export FUNC_E2E_MATRIX="${FUNC_E2E_MATRIX:-true}"
@@ -103,11 +103,11 @@ preconditions() {
     # Check if binaries are installed
     if [ ! -d "${PROJECT_ROOT}/hack/bin" ]; then
         echo "ERROR: hack/bin directory not found!"
-        echo "Please run ./hack/install-binaries.sh first to install required tools."
+        echo "Please run ./hack/binaries.sh first to install required tools."
         exit 1
     fi
     MISSING_BINS=""
-    for bin in kubectl kind; do
+    for bin in kubectl kind jq stern dapr helm kn
         # Check with and without .exe for Windows compatibility
         if [ ! -f "${PROJECT_ROOT}/hack/bin/${bin}" ] && [ ! -f "${PROJECT_ROOT}/hack/bin/${bin}.exe" ]; then
             MISSING_BINS="${MISSING_BINS} ${bin}"
@@ -123,7 +123,7 @@ preconditions() {
     # Check if cluster is allocated
     if [ ! -f "${KUBECONFIG}" ]; then
         echo "ERROR: KUBECONFIG not found at ${KUBECONFIG}"
-        echo "Please run ./hack/allocate.sh to set up a test cluster."
+        echo "Please run ./hack/cluster.sh to set up a test cluster."
         exit 1
     fi
 
@@ -132,9 +132,7 @@ preconditions() {
         echo "ERROR: Cannot connect to Kubernetes cluster"
         echo "KUBECONFIG: ${KUBECONFIG}"
         echo "Please ensure your cluster is running and KUBECONFIG is valid."
-        echo "You may need to run ./hack/allocate.sh"
-        kubectl cluster-info
-        kin
+        echo "You may need to run ./hack/cluster.sh"
         exit 1
     fi
 
@@ -148,6 +146,7 @@ preconditions() {
     fi
 
     # TODO: if Podman tests are enabled, check that podman is installed and running
+    # https://github.com/knative/func/issues/3209
 
     echo ""
     echo "${green}✓ Preconditions checks passed${reset}"

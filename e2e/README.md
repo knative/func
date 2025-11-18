@@ -88,7 +88,13 @@ the `kn-func` plugged in use `FUNC_E2E_BIN=/path/to/kn FUNC_E2E_PLUGIN=func`.
 
 `FUNC_E2E_REGISTRY`: if provided, tests will use this registry (in form
 `registry.example.com/user`) instead of the test suite default of
-`localhost:50000/func`.
+`localhost:50000/func`. This is used for local builds that push from the
+developer's machine to the registry.
+
+`FUNC_E2E_CLUSTER_REGISTRY`: specifies the cluster-internal registry URL used
+for in-cluster (remote) builds with Tekton. This registry must be accessible
+from within the cluster. Format: `registry.namespace.svc.cluster.local:port/path`.
+Defaults to `registry.default.svc.cluster.local:5000/func`.
 
 `FUNC_E2E_MATRIX_RUNTIMES`: Sets which runtimes will be tested during the matrix
 tests. By default matrix test are not enabled unless this value is passed.

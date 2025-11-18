@@ -142,7 +142,6 @@ jobs:
           remove_android: true
           remove_dotnet: true
           remove_haskell: true
-          remove_tool_cache: true
           remove_swap: true
           rm_cmd: "rmz" # Faster than rm
 
@@ -197,6 +196,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: knative/actions/setup-go@main
+      - uses: endersonmenezes/free-disk-space@v3
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_haskell: true
+          remove_swap: true
+          rm_cmd: "rmz" # Faster than rm
 
       - name: Install Binaries
         run: ./hack/binaries.sh
@@ -311,7 +317,6 @@ jobs:
           remove_android: true
           remove_dotnet: true
           remove_haskell: true
-          remove_tool_cache: true
           remove_swap: true
           rm_cmd: "rmz" # Faster than rm
 

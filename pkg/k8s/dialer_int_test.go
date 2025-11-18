@@ -152,6 +152,8 @@ func TestInt_DialInClusterService(t *testing.T) {
 
 	// TODO: Replace with proper readiness check. This sleep gives the deployment
 	// time to create pods and become ready to serve traffic.
+	// TestInt_DialInClusterService
+	// https://github.com/knative/func/issues/3211
 	time.Sleep(time.Second * 5)
 
 	// Initialize the InClusterDialer. This will create a socat pod in the

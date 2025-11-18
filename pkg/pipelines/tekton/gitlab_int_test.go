@@ -55,6 +55,7 @@ func TestInt_Gitlab(t *testing.T) {
 	// Skip in CI due to persistent timeout issues regardless of allocated time
 	// Note it does indeed run locally.
 	// TODO: Investigate why GitLab webhook builds are not completing in CI
+	// https://github.com/knative/func/issues/3212
 	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
 		t.Skip("Skipping GitLab test in CI due to persistent timeout issues. " +
 			"Please run GitLab integration tests locally with 'make test-integration' to verify changes.")
