@@ -39,29 +39,29 @@ import (
 )
 
 func copyDir(src, dst string) error {
-    return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-        if err != nil {
-            return err
-        }
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 
-        rel, err := filepath.Rel(src, path)
-        if err != nil {
-            return err
-        }
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
 
-        target := filepath.Join(dst, rel)
+		target := filepath.Join(dst, rel)
 
-        if info.IsDir() {
-            return os.MkdirAll(target, info.Mode())
-        }
+		if info.IsDir() {
+			return os.MkdirAll(target, info.Mode())
+		}
 
-        data, err := os.ReadFile(path)
-        if err != nil {
-            return err
-        }
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
 
-        return os.WriteFile(target, data, info.Mode())
-    })
+		return os.WriteFile(target, data, info.Mode())
+	})
 }
 
 func TestInt_PrivateGitRepository(t *testing.T) {
