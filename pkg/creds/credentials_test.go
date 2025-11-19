@@ -815,6 +815,91 @@ func TestCredentialsHomePermissions(t *testing.T) {
 	}
 }
 
+func TestCredentialsFromAuthfile(t *testing.T) {
+	tests := []struct {
+		name              string
+		verifyCredentials creds.VerifyCredentialsCallback
+		authFileContent   string
+		image             string
+		want              Credentials
+	}{
+		{
+			name:              "Single registry auth file",
+			verifyCredentials: correctVerifyCbk,
+			authFileContent: fmt.Sprintf(`
+{
+	"auths": {
+		"docker.io": {
+			"auth": "%s"
+		}
+	}
+}
+`, base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", dockerIoUser, dockerIoUserPwd)))),
+			image: "docker.io/someorg/someimage:sometag",
+			want:  Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+		{
+			name:              "Auth file with multiple registries",
+			verifyCredentials: correctVerifyCbk,
+			authFileContent: fmt.Sprintf(`
+{
+	"auths": {
+		"docker.io": {
+			"auth": "%s"
+		},
+		"quay.io": {
+			"auth": "%s"
+		}
+	}
+}
+`, base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", dockerIoUser, dockerIoUserPwd))),
+				base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", quayIoUser, quayIoUserPwd)))),
+			image: "quay.io/someorg/someimage:sometag",
+			want:  Credentials{Username: quayIoUser, Password: quayIoUserPwd},
+		},
+	}
+
+	// reset HOME to the original value after tests since they may change it
+	defer func() {
+		os.Setenv("HOME", homeTempDir)
+	}()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetHomeDir(t)
+
+			authFile, err := os.CreateTemp("", "test-auth-*.txt")
+			if err != nil {
+				t.Fatalf("failed to create temp auth file: %s", err)
+			}
+			t.Cleanup(func() {
+				os.Remove(authFile.Name())
+			})
+			if _, err := authFile.Write([]byte(tt.authFileContent)); err != nil {
+				t.Fatalf("failed to write auth file: %s", err)
+			}
+			authFile.Close()
+
+			credentialsProvider := creds.NewCredentialsProvider(
+				testConfigPath(t),
+				creds.WithVerifyCredentials(tt.verifyCredentials),
+				creds.WithAuthFilePath(authFile.Name()),
+			)
+
+			got, err := credentialsProvider(context.Background(), tt.image)
+
+			// ASSERT
+			if err != nil {
+				t.Errorf("%v", err)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
 // ********************** helper functions below **************************** \\
 
 func resetHomeDir(t *testing.T) {

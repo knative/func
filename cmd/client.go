@@ -56,9 +56,9 @@ func NewTestClient(options ...fn.Option) ClientFactory {
 // 'Verbose' indicates the system should write out a higher amount of logging.
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
-		t  = newTransport(cfg.InsecureSkipVerify)    // may provide a custom impl which proxies
-		c  = newCredentialsProvider(config.Dir(), t) // for accessing registries
-		d  = newKnativeDeployer(cfg.Verbose)         // default deployer (can be overridden via options)
+		t  = newTransport(cfg.InsecureSkipVerify)        // may provide a custom impl which proxies
+		c  = newCredentialsProvider(config.Dir(), t, "") // for accessing registries
+		d  = newKnativeDeployer(cfg.Verbose)             // default deployer (can be overridden via options)
 		pp = newTektonPipelinesProvider(c, cfg.Verbose)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
@@ -101,7 +101,8 @@ func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
 // newCredentialsProvider returns a credentials provider which possibly
 // has cluster-flavor specific additional credential loaders to take advantage
 // of features or configuration nuances of cluster variants.
-func newCredentialsProvider(configPath string, t http.RoundTripper) oci.CredentialsProvider {
+// If authFilePath is provided (non-empty), it will be used as the primary auth file.
+func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath string) oci.CredentialsProvider {
 	additionalLoaders := append(k8s.GetOpenShiftDockerCredentialLoaders(), k8s.GetGoogleCredentialLoader()...)
 	additionalLoaders = append(additionalLoaders, k8s.GetECRCredentialLoader()...)
 	additionalLoaders = append(additionalLoaders, k8s.GetACRCredentialLoader()...)
@@ -110,6 +111,11 @@ func newCredentialsProvider(configPath string, t http.RoundTripper) oci.Credenti
 		creds.WithPromptForCredentialStore(prompt.NewPromptForCredentialStore()),
 		creds.WithTransport(t),
 		creds.WithAdditionalCredentialLoaders(additionalLoaders...),
+	}
+
+	// If a custom auth file path is provided, use it
+	if authFilePath != "" {
+		options = append(options, creds.WithAuthFilePath(authFilePath))
 	}
 
 	// Other cluster variants can be supported here
