@@ -390,8 +390,8 @@ func WithMCPServer(s MCPServer) Option {
 // operating in a restricted environment and all functions tend to take longer
 // to start up than usual, or when the client is running functions which
 // in general take longer to start.  If a timeout is specified on the
-// function itself, that will take precidence.  Use the RunWithTimeout option
-// on the Run method to specify a timeout with precidence.
+// function itself, that will take precedence.  Use the RunWithTimeout option
+// on the Run method to specify a timeout with precedence.
 func WithStartTimeout(t time.Duration) Option {
 	return func(c *Client) {
 		c.startTimeout = t
@@ -966,10 +966,10 @@ func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job
 
 	// timeout for this run task.
 	timeout := c.startTimeout    // client's global setting is the default
-	if f.Run.StartTimeout != 0 { // Function value, if defined, takes precidence
+	if f.Run.StartTimeout != 0 { // Function value, if defined, takes precedence
 		timeout = f.Run.StartTimeout
 	}
-	if oo.StartTimeout != 0 { // Highest precidence is an option passed to Run
+	if oo.StartTimeout != 0 { // Highest precedence is an option passed to Run
 		timeout = oo.StartTimeout
 	}
 

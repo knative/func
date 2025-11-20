@@ -11,7 +11,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"os/signal"
-	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,7 +21,6 @@ import (
 	rbacV1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/func/pkg/builders/buildpacks"
 	pack "knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
@@ -41,8 +40,7 @@ var testCP = func(_ context.Context, _ string) (oci.Credentials, error) {
 }
 
 const (
-	TestRegistry = "registry.default.svc.cluster.local:5000"
-	// TestRegistry  = "docker.io/alice"
+	TestRegistry  = "registry.default.svc.cluster.local:5000"
 	TestNamespace = "default"
 )
 
@@ -84,11 +82,18 @@ func assertFunctionEchoes(url string) (err error) {
 }
 
 func tektonTestsEnabled(t *testing.T) (enabled bool) {
-	enabled, _ = strconv.ParseBool(os.Getenv("TEKTON_TESTS_ENABLED"))
+	enabled, _ = strconv.ParseBool(os.Getenv("FUNC_INT_TEKTON_ENABLED"))
 	if !enabled {
-		t.Log("Tekton tests not enabled.  Enable with TEKTON_TESTS_ENABLED=true")
+		t.Log("Tekton tests not enabled.  Enable with FUNC_INT_TEKTON_ENABLED=true")
 	}
 	return
+}
+
+func skipOnUnsupportedArch(t *testing.T) {
+	if runtime.GOARCH == "arm64" || runtime.GOARCH == "arm" {
+		t.Skip("Paketo buildpacks do not currently support ARM64 architecture. " +
+			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
+	}
 }
 
 // fromCleanEnvironment of everything except KUBECONFIG. Create a temp directory.
@@ -103,10 +108,11 @@ func fromCleanEnvironment(t *testing.T) (root string) {
 	return
 }
 
-func TestRemote_Default(t *testing.T) {
+func TestInt_Remote_Default(t *testing.T) {
 	if !tektonTestsEnabled(t) {
 		t.Skip()
 	}
+	skipOnUnsupportedArch(t)
 	_ = fromCleanEnvironment(t)
 	var (
 		err         error
@@ -188,72 +194,3 @@ func setupNS(t *testing.T) string {
 	t.Log("created namespace: ", name)
 	return name
 }
-
-func checkTestEnabled(t *testing.T) {
-	val := os.Getenv("TEKTON_TESTS_ENABLED")
-	enabled, _ := strconv.ParseBool(val)
-	if !enabled {
-		t.Skip("tekton tests are not enabled")
-	}
-}
-
-func createSimpleGoProject(t *testing.T, ns string) fn.Function {
-	var err error
-
-	funcName := "fn-" + strings.ToLower(random.AlphaString(5))
-
-	projDir := filepath.Join(t.TempDir(), funcName)
-	err = os.Mkdir(projDir, 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(filepath.Join(projDir, "handle.go"), []byte(simpleGOSvc), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(filepath.Join(projDir, "go.mod"), []byte("module function\n\ngo 1.20\n"), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	f := fn.Function{
-		Root:     projDir,
-		Name:     funcName,
-		Runtime:  "none",
-		Template: "none",
-		Image:    "registry.default.svc.cluster.local:5000/" + funcName,
-		Created:  time.Now(),
-		Invoke:   "none",
-		Build: fn.BuildSpec{
-			BuilderImages: map[string]string{
-				"pack": buildpacks.DefaultTinyBuilder,
-				"s2i":  "registry.access.redhat.com/ubi8/go-toolset",
-			},
-		},
-		Deploy: fn.DeploySpec{
-			Namespace: ns,
-		},
-	}
-	f = fn.NewFunctionWith(f)
-	err = f.Write()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return f
-}
-
-const simpleGOSvc = `package function
-
-import (
-	"context"
-	"net/http"
-)
-
-func Handle(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	resp.Header().Add("Content-Type", "text/plain")
-	resp.WriteHeader(200)
-	_, _ = resp.Write([]byte("Hello World!\n"))
-}
-`

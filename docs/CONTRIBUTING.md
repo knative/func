@@ -8,10 +8,6 @@ To build the core project, run `make` from the repository root.  This will resul
 
 To remove built artifacts, use `make clean`.
 
-### Build affecting environment variables
-* `FUNC_REPO_REF` affects which github repo will be used to fetch tekton tasks for on cluster build. Default: `knative/func`.
-* `FUNC_REPO_BRANCH_REF` affects which github branch will be used to fetch tekton tasks for on cluster build. Default: `main`.
-
 ## Testing
 
 To run core unit tests, use `make test`.
@@ -88,7 +84,7 @@ Please note that the version of `yq` required is installed via `pip3 install yq`
 
 ### Allocate
 
-Allocate a new local cluster by running `hack/allocate.sh`.
+Allocate a new local cluster by running `hack/cluster.sh`.
 
 
 ### Registry
@@ -102,7 +98,7 @@ On other systems, add `127.0.0.1 kind-registry` to your local `hosts` file and `
 
 Once the cluster has been allocated, the `func` CLI (or client library) will automatically use it (see the [Kubeconfig Docs](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) for more)
 
-Functions will be available at the address `[Function Name].default.localtest.me`
+Functions will be available at the address `[Function Name].[Namespace].[Domain]` where Namespace defaults to `default` and Domain defaults to `localtest.me`. These can be configured via `FUNC_E2E_NAMESPACE` and `FUNC_E2E_DOMAIN` environment variables.
 
 To run integration tests, use `make test-integration`.
 

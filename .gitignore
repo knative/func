@@ -4,19 +4,19 @@
 /cmd/func.yaml
 /coverage.out
 /coverage.txt
+/coverage-e2e.txt
 /.coverage
 /bin
 /target
 /hack/bin
 /.artifacts
+/test-full.log
 
 /pkg/functions/testdata/migrations/*/.gitignore
 /pkg/functions/testdata/default_home/go
 /pkg/functions/testdata/default_home/.cache
 /pkg/functions/testdata/migrations/*/.gitignore
-/pkg/creds/auth.json
-/pkg/oci/testdata/test-links/absoluteLink
-/pkg/oci/testdata/test-links/absoluteLinkWindows
+/pkg/functions/testdata/default_home/Library
 
 # Go
 /templates/go/cloudevents/go.sum
@@ -39,5 +39,21 @@ __pycache__
 .vscode
 .idea
 
+# Agentfiles
+CLAUDE.md
+
 # Operating system temporary files
 .DS_Store
+
+# TODO: Update this test to be from a temp directory with a hard-coded impl:
+# https://github.com/knative/func/issues/3196
+/pkg/builders/testdata/go-fn-with-private-deps/.s2i
+
+# TODO: Run this test from a temp directory instead:
+# https://github.com/knative/func/issues/3197
+pkg/oci/testdata/test-links/absoluteLink
+pkg/oci/testdata/test-links/absoluteLinkWindows
+
+# TODO: update the test which creates this to run in a temp directory:
+# https://github.com/knative/func/issues/3158
+/pkg/creds/auth.json

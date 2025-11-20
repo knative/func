@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -196,10 +195,6 @@ func (items listItems) Plain(w io.Writer) error {
 
 func (items listItems) JSON(w io.Writer) error {
 	return json.NewEncoder(w).Encode(items)
-}
-
-func (items listItems) XML(w io.Writer) error {
-	return xml.NewEncoder(w).Encode(items)
 }
 
 func (items listItems) YAML(w io.Writer) error {

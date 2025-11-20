@@ -184,7 +184,7 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	// Ensure function context loaded
-	// Update registry on the function and ensure it takes precidence (overrides)
+	// Update registry on the function and ensure it takes precedence (overrides)
 	// the global setting defined in home.
 	f.Registry = "registry.example.com/charlie"
 	if err := f.Write(); err != nil {
@@ -215,7 +215,7 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 	}
 }
 
-// TestDeploy_ConfigPrecedence ensures that the correct precidence for config
+// TestDeploy_ConfigPrecedence ensures that the correct precedence for config
 // are applied: static < global < function context < envs < flags
 func TestDeploy_ConfigPrecedence(t *testing.T) {
 	testConfigPrecedence(NewDeployCmd, t)
@@ -269,7 +269,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 
 	// Ensure Function context overrides global config
 	// The stanza above ensures the global config is applied.  This stanza
-	// ensures that, if set on the function, it will take precidence.
+	// ensures that, if set on the function, it will take precedence.
 	root = FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
@@ -327,7 +327,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Registry != "example.com/flag" {
-		t.Fatalf("expected flag 'example.com/flag' to take precidence over env var, but got '%v'", f.Registry)
+		t.Fatalf("expected flag 'example.com/flag' to take precedence over env var, but got '%v'", f.Registry)
 	}
 }
 
@@ -1353,7 +1353,7 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 		expectedImage    string      // expected value after build
 	}{
 		{
-			// Registry function member takes precidence, updating image member
+			// Registry function member takes precedence, updating image member
 			// when out of sync.
 			name: "registry member mismatch",
 			f: fn.Function{
@@ -1367,7 +1367,7 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			expectedImage:    "registry.example.com/alice/f:latest",
 		},
 		{
-			// Registry flag takes highest precidence, affecting both the registry
+			// Registry flag takes highest precedence, affecting both the registry
 			// member and the resultant image member and therefore affects subsequent
 			// builds.
 			name: "registry flag updates",

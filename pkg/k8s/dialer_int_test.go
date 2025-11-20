@@ -25,36 +25,50 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-func TestDialInClusterService(t *testing.T) {
+// TestDialInClusterService ensures that dialer is able to establish HTTP
+// connections to services only accessible in-cluster.
+//
+// The InClusterDialer allows access to internal services from outside the
+// cluster by creating a temporary socat pod inside the cluster which is used
+// as a TCP proxy/tunnel via kubectl exec.
+func TestInt_DialInClusterService(t *testing.T) {
 	var err error
 	var ctx = context.Background()
 
+	// Initialize client configuration from kubeconfig or in-cluster config
 	clientConfig := k8s.GetClientConfig()
 
+	// Extract the REST config and create a clientset for API operations
 	rc, err := clientConfig.ClientConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	cliSet, err := kubernetes.NewForConfig(rc)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Configure resource cleanup options - Foreground deletion ensures pods
+	// are deleted before the deployment/service is removed
 	pp := metaV1.DeletePropagationForeground
 	creatOpts := metaV1.CreateOptions{}
 	deleteOpts := metaV1.DeleteOptions{
 		PropagationPolicy: &pp,
 	}
 
+	// Determine which namespace to use for test resources
 	testingNS, _, err := clientConfig.Namespace()
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Generate a random suffix to avoid conflicts with parallel test runs
 	rnd := rand.String(5)
 	one := int32(1)
 	labels := map[string]string{"app.kubernetes.io/name": "helloworld"}
+
+	// Create a simple HTTP server deployment using the Knative hello-world
+	// sample.
 	deployment := &appsV1.Deployment{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:   "helloworld-" + rnd,
@@ -72,7 +86,9 @@ func TestDialInClusterService(t *testing.T) {
 				Spec: coreV1.PodSpec{
 					Containers: []coreV1.Container{
 						{
-							Name:  "helloworld",
+							Name: "helloworld",
+							// Using a specific SHA ensures test stability - this image is a simple
+							// HTTP server that returns "Hello World!" responses
 							Image: "gcr.io/knative-samples/helloworld-go@sha256:2babda8ec819e24d5a6342095e8f8a25a67b44eb7231ae253ecc2c448632f07e",
 							Ports: []coreV1.ContainerPort{
 								{
@@ -94,6 +110,7 @@ func TestDialInClusterService(t *testing.T) {
 		},
 	}
 
+	// Deploy the hello-world server to the cluster
 	_, err = cliSet.AppsV1().Deployments(testingNS).Create(ctx, deployment, creatOpts)
 	if err != nil {
 		t.Fatal(err)
@@ -103,6 +120,9 @@ func TestDialInClusterService(t *testing.T) {
 	})
 	t.Log("created deployment:", deployment.Name)
 
+	// Create a Service to expose the deployment within the cluster.
+	// The service maps port 80 -> 8080 (container port) and uses label selectors
+	// to route traffic to the deployment's pods.
 	svc := &coreV1.Service{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name: "helloworld-" + rnd,
@@ -112,14 +132,15 @@ func TestDialInClusterService(t *testing.T) {
 				{
 					Name:       "http",
 					Protocol:   coreV1.ProtocolTCP,
-					Port:       80,
-					TargetPort: intstr.FromInt(8080),
+					Port:       80,                   // Service port (what clients connect to)
+					TargetPort: intstr.FromInt(8080), // Pod port (where container listens)
 				},
 			},
 			Selector: labels,
 		},
 	}
 
+	// Create the service in the cluster
 	svc, err = cliSet.CoreV1().Services(testingNS).Create(ctx, svc, creatOpts)
 	if err != nil {
 		t.Fatal(err)
@@ -129,14 +150,22 @@ func TestDialInClusterService(t *testing.T) {
 	})
 	t.Log("created svc:", svc.Name)
 
-	// wait for service to start
+	// TODO: Replace with proper readiness check. This sleep gives the deployment
+	// time to create pods and become ready to serve traffic.
+	// TestInt_DialInClusterService
+	// https://github.com/knative/func/issues/3211
 	time.Sleep(time.Second * 5)
 
+	// Initialize the InClusterDialer. This will create a socat pod in the
+	// cluster that acts as a TCP proxy, allowing us to reach cluster-internal
+	// services. The "lazy init" variant only creates the pod when first used.
 	dialer := k8s.NewLazyInitInClusterDialer(clientConfig)
 	t.Cleanup(func() {
 		dialer.Close()
 	})
 
+	// Configure HTTP client to use our custom dialer for all connections.
+	// This routes HTTP requests: client -> kubectl exec -> socat pod -> service
 	transport := &http.Transport{
 		DialContext: dialer.DialContext,
 	}
@@ -145,25 +174,34 @@ func TestDialInClusterService(t *testing.T) {
 		Transport: transport,
 	}
 
+	// Construct the cluster-internal DNS name for the service.
+	// Format: <service-name>.<namespace>.svc (.cluster.local suffix optional)
 	svcInClusterURL := fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
+
+	// Make an HTTP GET request through the dialer tunnel to the internal service
 	resp, err := client.Get(svcInClusterURL)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
 
+	// Verify the response contains the expected "Hello World!" message
 	runeReader := bufio.NewReader(resp.Body)
 	matched, err := regexp.MatchReader("Hello World!", runeReader)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !matched {
-		t.Error("body doesn't contain 'Welcome to nginx!' substring")
+		// Note: Error message mentions nginx but we're testing hello-world
+		t.Error("body doesn't contain 'Hello World!' substring")
 	}
 	if resp.StatusCode != 200 {
 		t.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
+	// Stress test: Make 10 concurrent requests to verify the dialer handles
+	// multiple simultaneous connections correctly. This tests the stability
+	// of the kubectl exec tunnel under load.
 	var eg errgroup.Group
 	for i := 0; i < 10; i++ {
 		eg.Go(func() error {
@@ -172,6 +210,7 @@ func TestDialInClusterService(t *testing.T) {
 				return err
 			}
 			defer resp.Body.Close()
+			// Fully consume the response body to complete the HTTP transaction
 			_, err = io.Copy(io.Discard, resp.Body)
 			return err
 		})
@@ -182,7 +221,7 @@ func TestDialInClusterService(t *testing.T) {
 	}
 }
 
-func TestDialUnreachable(t *testing.T) {
+func TestInt_DialUnreachable(t *testing.T) {
 	var ctx = context.Background()
 
 	dialer, err := k8s.NewInClusterDialer(ctx, k8s.GetClientConfig())

@@ -36,8 +36,10 @@ func validatePipeline(f fn.Function) error {
 	case builders.S2I:
 		_, err := s2i.BuilderImage(f, builders.S2I)
 		return err
+	case builders.Host:
+		return fmt.Errorf("the %q builder is not supported for remote deployments. Use %q or %q instead", builders.Host, builders.Pack, builders.S2I)
 	default:
-		return builders.ErrUnknownBuilder{Name: f.Build.Builder}
+		return builders.ErrUnknownBuilder{Name: f.Build.Builder, Known: builders.Known{builders.Pack, builders.S2I}}
 	}
 
 	return nil
