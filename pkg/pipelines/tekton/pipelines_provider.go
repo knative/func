@@ -228,7 +228,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 
 	newestPipelineRun, err = client.PipelineRuns(namespace).Get(ctx, newestPipelineRun.Name, metav1.GetOptions{})
 	if err != nil {
-		return "", f, fmt.Errorf("problem in retriving pipeline run status: %v", err)
+		return "", f, fmt.Errorf("problem in retrieving pipeline run status: %v", err)
 	}
 
 	if newestPipelineRun.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {

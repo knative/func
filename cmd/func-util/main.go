@@ -161,7 +161,7 @@ func deploy(ctx context.Context) error {
 
 	res, err := deployer.Deploy(ctx, f)
 	if err != nil {
-		return fmt.Errorf("cannont deploy the function: %w", err)
+		return fmt.Errorf("cannot deploy the function: %w", err)
 	}
 
 	fmt.Printf("function has been deployed\n%+v\n", res)
