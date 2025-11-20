@@ -57,21 +57,21 @@ require (
 	golang.org/x/crypto v0.43.0
 	golang.org/x/net v0.46.0
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.17.0
-	golang.org/x/sys v0.37.0
+	golang.org/x/sync v0.18.0
+	golang.org/x/sys v0.38.0
 	golang.org/x/term v0.36.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/v3 v3.5.2
-	k8s.io/api v0.34.1
-	k8s.io/apimachinery v0.34.1
-	k8s.io/client-go v0.34.1
+	k8s.io/api v0.34.2
+	k8s.io/apimachinery v0.34.2
+	k8s.io/client-go v0.34.2
 	k8s.io/klog/v2 v2.130.1
-	knative.dev/client/pkg v0.0.0-20251103015022-ae924ed7b051
-	knative.dev/eventing v0.47.1-0.20251107142554-ed2c4f8446f1
-	knative.dev/hack v0.0.0-20251103013745-91eedd9bef96
-	knative.dev/pkg v0.0.0-20251104154049-5037c4760829
-	knative.dev/serving v0.47.1-0.20251110164046-cd99679c3ef4
+	knative.dev/client/pkg v0.0.0-20251119095914-e0540cb52dba
+	knative.dev/eventing v0.47.1-0.20251120024914-dec11d38ce97
+	knative.dev/hack v0.0.0-20251117013754-67a5b048bc27
+	knative.dev/pkg v0.0.0-20251119125415-ab67eb7f8660
+	knative.dev/serving v0.47.1-0.20251120121916-c12aef8b7f10
 )
 
 require (
@@ -125,6 +125,8 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589 // indirect
+	github.com/clipperhouse/stringish v0.1.1 // indirect
+	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/cloudevents/sdk-go/sql/v2 v2.15.2 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/containerd/cgroups/v3 v3.0.5 // indirect
@@ -161,7 +163,7 @@ require (
 	github.com/go-openapi/jsonpointer v0.21.1 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.1 // indirect
-	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
@@ -197,12 +199,12 @@ require (
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
-	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
+	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-runewidth v0.0.16 // indirect
+	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mistifyio/go-zfs/v3 v3.0.1 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
@@ -249,16 +251,14 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/sagikazarmark/locafero v0.4.0 // indirect
-	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
+	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
-	github.com/sourcegraph/conc v0.3.0 // indirect
-	github.com/spf13/afero v1.14.0 // indirect
-	github.com/spf13/cast v1.7.1 // indirect
+	github.com/spf13/afero v1.15.0 // indirect
+	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/spf13/viper v1.18.2 // indirect
+	github.com/spf13/viper v1.21.0 // indirect
 	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/sylabs/sif/v2 v2.21.1 // indirect
@@ -280,14 +280,13 @@ require (
 	go.opentelemetry.io/otel v1.38.0 // indirect
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
-	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/mod v0.29.0 // indirect
-	golang.org/x/text v0.30.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/api v0.233.0 // indirect
@@ -299,17 +298,17 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	k8s.io/apiextensions-apiserver v0.34.1 // indirect
-	k8s.io/apiserver v0.34.1 // indirect
-	k8s.io/cli-runtime v0.31.4 // indirect
+	k8s.io/apiextensions-apiserver v0.34.2 // indirect
+	k8s.io/apiserver v0.34.2 // indirect
+	k8s.io/cli-runtime v0.34.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 // indirect
-	knative.dev/networking v0.0.0-20251030154838-4115314567bb // indirect
+	knative.dev/networking v0.0.0-20251117014740-e8506646d57f // indirect
 	sigs.k8s.io/controller-runtime v0.20.4 // indirect
 	sigs.k8s.io/gateway-api v1.1.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
-	sigs.k8s.io/kustomize/api v0.17.2 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.17.1 // indirect
+	sigs.k8s.io/kustomize/api v0.20.1 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.20.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
