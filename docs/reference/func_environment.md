@@ -6,10 +6,11 @@ Display function execution environment information
 
 
 NAME
-	func environment - display function execution environment information
+	func environment (env) - display function execution environment information
 
 SYNOPSIS
 	func environment [-f|--format] [-v|--verbose] [-p|--path]
+	func env [-f|--format] [-v|--verbose] [-p|--path]
 
 
 DESCRIPTION

@@ -23,14 +23,16 @@ var format string = "json"
 
 func NewEnvironmentCmd(newClient ClientFactory, version *Version) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "environment",
-		Short: "Display function execution environment information",
+		Use:     "environment",
+		Aliases: []string{"env"},
+		Short:   "Display function execution environment information",
 		Long: `
 NAME
-	{{rootCmdUse}} environment - display function execution environment information
+	{{rootCmdUse}} environment (env) - display function execution environment information
 
 SYNOPSIS
 	{{rootCmdUse}} environment [-f|--format] [-v|--verbose] [-p|--path]
+	{{rootCmdUse}} env [-f|--format] [-v|--verbose] [-p|--path]
 
 
 DESCRIPTION
