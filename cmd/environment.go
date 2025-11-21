@@ -32,7 +32,6 @@ NAME
 
 SYNOPSIS
 	{{rootCmdUse}} environment [-f|--format] [-v|--verbose] [-p|--path]
-	{{rootCmdUse}} env [-f|--format] [-v|--verbose] [-p|--path]
 
 
 DESCRIPTION

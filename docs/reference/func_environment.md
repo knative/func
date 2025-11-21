@@ -10,7 +10,6 @@ NAME
 
 SYNOPSIS
 	func environment [-f|--format] [-v|--verbose] [-p|--path]
-	func env [-f|--format] [-v|--verbose] [-p|--path]
 
 
 DESCRIPTION
