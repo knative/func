@@ -84,58 +84,28 @@ func TestResource_FunctionState(t *testing.T) {
 	}
 }
 
-func TestResource_Languages(t *testing.T) {
-	expectedOutput := `go
+func TestResource_Listings(t *testing.T) {
+	cases := []struct {
+		name           string
+		uri            string
+		subcommand     string
+		expectedOutput string
+	}{
+		{
+			name:       "languages",
+			uri:        "func://languages",
+			subcommand: "languages",
+			expectedOutput: `go
 node
 python
 etc
-`
-
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		if subcommand != "languages" {
-			t.Fatalf("expected subcommand 'languages', got %q", subcommand)
-		}
-		if len(args) != 0 {
-			t.Fatalf("expected no args, got %v", args)
-		}
-		return []byte(expectedOutput), nil
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := client.ReadResource(context.Background(), &mcp.ReadResourceParams{
-		URI: "func://languages",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(result.Contents) != 1 {
-		t.Fatalf("expected 1 content, got %d", len(result.Contents))
-	}
-
-	content := result.Contents[0]
-	if content.URI != "func://languages" {
-		t.Fatalf("expected URI 'func://languages', got %q", content.URI)
-	}
-	if content.MIMEType != "text/plain" {
-		t.Fatalf("expected MIME type 'text/plain', got %q", content.MIMEType)
-	}
-	if content.Text != expectedOutput {
-		t.Fatalf("expected output:\n%s\ngot:\n%s", expectedOutput, content.Text)
-	}
-
-	if !executor.ExecuteInvoked {
-		t.Fatal("executor was not invoked")
-	}
-}
-
-func TestResource_Templates(t *testing.T) {
-	expectedOutput := `LANGUAGE     TEMPLATE
+`,
+		},
+		{
+			name:       "templates",
+			uri:        "func://templates",
+			subcommand: "templates",
+			expectedOutput: `LANGUAGE     TEMPLATE
 go           cloudevents
 go           http
 node         cloudevents
@@ -143,47 +113,53 @@ node         http
 python       cloudevents
 python       http
 etc          etc
-`
-
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		if subcommand != "templates" {
-			t.Fatalf("expected subcommand 'templates', got %q", subcommand)
-		}
-		if len(args) != 0 {
-			t.Fatalf("expected no args, got %v", args)
-		}
-		return []byte(expectedOutput), nil
+`,
+		},
 	}
 
-	client, _, err := newTestPair(t, WithExecutor(executor))
-	if err != nil {
-		t.Fatal(err)
-	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			executor := mock.NewExecutor()
+			executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+				if subcommand != tc.subcommand {
+					t.Fatalf("expected subcommand %q, got %q", tc.subcommand, subcommand)
+				}
+				if len(args) != 0 {
+					t.Fatalf("expected no args, got %v", args)
+				}
+				return []byte(tc.expectedOutput), nil
+			}
 
-	result, err := client.ReadResource(context.Background(), &mcp.ReadResourceParams{
-		URI: "func://templates",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+			client, _, err := newTestPair(t, WithExecutor(executor))
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	if len(result.Contents) != 1 {
-		t.Fatalf("expected 1 content, got %d", len(result.Contents))
-	}
+			result, err := client.ReadResource(context.Background(), &mcp.ReadResourceParams{
+				URI: tc.uri,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	content := result.Contents[0]
-	if content.URI != "func://templates" {
-		t.Fatalf("expected URI 'func://templates', got %q", content.URI)
-	}
-	if content.MIMEType != "text/plain" {
-		t.Fatalf("expected MIME type 'text/plain', got %q", content.MIMEType)
-	}
-	if content.Text != expectedOutput {
-		t.Fatalf("expected output:\n%s\ngot:\n%s", expectedOutput, content.Text)
-	}
+			if len(result.Contents) != 1 {
+				t.Fatalf("expected 1 content, got %d", len(result.Contents))
+			}
 
-	if !executor.ExecuteInvoked {
-		t.Fatal("executor was not invoked")
+			content := result.Contents[0]
+			if content.URI != tc.uri {
+				t.Fatalf("expected URI %q, got %q", tc.uri, content.URI)
+			}
+			if content.MIMEType != "text/plain" {
+				t.Fatalf("expected MIME type 'text/plain', got %q", content.MIMEType)
+			}
+			if content.Text != tc.expectedOutput {
+				t.Fatalf("expected output:\n%s\ngot:\n%s", tc.expectedOutput, content.Text)
+			}
+
+			if !executor.ExecuteInvoked {
+				t.Fatal("executor was not invoked")
+			}
+		})
 	}
 }
