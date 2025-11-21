@@ -5,9 +5,11 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 type Describer struct {
@@ -86,6 +88,30 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Route:     primaryRouteURL,
 		Routes:    routeURLs,
 		Labels:    service.Labels,
+	}
+
+	// get used image (including the sha)
+	clientset, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %v", err)
+	}
+
+	deploymentClient := clientset.AppsV1().Deployments(namespace)
+	deployments, err := deploymentClient.List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("serving.knative.dev/revision=%s", service.Status.LatestCreatedRevisionName),
+	})
+	if err != nil {
+		return fn.Instance{}, fmt.Errorf("unable to list deployments of service: %w", err)
+	}
+
+	if len(deployments.Items) == 0 {
+		return fn.Instance{}, fmt.Errorf("no deployments found for service %s", service.Name)
+	}
+
+	for _, container := range deployments.Items[0].Spec.Template.Spec.Containers {
+		if container.Name == "user-container" {
+			description.Image = container.Image
+		}
 	}
 
 	triggers, err := eventingClient.ListTriggers(ctx)
