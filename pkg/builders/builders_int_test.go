@@ -38,6 +38,32 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
+func copyDir(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+
+		target := filepath.Join(dst, rel)
+
+		if info.IsDir() {
+			return os.MkdirAll(target, info.Mode())
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		return os.WriteFile(target, data, info.Mode())
+	})
+}
+
 func TestInt_PrivateGitRepository(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Skipping TestPrivateGitRepository on non-Linux systems due to cluster networking limitations")
@@ -90,7 +116,17 @@ password=nbusr123
 		t.Fatal(err)
 	}
 
-	f, err := fn.NewFunction(filepath.Join("testdata", "go-fn-with-private-deps"))
+	tmpDir := t.TempDir()
+
+	src := filepath.Join("testdata", "go-fn-with-private-deps")
+	dst := filepath.Join(tmpDir, "go-fn-with-private-deps")
+
+	err = copyDir(src, dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(dst)
 	if err != nil {
 		t.Fatal(err)
 	}
