@@ -120,9 +120,35 @@ func EnsureSecretExist(ctx context.Context, secret corev1.Secret, namespaceOverr
 		secretNotFound = true
 	}
 
-	// TODO we should also compare labels and annotations
-	if secretNotFound || !equality.Semantic.DeepDerivative(existingSecret.Data, secret.Data) {
-		// Decide whether create or update
+	labelsEqual := true
+	annotationsEqual := true
+	dataEqual := true
+
+	if !secretNotFound {
+		dataEqual = equality.Semantic.DeepDerivative(existingSecret.Data, secret.Data)
+
+		existingLabels := existingSecret.Labels
+		if existingLabels == nil {
+			existingLabels = map[string]string{}
+		}
+		desiredLabels := secret.Labels
+		if desiredLabels == nil {
+			desiredLabels = map[string]string{}
+		}
+		labelsEqual = equality.Semantic.DeepEqual(existingLabels, desiredLabels)
+
+		existingAnnotations := existingSecret.Annotations
+		if existingAnnotations == nil {
+			existingAnnotations = map[string]string{}
+		}
+		desiredAnnotations := secret.Annotations
+		if desiredAnnotations == nil {
+			desiredAnnotations = map[string]string{}
+		}
+		annotationsEqual = equality.Semantic.DeepEqual(existingAnnotations, desiredAnnotations)
+	}
+
+	if secretNotFound || !dataEqual || !labelsEqual || !annotationsEqual {
 		if secretNotFound {
 			_, err = client.CoreV1().Secrets(namespace).Create(ctx, &secret, metav1.CreateOptions{})
 		} else {
