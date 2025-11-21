@@ -37,7 +37,7 @@ SYNOPSIS
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
 	             [--service-account] [-c|--confirm] [-v|--verbose]
-	             [--registry-insecure] [--remote-storage-class]
+	             [--registry-insecure] [--registry-authfile] [--remote-storage-class]
 
 DESCRIPTION
 
@@ -132,8 +132,9 @@ EXAMPLES
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
 			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
 			"git-url", "image", "namespace", "path", "platform", "push", "pvc-size",
-			"service-account", "deployer", "registry", "registry-insecure", "remote",
-			"username", "password", "token", "verbose", "remote-storage-class"),
+			"service-account", "deployer", "registry", "registry-insecure",
+			"registry-authfile", "remote", "username", "password", "token", "verbose",
+			"remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -161,6 +162,7 @@ EXAMPLES
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)")
+	cmd.Flags().String("registry-authfile", "", "Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
@@ -917,6 +919,13 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 	if err != nil {
 		return o, err
 	}
+
+	t := newTransport(c.RegistryInsecure)
+	creds := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile)
+
+	// Override the pipelines provider to use custom credentials
+	// This is needed for remote builds (deploy --remote)
+	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(creds, c.Verbose)))
 
 	// Add the appropriate deployer based on deploy type
 	deployer := c.Deployer
