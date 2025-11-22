@@ -573,7 +573,6 @@ func TestMetadata_Subscriptions(t *testing.T) {
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
