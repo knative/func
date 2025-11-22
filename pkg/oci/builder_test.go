@@ -25,38 +25,39 @@ import (
 )
 
 var TestPlatforms = []fn.Platform{{OS: "linux", Architecture: runtime.GOARCH}}
+
 func copyDir(src, dst string) error {
-    return filepath.Walk(src, func(path string, info fs.FileInfo, err error) error {
-        if err != nil {
-            return err
-        }
+	return filepath.Walk(src, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 
-        rel, err := filepath.Rel(src, path)
-        if err != nil {
-            return err
-        }
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
 
-        target := filepath.Join(dst, rel)
+		target := filepath.Join(dst, rel)
 
-        if info.Mode()&os.ModeSymlink != 0 {
-            linkTarget, err := os.Readlink(path)
-            if err != nil {
-                return err
-            }
-            return os.Symlink(linkTarget, target)
-        }
+		if info.Mode()&os.ModeSymlink != 0 {
+			linkTarget, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(linkTarget, target)
+		}
 
-        if info.IsDir() {
-            return os.MkdirAll(target, info.Mode())
-        }
+		if info.IsDir() {
+			return os.MkdirAll(target, info.Mode())
+		}
 
-        data, err := os.ReadFile(path)
-        if err != nil {
-            return err
-        }
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
 
-        return os.WriteFile(target, data, info.Mode())
-    })
+		return os.WriteFile(target, data, info.Mode())
+	})
 }
 
 // TestBuilder_BuildGo ensures that, when given a Go Function, an OCI-compliant
