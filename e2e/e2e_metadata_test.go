@@ -682,20 +682,20 @@ func Handle(ctx context.Context, event cloudevents.Event) (*cloudevents.Event, e
 	for _, sub := range instance.Subscriptions {
 		if sub.Source == brokerName && sub.Type == eventType {
 			foundSubscription = true
-			t.Logf("Found subscription: Source=%s, Type=%s, Broker=%s", 
+			t.Logf("Found subscription: Source=%s, Type=%s, Broker=%s",
 				sub.Source, sub.Type, sub.Broker)
 			break
 		}
 	}
 
 	if !foundSubscription {
-		t.Fatalf("Expected subscription with source=%s and type=%s not found. Got: %+v", 
+		t.Fatalf("Expected subscription with source=%s and type=%s not found. Got: %+v",
 			brokerName, eventType, instance.Subscriptions)
 	}
 
 	// event will go from producer to broker to consumer due to subscription
 	t.Logf("Sending test event to producer at %s", producerURL)
-	
+
 	testEvent := cloudevents.NewEvent()
 	testEvent.SetID("trigger-event-1")
 	testEvent.SetType("test.trigger")
