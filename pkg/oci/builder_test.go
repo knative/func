@@ -38,6 +38,14 @@ func copyDir(src, dst string) error {
 
         target := filepath.Join(dst, rel)
 
+        if info.Mode()&os.ModeSymlink != 0 {
+            linkTarget, err := os.Readlink(path)
+            if err != nil {
+                return err
+            }
+            return os.Symlink(linkTarget, target)
+        }
+
         if info.IsDir() {
             return os.MkdirAll(target, info.Mode())
         }
@@ -535,8 +543,8 @@ func (l *TestLanguageBuilder) Configure(job buildJob, p v1.Platform, c v1.Config
 func Test_validatedLinkTarget(t *testing.T) {
 	tmp := t.TempDir()
 	root := filepath.Join(tmp, "test-links")
+	err := copyDir("testdata/test-links", root)
 
-	err := copyDir(filepath.Join("testdata", "test-links"), root)
 	if err != nil {
 		t.Fatalf("failed to copy test data: %v", err)
 	}
