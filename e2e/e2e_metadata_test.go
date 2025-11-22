@@ -630,9 +630,8 @@ import (
 )
 
 func Handle(ctx context.Context, event cloudevents.Event) (*cloudevents.Event, error) {
-	log.Printf("Received event - ID: %s, Type: %s, Source: %s", 
+	log.Printf("Received event - ID: %s, Type: %s, Source: %s",
 		event.ID(), event.Type(), event.Source())
-
 	response := cloudevents.NewEvent()
 	response.SetID(fmt.Sprintf("response-%s", event.ID()))
 	response.SetType("func.e2e.test.response")
