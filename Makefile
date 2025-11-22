@@ -37,6 +37,9 @@ LDFLAGS += -X knative.dev/func/pkg/k8s.SocatImage=$(FUNC_UTILS_IMG)
 LDFLAGS += -X knative.dev/func/pkg/k8s.TarImage=$(FUNC_UTILS_IMG)
 LDFLAGS += -X knative.dev/func/pkg/pipelines/tekton.FuncUtilImage=$(FUNC_UTILS_IMG)
 
+$(info [MAKEFILE DEBUG] FUNC_UTILS_IMG = $(FUNC_UTILS_IMG))
+$(info [MAKEFILE DEBUG] LDFLAGS = $(LDFLAGS))
+
 GOFLAGS      := "-ldflags=$(LDFLAGS)"
 export GOFLAGS
 
@@ -292,11 +295,15 @@ templates/certs/ca-certificates.crt:
 
 .PHONY: test-integration
 test-integration: ## Run integration tests using an available cluster.
+	@echo "[TEST DEBUG] FUNC_UTILS_IMG = $(FUNC_UTILS_IMG)"
+	@echo "[TEST DEBUG] Environment FUNC_UTILS_IMG = $$FUNC_UTILS_IMG"
 	go test -cover -coverprofile=coverage.txt -tags integration -timeout 60m ./... -v -run TestInt_
 
 .PHONY: test-e2e
 test-e2e: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
 	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
+	@echo "[TEST DEBUG] FUNC_UTILS_IMG = $(FUNC_UTILS_IMG)"
+	@echo "[TEST DEBUG] Environment FUNC_UTILS_IMG = $$FUNC_UTILS_IMG"
 	go test -cover -coverprofile=coverage.txt -tags e2e -timeout 60m ./e2e -v -run "TestCore_|TestMetadata_|TestRemote_"
 
 .PHONY: test-e2e-podman
@@ -306,6 +313,8 @@ test-e2e-podman: func-instrumented-bin ## Run E2E Podman-specific tests
 
 test-e2e-matrix: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
 	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
+	@echo "[TEST DEBUG] FUNC_UTILS_IMG = $(FUNC_UTILS_IMG)"
+	@echo "[TEST DEBUG] Environment FUNC_UTILS_IMG = $$FUNC_UTILS_IMG"
 	FUNC_E2E_MATRIX=true go test -cover -coverprofile=coverage.txt -tags e2e -timeout 120m ./e2e -v -run TestMatrix_
 
 
@@ -319,6 +328,8 @@ test-full-logged: func-instrumented-bin ## Run full test and log with timestamps
 
 .PHONY: func-instrumented-bin
 func-instrumented-bin: # func binary instrumented with coverage reporting
+	@echo "[BUILD DEBUG] Building func binary with FUNC_UTILS_IMG = $(FUNC_UTILS_IMG)"
+	@echo "[BUILD DEBUG] GOFLAGS = $(GOFLAGS)"
 	env CGO_ENABLED=1 go build -cover -o func ./cmd/$(BIN)
 
 
