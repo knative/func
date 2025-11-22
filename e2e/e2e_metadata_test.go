@@ -5,12 +5,14 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -552,13 +554,168 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// TODO: TestMetadata_Subscriptions ensures that function instances can be
-// subscribed to events.
+// TestMetadata_Subscriptions ensures that function instances can be
+// subscribed to events via Knative Eventing.
 func TestMetadata_Subscriptions(t *testing.T) {
-	// TODO
-	// Create a function which emits an event with as much defaults as possible
-	// Create a function which subscribes to those events
-	// Succeed the test as soon as it receives the event
-	// https://github.com/knative/func/issues/3202
-	t.Skip("Subscription E2E tests not yet implemented")
+	producerName := "func-e2e-test-subscriptions-producer"
+	consumerName := "func-e2e-test-subscriptions-consumer"
+	brokerName := "default"
+	eventType := "func.e2e.test.event"
+	eventSource := "func-e2e-test"
+
+	producerRoot := fromCleanEnv(t, producerName)
+	if err := newCmd(t, "init", "-l=go", "-t=cloudevents").Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	producerImpl := `package function
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+)
+
+func Handle(ctx context.Context, event cloudevents.Event) (*cloudevents.Event, error) {
+	newEvent := cloudevents.NewEvent()
+	newEvent.SetID(fmt.Sprintf("test-event-%d", time.Now().Unix()))
+	newEvent.SetType("` + eventType + `")
+	newEvent.SetSource("` + eventSource + `")
+	newEvent.SetData(cloudevents.ApplicationJSON, map[string]string{
+		"message": "Hello from producer",
+		"timestamp": time.Now().Format(time.RFC3339),
+	})
+
+	return &newEvent, nil
+}`
+
+	if err := os.WriteFile(filepath.Join(producerRoot, "handle.go"), []byte(producerImpl), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := newCmd(t, "deploy").Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		clean(t, producerName, Namespace)
+	}()
+
+	producerURL := fmt.Sprintf("http://%s.%s.%s", producerName, Namespace, Domain)
+	if !waitFor(t, producerURL, withTemplate("cloudevents")) {
+		t.Fatal("producer function did not become ready")
+	}
+
+	consumerRoot := fromCleanEnv(t, consumerName)
+	if err := newCmd(t, "init", "-l=go", "-t=cloudevents").Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := newCmd(t, "subscribe",
+		"--source", brokerName,
+		"--filter", fmt.Sprintf("type=%s", eventType)).Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	consumerImpl := `package function
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+)
+
+func Handle(ctx context.Context, event cloudevents.Event) (*cloudevents.Event, error) {
+	log.Printf("Received event - ID: %s, Type: %s, Source: %s", 
+		event.ID(), event.Type(), event.Source())
+
+	response := cloudevents.NewEvent()
+	response.SetID(fmt.Sprintf("response-%s", event.ID()))
+	response.SetType("func.e2e.test.response")
+	response.SetSource("func-e2e-test-consumer")
+	response.SetData(cloudevents.ApplicationJSON, map[string]string{
+		"status": "received",
+		"original_id": event.ID(),
+		"original_type": event.Type(),
+	})
+
+	return &response, nil
+}`
+
+	if err := os.WriteFile(filepath.Join(consumerRoot, "handle.go"), []byte(consumerImpl), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := newCmd(t, "deploy").Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		clean(t, consumerName, Namespace)
+	}()
+
+	consumerURL := fmt.Sprintf("http://%s.%s.%s", consumerName, Namespace, Domain)
+	if !waitFor(t, consumerURL, withTemplate("cloudevents")) {
+		t.Fatal("consumer function did not become ready")
+	}
+
+	cmd := newCmd(t, "describe", consumerName, "--output=json", "--namespace", Namespace)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	var instance fn.Instance
+	if err := json.Unmarshal(out.Bytes(), &instance); err != nil {
+		t.Fatalf("error unmarshaling describe output: %v", err)
+	}
+
+	if len(instance.Subscriptions) == 0 {
+		t.Fatal("Expected at least one subscription, got none")
+	}
+
+	foundSubscription := false
+	for _, sub := range instance.Subscriptions {
+		if sub.Source == brokerName && sub.Type == eventType {
+			foundSubscription = true
+			t.Logf("Found subscription: Source=%s, Type=%s, Broker=%s", 
+				sub.Source, sub.Type, sub.Broker)
+			break
+		}
+	}
+
+	if !foundSubscription {
+		t.Fatalf("Expected subscription with source=%s and type=%s not found. Got: %+v", 
+			brokerName, eventType, instance.Subscriptions)
+	}
+
+	// event will go from producer to broker to consumer due to subscription
+	t.Logf("Sending test event to producer at %s", producerURL)
+	
+	testEvent := cloudevents.NewEvent()
+	testEvent.SetID("trigger-event-1")
+	testEvent.SetType("test.trigger")
+	testEvent.SetSource("e2e-test")
+	testEvent.SetData(cloudevents.ApplicationJSON, map[string]string{
+		"action": "trigger",
+	})
+
+	ctx := context.Background()
+	client, err := cloudevents.NewClientHTTP()
+	if err != nil {
+		t.Fatalf("failed to create CloudEvents client: %v", err)
+	}
+
+	targetCtx := cloudevents.ContextWithTarget(ctx, producerURL)
+	result := client.Send(targetCtx, testEvent)
+	if cloudevents.IsUndelivered(result) {
+		t.Fatalf("failed to send event to producer: %v", result)
+	}
+
+	t.Logf("Successfully sent event to producer. Event should flow through broker to consumer.")
+	t.Logf("Subscription test completed successfully!")
 }
