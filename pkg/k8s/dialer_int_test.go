@@ -21,9 +21,23 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/func/pkg/k8s"
 )
+
+func waitForDeploymentReady(ctx context.Context, cliSet *kubernetes.Clientset, namespace, deploymentName string, timeout time.Duration) error {
+	return wait.PollImmediate(2*time.Second, timeout, func() (bool, error) {
+		deploy, err := cliSet.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metaV1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		if deploy.Status.ReadyReplicas == *deploy.Spec.Replicas {
+			return true, nil
+		}
+		return false, nil
+	})
+}
 
 // TestDialInClusterService ensures that dialer is able to establish HTTP
 // connections to services only accessible in-cluster.
@@ -150,11 +164,10 @@ func TestInt_DialInClusterService(t *testing.T) {
 	})
 	t.Log("created svc:", svc.Name)
 
-	// TODO: Replace with proper readiness check. This sleep gives the deployment
-	// time to create pods and become ready to serve traffic.
-	// TestInt_DialInClusterService
-	// https://github.com/knative/func/issues/3211
-	time.Sleep(time.Second * 5)
+	// Wait for the deployment pods to be ready
+	if err := waitForDeploymentReady(ctx, cliSet, testingNS, deployment.Name, 60*time.Second); err != nil {
+		t.Fatal("deployment never became ready:", err)
+	}
 
 	// Initialize the InClusterDialer. This will create a socat pod in the
 	// cluster that acts as a TCP proxy, allowing us to reach cluster-internal
