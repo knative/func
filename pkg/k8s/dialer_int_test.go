@@ -151,7 +151,7 @@ func TestInt_DialInClusterService(t *testing.T) {
 	t.Log("created svc:", svc.Name)
 
 	// Wait for the deployment pods to be ready
-	if err := k8s.waitForDeploymentAvailable(ctx, cliSet, testingNS, deployment.Name, 60*time.Second); err != nil {
+	if err := k8s.WaitForDeploymentAvailable(ctx, cliSet, testingNS, deployment.Name, 60*time.Second); err != nil {
 		t.Fatal("deployment never became ready:", err)
 	}
 
