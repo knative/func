@@ -297,16 +297,20 @@ test-integration: ## Run integration tests using an available cluster.
 .PHONY: test-e2e
 test-e2e: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
 	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
-	go test -cover -coverprofile=coverage.txt -tags e2e -timeout 60m ./e2e -v -run "TestCore_|TestMetadata_|TestRemote_"
+	go test -tags e2e -timeout 60m ./e2e -v -run "TestCore_|TestMetadata_|TestRemote_"
+	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
+
 
 .PHONY: test-e2e-podman
 test-e2e-podman: func-instrumented-bin ## Run E2E Podman-specific tests
 	# see e2e_test.go for available options
-	FUNC_E2E_PODMAN=true go test -cover -coverprofile=coverage.txt -tags e2e -timeout 60m ./e2e -v -run TestPodman_
+	FUNC_E2E_PODMAN=true go test -tags e2e -timeout 60m ./e2e -v -run TestPodman_
+	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
 
 test-e2e-matrix: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
 	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
-	FUNC_E2E_MATRIX=true go test -cover -coverprofile=coverage.txt -tags e2e -timeout 120m ./e2e -v -run TestMatrix_
+	FUNC_E2E_MATRIX=true go test -tags e2e -timeout 120m ./e2e -v -run TestMatrix_
+	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
 
 
 .PHONY: test-full
