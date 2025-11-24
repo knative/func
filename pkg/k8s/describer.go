@@ -57,6 +57,14 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	primaryRouteURL := fmt.Sprintf("http://%s.%s.svc", name, namespace) // TODO: get correct scheme?
 
+	// get image
+	image := ""
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "user-container" {
+			image = container.Image
+		}
+	}
+
 	description := fn.Instance{
 		Name:      name,
 		Namespace: namespace,
@@ -64,6 +72,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Labels:    deployment.Labels,
 		Route:     primaryRouteURL,
 		Routes:    []string{primaryRouteURL},
+		Image:     image,
 	}
 
 	return description, nil
