@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -50,7 +51,7 @@ func TestNewConfigCICmd_CreatesGithubWorkflowDirectory(t *testing.T) {
 	assert.NilError(t, err)
 }
 
-func TestNewConfigCICmd_GeneratesLocalWorkflowFile(t *testing.T) {
+func TestNewConfigCICmd_GeneratesWorkflowFile(t *testing.T) {
 	options := opts{withFuncInTempDir: true}
 
 	result := runConfigCiGithubCmd(t, options)
@@ -61,7 +62,9 @@ func TestNewConfigCICmd_GeneratesLocalWorkflowFile(t *testing.T) {
 
 func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
 	// GIVEN
-	options := opts{withFuncInTempDir: true}
+	options := opts{
+		withFuncInTempDir: true,
+	}
 
 	// WHEN
 	result := runConfigCiGithubCmd(t, options)
@@ -76,7 +79,7 @@ func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
 func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	// GIVEN
 	ciConfig := ci.NewCIConfigBuilder().
-		WithWorkflowName("remote-build-and-deploy.yaml").
+		WithWorkflowName("Custom Remote Build and Deploy").
 		WithKubeconfigKey("DEV_CLUSTER_KUBECONFIG").
 		WithRegistryUrlKey("DEV_REGISTRY_URL").
 		WithRegistryUserKey("DEV_REGISTRY_USER").
@@ -94,18 +97,39 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	// THEN
 	assert.NilError(t, result.executeErr)
 	assertWorkflowFileExists(t, result)
-	assert.Assert(t, cmp.Contains(result.gwYamlString, ciConfig.WorkflowName()))
-	assert.Assert(t, cmp.Contains(result.gwYamlString, "self-hosted"))
-	assert.Assert(t, cmp.Contains(result.gwYamlString, ciConfig.KubeconfigSecretKey()))
-	assert.Assert(t, cmp.Contains(result.gwYamlString, ciConfig.RegistryUrlSecretKey()))
-	assert.Assert(t, cmp.Contains(result.gwYamlString, ciConfig.RegistryUserSecretKey()))
-	assert.Assert(t, cmp.Contains(result.gwYamlString, ciConfig.RegistryPassSecretKey()))
+	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.WorkflowName()))
+	assert.Assert(t, yamlContains(result.gwYamlString, "self-hosted"))
+	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.KubeconfigSecretKey()))
+	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryUrlSecretKey()))
+	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryUserSecretKey()))
+	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryPassSecretKey()))
 }
 
-func TestNewConfigCICmd_WorkflowUsesInsecureRegistry(t *testing.T) {
+func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 	// GIVEN
 	ciConfig := ci.NewCIConfigBuilder().
-		WithRegistryLogin(false).
+		WithoutRegistryLogin().
+		Build()
+	options := opts{
+		withFuncInTempDir: true,
+		ciConfig:          &ciConfig,
+		args:              []string{"ci", "--github", "--use-registry-login=false"},
+	}
+
+	// WHEN
+	result := runConfigCiGithubCmd(t, options)
+
+	// THEN
+	assert.NilError(t, result.executeErr)
+	assertWorkflowFileExists(t, result)
+	assert.Assert(t, !strings.Contains(result.gwYamlString, "docker/login-action@v3"))
+	assert.Assert(t, !strings.Contains(result.gwYamlString, "Login to container registry"))
+}
+
+func TestNewConfigCICmd_RemoteBuildRemoteDeployWorkflow(t *testing.T) {
+	// GIVEN
+	ciConfig := ci.NewCIConfigBuilder().
+		WithRemoteBuild().
 		Build()
 	options := opts{
 		withFuncInTempDir: true,
@@ -118,7 +142,32 @@ func TestNewConfigCICmd_WorkflowUsesInsecureRegistry(t *testing.T) {
 	// THEN
 	assert.NilError(t, result.executeErr)
 	assertWorkflowFileExists(t, result)
-	assert.Assert(t, !strings.Contains(result.gwYamlString, "docker/login-action@v3"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "func deploy --remote"))
+}
+
+func TestNewConfigCICmd_HasWorkflowDispatchAndCacheInDebugMode(t *testing.T) {
+	// GIVEN
+	ciConfig := ci.NewCIConfigBuilder().
+		WithDebug().
+		Build()
+	options := opts{
+		withFuncInTempDir: true,
+		ciConfig:          &ciConfig,
+	}
+
+	// WHEN
+	result := runConfigCiGithubCmd(t, options)
+
+	// THEN
+	assert.NilError(t, result.executeErr)
+	assertWorkflowFileExists(t, result)
+	assert.Assert(t, yamlContains(result.gwYamlString, "workflow_dispatch"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "Restore func cli from cache"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "func-cli-cache"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "actions/cache@v4"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "path: func"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "key: func-cli-knative-v1.19.1"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "if: ${{ steps.func-cli-cache.outputs.cache-hit != 'true' }}"))
 }
 
 // START: Testing Framework
@@ -135,6 +184,7 @@ type result struct {
 	executeErr   error
 	gwLoadErr    error
 	gwYamlString string
+	// TODO(twoGiants): probably not needed
 	gwYamlMarshalErr error
 }
 
@@ -202,36 +252,47 @@ func assertWorkflowFileExists(t *testing.T, result result) {
 //   - registry: ${{ secrets.REGISTRY_URL }}")
 //   - username: ${{ secrets.REGISTRY_USERNAME }}
 //   - password: ${{ secrets.REGISTRY_PASSWORD }}
-//   - run: func deploy --remote --registry=${{ secrets.REGISTRY_URL }} -v
+//   - run: func deploy --registry=${{ secrets.REGISTRY_URL }} -v
 func assertWorkflowFileContent(t *testing.T, actualGw string) {
 	t.Helper()
 
-	assert.Assert(t, cmp.Contains(actualGw, "Remote Build and Deploy"))
-	assert.Assert(t, cmp.Contains(actualGw, "main"))
+	assert.Assert(t, yamlContains(actualGw, "Remote Build and Deploy"))
+	assert.Assert(t, yamlContains(actualGw, "main"))
 
-	assert.Assert(t, cmp.Contains(actualGw, "ubuntu-latest"))
+	assert.Assert(t, yamlContains(actualGw, "ubuntu-latest"))
 
 	assert.Assert(t, strings.Count(actualGw, "- name:") == 5)
 
-	assert.Assert(t, cmp.Contains(actualGw, "Checkout code"))
-	assert.Assert(t, cmp.Contains(actualGw, "actions/checkout@v4"))
+	assert.Assert(t, yamlContains(actualGw, "Checkout code"))
+	assert.Assert(t, yamlContains(actualGw, "actions/checkout@v4"))
 
-	assert.Assert(t, cmp.Contains(actualGw, "Setup Kubernetes context"))
-	assert.Assert(t, cmp.Contains(actualGw, "azure/k8s-set-context@v4"))
-	assert.Assert(t, cmp.Contains(actualGw, "method: kubeconfig"))
-	assert.Assert(t, cmp.Contains(actualGw, "kubeconfig: ${{ secrets.KUBECONFIG }}"))
+	assert.Assert(t, yamlContains(actualGw, "Setup Kubernetes context"))
+	assert.Assert(t, yamlContains(actualGw, "azure/k8s-set-context@v4"))
+	assert.Assert(t, yamlContains(actualGw, "method: kubeconfig"))
+	assert.Assert(t, yamlContains(actualGw, "kubeconfig: ${{ secrets.KUBECONFIG }}"))
 
-	assert.Assert(t, cmp.Contains(actualGw, "Login to container registry"))
-	assert.Assert(t, cmp.Contains(actualGw, "docker/login-action@v3"))
-	assert.Assert(t, cmp.Contains(actualGw, "registry: ${{ secrets.REGISTRY_URL }}"))
-	assert.Assert(t, cmp.Contains(actualGw, "username: ${{ secrets.REGISTRY_USERNAME }}"))
-	assert.Assert(t, cmp.Contains(actualGw, "password: ${{ secrets.REGISTRY_PASSWORD }}"))
+	assert.Assert(t, yamlContains(actualGw, "Login to container registry"))
+	assert.Assert(t, yamlContains(actualGw, "docker/login-action@v3"))
+	assert.Assert(t, yamlContains(actualGw, "registry: ${{ secrets.REGISTRY_URL }}"))
+	assert.Assert(t, yamlContains(actualGw, "username: ${{ secrets.REGISTRY_USERNAME }}"))
+	assert.Assert(t, yamlContains(actualGw, "password: ${{ secrets.REGISTRY_PASSWORD }}"))
 
-	assert.Assert(t, cmp.Contains(actualGw, "Install func cli"))
-	assert.Assert(t, cmp.Contains(actualGw, "gauron99/knative-func-action@main"))
-	assert.Assert(t, cmp.Contains(actualGw, "version: knative-v1.19.1"))
-	assert.Assert(t, cmp.Contains(actualGw, "name: func"))
+	assert.Assert(t, yamlContains(actualGw, "Install func cli"))
+	assert.Assert(t, yamlContains(actualGw, "gauron99/knative-func-action@main"))
+	assert.Assert(t, yamlContains(actualGw, "version: knative-v1.19.1"))
+	assert.Assert(t, yamlContains(actualGw, "name: func"))
 
-	assert.Assert(t, cmp.Contains(actualGw, "Deploy function"))
-	assert.Assert(t, cmp.Contains(actualGw, "func deploy --remote --registry=${{ secrets.REGISTRY_URL }} -v"))
+	assert.Assert(t, yamlContains(actualGw, "Deploy function"))
+	assert.Assert(t, yamlContains(actualGw, "func deploy --registry=${{ secrets.REGISTRY_URL }} -v"))
+}
+
+func yamlContains(yaml, substr string) cmp.Comparison {
+	return func() cmp.Result {
+		if strings.Contains(yaml, substr) {
+			return cmp.ResultSuccess
+		}
+		return cmp.ResultFailure(fmt.Sprintf(
+			"missing '%s' in:\n\n%s", substr, yaml,
+		))
+	}
 }

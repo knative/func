@@ -16,6 +16,8 @@ func TestGithubWorkflow_PersistAndLoad(t *testing.T) {
 		"REGISTRY_USERNAME",
 		"REGISTRY_PASSWORD",
 		false,
+		false,
+		false,
 		false)
 	tempDir := t.TempDir()
 	targetPath := tempDir + "/" + gw.Name + ".yaml"

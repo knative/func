@@ -1,6 +1,7 @@
 package ci
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,10 @@ const (
 	filePerm = 0644 // o: rw,  g|u: r
 )
 
+// TODO(twoGiants)
+//   - encapsulate => create Interface and defaultGithubWorkflow struct
+//   - provide printers for configurable properties
+//   - provide toYamlString for checks in tests
 type GithubWorkflow struct {
 	Name string           `yaml:"name"`
 	On   WorkflowTriggers `yaml:"on"`
@@ -20,7 +25,20 @@ type GithubWorkflow struct {
 }
 
 type WorkflowTriggers struct {
-	Push *PushTrigger `yaml:"push,omitempty"`
+	Push             *PushTrigger `yaml:"push,omitempty"`
+	WorkflowDispatch *struct{}    `yaml:"workflow_dispatch,omitempty"`
+}
+
+func newPushTrigger(branch string, debug bool) WorkflowTriggers {
+	result := WorkflowTriggers{
+		Push: &PushTrigger{Branches: []string{branch}},
+	}
+
+	if debug {
+		result.WorkflowDispatch = &struct{}{}
+	}
+
+	return result
 }
 
 type PushTrigger struct {
@@ -34,6 +52,8 @@ type Job struct {
 
 type Step struct {
 	Name string            `yaml:"name,omitempty"`
+	ID   string            `yaml:"id,omitempty"`
+	If   string            `yaml:"if,omitempty"`
 	Uses string            `yaml:"uses,omitempty"`
 	Run  string            `yaml:"run,omitempty"`
 	With map[string]string `yaml:"with,omitempty"`
@@ -41,6 +61,16 @@ type Step struct {
 
 func newStep(name string) *Step {
 	return &Step{Name: name}
+}
+
+func (s *Step) withID(id string) *Step {
+	s.ID = id
+	return s
+}
+
+func (s *Step) withIf(ifCond string) *Step {
+	s.If = ifCond
+	return s
 }
 
 func (s *Step) withUses(u string) *Step {
@@ -70,12 +100,16 @@ func NewGithubWorkflow(
 	registryUserSecretKey,
 	registryPassSecretKey string,
 	useRegistryLogin,
-	selfHosted bool,
+	useRemoteBuild,
+	selfHosted,
+	useDebug bool,
 ) *GithubWorkflow {
 	runsOn := "ubuntu-latest"
 	if selfHosted {
 		runsOn = "self-hosted"
 	}
+
+	pushTrigger := newPushTrigger("main", useDebug)
 
 	var steps []Step
 	checkoutCode := newStep("Checkout code").
@@ -97,21 +131,35 @@ func NewGithubWorkflow(
 		steps = append(steps, *loginToContainerRegistry)
 	}
 
+	if useDebug {
+		funcCliCache := newStep("Restore func cli from cache").
+			withID("func-cli-cache").
+			withUses("actions/cache@v4").
+			withActionConfig("path", "func").
+			withActionConfig("key", "func-cli-knative-v1.19.1")
+		steps = append(steps, *funcCliCache)
+	}
+
 	installFuncCli := newStep("Install func cli").
 		withUses("gauron99/knative-func-action@main").
 		withActionConfig("version", "knative-v1.19.1").
 		withActionConfig("name", "func")
+	if useDebug {
+		installFuncCli.withIf("${{ steps.func-cli-cache.outputs.cache-hit != 'true' }}")
+	}
 	steps = append(steps, *installFuncCli)
 
+	runFuncDeploy := "func deploy"
+	if useRemoteBuild {
+		runFuncDeploy += " --remote"
+	}
 	deployFunc := newStep("Deploy function").
-		withRun("func deploy --remote --registry=" + newSecret(registryUrlSecretKey) + " -v")
+		withRun(runFuncDeploy + " --registry=" + newSecret(registryUrlSecretKey) + " -v")
 	steps = append(steps, *deployFunc)
 
 	return &GithubWorkflow{
 		Name: name,
-		On: WorkflowTriggers{
-			Push: &PushTrigger{Branches: []string{"main"}},
-		},
+		On:   pushTrigger,
 		Jobs: map[string]Job{
 			"deploy": {
 				RunsOn: runsOn,
@@ -136,7 +184,7 @@ func NewGithubWorkflowFromPath(path string) (*GithubWorkflow, error) {
 }
 
 func (gw *GithubWorkflow) Persist(path string) error {
-	raw, err := yaml.Marshal(gw)
+	raw, err := gw.toYaml()
 	if err != nil {
 		return err
 	}
@@ -153,12 +201,25 @@ func (gw *GithubWorkflow) Persist(path string) error {
 }
 
 func (gw *GithubWorkflow) YamlString() (string, error) {
-	raw, err := yaml.Marshal(gw)
+	raw, err := gw.toYaml()
 	if err != nil {
 		return "", err
 	}
 
 	return string(raw), nil
+}
+
+func (gw *GithubWorkflow) toYaml() ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := yaml.NewEncoder(&buf)
+	encoder.SetIndent(2)
+
+	if err := encoder.Encode(gw); err != nil {
+		return nil, err
+	}
+	encoder.Close()
+
+	return buf.Bytes(), nil
 }
 
 func newSecret(key string) string {
