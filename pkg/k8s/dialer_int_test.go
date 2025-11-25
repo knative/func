@@ -150,11 +150,10 @@ func TestInt_DialInClusterService(t *testing.T) {
 	})
 	t.Log("created svc:", svc.Name)
 
-	// TODO: Replace with proper readiness check. This sleep gives the deployment
-	// time to create pods and become ready to serve traffic.
-	// TestInt_DialInClusterService
-	// https://github.com/knative/func/issues/3211
-	time.Sleep(time.Second * 5)
+	// Wait for the deployment pods to be ready
+	if err := k8s.WaitForDeploymentAvailable(ctx, cliSet, testingNS, deployment.Name, 60*time.Second); err != nil {
+		t.Fatal("deployment never became ready:", err)
+	}
 
 	// Initialize the InClusterDialer. This will create a socat pod in the
 	// cluster that acts as a TCP proxy, allowing us to reach cluster-internal
