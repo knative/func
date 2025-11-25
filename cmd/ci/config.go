@@ -124,8 +124,8 @@ func (b *ciConfigBuilder) WithRemoteBuild() *ciConfigBuilder {
 	return b
 }
 
-func (b *ciConfigBuilder) WithSelfHosted(useSelfHosted bool) *ciConfigBuilder {
-	b.result.selfHostedRunner = useSelfHosted
+func (b *ciConfigBuilder) WithSelfHosted() *ciConfigBuilder {
+	b.result.selfHostedRunner = true
 	return b
 }
 
@@ -143,19 +143,17 @@ const (
 	DefaultUseRegistryLoginValue = true
 
 	WorkflowNameOption  = "workflow-name"
-	DefaultWorkflowName = "Remote Build and Deploy"
+	DefaultWorkflowName = "Local Build and Remote Deploy"
+
+	UseDebugOption       = "debug"
+	DefaultUseDebugValue = false
+
+	UseRemoteBuild        = "remote"
+	DefaultUseRemoteBuild = false
+
+	UseSelfHostedRunner        = "self-hosted-runner"
+	DefaultUseSelfHostedRunner = false
 )
-
-func NewCiGithubConfigViaViper() CIConfig {
-	result := NewCIConfigBuilder().
-		WithWorkflowName(viper.GetString(WorkflowNameOption))
-
-	if !viper.GetBool(UseRegistryLoginOption) {
-		result.WithoutRegistryLogin()
-	}
-
-	return result.Build()
-}
 
 func NewCiGithubConfigVia(cmd *cobra.Command) (CIConfig, error) {
 	result := NewCIConfigBuilder()
@@ -166,13 +164,48 @@ func NewCiGithubConfigVia(cmd *cobra.Command) (CIConfig, error) {
 	}
 	result.WithWorkflowName(workflowName)
 
-	useRegistryLogin, err := cmd.Flags().GetBool(UseRegistryLoginOption)
+	registryLogin, err := cmd.Flags().GetBool(UseRegistryLoginOption)
 	if err != nil {
 		return CIConfig{}, err
 	}
-	if !useRegistryLogin {
+	if !registryLogin {
 		result.WithoutRegistryLogin()
 	}
 
+	debug, err := cmd.Flags().GetBool(UseDebugOption)
+	if err != nil {
+		return CIConfig{}, err
+	}
+	if debug {
+		result.WithDebug()
+	}
+
+	remoteBuild, err := cmd.Flags().GetBool(UseRemoteBuild)
+	if err != nil {
+		return CIConfig{}, err
+	}
+	if remoteBuild {
+		result.WithRemoteBuild()
+	}
+
+	selfHosted, err := cmd.Flags().GetBool(UseSelfHostedRunner)
+	if err != nil {
+		return CIConfig{}, err
+	}
+	if selfHosted {
+		result.WithSelfHosted()
+	}
+
 	return result.Build(), nil
+}
+
+func NewCiGithubConfigViaViper() CIConfig {
+	result := NewCIConfigBuilder().
+		WithWorkflowName(viper.GetString(WorkflowNameOption))
+
+	if !viper.GetBool(UseRegistryLoginOption) {
+		result.WithoutRegistryLogin()
+	}
+
+	return result.Build()
 }

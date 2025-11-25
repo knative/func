@@ -152,6 +152,7 @@ func NewGithubWorkflow(
 	runFuncDeploy := "func deploy"
 	if useRemoteBuild {
 		runFuncDeploy += " --remote"
+		name = "Remote Build and Deploy"
 	}
 	deployFunc := newStep("Deploy function").
 		withRun(runFuncDeploy + " --registry=" + newSecret(registryUrlSecretKey) + " -v")

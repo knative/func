@@ -84,11 +84,11 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 		WithRegistryUrlKey("DEV_REGISTRY_URL").
 		WithRegistryUserKey("DEV_REGISTRY_USER").
 		WithRegistryPassKey("DEV_REGISTRY_PASS").
-		WithSelfHosted(true).
 		Build()
 	options := opts{
 		withFuncInTempDir: true,
 		ciConfig:          &ciConfig,
+		args:              []string{"ci", "--github", "--self-hosted-runner"},
 	}
 
 	// WHEN
@@ -107,12 +107,8 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 
 func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 	// GIVEN
-	ciConfig := ci.NewCIConfigBuilder().
-		WithoutRegistryLogin().
-		Build()
 	options := opts{
 		withFuncInTempDir: true,
-		ciConfig:          &ciConfig,
 		args:              []string{"ci", "--github", "--use-registry-login=false"},
 	}
 
@@ -126,14 +122,11 @@ func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 	assert.Assert(t, !strings.Contains(result.gwYamlString, "Login to container registry"))
 }
 
-func TestNewConfigCICmd_RemoteBuildRemoteDeployWorkflow(t *testing.T) {
+func TestNewConfigCICmd_RemoteBuildAndDeployWorkflow(t *testing.T) {
 	// GIVEN
-	ciConfig := ci.NewCIConfigBuilder().
-		WithRemoteBuild().
-		Build()
 	options := opts{
 		withFuncInTempDir: true,
-		ciConfig:          &ciConfig,
+		args:              []string{"ci", "--github", "--remote"},
 	}
 
 	// WHEN
@@ -142,17 +135,15 @@ func TestNewConfigCICmd_RemoteBuildRemoteDeployWorkflow(t *testing.T) {
 	// THEN
 	assert.NilError(t, result.executeErr)
 	assertWorkflowFileExists(t, result)
+	assert.Assert(t, yamlContains(result.gwYamlString, "Remote Build and Deploy"))
 	assert.Assert(t, yamlContains(result.gwYamlString, "func deploy --remote"))
 }
 
 func TestNewConfigCICmd_HasWorkflowDispatchAndCacheInDebugMode(t *testing.T) {
 	// GIVEN
-	ciConfig := ci.NewCIConfigBuilder().
-		WithDebug().
-		Build()
 	options := opts{
 		withFuncInTempDir: true,
-		ciConfig:          &ciConfig,
+		args:              []string{"ci", "--github", "--debug"},
 	}
 
 	// WHEN
