@@ -70,7 +70,7 @@ require (
 	knative.dev/client/pkg v0.0.0-20251119095914-e0540cb52dba
 	knative.dev/eventing v0.47.1-0.20251121120517-0effffedd9a9
 	knative.dev/hack v0.0.0-20251117013754-67a5b048bc27
-	knative.dev/pkg v0.0.0-20251124074720-83e0e80187ed
+	knative.dev/pkg v0.0.0-20251124190527-7d24e8d1085f
 	knative.dev/serving v0.47.1-0.20251124122119-7856b63a140c
 )
 
