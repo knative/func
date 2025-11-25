@@ -19,9 +19,5 @@ func (s *Server) templatesHandler(ctx context.Context, r *mcp.ReadResourceReques
 		return result, err
 	}
 
-	return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{
-		URI:      "func://templates",
-		MIMEType: "text/plain",
-		Text:     string(out),
-	}}}, nil
+	return newSuccessResult("func://templates", "text/plain", out), nil
 }
