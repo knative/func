@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/knative"
