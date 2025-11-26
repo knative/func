@@ -642,11 +642,9 @@ func TestCredentialsWithoutHome(t *testing.T) {
 			)
 
 			got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
-
 			// ASSERT
 			if err != nil {
-				t.Errorf("%v", err)
-				return
+				t.Fatalf("unexpected error: %v", err)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got: %v, want: %v", got, tt.want)
@@ -803,8 +801,7 @@ func TestCredentialsHomePermissions(t *testing.T) {
 
 				got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
 				if err != nil {
-					t.Errorf("%v", err)
-					return
+					t.Fatalf("unexpected error: %v", err)
 				}
 				if !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("got: %v, want: %v", got, tt.want)
@@ -880,11 +877,8 @@ func TestCredentialsFromAuthfile(t *testing.T) {
 			)
 
 			got, err := credentialsProvider(context.Background(), tt.image)
-
-			// ASSERT
 			if err != nil {
-				t.Errorf("%v", err)
-				return
+				t.Fatalf("unexpected error: %v", err)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got: %v, want: %v", got, tt.want)
