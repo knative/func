@@ -145,9 +145,14 @@ preconditions() {
         fi
     fi
 
-    # TODO: if Podman tests are enabled, check that podman is installed and running
-    # https://github.com/knative/func/issues/3209
-
+    # Check if Podman is installed and available (if Podman E2E tests are enabled)
+    if [ "${FUNC_E2E_PODMAN}" = "true" ]; then
+        if ! command -v podman >/dev/null 2>&1; then
+            echo "ERROR: Podman is required for Podman E2E tests but not found!"
+            echo "Please install Podman and ensure it is in your PATH."
+            exit 1
+        fi
+    fi
     echo ""
     echo "${green}✓ Preconditions checks passed${reset}"
 }
