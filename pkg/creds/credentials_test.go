@@ -890,7 +890,7 @@ func TestCredentialsFromAuthfile(t *testing.T) {
 // ********************** helper functions below **************************** \\
 
 func resetHomeDir(t *testing.T) {
-	t.TempDir()
+	t.Helper()
 	if err := os.RemoveAll(homeTempDir); err != nil {
 		t.Fatal(err)
 	}
@@ -901,6 +901,7 @@ func resetHomeDir(t *testing.T) {
 
 // resetHomePermissions resets the HOME perms to 0700 (same as resetHomeDir(t))
 func resetHomePermissions(t *testing.T) {
+	t.Helper()
 	if err := os.Chmod(homeTempDir, 0700); err != nil {
 		t.Fatal(err)
 	}
