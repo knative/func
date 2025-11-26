@@ -4,8 +4,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,15 +12,11 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"slices"
-	"sort"
 	"strings"
 	"syscall"
 
-	"golang.org/x/net/html"
 	"golang.org/x/oauth2"
-	"golang.org/x/term"
 
 	"github.com/buildpacks/pack/builder"
 	"github.com/buildpacks/pack/buildpackage"
@@ -31,9 +25,7 @@ import (
 	bpimage "github.com/buildpacks/pack/pkg/image"
 	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/registry"
 	docker "github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/authn"
 	ghAuth "github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -101,34 +93,19 @@ func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlP
 	}
 
 	fixupStacks(&builderConfig)
-
-	// temporary fix, for some reason paketo does not distribute several buildpacks for ARM64
-	// we need ot fix that up
-	if arch == "arm64" {
-		err = fixupGoBuildpackARM64(ctx, &builderConfig)
-		if err != nil {
-			return "", fmt.Errorf("cannot fix Go buildpack: %w", err)
-		}
-		if variant == "base" {
-			err = fixupPythonBuildpackARM64(ctx, &builderConfig)
-			if err != nil {
-				return "", fmt.Errorf("cannot fix Python buildpack: %w", err)
-			}
-		}
-		// Sort by URI. This ensures locally build buildpacks (URI starting with 'file://') are last.
-		// This is needed so locally build "sub buildpacks" are not overridden by upstream buildpacks (with bad arch).
-		sort.Slice(builderConfig.Buildpacks, func(i, j int) bool {
-			a := builderConfig.Buildpacks[i].URI
-			b := builderConfig.Buildpacks[j].URI
-			return a < b
-		})
-	}
-
 	err = updateJavaBuildpacks(ctx, &builderConfig, arch)
 	if err != nil {
 		return "", fmt.Errorf("cannot patch java buildpacks: %w", err)
 	}
-	addGoAndRustBuildpacks(&builderConfig)
+	if arch == "arm64" && variant == "base" {
+		// dotnet,ruby&web-servers are not multiarch & we dont need them
+		err = fixupRemoveUnusedBuildpacks(&builderConfig)
+		if err != nil {
+			return "", fmt.Errorf("failed to remove unused buildpacks: %w", err)
+		}
+	}
+
+	addRustBuildpack(&builderConfig)
 
 	var dockerClient docker.APIClient
 	dockerClient, err = docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
@@ -152,10 +129,10 @@ func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlP
 		},
 		BuilderName: newBuilderImageTagged,
 		Config:      builderConfig,
-		Publish:     false,
+		Publish:     true,
 		PullPolicy:  bpimage.PullAlways,
 		Labels: map[string]string{
-			"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Func-Go buildpacks.",
+			"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Quarkus buildpacks.",
 			"org.opencontainers.image.source":      "https://github.com/knative/func",
 			"org.opencontainers.image.vendor":      "https://github.com/knative/func",
 			"org.opencontainers.image.url":         "https://github.com/knative/func/pkgs/container/builder-jammy-" + variant,
@@ -165,76 +142,20 @@ func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlP
 
 	err = packClient.CreateBuilder(ctx, createBuilderOpts)
 	if err != nil {
-		return "", fmt.Errorf("cannont create builder: %w", err)
+		return "", fmt.Errorf("cannot create builder: %w", err)
 	}
 
-	pushImage := func(img string) (string, error) {
-		regAuth, err := dockerDaemonAuthStr(img)
-		if err != nil {
-			return "", fmt.Errorf("cannot get credentials: %w", err)
-		}
-		imagePushOptions := image.PushOptions{
-			All:          false,
-			RegistryAuth: regAuth,
-		}
-
-		rc, err := dockerClient.ImagePush(ctx, img, imagePushOptions)
-		if err != nil {
-			return "", fmt.Errorf("cannot initialize image push: %w", err)
-		}
-		defer func(rc io.ReadCloser) {
-			_ = rc.Close()
-		}(rc)
-
-		pr, pw := io.Pipe()
-		r := io.TeeReader(rc, pw)
-
-		go func() {
-			fd := os.Stdout.Fd()
-			isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-			e := jsonmessage.DisplayJSONMessagesStream(pr, os.Stderr, fd, isTerminal, nil)
-			_ = pr.CloseWithError(e)
-		}()
-
-		var (
-			digest string
-			jm     jsonmessage.JSONMessage
-			dec    = json.NewDecoder(r)
-			re     = regexp.MustCompile(`\sdigest: (?P<hash>sha256:[a-zA-Z0-9]+)\s`)
-		)
-		for {
-			err = dec.Decode(&jm)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				return "", err
-			}
-			if jm.Error != nil {
-				continue
-			}
-
-			matches := re.FindStringSubmatch(jm.Status)
-			if len(matches) == 2 {
-				digest = matches[1]
-				_, _ = io.Copy(io.Discard, r)
-				break
-			}
-		}
-
-		if digest == "" {
-			return "", fmt.Errorf("digest not found")
-		}
-		return digest, nil
-	}
-
-	var d string
-	d, err = pushImage(newBuilderImageTagged)
+	// Get digest from registry after Pack published it
+	newRef, err := name.ParseReference(newBuilderImageTagged)
 	if err != nil {
-		return "", fmt.Errorf("cannot push the image: %w", err)
+		return "", fmt.Errorf("cannot parse reference: %w", err)
+	}
+	newDesc, err := remote.Head(newRef, remote.WithAuthFromKeychain(DefaultKeychain), remote.WithContext(ctx))
+	if err != nil {
+		return "", fmt.Errorf("cannot get image descriptor from registry: %w", err)
 	}
 
-	return newBuilderImage + "@" + d, nil
+	return newBuilderImage + "@" + newDesc.Digest.String(), nil
 }
 
 // Builds builder for each arch and creates manifest list
@@ -296,14 +217,13 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 		return nil
 	}
 
-	err = buildStack(ctx, variant, builderTomlPath)
+	err = copyStackImages(ctx, builderTomlPath)
 	if err != nil {
-		return fmt.Errorf("cannot build stack: %w", err)
+		return fmt.Errorf("failed to copy over stack images for variant %v: %w", variant, err)
 	}
-
 	idx := mutate.IndexMediaType(empty.Index, types.DockerManifestList)
 	idx = mutate.Annotations(idx, map[string]string{
-		"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Func-Go buildpacks.",
+		"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Quarkus buildpacks.",
 		"org.opencontainers.image.source":      "https://github.com/knative/func",
 		"org.opencontainers.image.vendor":      "https://github.com/knative/func",
 		"org.opencontainers.image.url":         "https://github.com/knative/func/pkgs/container/builder-jammy-" + variant,
@@ -330,7 +250,6 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 		if err != nil {
 			return fmt.Errorf("cannot get the image: %w", err)
 		}
-
 		cf, err := img.ConfigFile()
 		if err != nil {
 			return fmt.Errorf("cannot get config file for the image: %w", err)
@@ -348,16 +267,23 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 		})
 	}
 
+	// Write index of variant with version
 	err = remote.WriteIndex(idxRef, idx, remoteOpts...)
 	if err != nil {
 		return fmt.Errorf("cannot write image index: %w", err)
 	}
 
-	idxRef, err = name.ParseReference("ghcr.io/knative/builder-jammy-" + variant + ":latest")
+	idxRef, err = name.ParseReference("ghcr.io/knative/builder-jammy-" + variant + ":v2")
 	if err != nil {
 		return fmt.Errorf("cannot parse image index ref: %w", err)
 	}
 
+	// Write preffered image to be pulled (v2 as successor to 'latest'
+	// when incompatible changes were made). This is unfortunate but keeping
+	// latest would break building any go function with pack builder with func
+	// binary which does not contain the right scaffolding change.
+	//
+	// The incompatible change is removing the custom go buildpack for the upstream one
 	err = remote.WriteIndex(idxRef, idx, remoteOpts...)
 	if err != nil {
 		return fmt.Errorf("cannot write image index: %w", err)
@@ -411,16 +337,11 @@ func buildBuildpackImage(ctx context.Context, bp buildpack, arch string) error {
 
 	version := strings.TrimPrefix(*release.TagName, "v")
 
-	fmt.Println("src tar url:", *release.TarballURL)
-
 	imageNameTagged := bp.image + ":" + version
 	srcDir, err := os.MkdirTemp("", "src-*")
 	if err != nil {
 		return fmt.Errorf("cannot create temp dir: %w", err)
 	}
-
-	fmt.Println("imageNameTagged:", imageNameTagged)
-	fmt.Println("srcDir:", srcDir)
 
 	err = downloadTarball(*release.TarballURL, srcDir)
 	if err != nil {
@@ -457,7 +378,7 @@ func buildBuildpackImage(ctx context.Context, bp buildpack, arch string) error {
 	_, err = fmt.Fprintf(f, "[buildpack]\nuri = \"%s\"\n\n[platform]\nos = \"%s\"\n", packageDir, "linux")
 	_ = f.Close()
 	if err != nil {
-		return fmt.Errorf("cannot apped to package.toml: %w", err)
+		return fmt.Errorf("cannot append to package.toml: %w", err)
 	}
 
 	cfgReader := buildpackage.NewConfigReader()
@@ -494,7 +415,7 @@ func buildBuildpackImage(ctx context.Context, bp buildpack, arch string) error {
 		Name:            imageNameTagged,
 		Format:          pack.FormatImage,
 		Config:          cfg,
-		Publish:         false,
+		Publish:         true,
 		PullPolicy:      bpimage.PullAlways,
 		Registry:        "",
 		Flatten:         false,
@@ -582,9 +503,9 @@ func downloadBuilderToml(ctx context.Context, tarballUrl, builderTomlPath string
 	return nil
 }
 
-// Adds custom Rust and Go-Function buildpacks to the builder.
-func addGoAndRustBuildpacks(config *builder.Config) {
-	config.Description += "\nAddendum: this is modified builder that also contains Rust and Func-Go buildpacks."
+// Adds custom Rust buildpack to the builder.
+func addRustBuildpack(config *builder.Config) {
+	config.Description += "\nAddendum: this builder contains community multi-arch Rust buildpack."
 	additionalBuildpacks := []builder.ModuleConfig{
 		{
 			ModuleInfo: dist.ModuleInfo{
@@ -595,15 +516,6 @@ func addGoAndRustBuildpacks(config *builder.Config) {
 				BuildpackURI: dist.BuildpackURI{URI: "docker://docker.io/paketocommunity/rust:0.65.0"},
 			},
 		},
-		{
-			ModuleInfo: dist.ModuleInfo{
-				ID:      "dev.knative-extensions.go",
-				Version: "0.0.6",
-			},
-			ImageOrURI: dist.ImageOrURI{
-				BuildpackURI: dist.BuildpackURI{URI: "ghcr.io/boson-project/go-function-buildpack:0.0.6"},
-			},
-		},
 	}
 
 	additionalGroups := []dist.OrderEntry{
@@ -612,26 +524,6 @@ func addGoAndRustBuildpacks(config *builder.Config) {
 				{
 					ModuleInfo: dist.ModuleInfo{
 						ID: "paketo-community/rust",
-					},
-				},
-			},
-		},
-		{
-			Group: []dist.ModuleRef{
-				{
-					ModuleInfo: dist.ModuleInfo{
-						ID: "paketo-buildpacks/git",
-					},
-					Optional: true,
-				},
-				{
-					ModuleInfo: dist.ModuleInfo{
-						ID: "paketo-buildpacks/go-dist",
-					},
-				},
-				{
-					ModuleInfo: dist.ModuleInfo{
-						ID: "dev.knative-extensions.go",
 					},
 				},
 			},
@@ -712,7 +604,7 @@ func downloadTarball(tarballUrl, destDir string) error {
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(resp.Body)
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("cannot get tarball: %s", resp.Status)
 	}
 	defer func(Body io.ReadCloser) {
@@ -786,35 +678,6 @@ func newGHClient(ctx context.Context) *github.Client {
 
 var DefaultKeychain = authn.NewMultiKeychain(ghAuth.Keychain, authn.DefaultKeychain)
 
-func dockerDaemonAuthStr(img string) (string, error) {
-	ref, err := name.ParseReference(img)
-	if err != nil {
-		return "", err
-	}
-
-	a, err := DefaultKeychain.Resolve(ref.Context())
-	if err != nil {
-		return "", err
-	}
-
-	ac, err := a.Authorization()
-	if err != nil {
-		return "", err
-	}
-
-	authConfig := registry.AuthConfig{
-		Username: ac.Username,
-		Password: ac.Password,
-	}
-
-	bs, err := json.Marshal(&authConfig)
-	if err != nil {
-		return "", err
-	}
-
-	return base64.StdEncoding.EncodeToString(bs), nil
-}
-
 // Hack implementation of docker client returns NotFound for images ghcr.io/knative/buildpacks/*
 // For some reason moby/docker erroneously returns 500 HTTP code for these missing images.
 // Interestingly podman correctly returns 404 for same request.
@@ -829,239 +692,8 @@ func (c hackDockerClient) ImagePull(ctx context.Context, ref string, options ima
 	return c.APIClient.ImagePull(ctx, ref, options)
 }
 
-func getReleaseByVersion(ctx context.Context, repo, vers string) (*github.RepositoryRelease, error) {
-	ghClient := newGHClient(ctx)
-
-	listOpts := &github.ListOptions{Page: 0, PerPage: 10}
-	releases, resp, err := ghClient.Repositories.ListReleases(ctx, "paketo-buildpacks", repo, listOpts)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get releases: %w", err)
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
-	for _, r := range releases {
-		if strings.TrimPrefix(*r.TagName, "v") == vers {
-			return r, nil
-		}
-	}
-	return nil, errors.New("release not found")
-}
-
-func fixupGoBuildpackARM64(ctx context.Context, config *builder.Config) error {
-	var (
-		goBuildpackIndex   int
-		goBuildpackVersion string
-	)
-	for i, moduleConfig := range config.Buildpacks {
-		uri := moduleConfig.URI
-		if strings.Contains(uri, "buildpacks/go:") {
-			goBuildpackIndex = i
-			goBuildpackVersion = uri[strings.LastIndex(uri, ":")+1:]
-			break
-		}
-	}
-	if goBuildpackVersion == "" {
-		return fmt.Errorf("go buildpack not found in the config")
-	}
-
-	buildDir, err := os.MkdirTemp("", "build-dir-*")
-	if err != nil {
-		return fmt.Errorf("cannot create temp dir: %w", err)
-	}
-	// sic! do not defer remove
-
-	goBuildpackSrcDir := filepath.Join(buildDir, "go")
-
-	goBuildpackRelease, err := getReleaseByVersion(ctx, "go", goBuildpackVersion)
-	if err != nil {
-		return fmt.Errorf("cannot get Go release: %w", err)
-	}
-
-	err = downloadTarball(*goBuildpackRelease.TarballURL, goBuildpackSrcDir)
-	if err != nil {
-		return fmt.Errorf("cannot download Go buildpack source code: %w", err)
-	}
-
-	// Set targets in Go package.toml to linux/arm64
-	f, err := os.OpenFile(filepath.Join(goBuildpackSrcDir, "package.toml"), os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return fmt.Errorf("cannot open package toml: %w", err)
-	}
-	targets := "\n[[targets]]\n  arch = \"arm64\"\n  os = \"linux\"\n"
-	_, err = f.Write([]byte(targets))
-	_ = f.Close()
-	if err != nil {
-		return fmt.Errorf("cannout update package toml: %w", err)
-	}
-
-	cfgReader := buildpackage.NewConfigReader()
-	packageConfig, err := cfgReader.Read(filepath.Join(goBuildpackSrcDir, "package.toml"))
-	if err != nil {
-		return fmt.Errorf("cannot read Go buildpack config: %w", err)
-	}
-
-	buildBuildpack := func(name, version string) error {
-		srcDir := filepath.Join(buildDir, name)
-		cmd := exec.CommandContext(ctx, "./scripts/package.sh", "--version", version)
-		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-		cmd.Dir = srcDir
-		cmd.Env = append(os.Environ(), "GOARCH=arm64")
-		err = cmd.Run()
-		if err != nil {
-			return fmt.Errorf("build of buildpack %q failed: %w", name, err)
-		}
-		return nil
-	}
-
-	type patchSourceFn = func(srcDir string) error
-	// these buildpacks need rebuild since they are only amd64 in paketo upstream
-	needsRebuild := map[string]patchSourceFn{
-		"git":           nil,
-		"go-build":      nil,
-		"go-mod-vendor": nil,
-		"go-dist": func(srcDir string) error {
-			return fixupGoDistPkgRefs(filepath.Join(srcDir, "buildpack.toml"), "arm64")
-		},
-	}
-
-	re := regexp.MustCompile(`^urn:cnb:registry:paketo-buildpacks/([\w-]+)@([\d.]+)$`)
-	for i, dep := range packageConfig.Dependencies {
-		m := re.FindStringSubmatch(dep.URI)
-		if len(m) != 3 {
-			return fmt.Errorf("cannot match buildpack name")
-		}
-		buildpackName := m[1]
-		buildpackVersion := m[2]
-
-		patch, ok := needsRebuild[buildpackName]
-		if !ok {
-			// this dependency does not require rebuild for arm64
-			continue
-		}
-
-		var rel *github.RepositoryRelease
-		rel, err = getReleaseByVersion(ctx, buildpackName, buildpackVersion)
-		if err != nil {
-			return fmt.Errorf("cannot get release: %w", err)
-		}
-
-		srcDir := filepath.Join(buildDir, buildpackName)
-
-		err = downloadTarball(*rel.TarballURL, srcDir)
-		if err != nil {
-			return fmt.Errorf("cannot get tarball: %w", err)
-		}
-		if patch != nil {
-			err = patch(srcDir)
-			if err != nil {
-				return fmt.Errorf("cannot patch source code: %w", err)
-			}
-		}
-
-		err = buildBuildpack(buildpackName, buildpackVersion)
-		if err != nil {
-			return err
-		}
-
-		packageConfig.Dependencies[i].URI = "file://" + filepath.Join(srcDir, "build", "buildpackage.cnb")
-
-	}
-
-	bs, err := toml.Marshal(&packageConfig)
-	err = os.WriteFile(filepath.Join(goBuildpackSrcDir, "package.toml"), bs, 0644)
-	if err != nil {
-		return fmt.Errorf("cannot update package.toml: %w", err)
-	}
-
-	err = buildBuildpack("go", goBuildpackVersion)
-	if err != nil {
-		return err
-	}
-
-	config.Buildpacks[goBuildpackIndex].URI = "file://" + filepath.Join(goBuildpackSrcDir, "build", "buildpackage.cnb")
-	fmt.Println(goBuildpackSrcDir)
-	return nil
-}
-
-// The paketo go-dist buildpack refer to the amd64 version of Go.
-// This function replaces these references with references to the arm64 version.
-func fixupGoDistPkgRefs(buildpackToml, arch string) error {
-	resp, err := http.Get("https://go.dev/dl/?mode=json&include=all")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	var releases []struct {
-		Version string
-		Stable  bool
-		Files   []struct {
-			Sha256   string
-			Filename string
-			Arch     string
-			OS       string
-		}
-	}
-	err = json.NewDecoder(resp.Body).Decode(&releases)
-	if err != nil {
-		return err
-	}
-
-	rels := make(map[string]struct {
-		file     string
-		checksum string
-	})
-	for _, r := range releases {
-		for _, f := range r.Files {
-			if f.OS != "linux" {
-				continue
-			}
-			if f.Arch == arch {
-				rels[strings.TrimPrefix(r.Version, "go")] = struct {
-					file     string
-					checksum string
-				}{file: f.Filename, checksum: f.Sha256}
-			}
-		}
-	}
-
-	tomlBytes, err := os.ReadFile(buildpackToml)
-	if err != nil {
-		return err
-	}
-
-	var config any
-	err = toml.Unmarshal(tomlBytes, &config)
-	if err != nil {
-		return err
-	}
-	deps := config.(map[string]any)["metadata"].(map[string]any)["dependencies"].([]map[string]any)
-
-	re := regexp.MustCompile(`checksum=([a-fA-F0-9]+)`)
-
-	for _, dep := range deps {
-		rel := rels[dep["version"].(string)]
-		dep["purl"] = re.ReplaceAllLiteralString(dep["purl"].(string), "checksum="+rel.checksum)
-		dep["checksum"] = "sha256:" + rel.checksum
-		dep["uri"] = "https://go.dev/dl/" + rel.file
-		dep["arch"] = arch
-	}
-
-	tomlBytes, err = toml.Marshal(config)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(buildpackToml, tomlBytes, 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
+// update metadata in builders so that we use knative (ghcr) based images
+// instead of docker registry
 func fixupStacks(builderConfig *builder.Config) {
 	newBuilder := stackImageToMirror(builderConfig.Stack.BuildImage)
 	builderConfig.Stack.BuildImage = newBuilder
@@ -1075,7 +707,7 @@ func fixupStacks(builderConfig *builder.Config) {
 }
 
 func copyImage(ctx context.Context, srcRef, destRef string) error {
-	_, _ = fmt.Fprintf(os.Stderr, "copying: %s => %s\n", srcRef, destRef)
+	_, _ = fmt.Fprintf(os.Stderr, "## copying: %s => %s\n", srcRef, destRef)
 	cmd := exec.CommandContext(ctx, "skopeo", "copy",
 		"--multi-arch=all",
 		"docker://"+srcRef,
@@ -1103,483 +735,71 @@ func stackImageToMirror(ref string) string {
 	}
 }
 
-func buildStack(ctx context.Context, variant, builderTomlPath string) error {
+func fixupRemoveUnusedBuildpacks(c *builder.Config) error {
+	// these contain single-arch buildpacks so this also removes multi-arch issues
+	unusedBuildpacks := []string{"dotnet", "ruby", "web-servers"}
+
+	var buildpacksToDel []int
+	for i, config := range c.Buildpacks {
+		for _, unused := range unusedBuildpacks {
+			if strings.Contains(config.URI, unused) {
+				buildpacksToDel = append(buildpacksToDel, i)
+				break
+			}
+		}
+	}
+	for i := len(buildpacksToDel) - 1; i >= 0; i-- {
+		idx := buildpacksToDel[i]
+		c.Buildpacks = slices.Delete(c.Buildpacks, idx, idx+1)
+	}
+
+	// Remove all orders containing unused buildpacks
+	var ordersToDel []int
+	for i, entry := range c.Order {
+		found := false
+		for _, g := range entry.Group {
+			for _, unused := range unusedBuildpacks {
+				if strings.Contains(g.ID, unused) {
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if found {
+			ordersToDel = append(ordersToDel, i)
+		}
+	}
+	for i := len(ordersToDel) - 1; i >= 0; i-- {
+		idx := ordersToDel[i]
+		c.Order = slices.Delete(c.Order, idx, idx+1)
+	}
+
+	return nil
+}
+
+// Copy build & run images from stack so that we dont use docker registry based images
+// Run images are simply copied over to ghcr
+func copyStackImages(ctx context.Context, configPath string) error {
 	var err error
 
-	builderConfig, _, err := builder.ReadConfig(builderTomlPath)
+	builderConfig, _, err := builder.ReadConfig(configPath)
 	if err != nil {
 		return fmt.Errorf("cannot parse builder.toml: %w", err)
 	}
 
-	buildImage := builderConfig.Stack.BuildImage
 	runImage := builderConfig.Stack.RunImage
-
-	if variant == "base" {
-		// For base stack we do not just do mirroring, we build it from the source.
-		// This is done in order to support arm64. Only tiny stack is multi-arch in the upstream.
-		err = buildBaseStack(ctx, buildImage, runImage)
-		if err != nil {
-			return fmt.Errorf("cannot build base stack: %w", err)
-		}
-		return nil
-	}
-
-	err = copyImage(ctx, buildImage, stackImageToMirror(buildImage))
-	if err != nil {
-		return fmt.Errorf("cannot mirror build image: %w", err)
-	}
+	buildImage := builderConfig.Stack.BuildImage
 
 	err = copyImage(ctx, runImage, stackImageToMirror(runImage))
 	if err != nil {
 		return fmt.Errorf("cannot mirror run image: %w", err)
 	}
-
-	return nil
-}
-
-func buildBaseStack(ctx context.Context, buildImage, runImage string) error {
-	cli := newGHClient(ctx)
-
-	parts := strings.Split(buildImage, ":")
-	stackVersion := parts[len(parts)-1]
-
-	rel, resp, err := cli.Repositories.GetReleaseByTag(ctx, "paketo-buildpacks", "jammy-base-stack", "v"+stackVersion)
+	err = copyImage(ctx, buildImage, stackImageToMirror(buildImage))
 	if err != nil {
-		return fmt.Errorf("cannot get release: %w", err)
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
-	src, err := os.MkdirTemp("", "src-dir")
-	if err != nil {
-		return fmt.Errorf("cannot create temp dir: %w", err)
-	}
-
-	err = downloadTarball(rel.GetTarballURL(), src)
-	if err != nil {
-		return fmt.Errorf("cannot download source tarball: %w", err)
-	}
-
-	err = patchStack(filepath.Join(src, "stack", "stack.toml"))
-	if err != nil {
-		return fmt.Errorf("cannot patch stack toml: %w", err)
-	}
-
-	script := fmt.Sprintf(`
-set -ex
-scripts/create.sh
-.bin/jam publish-stack --build-ref %q --run-ref %q --build-archive build/build.oci --run-archive build/run.oci
-`, stackImageToMirror(buildImage), stackImageToMirror(runImage))
-
-	cmd := exec.CommandContext(ctx, "sh", "-c", script)
-	cmd.Dir = src
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("cannot build stack: %w", err)
-	}
-
-	return nil
-}
-
-func patchStack(stackTomlPath string) error {
-	input, err := os.ReadFile(stackTomlPath)
-	if err != nil {
-		return fmt.Errorf("cannot open stack toml: %w", err)
-	}
-
-	var data any
-	err = toml.Unmarshal(input, &data)
-	if err != nil {
-		return fmt.Errorf("cannot decode data: %w", err)
-	}
-
-	m := data.(map[string]any)
-	m["platforms"] = []string{"linux/amd64", "linux/arm64"}
-
-	args := map[string]interface{}{
-		"args": map[string]interface{}{
-			"architecture": "arm64",
-			"sources": `    deb http://ports.ubuntu.com/ubuntu-ports/ jammy main universe multiverse
-    deb http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main universe multiverse
-    deb http://ports.ubuntu.com/ubuntu-ports/ jammy-security main universe multiverse
-    `},
-	}
-
-	m["build"].(map[string]any)["platforms"] = map[string]any{"linux/arm64": args}
-	m["run"].(map[string]any)["platforms"] = map[string]any{"linux/arm64": args}
-
-	output, err := toml.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("cannot marshal config: %w", err)
-	}
-	err = os.WriteFile(stackTomlPath, output, 0644)
-	if err != nil {
-		return fmt.Errorf("cannot write patched stack toml: %w", err)
-	}
-
-	return nil
-}
-
-func fixupPythonBuildpackARM64(ctx context.Context, config *builder.Config) error {
-	var (
-		pythonBuildpackIndex   int
-		pythonBuildpackVersion string
-	)
-	for i, moduleConfig := range config.Buildpacks {
-		uri := moduleConfig.URI
-		if strings.Contains(uri, "buildpacks/python:") {
-			pythonBuildpackIndex = i
-			pythonBuildpackVersion = uri[strings.LastIndex(uri, ":")+1:]
-			break
-		}
-	}
-	if pythonBuildpackVersion == "" {
-		return fmt.Errorf("python buildpack not found in the config")
-	}
-
-	buildDir, err := os.MkdirTemp("", "build-dir-*")
-	if err != nil {
-		return fmt.Errorf("cannot create temp dir: %w", err)
-	}
-	// sic! do not defer remove
-
-	pythonBuildpackSrcDir := filepath.Join(buildDir, "python")
-
-	pythonBuildpackRelease, err := getReleaseByVersion(ctx, "python", pythonBuildpackVersion)
-	if err != nil {
-		return fmt.Errorf("cannot get Python release: %w", err)
-	}
-
-	err = downloadTarball(*pythonBuildpackRelease.TarballURL, pythonBuildpackSrcDir)
-	if err != nil {
-		return fmt.Errorf("cannot download Python buildpack source code: %w", err)
-	}
-
-	// Set targets in Python package.toml to linux/arm64
-	f, err := os.OpenFile(filepath.Join(pythonBuildpackSrcDir, "package.toml"), os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return fmt.Errorf("cannot open package toml: %w", err)
-	}
-	targets := "\n[[targets]]\n  arch = \"arm64\"\n  os = \"linux\"\n"
-	_, err = f.Write([]byte(targets))
-	_ = f.Close()
-	if err != nil {
-		return fmt.Errorf("cannout update package toml: %w", err)
-	}
-
-	cfgReader := buildpackage.NewConfigReader()
-	packageConfig, err := cfgReader.Read(filepath.Join(pythonBuildpackSrcDir, "package.toml"))
-	if err != nil {
-		return fmt.Errorf("cannot read Python buildpack config: %w", err)
-	}
-
-	buildBuildpack := func(name, version string) error {
-		srcDir := filepath.Join(buildDir, name)
-		cmd := exec.CommandContext(ctx, "./scripts/package.sh", "--version", version)
-		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-		cmd.Dir = srcDir
-		cmd.Env = append(os.Environ(), "GOARCH=arm64")
-		err = cmd.Run()
-		if err != nil {
-			return fmt.Errorf("build of buildpack %q failed: %w", name, err)
-		}
-		return nil
-	}
-
-	type patchSourceFn = func(srcDir string) error
-	// these buildpacks need rebuild since they are only amd64 in paketo upstream
-	needsRebuild := map[string]patchSourceFn{
-		"cpython": func(srcDir string) error {
-			return fixupCPythonDistPkgRefs(ctx, filepath.Join(srcDir, "buildpack.toml"))
-		},
-		"miniconda": func(srcDir string) error {
-			return fixupMinicondaDistPkgRefs(filepath.Join(srcDir, "buildpack.toml"))
-		},
-		"conda-env-update": nil,
-		"pip":              nil,
-		"pip-install":      nil,
-		"pipenv":           nil,
-		"pipenv-install":   nil,
-		"poetry":           nil,
-		"poetry-install":   nil,
-		"poetry-run":       nil,
-		"python":           nil,
-		"python-start":     nil,
-	}
-
-	re := regexp.MustCompile(`^urn:cnb:registry:paketo-buildpacks/([\w-]+)@([\d.]+)$`)
-	for i, dep := range packageConfig.Dependencies {
-		m := re.FindStringSubmatch(dep.URI)
-		if len(m) != 3 {
-			return fmt.Errorf("cannot match buildpack name")
-		}
-		buildpackName := m[1]
-		buildpackVersion := m[2]
-
-		patch, ok := needsRebuild[buildpackName]
-		if !ok {
-			// this dependency does not require rebuild for arm64
-			continue
-		}
-
-		var rel *github.RepositoryRelease
-		rel, err = getReleaseByVersion(ctx, buildpackName, buildpackVersion)
-		if err != nil {
-			return fmt.Errorf("cannot get release: %w", err)
-		}
-
-		srcDir := filepath.Join(buildDir, buildpackName)
-
-		err = downloadTarball(*rel.TarballURL, srcDir)
-		if err != nil {
-			return fmt.Errorf("cannot get tarball: %w", err)
-		}
-		if patch != nil {
-			err = patch(srcDir)
-			if err != nil {
-				return fmt.Errorf("cannot patch source code: %w", err)
-			}
-		}
-
-		err = buildBuildpack(buildpackName, buildpackVersion)
-		if err != nil {
-			return err
-		}
-
-		packageConfig.Dependencies[i].URI = "file://" + filepath.Join(srcDir, "build", "buildpackage.cnb")
-
-	}
-
-	bs, err := toml.Marshal(&packageConfig)
-	err = os.WriteFile(filepath.Join(pythonBuildpackSrcDir, "package.toml"), bs, 0644)
-	if err != nil {
-		return fmt.Errorf("cannot update package.toml: %w", err)
-	}
-
-	err = buildBuildpack("python", pythonBuildpackVersion)
-	if err != nil {
-		return err
-	}
-
-	config.Buildpacks[pythonBuildpackIndex].URI = "file://" + filepath.Join(pythonBuildpackSrcDir, "build", "buildpackage.cnb")
-	fmt.Println(pythonBuildpackSrcDir)
-	return nil
-}
-
-func fixupCPythonDistPkgRefs(ctx context.Context, buildpackToml string) error {
-
-	tomlBytes, err := os.ReadFile(buildpackToml)
-	if err != nil {
-		return err
-	}
-
-	var config any
-	err = toml.Unmarshal(tomlBytes, &config)
-	if err != nil {
-		return err
-	}
-
-	deps := config.(map[string]any)["metadata"].(map[string]any)["dependencies"].([]map[string]any)
-
-	r := regexp.MustCompile(`[_-](\d+\.\d+\.\d+)[._]`)
-	parseVersion := func(url string) (string, error) {
-		ms := r.FindStringSubmatch(url)
-		if len(ms) != 2 {
-			return "", fmt.Errorf("missing version match in %q", url)
-		}
-		return ms[1], nil
-	}
-
-	getPackageInfo := func(version string) (url string, checksum string, err error) {
-		url = fmt.Sprintf(`https://github.com/matejvasek/cpython-dist/`+
-			`releases/download/v0.0.0/python_%s_linux_arm64_jammy.tgz`, version)
-		req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
-		if err != nil {
-			return "", "", err
-		}
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return "", "", err
-		}
-		_ = resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return "", "", fmt.Errorf("non 200 code")
-		}
-
-		req, err = http.NewRequestWithContext(ctx, "GET", url+".checksum", nil)
-		if err != nil {
-			return "", "", err
-		}
-		resp, err = http.DefaultClient.Do(req)
-		if err != nil {
-			return "", "", err
-		}
-		bs, err := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if err != nil {
-			return "", "", err
-		}
-		if resp.StatusCode != http.StatusOK {
-			return "", "", fmt.Errorf("non 200 code")
-		}
-
-		checksum = strings.TrimSpace(string(bs))
-
-		return
-	}
-
-	// If there are no cpython arm64 packages we set uri to source.
-	// This will cause cpython compilation to be done during the build process.
-	// This takes a while, but it's done only once per project.
-	uriToSource := func(dep map[string]any) {
-		dep["checksum"] = dep["source-checksum"]
-		dep["uri"] = dep["source"]
-	}
-
-	for _, dep := range deps {
-		if !slices.Equal(dep["stacks"].([]any), []any{"io.buildpacks.stacks.jammy"}) {
-			// we have binary packages only for jammy stack, fallback to source build
-			uriToSource(dep)
-			continue
-		}
-
-		var ver, uri, checksum string
-		ver, err = parseVersion(dep["uri"].(string))
-		if err != nil {
-			return err
-		}
-
-		uri, checksum, err = getPackageInfo(ver)
-		if err != nil {
-			// binary package not found for the version, fallback to source build
-			uriToSource(dep)
-			continue
-		}
-		dep["uri"] = uri
-		dep["checksum"] = checksum
-		dep["arch"] = "arm64"
-	}
-
-	bs, err := toml.Marshal(config)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(buildpackToml, bs, 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func fixupMinicondaDistPkgRefs(buildpackToml string) error {
-	tomlBytes, err := os.ReadFile(buildpackToml)
-	if err != nil {
-		return err
-	}
-
-	var config any
-	err = toml.Unmarshal(tomlBytes, &config)
-	if err != nil {
-		return err
-	}
-
-	deps := config.(map[string]any)["metadata"].(map[string]any)["dependencies"].([]map[string]any)
-	for _, dep := range deps {
-		if dep["name"] == "Miniconda.sh" {
-			newURI := strings.ReplaceAll(dep["uri"].(string), "x86_64", "aarch64")
-			dep["uri"] = newURI
-
-			parts := strings.Split(newURI, "/")
-			basename := parts[len(parts)-1]
-			var sum string
-			sum, err = getMinicondaHash(basename)
-			if err != nil {
-				return fmt.Errorf("cannot find hash for the dependency: %w", err)
-			}
-			dep["sha256"] = sum
-		}
-	}
-
-	bs, err := toml.Marshal(config)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(buildpackToml, bs, 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func getMinicondaHash(basename string) (string, error) {
-	//nolint:bodyclose
-	resp, err := http.Get("https://repo.anaconda.com/miniconda/")
-	if err != nil {
-		return "", err
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("bad http code: %d", resp.StatusCode)
-	}
-
-	n, err := html.Parse(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	tbody := findNode(n, func(n *html.Node) bool {
-		return n.Data == "tbody"
-	})
-	if tbody == nil {
-		return "", fmt.Errorf("table body not found")
-	}
-
-	for tr := range tbody.ChildNodes() {
-		f, l := firstLastTD(tr)
-		if f != l &&
-			f != nil && f.FirstChild != nil && f.FirstChild.FirstChild != nil &&
-			l != nil && l.FirstChild != nil {
-			if f.FirstChild.FirstChild.Data == basename {
-				return l.FirstChild.Data, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("hash not found")
-}
-
-func findNode(node *html.Node, pred func(*html.Node) bool) *html.Node {
-	if pred(node) {
-		return node
-	}
-	for ch := range node.ChildNodes() {
-		n := findNode(ch, pred)
-		if n != nil {
-			return n
-		}
+		return fmt.Errorf("cannot mirror build image: %w", err)
 	}
 	return nil
-}
-
-func firstLastTD(tr *html.Node) (*html.Node, *html.Node) {
-	var f, l *html.Node
-	for ch := range tr.ChildNodes() {
-		if ch.Data == "td" {
-			if f == nil {
-				f = ch
-			}
-			l = ch
-		}
-	}
-	return f, l
 }
