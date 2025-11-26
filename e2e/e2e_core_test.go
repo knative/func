@@ -71,7 +71,9 @@ func TestCore_Run(t *testing.T) {
 
 	cmd := newCmd(t, "run", "--json")
 	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
 	cmd.Stdout = out
+	cmd.Stderr = errOut
 
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -90,16 +92,20 @@ func TestCore_Run(t *testing.T) {
 	select {
 	case err := <-done:
 		if err != nil {
-			t.Fatal(err)
+			t.Logf("stdout: %s", out.String())
+			t.Logf("stderr: %s", errOut.String())
+			t.Fatalf("failed to decode JSON: %v", err)
 		}
 	case <-time.After(10 * time.Second):
+		t.Logf("stdout: %s", out.String())
+		t.Logf("stderr: %s", errOut.String())
 		t.Fatal("timed out waiting for function to start")
 	}
 
 	address := result.Address
 
-	// Wait for echo
-	if !waitFor(t, "http://"+address) {
+	// Wait for echo (address already includes http:// prefix)
+	if !waitFor(t, address) {
 		t.Fatal("service does not appear to have started correctly.")
 	}
 
@@ -302,7 +308,9 @@ func TestCore_Invoke(t *testing.T) {
 	// it detects it is running.
 	cmd := newCmd(t, "run", "--json")
 	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
 	cmd.Stdout = out
+	cmd.Stderr = errOut
 
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -326,16 +334,20 @@ func TestCore_Invoke(t *testing.T) {
 	select {
 	case err := <-done:
 		if err != nil {
-			t.Fatal(err)
+			t.Logf("stdout: %s", out.String())
+			t.Logf("stderr: %s", errOut.String())
+			t.Fatalf("failed to decode JSON: %v", err)
 		}
 	case <-time.After(10 * time.Second):
+		t.Logf("stdout: %s", out.String())
+		t.Logf("stderr: %s", errOut.String())
 		t.Fatal("timed out waiting for function to start")
 	}
 
 	address := result.Address
 
-	// Wait for function to start
-	if !waitFor(t, "http://"+address) {
+	// Wait for function to start (address already includes http:// prefix)
+	if !waitFor(t, address) {
 		t.Fatal("service does not appear to have started correctly.")
 	}
 
