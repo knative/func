@@ -642,11 +642,9 @@ func TestCredentialsWithoutHome(t *testing.T) {
 			)
 
 			got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
-
 			// ASSERT
 			if err != nil {
-				t.Errorf("%v", err)
-				return
+				t.Fatalf("unexpected error: %v", err)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got: %v, want: %v", got, tt.want)
@@ -803,8 +801,7 @@ func TestCredentialsHomePermissions(t *testing.T) {
 
 				got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
 				if err != nil {
-					t.Errorf("%v", err)
-					return
+					t.Fatalf("unexpected error: %v", err)
 				}
 				if !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("got: %v, want: %v", got, tt.want)
@@ -815,10 +812,85 @@ func TestCredentialsHomePermissions(t *testing.T) {
 	}
 }
 
+func TestCredentialsFromAuthfile(t *testing.T) {
+	tests := []struct {
+		name              string
+		verifyCredentials creds.VerifyCredentialsCallback
+		authFileContent   string
+		image             string
+		want              Credentials
+	}{
+		{
+			name:              "Single registry auth file",
+			verifyCredentials: correctVerifyCbk,
+			authFileContent: fmt.Sprintf(`
+{
+	"auths": {
+		"docker.io": {
+			"auth": "%s"
+		}
+	}
+}
+`, base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", dockerIoUser, dockerIoUserPwd)))),
+			image: "docker.io/someorg/someimage:sometag",
+			want:  Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+		{
+			name:              "Auth file with multiple registries",
+			verifyCredentials: correctVerifyCbk,
+			authFileContent: fmt.Sprintf(`
+{
+	"auths": {
+		"docker.io": {
+			"auth": "%s"
+		},
+		"quay.io": {
+			"auth": "%s"
+		}
+	}
+}
+`, base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", dockerIoUser, dockerIoUserPwd))),
+				base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", quayIoUser, quayIoUserPwd)))),
+			image: "quay.io/someorg/someimage:sometag",
+			want:  Credentials{Username: quayIoUser, Password: quayIoUserPwd},
+		},
+	}
+
+	// reset HOME to the original value after tests since they may change it
+	defer func() {
+		os.Setenv("HOME", homeTempDir)
+	}()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetHomeDir(t)
+
+			authFile := fmt.Sprintf("%s/authfile.json", t.TempDir())
+			if err := os.WriteFile(authFile, []byte(tt.authFileContent), 06444); err != nil {
+				t.Fatalf("failed to write auth file: %s", err)
+			}
+
+			credentialsProvider := creds.NewCredentialsProvider(
+				testConfigPath(t),
+				creds.WithVerifyCredentials(tt.verifyCredentials),
+				creds.WithAuthFilePath(authFile),
+			)
+
+			got, err := credentialsProvider(context.Background(), tt.image)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
 // ********************** helper functions below **************************** \\
 
 func resetHomeDir(t *testing.T) {
-	t.TempDir()
+	t.Helper()
 	if err := os.RemoveAll(homeTempDir); err != nil {
 		t.Fatal(err)
 	}
@@ -829,6 +901,7 @@ func resetHomeDir(t *testing.T) {
 
 // resetHomePermissions resets the HOME perms to 0700 (same as resetHomeDir(t))
 func resetHomePermissions(t *testing.T) {
+	t.Helper()
 	if err := os.Chmod(homeTempDir, 0700); err != nil {
 		t.Fatal(err)
 	}

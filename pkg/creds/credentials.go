@@ -94,6 +94,14 @@ type credentialsProvider struct {
 
 type Opt func(opts *credentialsProvider)
 
+// WithAuthFilePath sets a custom path to a docker-config file containing registry credentials.
+// If not specified, the default path (configPath/auth.json) will be used.
+func WithAuthFilePath(path string) Opt {
+	return func(opts *credentialsProvider) {
+		opts.authFilePath = path
+	}
+}
+
 // WithPromptForCredentials sets custom callback that is supposed to
 // interactively ask for credentials in case the credentials cannot be found in configuration files.
 // The callback may be called multiple times in case incorrect credentials were returned before.
@@ -187,7 +195,10 @@ func NewCredentialsProvider(configPath string, opts ...Opt) oci.CredentialsProvi
 			return oci.Credentials{}, ErrCredentialsNotFound
 		})
 
-	c.authFilePath = filepath.Join(configPath, "auth.json")
+	// Set authFilePath if not already set by WithAuthFilePath option
+	if c.authFilePath == "" {
+		c.authFilePath = filepath.Join(configPath, "auth.json")
+	}
 	sys := &containersTypes.SystemContext{
 		AuthFilePath: c.authFilePath,
 	}

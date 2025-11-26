@@ -13,6 +13,7 @@ import (
 	pack "knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 )
@@ -29,7 +30,7 @@ SYNOPSIS
 	{{rootCmdUse}} build [-r|--registry] [--builder] [--builder-image]
 		         [--push] [--username] [--password] [--token]
 	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
-		         [--build-timestamp] [--registry-insecure]
+		         [--build-timestamp] [--registry-insecure] [--registry-authfile]
 
 DESCRIPTION
 
@@ -69,7 +70,7 @@ EXAMPLES
 		SuggestFor: []string{"biuld", "buidl", "built"},
 		PreRunE: bindEnv("image", "path", "builder", "registry", "confirm",
 			"push", "builder-image", "base-image", "platform", "verbose",
-			"build-timestamp", "registry-insecure", "username", "password", "token"),
+			"build-timestamp", "registry-insecure", "registry-authfile", "username", "password", "token"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBuild(cmd, args, newClient)
 		},
@@ -102,6 +103,7 @@ EXAMPLES
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)")
+	cmd.Flags().String("registry-authfile", "", "Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
@@ -293,6 +295,9 @@ type buildConfig struct {
 	// Build with the current timestamp as the created time for docker image.
 	// This is only useful for buildpacks builder.
 	WithTimestamp bool
+
+	// RegistryAuthfile is the path to a docker-config file containing registry credentials.
+	RegistryAuthfile string
 }
 
 // newBuildConfig gathers options into a single build request.
@@ -305,16 +310,17 @@ func newBuildConfig() buildConfig {
 			Verbose:          viper.GetBool("verbose"),
 			RegistryInsecure: viper.GetBool("registry-insecure"),
 		},
-		BuilderImage:  viper.GetString("builder-image"),
-		BaseImage:     viper.GetString("base-image"),
-		Image:         viper.GetString("image"),
-		Path:          viper.GetString("path"),
-		Platform:      viper.GetString("platform"),
-		Push:          viper.GetBool("push"),
-		Username:      viper.GetString("username"),
-		Password:      viper.GetString("password"),
-		Token:         viper.GetString("token"),
-		WithTimestamp: viper.GetBool("build-timestamp"),
+		BuilderImage:     viper.GetString("builder-image"),
+		BaseImage:        viper.GetString("base-image"),
+		Image:            viper.GetString("image"),
+		Path:             viper.GetString("path"),
+		Platform:         viper.GetString("platform"),
+		Push:             viper.GetBool("push"),
+		Username:         viper.GetString("username"),
+		Password:         viper.GetString("password"),
+		Token:            viper.GetString("token"),
+		WithTimestamp:    viper.GetBool("build-timestamp"),
+		RegistryAuthfile: viper.GetString("registry-authfile"),
 	}
 }
 
@@ -479,10 +485,12 @@ func (c buildConfig) Validate(cmd *cobra.Command) (err error) {
 // deployment is not the contiainer, but rather the running service.
 func (c buildConfig) clientOptions() ([]fn.Option, error) {
 	o := []fn.Option{fn.WithRegistry(c.Registry)}
+
+	t := newTransport(c.RegistryInsecure)
+	creds := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile)
+
 	switch c.Builder {
 	case builders.Host:
-		t := newTransport(c.RegistryInsecure) // may provide a custom impl which proxies
-		creds := newCredentialsProvider(config.Dir(), t)
 		o = append(o,
 			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
 			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose,
@@ -495,12 +503,20 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 			fn.WithBuilder(pack.NewBuilder(
 				pack.WithName(builders.Pack),
 				pack.WithTimestamp(c.WithTimestamp),
-				pack.WithVerbose(c.Verbose))))
+				pack.WithVerbose(c.Verbose))),
+			fn.WithPusher(docker.NewPusher(
+				docker.WithCredentialsProvider(creds),
+				docker.WithTransport(t),
+				docker.WithVerbose(c.Verbose))))
 	case builders.S2I:
 		o = append(o,
 			fn.WithBuilder(s2i.NewBuilder(
 				s2i.WithName(builders.S2I),
-				s2i.WithVerbose(c.Verbose))))
+				s2i.WithVerbose(c.Verbose))),
+			fn.WithPusher(docker.NewPusher(
+				docker.WithCredentialsProvider(creds),
+				docker.WithTransport(t),
+				docker.WithVerbose(c.Verbose))))
 	default:
 		return o, builders.ErrUnknownBuilder{Name: c.Builder, Known: KnownBuilders()}
 	}

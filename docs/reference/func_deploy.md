@@ -14,7 +14,7 @@ SYNOPSIS
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
 	             [--service-account] [-c|--confirm] [-v|--verbose]
-	             [--registry-insecure] [--remote-storage-class]
+	             [--registry-insecure] [--registry-authfile] [--remote-storage-class]
 
 DESCRIPTION
 
@@ -133,6 +133,7 @@ func deploy
   -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
       --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
   -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-authfile string      Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)
       --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
   -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
       --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
