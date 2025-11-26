@@ -12,13 +12,14 @@ type CIConfig struct {
 	githubWorkflowDir,
 	githubWorkflowFilename,
 	workflowName,
-	kubeconfigSecretKey,
-	registryUrlSecretKey,
-	registryUserSecretKey,
-	registryPassSecretKey string
+	kubeconfigSecret,
+	registryLoginUrlVar,
+	registryUserVar,
+	registryPassSecret,
+	registryUrlVar string
 	useRegistryLogin,
 	useRemoteBuild,
-	selfHostedRunner,
+	useSelfHostedRunner,
 	debug bool
 }
 
@@ -42,28 +43,32 @@ func (cc *CIConfig) UseRemoteBuild() bool {
 	return cc.useRemoteBuild
 }
 
-func (cc *CIConfig) SelfHostedRunner() bool {
-	return cc.selfHostedRunner
+func (cc *CIConfig) UseSelfHostedRunner() bool {
+	return cc.useSelfHostedRunner
 }
 
 func (cc *CIConfig) UseDebug() bool {
 	return cc.debug
 }
 
-func (cc *CIConfig) KubeconfigSecretKey() string {
-	return cc.kubeconfigSecretKey
+func (cc *CIConfig) KubeconfigSecret() string {
+	return cc.kubeconfigSecret
 }
 
-func (cc *CIConfig) RegistryUrlSecretKey() string {
-	return cc.registryUrlSecretKey
+func (cc *CIConfig) RegistryLoginUrlVar() string {
+	return cc.registryLoginUrlVar
 }
 
-func (cc *CIConfig) RegistryUserSecretKey() string {
-	return cc.registryUserSecretKey
+func (cc *CIConfig) RegistryUserVar() string {
+	return cc.registryUserVar
 }
 
-func (cc *CIConfig) RegistryPassSecretKey() string {
-	return cc.registryPassSecretKey
+func (cc *CIConfig) RegistryPassSecret() string {
+	return cc.registryPassSecret
+}
+
+func (cc *CIConfig) RegistryUrlVar() string {
+	return cc.registryUrlVar
 }
 
 type ciConfigBuilder struct {
@@ -77,13 +82,14 @@ func NewCIConfigBuilder() *ciConfigBuilder {
 			githubWorkflowDir:      ".github/workflows",
 			githubWorkflowFilename: "remote-build-and-deploy.yaml",
 			workflowName:           "Remote Build and Deploy",
-			kubeconfigSecretKey:    "KUBECONFIG",
-			registryUrlSecretKey:   "REGISTRY_URL",
-			registryUserSecretKey:  "REGISTRY_USERNAME",
-			registryPassSecretKey:  "REGISTRY_PASSWORD",
+			kubeconfigSecret:       "KUBECONFIG",
+			registryLoginUrlVar:    "REGISTRY_LOGIN_URL",
+			registryUserVar:        "REGISTRY_USERNAME",
+			registryPassSecret:     "REGISTRY_PASSWORD",
+			registryUrlVar:         "REGISTRY_URL",
 			useRegistryLogin:       true,
 			useRemoteBuild:         false,
-			selfHostedRunner:       false,
+			useSelfHostedRunner:    false,
 			debug:                  false,
 		},
 	}
@@ -94,23 +100,23 @@ func (b *ciConfigBuilder) WithWorkflowName(name string) *ciConfigBuilder {
 	return b
 }
 
-func (b *ciConfigBuilder) WithKubeconfigKey(key string) *ciConfigBuilder {
-	b.result.kubeconfigSecretKey = key
+func (b *ciConfigBuilder) WithKubeconfigSecret(v string) *ciConfigBuilder {
+	b.result.kubeconfigSecret = v
 	return b
 }
 
-func (b *ciConfigBuilder) WithRegistryUrlKey(key string) *ciConfigBuilder {
-	b.result.registryUrlSecretKey = key
+func (b *ciConfigBuilder) WithRegistryLoginUrlVar(v string) *ciConfigBuilder {
+	b.result.registryLoginUrlVar = v
 	return b
 }
 
-func (b *ciConfigBuilder) WithRegistryUserKey(key string) *ciConfigBuilder {
-	b.result.registryUserSecretKey = key
+func (b *ciConfigBuilder) WithRegistryUserVar(v string) *ciConfigBuilder {
+	b.result.registryUserVar = v
 	return b
 }
 
-func (b *ciConfigBuilder) WithRegistryPassKey(key string) *ciConfigBuilder {
-	b.result.registryPassSecretKey = key
+func (b *ciConfigBuilder) WithRegistryPassSecret(v string) *ciConfigBuilder {
+	b.result.registryPassSecret = v
 	return b
 }
 
@@ -125,7 +131,7 @@ func (b *ciConfigBuilder) WithRemoteBuild() *ciConfigBuilder {
 }
 
 func (b *ciConfigBuilder) WithSelfHosted() *ciConfigBuilder {
-	b.result.selfHostedRunner = true
+	b.result.useSelfHostedRunner = true
 	return b
 }
 

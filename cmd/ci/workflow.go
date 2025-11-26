@@ -95,17 +95,18 @@ func (s *Step) withActionConfig(key, value string) *Step {
 
 func NewGithubWorkflow(
 	name,
-	kubeconfigSecretKey,
-	registryUrlSecretKey,
-	registryUserSecretKey,
-	registryPassSecretKey string,
+	kubeconfigSecret,
+	registryLoginUrlVar,
+	registryUserEnvVar,
+	registryPassSecret,
+	registryUrlVar string,
 	useRegistryLogin,
 	useRemoteBuild,
-	selfHosted,
+	useSelfHosted,
 	useDebug bool,
 ) *GithubWorkflow {
 	runsOn := "ubuntu-latest"
-	if selfHosted {
+	if useSelfHosted {
 		runsOn = "self-hosted"
 	}
 
@@ -119,15 +120,15 @@ func NewGithubWorkflow(
 	setupK8Context := newStep("Setup Kubernetes context").
 		withUses("azure/k8s-set-context@v4").
 		withActionConfig("method", "kubeconfig").
-		withActionConfig("kubeconfig", newSecret(kubeconfigSecretKey))
+		withActionConfig("kubeconfig", newSecret(kubeconfigSecret))
 	steps = append(steps, *setupK8Context)
 
 	if useRegistryLogin {
 		loginToContainerRegistry := newStep("Login to container registry").
 			withUses("docker/login-action@v3").
-			withActionConfig("registry", newSecret(registryUrlSecretKey)).
-			withActionConfig("username", newSecret(registryUserSecretKey)).
-			withActionConfig("password", newSecret(registryPassSecretKey))
+			withActionConfig("registry", newVariable(registryLoginUrlVar)).
+			withActionConfig("username", newVariable(registryUserEnvVar)).
+			withActionConfig("password", newSecret(registryPassSecret))
 		steps = append(steps, *loginToContainerRegistry)
 	}
 
@@ -154,8 +155,12 @@ func NewGithubWorkflow(
 		runFuncDeploy += " --remote"
 		name = "Remote Build and Deploy"
 	}
+	registryUrl := newVariable(registryUrlVar)
+	if useRegistryLogin {
+		registryUrl = newVariable(registryLoginUrlVar) + "/" + newVariable(registryUserEnvVar)
+	}
 	deployFunc := newStep("Deploy function").
-		withRun(runFuncDeploy + " --registry=" + newSecret(registryUrlSecretKey) + " -v")
+		withRun(runFuncDeploy + " --registry=" + registryUrl + " -v")
 	steps = append(steps, *deployFunc)
 
 	return &GithubWorkflow{
@@ -225,4 +230,8 @@ func (gw *GithubWorkflow) toYaml() ([]byte, error) {
 
 func newSecret(key string) string {
 	return fmt.Sprintf("${{ secrets.%s }}", key)
+}
+
+func newVariable(key string) string {
+	return fmt.Sprintf("${{ vars.%s }}", key)
 }

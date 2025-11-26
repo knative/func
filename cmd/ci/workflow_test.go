@@ -12,9 +12,10 @@ func TestGithubWorkflow_PersistAndLoad(t *testing.T) {
 	gw := ci.NewGithubWorkflow(
 		"gw-test",
 		"KUBECONFIG",
-		"REGISTRY_URL",
+		"REGISTRY_LOGIN_URL",
 		"REGISTRY_USERNAME",
 		"REGISTRY_PASSWORD",
+		"REGISTRY_URL",
 		false,
 		false,
 		false,

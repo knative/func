@@ -80,10 +80,10 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	// GIVEN
 	ciConfig := ci.NewCIConfigBuilder().
 		WithWorkflowName("Custom Remote Build and Deploy").
-		WithKubeconfigKey("DEV_CLUSTER_KUBECONFIG").
-		WithRegistryUrlKey("DEV_REGISTRY_URL").
-		WithRegistryUserKey("DEV_REGISTRY_USER").
-		WithRegistryPassKey("DEV_REGISTRY_PASS").
+		WithKubeconfigSecret("DEV_CLUSTER_KUBECONFIG").
+		WithRegistryLoginUrlVar("DEV_REGISTRY_URL").
+		WithRegistryUserVar("DEV_REGISTRY_USER").
+		WithRegistryPassSecret("DEV_REGISTRY_PASS").
 		Build()
 	options := opts{
 		withFuncInTempDir: true,
@@ -99,10 +99,10 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	assertWorkflowFileExists(t, result)
 	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.WorkflowName()))
 	assert.Assert(t, yamlContains(result.gwYamlString, "self-hosted"))
-	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.KubeconfigSecretKey()))
-	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryUrlSecretKey()))
-	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryUserSecretKey()))
-	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryPassSecretKey()))
+	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.KubeconfigSecret()))
+	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryLoginUrlVar()))
+	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryUserVar()))
+	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryPassSecret()))
 }
 
 func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
@@ -120,6 +120,7 @@ func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 	assertWorkflowFileExists(t, result)
 	assert.Assert(t, !strings.Contains(result.gwYamlString, "docker/login-action@v3"))
 	assert.Assert(t, !strings.Contains(result.gwYamlString, "Login to container registry"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "--registry=${{ vars.REGISTRY_URL }}"))
 }
 
 func TestNewConfigCICmd_RemoteBuildAndDeployWorkflow(t *testing.T) {
@@ -264,8 +265,8 @@ func assertWorkflowFileContent(t *testing.T, actualGw string) {
 
 	assert.Assert(t, yamlContains(actualGw, "Login to container registry"))
 	assert.Assert(t, yamlContains(actualGw, "docker/login-action@v3"))
-	assert.Assert(t, yamlContains(actualGw, "registry: ${{ secrets.REGISTRY_URL }}"))
-	assert.Assert(t, yamlContains(actualGw, "username: ${{ secrets.REGISTRY_USERNAME }}"))
+	assert.Assert(t, yamlContains(actualGw, "registry: ${{ vars.REGISTRY_LOGIN_URL }}"))
+	assert.Assert(t, yamlContains(actualGw, "username: ${{ vars.REGISTRY_USERNAME }}"))
 	assert.Assert(t, yamlContains(actualGw, "password: ${{ secrets.REGISTRY_PASSWORD }}"))
 
 	assert.Assert(t, yamlContains(actualGw, "Install func cli"))
@@ -274,7 +275,7 @@ func assertWorkflowFileContent(t *testing.T, actualGw string) {
 	assert.Assert(t, yamlContains(actualGw, "name: func"))
 
 	assert.Assert(t, yamlContains(actualGw, "Deploy function"))
-	assert.Assert(t, yamlContains(actualGw, "func deploy --registry=${{ secrets.REGISTRY_URL }} -v"))
+	assert.Assert(t, yamlContains(actualGw, "func deploy --registry=${{ vars.REGISTRY_LOGIN_URL }}/${{ vars.REGISTRY_USERNAME }} -v"))
 }
 
 func yamlContains(yaml, substr string) cmp.Comparison {

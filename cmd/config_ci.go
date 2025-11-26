@@ -74,13 +74,14 @@ func runConfigCIGithub(
 
 	githubWorkflow := ci.NewGithubWorkflow(
 		ciConfig.WorkflowName(),
-		ciConfig.KubeconfigSecretKey(),
-		ciConfig.RegistryUrlSecretKey(),
-		ciConfig.RegistryUserSecretKey(),
-		ciConfig.RegistryPassSecretKey(),
+		ciConfig.KubeconfigSecret(),
+		ciConfig.RegistryLoginUrlVar(),
+		ciConfig.RegistryUserVar(),
+		ciConfig.RegistryPassSecret(),
+		cfg.RegistryUrlVar(),
 		cfg.UseRegistryLogin(),
 		cfg.UseRemoteBuild(),
-		cfg.SelfHostedRunner(),
+		cfg.UseSelfHostedRunner(),
 		cfg.UseDebug(),
 	)
 	if err := githubWorkflow.Persist(ciConfig.FnGithubWorkflowFilepath(f.Root)); err != nil {
