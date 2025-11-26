@@ -73,22 +73,24 @@ func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
 	assert.NilError(t, result.executeErr)
 	assertWorkflowFileExists(t, result)
 	assert.NilError(t, result.gwLoadErr)
-	assertWorkflowFileContent(t, result.gwYamlString)
+	assertFullWorkflow(t, result.gwYamlString)
 }
 
 func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	// GIVEN
-	ciConfig := ci.NewCIConfigBuilder().
-		WithWorkflowName("Custom Remote Build and Deploy").
-		WithKubeconfigSecret("DEV_CLUSTER_KUBECONFIG").
-		WithRegistryLoginUrlVar("DEV_REGISTRY_URL").
-		WithRegistryUserVar("DEV_REGISTRY_USER").
-		WithRegistryPassSecret("DEV_REGISTRY_PASS").
-		Build()
 	options := opts{
 		withFuncInTempDir: true,
-		ciConfig:          &ciConfig,
-		args:              []string{"ci", "--github", "--self-hosted-runner"},
+		args: []string{
+			"ci",
+			"--github",
+			"--self-hosted-runner",
+			"--workflow-name=Custom Deploy",
+			"--kubeconfig-secret-name=DEV_CLUSTER_KUBECONFIG",
+			"--registry-login-url-variable-name=DEV_REGISTRY_LOGIN_URL",
+			"--registry-user-variable-name=DEV_REGISTRY_USER",
+			"--registry-pass-secret-name=DEV_REGISTRY_PASS",
+			"--branch=master",
+		},
 	}
 
 	// WHEN
@@ -97,12 +99,13 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	// THEN
 	assert.NilError(t, result.executeErr)
 	assertWorkflowFileExists(t, result)
-	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.WorkflowName()))
+	assert.Assert(t, yamlContains(result.gwYamlString, "Custom Deploy"))
 	assert.Assert(t, yamlContains(result.gwYamlString, "self-hosted"))
-	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.KubeconfigSecret()))
-	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryLoginUrlVar()))
-	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryUserVar()))
-	assert.Assert(t, yamlContains(result.gwYamlString, ciConfig.RegistryPassSecret()))
+	assert.Assert(t, yamlContains(result.gwYamlString, "DEV_CLUSTER_KUBECONFIG"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "DEV_REGISTRY_LOGIN_URL"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "DEV_REGISTRY_USER"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "DEV_REGISTRY_PASS"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "- master"))
 }
 
 func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
@@ -136,7 +139,7 @@ func TestNewConfigCICmd_RemoteBuildAndDeployWorkflow(t *testing.T) {
 	// THEN
 	assert.NilError(t, result.executeErr)
 	assertWorkflowFileExists(t, result)
-	assert.Assert(t, yamlContains(result.gwYamlString, "Remote Build and Deploy"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "Remote Func Deploy"))
 	assert.Assert(t, yamlContains(result.gwYamlString, "func deploy --remote"))
 }
 
@@ -160,6 +163,8 @@ func TestNewConfigCICmd_HasWorkflowDispatchAndCacheInDebugMode(t *testing.T) {
 	assert.Assert(t, yamlContains(result.gwYamlString, "path: func"))
 	assert.Assert(t, yamlContains(result.gwYamlString, "key: func-cli-knative-v1.19.1"))
 	assert.Assert(t, yamlContains(result.gwYamlString, "if: ${{ steps.func-cli-cache.outputs.cache-hit != 'true' }}"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "Add func to GITHUB_PATH"))
+	assert.Assert(t, yamlContains(result.gwYamlString, `echo "$GITHUB_WORKSPACE" >> $GITHUB_PATH`))
 }
 
 // START: Testing Framework
@@ -167,7 +172,6 @@ func TestNewConfigCICmd_HasWorkflowDispatchAndCacheInDebugMode(t *testing.T) {
 type opts struct {
 	withFuncInTempDir bool
 	args              []string // default: ci --github
-	ciConfig          *ci.CIConfig
 }
 
 type result struct {
@@ -176,8 +180,6 @@ type result struct {
 	executeErr   error
 	gwLoadErr    error
 	gwYamlString string
-	// TODO(twoGiants): probably not needed
-	gwYamlMarshalErr error
 }
 
 func runConfigCiGithubCmd(
@@ -198,14 +200,9 @@ func runConfigCiGithubCmd(
 		args = []string{"ci", "--github"}
 	}
 
-	if opts.ciConfig == nil {
-		ciConf := ci.NewCIConfigBuilder().Build()
-		opts.ciConfig = &ciConf
-	}
 	cmd := fnCmd.NewConfigCmd(
 		common.DefaultLoaderSaver,
 		fnCmd.NewClient,
-		*opts.ciConfig,
 	)
 	cmd.SetArgs(args)
 
@@ -213,17 +210,27 @@ func runConfigCiGithubCmd(
 	err := cmd.Execute()
 
 	// POST-RUN GATHER
-	gwPath := opts.ciConfig.FnGithubWorkflowFilepath(f.Root)
+	ciCmd, _, findErr := cmd.Find([]string{"ci"})
+	if findErr != nil {
+		panic(findErr)
+	}
+	ciConfig, configErr := ci.NewCiGithubConfigVia(ciCmd)
+	if configErr != nil {
+		panic(configErr)
+	}
+	gwPath := ciConfig.FnGithubWorkflowFilepath(f.Root)
 	gw, gwLoadErr := ci.NewGithubWorkflowFromPath(gwPath)
-	gwYamlString, gwYamlMarshalErr := gw.YamlString()
+	gwYamlString, marshalErr := gw.YamlString()
+	if marshalErr != nil {
+		panic(marshalErr)
+	}
 
 	return result{
 		f,
-		*opts.ciConfig,
+		ciConfig,
 		err,
 		gwLoadErr,
 		gwYamlString,
-		gwYamlMarshalErr,
 	}
 }
 
@@ -236,20 +243,19 @@ func assertWorkflowFileExists(t *testing.T, result result) {
 	assert.Assert(t, exists, filepath+" does not exist")
 }
 
-// assertWorkflowFileContent asserts all the Github workflow value for correct values
+// assertFullWorkflow asserts all the Github workflow value for correct values
 // including the default values which can be changed:
 //   - runs-on: ubuntu-latest
 //   - kubeconfig: ${{ secrets.KUBECONFIG }}
-//   - if: ${{ vars.USE_REGISTRY_AUTH == 'true' }
-//   - registry: ${{ secrets.REGISTRY_URL }}")
-//   - username: ${{ secrets.REGISTRY_USERNAME }}
+//   - registry: ${{ vars.REGISTRY_LOGIN_URL }}")
+//   - username: ${{ vars.REGISTRY_USERNAME }}
 //   - password: ${{ secrets.REGISTRY_PASSWORD }}
-//   - run: func deploy --registry=${{ secrets.REGISTRY_URL }} -v
-func assertWorkflowFileContent(t *testing.T, actualGw string) {
+//   - run: func deploy --registry=${{ vars.REGISTRY_LOGIN_URL }}/${{ vars.REGISTRY_USERNAME }} -v
+func assertFullWorkflow(t *testing.T, actualGw string) {
 	t.Helper()
 
-	assert.Assert(t, yamlContains(actualGw, "Remote Build and Deploy"))
-	assert.Assert(t, yamlContains(actualGw, "main"))
+	assert.Assert(t, yamlContains(actualGw, "Func Deploy"))
+	assert.Assert(t, yamlContains(actualGw, "- main"))
 
 	assert.Assert(t, yamlContains(actualGw, "ubuntu-latest"))
 

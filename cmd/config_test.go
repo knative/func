@@ -11,7 +11,6 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	fnCmd "knative.dev/func/cmd"
-	"knative.dev/func/cmd/ci"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -49,7 +48,7 @@ func TestListEnvs(t *testing.T) {
 }
 
 func setupConfigEnvCmd(mock *mockLoaderSaver, args ...string) *cobra.Command {
-	cmd := fnCmd.NewConfigCmd(mock, fnCmd.NewClient, ci.NewCIConfigBuilder().Build())
+	cmd := fnCmd.NewConfigCmd(mock, fnCmd.NewClient)
 	cmd.SetArgs(append([]string{"envs"}, args...))
 	return cmd
 }

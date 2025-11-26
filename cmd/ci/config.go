@@ -11,6 +11,7 @@ import (
 type CIConfig struct {
 	githubWorkflowDir,
 	githubWorkflowFilename,
+	branch,
 	workflowName,
 	kubeconfigSecret,
 	registryLoginUrlVar,
@@ -33,6 +34,10 @@ func (cc *CIConfig) FnGithubWorkflowFilepath(fnRoot string) string {
 
 func (cc *CIConfig) WorkflowName() string {
 	return cc.workflowName
+}
+
+func (cc *CIConfig) Branch() string {
+	return cc.branch
 }
 
 func (cc *CIConfig) UseRegistryLogin() bool {
@@ -78,25 +83,30 @@ type ciConfigBuilder struct {
 func NewCIConfigBuilder() *ciConfigBuilder {
 	return &ciConfigBuilder{
 		result: CIConfig{
-			// TODO(twoGiants): extract into constants
-			githubWorkflowDir:      ".github/workflows",
-			githubWorkflowFilename: "remote-build-and-deploy.yaml",
-			workflowName:           "Remote Build and Deploy",
-			kubeconfigSecret:       "KUBECONFIG",
-			registryLoginUrlVar:    "REGISTRY_LOGIN_URL",
-			registryUserVar:        "REGISTRY_USERNAME",
-			registryPassSecret:     "REGISTRY_PASSWORD",
-			registryUrlVar:         "REGISTRY_URL",
-			useRegistryLogin:       true,
-			useRemoteBuild:         false,
-			useSelfHostedRunner:    false,
-			debug:                  false,
+			githubWorkflowDir:      DefaultGithubWorkflowDir,
+			githubWorkflowFilename: DefaultGithubWorkflowFilename,
+			branch:                 DefaultBranch,
+			workflowName:           DefaultWorkflowName,
+			kubeconfigSecret:       DefaultKubeconfigSecretName,
+			registryLoginUrlVar:    DefaultRegistryLoginUrlVariableName,
+			registryUserVar:        DefaultRegistryUserVariableName,
+			registryPassSecret:     DefaultRegistryPassSecretName,
+			registryUrlVar:         DefaultRegistryUrlVariableName,
+			useRegistryLogin:       DefaultUseRegistryLogin,
+			useRemoteBuild:         DefaultUseRemoteBuild,
+			useSelfHostedRunner:    DefaultUseSelfHostedRunner,
+			debug:                  DefaultUseDebug,
 		},
 	}
 }
 
 func (b *ciConfigBuilder) WithWorkflowName(name string) *ciConfigBuilder {
 	b.result.workflowName = name
+	return b
+}
+
+func (b *ciConfigBuilder) WithBranch(v string) *ciConfigBuilder {
+	b.result.branch = v
 	return b
 }
 
@@ -107,6 +117,11 @@ func (b *ciConfigBuilder) WithKubeconfigSecret(v string) *ciConfigBuilder {
 
 func (b *ciConfigBuilder) WithRegistryLoginUrlVar(v string) *ciConfigBuilder {
 	b.result.registryLoginUrlVar = v
+	return b
+}
+
+func (b *ciConfigBuilder) WithRegistryUrlVar(v string) *ciConfigBuilder {
+	b.result.registryUrlVar = v
 	return b
 }
 
@@ -145,14 +160,38 @@ func (b *ciConfigBuilder) Build() CIConfig {
 }
 
 const (
-	UseRegistryLoginOption       = "use-registry-login"
-	DefaultUseRegistryLoginValue = true
+	GithubOption  = "github"
+	DefaultGithub = false
+
+	DefaultGithubWorkflowDir      = ".github/workflows"
+	DefaultGithubWorkflowFilename = "func-deploy.yaml"
+
+	BranchOption  = "branch"
+	DefaultBranch = "main"
 
 	WorkflowNameOption  = "workflow-name"
-	DefaultWorkflowName = "Local Build and Remote Deploy"
+	DefaultWorkflowName = "Func Deploy"
 
-	UseDebugOption       = "debug"
-	DefaultUseDebugValue = false
+	KubeconfigSecretNameOption  = "kubeconfig-secret-name"
+	DefaultKubeconfigSecretName = "KUBECONFIG"
+
+	RegistryLoginUrlVariableNameOption  = "registry-login-url-variable-name"
+	DefaultRegistryLoginUrlVariableName = "REGISTRY_LOGIN_URL"
+
+	RegistryUserVariableNameOption  = "registry-user-variable-name"
+	DefaultRegistryUserVariableName = "REGISTRY_USERNAME"
+
+	RegistryPassSecretNameOption  = "registry-pass-secret-name"
+	DefaultRegistryPassSecretName = "REGISTRY_PASSWORD"
+
+	RegistryUrlVariableNameOption  = "registry-url-variable-name"
+	DefaultRegistryUrlVariableName = "REGISTRY_URL"
+
+	UseRegistryLoginOption  = "use-registry-login"
+	DefaultUseRegistryLogin = true
+
+	UseDebugOption  = "debug"
+	DefaultUseDebug = false
 
 	UseRemoteBuild        = "remote"
 	DefaultUseRemoteBuild = false
@@ -169,6 +208,42 @@ func NewCiGithubConfigVia(cmd *cobra.Command) (CIConfig, error) {
 		return CIConfig{}, err
 	}
 	result.WithWorkflowName(workflowName)
+
+	branch, err := cmd.Flags().GetString(BranchOption)
+	if err != nil {
+		return CIConfig{}, err
+	}
+	result.WithBranch(branch)
+
+	kubeconfigSecretName, err := cmd.Flags().GetString(KubeconfigSecretNameOption)
+	if err != nil {
+		return CIConfig{}, err
+	}
+	result.WithKubeconfigSecret(kubeconfigSecretName)
+
+	registryLoginUrlName, err := cmd.Flags().GetString(RegistryLoginUrlVariableNameOption)
+	if err != nil {
+		return CIConfig{}, err
+	}
+	result.WithRegistryLoginUrlVar(registryLoginUrlName)
+
+	registryUserVarName, err := cmd.Flags().GetString(RegistryUserVariableNameOption)
+	if err != nil {
+		return CIConfig{}, err
+	}
+	result.WithRegistryUserVar(registryUserVarName)
+
+	registryPassSecretName, err := cmd.Flags().GetString(RegistryPassSecretNameOption)
+	if err != nil {
+		return CIConfig{}, err
+	}
+	result.WithRegistryPassSecret(registryPassSecretName)
+
+	registryUrlVarName, err := cmd.Flags().GetString(RegistryUrlVariableNameOption)
+	if err != nil {
+		return CIConfig{}, err
+	}
+	result.WithRegistryUrlVar(registryUrlVarName)
 
 	registryLogin, err := cmd.Flags().GetBool(UseRegistryLoginOption)
 	if err != nil {
@@ -205,6 +280,7 @@ func NewCiGithubConfigVia(cmd *cobra.Command) (CIConfig, error) {
 	return result.Build(), nil
 }
 
+// TODO(twoGiants): fix broken viper cmd options propagation
 func NewCiGithubConfigViaViper() CIConfig {
 	result := NewCIConfigBuilder().
 		WithWorkflowName(viper.GetString(WorkflowNameOption))

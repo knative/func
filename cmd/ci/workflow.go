@@ -93,24 +93,13 @@ func (s *Step) withActionConfig(key, value string) *Step {
 	return s
 }
 
-func NewGithubWorkflow(
-	name,
-	kubeconfigSecret,
-	registryLoginUrlVar,
-	registryUserEnvVar,
-	registryPassSecret,
-	registryUrlVar string,
-	useRegistryLogin,
-	useRemoteBuild,
-	useSelfHosted,
-	useDebug bool,
-) *GithubWorkflow {
+func NewGithubWorkflow(conf CIConfig) *GithubWorkflow {
 	runsOn := "ubuntu-latest"
-	if useSelfHosted {
+	if conf.UseSelfHostedRunner() {
 		runsOn = "self-hosted"
 	}
 
-	pushTrigger := newPushTrigger("main", useDebug)
+	pushTrigger := newPushTrigger(conf.Branch(), conf.UseDebug())
 
 	var steps []Step
 	checkoutCode := newStep("Checkout code").
@@ -120,19 +109,19 @@ func NewGithubWorkflow(
 	setupK8Context := newStep("Setup Kubernetes context").
 		withUses("azure/k8s-set-context@v4").
 		withActionConfig("method", "kubeconfig").
-		withActionConfig("kubeconfig", newSecret(kubeconfigSecret))
+		withActionConfig("kubeconfig", newSecret(conf.KubeconfigSecret()))
 	steps = append(steps, *setupK8Context)
 
-	if useRegistryLogin {
+	if conf.UseRegistryLogin() {
 		loginToContainerRegistry := newStep("Login to container registry").
 			withUses("docker/login-action@v3").
-			withActionConfig("registry", newVariable(registryLoginUrlVar)).
-			withActionConfig("username", newVariable(registryUserEnvVar)).
-			withActionConfig("password", newSecret(registryPassSecret))
+			withActionConfig("registry", newVariable(conf.RegistryLoginUrlVar())).
+			withActionConfig("username", newVariable(conf.RegistryUserVar())).
+			withActionConfig("password", newSecret(conf.RegistryPassSecret()))
 		steps = append(steps, *loginToContainerRegistry)
 	}
 
-	if useDebug {
+	if conf.UseDebug() {
 		funcCliCache := newStep("Restore func cli from cache").
 			withID("func-cli-cache").
 			withUses("actions/cache@v4").
@@ -145,19 +134,26 @@ func NewGithubWorkflow(
 		withUses("gauron99/knative-func-action@main").
 		withActionConfig("version", "knative-v1.19.1").
 		withActionConfig("name", "func")
-	if useDebug {
+	if conf.UseDebug() {
 		installFuncCli.withIf("${{ steps.func-cli-cache.outputs.cache-hit != 'true' }}")
 	}
 	steps = append(steps, *installFuncCli)
 
-	runFuncDeploy := "func deploy"
-	if useRemoteBuild {
-		runFuncDeploy += " --remote"
-		name = "Remote Build and Deploy"
+	if conf.UseDebug() {
+		addFuncToPATH := newStep("Add func to GITHUB_PATH").
+			withRun(`echo "$GITHUB_WORKSPACE" >> $GITHUB_PATH`)
+		steps = append(steps, *addFuncToPATH)
 	}
-	registryUrl := newVariable(registryUrlVar)
-	if useRegistryLogin {
-		registryUrl = newVariable(registryLoginUrlVar) + "/" + newVariable(registryUserEnvVar)
+
+	name := conf.WorkflowName()
+	runFuncDeploy := "func deploy"
+	if conf.UseRemoteBuild() {
+		runFuncDeploy += " --remote"
+		name = "Remote Func Deploy"
+	}
+	registryUrl := newVariable(conf.RegistryUrlVar())
+	if conf.UseRegistryLogin() {
+		registryUrl = newVariable(conf.RegistryLoginUrlVar()) + "/" + newVariable(conf.RegistryUserVar())
 	}
 	deployFunc := newStep("Deploy function").
 		withRun(runFuncDeploy + " --registry=" + registryUrl + " -v")
