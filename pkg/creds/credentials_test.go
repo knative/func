@@ -868,22 +868,15 @@ func TestCredentialsFromAuthfile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resetHomeDir(t)
 
-			authFile, err := os.CreateTemp("", "test-auth-*.txt")
-			if err != nil {
-				t.Fatalf("failed to create temp auth file: %s", err)
-			}
-			t.Cleanup(func() {
-				os.Remove(authFile.Name())
-			})
-			if _, err := authFile.Write([]byte(tt.authFileContent)); err != nil {
+			authFile := fmt.Sprintf("%s/authfile.json", t.TempDir())
+			if err := os.WriteFile(authFile, []byte(tt.authFileContent), 06444); err != nil {
 				t.Fatalf("failed to write auth file: %s", err)
 			}
-			authFile.Close()
 
 			credentialsProvider := creds.NewCredentialsProvider(
 				testConfigPath(t),
 				creds.WithVerifyCredentials(tt.verifyCredentials),
-				creds.WithAuthFilePath(authFile.Name()),
+				creds.WithAuthFilePath(authFile),
 			)
 
 			got, err := credentialsProvider(context.Background(), tt.image)
