@@ -10,9 +10,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/func/pkg/builders"
-	"knative.dev/func/pkg/builders/buildpacks"
-	"knative.dev/func/pkg/builders/s2i"
+	"knative.dev/func/pkg/buildpacks"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/s2i"
 )
 
 func deletePipelines(ctx context.Context, namespace string, listOptions metav1.ListOptions) (err error) {

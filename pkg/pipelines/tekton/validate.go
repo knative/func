@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"knative.dev/func/pkg/builders"
-	"knative.dev/func/pkg/builders/s2i"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/s2i"
 )
 
 var (

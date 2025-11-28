@@ -21,7 +21,7 @@ import (
 	rbacV1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	pack "knative.dev/func/pkg/builders/buildpacks"
+	"knative.dev/func/pkg/buildpacks"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -46,7 +46,7 @@ const (
 
 func newRemoteTestClient(verbose bool) *fn.Client {
 	return fn.New(
-		fn.WithBuilder(pack.NewBuilder(pack.WithVerbose(verbose))),
+		fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithCredentialsProvider(testCP))),
 		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
 		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
