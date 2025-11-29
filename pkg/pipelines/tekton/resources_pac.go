@@ -78,9 +78,9 @@ func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace str
 	}
 
 	needsUpdate := repoNotFound ||
-    !equality.Semantic.DeepDerivative(existingRepo.Spec, repo.Spec) ||
-    !equality.Semantic.DeepEqual(existingRepo.Labels, repo.Labels) ||
-    !equality.Semantic.DeepEqual(existingRepo.Annotations, repo.Annotations)
+		!equality.Semantic.DeepDerivative(existingRepo.Spec, repo.Spec) ||
+		!equality.Semantic.DeepEqual(existingRepo.Labels, repo.Labels) ||
+		!equality.Semantic.DeepEqual(existingRepo.Annotations, repo.Annotations)
 
 	if needsUpdate {
 		if repoNotFound {
