@@ -77,13 +77,19 @@ func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace str
 		repoNotFound = true
 	}
 
-	// TODO we should also compare labels and annotations
-	if repoNotFound || !equality.Semantic.DeepDerivative(existingRepo.Spec, repo.Spec) {
-		// Decide whether create or update
+	needsUpdate := repoNotFound ||
+    !equality.Semantic.DeepDerivative(existingRepo.Spec, repo.Spec) ||
+    !equality.Semantic.DeepEqual(existingRepo.Labels, repo.Labels) ||
+    !equality.Semantic.DeepEqual(existingRepo.Annotations, repo.Annotations)
+
+	if needsUpdate {
 		if repoNotFound {
 			_, err = client.Repositories(namespace).Create(ctx, &repo, metav1.CreateOptions{})
 		} else {
-			_, err = client.Repositories(namespace).Update(ctx, &repo, metav1.UpdateOptions{})
+			existingRepo.Spec = repo.Spec
+			existingRepo.Labels = repo.Labels
+			existingRepo.Annotations = repo.Annotations
+			_, err = client.Repositories(namespace).Update(ctx, existingRepo, metav1.UpdateOptions{})
 		}
 		if err != nil {
 			return err
