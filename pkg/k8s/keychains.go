@@ -18,7 +18,7 @@ func GetGoogleCredentialLoader() []creds.CredentialsCallback {
 	return []creds.CredentialsCallback{
 		func(registry string) (oci.Credentials, error) {
 			if registry != "gcr.io" {
-				return oci.Credentials{}, nil // skip if not GCR
+				return oci.Credentials{}, creds.ErrCredentialsNotFound // skip if not GCR
 			}
 
 			res, err := name.NewRegistry(registry)
@@ -52,7 +52,7 @@ func GetACRCredentialLoader() []creds.CredentialsCallback {
 	return []creds.CredentialsCallback{
 		func(registry string) (oci.Credentials, error) {
 			if !strings.HasSuffix(registry, ".azurecr.io") {
-				return oci.Credentials{}, nil
+				return oci.Credentials{}, creds.ErrCredentialsNotFound
 			}
 
 			f, err := os.Open(path.Join(os.Getenv("HOME"), ".azure", "accessTokens.json"))
@@ -79,7 +79,7 @@ func GetACRCredentialLoader() []creds.CredentialsCallback {
 					}, nil
 				}
 			}
-			return oci.Credentials{}, nil
+			return oci.Credentials{}, creds.ErrCredentialsNotFound
 		},
 	}
 }

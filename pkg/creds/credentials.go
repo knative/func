@@ -72,7 +72,7 @@ func CheckAuth(ctx context.Context, image string, credentials oci.Credentials, t
 	err = remote.CheckPushPermission(ref, kc, trans)
 	if err != nil {
 		var transportErr *transport.Error
-		if errors.As(err, &transportErr) && transportErr.StatusCode == 401 {
+		if errors.As(err, &transportErr) && (transportErr.StatusCode == 401 || transportErr.StatusCode == 403) {
 			return ErrUnauthorized
 		}
 		return err
@@ -240,6 +240,9 @@ func NewCredentialsProvider(configPath string, opts ...Opt) oci.CredentialsProvi
 			creds, err := dockerConfig.GetCredentials(emptySys, registry)
 			if err != nil {
 				return oci.Credentials{}, err
+			}
+			if creds.Username == "" || creds.Password == "" {
+				return oci.Credentials{}, ErrCredentialsNotFound
 			}
 			return oci.Credentials{
 				Username: creds.Username,
