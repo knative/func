@@ -13,13 +13,14 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/utils"
 )
 
-func NewConfigEnvsCmd(loadSaver functionLoaderSaver) *cobra.Command {
+func NewConfigEnvsCmd(loadSaver common.FunctionLoaderSaver) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "envs",
 		Short: "List and manage configured environment variable for a function",
@@ -64,7 +65,7 @@ the current directory or from the directory specified with --path.
 	return cmd
 }
 
-func NewConfigEnvsAddCmd(loadSaver functionLoaderSaver) *cobra.Command {
+func NewConfigEnvsAddCmd(loadSaver common.FunctionLoaderSaver) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add environment variable to the function configuration",
@@ -139,7 +140,7 @@ set environment variable from a secret
 	return cmd
 }
 
-func NewConfigEnvsRemoveCmd(loadSaver functionLoaderSaver) *cobra.Command {
+func NewConfigEnvsRemoveCmd(loadSaver common.FunctionLoaderSaver) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Remove environment variable from the function configuration",

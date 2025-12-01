@@ -11,12 +11,13 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/utils"
 )
 
-func NewConfigLabelsCmd(loaderSaver functionLoaderSaver) *cobra.Command {
+func NewConfigLabelsCmd(loaderSaver common.FunctionLoaderSaver) *cobra.Command {
 	var configLabelsCmd = &cobra.Command{
 		Use:   "labels",
 		Short: "List and manage configured labels for a function",
@@ -184,7 +185,7 @@ func listLabels(f fn.Function, w io.Writer, outputFormat Format) error {
 	}
 }
 
-func runAddLabelsPrompt(_ context.Context, f fn.Function, saver functionSaver) (err error) {
+func runAddLabelsPrompt(_ context.Context, f fn.Function, saver common.FunctionSaver) (err error) {
 
 	insertToIndex := 0
 
@@ -317,7 +318,7 @@ func runAddLabelsPrompt(_ context.Context, f fn.Function, saver functionSaver) (
 	return
 }
 
-func runRemoveLabelsPrompt(f fn.Function, saver functionSaver) (err error) {
+func runRemoveLabelsPrompt(f fn.Function, saver common.FunctionSaver) (err error) {
 	if len(f.Deploy.Labels) == 0 {
 		fmt.Println("There aren't any configured labels")
 		return
