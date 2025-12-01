@@ -7,43 +7,12 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
 
-type functionLoader interface {
-	Load(path string) (fn.Function, error)
-}
-
-type functionSaver interface {
-	Save(f fn.Function) error
-}
-
-type functionLoaderSaver interface {
-	functionLoader
-	functionSaver
-}
-
-type standardLoaderSaver struct{}
-
-func (s standardLoaderSaver) Load(path string) (fn.Function, error) {
-	f, err := fn.NewFunction(path)
-	if err != nil {
-		return fn.Function{}, fmt.Errorf("failed to create new function (path: %q): %w", path, err)
-	}
-	if !f.Initialized() {
-		return fn.Function{}, fn.NewErrNotInitialized(f.Root)
-	}
-	return f, nil
-}
-
-func (s standardLoaderSaver) Save(f fn.Function) error {
-	return f.Write()
-}
-
-var defaultLoaderSaver standardLoaderSaver
-
-func NewConfigCmd(loadSaver functionLoaderSaver, newClient ClientFactory) *cobra.Command {
+func NewConfigCmd(loadSaver common.FunctionLoaderSaver, newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Configure a function",
@@ -75,7 +44,7 @@ or from the directory specified with --path.
 
 func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 
-	function, err := initConfigCommand(defaultLoaderSaver)
+	function, err := initConfigCommand(common.DefaultLoaderSaver)
 	if err != nil {
 		return
 	}
@@ -117,7 +86,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 		case "Environment variables":
 			err = runAddEnvsPrompt(cmd.Context(), function)
 		case "Labels":
-			err = runAddLabelsPrompt(cmd.Context(), function, defaultLoaderSaver)
+			err = runAddLabelsPrompt(cmd.Context(), function, common.DefaultLoaderSaver)
 		case "Git":
 			err = runConfigGitSetCmd(cmd, NewClient)
 		}
@@ -128,7 +97,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 		case "Environment variables":
 			err = runRemoveEnvsPrompt(function)
 		case "Labels":
-			err = runRemoveLabelsPrompt(function, defaultLoaderSaver)
+			err = runRemoveLabelsPrompt(function, common.DefaultLoaderSaver)
 		case "Git":
 			err = runConfigGitRemoveCmd(cmd, NewClient)
 		}
@@ -163,7 +132,7 @@ func newConfigCmdConfig() configCmdConfig {
 	}
 }
 
-func initConfigCommand(loader functionLoader) (fn.Function, error) {
+func initConfigCommand(loader common.FunctionLoader) (fn.Function, error) {
 	config := newConfigCmdConfig()
 
 	function, err := loader.Load(config.Path)

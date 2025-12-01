@@ -8,6 +8,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -26,7 +27,7 @@ the current directory or from the directory specified with --path.
 		SuggestFor: []string{"vol", "volums", "vols"},
 		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(defaultLoaderSaver)
+			function, err := initConfigCommand(common.DefaultLoaderSaver)
 			if err != nil {
 				return
 			}
@@ -85,7 +86,7 @@ For non-interactive usage, use flags to specify the volume type and configuratio
 		SuggestFor: []string{"ad", "create", "insert", "append"},
 		PreRunE:    bindEnv("path", "verbose", "type", "source", "mount-path", "read-only", "size", "medium"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(defaultLoaderSaver)
+			function, err := initConfigCommand(common.DefaultLoaderSaver)
 			if err != nil {
 				return
 			}
@@ -129,7 +130,7 @@ For non-interactive usage, use the --mount-path flag to specify which volume to 
 		SuggestFor: []string{"del", "delete", "rmeove"},
 		PreRunE:    bindEnv("path", "verbose", "mount-path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(defaultLoaderSaver)
+			function, err := initConfigCommand(common.DefaultLoaderSaver)
 			if err != nil {
 				return
 			}
