@@ -241,6 +241,9 @@ func NewCredentialsProvider(configPath string, opts ...Opt) oci.CredentialsProvi
 			if err != nil {
 				return oci.Credentials{}, err
 			}
+			if creds.Username == "" || creds.Password == "" {
+				return oci.Credentials{}, ErrCredentialsNotFound
+			}
 			return oci.Credentials{
 				Username: creds.Username,
 				Password: creds.Password,
