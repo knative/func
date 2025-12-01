@@ -342,6 +342,7 @@ func getTaskSpec(taskYaml string) (string, error) {
 // createAndApplyPipelineTemplate creates and applies Pipeline template for a standard on-cluster build
 // all resources are created on the fly, if there's a Pipeline defined in the project directory, it is used instead
 func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[string]string) error {
+	fmt.Println("#### createAndApplyPipelineTemplate")
 	// If Git is set up create fetch task and reference it from build task,
 	// otherwise sources have been already uploaded to workspace PVC.
 	gitCloneTaskRef := ""
@@ -385,14 +386,16 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	default:
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
-
+	fmt.Printf("## BI: '%v'\n", data.BuilderImage)
 	return createAndApplyResource(f.Root, pipelineFileName, template, "pipeline", getPipelineName(f), namespace, data)
 }
 
 // createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build
 // all resources are created on the fly, if there's a PipelineRun defined in the project directory, it is used instead
 func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string) error {
+	fmt.Println("createAndApplyPipelineRunTemplate")
 	contextDir := f.Build.Git.ContextDir
+	fmt.Printf("contextDir: '%v'\n", contextDir)
 	if contextDir == "" && f.Build.Builder == builders.S2I {
 		// TODO(lkingland): could instead update S2I to interpret empty string
 		// as cwd, such that builder-specific code can be kept out of here.
@@ -411,6 +414,11 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		for i := range f.Build.BuildEnvs {
 			buildEnvs = append(buildEnvs, f.Build.BuildEnvs[i].KeyValuePair())
 		}
+	}
+
+	// add BP_GO_WORKDIR for go-build buildpack
+	if f.Runtime == "go" {
+		buildEnvs = append(buildEnvs, "BP_GO_WORKDIR=.func/builds/last")
 	}
 
 	s2iImageScriptsUrl := defaultS2iImageScriptsUrl
@@ -445,7 +453,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		RepoUrl:  f.Build.Git.URL,
 		Revision: pipelinesTargetBranch,
 	}
-
+	fmt.Printf("# data.BuilderImage: '%v'\n", data.BuilderImage)
 	var template string
 	switch f.Build.Builder {
 	case builders.Pack:
