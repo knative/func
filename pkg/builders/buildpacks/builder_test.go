@@ -56,7 +56,7 @@ func TestBuild_BuilderImageTrustedLocalhost(t *testing.T) {
 	}
 }
 
-// TestBuild_BuilderImageDefault ensures that a Function bing built which does not
+// TestBuild_BuilderImageDefault ensures that a Function being built which does not
 // define a Builder Image will get the internally-defined default.
 func TestBuild_BuilderImageDefault(t *testing.T) {
 	var (
@@ -76,7 +76,6 @@ func TestBuild_BuilderImageDefault(t *testing.T) {
 	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 // TestBuild_BuildpacksDefault ensures that, if there are default buildpacks
@@ -100,7 +99,6 @@ func TestBuild_BuildpacksDefault(t *testing.T) {
 	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 // TestBuild_BuilderImageConfigurable ensures that the builder will use the builder

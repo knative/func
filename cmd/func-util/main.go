@@ -74,20 +74,31 @@ func socat(ctx context.Context) error {
 }
 
 func scaffold(ctx context.Context) error {
-
-	if len(os.Args) != 2 {
-		return fmt.Errorf("expected exactly one positional argument (function project path)")
+	if len(os.Args) != 3 {
+		return fmt.Errorf("expected exactly two positional arguments (function project path, builder)")
 	}
 
 	path := os.Args[1]
+	builder := os.Args[2]
 
 	f, err := fn.NewFunction(path)
 	if err != nil {
 		return fmt.Errorf("cannot load func project: %w", err)
 	}
 
+	// TODO: gauron99 - Set the builder from the passed argument if not already set in the function config.
+	// This is necessary because the builder value needs to be known during scaffolding to
+	// determine the correct build directory (.s2i/builds/last vs .func/builds/last), but it
+	// may not be persisted to func.yaml yet. By passing it as an argument from the Tekton
+	// pipeline, we ensure the correct builder is used even when the function config is incomplete.
+	if f.Build.Builder == "" {
+		f.Build.Builder = builder
+	}
+
+	fmt.Printf("#### scaffold: builder='%s', runtime='%s'\n", f.Build.Builder, f.Runtime)
+
 	if f.Runtime != "go" && f.Runtime != "python" {
-		// Scaffolding is for now supported/needed only for Go.
+		// Scaffolding is for now supported/needed only for Go&Python
 		return nil
 	}
 
@@ -97,12 +108,24 @@ func scaffold(ctx context.Context) error {
 	}
 
 	appRoot := filepath.Join(f.Root, ".s2i", "builds", "last")
+	if f.Build.Builder != "s2i" {
+		// TODO: gauron99 - change this completely
+		appRoot = filepath.Join(f.Root, ".func", "builds", "last")
+	}
+	fmt.Printf("appRoot is '%s'\n", appRoot)
 	_ = os.RemoveAll(appRoot)
 
+	// build step now includes scaffolding for go-pack
 	err = scaffolding.Write(appRoot, f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
 	if err != nil {
 		return fmt.Errorf("cannot write the scaffolding: %w", err)
 	}
+
+	if f.Build.Builder != "s2i" {
+		return nil
+	}
+
+	// add s2i specific changes
 
 	if err := os.MkdirAll(filepath.Join(f.Root, ".s2i", "bin"), 0755); err != nil {
 		return fmt.Errorf("unable to create .s2i bin dir. %w", err)
@@ -121,7 +144,6 @@ func scaffold(ctx context.Context) error {
 	if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(asm), 0755); err != nil {
 		return fmt.Errorf("unable to write go assembler. %w", err)
 	}
-
 	return nil
 }
 

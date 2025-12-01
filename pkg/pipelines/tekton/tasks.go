@@ -440,13 +440,16 @@ spec:
     - name: path
       description: Path to the function project
       default: ""
+    - name: builder
+      description: Builder to be used (pack or s2i)
+      default: ""
   workspaces:
     - name: source
       description: The workspace containing the function project
   steps:
     - name: func-scaffold
       image: %s
-      command: ["scaffold", "$(params.path)"]
+      command: ["scaffold", "$(params.path)", "$(params.builder)"]
 `, ScaffoldImage)
 }
 
