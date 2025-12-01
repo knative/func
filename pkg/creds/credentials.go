@@ -72,7 +72,7 @@ func CheckAuth(ctx context.Context, image string, credentials oci.Credentials, t
 	err = remote.CheckPushPermission(ref, kc, trans)
 	if err != nil {
 		var transportErr *transport.Error
-		if errors.As(err, &transportErr) && transportErr.StatusCode == 401 {
+		if errors.As(err, &transportErr) && (transportErr.StatusCode == 401 || transportErr.StatusCode == 403) {
 			return ErrUnauthorized
 		}
 		return err
