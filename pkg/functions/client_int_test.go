@@ -111,7 +111,7 @@ func TestInt_New(t *testing.T) {
 	}
 }
 
-// TestInt_Deploy_Defaults deployes using client methods from New but manually
+// TestInt_Deploy_Defaults deploys using client methods from New but manually
 func TestInt_Deploy_Defaults(t *testing.T) {
 	resetEnv()
 	_, cleanup := Mktemp(t)

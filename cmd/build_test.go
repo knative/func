@@ -39,7 +39,7 @@ func TestBuild_Default(t *testing.T) {
 	testDefault(NewBuildCmd, t)
 }
 
-// TestBuild_FunctionContext ensures that the function contectually relevant
+// TestBuild_FunctionContext ensures that the function contextually relevant
 // to the current command execution is loaded and used for flag defaults by
 // spot-checking the builder setting.
 func TestBuild_FunctionContext(t *testing.T) {

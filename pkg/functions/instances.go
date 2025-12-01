@@ -14,7 +14,7 @@ const (
 // InstanceRefs manager
 //
 // InstanceRefs are point-in-time snapshots of a function's runtime state in
-// a given environment.  By default 'local' and 'remote' environmnts are
+// a given environment. By default 'local' and 'remote' environments are
 // available when a function is run locally and deployed (respectively).
 type InstanceRefs struct {
 	client *Client

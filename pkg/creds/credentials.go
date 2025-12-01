@@ -390,7 +390,7 @@ func setCredentialHelperToConfig(confFilePath, helper string) error {
 	if err != nil {
 		return err
 	}
-	// create config path if doesnt exist
+	// create config path if doesn't exist
 	err = os.MkdirAll(filepath.Dir(confFilePath), 0755)
 	if err != nil {
 		return err
