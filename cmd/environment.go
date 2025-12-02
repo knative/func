@@ -11,12 +11,12 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"knative.dev/func/pkg/builders/buildpacks"
-	"knative.dev/func/pkg/builders/s2i"
+	"knative.dev/func/pkg/buildpacks"
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/pipelines/tekton"
+	"knative.dev/func/pkg/s2i"
 )
 
 var format string = "json"

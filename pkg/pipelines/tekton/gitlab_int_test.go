@@ -36,7 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"knative.dev/pkg/apis"
 
-	"knative.dev/func/pkg/builders/buildpacks"
+	"knative.dev/func/pkg/buildpacks"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/oci"

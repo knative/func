@@ -18,12 +18,12 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
-	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
+	"knative.dev/func/pkg/s2i"
 	. "knative.dev/func/pkg/testing"
 	"knative.dev/pkg/ptr"
 )

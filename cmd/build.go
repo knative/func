@@ -10,12 +10,12 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"knative.dev/func/pkg/builders"
-	pack "knative.dev/func/pkg/builders/buildpacks"
-	"knative.dev/func/pkg/builders/s2i"
+	"knative.dev/func/pkg/buildpacks"
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
+	"knative.dev/func/pkg/s2i"
 )
 
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
@@ -500,10 +500,10 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 		)
 	case builders.Pack:
 		o = append(o,
-			fn.WithBuilder(pack.NewBuilder(
-				pack.WithName(builders.Pack),
-				pack.WithTimestamp(c.WithTimestamp),
-				pack.WithVerbose(c.Verbose))),
+			fn.WithBuilder(buildpacks.NewBuilder(
+				buildpacks.WithName(builders.Pack),
+				buildpacks.WithTimestamp(c.WithTimestamp),
+				buildpacks.WithVerbose(c.Verbose))),
 			fn.WithPusher(docker.NewPusher(
 				docker.WithCredentialsProvider(creds),
 				docker.WithTransport(t),

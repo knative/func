@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"knative.dev/func/cmd/prompt"
-	"knative.dev/func/pkg/builders/buildpacks"
+	"knative.dev/func/pkg/buildpacks"
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/creds"
 	"knative.dev/func/pkg/docker"
