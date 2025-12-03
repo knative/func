@@ -38,6 +38,7 @@ or from the directory specified with --path.
 	cmd.AddCommand(NewConfigLabelsCmd(loadSaver))
 	cmd.AddCommand(NewConfigEnvsCmd(loadSaver))
 	cmd.AddCommand(NewConfigVolumesCmd())
+	cmd.AddCommand(NewConfigCICmd(loadSaver))
 
 	return cmd
 }
