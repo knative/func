@@ -93,6 +93,7 @@ func (s *Step) withActionConfig(key, value string) *Step {
 	return s
 }
 
+// TODO(twoGiants): add validation => no empty values, etc.
 func NewGithubWorkflow(conf CIConfig) *GithubWorkflow {
 	runsOn := "ubuntu-latest"
 	if conf.UseSelfHostedRunner() {

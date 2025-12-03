@@ -9,7 +9,7 @@ import (
 
 func TestGithubWorkflow_PersistAndLoad(t *testing.T) {
 	// GIVEN
-	gw := ci.NewGithubWorkflow(ci.NewCIConfigBuilder().Build())
+	gw := ci.NewGithubWorkflow(ci.NewCiGithubConfig())
 	targetPath := t.TempDir() + "/" + gw.Name + ".yaml"
 
 	// WHEN
