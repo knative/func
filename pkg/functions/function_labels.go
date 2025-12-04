@@ -8,6 +8,10 @@ import (
 	"knative.dev/func/pkg/utils"
 )
 
+const (
+	MiddlewareVersionLabelKey = "middleware-version"
+)
+
 type Label struct {
 	// Key consist of optional prefix part (ended by '/') and name part
 	// Prefix part validation pattern: [a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*

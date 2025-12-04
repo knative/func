@@ -121,7 +121,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (e
 		_ = os.Remove(job.pidLink())
 	}()
 
-	if err = scaffold(job); err != nil { // write out the service wrapper
+	if err = scaffold(&job); err != nil { // write out the service wrapper
 		return
 	}
 
@@ -245,18 +245,35 @@ func cleanup(job buildJob) {
 
 // scaffold writes out the process wrapper code which will instantiate the
 // Function and expose it as a service when included in the final container.
-func scaffold(job buildJob) (err error) {
+func scaffold(job *buildJob) (err error) {
 	// extract the embedded filesystem which holds the scaffolding for
 	// the given runtime
 	repo, err := fn.NewRepository("", "")
 	if err != nil {
 		return
 	}
-	return scaffolding.Write(
+	err = scaffolding.Write(
 		job.buildDir(),       // desintation for scaffolding
 		job.function.Root,    // source to be scaffolded
 		job.function.Runtime, // scaffolding language to write
 		job.function.Invoke, repo.FS())
+
+	if err != nil {
+		return
+	}
+
+	// add used scaffolded middleware information
+	middlewareVersion, err := scaffolding.MiddlewareVersion(job.function.Root, job.function.Runtime, job.function.Invoke, repo.FS())
+	if err != nil {
+		return fmt.Errorf("unable to get middleware version: %w", err)
+	}
+
+	if job.labels == nil {
+		job.labels = make(map[string]string)
+	}
+	job.labels[fn.MiddlewareVersionLabelKey] = middlewareVersion
+
+	return nil
 }
 
 // containerize the full service which consists of the scaffolded Function,
@@ -688,7 +705,7 @@ func newConfigFile(job buildJob, p v1.Platform, base v1.Image, imageLayers []ima
 			WorkingDir:   "/func/",
 			StopSignal:   "SIGKILL",
 			User:         fmt.Sprintf("%v:%v", DefaultUid, DefaultGid),
-			// Labels
+			Labels:       job.labels,
 		},
 		// TODO: Create a separate history entry for each layer built for
 		// each language (EmptyLayer=false).
@@ -885,6 +902,7 @@ type buildJob struct {
 	platforms       []v1.Platform   // Platforms to build
 	languageBuilder languageBuilder // build implementation
 	verbose         bool
+	labels          map[string]string // labels for the image
 }
 
 // newBuildJob creates a struct which contains information about the current
