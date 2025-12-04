@@ -6,7 +6,7 @@ requires-python = ">=3.9"
 readme = "README.md"
 license = "MIT"
 dependencies = [
-    "func-python",
+    "func-python==0.7.0",
     "function @ {root:uri}/f"
 ]
 authors = [
