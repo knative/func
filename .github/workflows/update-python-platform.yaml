@@ -41,4 +41,5 @@ jobs:
           delete-branch: true
           committer: Knative Automation <automation@knative.team>
           author: Knative Automation <automation@knative.team>
+          assignees: gauron99, matejvasek, lkingland
           base: main
