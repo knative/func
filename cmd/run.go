@@ -72,9 +72,9 @@ EXAMPLES
 	  $ {{rootCmdUse}} run --json
 `,
 		SuggestFor: []string{"rnu"},
-		PreRunE: bindEnv("build", "builder", "builder-image", "base-image",
-			"confirm", "env", "image", "path", "registry",
-			"start-timeout", "verbose", "address", "json"),
+	PreRunE: bindEnv("build", "builder", "builder-image", "base-image",
+		"confirm", "env", "image", "path", "registry",
+		"start-timeout", "verbose", "address", "host", "json"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runRun(cmd, newClient)
 		},
@@ -130,6 +130,8 @@ EXAMPLES
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // register `--build` as equivalient to `--build=true`
 	cmd.Flags().String("address", "",
 		"Interface and port on which to bind and listen. Default is 127.0.0.1:8080, or an available port if 8080 is not available. ($FUNC_ADDRESS)")
+	cmd.Flags().String("host", "",
+		"Host on which to bind and listen. Default is 127.0.0.1. ($FUNC_HOST)")
 	cmd.Flags().Bool("json", false, "Output as JSON. ($FUNC_JSON)")
 
 	// Oft-shared flags:
@@ -250,7 +252,7 @@ Or if you have an existing function:
 	// For the former, build is required and a container runtime.  For the
 	// latter, scaffolding is first applied and the local host must be
 	// configured to build/run the language of the function.
-	job, err := client.Run(cmd.Context(), f, fn.RunWithAddress(cfg.Address))
+	job, err := client.Run(cmd.Context(), f, fn.RunWithAddress(cfg.Address), fn.RunWithHost(cfg.Host))
 	if err != nil {
 		// Catch port unavailable errors and provide helpful CLI guidance
 		var portErr *fn.ErrPortUnavailableError
@@ -349,6 +351,9 @@ type runConfig struct {
 	// Address is the interface and port to bind (e.g. "0.0.0.0:8081")
 	Address string
 
+	// Host is the host address to bind (e.g. "127.0.0.1" or "0.0.0.0")
+	Host string
+
 	// JSON output format
 	JSON bool
 }
@@ -360,6 +365,7 @@ func newRunConfig(cmd *cobra.Command) (c runConfig) {
 		Env:          viper.GetStringSlice("env"),
 		StartTimeout: viper.GetDuration("start-timeout"),
 		Address:      viper.GetString("address"),
+		Host:         viper.GetString("host"),
 		JSON:         viper.GetBool("json"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
