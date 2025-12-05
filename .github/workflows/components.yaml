@@ -1,0 +1,23 @@
+name: Update kn components
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  schedule:
+    # every 4 hours
+  - cron: '0 */4 * * *'
+
+jobs:
+  update:
+    name: Update components
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v6
+    - name: Run script
+      env:
+        GITHUB_TOKEN: ${{ GITHUB.TOKEN }}
+      run: make hack-generate-components
+
