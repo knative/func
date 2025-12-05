@@ -191,6 +191,7 @@ type Instance struct {
 	Deployer      string            `json:"deployer" yaml:"deployer"`
 	Subscriptions []Subscription    `json:"subscriptions" yaml:"subscriptions"`
 	Labels        map[string]string `json:"labels" yaml:"labels" xml:"-"`
+	Middleware    Middleware        `json:"middleware,omitempty" yaml:"middleware,omitempty"`
 }
 
 // Subscriptions currently active to event sources
@@ -198,6 +199,10 @@ type Subscription struct {
 	Source string `json:"source" yaml:"source"`
 	Type   string `json:"type" yaml:"type"`
 	Broker string `json:"broker" yaml:"broker"`
+}
+
+type Middleware struct {
+	Version string `json:"version" yaml:"version"`
 }
 
 // DNSProvider exposes DNS services necessary for serving the function.

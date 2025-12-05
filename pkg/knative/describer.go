@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
+	"knative.dev/func/pkg/describer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -111,6 +112,16 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	for _, container := range deployments.Items[0].Spec.Template.Spec.Containers {
 		if container.Name == "user-container" {
 			description.Image = container.Image
+		}
+	}
+
+	if description.Image != "" {
+		v, err := describer.MiddlewareVersion(description.Image)
+		if err != nil {
+			return fn.Instance{}, fmt.Errorf("unable to get middleware version of image %q: %v", description.Image, err)
+		}
+		description.Middleware = fn.Middleware{
+			Version: v,
 		}
 	}
 

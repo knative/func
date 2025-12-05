@@ -6,6 +6,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/func/pkg/describer"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -65,6 +66,15 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		}
 	}
 
+	middlewareVersion := ""
+	if image != "" {
+		v, err := describer.MiddlewareVersion(image)
+		if err != nil {
+			return fn.Instance{}, fmt.Errorf("unable to get middleware version of image %q: %v", image, err)
+		}
+		middlewareVersion = v
+	}
+
 	description := fn.Instance{
 		Name:      name,
 		Namespace: namespace,
@@ -73,6 +83,9 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Route:     primaryRouteURL,
 		Routes:    []string{primaryRouteURL},
 		Image:     image,
+		Middleware: fn.Middleware{
+			Version: middlewareVersion,
+		},
 	}
 
 	return description, nil
