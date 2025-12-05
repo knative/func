@@ -284,5 +284,17 @@ func scaffold(cfg *api.Config, f fn.Function) (*api.Config, error) {
 	// https://github.com/openshift/source-to-image/issues/1141
 	cfg.ForceCopy = true
 
+	// add used scaffolded middleware information
+	middlewareVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
+	if err != nil {
+		return cfg, fmt.Errorf("unable to get middleware version: %w", err)
+	}
+
+	if cfg.Labels == nil {
+		cfg.Labels = make(map[string]string)
+	}
+
+	cfg.Labels[fn.MiddlewareVersionLabelKey] = middlewareVersion
+
 	return cfg, nil
 }
