@@ -72,9 +72,9 @@ EXAMPLES
 	  $ {{rootCmdUse}} run --json
 `,
 		SuggestFor: []string{"rnu"},
-	PreRunE: bindEnv("build", "builder", "builder-image", "base-image",
-		"confirm", "env", "image", "path", "registry",
-		"start-timeout", "verbose", "address", "host", "json"),
+		PreRunE: bindEnv("build", "builder", "builder-image", "base-image",
+			"confirm", "env", "image", "path", "registry",
+			"start-timeout", "verbose", "address", "host", "json"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runRun(cmd, newClient)
 		},

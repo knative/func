@@ -116,7 +116,9 @@ func TestRun_Run(t *testing.T) {
 
 			runner := mock.NewRunner()
 			if tt.runError != nil {
-				runner.RunFn = func(context.Context, fn.Function, string, string, time.Duration) (*fn.Job, error) { return nil, tt.runError }
+				runner.RunFn = func(context.Context, fn.Function, string, string, time.Duration) (*fn.Job, error) {
+					return nil, tt.runError
+				}
 			}
 
 			builder := mock.NewBuilder()
@@ -229,7 +231,9 @@ func TestRun_Images(t *testing.T) {
 			runner := mock.NewRunner()
 
 			if tt.runError != nil {
-				runner.RunFn = func(context.Context, fn.Function, string, string, time.Duration) (*fn.Job, error) { return nil, tt.runError }
+				runner.RunFn = func(context.Context, fn.Function, string, string, time.Duration) (*fn.Job, error) {
+					return nil, tt.runError
+				}
 			}
 
 			builder := mock.NewBuilder()

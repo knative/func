@@ -60,10 +60,10 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, host st
 
 	var (
 		parsedHost = DefaultHost
-		port = DefaultPort
-		c    client.APIClient // Docker client
-		id   string           // ID of running container
-		conn net.Conn         // Connection to container's stdio
+		port       = DefaultPort
+		c          client.APIClient // Docker client
+		id         string           // ID of running container
+		conn       net.Conn         // Connection to container's stdio
 
 		// Channels for gathering runtime errors from the container instance
 		copyErrCh  = make(chan error, 10)
