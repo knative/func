@@ -44,10 +44,6 @@ spec:
       name: s2iImageScriptsUrl
       type: string
       default: 'image:///usr/libexec/s2i'
-    - description: Verify TLS when pushing to registry
-      name: tlsVerify
-      type: string
-      default: 'true'
   tasks:
     {{.GitCloneTaskRef}}
     - name: scaffold
@@ -74,8 +70,6 @@ spec:
             - '$(params.buildEnvs[*])'
         - name: S2I_IMAGE_SCRIPTS_URL
           value: $(params.s2iImageScriptsUrl)
-        - name: TLSVERIFY
-          value: $(params.tlsVerify)
       runAfter:
         - scaffold
       {{.FuncS2iTaskRef}}
@@ -144,8 +138,6 @@ spec:
         {{end}}
     - name: s2iImageScriptsUrl
       value: {{.S2iImageScriptsUrl}}
-    - name: tlsVerify
-      value: {{.TlsVerify}}
   pipelineRef:
    name: {{.PipelineName}}
   workspaces:
@@ -214,8 +206,6 @@ spec:
         {{end}}
     - name: s2iImageScriptsUrl
       value: {{.S2iImageScriptsUrl}}
-    - name: tlsVerify
-      value: {{.TlsVerify}}
   pipelineRef:
    name: {{.PipelineName}}
   workspaces:
