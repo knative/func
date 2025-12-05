@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/knative"
@@ -68,17 +69,43 @@ func TestCore_Run(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	address, err := chooseOpenAddress(t)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd := newCmd(t, "run", "--address", address)
+	cmd := newCmd(t, "run", "--json")
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+	cmd.Stdout = out
+	cmd.Stderr = errOut
+
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
+	defer func() { _ = cmd.Process.Signal(os.Interrupt) }()
 
-	// Wait for echo
-	if !waitFor(t, "http://"+address) {
+	// Parse JSON output to get actual address
+	var result struct {
+		Address string `json:"address"`
+	}
+	done := make(chan error)
+	go func() {
+		done <- json.NewDecoder(out).Decode(&result)
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Logf("stdout: %s", out.String())
+			t.Logf("stderr: %s", errOut.String())
+			t.Fatalf("failed to decode JSON: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Logf("stdout: %s", out.String())
+		t.Logf("stderr: %s", errOut.String())
+		t.Fatal("timed out waiting for function to start")
+	}
+
+	address := result.Address
+
+	// Wait for echo (address already includes http:// prefix)
+	if !waitFor(t, address) {
 		t.Fatal("service does not appear to have started correctly.")
 	}
 
@@ -279,29 +306,48 @@ func TestCore_Invoke(t *testing.T) {
 	// ----------------------------------------
 	// Runs the function locally, which `func invoke` will invoke when
 	// it detects it is running.
-	address, err := chooseOpenAddress(t)
-	if err != nil {
-		t.Fatal(err)
-	}
+	cmd := newCmd(t, "run", "--json")
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+	cmd.Stdout = out
+	cmd.Stderr = errOut
 
-	cmd := newCmd(t, "run", "--address", address)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
 	run := cmd // for the closure
 	defer func() {
-		// ^C the running function
 		if err := run.Process.Signal(os.Interrupt); err != nil {
 			fmt.Fprintf(os.Stderr, "error interrupting. %v", err)
 		}
 	}()
 
-	// TODO: complete implementation of `func run --json` structured output
-	// such that we can parse it for the actual listen address in the case
-	// that there is already something else running on 8080
-	// https://github.com/knative/func/issues/3198
-	// https://github.com/knative/func/issues/3199
-	if !waitFor(t, "http://"+address) {
+	// Parse JSON output to get actual address
+	var result struct {
+		Address string `json:"address"`
+	}
+	done := make(chan error)
+	go func() {
+		done <- json.NewDecoder(out).Decode(&result)
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Logf("stdout: %s", out.String())
+			t.Logf("stderr: %s", errOut.String())
+			t.Fatalf("failed to decode JSON: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Logf("stdout: %s", out.String())
+		t.Logf("stderr: %s", errOut.String())
+		t.Fatal("timed out waiting for function to start")
+	}
+
+	address := result.Address
+
+	// Wait for function to start (address already includes http:// prefix)
+	if !waitFor(t, address) {
 		t.Fatal("service does not appear to have started correctly.")
 	}
 
