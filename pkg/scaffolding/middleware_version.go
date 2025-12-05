@@ -51,7 +51,7 @@ func getVersionDetector(runtime string) (middlewareVersionDetector, error) {
 	case "java":
 		return &springMiddlewareVersionDetector{}, nil
 	case "rust":
-		fallthrough //TODO: implement
+		return &rustMiddlewareVersionDetector{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported runtime: %s", runtime)
 	}
@@ -185,6 +185,13 @@ func (d *springMiddlewareVersionDetector) Detect(fs filesystem.Filesystem, sig S
 
 	pomDetector := &pomMiddlewareVersionDetector{}
 	return pomDetector.detect(fs, sig, pomXmlPath)
+}
+
+type rustMiddlewareVersionDetector struct{}
+
+func (d *rustMiddlewareVersionDetector) Detect(_ filesystem.Filesystem, _ Signature) (string, error) {
+	// we don't have any rust middleware, so simply return nothing
+	return "", nil
 }
 
 type packageJsonMiddlewareVersionDetector struct{}
