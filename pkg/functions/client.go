@@ -135,7 +135,7 @@ type Runner interface {
 	// a stop function.  The process can be stopped by running the returned stop
 	// function, either on context cancellation or in a defer.
 	// The duration is the time to wait for the job to start.
-	Run(context.Context, Function, string, time.Duration) (*Job, error)
+	Run(context.Context, Function, string, string, time.Duration) (*Job, error)
 }
 
 // Remover of deployed services.
@@ -931,6 +931,7 @@ func (c *Client) Route(ctx context.Context, f Function) (string, Function, error
 type RunOptions struct {
 	StartTimeout time.Duration
 	Address      string
+	Host         string
 }
 
 type RunOption func(c *RunOptions)
@@ -948,6 +949,14 @@ func RunWithStartTimeout(t time.Duration) RunOption {
 func RunWithAddress(address string) RunOption {
 	return func(c *RunOptions) {
 		c.Address = address
+	}
+}
+
+// RunWithHost sets a specific host for this run request.
+// If not provided, the default host (127.0.0.1) is used.
+func RunWithHost(host string) RunOption {
+	return func(c *RunOptions) {
+		c.Host = host
 	}
 }
 
@@ -975,7 +984,7 @@ func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job
 
 	// Run the function, which returns a Job for use interacting (at arms length)
 	// with that running task (which is likely inside a container process).
-	if job, err = c.runner.Run(ctx, f, oo.Address, timeout); err != nil {
+	if job, err = c.runner.Run(ctx, f, oo.Address, oo.Host, timeout); err != nil {
 		return
 	}
 

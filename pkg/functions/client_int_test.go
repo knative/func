@@ -133,7 +133,7 @@ func TestInt_Deploy_Defaults(t *testing.T) {
 	}
 
 	defer del(t, client, "deploy", DefaultIntTestNamespace)
-	// TODO: gauron99 -- remove this when you set full image name after build instead
+	: gauron99 -- remove this when you set full image name after build instead
 	// of push -- this has to be here because of a workaround
 	f.Deploy.Image = f.Build.Image
 
