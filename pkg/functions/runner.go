@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultRunHost    = "127.0.0.1" // TODO allow to be altered via a runOpt
+	defaultRunHost    = "127.0.0.1" // default host for running functions
 	defaultRunPort    = "8080"
 	readinessEndpoint = "/health/readiness"
 )
@@ -34,32 +34,35 @@ func newDefaultRunner(client *Client, out, err io.Writer) *defaultRunner {
 	}
 }
 
-func (r *defaultRunner) Run(ctx context.Context, f Function, address string, startTimeout time.Duration) (job *Job, err error) {
+func (r *defaultRunner) Run(ctx context.Context, f Function, address string, host string, startTimeout time.Duration) (job *Job, err error) {
 	var (
 		runFn   func() error
 		verbose = r.client.verbose
 	)
 
 	// Parse address if provided, otherwise use defaults
-	host := defaultRunHost
+	parsedHost := defaultRunHost
+	if host != "" {
+		parsedHost = host
+	}
 	port := defaultRunPort
 	explicitPort := address != ""
 
 	if address != "" {
 		var err error
-		host, port, err = net.SplitHostPort(address)
+		parsedHost, port, err = net.SplitHostPort(address)
 		if err != nil {
 			return nil, fmt.Errorf("invalid address format '%s': %w", address, err)
 		}
 	}
 
-	port, err = choosePort(host, port, explicitPort)
+	port, err = choosePort(parsedHost, port, explicitPort)
 	if err != nil {
 		return nil, fmt.Errorf("cannot choose port: %w", err)
 	}
 
 	// Job contains metadata and references for the running function.
-	job, err = NewJob(f, host, port, nil, nil, verbose)
+	job, err = NewJob(f, parsedHost, port, nil, nil, verbose)
 	if err != nil {
 		return
 	}
