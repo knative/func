@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -17,87 +18,48 @@ import (
 	fnTest "knative.dev/func/pkg/testing"
 )
 
+// START: Broad Unit Tests
+// -----------------------
+// Execution is testet starting from the entrypoint "func config ci" including
+// all components working together. Infrastructure components like the
+// filesystem are mocked.
 func TestNewConfigCICmd_RequiresFeatureFlag(t *testing.T) {
-	expectedErrMsg := fmt.Sprintf("set %s to 'true' to use this feature", ci.ConfigCIFeatureFlag)
-
 	result := runConfigCiCmd(t, opts{enableFeature: false})
 
-	assert.Error(t, result.executeErr, expectedErrMsg)
+	assert.ErrorContains(t, result.executeErr, "unknown command \"ci\" for \"config\"")
 }
 
 func TestNewConfigCICmd_CISubcommandExist(t *testing.T) {
 	// leave 'ci' to make this test explicitly use this subcommand
-	opts := opts{withFuncInTempDir: true, enableFeature: true, args: []string{"ci"}}
+	opts := opts{
+		enableFeature:       true,
+		withMockLoaderSaver: true,
+		withBufferWriter:    true,
+		args:                []string{"ci"},
+	}
 
 	result := runConfigCiCmd(t, opts)
 
 	assert.NilError(t, result.executeErr)
 }
-
-func TestNewConfigCICmd_FailsWhenNotInitialized(t *testing.T) {
-	expectedErrMsg := fn.NewErrNotInitialized(fnTest.Cwd()).Error()
-
-	result := runConfigCiCmd(t, opts{withFuncInTempDir: false, enableFeature: true})
-
-	assert.Error(t, result.executeErr, expectedErrMsg)
-}
-
-func TestNewConfigCICmd_SuccessWhenInitialized(t *testing.T) {
-	result := runConfigCiCmd(t, defaultOpts())
+func TestNewConfigCICmd_WritesWorkflowFile(t *testing.T) {
+	result := runConfigCiCmd(t, unitTestOpts())
 
 	assert.NilError(t, result.executeErr)
-}
-
-func TestNewConfigCICmd_FailsToLoadFuncWithWrongPath(t *testing.T) {
-	opts := defaultOpts()
-	opts.args = append(opts.args, "--path=nofunc")
-	expectedErrMsg := "failed to create new function"
-
-	result := runConfigCiCmd(t, opts)
-
-	assert.ErrorContains(t, result.executeErr, expectedErrMsg)
-}
-
-func TestNewConfigCICmd_SuccessfulLoadWithCorrectPath(t *testing.T) {
-	tmpDir := t.TempDir()
-	opt := opts{withFuncInTempDir: false, enableFeature: true, args: []string{"ci", "--path=" + tmpDir}}
-	_, fnInitErr := fn.New().Init(
-		fn.Function{Name: "github-ci-func", Runtime: "go", Root: tmpDir},
-	)
-
-	result := runConfigCiCmd(t, opt)
-
-	assert.NilError(t, fnInitErr)
-	assert.NilError(t, result.executeErr)
-}
-
-func TestNewConfigCICmd_CreatesGithubWorkflowDirectory(t *testing.T) {
-	result := runConfigCiCmd(t, defaultOpts())
-
-	assert.NilError(t, result.executeErr)
-	_, err := os.Stat(result.ciConfig.FnGithubWorkflowDir(result.f.Root))
-	assert.NilError(t, err)
-}
-
-func TestNewConfigCICmd_GeneratesWorkflowFile(t *testing.T) {
-	result := runConfigCiCmd(t, defaultOpts())
-
-	assert.NilError(t, result.executeErr)
-	assertWorkflowFileExists(t, result)
+	assert.Assert(t, result.gwYamlString != "")
 }
 
 func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
-	result := runConfigCiCmd(t, defaultOpts())
+	opts := unitTestOpts()
+	result := runConfigCiCmd(t, opts)
 
 	assert.NilError(t, result.executeErr)
-	assertWorkflowFileExists(t, result)
-	assert.NilError(t, result.gwLoadErr)
 	assertDefaultWorkflow(t, result.gwYamlString)
 }
 
 func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	// GIVEN
-	opts := defaultOpts()
+	opts := unitTestOpts()
 	opts.args = append(opts.args,
 		"--self-hosted-runner",
 		"--workflow-name=Custom Deploy",
@@ -113,13 +75,12 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 
 	// THEN
 	assert.NilError(t, result.executeErr)
-	assertWorkflowFileExists(t, result)
 	assertCustomWorkflow(t, result.gwYamlString)
 }
 
 func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 	// GIVEN
-	opts := defaultOpts()
+	opts := unitTestOpts()
 	opts.args = append(opts.args, "--use-registry-login=false")
 
 	// WHEN
@@ -127,7 +88,6 @@ func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 
 	// THEN
 	assert.NilError(t, result.executeErr)
-	assertWorkflowFileExists(t, result)
 	assert.Assert(t, !strings.Contains(result.gwYamlString, "docker/login-action@v3"))
 	assert.Assert(t, !strings.Contains(result.gwYamlString, "Login to container registry"))
 	assert.Assert(t, yamlContains(result.gwYamlString, "--registry=${{ vars.REGISTRY_URL }}"))
@@ -135,7 +95,7 @@ func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 
 func TestNewConfigCICmd_RemoteBuildAndDeployWorkflow(t *testing.T) {
 	// GIVEN
-	opts := defaultOpts()
+	opts := unitTestOpts()
 	opts.args = append(opts.args, "--remote")
 
 	// WHEN
@@ -143,14 +103,13 @@ func TestNewConfigCICmd_RemoteBuildAndDeployWorkflow(t *testing.T) {
 
 	// THEN
 	assert.NilError(t, result.executeErr)
-	assertWorkflowFileExists(t, result)
 	assert.Assert(t, yamlContains(result.gwYamlString, "Remote Func Deploy"))
 	assert.Assert(t, yamlContains(result.gwYamlString, "func deploy --remote"))
 }
 
 func TestNewConfigCICmd_HasWorkflowDispatchAndCacheInDebugMode(t *testing.T) {
 	// GIVEN
-	opts := defaultOpts()
+	opts := unitTestOpts()
 	opts.args = append(opts.args, "--debug")
 
 	// WHEN
@@ -158,28 +117,117 @@ func TestNewConfigCICmd_HasWorkflowDispatchAndCacheInDebugMode(t *testing.T) {
 
 	// THEN
 	assert.NilError(t, result.executeErr)
-	assertWorkflowFileExists(t, result)
 	assertDebugWorkflow(t, result.gwYamlString)
 }
+
+// ---------------------
+// END: Broad Unit Tests
+
+// START: Integration Tests
+// ------------------------
+// No more mocking. Using real filesystem here for LoaderSaver and WorkflowWriter.
+func TestNewConfigCICmd_FailsWhenNotInitialized(t *testing.T) {
+	opts := opts{enableFeature: true, withFuncInTempDir: false}
+	expectedErrMsg := fn.NewErrNotInitialized(fnTest.Cwd()).Error()
+
+	result := runConfigCiCmd(t, opts)
+
+	assert.Error(t, result.executeErr, expectedErrMsg)
+}
+
+func TestNewConfigCICmd_SuccessWhenInitialized(t *testing.T) {
+	result := runConfigCiCmd(t, integrationTestOpts())
+
+	assert.NilError(t, result.executeErr)
+}
+
+func TestNewConfigCICmd_FailsToLoadFuncWithWrongPath(t *testing.T) {
+	opts := integrationTestOpts()
+	opts.args = append(opts.args, "--path=nofunc")
+	expectedErrMsg := "failed to create new function"
+
+	result := runConfigCiCmd(t, opts)
+
+	assert.ErrorContains(t, result.executeErr, expectedErrMsg)
+}
+
+func TestNewConfigCICmd_SuccessfulLoadWithCorrectPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	opts := integrationTestOpts()
+	opts.args = append(opts.args, "--path="+tmpDir)
+	_, fnInitErr := fn.New().Init(
+		fn.Function{Name: "github-ci-func", Runtime: "go", Root: tmpDir},
+	)
+
+	result := runConfigCiCmd(t, opts)
+
+	assert.NilError(t, fnInitErr)
+	assert.NilError(t, result.executeErr)
+}
+
+func TestNewConfigCICmd_CreatesGitHubWorkflowDirectory(t *testing.T) {
+	result := runConfigCiCmd(t, integrationTestOpts())
+
+	assert.NilError(t, result.executeErr)
+	_, err := os.Stat(result.ciConfig.FnGitHubWorkflowDir(result.f.Root))
+	assert.NilError(t, err)
+}
+
+func TestNewConfigCICmd_WritesWorkflowFileToFSWithCorrectYAMLStructure(t *testing.T) {
+	result := runConfigCiCmd(t, integrationTestOpts())
+	file, openErr := os.Open(result.ciConfig.FnGitHubWorkflowFilepath(result.f.Root))
+	raw, readErr := io.ReadAll(file)
+
+	assert.NilError(t, result.executeErr)
+	assert.NilError(t, openErr)
+	assert.NilError(t, readErr)
+	assertDefaultWorkflow(t, string(raw))
+}
+
+// ----------------------
+// END: Integration Tests
 
 // START: Testing Framework
 // ------------------------
 type opts struct {
-	withFuncInTempDir bool
-	enableFeature     bool
-	args              []string
+	withMockLoaderSaver bool
+	withFuncInTempDir   bool
+	enableFeature       bool
+	withBufferWriter    bool
+	args                []string
 }
 
-// defaultOpts provides the most used options for tests
+// unitTestOpts contains test options for broad unit tests
 //
-//   - withFuncInTempDir: true,
-//   - enableFeature:     true,
-//   - args:              []string{"ci"},
-func defaultOpts() opts {
+//   - withMockLoaderSaver: true,
+//   - withFuncInTempDir:   false,
+//   - enableFeature:       true,
+//   - withBufferWriter:    true,
+//   - args:                []string{"ci"},
+func unitTestOpts() opts {
 	return opts{
-		withFuncInTempDir: true,
-		enableFeature:     true,
-		args:              []string{"ci"},
+		withMockLoaderSaver: true,
+		withFuncInTempDir:   false,
+		enableFeature:       true,
+		withBufferWriter:    true,
+		args:                []string{"ci"},
+	}
+}
+
+// integrationTestOpts contains test options for integration tests
+//
+//   - withMockLoaderSaver: false,
+//   - withFuncInTempDir:   true,
+//   - enableFeature:       true,
+//   - withBufferWriter:    false,
+//   - args:                []string{"ci"},
+func integrationTestOpts() opts {
+	return opts{
+		withMockLoaderSaver: false,
+		withFuncInTempDir:   true,
+		enableFeature:       true,
+		withBufferWriter:    false,
+		args:                []string{"ci"},
 	}
 }
 
@@ -187,7 +235,6 @@ type result struct {
 	f            fn.Function
 	ciConfig     ci.CIConfig
 	executeErr   error
-	gwLoadErr    error
 	gwYamlString string
 }
 
@@ -199,6 +246,11 @@ func runConfigCiCmd(
 
 	// PRE-RUN PREP
 	// all options for "func config ci" command
+	loaderSaver := common.DefaultLoaderSaver
+	if opts.withMockLoaderSaver {
+		loaderSaver = common.NewMockLoaderSaver()
+	}
+
 	f := fn.Function{}
 	if opts.withFuncInTempDir {
 		f = cmdTest.CreateFuncInTempDir(t, "github-ci-func")
@@ -206,6 +258,12 @@ func runConfigCiCmd(
 
 	if opts.enableFeature {
 		t.Setenv(ci.ConfigCIFeatureFlag, "true")
+	}
+
+	var writer ci.WorkflowWriter = ci.DefaultWorkflowWriter
+	bufferWriter := ci.NewBufferWriter()
+	if opts.withBufferWriter {
+		writer = bufferWriter
 	}
 
 	args := opts.args
@@ -216,7 +274,8 @@ func runConfigCiCmd(
 	viper.Reset()
 
 	cmd := fnCmd.NewConfigCmd(
-		common.DefaultLoaderSaver,
+		loaderSaver,
+		writer,
 		fnCmd.NewClient,
 	)
 	cmd.SetArgs(args)
@@ -225,33 +284,18 @@ func runConfigCiCmd(
 	err := cmd.Execute()
 
 	// POST-RUN GATHER
-	ciConfig := ci.NewCiGithubConfig()
-	gwPath := ciConfig.FnGithubWorkflowFilepath(f.Root)
-	gw, gwLoadErr := ci.NewGithubWorkflowFromPath(gwPath)
-	gwYamlString, marshalErr := gw.YamlString()
-	if marshalErr != nil {
-		panic(marshalErr)
-	}
+	ciConfig := ci.NewCIGitHubConfig()
+	gwYamlString := bufferWriter.Buffer.String()
 
 	return result{
 		f,
 		ciConfig,
 		err,
-		gwLoadErr,
 		gwYamlString,
 	}
 }
 
-func assertWorkflowFileExists(t *testing.T, result result) {
-	t.Helper()
-
-	filepath := result.ciConfig.FnGithubWorkflowFilepath(result.f.Root)
-	exists, _ := fnTest.FileExists(t, filepath)
-
-	assert.Assert(t, exists, filepath+" does not exist")
-}
-
-// assertDefaultWorkflow asserts all the Github workflow value for correct values
+// assertDefaultWorkflow asserts all the GitHub workflow value for correct values
 // including the default values which can be changed:
 //   - runs-on: ubuntu-latest
 //   - kubeconfig: ${{ secrets.KUBECONFIG }}
@@ -324,3 +368,6 @@ func yamlContains(yaml, substr string) cmp.Comparison {
 		))
 	}
 }
+
+// ----------------------
+// END: Testing Framework

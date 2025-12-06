@@ -1,6 +1,6 @@
 ## func config ci
 
-Generate a Github Workflow for function deployment
+Generate a GitHub Workflow for function deployment
 
 ```
 func config ci

@@ -11,15 +11,17 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	fnCmd "knative.dev/func/cmd"
+	"knative.dev/func/cmd/ci"
+	"knative.dev/func/cmd/common"
 	fn "knative.dev/func/pkg/functions"
 )
 
 func TestListEnvs(t *testing.T) {
-	mock := newMockLoaderSaver()
+	mock := common.NewMockLoaderSaver()
 	foo := "foo"
 	bar := "bar"
 	envs := []fn.Env{{Name: &foo, Value: &bar}}
-	mock.load = func(path string) (fn.Function, error) {
+	mock.LoadFn = func(path string) (fn.Function, error) {
 		if path != "<path>" {
 			t.Fatalf("bad path, got %q but expected <path>", path)
 		}
@@ -47,8 +49,8 @@ func TestListEnvs(t *testing.T) {
 	}
 }
 
-func setupConfigEnvCmd(mock *mockLoaderSaver, args ...string) *cobra.Command {
-	cmd := fnCmd.NewConfigCmd(mock, fnCmd.NewClient)
+func setupConfigEnvCmd(mock common.FunctionLoaderSaver, args ...string) *cobra.Command {
+	cmd := fnCmd.NewConfigCmd(mock, ci.NewBufferWriter(), fnCmd.NewClient)
 	cmd.SetArgs(append([]string{"envs"}, args...))
 	return cmd
 }
@@ -61,12 +63,12 @@ func TestListEnvAdd(t *testing.T) {
 	fortyTwo := "42"
 	configMapExpression := "{{ configMap:myMap }}"
 
-	mock := newMockLoaderSaver()
-	mock.load = func(path string) (fn.Function, error) {
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
 		return fn.Function{Run: fn.RunSpec{Envs: []fn.Env{{Name: &foo, Value: &bar}}}}, nil
 	}
 	var expectedEnvs []fn.Env
-	mock.save = func(f fn.Function) error {
+	mock.SaveFn = func(f fn.Function) error {
 		if !envsEqual(expectedEnvs, f.Run.Envs) {
 			return fmt.Errorf("unexpected envs: got %v but %v was expected", f.Run.Envs, expectedEnvs)
 		}
@@ -157,28 +159,4 @@ func envsEqual(a, b []fn.Env) bool {
 		}
 	}
 	return true
-}
-
-func newMockLoaderSaver() *mockLoaderSaver {
-	return &mockLoaderSaver{
-		load: func(path string) (fn.Function, error) {
-			return fn.Function{}, nil
-		},
-		save: func(f fn.Function) error {
-			return nil
-		},
-	}
-}
-
-type mockLoaderSaver struct {
-	load func(path string) (fn.Function, error)
-	save func(f fn.Function) error
-}
-
-func (m mockLoaderSaver) Load(path string) (fn.Function, error) {
-	return m.load(path)
-}
-
-func (m mockLoaderSaver) Save(f fn.Function) error {
-	return m.save(f)
 }

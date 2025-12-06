@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
 
+	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
 	"knative.dev/func/cmd/templates"
 	"knative.dev/func/pkg/config"
@@ -101,7 +102,7 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 		{
 			Header: "System Commands:",
 			Commands: []*cobra.Command{
-				NewConfigCmd(common.DefaultLoaderSaver, newClient),
+				NewConfigCmd(common.DefaultLoaderSaver, ci.DefaultWorkflowWriter, newClient),
 				NewLanguagesCmd(newClient),
 				NewTemplatesCmd(newClient),
 				NewRepositoryCmd(newClient),

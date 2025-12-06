@@ -9,43 +9,42 @@ import (
 const (
 	ConfigCIFeatureFlag = "FUNC_ENABLE_CI_CONFIG"
 
-	// TODO(twoGiants): *Option -> *Flag
-	PathOption = "path"
+	PathFlag = "path"
 
-	DefaultGithubWorkflowDir      = ".github/workflows"
-	DefaultGithubWorkflowFilename = "func-deploy.yaml"
+	DefaultGitHubWorkflowDir      = ".github/workflows"
+	DefaultGitHubWorkflowFilename = "func-deploy.yaml"
 
-	BranchOption  = "branch"
+	BranchFlag    = "branch"
 	DefaultBranch = "main"
 
-	WorkflowNameOption  = "workflow-name"
+	WorkflowNameFlag    = "workflow-name"
 	DefaultWorkflowName = "Func Deploy"
 
-	KubeconfigSecretNameOption  = "kubeconfig-secret-name"
+	KubeconfigSecretNameFlag    = "kubeconfig-secret-name"
 	DefaultKubeconfigSecretName = "KUBECONFIG"
 
-	RegistryLoginUrlVariableNameOption  = "registry-login-url-variable-name"
+	RegistryLoginUrlVariableNameFlag    = "registry-login-url-variable-name"
 	DefaultRegistryLoginUrlVariableName = "REGISTRY_LOGIN_URL"
 
-	RegistryUserVariableNameOption  = "registry-user-variable-name"
+	RegistryUserVariableNameFlag    = "registry-user-variable-name"
 	DefaultRegistryUserVariableName = "REGISTRY_USERNAME"
 
-	RegistryPassSecretNameOption  = "registry-pass-secret-name"
+	RegistryPassSecretNameFlag    = "registry-pass-secret-name"
 	DefaultRegistryPassSecretName = "REGISTRY_PASSWORD"
 
-	RegistryUrlVariableNameOption  = "registry-url-variable-name"
+	RegistryUrlVariableNameFlag    = "registry-url-variable-name"
 	DefaultRegistryUrlVariableName = "REGISTRY_URL"
 
-	UseRegistryLoginOption  = "use-registry-login"
+	UseRegistryLoginFlag    = "use-registry-login"
 	DefaultUseRegistryLogin = true
 
-	UseDebugOption  = "debug"
+	UseDebugFlag    = "debug"
 	DefaultUseDebug = false
 
-	UseRemoteBuild        = "remote"
+	UseRemoteBuildFlag    = "remote"
 	DefaultUseRemoteBuild = false
 
-	UseSelfHostedRunner        = "self-hosted-runner"
+	UseSelfHostedRunnerFlag    = "self-hosted-runner"
 	DefaultUseSelfHostedRunner = false
 )
 
@@ -67,31 +66,31 @@ type CIConfig struct {
 	debug bool
 }
 
-func NewCiGithubConfig() CIConfig {
+func NewCIGitHubConfig() CIConfig {
 	return CIConfig{
-		githubWorkflowDir:      DefaultGithubWorkflowDir,
-		githubWorkflowFilename: DefaultGithubWorkflowFilename,
-		path:                   viper.GetString(PathOption),
-		branch:                 viper.GetString(BranchOption),
-		workflowName:           viper.GetString(WorkflowNameOption),
-		kubeconfigSecret:       viper.GetString(KubeconfigSecretNameOption),
-		registryLoginUrlVar:    viper.GetString(RegistryLoginUrlVariableNameOption),
-		registryUserVar:        viper.GetString(RegistryUserVariableNameOption),
-		registryPassSecret:     viper.GetString(RegistryPassSecretNameOption),
-		registryUrlVar:         viper.GetString(RegistryUrlVariableNameOption),
-		useRegistryLogin:       viper.GetBool(UseRegistryLoginOption),
-		useRemoteBuild:         viper.GetBool(UseRemoteBuild),
-		useSelfHostedRunner:    viper.GetBool(UseSelfHostedRunner),
-		debug:                  viper.GetBool(UseDebugOption),
+		githubWorkflowDir:      DefaultGitHubWorkflowDir,
+		githubWorkflowFilename: DefaultGitHubWorkflowFilename,
+		path:                   viper.GetString(PathFlag),
+		branch:                 viper.GetString(BranchFlag),
+		workflowName:           viper.GetString(WorkflowNameFlag),
+		kubeconfigSecret:       viper.GetString(KubeconfigSecretNameFlag),
+		registryLoginUrlVar:    viper.GetString(RegistryLoginUrlVariableNameFlag),
+		registryUserVar:        viper.GetString(RegistryUserVariableNameFlag),
+		registryPassSecret:     viper.GetString(RegistryPassSecretNameFlag),
+		registryUrlVar:         viper.GetString(RegistryUrlVariableNameFlag),
+		useRegistryLogin:       viper.GetBool(UseRegistryLoginFlag),
+		useRemoteBuild:         viper.GetBool(UseRemoteBuildFlag),
+		useSelfHostedRunner:    viper.GetBool(UseSelfHostedRunnerFlag),
+		debug:                  viper.GetBool(UseDebugFlag),
 	}
 }
 
-func (cc *CIConfig) FnGithubWorkflowDir(fnRoot string) string {
+func (cc *CIConfig) FnGitHubWorkflowDir(fnRoot string) string {
 	return filepath.Join(fnRoot, cc.githubWorkflowDir)
 }
 
-func (cc *CIConfig) FnGithubWorkflowFilepath(fnRoot string) string {
-	return filepath.Join(cc.FnGithubWorkflowDir(fnRoot), cc.githubWorkflowFilename)
+func (cc *CIConfig) FnGitHubWorkflowFilepath(fnRoot string) string {
+	return filepath.Join(cc.FnGitHubWorkflowDir(fnRoot), cc.githubWorkflowFilename)
 }
 
 func (cc *CIConfig) Path() string {

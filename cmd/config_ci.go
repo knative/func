@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -10,94 +9,94 @@ import (
 	"knative.dev/func/cmd/common"
 )
 
-func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver) *cobra.Command {
+func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWriter) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ci",
-		Short: "Generate a Github Workflow for function deployment",
+		Short: "Generate a GitHub Workflow for function deployment",
 		PreRunE: bindEnv(
-			ci.PathOption,
-			ci.UseRegistryLoginOption,
-			ci.UseDebugOption,
-			ci.UseRemoteBuild,
-			ci.UseSelfHostedRunner,
-			ci.WorkflowNameOption,
-			ci.BranchOption,
-			ci.KubeconfigSecretNameOption,
-			ci.RegistryLoginUrlVariableNameOption,
-			ci.RegistryUserVariableNameOption,
-			ci.RegistryPassSecretNameOption,
-			ci.RegistryUrlVariableNameOption,
+			ci.PathFlag,
+			ci.UseRegistryLoginFlag,
+			ci.UseDebugFlag,
+			ci.UseRemoteBuildFlag,
+			ci.UseSelfHostedRunnerFlag,
+			ci.WorkflowNameFlag,
+			ci.BranchFlag,
+			ci.KubeconfigSecretNameFlag,
+			ci.RegistryLoginUrlVariableNameFlag,
+			ci.RegistryUserVariableNameFlag,
+			ci.RegistryPassSecretNameFlag,
+			ci.RegistryUrlVariableNameFlag,
 		),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			return runConfigCIGithub(cmd, loaderSaver)
+			return runConfigCIGitHub(cmd, loaderSaver, writer)
 		},
 	}
 
 	addPathFlag(cmd)
 
 	cmd.Flags().Bool(
-		ci.UseRegistryLoginOption,
+		ci.UseRegistryLoginFlag,
 		ci.DefaultUseRegistryLogin,
 		"Add a registry login step in the github workflow",
 	)
 
 	cmd.Flags().Bool(
-		ci.UseDebugOption,
+		ci.UseDebugFlag,
 		ci.DefaultUseDebug,
 		"Add a workflow dispatch trigger and a cli caching for fast iterations on runs",
 	)
-	cmd.Flags().MarkHidden(ci.UseDebugOption)
+	cmd.Flags().MarkHidden(ci.UseDebugFlag)
 
 	cmd.Flags().Bool(
-		ci.UseRemoteBuild,
+		ci.UseRemoteBuildFlag,
 		ci.DefaultUseRemoteBuild,
 		"Build the function on a Tekton-enabled cluster",
 	)
 
 	cmd.Flags().Bool(
-		ci.UseSelfHostedRunner,
+		ci.UseSelfHostedRunnerFlag,
 		ci.DefaultUseSelfHostedRunner,
 		"Use a 'self-hosted' runner instead of the default 'ubuntu-latest' for local runner execution",
 	)
 
 	cmd.Flags().String(
-		ci.WorkflowNameOption,
+		ci.WorkflowNameFlag,
 		ci.DefaultWorkflowName,
 		"Use a custom workflow name",
 	)
 
 	cmd.Flags().String(
-		ci.BranchOption,
+		ci.BranchFlag,
 		ci.DefaultBranch,
 		"Use a custom branch name in the workflow",
 	)
 
 	cmd.Flags().String(
-		ci.KubeconfigSecretNameOption,
+		ci.KubeconfigSecretNameFlag,
 		ci.DefaultKubeconfigSecretName,
 		"Use a custom secret name in the workflow, e.g. secret.YOUR_CUSTOM_KUBECONFIG",
 	)
 
 	cmd.Flags().String(
-		ci.RegistryLoginUrlVariableNameOption,
+		ci.RegistryLoginUrlVariableNameFlag,
 		ci.DefaultRegistryLoginUrlVariableName,
 		"Use a custom registry login url variable name in the workflow, e.g. vars.YOUR_REGISTRY_LOGIN_URL",
 	)
 
 	cmd.Flags().String(
-		ci.RegistryUserVariableNameOption,
+		ci.RegistryUserVariableNameFlag,
 		ci.DefaultRegistryUserVariableName,
 		"Use a custom registry user variable name in the workflow, e.g. vars.YOUR_REGISTRY_USER",
 	)
 
 	cmd.Flags().String(
-		ci.RegistryPassSecretNameOption,
+		ci.RegistryPassSecretNameFlag,
 		ci.DefaultRegistryPassSecretName,
 		"Use a custom registry pass secret name in the workflow, e.g. secret.YOUR_REGISTRY_PASSWORD",
 	)
 
 	cmd.Flags().String(
-		ci.RegistryUrlVariableNameOption,
+		ci.RegistryUrlVariableNameFlag,
 		ci.DefaultRegistryUrlVariableName,
 		"Use a custom registry url variable name in the workflow, e.g. vars.YOUR_REGISTRY_URL",
 	)
@@ -105,30 +104,24 @@ func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver) *cobra.Command {
 	return cmd
 }
 
-func runConfigCIGithub(
+func runConfigCIGitHub(
 	cmd *cobra.Command,
 	// TODO(twoGiants): common.FunctionLoader is enough
 	fnLoaderSaver common.FunctionLoaderSaver,
+	writer ci.WorkflowWriter,
 ) error {
-	if os.Getenv(ci.ConfigCIFeatureFlag) != "true" {
-		return fmt.Errorf("set %s to 'true' to use this feature", ci.ConfigCIFeatureFlag)
-	}
-
-	cfg := ci.NewCiGithubConfig()
+	cfg := ci.NewCIGitHubConfig()
 
 	f, err := fnLoaderSaver.Load(cfg.Path())
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(cmd.OutOrStdout(), "--------------------------- Function Github Workflow Generation ---------------------------")
+	fmt.Fprintln(cmd.OutOrStdout(), "--------------------------- Function GitHub Workflow Generation ---------------------------")
 	fmt.Fprintf(cmd.OutOrStdout(), "Func name: %s\n", f.Name)
 	fmt.Fprintf(cmd.OutOrStdout(), "Func runtime: %s\n", f.Runtime)
 
-	githubWorkflow := ci.NewGithubWorkflow(cfg)
-	if err := githubWorkflow.Persist(cfg.FnGithubWorkflowFilepath(f.Root)); err != nil {
-		return err
-	}
-
-	return nil
+	githubWorkflow := ci.NewGitHubWorkflow(cfg)
+	path := cfg.FnGitHubWorkflowFilepath(f.Root)
+	return githubWorkflow.Export(path, writer)
 }

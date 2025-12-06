@@ -3,54 +3,31 @@ package ci
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	dirPerm  = 0755 // o: rwx, g|u: r-x
-	filePerm = 0644 // o: rw,  g|u: r
-)
-
-// TODO(twoGiants)
-//   - encapsulate => create Interface and defaultGithubWorkflow struct
-//   - provide printers for configurable properties
-//   - provide toYamlString for checks in tests
-type GithubWorkflow struct {
+type githubWorkflow struct {
 	Name string           `yaml:"name"`
-	On   WorkflowTriggers `yaml:"on"`
-	Jobs map[string]Job   `yaml:"jobs"`
+	On   workflowTriggers `yaml:"on"`
+	Jobs map[string]job   `yaml:"jobs"`
 }
 
-type WorkflowTriggers struct {
-	Push             *PushTrigger `yaml:"push,omitempty"`
+type workflowTriggers struct {
+	Push             *pushTrigger `yaml:"push,omitempty"`
 	WorkflowDispatch *struct{}    `yaml:"workflow_dispatch,omitempty"`
 }
 
-func newPushTrigger(branch string, debug bool) WorkflowTriggers {
-	result := WorkflowTriggers{
-		Push: &PushTrigger{Branches: []string{branch}},
-	}
-
-	if debug {
-		result.WorkflowDispatch = &struct{}{}
-	}
-
-	return result
-}
-
-type PushTrigger struct {
+type pushTrigger struct {
 	Branches []string `yaml:"branches,omitempty"`
 }
 
-type Job struct {
+type job struct {
 	RunsOn string `yaml:"runs-on"`
-	Steps  []Step `yaml:"steps"`
+	Steps  []step `yaml:"steps"`
 }
 
-type Step struct {
+type step struct {
 	Name string            `yaml:"name,omitempty"`
 	ID   string            `yaml:"id,omitempty"`
 	If   string            `yaml:"if,omitempty"`
@@ -59,42 +36,9 @@ type Step struct {
 	With map[string]string `yaml:"with,omitempty"`
 }
 
-func newStep(name string) *Step {
-	return &Step{Name: name}
-}
-
-func (s *Step) withID(id string) *Step {
-	s.ID = id
-	return s
-}
-
-func (s *Step) withIf(ifCond string) *Step {
-	s.If = ifCond
-	return s
-}
-
-func (s *Step) withUses(u string) *Step {
-	s.Uses = u
-	return s
-}
-
-func (s *Step) withRun(r string) *Step {
-	s.Run = r
-	return s
-}
-
-func (s *Step) withActionConfig(key, value string) *Step {
-	if s.With == nil {
-		s.With = make(map[string]string)
-	}
-
-	s.With[key] = value
-
-	return s
-}
-
 // TODO(twoGiants): add validation => no empty values, etc.
-func NewGithubWorkflow(conf CIConfig) *GithubWorkflow {
+func NewGitHubWorkflow(conf CIConfig) *githubWorkflow {
+	// TODO(twoGiants): add more runner labels => for GitHub enterprise clients
 	runsOn := "ubuntu-latest"
 	if conf.UseSelfHostedRunner() {
 		runsOn = "self-hosted"
@@ -102,7 +46,7 @@ func NewGithubWorkflow(conf CIConfig) *GithubWorkflow {
 
 	pushTrigger := newPushTrigger(conf.Branch(), conf.UseDebug())
 
-	var steps []Step
+	var steps []step
 	checkoutCode := newStep("Checkout code").
 		withUses("actions/checkout@v4")
 	steps = append(steps, *checkoutCode)
@@ -160,10 +104,10 @@ func NewGithubWorkflow(conf CIConfig) *GithubWorkflow {
 		withRun(runFuncDeploy + " --registry=" + registryUrl + " -v")
 	steps = append(steps, *deployFunc)
 
-	return &GithubWorkflow{
+	return &githubWorkflow{
 		Name: name,
 		On:   pushTrigger,
-		Jobs: map[string]Job{
+		Jobs: map[string]job{
 			"deploy": {
 				RunsOn: runsOn,
 				Steps:  steps,
@@ -172,47 +116,70 @@ func NewGithubWorkflow(conf CIConfig) *GithubWorkflow {
 	}
 }
 
-func NewGithubWorkflowFromPath(path string) (*GithubWorkflow, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+func newPushTrigger(branch string, debug bool) workflowTriggers {
+	result := workflowTriggers{
+		Push: &pushTrigger{Branches: []string{branch}},
 	}
 
-	var result GithubWorkflow
-	if err = yaml.Unmarshal(raw, &result); err != nil {
-		return nil, err
+	if debug {
+		result.WorkflowDispatch = &struct{}{}
 	}
 
-	return &result, nil
+	return result
 }
 
-func (gw *GithubWorkflow) Persist(path string) error {
+func newStep(name string) *step {
+	return &step{Name: name}
+}
+
+func (s *step) withID(id string) *step {
+	s.ID = id
+	return s
+}
+
+func (s *step) withIf(ifCond string) *step {
+	s.If = ifCond
+	return s
+}
+
+func (s *step) withUses(u string) *step {
+	s.Uses = u
+	return s
+}
+
+func (s *step) withRun(r string) *step {
+	s.Run = r
+	return s
+}
+
+func (s *step) withActionConfig(key, value string) *step {
+	if s.With == nil {
+		s.With = make(map[string]string)
+	}
+
+	s.With[key] = value
+
+	return s
+}
+
+func newSecret(key string) string {
+	return fmt.Sprintf("${{ secrets.%s }}", key)
+}
+
+func newVariable(key string) string {
+	return fmt.Sprintf("${{ vars.%s }}", key)
+}
+
+func (gw *githubWorkflow) Export(path string, w WorkflowWriter) error {
 	raw, err := gw.toYaml()
 	if err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
-		return err
-	}
-
-	if err := os.WriteFile(path, raw, filePerm); err != nil {
-		return err
-	}
-
-	return nil
+	return w.Write(path, raw)
 }
 
-func (gw *GithubWorkflow) YamlString() (string, error) {
-	raw, err := gw.toYaml()
-	if err != nil {
-		return "", err
-	}
-
-	return string(raw), nil
-}
-
-func (gw *GithubWorkflow) toYaml() ([]byte, error) {
+func (gw *githubWorkflow) toYaml() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := yaml.NewEncoder(&buf)
 	encoder.SetIndent(2)
@@ -223,12 +190,4 @@ func (gw *GithubWorkflow) toYaml() ([]byte, error) {
 	encoder.Close()
 
 	return buf.Bytes(), nil
-}
-
-func newSecret(key string) string {
-	return fmt.Sprintf("${{ secrets.%s }}", key)
-}
-
-func newVariable(key string) string {
-	return fmt.Sprintf("${{ vars.%s }}", key)
 }
