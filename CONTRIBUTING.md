@@ -2,6 +2,13 @@
 
 This document details how to get started contributing to the project.  This includes building and testing the core, templates and how to update them, and usage of the optional integration testing tooling.
 
+**Tip**:
+Install git hooks that do basic pre-commit checks.
+
+```sh
+make setup-githooks
+```
+
 ## Building
 
 To build the core project, run `make` from the repository root.  This will result in a `func` binary being generated.  Run `make help` for additional targets and `./func help` for usage-centric documentation.
@@ -32,39 +39,6 @@ regenerate `./generate/zz_filesystem_generated.go` by running `make generate/zz_
 It is also important to run the unit tests of the template modified.
 For example, to run the unit tests of the Go templates, use `make test-go`.
 For a list of available make targets, use `make help`.
-
-**Tip**:
-Put the following script in your `.git/hooks/pre-commit` file.
-
-```sh
-#!/bin/sh
-
-if git diff-index --cached --name-only HEAD | grep -i "^templates/.*$" >/dev/null; then
-  if ! git diff-index --cached --name-only HEAD | grep -i "^generate/zz_filesystem_generated.go$" >/dev/null; then
-    echo "WARNING: You are about to commit changes to the templates directory," \
-      "but the generated generate/zz_filesystem_generated.go file is not staged."
-    echo "If this is intentional use '--no-verify' flag."
-    exit 1
-  fi
-fi
-
-if git diff-index --cached --name-only HEAD | grep -i "^generate/zz_filesystem_generated.go$" >/dev/null; then
-  UNVERSIONED=$(git ls-files --others --exclude-standard --ignored -- templates/ 2>/dev/null)
-  if [ -n "$UNVERSIONED" ]; then
-    echo "WARNING: You are about to commit generate/zz_filesystem_generated.go," \
-      "but the templates directory contains some unversioned files" \
-      "that may be unintentionally included in generate/zz_filesystem_generated.go"
-    for f in $UNVERSIONED; do
-      echo "    $f"
-    done
-    echo "If this is intentional use '--no-verify' flag."
-    exit 1
-  fi
-fi
-
-exit 0
-
-```
 
 ## Integration Testing
 
