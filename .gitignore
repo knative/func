@@ -39,9 +39,6 @@ __pycache__
 .vscode
 .idea
 
-# Agentfiles
-CLAUDE.md
-
 # Operating system temporary files
 .DS_Store
 
