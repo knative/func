@@ -69,10 +69,10 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	middlewareVersion := ""
 	if image != "" {
 		v, err := describer.MiddlewareVersion(image)
-		if err != nil {
-			return fn.Instance{}, fmt.Errorf("unable to get middleware version of image %q: %v", image, err)
+		if err == nil {
+			// don't fail on errors
+			middlewareVersion = v
 		}
-		middlewareVersion = v
 	}
 
 	description := fn.Instance{

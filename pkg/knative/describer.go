@@ -117,11 +117,11 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	if description.Image != "" {
 		v, err := describer.MiddlewareVersion(description.Image)
-		if err != nil {
-			return fn.Instance{}, fmt.Errorf("unable to get middleware version of image %q: %v", description.Image, err)
-		}
-		description.Middleware = fn.Middleware{
-			Version: v,
+		if err == nil {
+			// don't fail on errors
+			description.Middleware = fn.Middleware{
+				Version: v,
+			}
 		}
 	}
 
