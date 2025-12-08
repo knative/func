@@ -6,7 +6,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/func/pkg/describer"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -68,7 +67,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	middlewareVersion := ""
 	if image != "" {
-		v, err := describer.MiddlewareVersion(image)
+		v, err := fn.MiddlewareVersion(image)
 		if err == nil {
 			// don't fail on errors
 			middlewareVersion = v

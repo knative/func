@@ -8,7 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
-	"knative.dev/func/pkg/describer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -116,7 +115,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	}
 
 	if description.Image != "" {
-		v, err := describer.MiddlewareVersion(description.Image)
+		v, err := fn.MiddlewareVersion(description.Image)
 		if err == nil {
 			// don't fail on errors
 			description.Middleware = fn.Middleware{

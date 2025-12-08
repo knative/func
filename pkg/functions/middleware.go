@@ -1,9 +1,8 @@
-package describer
+package functions
 
 import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	fn "knative.dev/func/pkg/functions"
 )
 
 // MiddlewareVersion gets the used middleware version of a function image.
@@ -34,5 +33,5 @@ func MiddlewareVersion(image string) (string, error) {
 		return "", nil
 	}
 
-	return cfg.Config.Labels[fn.MiddlewareVersionLabelKey], nil
+	return cfg.Config.Labels[MiddlewareVersionLabelKey], nil
 }
