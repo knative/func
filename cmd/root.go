@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Masterminds/semver"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -338,60 +337,6 @@ func cwd() (cwd string) {
 		panic(fmt.Sprintf("Unable to determine current working directory: %v", err))
 	}
 	return cwd
-}
-
-// Version information populated on build.
-type Version struct {
-	// Version tag of the git commit, or 'tip' if no tag.
-	Vers string
-	// Kver is the version of knative in which func was most recently
-	// If the build is not tagged as being released with a specific Knative
-	// build, this is the most recent version of knative along with a suffix
-	// consisting of the number of commits which have been added since it was
-	// included in Knative.
-	Kver string
-	// Hash of the currently active git commit on build.
-	Hash string
-	// Verbose printing enabled for the string representation.
-	Verbose bool
-}
-
-// Return the stringification of the Version struct.
-func (v Version) String() string {
-	// Initialize the default value to the zero semver with a descriptive
-	// metadta tag indicating this must have been built from source if
-	// undefined:
-	if v.Vers == "" {
-		v.Vers = DefaultVersion
-	}
-	if v.Verbose {
-		return v.StringVerbose()
-	}
-	_ = semver.MustParse(v.Vers)
-	return v.Vers
-}
-
-// StringVerbose returns the version along with extended version metadata.
-func (v Version) StringVerbose() string {
-	var (
-		vers = v.Vers
-		kver = v.Kver
-		hash = v.Hash
-	)
-	if strings.HasPrefix(kver, "knative-") {
-		kver = strings.Split(kver, "-")[1]
-	}
-	return fmt.Sprintf(
-		"Version: %s\n"+
-			"Knative: %s\n"+
-			"Commit: %s\n"+
-			"SocatImage: %s\n"+
-			"TarImage: %s\n",
-		vers,
-		kver,
-		hash,
-		k8s.SocatImage,
-		k8s.TarImage)
 }
 
 // surveySelectDefault returns 'value' if defined and exists in 'options'.
