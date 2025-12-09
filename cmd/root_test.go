@@ -171,7 +171,7 @@ func TestVerbose(t *testing.T) {
 			name:   "verbose as version's flag",
 			args:   []string{"version", "-v"},
 			want:   "Version: v0.42.0",
-			wantLF: 5,
+			wantLF: 24,
 		},
 		{
 			name:   "no verbose",

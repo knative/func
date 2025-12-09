@@ -24,7 +24,7 @@ func MiddlewareVersion(src, runtime, invoke string, fs filesystem.Filesystem) (s
 		return "", fmt.Errorf("failed to detect signature: %w", err)
 	}
 
-	vd, err := getVersionDetector(runtime)
+	vd, err := getMiddlewareVersionDetector(runtime)
 	if err != nil {
 		return "", fmt.Errorf("failed to get middleware version detector: %w", err)
 	}
@@ -32,11 +32,44 @@ func MiddlewareVersion(src, runtime, invoke string, fs filesystem.Filesystem) (s
 	return vd.Detect(fs, s)
 }
 
+// MiddlewareVersions returns the middleware versions for all the runtimes and invoke types
+// for the given filesystem (which must contain the scaffolding at '[runtime]/scaffolding')
+func MiddlewareVersions(fs filesystem.Filesystem) (map[string]map[string]string, error) {
+	latest := make(map[string]map[string]string)
+
+	runtimes := []string{"go", "python", "node", "typescript", "quarkus", "java"}
+	invokeTypes := []string{"http", "cloudevent"}
+
+	for _, runtime := range runtimes {
+		for _, invoke := range invokeTypes {
+			sig := toSignature(true, invoke)
+
+			vd, err := getMiddlewareVersionDetector(runtime)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get middleware version detector: %w", err)
+			}
+
+			latestVersion, err := vd.Detect(fs, sig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to detect latest middleware version: %w", err)
+			}
+
+			if latest[runtime] == nil {
+				latest[runtime] = make(map[string]string)
+			}
+
+			latest[runtime][invoke] = latestVersion
+		}
+	}
+
+	return latest, nil
+}
+
 type middlewareVersionDetector interface {
 	Detect(fs filesystem.Filesystem, sig Signature) (string, error)
 }
 
-func getVersionDetector(runtime string) (middlewareVersionDetector, error) {
+func getMiddlewareVersionDetector(runtime string) (middlewareVersionDetector, error) {
 	switch runtime {
 	case "go":
 		return &golangMiddlewareVersionDetector{}, nil
