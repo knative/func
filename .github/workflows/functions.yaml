@@ -2,6 +2,12 @@ name: Functions
 
 # To run this workflow's tests locally, see ./hack/test-full.sh
 
+permissions:
+  id-token: write   # Required for signing
+  contents: read
+  packages: write
+  attestations: write
+
 on:
   push:
     branches:
@@ -436,19 +442,32 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
+        id: build-images
         run: |
           for a in amd64 arm64 ppc64le s390x; do
             CGO_ENABLED=0 GOARCH="${a}" go build -o "func-util-$a" -trimpath -ldflags '-w -s' ./cmd/func-util
           done
+          export SOURCE_DATE_EPOCH=0
           docker buildx create --name multiarch --driver docker-container --use
           docker buildx build . -f Dockerfile.utils \
+            --output type=image,rewrite-timestamp=true \
+            --provenance=false --sbom=false \
             --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
             --push \
             -t "ghcr.io/knative/func-utils:v2" \
             --annotation index:org.opencontainers.image.description="Knative Func Utils Image" \
             --annotation index:org.opencontainers.image.source="https://github.com/knative/func" \
             --annotation index:org.opencontainers.image.vendor="https://github.com/knative/func" \
-            --annotation index:org.opencontainers.image.url="https://github.com/knative/func/pkgs/container/func-utils"
+            --annotation index:org.opencontainers.image.url="https://github.com/knative/func/pkgs/container/func-utils" \
+            --metadata-file build-metadata.json
+          DIGEST="$(jq -r '."containerimage.digest"' build-metadata.json)"
+          echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: "ghcr.io/knative/func-utils"
+          subject-digest: ${{ steps.build-images.outputs.digest }}
+          push-to-registry: true
 
   publish-image:
     name: Publish as Image
