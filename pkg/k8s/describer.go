@@ -65,6 +65,15 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		}
 	}
 
+	middlewareVersion := ""
+	if image != "" {
+		v, err := fn.MiddlewareVersion(image)
+		if err == nil {
+			// don't fail on errors
+			middlewareVersion = v
+		}
+	}
+
 	description := fn.Instance{
 		Name:      name,
 		Namespace: namespace,
@@ -73,6 +82,9 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Route:     primaryRouteURL,
 		Routes:    []string{primaryRouteURL},
 		Image:     image,
+		Middleware: fn.Middleware{
+			Version: middlewareVersion,
+		},
 	}
 
 	return description, nil

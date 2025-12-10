@@ -114,6 +114,16 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		}
 	}
 
+	if description.Image != "" {
+		v, err := fn.MiddlewareVersion(description.Image)
+		if err == nil {
+			// don't fail on errors
+			description.Middleware = fn.Middleware{
+				Version: v,
+			}
+		}
+	}
+
 	triggers, err := eventingClient.ListTriggers(ctx)
 	if err != nil {
 		if errors.IsNotFound(err) || IsCRDNotFoundError(err) {
