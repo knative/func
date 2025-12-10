@@ -86,14 +86,23 @@ func scaffold(ctx context.Context) error {
 		return fmt.Errorf("cannot load func project: %w", err)
 	}
 
-	if f.Runtime != "go" && f.Runtime != "python" {
-		// Scaffolding is for now supported/needed only for Go.
-		return nil
-	}
-
 	embeddedRepo, err := fn.NewRepository("", "")
 	if err != nil {
 		return fmt.Errorf("cannot initialize repository: %w", err)
+	}
+
+	middlewareVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
+	if err != nil {
+		return fmt.Errorf("cannot get middleware version: %w", err)
+	}
+
+	if err := os.WriteFile("/tekton/results/middlewareVersion", []byte(middlewareVersion), 0644); err != nil {
+		return fmt.Errorf("cannot write middleware version as a result: %w", err)
+	}
+
+	if f.Runtime != "go" && f.Runtime != "python" {
+		// Scaffolding is for now supported/needed only for Go/Python.
+		return nil
 	}
 
 	appRoot := filepath.Join(f.Root, ".s2i", "builds", "last")

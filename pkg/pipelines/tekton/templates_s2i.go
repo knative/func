@@ -48,6 +48,10 @@ spec:
       name: tlsVerify
       type: string
       default: 'true'
+    - description: Used middleware version
+      name: middlewareVersion
+      type: string
+      default: ''
   tasks:
     {{.GitCloneTaskRef}}
     - name: scaffold
@@ -76,6 +80,8 @@ spec:
           value: $(params.s2iImageScriptsUrl)
         - name: TLSVERIFY
           value: $(params.tlsVerify)
+        - name: MIDDLEWARE_VERSION
+          value: $(tasks.scaffold.results.middlewareVersion)
       runAfter:
         - scaffold
       {{.FuncS2iTaskRef}}
