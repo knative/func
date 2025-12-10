@@ -445,7 +445,7 @@ jobs:
         id: build-images
         run: |
           for a in amd64 arm64 ppc64le s390x; do
-            CGO_ENABLED=0 GOARCH="${a}" go build -o "func-util-$a" -trimpath -ldflags '-w -s' ./cmd/func-util
+            CGO_ENABLED=0 GOARCH="${a}" go build -buildvcs=false -o "func-util-$a" -trimpath -ldflags '-w -s' ./cmd/func-util
           done
           export SOURCE_DATE_EPOCH=0
           docker buildx create --name multiarch --driver docker-container --use
