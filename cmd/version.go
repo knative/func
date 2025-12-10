@@ -10,8 +10,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-
 	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -47,8 +47,8 @@ DESCRIPTION
 `,
 		SuggestFor: []string{"vers", "version"}, //nolint:misspell
 		PreRunE:    bindEnv("verbose", "output"),
-		Run: func(cmd *cobra.Command, _ []string) {
-			runVersion(cmd, version)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runVersion(cmd, version)
 		},
 	}
 	cfg, err := config.NewDefault()
@@ -69,7 +69,7 @@ DESCRIPTION
 }
 
 // Run
-func runVersion(cmd *cobra.Command, v Version) {
+func runVersion(cmd *cobra.Command, v Version) error {
 	verbose := viper.GetBool("verbose")
 	output := viper.GetString("output")
 
@@ -88,7 +88,14 @@ func runVersion(cmd *cobra.Command, v Version) {
 	v.SocatImage = k8s.SocatImage
 	v.TarImage = k8s.TarImage
 
+	latestMW, err := fn.LatestMiddlewareVersions()
+	if err != nil {
+		return fmt.Errorf("error fetching latest middleware versions: %w", err)
+	}
+	v.MiddlewareVersions = latestMW
+
 	write(cmd.OutOrStdout(), v, output)
+	return nil
 }
 
 // Version information populated on build.
@@ -107,6 +114,10 @@ type Version struct {
 	SocatImage string `json:"socatImage,omitempty" yaml:"socatImage,omitempty"`
 	// TarImage is the tar image used by the function.
 	TarImage string `json:"tarImage,omitempty" yaml:"tarImage,omitempty"`
+	// MiddlewareVersions provides information about the latest middleware version
+	// for a given platform and invokeType
+	MiddlewareVersions MiddlewareVersions `json:"middlewareVersions,omitempty" yaml:"middlewareVersions,omitempty"`
+
 	// Verbose printing enabled for the string representation.
 	Verbose bool `json:"-" yaml:"-"`
 }
@@ -135,12 +146,14 @@ func (v Version) StringVerbose() string {
 			"Knative: %s\n"+
 			"Commit: %s\n"+
 			"SocatImage: %s\n"+
-			"TarImage: %s\n",
+			"TarImage: %s\n"+
+			"Middleware Versions: \n%s",
 		vers,
 		kver,
 		hash,
 		v.SocatImage,
-		v.TarImage)
+		v.TarImage,
+		v.MiddlewareVersions)
 }
 
 // Human prints version information in human-readable format.
@@ -175,4 +188,18 @@ func (v Version) YAML(w io.Writer) error {
 // URL is not supported for version command.
 func (v Version) URL(w io.Writer) error {
 	return fmt.Errorf("URL format not supported for version command")
+}
+
+type MiddlewareVersions map[string]map[string]string
+
+func (mv MiddlewareVersions) String() string {
+	sb := strings.Builder{}
+	for platform, pInfo := range mv {
+		sb.WriteString("  " + platform + ":\n")
+		for invokeType, version := range pInfo {
+			sb.WriteString("    " + invokeType + ": " + version + "\n")
+		}
+	}
+
+	return sb.String()
 }

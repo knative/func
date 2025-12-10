@@ -383,3 +383,99 @@ func TestMiddlewareVersionDetector_Quarkus(t *testing.T) {
 		})
 	}
 }
+
+func TestMiddlewareVersionDetector_Java(t *testing.T) {
+	tests := []struct {
+		Name    string // Name of the test
+		PomXml  string // pom.xml file
+		Version string // Version Expected
+		WantErr bool   // Error Expected
+	}{
+		{
+			Name: "Version exists",
+			PomXml: `
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.8</version>
+    <relativePath/>
+  </parent>
+  <groupId>com.example.events</groupId>
+  <artifactId>function</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>Spring Cloud Function::Http Example</name>
+  <description>A Spring Cloud Function, Http Example</description>
+  <properties>
+    <java.version>21</java.version>
+    <spring-cloud.version>2025.0.0</spring-cloud.version>
+    <compiler-plugin.version>3.11.0</compiler-plugin.version>
+  </properties>
+  <dependencyManagement>
+    <dependencies>
+	</dependencies>
+  </dependencyManagement>
+</project>
+	`,
+			Version: "2025.0.0",
+			WantErr: false,
+		}, {
+			Name: "Version not found",
+			PomXml: `
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.8</version>
+    <relativePath/>
+  </parent>
+  <groupId>com.example.events</groupId>
+  <artifactId>function</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>Spring Cloud Function::Http Example</name>
+  <description>A Spring Cloud Function, Http Example</description>
+  <properties>
+    <java.version>21</java.version>
+    <compiler-plugin.version>3.11.0</compiler-plugin.version>
+  </properties>
+  <dependencyManagement>
+    <dependencies>
+	</dependencies>
+  </dependencyManagement>
+</project>
+	`,
+			WantErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+
+			root, cleanup := Mktemp(t)
+			defer cleanup()
+
+			pomDir := filepath.Join(root, "springboot", "http")
+			if err := os.MkdirAll(pomDir, os.ModePerm); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(pomDir, "pom.xml"), []byte(test.PomXml), os.ModePerm); err != nil {
+				t.Fatal(err)
+			}
+
+			d := &springMiddlewareVersionDetector{}
+			fs := filesystem.NewOsFilesystem(root)
+			v, err := d.Detect(fs, InstancedHTTP)
+			if (err != nil) != test.WantErr {
+				t.Fatalf("got error %v, want error %v", err, test.WantErr)
+			}
+
+			if test.Version != v {
+				t.Errorf("got version %s, want %s", test.Version, v)
+			}
+		})
+	}
+}

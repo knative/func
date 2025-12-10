@@ -3,6 +3,7 @@ package functions
 import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"knative.dev/func/pkg/scaffolding"
 )
 
 // MiddlewareVersion gets the used middleware version of a function image.
@@ -34,4 +35,8 @@ func MiddlewareVersion(image string) (string, error) {
 	}
 
 	return cfg.Config.Labels[MiddlewareVersionLabelKey], nil
+}
+
+func LatestMiddlewareVersions() (map[string]map[string]string, error) {
+	return scaffolding.MiddlewareVersions(EmbeddedTemplatesFS)
 }
