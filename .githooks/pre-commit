@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# This scripts checks if the generated file is commited together with files that it is generated from.
+
+if git diff-index --cached --name-only HEAD | grep -i "^templates/.*$" >/dev/null; then
+  if ! git diff-index --cached --name-only HEAD | grep -i "^generate/zz_filesystem_generated.go$" >/dev/null; then
+    echo "WARNING: You are about to commit changes to the templates directory," \
+      "but the generated generate/zz_filesystem_generated.go file is not staged."
+    echo "If this is intentional use '--no-verify' flag."
+    exit 1
+  fi
+fi
+
+if git diff-index --cached --name-only HEAD | grep -i "^generate/zz_filesystem_generated.go$" >/dev/null; then
+  UNVERSIONED=$(git ls-files --others --exclude-standard --ignored -- templates/ 2>/dev/null)
+  if [ -n "$UNVERSIONED" ]; then
+    echo "WARNING: You are about to commit generate/zz_filesystem_generated.go," \
+      "but the templates directory contains some unversioned files" \
+      "that may be unintentionally included in generate/zz_filesystem_generated.go"
+    for f in $UNVERSIONED; do
+      echo "    $f"
+    done
+    echo "If this is intentional use '--no-verify' flag."
+    exit 1
+  fi
+fi
+
+exit 0
+

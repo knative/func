@@ -409,3 +409,7 @@ test-hack:
 .PHONY: update-builder
 __update-builder: # Used in automation
 	cd hack && go run ./cmd/update-builder
+
+.PHONY: setup-githooks
+setup-githooks:
+	git config --local core.hooksPath .githooks/
