@@ -162,7 +162,7 @@ func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
 	} {
 		ts, err := getTaskSpec(val.ref)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get task spec: %v", err)
 		}
 		*val.field = ts
 	}
@@ -320,7 +320,7 @@ func getTaskSpec(taskYaml string) (string, error) {
 	dec := yaml.NewDecoder(strings.NewReader(taskYaml))
 	err = dec.Decode(&data)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to decode task yaml: %v", err)
 	}
 	data = map[string]any{
 		"taskSpec": data["spec"],
@@ -330,11 +330,11 @@ func getTaskSpec(taskYaml string) (string, error) {
 	enc.SetIndent(2)
 	err = enc.Encode(data)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to encode task yaml: %v", err)
 	}
 	err = enc.Close()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to close task yaml encoder: %v", err)
 	}
 	return strings.ReplaceAll(buff.String(), "\n", "\n      "), nil
 }
@@ -371,7 +371,7 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	} {
 		ts, err := getTaskSpec(val.ref)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get task spec: %v", err)
 		}
 		*val.field = ts
 	}
