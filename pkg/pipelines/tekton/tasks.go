@@ -303,7 +303,7 @@ spec:
     - name: S2I_IMAGE_SCRIPTS_URL
       description: The URL containing the default assemble and run scripts for the builder image.
       default: "image:///usr/libexec/s2i"
-    - name: MIDDLEWARE_VERSION 
+    - name: MIDDLEWARE_VERSION
       description: Used middleware version
       default: ""
   workspaces:
