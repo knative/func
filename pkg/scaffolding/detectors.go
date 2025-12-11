@@ -38,7 +38,7 @@ func newDetector(runtime string) (detector, error) {
 		return nil, ErrDetectorNotImplemented{runtime}
 	case "quarkus":
 		return nil, ErrDetectorNotImplemented{runtime}
-	case "java":
+	case "springboot":
 		return nil, ErrDetectorNotImplemented{runtime}
 	default:
 		return nil, ErrRuntimeNotRecognized{runtime}

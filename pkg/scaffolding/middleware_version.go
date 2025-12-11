@@ -43,7 +43,7 @@ func MiddlewareVersion(src, runtime, invoke string, fs filesystem.Filesystem) (s
 func MiddlewareVersions(fs filesystem.Filesystem) (map[string]map[string]string, error) {
 	latest := make(map[string]map[string]string)
 
-	runtimes := []string{"go", "python", "node", "typescript", "quarkus", "java"}
+	runtimes := []string{"go", "python", "node", "typescript", "quarkus", "springboot"}
 	invokeTypes := []string{"http", "cloudevent"}
 
 	for _, runtime := range runtimes {
@@ -87,7 +87,7 @@ func getMiddlewareVersionDetector(runtime string) (middlewareVersionDetector, er
 		return &typescriptMiddlewareVersionDetector{}, nil
 	case "quarkus":
 		return &quarkusMiddlewareVersionDetector{}, nil
-	case "java":
+	case "springboot":
 		return &springMiddlewareVersionDetector{}, nil
 	case "rust":
 		return &rustMiddlewareVersionDetector{}, nil
