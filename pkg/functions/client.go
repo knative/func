@@ -484,7 +484,7 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 		return "", f, err
 	}
 
-	// TODO: change this later when push does'nt return built image.
+	// TODO: change this later when push doesn't return built image.
 	// Assign this as c.Push is going to produce the built image (for now) to
 	// .Deploy.Image for the deployer -- figure out where to assign .Deploy.Image
 	// first, might be just moved above push
@@ -502,7 +502,7 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 // Function. Used by Apply when the path is not yet an initialized function.
 // Errors if the path is already an initialized function.
 //
-// Use Apply for higher level control.  Use Init, Build, Push, Deploy
+// Use Apply for higher level control. Use Init, Build, Push, Deploy
 // independently for lower level control.
 //
 // Returns the primary route to the function or error.
