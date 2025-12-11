@@ -2,6 +2,7 @@ package scaffolding
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -21,7 +22,12 @@ import (
 func MiddlewareVersion(src, runtime, invoke string, fs filesystem.Filesystem) (string, error) {
 	s, err := detectSignature(src, runtime, invoke)
 	if err != nil {
-		return "", fmt.Errorf("failed to detect signature: %w", err)
+		if errors.As(err, &ErrDetectorNotImplemented{}) {
+			// we don't have a detector for this runtime, so we assume it's instanced based by default here
+			s = toSignature(true, invoke)
+		} else {
+			return "", fmt.Errorf("failed to detect signature: %w", err)
+		}
 	}
 
 	vd, err := getMiddlewareVersionDetector(runtime)
