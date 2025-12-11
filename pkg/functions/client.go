@@ -206,7 +206,7 @@ type DNSProvider interface {
 	Provide(Function) error
 }
 
-// PipelinesProvider manages lifecycle of CI/CD pipelines used by a function
+// PipelinesProvider manages lifecyle of CI/CD pipelines used by a function
 type PipelinesProvider interface {
 	Run(context.Context, Function) (string, Function, error)
 	Remove(context.Context, Function) error
@@ -484,7 +484,7 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 		return "", f, err
 	}
 
-	// TODO: change this later when push doesn't return built image.
+	// TODO: change this later when push doesnt return built image.
 	// Assign this as c.Push is going to produce the built image (for now) to
 	// .Deploy.Image for the deployer -- figure out where to assign .Deploy.Image
 	// first, might be just moved above push
@@ -500,7 +500,7 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 //
 // Creates a new running function from the path indicated by the config
 // Function. Used by Apply when the path is not yet an initialized function.
-// Errors if the path is already an initialized function.
+// Errors if the path is alrady an initialized function.
 //
 // Use Apply for higher level control.  Use Init, Build, Push, Deploy
 // independently for lower level control.
@@ -510,7 +510,7 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 	// Always start a concurrent routine listening for context cancellation.
 	// On this event, immediately indicate the task is canceling.
 	// (this is useful, for example, when a progress listener is mutating
-	// stdout, and a context cancellation needs to free up stdout entirely for
+	// stdout, and a context cancelation needs to free up stdout entirely for
 	// the status or error from said cancellation.
 
 	var route string
@@ -533,14 +533,14 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 		return route, f, err
 	}
 
-	// TODO: change this later when push doesn't return built image.
+	// TODO: change this later when push doesnt return built image.
 	// Assign this as c.Push is going to produce the built image (for now) to
 	// .Deploy.Image for the deployer -- figure out where to assign .Deploy.Image
 	// first, might be just moved above push
 	f.Deploy.Image = f.Build.Image
 
 	// Deploy the initialized function, returning its publicly
-	// addressable name for possible registration.
+	// addressible name for possible registration.
 	fmt.Fprintf(os.Stderr, "Deploying function to cluster\n")
 
 	if f, err = c.Deploy(ctx, f); err != nil {
@@ -559,7 +559,7 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 }
 
 // Initialize a new function with the given function struct defaults.
-// Does not build/push/deploy. Local FS changes only. For higher-level
+// Does not build/push/deploy. Local FS changes only.  For higher-level
 // control see New or Apply.
 //
 // <path> will default to the absolute path of the current working directory.
@@ -608,15 +608,15 @@ func (c *Client) Init(cfg Function) (Function, error) {
 		return cfg, err
 	}
 
-	// Set function defaults
+	// Create a new function (in memory)
 	f := NewFunctionWith(cfg)
 
-	// Create a .func directory which is also added to a .gitignore
+	// Create a .func diretory which is also added to a .gitignore
 	if err = ensureRunDataDir(f.Root); err != nil {
 		return f, err
 	}
 
-	// Create a .funcignore file
+	//create a .funcignore file
 	if err = ensureFuncIgnore(f.Root); err != nil {
 		return f, err
 	}
