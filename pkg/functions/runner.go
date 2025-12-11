@@ -34,29 +34,46 @@ func newDefaultRunner(client *Client, out, err io.Writer) *defaultRunner {
 	}
 }
 
-func (r *defaultRunner) Run(ctx context.Context, f Function, address string, host string, startTimeout time.Duration) (job *Job, err error) {
+func parseAddress(address string) (host, port string, err error) {
+	if address == "" {
+		return defaultRunHost, defaultRunPort, nil
+	}
+
+	if host, port, err = net.SplitHostPort(address); err == nil {
+		return host, port, nil
+	}
+
+	// Parsing failed, check if it's a port only
+	isPort := true
+	for _, c := range address {
+		if c < '0' || c > '9' {
+			isPort = false
+			break
+		}
+	}
+
+	if isPort {
+		return defaultRunHost, address, nil
+	}
+
+	// Assume host only
+	return address, defaultRunPort, nil
+}
+
+func (r *defaultRunner) Run(ctx context.Context, f Function, address string, startTimeout time.Duration) (job *Job, err error) {
+
 	var (
 		runFn   func() error
 		verbose = r.client.verbose
 	)
 
 	// Parse address if provided, otherwise use defaults
-	parsedHost := defaultRunHost
-	if host != "" {
-		parsedHost = host
+	host, port, err := parseAddress(address)
+	if err != nil {
+		return nil, err
 	}
-	port := defaultRunPort
 	explicitPort := address != ""
-
-	if address != "" {
-		var err error
-		parsedHost, port, err = net.SplitHostPort(address)
-		if err != nil {
-			return nil, fmt.Errorf("invalid address format '%s': %w", address, err)
-		}
-	}
-
-	port, err = choosePort(parsedHost, port, explicitPort)
+	port, err = choosePort(host, port, explicitPort)
 	if err != nil {
 		return nil, fmt.Errorf("cannot choose port: %w", err)
 	}
