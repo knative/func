@@ -35,8 +35,6 @@ func ParseAddressFlag(val string) (string, string) {
 	if val == "" {
 		val = "localhost"
 	}
-
-	// TODO: optionally validate hostname or IP
 	return val, "8080"
 }
 
