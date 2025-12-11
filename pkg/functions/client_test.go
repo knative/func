@@ -267,8 +267,8 @@ func TestClient_New_WritesTemplate(t *testing.T) {
 
 	// Assert a file from the template was written
 	readme := "README.md"
-	if _, err := os.Stat(filepath.Join(root, "README.md")); os.IsNotExist(err) {
-		t.Fatalf("Initialize did not result in '%v' being written to '%v'", fn.FunctionFile, root)
+	if _, err := os.Stat(filepath.Join(root, readme)); os.IsNotExist(err) {
+		t.Fatalf("Initialize did not result in '%v' being written to '%v'", readme, root)
 	}
 }
 
