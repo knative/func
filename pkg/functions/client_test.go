@@ -38,7 +38,7 @@ const (
 
 	// TestNamespace for tests which require deployment.  Note the noop
 	// deployer included with fn.New does not report the function was
-	// actulaly deployed.  It's intentionally a noop.  To have a minimal,
+	// actually deployed.  It's intentionally a noop.  To have a minimal,
 	// but functional deployer, use fn.WithDeployer(mock.NewDeployer()) which
 	// will return a result with the target namespace populated "mocking"
 	// that the function was actually deployed.
@@ -261,15 +261,12 @@ func TestClient_New_WritesTemplate(t *testing.T) {
 	}
 
 	// Assert the standard config file was written
-	readme := "README.md"
-
 	if _, err := os.Stat(filepath.Join(root, fn.FunctionFile)); os.IsNotExist(err) {
 		t.Fatalf("Initialize did not result in '%v' being written to '%v'", fn.FunctionFile, root)
 	}
 
 	// Assert a file from the template was written
 	readme := "README.md"
-
 	if _, err := os.Stat(filepath.Join(root, "README.md")); os.IsNotExist(err) {
 		t.Fatalf("Initialize did not result in '%v' being written to '%v'", fn.FunctionFile, root)
 	}
