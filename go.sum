@@ -869,8 +869,8 @@ github.com/opencontainers/selinux v1.12.0 h1:6n5JV4Cf+4y0KNXW48TLj5DwfXpvWlxXplU
 github.com/opencontainers/selinux v1.12.0/go.mod h1:BTPX+bjVbWGXw7ZZWUbdENt8w0htPSrlgOOysQaU62U=
 github.com/openshift-pipelines/pipelines-as-code v0.31.0 h1:dUUvnwCrhSmr3IYjsywLD7QTNAINetFoLCIO4529nOk=
 github.com/openshift-pipelines/pipelines-as-code v0.31.0/go.mod h1:74yRkJfqVzMp2iiq3IBm8Lt1q1EAHMIHb53/Au+2IVM=
-github.com/openshift/source-to-image v1.6.0 h1:u5jK0KPOOUEHkUw+6X3Kae0l762yR8aYUm/tZX3oa60=
-github.com/openshift/source-to-image v1.6.0/go.mod h1:ZNfsBThrFHlIgkzqz2NyXqAsb8d7eESBiE73zR07BXo=
+github.com/openshift/source-to-image v1.5.1 h1:mtV2Nh1jVeLg5S02HIbk3GmGYS912hWCCbASEadAS6M=
+github.com/openshift/source-to-image v1.5.1/go.mod h1:ZNfsBThrFHlIgkzqz2NyXqAsb8d7eESBiE73zR07BXo=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/ory/viper v1.7.5 h1:+xVdq7SU3e1vNaCsk/ixsfxE4zylk1TJUiJrY647jUE=
 github.com/ory/viper v1.7.5/go.mod h1:ypOuyJmEUb3oENywQZRgeAMwqgOyDqwboO1tj3DjTaM=
