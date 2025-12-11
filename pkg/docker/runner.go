@@ -56,14 +56,14 @@ func NewRunner(verbose bool, out, errOut io.Writer) *Runner {
 }
 
 // Run the function.
-func (n *Runner) Run(ctx context.Context, f fn.Function, address string, host string, startTimeout time.Duration) (job *fn.Job, err error) {
+func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTimeout time.Duration) (job *fn.Job, err error) {
 
 	var (
-		parsedHost = DefaultHost
-		port       = DefaultPort
-		c          client.APIClient // Docker client
-		id         string           // ID of running container
-		conn       net.Conn         // Connection to container's stdio
+		host = DefaultHost
+		port = DefaultPort
+		c    client.APIClient // Docker client
+		id   string           // ID of running container
+		conn net.Conn         // Connection to container's stdio
 
 		// Channels for gathering runtime errors from the container instance
 		copyErrCh  = make(chan error, 10)
@@ -74,22 +74,17 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, host st
 		runtimeErrCh = make(chan error, 10)
 	)
 
-	// Use provided host or default
-	if host != "" {
-		parsedHost = host
-	}
-
 	// Parse address if provided
 	if address != "" {
 		var err error
-		parsedHost, port, err = net.SplitHostPort(address)
+		host, port, err = net.SplitHostPort(address)
 		if err != nil {
 			return nil, fmt.Errorf("invalid address format '%s': %w", address, err)
 		}
 	}
 
 	// Choose an available port
-	port = choosePort(parsedHost, port, DefaultDialTimeout)
+	port = choosePort(host, port, DefaultDialTimeout)
 
 	if f.Build.Image == "" {
 		return job, ErrNoImage{}
@@ -97,7 +92,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, host st
 	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {
 		return job, errors.Wrap(err, "failed to create Docker API client")
 	}
-	if id, err = newContainer(ctx, c, f, parsedHost, port, n.verbose); err != nil {
+	if id, err = newContainer(ctx, c, f, host, port, n.verbose); err != nil {
 		return job, errors.Wrap(err, "runner unable to create container")
 	}
 	if conn, err = copyStdio(ctx, c, id, copyErrCh, n.out, n.errOut); err != nil {
@@ -137,7 +132,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, host st
 				readyCh <- fmt.Errorf("container did not become ready in %v", startTimeout)
 				return
 			}
-			if err = dial(parsedHost, port, 500*time.Millisecond); err == nil {
+			if err = dial(host, port, 500*time.Millisecond); err == nil {
 				readyCh <- nil
 				return
 			}
@@ -188,7 +183,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, host st
 			ticker := time.NewTicker(100 * time.Millisecond)
 			defer ticker.Stop()
 			for {
-				if err := dial(parsedHost, port, DefaultDialTimeout); err == nil {
+				if err := dial(host, port, DefaultDialTimeout); err == nil {
 					select {
 					case readyCh <- struct{}{}:
 					default:
@@ -217,7 +212,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, host st
 	}
 
 	// Job reporting port, runtime errors and provides a mechanism for stopping.
-	return fn.NewJob(f, parsedHost, port, runtimeErrCh, stop, n.verbose)
+	return fn.NewJob(f, host, port, runtimeErrCh, stop, n.verbose)
 }
 
 // Dial the given (tcp) port on the given interface, returning an error if it is

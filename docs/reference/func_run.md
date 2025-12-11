@@ -68,7 +68,6 @@ func run
   -c, --confirm                 Prompt to confirm options interactively ($FUNC_CONFIRM)
   -e, --env stringArray         Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
   -h, --help                    help for run
-      --host string             Host on which to bind and listen. Default is 127.0.0.1. ($FUNC_HOST)
   -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]. This option takes precedence over --registry. Specifying tag is optional. ($FUNC_IMAGE)
       --json                    Output as JSON. ($FUNC_JSON)
   -p, --path string             Path to the function.  Default is current directory ($FUNC_PATH)

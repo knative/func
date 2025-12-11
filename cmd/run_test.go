@@ -116,9 +116,7 @@ func TestRun_Run(t *testing.T) {
 
 			runner := mock.NewRunner()
 			if tt.runError != nil {
-				runner.RunFn = func(context.Context, fn.Function, string, string, time.Duration) (*fn.Job, error) {
-					return nil, tt.runError
-				}
+				runner.RunFn = func(context.Context, fn.Function, string, time.Duration) (*fn.Job, error) { return nil, tt.runError }
 			}
 
 			builder := mock.NewBuilder()
@@ -231,9 +229,7 @@ func TestRun_Images(t *testing.T) {
 			runner := mock.NewRunner()
 
 			if tt.runError != nil {
-				runner.RunFn = func(context.Context, fn.Function, string, string, time.Duration) (*fn.Job, error) {
-					return nil, tt.runError
-				}
+				runner.RunFn = func(context.Context, fn.Function, string, time.Duration) (*fn.Job, error) { return nil, tt.runError }
 			}
 
 			builder := mock.NewBuilder()
@@ -337,7 +333,7 @@ func TestRun_CorrectImage(t *testing.T) {
 			root := FromTempDirectory(t)
 			runner := mock.NewRunner()
 
-			runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ string, _ time.Duration) (*fn.Job, error) {
+			runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
 				if f.Build.Image == "" {
 					return nil, fmt.Errorf("Image is empty, should fail before running")
 				}
@@ -409,7 +405,7 @@ func TestRun_DirectOverride(t *testing.T) {
 	root := FromTempDirectory(t)
 	runner := mock.NewRunner()
 
-	runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ string, _ time.Duration) (*fn.Job, error) {
+	runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
 		if f.Build.Image != overrideImage {
 			return nil, fmt.Errorf("Expected image to be overridden with '%v' but got: '%v'", overrideImage, f.Build.Image)
 		}
@@ -489,7 +485,7 @@ func TestRun_Address(t *testing.T) {
 	testAddr := "0.0.0.0:1234"
 
 	runner := mock.NewRunner()
-	runner.RunFn = func(_ context.Context, f fn.Function, addr string, _ string, _ time.Duration) (*fn.Job, error) {
+	runner.RunFn = func(_ context.Context, f fn.Function, addr string, _ time.Duration) (*fn.Job, error) {
 		if addr != testAddr {
 			return nil, fmt.Errorf("Expected address '%v' but got: '%v'", testAddr, addr)
 		}
@@ -554,7 +550,7 @@ func TestRun_BaseImage(t *testing.T) {
 			root := FromTempDirectory(t)
 			runner := mock.NewRunner()
 
-			runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ string, _ time.Duration) (*fn.Job, error) {
+			runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
 				errs := make(chan error, 1)
 				stop := func() error { return nil }
 				return fn.NewJob(f, "127.0.0.1", "8080", errs, stop, false)
