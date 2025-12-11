@@ -22,7 +22,7 @@ func TestGetRunFuncErrors(t *testing.T) {
 		{"node", nil, &ErrRunnerNotImplemented{}},
 		{"typescript", nil, &ErrRunnerNotImplemented{}},
 		{"quarkus", nil, &ErrRunnerNotImplemented{}},
-		{"java", nil, &ErrRunnerNotImplemented{}},
+		{"springboot", nil, &ErrRunnerNotImplemented{}},
 		{"other", nil, &ErrRuntimeNotRecognized{}},
 	}
 	for _, test := range tests {

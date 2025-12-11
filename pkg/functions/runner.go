@@ -95,7 +95,7 @@ func getRunFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
 		runFn = func() error { return runGo(ctx, job) }
 	case "python":
 		runFn = func() error { return runPython(ctx, job) }
-	case "java":
+	case "springboot":
 		err = ErrRunnerNotImplemented{runtime}
 	case "node":
 		err = ErrRunnerNotImplemented{runtime}

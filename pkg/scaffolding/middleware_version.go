@@ -2,6 +2,7 @@ package scaffolding
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -21,7 +22,12 @@ import (
 func MiddlewareVersion(src, runtime, invoke string, fs filesystem.Filesystem) (string, error) {
 	s, err := detectSignature(src, runtime, invoke)
 	if err != nil {
-		return "", fmt.Errorf("failed to detect signature: %w", err)
+		if errors.As(err, &ErrDetectorNotImplemented{}) {
+			// we don't have a detector for this runtime, so we assume it's instanced based by default here
+			s = toSignature(true, invoke)
+		} else {
+			return "", fmt.Errorf("failed to detect signature: %w", err)
+		}
 	}
 
 	vd, err := getMiddlewareVersionDetector(runtime)
@@ -37,7 +43,7 @@ func MiddlewareVersion(src, runtime, invoke string, fs filesystem.Filesystem) (s
 func MiddlewareVersions(fs filesystem.Filesystem) (map[string]map[string]string, error) {
 	latest := make(map[string]map[string]string)
 
-	runtimes := []string{"go", "python", "node", "typescript", "quarkus", "java"}
+	runtimes := []string{"go", "python", "node", "typescript", "quarkus", "springboot"}
 	invokeTypes := []string{"http", "cloudevent"}
 
 	for _, runtime := range runtimes {
@@ -81,7 +87,7 @@ func getMiddlewareVersionDetector(runtime string) (middlewareVersionDetector, er
 		return &typescriptMiddlewareVersionDetector{}, nil
 	case "quarkus":
 		return &quarkusMiddlewareVersionDetector{}, nil
-	case "java":
+	case "springboot":
 		return &springMiddlewareVersionDetector{}, nil
 	case "rust":
 		return &rustMiddlewareVersionDetector{}, nil

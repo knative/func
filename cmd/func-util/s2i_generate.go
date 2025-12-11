@@ -30,13 +30,14 @@ func s2iGenerate(ctx context.Context) error {
 }
 
 type genConfig struct {
-	target         string
-	pathContext    string
-	builderImage   string
-	registry       string
-	imageScriptUrl string
-	logLevel       string
-	envVars        []string
+	target            string
+	pathContext       string
+	builderImage      string
+	registry          string
+	imageScriptUrl    string
+	logLevel          string
+	middlewareVersion string
+	envVars           []string
 }
 
 func newS2IGenerateCmd() *cobra.Command {
@@ -54,6 +55,7 @@ func newS2IGenerateCmd() *cobra.Command {
 	genCmd.Flags().StringVar(&config.registry, "registry", "", "")
 	genCmd.Flags().StringVar(&config.imageScriptUrl, "image-script-url", "image:///usr/libexec/s2i", "")
 	genCmd.Flags().StringVar(&config.logLevel, "log-level", "0", "")
+	genCmd.Flags().StringVar(&config.middlewareVersion, "middleware-version", "", "")
 
 	return genCmd
 }
@@ -127,6 +129,9 @@ func runS2IGenerate(ctx context.Context, c genConfig) error {
 		KeepSymlinks:    true,
 		Environment:     envs,
 		AsDockerfile:    filepath.Join(c.target, "Dockerfile.gen"),
+		Labels: map[string]string{
+			fn.MiddlewareVersionLabelKey: c.middlewareVersion,
+		},
 	}
 
 	builder, _, err := strategies.Strategy(nil, &s2iConfig, build.Overrides{})

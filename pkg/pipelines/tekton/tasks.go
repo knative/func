@@ -303,6 +303,9 @@ spec:
     - name: S2I_IMAGE_SCRIPTS_URL
       description: The URL containing the default assemble and run scripts for the builder image.
       default: "image:///usr/libexec/s2i"
+    - name: MIDDLEWARE_VERSION
+      description: Used middleware version
+      default: ""
   workspaces:
     - name: source
     - name: cache
@@ -337,6 +340,8 @@ spec:
         - $(params.S2I_IMAGE_SCRIPTS_URL)
         - "--log-level"
         - $(params.LOGLEVEL)
+        - "--middleware-version"
+        - $(params.MIDDLEWARE_VERSION)
         - $(params.ENV_VARS[*])
       volumeMounts:
         - mountPath: /gen-source
@@ -440,6 +445,8 @@ spec:
     - name: path
       description: Path to the function project
       default: ""
+  results:
+    - name: middlewareVersion
   workspaces:
     - name: source
       description: The workspace containing the function project

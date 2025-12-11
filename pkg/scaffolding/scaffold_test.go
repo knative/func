@@ -25,7 +25,7 @@ func TestWrite_RuntimeErrors(t *testing.T) {
 		{"node", &ErrDetectorNotImplemented{}},
 		{"typescript", &ErrDetectorNotImplemented{}},
 		{"quarkus", &ErrDetectorNotImplemented{}},
-		{"java", &ErrDetectorNotImplemented{}},
+		{"springboot", &ErrDetectorNotImplemented{}},
 		{"other", &ErrRuntimeNotRecognized{}},
 	}
 	for _, test := range tests {
