@@ -58,7 +58,6 @@ func (r *defaultRunner) Run(ctx context.Context, f Function, address string, sta
 	host, port := ParseAddressFlag(address)
 	explicitPort := address != "" && strings.Contains(address, ":")
 
-
 	port, err = choosePort(host, port, explicitPort)
 	if err != nil {
 		return nil, fmt.Errorf("cannot choose port: %w", err)
