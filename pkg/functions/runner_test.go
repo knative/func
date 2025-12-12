@@ -42,50 +42,50 @@ func TestGetRunFuncErrors(t *testing.T) {
 
 func TestParseAddress(t *testing.T) {
 	tests := []struct {
-		name string
-		input  string
+		name         string
+		input        string
 		expectedHost string
 		expectedPort string
 	}{
 		{
-			name: "empty value",
-			input:  "",
+			name:         "empty value",
+			input:        "",
 			expectedHost: "127.0.0.1",
 			expectedPort: "8080",
 		},
 		{
-			name: "host-only as hostname",
-			input:  "localhost",
+			name:         "host-only as hostname",
+			input:        "localhost",
 			expectedHost: "localhost",
 			expectedPort: "8080",
 		},
 		{
-			name: "host-only as ipv4",
-			input:  "127.0.0.2",
+			name:         "host-only as ipv4",
+			input:        "127.0.0.2",
 			expectedHost: "127.0.0.2",
 			expectedPort: "8080",
 		},
 		{
-			name: "host-only as ipv6",
-			input:  "::1",
+			name:         "host-only as ipv6",
+			input:        "::1",
 			expectedHost: "::1",
 			expectedPort: "8080",
 		},
 		{
-			name: "hostport as hostname",
-			input:  "localhost:5000",
+			name:         "hostport as hostname",
+			input:        "localhost:5000",
 			expectedHost: "localhost",
 			expectedPort: "5000",
 		},
 		{
-			name: "hostport as ipv4",
-			input:  "127.0.0.2:5000",
+			name:         "hostport as ipv4",
+			input:        "127.0.0.2:5000",
 			expectedHost: "127.0.0.2",
 			expectedPort: "5000",
 		},
 		{
-			name: "hostport as ipv6",
-			input:  "[::1]:5000",
+			name:         "hostport as ipv6",
+			input:        "[::1]:5000",
 			expectedHost: "::1",
 			expectedPort: "5000",
 		},

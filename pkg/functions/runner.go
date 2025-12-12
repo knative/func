@@ -33,7 +33,7 @@ func ParseAddress(val string) (string, string) {
 	}
 
 	if val == "" {
-		 return defaultRunHost, defaultRunPort
+		return defaultRunHost, defaultRunPort
 	}
 	return val, defaultRunPort
 }
