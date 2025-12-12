@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	defaultRunHost    = "127.0.0.1" // TODO allow to be altered via a runOpt
+	defaultRunHost    = "127.0.0.1"
 	defaultRunPort    = "8080"
 	readinessEndpoint = "/health/readiness"
 )
@@ -27,15 +27,15 @@ type defaultRunner struct {
 	err    io.Writer
 }
 
-func ParseAddressFlag(val string) (string, string) {
+func ParseAddress(val string) (string, string) {
 	if h, p, err := net.SplitHostPort(val); err == nil {
 		return h, p
 	}
 
 	if val == "" {
-		val = "localhost"
+		 return defaultRunHost, defaultRunPort
 	}
-	return val, "8080"
+	return val, defaultRunPort
 }
 
 func newDefaultRunner(client *Client, out, err io.Writer) *defaultRunner {
@@ -53,7 +53,7 @@ func (r *defaultRunner) Run(ctx context.Context, f Function, address string, sta
 	)
 
 	// Parse address if provided, otherwise use defaults
-	host, port := ParseAddressFlag(address)
+	host, port := ParseAddress(address)
 	explicitPort := address != "" && strings.Contains(address, ":")
 
 	port, err = choosePort(host, port, explicitPort)
