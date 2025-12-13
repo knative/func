@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -10,47 +9,68 @@ import (
 	"knative.dev/func/cmd/common"
 )
 
-func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver) *cobra.Command {
+func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWriter) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ci",
-		Short: "Generate a Github Workflow for function deployment",
+		Short: "Generate a GitHub Workflow for function deployment",
 		PreRunE: bindEnv(
-			ci.PathOption,
-			ci.WorkflowNameOption,
+			ci.PathFlag,
+			ci.WorkflowNameFlag,
+			ci.BranchFlag,
+			ci.KubeconfigSecretNameFlag,
+			ci.RegistryUrlVariableNameFlag,
 		),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			return runConfigCIGithub(cmd, loaderSaver)
+			return runConfigCIGitHub(cmd, loaderSaver, writer)
 		},
 	}
 
 	addPathFlag(cmd)
+
 	cmd.Flags().String(
-		ci.WorkflowNameOption,
+		ci.WorkflowNameFlag,
 		ci.DefaultWorkflowName,
 		"Use a custom workflow name",
+	)
+
+	cmd.Flags().String(
+		ci.BranchFlag,
+		ci.DefaultBranch,
+		"Use a custom branch name in the workflow",
+	)
+
+	cmd.Flags().String(
+		ci.KubeconfigSecretNameFlag,
+		ci.DefaultKubeconfigSecretName,
+		"Use a custom secret name in the workflow, e.g. secret.YOUR_CUSTOM_KUBECONFIG",
+	)
+
+	cmd.Flags().String(
+		ci.RegistryUrlVariableNameFlag,
+		ci.DefaultRegistryUrlVariableName,
+		"Use a custom registry url variable name in the workflow, e.g. vars.YOUR_REGISTRY_URL",
 	)
 
 	return cmd
 }
 
-func runConfigCIGithub(
+func runConfigCIGitHub(
 	cmd *cobra.Command,
 	fnLoaderSaver common.FunctionLoaderSaver,
+	writer ci.WorkflowWriter,
 ) error {
-	if os.Getenv(ci.ConfigCIFeatureFlag) != "true" {
-		return fmt.Errorf("set %s to 'true' to use this feature", ci.ConfigCIFeatureFlag)
-	}
-
-	cfg := ci.NewCiGithubConfig()
+	cfg := ci.NewCIGitHubConfig()
 
 	f, err := fnLoaderSaver.Load(cfg.Path())
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(cmd.OutOrStdout(), "--------------------------- Function Github Workflow Generation ---------------------------")
+	fmt.Fprintln(cmd.OutOrStdout(), "--------------------------- Function GitHub Workflow Generation ---------------------------")
 	fmt.Fprintf(cmd.OutOrStdout(), "Func name: %s\n", f.Name)
 	fmt.Fprintf(cmd.OutOrStdout(), "Func runtime: %s\n", f.Runtime)
 
-	return fmt.Errorf("not implemented")
+	githubWorkflow := ci.NewGitHubWorkflow(cfg)
+	path := cfg.FnGitHubWorkflowFilepath(f.Root)
+	return githubWorkflow.Export(path, writer)
 }
