@@ -45,3 +45,27 @@ func (s standardLoaderSaver) Load(path string) (fn.Function, error) {
 func (s standardLoaderSaver) Save(f fn.Function) error {
 	return f.Write()
 }
+
+func NewMockLoaderSaver() *MockLoaderSaver {
+	return &MockLoaderSaver{
+		LoadFn: func(path string) (fn.Function, error) {
+			return fn.Function{}, nil
+		},
+		SaveFn: func(f fn.Function) error {
+			return nil
+		},
+	}
+}
+
+type MockLoaderSaver struct {
+	LoadFn func(path string) (fn.Function, error)
+	SaveFn func(f fn.Function) error
+}
+
+func (m MockLoaderSaver) Load(path string) (fn.Function, error) {
+	return m.LoadFn(path)
+}
+
+func (m MockLoaderSaver) Save(f fn.Function) error {
+	return m.SaveFn(f)
+}
