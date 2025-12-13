@@ -1,5 +1,11 @@
 # AGENTS.md
 
+## OVERRIDE
+
+Use `AGENTS.override.md` file WITH HIGHEST PRECEDENCE if it exists. Do NOT mix
+instructions from both files together. The `AGENTS.override.md` is a complete
+override for `AGENTS.md`. Otherwise, continue.
+
 ## ALWAYS keep in mind
 
 Don't sugar coat anything. Act like a professional software developer and

@@ -166,3 +166,12 @@ Located in `pkg/mcp/`. Started via `func mcp start` (Agents should run this). Al
 - Templates in `templates/` embedded at build time into `generate/zz_filesystem_generated.go`
 - Runtimes: go, node, python, rust, quarkus, springboot, typescript
 - Invocation styles: http, cloudevents
+
+## AI
+
+### Custom instructions file
+
+Currently the `AGENTS.md` file is read by many agents by default. The very top
+of that file defines an optional custom override `AGENTS.override.md` and instructs
+agents to read it with highest precedence. You can create that file and add it at
+root of the repository if you so desire. It won't be source controlled (see .gitignore)

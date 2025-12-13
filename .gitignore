@@ -31,10 +31,13 @@ __pycache__
 /templates/python/cloudevents/.venv
 /templates/python/http/.venv
 
+# AI
+AGENTS.override.md
+
 # E2E Tests
 /e2e/testdata/default_home/go
 /e2e/testdata/default_home/.cache
- 
+
 # Editors
 .vscode
 .idea
