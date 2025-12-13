@@ -45,3 +45,33 @@ func (s standardLoaderSaver) Load(path string) (fn.Function, error) {
 func (s standardLoaderSaver) Save(f fn.Function) error {
 	return f.Write()
 }
+
+// NewMockLoaderSaver creates a MockLoaderSaver with default no-op
+// implementations.
+func NewMockLoaderSaver() *MockLoaderSaver {
+	return &MockLoaderSaver{
+		LoadFn: func(path string) (fn.Function, error) {
+			return fn.Function{}, nil
+		},
+		SaveFn: func(f fn.Function) error {
+			return nil
+		},
+	}
+}
+
+// MockLoaderSaver provides configurable function loading and saving for testing
+// purposes.
+type MockLoaderSaver struct {
+	LoadFn func(path string) (fn.Function, error)
+	SaveFn func(f fn.Function) error
+}
+
+// Load invokes the configured LoadFn to load a function from the given path.
+func (m MockLoaderSaver) Load(path string) (fn.Function, error) {
+	return m.LoadFn(path)
+}
+
+// Save invokes the configured SaveFn to persist the given function.
+func (m MockLoaderSaver) Save(f fn.Function) error {
+	return m.SaveFn(f)
+}
