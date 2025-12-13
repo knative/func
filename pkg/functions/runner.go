@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -27,15 +26,22 @@ type defaultRunner struct {
 	err    io.Writer
 }
 
-func ParseAddress(val string) (string, string) {
-	if h, p, err := net.SplitHostPort(val); err == nil {
-		return h, p
-	}
-
+func ParseAddress(val string) (host, port string, explicitPort bool) {
 	if val == "" {
-		return defaultRunHost, defaultRunPort
+		return defaultRunHost, defaultRunPort, false
 	}
-	return val, defaultRunPort
+	
+	if h, p, err := net.SplitHostPort(val); err == nil {
+		if h == "" {
+			h = defaultRunHost
+		}
+		if p == "" {
+			return h, defaultRunPort, false
+		}
+		return h, p, true
+	}
+	
+	return val, defaultRunPort, false
 }
 
 func newDefaultRunner(client *Client, out, err io.Writer) *defaultRunner {
@@ -53,8 +59,7 @@ func (r *defaultRunner) Run(ctx context.Context, f Function, address string, sta
 	)
 
 	// Parse address if provided, otherwise use defaults
-	host, port := ParseAddress(address)
-	explicitPort := address != "" && strings.Contains(address, ":")
+	host, port, explicitPort := ParseAddress(address)
 
 	port, err = choosePort(host, port, explicitPort)
 	if err != nil {
