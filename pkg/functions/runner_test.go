@@ -42,11 +42,11 @@ func TestGetRunFuncErrors(t *testing.T) {
 
 func TestParseAddress(t *testing.T) {
 	tests := []struct {
-		name          string
-		input         string
-		expectedHost  string
-		expectedPort  string
-		explicitPort  bool
+		name         string
+		input        string
+		expectedHost string
+		expectedPort string
+		explicitPort bool
 	}{
 		{
 			name:         "empty value",

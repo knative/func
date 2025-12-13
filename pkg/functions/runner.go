@@ -30,7 +30,7 @@ func ParseAddress(val string) (host, port string, explicitPort bool) {
 	if val == "" {
 		return defaultRunHost, defaultRunPort, false
 	}
-	
+
 	if h, p, err := net.SplitHostPort(val); err == nil {
 		if h == "" {
 			h = defaultRunHost
@@ -40,7 +40,7 @@ func ParseAddress(val string) (host, port string, explicitPort bool) {
 		}
 		return h, p, true
 	}
-	
+
 	return val, defaultRunPort, false
 }
 
