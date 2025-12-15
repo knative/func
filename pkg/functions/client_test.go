@@ -167,7 +167,7 @@ func TestClient_New_RunDataDir(t *testing.T) {
 		t.Fatal("The user's directive to explicitly allow .func in source control was not respected")
 	}
 
-	// Ensure that in addition the the correctly formatted comment "# /.func",
+	// Ensure that in addition to the correctly formatted comment "# /.func",
 	// it will work if the user omits the space: "#/.func"
 	root, rm = Mktemp(t)
 	defer rm()
@@ -199,11 +199,11 @@ func TestClient_New_RunDataDir(t *testing.T) {
 	// such as ensuring that files and directories with just the prefix are not
 	// matched, that the user can use non-absolute ignores (no slash prefix), etc.
 	// If this turns out to be necessary, we will need to add the test cases
-	// and have the implementation actually parse the file rather that simple
+	// and have the implementation actually parse the file rather than simple
 	// line prefix checks.
 }
 
-// TestClient_New_RuntimeRequired ensures that the the runtime is an expected value.
+// TestClient_New_RuntimeRequired ensures that the runtime is an expected value.
 func TestClient_New_RuntimeRequired(t *testing.T) {
 	// Create a root for the new function
 	root := "testdata/example.com/testRuntimeRequired"

@@ -253,7 +253,7 @@ func scaffold(job *buildJob) (err error) {
 		return
 	}
 	err = scaffolding.Write(
-		job.buildDir(),       // desintation for scaffolding
+		job.buildDir(),       // destination for scaffolding
 		job.function.Root,    // source to be scaffolded
 		job.function.Runtime, // scaffolding language to write
 		job.function.Invoke, repo.FS())

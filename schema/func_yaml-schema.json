@@ -51,7 +51,7 @@
 				},
 				"baseImage": {
 					"type": "string",
-					"description": "BaseImage defines an override for the function to be built upon (host bulder only)"
+					"description": "BaseImage defines an override for the function to be built upon (host builder only)"
 				},
 				"volumes": {
 					"items": {

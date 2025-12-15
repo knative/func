@@ -19,7 +19,7 @@ The following fields are used in `func.yaml`.
 
 ### `build`
 
-Specifies how to build the fuction. Possible values are "local" to build on your local
+Specifies how to build the function. Possible values are "local" to build on your local
 computer, or "git" to build on the cluster by pulling function source code from a git
 repository.
 
