@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -212,8 +211,6 @@ For more options, run 'func build --help'`, err)
 	}
 	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 
-	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
-
 	// Client
 	clientOptions, err := cfg.clientOptions()
 	if err != nil {
@@ -241,16 +238,6 @@ For more options, run 'func build --help'`, err)
 	// Stamp is a performance optimization: treat the function as being built
 	// (cached) unless the fs changes.
 	return f.Stamp()
-}
-
-// WithValues returns a context populated with values from the build config
-// which are provided to the system via the context.
-func (c buildConfig) WithValues(ctx context.Context) context.Context {
-	// Push
-	ctx = context.WithValue(ctx, fn.PushUsernameKey{}, c.Username)
-	ctx = context.WithValue(ctx, fn.PushPasswordKey{}, c.Password)
-	ctx = context.WithValue(ctx, fn.PushTokenKey{}, c.Token)
-	return ctx
 }
 
 type buildConfig struct {
