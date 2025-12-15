@@ -2,17 +2,19 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
 
-func NewConfigCmd(loadSaver common.FunctionLoaderSaver, newClient ClientFactory) *cobra.Command {
+func NewConfigCmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWriter, newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Configure a function",
@@ -35,10 +37,13 @@ or from the directory specified with --path.
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	cmd.AddCommand(NewConfigGitCmd(newClient))
-	cmd.AddCommand(NewConfigLabelsCmd(loadSaver))
-	cmd.AddCommand(NewConfigEnvsCmd(loadSaver))
+	cmd.AddCommand(NewConfigLabelsCmd(loaderSaver))
+	cmd.AddCommand(NewConfigEnvsCmd(loaderSaver))
 	cmd.AddCommand(NewConfigVolumesCmd())
-	cmd.AddCommand(NewConfigCICmd(loadSaver))
+
+	if os.Getenv(ci.ConfigCIFeatureFlag) == "true" {
+		cmd.AddCommand(NewConfigCICmd(loaderSaver, writer))
+	}
 
 	return cmd
 }

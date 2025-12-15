@@ -26,7 +26,6 @@ func config
 ### SEE ALSO
 
 * [func](func.md)	 - func manages Knative Functions
-* [func config ci](func_config_ci.md)	 - Generate a Github Workflow for function deployment
 * [func config envs](func_config_envs.md)	 - List and manage configured environment variable for a function
 * [func config git](func_config_git.md)	 - Manage Git configuration of a function
 * [func config labels](func_config_labels.md)	 - List and manage configured labels for a function
