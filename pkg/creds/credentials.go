@@ -231,6 +231,7 @@ func NewCredentialsProvider(configPath string, opts ...Opt) oci.CredentialsProvi
 			return oci.Credentials{
 				Username: creds.Username,
 				Password: creds.Password,
+				Token:    creds.IdentityToken,
 			}, nil
 		})
 	defaultCredentialLoaders = append(defaultCredentialLoaders,
@@ -247,6 +248,7 @@ func NewCredentialsProvider(configPath string, opts ...Opt) oci.CredentialsProvi
 			return oci.Credentials{
 				Username: creds.Username,
 				Password: creds.Password,
+				Token:    creds.IdentityToken,
 			}, nil
 		})
 	defaultCredentialLoaders = append(defaultCredentialLoaders,

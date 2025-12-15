@@ -14,7 +14,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/pkg/errors"
 	progress "github.com/schollz/progressbar/v3"
 
 	fn "knative.dev/func/pkg/functions"
@@ -23,6 +22,15 @@ import (
 type Credentials struct {
 	Username string
 	Password string
+	Token    string
+}
+
+func (c Credentials) Authorization() (*authn.AuthConfig, error) {
+	return &authn.AuthConfig{
+		Username:      c.Username,
+		Password:      c.Password,
+		IdentityToken: c.Token,
+	}, nil
 }
 
 type CredentialsProvider func(ctx context.Context, image string) (Credentials, error)
@@ -35,8 +43,6 @@ type Pusher struct {
 	credentialsProvider CredentialsProvider
 
 	Insecure bool
-	Token    string
-	Username string
 	Verbose  bool
 
 	updates chan v1.Update
@@ -169,45 +175,8 @@ func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.Image
 	}
 
 	if !p.Anonymous {
-		a, err := p.authOption(ctx, creds)
-		if err != nil {
-			return err
-		}
-		oo = append(oo, a)
+		oo = append(oo, remote.WithAuth(creds))
 	}
 
 	return remote.WriteIndex(ref, ii, oo...)
-}
-
-// authOption selects an appropriate authentication option.
-// If user provided = basic auth (secret is password)
-// If only secret provided = bearer token auth
-// If neither are provided = creds from credentials provider
-// which performs the following in order:
-// - Default Keychain (docker and podman config files)
-// - Google Keychain
-// - TODO: ECR Amazon
-// - TODO: ACR Azure
-// - interactive prompt for username and password
-func (p *Pusher) authOption(ctx context.Context, creds Credentials) (remote.Option, error) {
-
-	// Basic Auth if provided
-	username, _ := ctx.Value(fn.PushUsernameKey{}).(string)
-	password, _ := ctx.Value(fn.PushPasswordKey{}).(string)
-	token, _ := ctx.Value(fn.PushTokenKey{}).(string)
-	if username != "" && token != "" {
-		return nil, errors.New("only one of username/password or token authentication allowed.  Received both a token and username")
-	} else if token != "" {
-		return remote.WithAuth(&authn.Bearer{Token: token}), nil
-	} else if username != "" {
-		return remote.WithAuth(&authn.Basic{Username: username, Password: password}), nil
-	}
-
-	// Use provided credentials if available or prompt for them
-	if creds.Username != "" && creds.Password != "" {
-		return remote.WithAuth(&authn.Basic{Username: creds.Username, Password: creds.Password}), nil
-	}
-
-	// Return anonymous auth when no credentials are provided (e.g., for localhost registries)
-	return remote.WithAuth(authn.Anonymous), nil
 }

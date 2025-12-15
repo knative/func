@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/ory/viper"
+
 	"knative.dev/func/cmd/prompt"
 	"knative.dev/func/pkg/buildpacks"
 	"knative.dev/func/pkg/config"
@@ -106,6 +108,23 @@ func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath
 	additionalLoaders := append(k8s.GetOpenShiftDockerCredentialLoaders(), k8s.GetGoogleCredentialLoader()...)
 	additionalLoaders = append(additionalLoaders, k8s.GetECRCredentialLoader()...)
 	additionalLoaders = append(additionalLoaders, k8s.GetACRCredentialLoader()...)
+
+	additionalLoaders = append(additionalLoaders,
+		func(registry string) (oci.Credentials, error) {
+			uname := viper.GetString("username")
+			passw := viper.GetString("password")
+			token := viper.GetString("token")
+			if (uname != "" && passw != "") || token != "" {
+				return oci.Credentials{
+					Username: uname,
+					Password: passw,
+					Token:    token,
+				}, nil
+			}
+			return oci.Credentials{}, creds.ErrCredentialsNotFound
+		},
+	)
+
 	options := []creds.Opt{
 		creds.WithPromptForCredentials(prompt.NewPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
 		creds.WithPromptForCredentialStore(prompt.NewPromptForCredentialStore()),
