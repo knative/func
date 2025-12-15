@@ -15,9 +15,14 @@ func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWr
 		Short: "Generate a GitHub Workflow for function deployment",
 		PreRunE: bindEnv(
 			ci.PathFlag,
+			ci.UseRegistryLoginFlag,
+			ci.UseSelfHostedRunnerFlag,
 			ci.WorkflowNameFlag,
 			ci.BranchFlag,
 			ci.KubeconfigSecretNameFlag,
+			ci.RegistryLoginUrlVariableNameFlag,
+			ci.RegistryUserVariableNameFlag,
+			ci.RegistryPassSecretNameFlag,
 			ci.RegistryUrlVariableNameFlag,
 		),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -26,6 +31,18 @@ func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWr
 	}
 
 	addPathFlag(cmd)
+
+	cmd.Flags().Bool(
+		ci.UseRegistryLoginFlag,
+		ci.DefaultUseRegistryLogin,
+		"Add a registry login step in the github workflow",
+	)
+
+	cmd.Flags().Bool(
+		ci.UseSelfHostedRunnerFlag,
+		ci.DefaultUseSelfHostedRunner,
+		"Use a 'self-hosted' runner instead of the default 'ubuntu-latest' for local runner execution",
+	)
 
 	cmd.Flags().String(
 		ci.WorkflowNameFlag,
@@ -43,6 +60,24 @@ func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWr
 		ci.KubeconfigSecretNameFlag,
 		ci.DefaultKubeconfigSecretName,
 		"Use a custom secret name in the workflow, e.g. secret.YOUR_CUSTOM_KUBECONFIG",
+	)
+
+	cmd.Flags().String(
+		ci.RegistryLoginUrlVariableNameFlag,
+		ci.DefaultRegistryLoginUrlVariableName,
+		"Use a custom registry login url variable name in the workflow, e.g. vars.YOUR_REGISTRY_LOGIN_URL",
+	)
+
+	cmd.Flags().String(
+		ci.RegistryUserVariableNameFlag,
+		ci.DefaultRegistryUserVariableName,
+		"Use a custom registry user variable name in the workflow, e.g. vars.YOUR_REGISTRY_USER",
+	)
+
+	cmd.Flags().String(
+		ci.RegistryPassSecretNameFlag,
+		ci.DefaultRegistryPassSecretName,
+		"Use a custom registry pass secret name in the workflow, e.g. secret.YOUR_REGISTRY_PASSWORD",
 	)
 
 	cmd.Flags().String(

@@ -34,30 +34,15 @@ type step struct {
 }
 
 func NewGitHubWorkflow(conf CIConfig) *githubWorkflow {
-	runsOn := "ubuntu-latest"
-
-	pushTrigger := newPushTrigger(conf.Branch())
+	runsOn := createRunsOn(conf.UseSelfHostedRunner())
+	pushTrigger := createPushTrigger(conf.Branch())
 
 	var steps []step
-	checkoutCode := newStep("Checkout code").
-		withUses("actions/checkout@v4")
-	steps = append(steps, *checkoutCode)
-
-	setupK8Context := newStep("Setup Kubernetes context").
-		withUses("azure/k8s-set-context@v4").
-		withActionConfig("method", "kubeconfig").
-		withActionConfig("kubeconfig", newSecret(conf.KubeconfigSecret()))
-	steps = append(steps, *setupK8Context)
-
-	installFuncCli := newStep("Install func cli").
-		withUses("gauron99/knative-func-action@main").
-		withActionConfig("version", "knative-v1.19.1").
-		withActionConfig("name", "func")
-	steps = append(steps, *installFuncCli)
-
-	deployFunc := newStep("Deploy function").
-		withRun("func deploy --registry=" + newVariable(conf.RegistryUrlVar()) + " -v")
-	steps = append(steps, *deployFunc)
+	steps = createCheckoutStep(steps)
+	steps = createK8ContextStep(conf, steps)
+	steps = createRegistryLoginStep(conf, steps)
+	steps = createFuncCLIInstallStep(steps)
+	steps = createFuncDeployStep(conf, steps)
 
 	return &githubWorkflow{
 		Name: conf.WorkflowName(),
@@ -71,12 +56,70 @@ func NewGitHubWorkflow(conf CIConfig) *githubWorkflow {
 	}
 }
 
-func newPushTrigger(branch string) workflowTriggers {
+func createRunsOn(useSelfHostedRunner bool) string {
+	runsOn := "ubuntu-latest"
+	if useSelfHostedRunner {
+		runsOn = "self-hosted"
+	}
+	return runsOn
+}
+
+func createPushTrigger(branch string) workflowTriggers {
 	result := workflowTriggers{
 		Push: &pushTrigger{Branches: []string{branch}},
 	}
 
 	return result
+}
+
+func createCheckoutStep(steps []step) []step {
+	checkoutCode := newStep("Checkout code").
+		withUses("actions/checkout@v4")
+
+	return append(steps, *checkoutCode)
+}
+
+func createK8ContextStep(conf CIConfig, steps []step) []step {
+	setupK8Context := newStep("Setup Kubernetes context").
+		withUses("azure/k8s-set-context@v4").
+		withActionConfig("method", "kubeconfig").
+		withActionConfig("kubeconfig", newSecret(conf.KubeconfigSecret()))
+
+	return append(steps, *setupK8Context)
+}
+
+func createRegistryLoginStep(conf CIConfig, steps []step) []step {
+	if !conf.UseRegistryLogin() {
+		return steps
+	}
+
+	loginToContainerRegistry := newStep("Login to container registry").
+		withUses("docker/login-action@v3").
+		withActionConfig("registry", newVariable(conf.RegistryLoginUrlVar())).
+		withActionConfig("username", newVariable(conf.RegistryUserVar())).
+		withActionConfig("password", newSecret(conf.RegistryPassSecret()))
+
+	return append(steps, *loginToContainerRegistry)
+}
+
+func createFuncDeployStep(conf CIConfig, steps []step) []step {
+	registryUrl := newVariable(conf.RegistryUrlVar())
+	if conf.UseRegistryLogin() {
+		registryUrl = newVariable(conf.RegistryLoginUrlVar()) + "/" + newVariable(conf.RegistryUserVar())
+	}
+	deployFunc := newStep("Deploy function").
+		withRun("func deploy --registry=" + registryUrl + " -v")
+
+	return append(steps, *deployFunc)
+}
+
+func createFuncCLIInstallStep(steps []step) []step {
+	installFuncCli := newStep("Install func cli").
+		withUses("gauron99/knative-func-action@main").
+		withActionConfig("version", "knative-v1.19.1").
+		withActionConfig("name", "func")
+
+	return append(steps, *installFuncCli)
 }
 
 func newStep(name string) *step {
