@@ -9,7 +9,7 @@ This guide describes how you can build a Function on Cluster with Tekton Pipelin
 
    For production environments, please refer to [Tekton Pipelines documentation](https://github.com/tektoncd/pipeline/blob/main/docs/install.md) or run the following command:
 ```bash
-kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.49.0/release.yaml
+kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v1.6.0/release.yaml
 ```
 
 ## Enabling a namespace to run Function related Tekton Pipelines
