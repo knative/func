@@ -26,6 +26,40 @@ import (
 
 var TestPlatforms = []fn.Platform{{OS: "linux", Architecture: runtime.GOARCH}}
 
+func copyDir(src, dst string) error {
+	return filepath.Walk(src, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+
+		target := filepath.Join(dst, rel)
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			linkTarget, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(linkTarget, target)
+		}
+
+		if info.IsDir() {
+			return os.MkdirAll(target, info.Mode())
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		return os.WriteFile(target, data, info.Mode())
+	})
+}
+
 // TestBuilder_BuildGo ensures that, when given a Go Function, an OCI-compliant
 // directory structure is created on .Build in the expected path.
 func TestBuilder_BuildGo(t *testing.T) {
@@ -504,13 +538,18 @@ func (l *TestLanguageBuilder) Configure(job buildJob, p v1.Platform, c v1.Config
 	return l.ConfigureFn(job, p, c)
 }
 
-// Test_validatedLinkTaarget ensures that the function disallows
+// Test_validatedLinkTarget ensures that the function disallows
 // links which are absolute or refer to targets outside the given root, in
 // addition to the basic job of returning the value of reading the link.
 func Test_validatedLinkTarget(t *testing.T) {
-	root := filepath.Join("testdata", "test-links")
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "test-links")
+	err := copyDir("testdata/test-links", root)
 
-	err := os.Symlink("/var/example/absolute/link", filepath.Join(root, "absoluteLink"))
+	if err != nil {
+		t.Fatalf("failed to copy test data: %v", err)
+	}
+	err = os.Symlink("/var/example/absolute/link", filepath.Join(root, "absoluteLink"))
 	if err != nil && !errors.Is(err, os.ErrExist) {
 		t.Fatal(err)
 	}
