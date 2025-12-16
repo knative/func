@@ -81,7 +81,12 @@ To run integration tests, use `make test-integration`.
 
 The cluster and registry can be deleted by running `hack/delete.sh`
 
+## Using AI
 
+General instruction are available for AI agents in `AGENTS.md`.
+If you prefer your own instructions, you can instead create `AGENTS.override.md`.
 
-
-
+Usually AI agents read the `AGENTS.md` file by default. At the top of this file
+there is an override directive which points the AI agent to instead read this
+`AGENTS.override.md` and follow it. It is preemptively part of .gitignore so
+that it is not source controlled.
