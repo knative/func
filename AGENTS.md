@@ -19,13 +19,15 @@ files and get some inspiration from the rest of this codebase.
 - `make all` - Build binary and regenerate docs
 - `make build` - Build for current OS
 
-### Testing
-- `make test` - Unit tests (ALWAYS run this first)
-- `make check` - Linting + style checks (run before commits)
-- `make test-integration` - Integration tests
-- `make test-e2e` - End-to-end tests
-- `make test-full` - Complete test suite (suggest for significant changes)
-- `make test-templates` - Template-specific tests
+### Testing strategy reference
+Before commiting, test locally following the table below:
+
+| If changed | Target | Description |
+|------------|--------|-------------|
+| `*.go` files | `make test` | Core unit tests |
+| Any files | `make check` | Linting, formatting, spelling |
+| `templates/` files | `make test-templates` | All language template tests |
+| Significant architectural changes | `make test-full` | e2e tests (cluster required - read `CONTRIBUTING.md`) |
 
 ### Generated Files
 - `make generate/zz_filesystem_generated.go` - Regenerate embedded FS
@@ -40,7 +42,7 @@ files and get some inspiration from the rest of this codebase.
 - Ask before deleting ANY file or significant code block
 
 ### Ask First
-- Security-related code (authentication, credentials, secrets handling)
+- Security-related code changes (authentication, credentials, secrets handling)
 - API changes
 - Adding new dependencies
 - Modifying CI/GitHub Actions workflows
@@ -52,7 +54,7 @@ files and get some inspiration from the rest of this codebase.
   - `schema/func_yaml-schema.json`
 - Commit secrets, API keys, or credentials
 - Delete files without explicit user approval
-- Force push to main/master
+- Force push to main/master branch
 - Skip tests or linting
 
 ## Common Pitfalls
@@ -66,5 +68,5 @@ make check-embedded-fs
 
 ## Contributing
 
-If creating a contribution to this project on Github suggest to user to read
+If creating a contribution to this project on GitHub suggest to user reading
 CONTRIBUTING.md.

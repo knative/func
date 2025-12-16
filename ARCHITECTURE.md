@@ -6,7 +6,7 @@ Knative Func is a CLI that simplifies building and deploying serverless function
 on Kubernetes. Instead of writing Dockerfiles and Kubernetes manifests,
 developers run `func create`, `func build`, and `func deploy`. The CLI handles
 image building (via Buildpacks, S2I, or direct OCI), registry pushing, and
-Knative Service creation or newly available bare K8s deployement.
+Knative Service creation or newly available bare K8s deployment.
 
 ## Code Map
 
