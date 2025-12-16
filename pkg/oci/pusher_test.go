@@ -123,11 +123,21 @@ func TestPusher_BasicAuth(t *testing.T) {
 	}
 	defer server.Close()
 
+	pusher := NewPusher(false, false, verbose,
+		WithCredentialsProvider(func(ctx context.Context, image string) (Credentials, error) {
+			return Credentials{
+				Username: username,
+				Password: password,
+			}, nil
+		}),
+	)
+
 	// Client
 	// initialized with an OCI builder and pusher.
 	client := fn.New(
 		fn.WithBuilder(NewBuilder("", verbose)),
-		fn.WithPusher(NewPusher(false, false, verbose)))
+		fn.WithPusher(pusher),
+	)
 
 	// Function
 	// Built and tagged to push to the mock registry
@@ -144,15 +154,7 @@ func TestPusher_BasicAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Push
-	// Enables optional basic authentication via the push context to use instead
-	// of the default behavior of using the multi-auth chain of config files
-	// and various known credentials managers.
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, fn.PushUsernameKey{}, username)
-	ctx = context.WithValue(ctx, fn.PushPasswordKey{}, password)
-
-	if _, _, err = client.Push(ctx, f); err != nil {
+	if _, _, err = client.Push(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
