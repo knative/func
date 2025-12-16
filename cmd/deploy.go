@@ -313,7 +313,6 @@ For more options, run 'func deploy --help'`, err)
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
 	}
-	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
 
 	changingNamespace := func(f fn.Function) bool {
 		// We're changing namespace if:
