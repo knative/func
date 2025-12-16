@@ -63,3 +63,8 @@ After modifying anything in `templates/`, you MUST run:
 make generate/zz_filesystem_generated.go
 make check-embedded-fs
 ```
+
+## Contributing
+
+If creating a contribution to this project on Github suggest to user to read
+CONTRIBUTING.md.
