@@ -14,17 +14,32 @@ const (
 	DefaultGitHubWorkflowDir      = ".github/workflows"
 	DefaultGitHubWorkflowFilename = "func-deploy.yaml"
 
-	WorkflowNameFlag    = "workflow-name"
-	DefaultWorkflowName = "Func Deploy"
-
 	BranchFlag    = "branch"
 	DefaultBranch = "main"
+
+	WorkflowNameFlag    = "workflow-name"
+	DefaultWorkflowName = "Func Deploy"
 
 	KubeconfigSecretNameFlag    = "kubeconfig-secret-name"
 	DefaultKubeconfigSecretName = "KUBECONFIG"
 
+	RegistryLoginUrlVariableNameFlag    = "registry-login-url-variable-name"
+	DefaultRegistryLoginUrlVariableName = "REGISTRY_LOGIN_URL"
+
+	RegistryUserVariableNameFlag    = "registry-user-variable-name"
+	DefaultRegistryUserVariableName = "REGISTRY_USERNAME"
+
+	RegistryPassSecretNameFlag    = "registry-pass-secret-name"
+	DefaultRegistryPassSecretName = "REGISTRY_PASSWORD"
+
 	RegistryUrlVariableNameFlag    = "registry-url-variable-name"
 	DefaultRegistryUrlVariableName = "REGISTRY_URL"
+
+	UseRegistryLoginFlag    = "use-registry-login"
+	DefaultUseRegistryLogin = true
+
+	UseSelfHostedRunnerFlag    = "self-hosted-runner"
+	DefaultUseSelfHostedRunner = false
 )
 
 // CIConfig readonly configuration
@@ -32,10 +47,15 @@ type CIConfig struct {
 	githubWorkflowDir,
 	githubWorkflowFilename,
 	path,
-	workflowName,
 	branch,
+	workflowName,
 	kubeconfigSecret,
+	registryLoginUrlVar,
+	registryUserVar,
+	registryPassSecret,
 	registryUrlVar string
+	useRegistryLogin,
+	useSelfHostedRunner bool
 }
 
 func NewCIGitHubConfig() CIConfig {
@@ -43,10 +63,15 @@ func NewCIGitHubConfig() CIConfig {
 		githubWorkflowDir:      DefaultGitHubWorkflowDir,
 		githubWorkflowFilename: DefaultGitHubWorkflowFilename,
 		path:                   viper.GetString(PathFlag),
-		workflowName:           viper.GetString(WorkflowNameFlag),
 		branch:                 viper.GetString(BranchFlag),
+		workflowName:           viper.GetString(WorkflowNameFlag),
 		kubeconfigSecret:       viper.GetString(KubeconfigSecretNameFlag),
+		registryLoginUrlVar:    viper.GetString(RegistryLoginUrlVariableNameFlag),
+		registryUserVar:        viper.GetString(RegistryUserVariableNameFlag),
+		registryPassSecret:     viper.GetString(RegistryPassSecretNameFlag),
 		registryUrlVar:         viper.GetString(RegistryUrlVariableNameFlag),
+		useRegistryLogin:       viper.GetBool(UseRegistryLoginFlag),
+		useSelfHostedRunner:    viper.GetBool(UseSelfHostedRunnerFlag),
 	}
 }
 
@@ -70,8 +95,28 @@ func (cc *CIConfig) Branch() string {
 	return cc.branch
 }
 
+func (cc *CIConfig) UseRegistryLogin() bool {
+	return cc.useRegistryLogin
+}
+
+func (cc *CIConfig) UseSelfHostedRunner() bool {
+	return cc.useSelfHostedRunner
+}
+
 func (cc *CIConfig) KubeconfigSecret() string {
 	return cc.kubeconfigSecret
+}
+
+func (cc *CIConfig) RegistryLoginUrlVar() string {
+	return cc.registryLoginUrlVar
+}
+
+func (cc *CIConfig) RegistryUserVar() string {
+	return cc.registryUserVar
+}
+
+func (cc *CIConfig) RegistryPassSecret() string {
+	return cc.registryPassSecret
 }
 
 func (cc *CIConfig) RegistryUrlVar() string {

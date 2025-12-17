@@ -51,11 +51,46 @@ func TestNewConfigCICmd_WritesWorkflowFile(t *testing.T) {
 }
 
 func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
-	opts := unitTestOpts()
-	result := runConfigCiCmd(t, opts)
+	result := runConfigCiCmd(t, unitTestOpts())
 
 	assert.NilError(t, result.executeErr)
 	assertDefaultWorkflow(t, result.gwYamlString)
+}
+
+func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
+	// GIVEN
+	opts := unitTestOpts()
+	opts.args = append(opts.args,
+		"--self-hosted-runner",
+		"--workflow-name=Custom Deploy",
+		"--kubeconfig-secret-name=DEV_CLUSTER_KUBECONFIG",
+		"--registry-login-url-variable-name=DEV_REGISTRY_LOGIN_URL",
+		"--registry-user-variable-name=DEV_REGISTRY_USER",
+		"--registry-pass-secret-name=DEV_REGISTRY_PASS",
+		"--branch=master",
+	)
+
+	// WHEN
+	result := runConfigCiCmd(t, opts)
+
+	// THEN
+	assert.NilError(t, result.executeErr)
+	assertCustomWorkflow(t, result.gwYamlString)
+}
+
+func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
+	// GIVEN
+	opts := unitTestOpts()
+	opts.args = append(opts.args, "--use-registry-login=false")
+
+	// WHEN
+	result := runConfigCiCmd(t, opts)
+
+	// THEN
+	assert.NilError(t, result.executeErr)
+	assert.Assert(t, !strings.Contains(result.gwYamlString, "docker/login-action@v3"))
+	assert.Assert(t, !strings.Contains(result.gwYamlString, "Login to container registry"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "--registry=${{ vars.REGISTRY_URL }}"))
 }
 
 // ---------------------
@@ -239,7 +274,10 @@ func runConfigCiCmd(
 // including the default values which can be changed:
 //   - runs-on: ubuntu-latest
 //   - kubeconfig: ${{ secrets.KUBECONFIG }}
-//   - run: func deploy --registry=${{ vars.REGISTRY_URL }} -v
+//   - registry: ${{ vars.REGISTRY_LOGIN_URL }}")
+//   - username: ${{ vars.REGISTRY_USERNAME }}
+//   - password: ${{ secrets.REGISTRY_PASSWORD }}
+//   - run: func deploy --registry=${{ vars.REGISTRY_LOGIN_URL }}/${{ vars.REGISTRY_USERNAME }} -v
 func assertDefaultWorkflow(t *testing.T, actualGw string) {
 	t.Helper()
 
@@ -248,7 +286,7 @@ func assertDefaultWorkflow(t *testing.T, actualGw string) {
 
 	assert.Assert(t, yamlContains(actualGw, "ubuntu-latest"))
 
-	assert.Assert(t, strings.Count(actualGw, "- name:") == 4)
+	assert.Assert(t, strings.Count(actualGw, "- name:") == 5)
 
 	assert.Assert(t, yamlContains(actualGw, "Checkout code"))
 	assert.Assert(t, yamlContains(actualGw, "actions/checkout@v4"))
@@ -258,13 +296,19 @@ func assertDefaultWorkflow(t *testing.T, actualGw string) {
 	assert.Assert(t, yamlContains(actualGw, "method: kubeconfig"))
 	assert.Assert(t, yamlContains(actualGw, "kubeconfig: ${{ secrets.KUBECONFIG }}"))
 
+	assert.Assert(t, yamlContains(actualGw, "Login to container registry"))
+	assert.Assert(t, yamlContains(actualGw, "docker/login-action@v3"))
+	assert.Assert(t, yamlContains(actualGw, "registry: ${{ vars.REGISTRY_LOGIN_URL }}"))
+	assert.Assert(t, yamlContains(actualGw, "username: ${{ vars.REGISTRY_USERNAME }}"))
+	assert.Assert(t, yamlContains(actualGw, "password: ${{ secrets.REGISTRY_PASSWORD }}"))
+
 	assert.Assert(t, yamlContains(actualGw, "Install func cli"))
 	assert.Assert(t, yamlContains(actualGw, "gauron99/knative-func-action@main"))
 	assert.Assert(t, yamlContains(actualGw, "version: knative-v1.19.1"))
 	assert.Assert(t, yamlContains(actualGw, "name: func"))
 
 	assert.Assert(t, yamlContains(actualGw, "Deploy function"))
-	assert.Assert(t, yamlContains(actualGw, "func deploy --registry=${{ vars.REGISTRY_URL }} -v"))
+	assert.Assert(t, yamlContains(actualGw, "func deploy --registry=${{ vars.REGISTRY_LOGIN_URL }}/${{ vars.REGISTRY_USERNAME }} -v"))
 }
 
 func yamlContains(yaml, substr string) cmp.Comparison {
@@ -276,6 +320,16 @@ func yamlContains(yaml, substr string) cmp.Comparison {
 			"missing '%s' in:\n\n%s", substr, yaml,
 		))
 	}
+}
+
+func assertCustomWorkflow(t *testing.T, actualGw string) {
+	assert.Assert(t, yamlContains(actualGw, "Custom Deploy"))
+	assert.Assert(t, yamlContains(actualGw, "self-hosted"))
+	assert.Assert(t, yamlContains(actualGw, "DEV_CLUSTER_KUBECONFIG"))
+	assert.Assert(t, yamlContains(actualGw, "DEV_REGISTRY_LOGIN_URL"))
+	assert.Assert(t, yamlContains(actualGw, "DEV_REGISTRY_USER"))
+	assert.Assert(t, yamlContains(actualGw, "DEV_REGISTRY_PASS"))
+	assert.Assert(t, yamlContains(actualGw, "- master"))
 }
 
 // ----------------------
