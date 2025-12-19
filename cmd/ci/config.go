@@ -38,6 +38,12 @@ const (
 	UseRegistryLoginFlag    = "use-registry-login"
 	DefaultUseRegistryLogin = true
 
+	WorkflowDispatchFlag    = "workflow-dispatch"
+	DefaultWorkflowDispatch = false
+
+	UseRemoteBuildFlag    = "remote"
+	DefaultUseRemoteBuild = false
+
 	UseSelfHostedRunnerFlag    = "self-hosted-runner"
 	DefaultUseSelfHostedRunner = false
 )
@@ -55,7 +61,9 @@ type CIConfig struct {
 	registryPassSecret,
 	registryUrlVar string
 	useRegistryLogin,
-	useSelfHostedRunner bool
+	useSelfHostedRunner,
+	useRemoteBuild,
+	useWorkflowDispatch bool
 }
 
 func NewCIGitHubConfig() CIConfig {
@@ -72,6 +80,8 @@ func NewCIGitHubConfig() CIConfig {
 		registryUrlVar:         viper.GetString(RegistryUrlVariableNameFlag),
 		useRegistryLogin:       viper.GetBool(UseRegistryLoginFlag),
 		useSelfHostedRunner:    viper.GetBool(UseSelfHostedRunnerFlag),
+		useRemoteBuild:         viper.GetBool(UseRemoteBuildFlag),
+		useWorkflowDispatch:    viper.GetBool(WorkflowDispatchFlag),
 	}
 }
 
@@ -101,6 +111,14 @@ func (cc *CIConfig) UseRegistryLogin() bool {
 
 func (cc *CIConfig) UseSelfHostedRunner() bool {
 	return cc.useSelfHostedRunner
+}
+
+func (cc *CIConfig) UseRemoteBuild() bool {
+	return cc.useRemoteBuild
+}
+
+func (cc *CIConfig) UseWorkflowDispatch() bool {
+	return cc.useWorkflowDispatch
 }
 
 func (cc *CIConfig) KubeconfigSecret() string {
