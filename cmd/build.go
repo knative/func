@@ -158,58 +158,17 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		cfg buildConfig
 		f   fn.Function
 	)
-	if cfg, err = newBuildConfig().Prompt(); err != nil { // gather values into a single instruction set
-		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
-
-		// Check if it's a "not initialized" error (no function found)
-		var errNotInit *fn.ErrNotInitialized
-		if errors.As(err, &errNotInit) {
-			return wrapNotInitializedError(err, "build")
-		}
-
-		// Check if it's a registry required error (function exists but no registry)
-		if errors.Is(err, fn.ErrRegistryRequired) {
-			return wrapRegistryRequiredError(err, "build")
-		}
-		return
+	if cfg, err = newBuildConfig().Prompt(); err != nil {
+		return wrapPromptError(err, "build")
 	}
 	if err = cfg.Validate(cmd); err != nil { // Perform any pre-validation
-		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
-		if errors.Is(err, fn.ErrConflictingImageAndRegistry) {
-			return fmt.Errorf(`%w
-
-Cannot use both --image and --registry together. Choose one:
-
-  Use --image for complete image name:
-    func build --image example.com/user/myfunc
-
-  Use --registry for automatic naming:
-    func build --registry example.com/user
-
-Note: FUNC_REGISTRY environment variable doesn't conflict with --image flag
-
-For more options, run 'func build --help'`, err)
-		}
-		if errors.Is(err, fn.ErrPlatformNotSupported) {
-			return fmt.Errorf(`%w
-
-The --platform flag is only supported with the S2I builder.
-
-Try this:
-  func build --registry <registry> --builder=s2i --platform linux/amd64
-
-Or remove the --platform flag:
-  func build --registry <registry>
-
-For more options, run 'func build --help'`, err)
-		}
-		return
+		return wrapValidateError(err, "build")
 	}
 	if f, err = fn.NewFunction(cfg.Path); err != nil { // Read in the Function
 		return
 	}
 	if !f.Initialized() {
-		return fn.NewErrNotInitialized(f.Root)
+		return NewErrNotInitializedFromPath(f.Root, "build")
 	}
 	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 

@@ -89,25 +89,7 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 
 	items, err := client.List(cmd.Context(), cfg.Namespace)
 	if err != nil {
-		return fmt.Errorf(`cannot connect to Knative cluster
-
-The 'func list' command shows functions deployed to your Knative cluster.
-
-To use this command, you need:
-  1. A running Kubernetes cluster
-  2. Knative Serving installed on the cluster
-  3. kubectl configured to access your cluster
-
-Workflow:
-  func create --language go myfunction    Create a function
-  func deploy --registry <registry>       Deploy to cluster
-  func list                               See your deployed functions
-
-Troubleshooting:
-  kubectl get pods -n knative-serving     Check Knative installation
-  kubectl config current-context          Verify cluster connection
-
-Installation guide: https://knative.dev/docs/serving/#installation`)
+		return NewErrListClusterConnection(err)
 	}
 
 	if len(items) == 0 {
