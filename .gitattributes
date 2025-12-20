@@ -1,9 +1,8 @@
-testdata/repository-a.git/objects/*/* ignore-lint=true
-testdata/repository.git/objects/*/* ignore-lint=true
+**/testdata/repository-a.git/objects/*/* ignore-lint=true
+**/testdata/repository.git/objects/*/* ignore-lint=true
 templates/node/*/package-lock.json ignore-lint=true
 templates/typescript/*/package-lock.json ignore-lint=true
-version.txt linguist-generated=true
 zz_filesystem_generated.go linguist-generated=true
-docker/zz_close_guarding_client_generated.go linguist-generated=true
+pkg/docker/zz_close_guarding_client_generated.go linguist-generated=true
 pkg/oci/testdata/test-links/* ignore-lint=true
 
