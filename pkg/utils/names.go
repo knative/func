@@ -34,6 +34,10 @@ type ErrInvalidNamespace error
 // (e.g. 'my-name',  or 'abc-1', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')
 func ValidateFunctionName(name string) error {
 
+	if strings.Contains(name, "--") {
+		return ErrInvalidFunctionName(errors.New(fmt.Sprintf("Function name '%v' cannot contain consecutive hyphens", name)))
+	}
+
 	if errs := validation.IsDNS1035Label(name); len(errs) > 0 {
 		// In case of invalid name the error is this:
 		// "a DNS-1035 label must consist of lower case alphanumeric characters or '-',
