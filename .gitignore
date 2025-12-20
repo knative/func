@@ -33,6 +33,7 @@ __pycache__
 
 # AI
 AGENTS.override.md
+.claude/*.local.*
 
 # E2E Tests
 /e2e/testdata/default_home/go

@@ -11,7 +11,9 @@ override for `AGENTS.md`. Otherwise, continue.
 Don't sugar coat anything. Act like a professional software developer and
 engineer. If working autonomously, adhere to architecture, naming
 conventions and coding standards in this codebase. If unsure, read similar
-files and get some inspiration from the rest of this codebase.
+files and get some inspiration from the rest of this codebase. If introducing
+new features, make sure to cover them via unit tests and don't forget to take
+edge cases into account.
 
 ## Commands
 
@@ -20,7 +22,7 @@ files and get some inspiration from the rest of this codebase.
 - `make build` - Build for current OS
 
 ### Testing strategy reference
-Before commiting, test locally following the table below:
+Before committing, test locally following the table below:
 
 | If changed | Target | Description |
 |------------|--------|-------------|
@@ -30,8 +32,9 @@ Before commiting, test locally following the table below:
 | Significant architectural changes | `make test-full` | e2e tests (cluster required - read `CONTRIBUTING.md`) |
 
 ### Generated Files
-- `make generate/zz_filesystem_generated.go` - Regenerate embedded FS
-- `make check-embedded-fs` - Verify templates match embedded FS
+- `./hack/update-codegen.sh` - update embedded filesystem & regenerate docs
+- `make check-embedded-fs` - check embedded FS is up to date with templates
+
 
 ## Boundaries
 
@@ -59,12 +62,12 @@ Before commiting, test locally following the table below:
 
 ## Common Pitfalls
 
-### Embedded Filesystem Sync
-After modifying anything in `templates/`, you MUST run:
+### Codegen Sync
+After modifying `templates/` or making documentation changes, you MUST run:
 ```bash
-make generate/zz_filesystem_generated.go
-make check-embedded-fs
+./hack/update-codegen.sh
 ```
+
 
 ## Contributing
 

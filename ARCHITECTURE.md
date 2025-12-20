@@ -44,7 +44,9 @@ cmd/func/main.go
             └── Individual commands (build, deploy, create, ...)
 ```
 
-Commands in `cmd/` are thin wrappers. They parse flags, create a `Client`, and delegate to `pkg/functions/client.go`:
+The CLI in `cmd/` servers as a terminal frontend and a reference implementation
+for using `pkg/functions`. Commands parse flags, create a `Client` and
+delegate to `pkg/functions/client.go`:
 
 ```go
 // Typical command pattern
@@ -174,4 +176,4 @@ Located in `pkg/mcp/`. Started via `func mcp start` (Agents should run this). Al
 Currently the `AGENTS.md` file is read by many agents by default. The very top
 of that file defines an optional custom override `AGENTS.override.md` and instructs
 agents to read it with highest precedence. You can create that file and add it at
-root of the repository if you so desire. It won't be source controlled (see .gitignore)
+root of the repository if you so desire. It won't be source controlled (see `.gitignore`)

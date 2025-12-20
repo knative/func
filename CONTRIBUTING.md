@@ -5,6 +5,9 @@ This document details how to get started contributing to the project.  This incl
 **Tip**:
 Install git hooks that do basic pre-commit checks.
 
+**Tip**:
+Read through our (architecture)[ARCHITECTURE.md] file for how we structure this project (Or have AI do it!)
+
 ```sh
 make setup-githooks
 ```
@@ -88,5 +91,5 @@ If you prefer your own instructions, you can instead create `AGENTS.override.md`
 
 Usually AI agents read the `AGENTS.md` file by default. At the top of this file
 there is an override directive which points the AI agent to instead read this
-`AGENTS.override.md` and follow it. It is preemptively part of .gitignore so
+`AGENTS.override.md` and follow it. It is preemptively part of `.gitignore` so
 that it is not source controlled.

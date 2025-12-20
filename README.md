@@ -12,6 +12,10 @@
 [Try the QuickStart](https://knative.dev/docs/getting-started/about-knative-functions/)
 [Read the Documentation](https://knative.dev/docs/functions/)
 
+## Architecture
+
+For more information about how this project is structured please read our [architecture documentation](ARCHITECTURE.md)
+
 ## Command Reference
 
 For detailed documentation on all available `func` commands, including usage examples and options, see the [Command Reference Documentation](docs/reference/). This reference covers all commands from creating and deploying functions to managing configurations and repositories.
@@ -29,7 +33,3 @@ We are always looking for contributions from the Function Developer community.  
 For a list of all help wanted issues in Knative, take a look at [CLOTRIBUTOR](https://clotributor.dev/search?project=knative&page=1).
 
 The `func` Working Group meets @ 10:00 US Eastern every Tuesday, we'd love to have you! For more information, see the invitation on the [Knative Team Calendar](https://calendar.google.com/calendar/u/0/embed?src=knative.team_9q83bg07qs5b9rrslp5jor4l6s@group.calendar.google.com).
-
-## Roadmap
-
-Our project roadmap can be found: https://github.com/orgs/knative/projects/49
