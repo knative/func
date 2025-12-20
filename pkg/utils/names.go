@@ -35,7 +35,7 @@ type ErrInvalidNamespace error
 func ValidateFunctionName(name string) error {
 
 	if strings.Contains(name, "--") {
-		return ErrInvalidFunctionName(fmt.Errorf("Function name '%v' cannot contain consecutive hyphens", name))
+		return ErrInvalidFunctionName(fmt.Errorf("function name '%v' cannot contain consecutive hyphens", name))
 	}
 
 	if errs := validation.IsDNS1035Label(name); len(errs) > 0 {
