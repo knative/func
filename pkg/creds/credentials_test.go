@@ -1024,12 +1024,13 @@ func testHomeEnvName() string {
 func testConfigPath(t *testing.T) string {
 	t.Helper()
 	home := os.Getenv(testHomeEnvName())
-	var configPath string
-	if home != "" { // if HOME is not set, don't create config dir
-		configPath = filepath.Join(home, ".config", "func")
-		if err := os.MkdirAll(configPath, os.ModePerm); err != nil {
-			t.Fatal(err)
-		}
+	//  using a temp directory to avoid polluting the source tree with auth.json
+	if home == "" {
+		home = t.TempDir()
+	}
+	configPath := filepath.Join(home, ".config", "func")
+	if err := os.MkdirAll(configPath, os.ModePerm); err != nil {
+		t.Fatal(err)
 	}
 	return configPath
 }
@@ -1039,6 +1040,9 @@ func testConfigPath(t *testing.T) string {
 func testConfigPathError(t *testing.T) (string, error) {
 	t.Helper()
 	home := os.Getenv(testHomeEnvName())
+	if home == "" {
+		home = t.TempDir()
+	}
 	configPath := filepath.Join(home, ".config", "func")
 	return configPath, os.MkdirAll(configPath, os.ModePerm)
 }
