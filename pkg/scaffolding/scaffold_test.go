@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"knative.dev/func/pkg/filesystem"
@@ -168,4 +169,68 @@ func TestNewScaffoldingError(t *testing.T) {
 	}
 	t.Logf("ok: %v", err)
 
+}
+
+// TestMergeGoSum ensures that the function's go.sum entries are appended
+// to the scaffolding's go.sum during patching.
+func TestMergeGoSum(t *testing.T) {
+	src, done := Mktemp(t)
+	defer done()
+	out, doneOut := Mktemp(t)
+	defer doneOut()
+
+	funcGoSum := "git-private.localtest.me/foo.git v0.0.1 h1:abc123=\n" +
+		"git-private.localtest.me/foo.git v0.0.1/go.mod h1:def456=\n"
+	scaffoldGoSum := "github.com/rs/zerolog v1.32.0 h1:existing=\n"
+
+	if err := os.WriteFile(filepath.Join(src, "go.sum"), []byte(funcGoSum), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(out, "go.sum"), []byte(scaffoldGoSum), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := mergeGoSum(src, out); err != nil {
+		t.Fatal(err)
+	}
+
+	merged, err := os.ReadFile(filepath.Join(out, "go.sum"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result := string(merged)
+	if !strings.Contains(result, "git-private.localtest.me/foo.git v0.0.1 h1:abc123=") {
+		t.Fatal("merged go.sum should contain function's dependency checksum")
+	}
+	if !strings.Contains(result, "github.com/rs/zerolog v1.32.0 h1:existing=") {
+		t.Fatal("merged go.sum should still contain scaffolding's original entries")
+	}
+}
+
+// TestMergeGoSum_NoFunctionGoSum ensures that when the function has no
+// go.sum file, mergeGoSum returns nil without error.
+func TestMergeGoSum_NoFunctionGoSum(t *testing.T) {
+	src, done := Mktemp(t)
+	defer done()
+	out, doneOut := Mktemp(t)
+	defer doneOut()
+
+	scaffoldGoSum := "github.com/rs/zerolog v1.32.0 h1:existing=\n"
+	if err := os.WriteFile(filepath.Join(out, "go.sum"), []byte(scaffoldGoSum), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := mergeGoSum(src, out); err != nil {
+		t.Fatalf("mergeGoSum should not error when function has no go.sum: %v", err)
+	}
+
+	// Scaffolding go.sum should remain unchanged
+	data, err := os.ReadFile(filepath.Join(out, "go.sum"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != scaffoldGoSum {
+		t.Fatalf("scaffolding go.sum should be unchanged, got: %q", string(data))
+	}
 }

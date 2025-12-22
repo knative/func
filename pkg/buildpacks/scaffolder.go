@@ -10,7 +10,7 @@ import (
 	"knative.dev/func/pkg/scaffolding"
 )
 
-const defaultPath = ".func/build"
+const defaultPath = fn.RunDataDir + "/" + fn.BuildDir
 
 // Scaffolder for buildpacks builder
 type Scaffolder struct {

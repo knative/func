@@ -189,7 +189,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 	// set scaffolding path to buildpacks builder
 	if f.Runtime == "go" {
-		opts.Env["BP_GO_WORKDIR"] = ".func/build"
+		opts.Env["BP_GO_WORKDIR"] = filepath.Join(fn.RunDataDir, fn.BuildDir)
 	}
 
 	// Get middleware version and set as image label via BP_IMAGE_LABELS

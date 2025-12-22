@@ -28,6 +28,10 @@ const (
 	RunDataDir       = ".func"
 	RunDataLocalFile = "local.yaml"
 
+	// BuildDir is the subdirectory within RunDataDir for build scaffolding
+	// and artifacts (e.g. ".func/build").
+	BuildDir = "build"
+
 	// BuiltHash is a name of a file that holds hash of built Function in runtime
 	// metadata dir (RunDataDir)
 	BuiltHash = "built-hash"
@@ -581,6 +585,12 @@ func timestamp(s string) string {
 // Any errors are considered failure (invalid or inaccessible root, config file, etc).
 func (f Function) Initialized() bool {
 	return !f.Created.IsZero()
+}
+
+// HasScaffolding returns true if the function runtime supports scaffolding.
+// Scaffoldable runtimes (go, python) require a generated main wrapper to build.
+func (f Function) HasScaffolding() bool {
+	return f.Runtime == "go" || f.Runtime == "python"
 }
 
 // LabelsMap combines default labels with the labels slice provided.

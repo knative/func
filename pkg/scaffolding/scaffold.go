@@ -2,6 +2,7 @@ package scaffolding
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -107,7 +108,7 @@ func detectSignature(src, runtime, invoke string) (s Signature, err error) {
 	}
 }
 
-// patch scaffolding main.go and go.mod based on the users function
+// patch scaffolding main.go, go.mod and go.sum based on the users function
 func patchScaffolding(src, out string) error {
 	goModPath := filepath.Join(src, "go.mod")
 	data, err := os.ReadFile(goModPath)
@@ -124,13 +125,16 @@ func patchScaffolding(src, out string) error {
 
 	moduleName := goMod.Module.Mod.Path
 
-	if err := patchGoMod(out, moduleName, goMod.Go); err != nil {
+	if err := patchGoMod(out, moduleName, goMod.Go, goMod.Require); err != nil {
+		return err
+	}
+	if err := mergeGoSum(src, out); err != nil {
 		return err
 	}
 	return patchMain(out, moduleName)
 }
 
-func patchGoMod(dir, moduleName string, goDirective *modfile.Go) error {
+func patchGoMod(dir, moduleName string, goDirective *modfile.Go, funcRequires []*modfile.Require) error {
 	path := filepath.Join(dir, "go.mod")
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -159,11 +163,53 @@ func patchGoMod(dir, moduleName string, goDirective *modfile.Go) error {
 		return fmt.Errorf("cannot add require: %w", err)
 	}
 
+	// Merge function's dependencies that aren't already in the scaffolding
+	// go.mod. This ensures transitive requires (e.g. private dependencies)
+	// are present without downgrading versions the scaffolding already has.
+	existing := make(map[string]bool, len(f.Require))
+	for _, req := range f.Require {
+		existing[req.Mod.Path] = true
+	}
+	for _, req := range funcRequires {
+		if existing[req.Mod.Path] {
+			continue
+		}
+		if err := f.AddRequire(req.Mod.Path, req.Mod.Version); err != nil {
+			return fmt.Errorf("cannot add require %s: %w", req.Mod.Path, err)
+		}
+	}
+
 	formatted, err := f.Format()
 	if err != nil {
 		return fmt.Errorf("cannot format scaffolding go.mod: %w", err)
 	}
 	return os.WriteFile(path, formatted, 0644)
+}
+
+// mergeGoSum appends the function's go.sum entries into the scaffolding's
+// go.sum so that all transitive dependency checksums are available at build
+// time. Duplicate entries are harmless; Go tooling ignores them.
+func mergeGoSum(src, out string) error {
+	funcGoSum := filepath.Join(src, "go.sum")
+	data, err := os.ReadFile(funcGoSum)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("cannot read function go.sum: %w", err)
+	}
+
+	scaffoldGoSum := filepath.Join(out, "go.sum")
+	f, err := os.OpenFile(scaffoldGoSum, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot open scaffolding go.sum: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := f.Write(data); err != nil {
+		return fmt.Errorf("cannot append to scaffolding go.sum: %w", err)
+	}
+	return nil
 }
 
 func patchMain(out, moduleName string) error {

@@ -10,9 +10,7 @@ import (
 	"knative.dev/func/pkg/scaffolding"
 )
 
-const (
-	defaultPath = ".func/build"
-)
+const defaultPath = fn.RunDataDir + "/" + fn.BuildDir
 
 // Scaffolder for host (OCI) builder
 type Scaffolder struct {
@@ -26,9 +24,9 @@ func NewScaffolder(verbose bool) *Scaffolder {
 // Scaffold the function so that it can be built via oci builder.
 // 'path' is an optional override. Assign "" (empty string) most of the time
 func (s Scaffolder) Scaffold(ctx context.Context, f fn.Function, path string) error {
-	if f.Runtime != "go" && f.Runtime != "python" {
+	if !f.HasScaffolding() {
 		if s.verbose {
-			fmt.Println("Scaffolding skipped. Currently available for runtimes go & python")
+			fmt.Println("Scaffolding skipped. Runtime does not support scaffolding.")
 		}
 		return nil
 	}

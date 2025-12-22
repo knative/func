@@ -170,7 +170,7 @@ func (p *Pusher) handleUpdates(ctx context.Context) {
 
 // getBuildDir returns the build directory
 func getBuildDir(f fn.Function) (string, error) {
-	dir := filepath.Join(f.Root, fn.RunDataDir, "build")
+	dir := filepath.Join(f.Root, fn.RunDataDir, fn.BuildDir)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return dir, fmt.Errorf("build directory not found '%v'. Has it been built?", dir)
 	}

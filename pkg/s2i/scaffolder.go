@@ -10,9 +10,7 @@ import (
 	"knative.dev/func/pkg/scaffolding"
 )
 
-const (
-	defaultPath = ".s2i/build"
-)
+const defaultPath = fn.RunDataDir + "/" + fn.BuildDir
 
 // Scaffolder for S2I builder
 type Scaffolder struct {
@@ -26,9 +24,9 @@ func NewScaffolder(verbose bool) *Scaffolder {
 // Scaffold the function so that it can be built via s2i builder.
 // 'path' is an optional override. Assign "" (empty string) most of the time
 func (s Scaffolder) Scaffold(ctx context.Context, f fn.Function, path string) error {
-	if f.Runtime != "go" && f.Runtime != "python" {
+	if !f.HasScaffolding() {
 		if s.verbose {
-			fmt.Println("Scaffolding skipped. Currently available for runtimes go & python")
+			fmt.Println("Scaffolding skipped. Runtime does not support scaffolding.")
 		}
 		return nil
 	}
@@ -55,10 +53,11 @@ func (s Scaffolder) Scaffold(ctx context.Context, f fn.Function, path string) er
 		return err
 	}
 	if assemble != "" {
-		if err := os.MkdirAll(filepath.Join(f.Root, ".s2i", "bin"), 0755); err != nil {
-			return fmt.Errorf("unable to create .s2i bin dir. %w", err)
+		binDir := filepath.Join(appRoot, "bin")
+		if err := os.MkdirAll(binDir, 0755); err != nil {
+			return fmt.Errorf("unable to create scaffolding bin dir. %w", err)
 		}
-		if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(assemble), 0700); err != nil {
+		if err := os.WriteFile(filepath.Join(binDir, "assemble"), []byte(assemble), 0700); err != nil {
 			return fmt.Errorf("unable to write assembler script. %w", err)
 		}
 	}

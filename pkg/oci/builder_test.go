@@ -83,7 +83,7 @@ func TestBuilder_BuildGo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
+	oci := filepath.Join(f.Root, fn.RunDataDir, fn.BuildDir, "oci")
 
 	validateOCIStructure(oci, t) // validate OCI compliant
 }
@@ -117,7 +117,7 @@ func TestBuilder_BuildPython(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
+	oci := filepath.Join(f.Root, fn.RunDataDir, fn.BuildDir, "oci")
 
 	validateOCIStructure(oci, t) // validate OCI compliant
 }
@@ -184,7 +184,7 @@ func TestBuilder_Files(t *testing.T) {
 		{Path: "/func/go.mod"},
 	}
 
-	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
+	oci := filepath.Join(f.Root, fn.RunDataDir, fn.BuildDir, "oci")
 
 	validateOCIFiles(oci, expected, t)
 }
@@ -357,7 +357,7 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 	// variables on each of the constituent containers.
 	// ---
 	// Get the images list (manifest descripors) from the index
-	ociPath := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")
+	ociPath := filepath.Join(f.Root, fn.RunDataDir, fn.BuildDir, "oci")
 	data, err := os.ReadFile(filepath.Join(ociPath, "index.json"))
 	if err != nil {
 		t.Fatal(err)
