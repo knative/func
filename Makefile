@@ -115,7 +115,7 @@ check-whitespace: ## Check for trailing whitespace
 		grep -Ev '(vendor/|third_party/|\.git)' | \
 		grep -v '\.svg$$' | \
 		while IFS= read -r file; do [ -f "$$file" ] && echo "$$file"; done | \
-		xargs grep -nE " +$$" 2>&1 | grep -v "Binary file" && \
+		xargs grep -nE " +$$" 2>&1 | grep -vi "binary file" && \
 		(echo "Error: Trailing whitespace found"; exit 1) || true
 
 .PHONY: check-eof
@@ -125,7 +125,7 @@ check-eof: ## Check files end with newlines
 		git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
 		git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
 		grep -Ev '(vendor/|third_party/|\.git)' | \
-		grep -Ev '\.(ai|svg)$$' | \
+		grep -Ev '\.(ai|svg|tar|tgz|zip)$$' | \
 		while IFS= read -r file; do \
 			if [ -f "$$file" ] && [ -n "$$(tail -c 1 "$$file" 2>/dev/null)" ]; then \
 				echo "$$file: missing newline at EOF"; \
