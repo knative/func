@@ -44,7 +44,7 @@ Create a git commit message following these rules:
 - Explain the "what" and "why" vs. "how" which means:
   - the way things worked before the change (and what was wrong with that),
   - the way they work now,
-  - and why the contributor decided to solve it the way she did,
+  - and why the contributor decided to solve it the way they did,
   - and if you're not sure about the "why" then ask the contributor.
 - Focus on context, not implementation details
 - Find a balance for message length, i.e. analyze the diff and decide if a shorter message is enough or more explanation is needed
