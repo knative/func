@@ -26,7 +26,7 @@ echo ">> args='$@'"
 # This is a guard for running only when its running via bot to update deps and
 # potentially create a PR.
 # When this is running in 'verify deps' workflow it runs with no arguments.
-# We dont want these changes to break the GH Action for all PRs therefore we
+# We don't want these changes to break the GH Action for all PRs therefore we
 # limit this only for dependency bumps.
 if [[ $# -gt 0 ]]; then
     echo ">> Running make hack-generate-components"

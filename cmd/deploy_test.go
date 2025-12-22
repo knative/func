@@ -1227,7 +1227,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 
 	activeNamespace, err := k8s.GetDefaultNamespace()
 	if err != nil {
-		t.Fatalf("Couldnt get active namespace, got error: %v", err)
+		t.Fatalf("Couldn't get active namespace, got error: %v", err)
 	}
 
 	expected1 := "Info: chosen namespace has changed from 'myns' to 'newns'. Undeploying function from 'myns' and deploying new in 'newns'."
@@ -1248,7 +1248,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 	}
 }
 
-// TestDeploy_BasicRedeploy simply ensures that redeploy works and doesnt brake
+// TestDeploy_BasicRedeploy simply ensures that redeploy works and doesn't break
 // using standard deploy method when desired namespace is deleted.
 func TestDeploy_BasicRedeployInCorrectNamespace(t *testing.T) {
 	root := FromTempDirectory(t)
@@ -1289,7 +1289,7 @@ func TestDeploy_BasicRedeployInCorrectNamespace(t *testing.T) {
 }
 
 // TestDeploy_BasicRedeployPipelines simply ensures that deploy 2 times works
-// and doesnt brake using pipelines
+// and doesn't break using pipelines
 func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 	root := FromTempDirectory(t)
 
@@ -1816,7 +1816,7 @@ func TestReDeploy_OnRegistryChange(t *testing.T) {
 	// ASSERT
 	expectF, err := fn.NewFunction(root)
 	if err != nil {
-		t.Fatal("couldnt load function from path")
+		t.Fatal("couldn't load function from path")
 	}
 
 	if !strings.Contains(expectF.Build.Image, newRegistry) {
@@ -1865,7 +1865,7 @@ func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
 
 // TestDeploy_NoErrorOnOldFunctionNotFound assures that no error is given when
 // old Function's service is not available (is already deleted manually or the
-// namespace doesnt exist etc.)
+// namespace doesn't exist etc.)
 func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 	var (
 		root    = FromTempDirectory(t)
@@ -1918,7 +1918,7 @@ func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 	if err = cmd.Execute(); err != nil {
 		// possible TODO: catch the os.Stderr output and check that this is printed out
 		// and if this is implemented, probably change the name to *_WarnOnFunction
-		// expectedWarning := fmt.Sprintf("Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", nsOne)
+		// expectedWarning := fmt.Sprintf("Warning: Can't undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", nsOne)
 
 		// ASSERT
 
