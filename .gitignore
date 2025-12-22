@@ -34,6 +34,7 @@ __pycache__
 # AI
 AGENTS.override.md
 .claude/*.local.*
+.claude/pr/*
 
 # E2E Tests
 /e2e/testdata/default_home/go
@@ -49,3 +50,4 @@ AGENTS.override.md
 # TODO: Update this test to be from a temp directory with a hard-coded impl:
 # https://github.com/knative/func/issues/3196
 /pkg/builders/testdata/go-fn-with-private-deps/.s2i
+
