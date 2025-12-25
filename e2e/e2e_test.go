@@ -9,6 +9,7 @@ See README.md for more details.
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -1153,4 +1154,51 @@ func chooseOpenAddress(t *testing.T) (address string, err error) {
 	}
 	defer l.Close()
 	return l.Addr().String(), nil
+}
+
+// parseRunJSON parses JSON output from "func run --json" and returns the
+// function's address and a cleanup function that must be deferred.
+func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
+	t.Helper()
+
+	stdoutReader, stdoutWriter := io.Pipe()
+	stderr := &bytes.Buffer{}
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderr
+
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	type runOutput struct {
+		Address string `json:"address"`
+		Host    string `json:"host"`
+		Port    string `json:"port"`
+	}
+
+	addressChan := make(chan string, 1)
+	errChan := make(chan error, 1)
+
+	go func() {
+		var result runOutput
+		decoder := json.NewDecoder(stdoutReader)
+		if err := decoder.Decode(&result); err != nil {
+			errChan <- fmt.Errorf("failed to decode JSON output: %w", err)
+			return
+		}
+		addressChan <- result.Address
+		io.Copy(io.Discard, stdoutReader) // Prevent blocking
+	}()
+
+	var address string
+	select {
+	case address = <-addressChan:
+		t.Logf("Function running on %s (from JSON output)", address)
+	case err := <-errChan:
+		t.Fatalf("JSON parsing error: %v\nstderr: %s", err, stderr.String())
+	case <-time.After(10 * time.Second):
+		t.Fatalf("timeout waiting for func run JSON output. stderr: %s", stderr.String())
+	}
+
+	return address, func() { stdoutWriter.Close() }
 }
