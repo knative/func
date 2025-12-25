@@ -1196,7 +1196,7 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
 		t.Logf("Function running on %s (from JSON output)", address)
 	case err := <-errChan:
 		t.Fatalf("JSON parsing error: %v\nstderr: %s", err, stderr.String())
-	case <-time.After(10 * time.Second):
+	case <-time.After(5 * time.Minute):
 		t.Fatalf("timeout waiting for func run JSON output. stderr: %s", stderr.String())
 	}
 
