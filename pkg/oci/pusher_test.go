@@ -61,12 +61,17 @@ func TestPusher_Push(t *testing.T) {
 
 	// Create and push a function
 	client := fn.New(
+		fn.WithScaffolder(NewScaffolder(false)),
 		fn.WithBuilder(NewBuilder("", false)),
 		fn.WithPusher(NewPusher(insecure, anon, verbose)))
 
 	f := fn.Function{Root: root, Runtime: "go", Name: "f", Registry: l.Addr().String() + "/funcs"}
 
 	if f, err = client.Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = client.Scaffold(context.Background(), f, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -135,6 +140,7 @@ func TestPusher_BasicAuth(t *testing.T) {
 	// Client
 	// initialized with an OCI builder and pusher.
 	client := fn.New(
+		fn.WithScaffolder(NewScaffolder(verbose)),
 		fn.WithBuilder(NewBuilder("", verbose)),
 		fn.WithPusher(pusher),
 	)
@@ -148,6 +154,9 @@ func TestPusher_BasicAuth(t *testing.T) {
 		Registry: server.Addr().String() + "/funcs"}
 
 	if f, err = client.Init(f); err != nil {
+		t.Fatal(err)
+	}
+	if err = client.Scaffold(context.Background(), f, ""); err != nil {
 		t.Fatal(err)
 	}
 	if f, err = client.Build(context.Background(), f); err != nil {
