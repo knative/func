@@ -226,6 +226,10 @@ func matrixExceptionsShared(t *testing.T, initArgs []string, funcRuntime, builde
 	if funcRuntime == "python" && builder == "pack" {
 		t.Skip("The pack builder does not currently support Python Functions")
 	}
+	// Skip Host builder (not supported)
+	if funcRuntime == "python" && builder == "host" {
+		t.Skip("The host builder does not currently support Python Functions")
+	}
 
 	// Echo Implementation
 	// Replace the simple "OK" implementation with an echo.
