@@ -68,17 +68,11 @@ func TestCore_Run(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	address, err := chooseOpenAddress(t)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd := newCmd(t, "run", "--address", address)
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
+	cmd := newCmd(t, "run", "--json")
+	address, cleanup := parseRunJSON(t, cmd)
+	defer cleanup()
 
-	// Wait for echo
-	if !waitFor(t, "http://"+address) {
+	if !waitFor(t, address) {
 		t.Fatal("service does not appear to have started correctly.")
 	}
 
@@ -279,15 +273,10 @@ func TestCore_Invoke(t *testing.T) {
 	// ----------------------------------------
 	// Runs the function locally, which `func invoke` will invoke when
 	// it detects it is running.
-	address, err := chooseOpenAddress(t)
-	if err != nil {
-		t.Fatal(err)
-	}
+	cmd := newCmd(t, "run", "--json")
+	address, cleanup := parseRunJSON(t, cmd)
+	defer cleanup()
 
-	cmd := newCmd(t, "run", "--address", address)
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
 	run := cmd // for the closure
 	defer func() {
 		// ^C the running function
@@ -296,12 +285,7 @@ func TestCore_Invoke(t *testing.T) {
 		}
 	}()
 
-	// TODO: complete implementation of `func run --json` structured output
-	// such that we can parse it for the actual listen address in the case
-	// that there is already something else running on 8080
-	// https://github.com/knative/func/issues/3198
-	// https://github.com/knative/func/issues/3199
-	if !waitFor(t, "http://"+address) {
+	if !waitFor(t, address) {
 		t.Fatal("service does not appear to have started correctly.")
 	}
 
