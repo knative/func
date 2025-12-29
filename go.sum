@@ -1903,8 +1903,8 @@ knative.dev/networking v0.0.0-20251217020127-11890a5dabea h1:CsVi1M+NbPIfvBPWI9D
 knative.dev/networking v0.0.0-20251217020127-11890a5dabea/go.mod h1:gPzztUiSYDSB3yHx85xr4j2ZccEdiZDWlLsYHr7fQtg=
 knative.dev/pkg v0.0.0-20250716115900-19d3cc2da0b9 h1:P9GFsqTmX4WokSVVUK1IbHOnbJLi8EW1pd4PvbUEodo=
 knative.dev/pkg v0.0.0-20250716115900-19d3cc2da0b9/go.mod h1:Hq2y1gu4P/MWEk9zB8L/zrjJ19ywEnYgwXq8ZMjRl30=
-knative.dev/serving v0.47.1-0.20251218232827-a8803aa26a7e h1:cDndEOEj+wHCmQwnm4lbDRFpqFWblwccNKM8wzyCcag=
-knative.dev/serving v0.47.1-0.20251218232827-a8803aa26a7e/go.mod h1:qW599XVs3fmHQhD6W+kcy09ojfAXkgTwtJq2EOdouoM=
+knative.dev/serving v0.47.1-0.20251226224520-25d0f396a5c6 h1:9wMH+7Ub2olwKAtz5j/cWTE/3KFjjlaRZl6k3uRGDzM=
+knative.dev/serving v0.47.1-0.20251226224520-25d0f396a5c6/go.mod h1:qW599XVs3fmHQhD6W+kcy09ojfAXkgTwtJq2EOdouoM=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
