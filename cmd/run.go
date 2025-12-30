@@ -232,11 +232,19 @@ Or if you have an existing function:
 				return err
 			}
 			if shouldBuild {
+				if err = client.Lock(f); err != nil {
+					return err
+				}
 				if err := client.Scaffold(cmd.Context(), f, ""); err != nil {
+					_ = client.Unlock(f)
 					return err
 				}
 				f, err = client.Build(cmd.Context(), f, buildOptions...)
 				if err != nil {
+					_ = client.Unlock(f)
+					return err
+				}
+				if err = client.Unlock(f); err != nil {
 					return err
 				}
 			}

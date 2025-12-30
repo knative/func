@@ -2,10 +2,12 @@ package functions_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -542,4 +544,76 @@ func TestFunction_LocalTransient(t *testing.T) {
 	if newFunc.Local.Remote {
 		t.Fatal("Remote not supposed to be set")
 	}
+}
+
+// TestFunction_Lock tests the build lock mechanism:
+// 1. Clean lock succeeds
+// 2. Re-entrant lock succeeds (same owner)
+// 3. Unlock removes the lock file
+// 4. Stale lock (dead PID) allows new lock
+// 5. Different client (UUID) is blocked and cannot unlock
+func TestFunction_Lock(t *testing.T) {
+	var (
+		root = t.TempDir()
+		f    = fn.Function{Root: root}
+		lock = f.LockFile()
+		c    = fn.New() // client
+	)
+
+	// --- Clean lock succeeds
+	if err := c.Lock(f); err != nil {
+		t.Fatalf("clean lock should succeed: %v", err)
+	}
+
+	data, err := os.ReadFile(lock)
+	if err != nil {
+		t.Fatalf("failed to read data from lockfile:%v", err)
+	}
+
+	// with correct PID
+	if !strings.Contains(string(data), "PID="+strconv.Itoa(os.Getpid())) {
+		t.Fatalf("unexpected lock file PID: expected: %v, got:%v", os.Getpid(), string(data))
+	}
+
+	// --- Second attempt succeeds (re-entrant, same owner)
+	if err := c.Lock(f); err != nil {
+		t.Fatalf("re-entrant lock should succeed: %v", err)
+	}
+
+	// --- Unlock removes the file
+	if err := c.Unlock(f); err != nil {
+		t.Fatalf("expected unlock to succeed, got: %v", err)
+	}
+
+	if _, err := os.Stat(lock); !os.IsNotExist(err) {
+		t.Fatalf("expected lockfile to not exist")
+	}
+
+	// --- Stale lock (dead PID) allows new lock
+	if err := os.WriteFile(lock, []byte("PID=99999999\nUUID=stale"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := c.Lock(f); err != nil {
+		t.Fatalf("stale lock should allow lock: %v", err)
+	}
+	_ = c.Unlock(f)
+
+	// --- UUID check
+	c2 := fn.New()
+	if err := c.Lock(f); err != nil {
+		t.Fatalf("c1 lock failed: %v", err)
+	}
+
+	var target *fn.ErrBuildInProgress
+	if err := c2.Lock(f); !errors.As(err, &target) {
+		t.Fatalf("expected error when c2 tries to lock, got: %v", err)
+	}
+
+	// c2 should not unlock
+	if err := c2.Unlock(f); err == nil {
+		t.Fatal("expected error when c2 tries to unlock")
+	}
+
+	_ = c.Unlock(f)
 }

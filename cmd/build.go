@@ -227,13 +227,28 @@ For more options, run 'func build --help'`, err)
 		return
 	}
 
+	// if build fails the lock file remains. This is not an issue. We
+	// check for underlying process existence. Existent lock file & non-existent
+	// PID signal failed build -> will not block subsequent builds.
+	// TODO: gauron99 - add mutex
+	if err = client.Lock(f); err != nil {
+		return
+	}
+
 	if err = client.Scaffold(cmd.Context(), f, ""); err != nil {
+		_ = client.Unlock(f)
 		return
 	}
 
 	if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
+		_ = client.Unlock(f)
 		return
 	}
+
+	if err = client.Unlock(f); err != nil {
+		return
+	}
+
 	if cfg.Push {
 		if f, _, err = client.Push(cmd.Context(), f); err != nil {
 			return

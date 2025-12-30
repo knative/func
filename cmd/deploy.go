@@ -487,10 +487,18 @@ For more options, run 'func deploy --help'`, err)
 				return
 			}
 			if shouldBuild {
+				if err = client.Lock(f); err != nil {
+					return
+				}
 				if err = client.Scaffold(cmd.Context(), f, ""); err != nil {
+					_ = client.Unlock(f)
 					return
 				}
 				if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
+					_ = client.Unlock(f)
+					return
+				}
+				if err = client.Unlock(f); err != nil {
 					return
 				}
 			}
