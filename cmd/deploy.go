@@ -487,10 +487,19 @@ For more options, run 'func deploy --help'`, err)
 				return
 			}
 			if shouldBuild {
+				//TODO: gauron99 - add mutex
+				if err = f.BuildLock(); err != nil {
+					return
+				}
 				if err = client.Scaffold(cmd.Context(), f, ""); err != nil {
+					_ = f.BuildUnlock()
 					return
 				}
 				if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
+					_ = f.BuildUnlock()
+					return
+				}
+				if err = f.BuildUnlock(); err != nil {
 					return
 				}
 			}

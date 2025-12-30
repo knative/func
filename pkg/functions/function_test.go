@@ -2,10 +2,12 @@ package functions_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -542,4 +544,57 @@ func TestFunction_LocalTransient(t *testing.T) {
 	if newFunc.Local.Remote {
 		t.Fatal("Remote not supposed to be set")
 	}
+}
+
+// TestFunction_BuildLock tests the build lock mechanism with 3 scenarios:
+// 1. Clean lock succeeds
+// 2. Active lock (running PID) blocks with ErrBuildInProgress
+// 3. Stale lock (dead PID) allows lock to proceed
+func TestFunction_BuildLock(t *testing.T) {
+	root := t.TempDir()
+	f := fn.Function{Root: root}
+
+	lockFile := filepath.Join(root, fn.RunDataDir, "build.lock")
+
+	// --- Clean lock succeeds
+	if err := f.BuildLock(); err != nil {
+		t.Fatalf("clean lock should succeed: %v", err)
+	}
+
+	data, err := os.ReadFile(lockFile)
+	if err != nil {
+		t.Fatalf("failed to read data from lockfile:%v", err)
+	}
+
+	// with correct PID
+	if strings.TrimSpace(string(data)) != strconv.Itoa(os.Getpid()) {
+		t.Fatalf("unexpected lock file PID: expected: %v, got:%v", os.Getpid(), string(data))
+	}
+
+	// --- Second attempt to lock fails
+	err = f.BuildLock()
+
+	// with the right error
+	if !errors.As(err, &fn.ErrBuildInProgress{}) {
+		t.Fatalf("expected error ErrBuildInProgress, got: %v", err)
+	}
+
+	// --- Unlock removes the file
+	if err := f.BuildUnlock(); err != nil {
+		t.Fatalf("expected unlock to succeed, got: %v", err)
+	}
+
+	if _, err := os.Stat(lockFile); !os.IsNotExist(err) {
+		t.Fatalf("expected lockfile to not exist")
+	}
+
+	// --- Stale lock (dead PID) allows new lock
+	if err := os.WriteFile(lockFile, []byte("99999999"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := f.BuildLock(); err != nil {
+		t.Fatalf("stale lock should allow lock: %v", err)
+	}
+	_ = f.BuildUnlock()
 }

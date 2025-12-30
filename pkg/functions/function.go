@@ -7,7 +7,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -33,8 +36,10 @@ const (
 	BuiltHash = "built-hash"
 
 	// BuildLock indicates that Function is being currently built to prevent
-	// multiple builds occurring at the same time. It contains PID of the process
-	// that's running the build. Found in metadata dir (RunDataDir)
+	// multiple builds occurring at the same time (think on-disk write) - wraps
+	// scaffolding + building phases.
+	// It contains PID of the process that's running the build.
+	// Found in metadata dir (RunDataDir).
 	BuildLock = "build.lock"
 
 	// BuiltImage is a name of a file that holds name of built image in runtime
@@ -836,4 +841,54 @@ func (f Function) ImageNameWithDigest(newDigest string) string {
 	part2 := string(imageAsBytes[lastSlashIdx+1:])
 	// Remove tag from the image name and append SHA256 hash instead
 	return part1 + strings.Split(part2, ":")[0] + "@" + newDigest
+}
+
+func (f Function) buildLockFile() string {
+	return filepath.Join(f.Root, RunDataDir, BuildLock)
+}
+
+// processExists returns true if the process with the given PID exists.
+func processExists(pid string) bool {
+	p, err := strconv.Atoi(pid)
+	if err != nil {
+		return false
+	}
+	process, err := os.FindProcess(p)
+	if err != nil {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return true
+	}
+	err = process.Signal(syscall.Signal(0))
+	return err == nil
+}
+
+func (f Function) isBuildActive() bool {
+	data, err := os.ReadFile(f.buildLockFile())
+	if err != nil {
+		return false // could catch error here instead
+	}
+	return processExists(strings.TrimSpace(string(data)))
+}
+
+// BuildLock() creates a lock file to indicate a function build is in process.
+func (f Function) BuildLock() error {
+	lockFile := f.buildLockFile()
+
+	// check if another build is in progress
+	if f.isBuildActive() {
+		return ErrBuildInProgress{Dir: f.Root}
+	}
+
+	// write parent dir
+	if err := os.MkdirAll(filepath.Dir(lockFile), 0755); err != nil {
+		return err
+	}
+	// write current PID to lockfile
+	return os.WriteFile(lockFile, []byte(strconv.Itoa(os.Getpid())), 0644)
+}
+
+func (f Function) BuildUnlock() error {
+	return os.Remove(f.buildLockFile())
 }

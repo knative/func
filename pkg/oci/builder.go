@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strconv"
-	"syscall"
 	"time"
 
 	"archive/tar"
@@ -113,14 +110,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (e
 		return
 	}
 
-	defer func() {
-		// Always remove build.lock file when build completes
-		if job.verbose {
-			fmt.Fprintf(os.Stderr, "rm %v\n", job.lockFile())
-		}
-		_ = os.Remove(job.lockFile())
-	}()
-
 	if err = fetchMiddlewareLabels(&job); err != nil {
 		return
 	}
@@ -145,16 +134,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (e
 
 // setup the build task prerequisites on the filesystem
 func setup(job buildJob) (err error) {
-	// Fail if another build is in progress
-	if job.isActive() {
-		return ErrBuildInProgress{job.buildDir()}
-	}
-
-	// Create the lock file with current PID to prevent concurrent builds
-	lockContent := fmt.Sprintf("%d", os.Getpid())
-	if err = os.WriteFile(job.lockFile(), []byte(lockContent), 0644); err != nil {
-		return
-	}
 
 	if job.verbose {
 		fmt.Fprintf(os.Stderr, "mkdir -p %v\n", job.buildDir())
@@ -861,15 +840,6 @@ func newBuildJob(ctx context.Context, f fn.Function, pp []fn.Platform, verbose b
 func (j buildJob) buildDir() string {
 	return filepath.Join(j.function.Root, fn.RunDataDir, "build")
 }
-
-func (j buildJob) lockFile() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "build.lock")
-}
-
-func (j buildJob) lockFilePid(content []byte) string {
-	return strings.TrimSpace(string(content))
-}
-
 func (j buildJob) ociDir() string {
 	return filepath.Join(j.function.Root, fn.RunDataDir, "build", "oci")
 }
@@ -878,19 +848,6 @@ func (j buildJob) blobsDir() string {
 }
 func (j buildJob) cacheDir() string {
 	return filepath.Join(j.function.Root, fn.RunDataDir, "blob-cache")
-}
-
-// isActive returns true if an active build for this Function is detected.
-func (j buildJob) isActive() bool {
-	d, err := os.ReadFile(j.lockFile())
-	if err != nil {
-		return false
-	}
-	// build is active only if the lock file AND its process exists
-	if processExists(j.lockFilePid(d)) {
-		return true
-	}
-	return false
 }
 
 // -------------------------
@@ -908,23 +865,6 @@ func rel(base, path string) string {
 		return "." + s
 	}
 	return path
-}
-
-// processExists returns true if the process with the given PID exists.
-func processExists(pid string) bool {
-	p, err := strconv.Atoi(pid)
-	if err != nil {
-		return false
-	}
-	process, err := os.FindProcess(p)
-	if err != nil {
-		return false
-	}
-	if runtime.GOOS == "windows" {
-		return true
-	}
-	err = process.Signal(syscall.Signal(0))
-	return err == nil
 }
 
 // toPlatforms converts func's implementation-agnostic Platform struct
