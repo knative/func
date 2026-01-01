@@ -131,3 +131,11 @@ func (e *ErrPortUnavailableError) IsPermissionDenied() bool {
 		strings.Contains(errStr, "access denied") ||
 		strings.Contains(errStr, "operation not permitted")
 }
+
+type ErrBuildInProgress struct {
+	Dir string
+}
+
+func (e ErrBuildInProgress) Error() string {
+	return fmt.Sprintf("a build for this function is associated with an active PID appears to be already in progress %v", e.Dir)
+}
