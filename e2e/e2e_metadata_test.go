@@ -562,6 +562,13 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 // TestMetadata_Subscriptions verifies the full event flow using Knative Eventing:
 // Producer function -> Broker -> Trigger -> Subscriber function
 func TestMetadata_Subscriptions(t *testing.T) {
+	// Verify Knative Eventing is installed
+	checkCmd := exec.Command("kubectl", "get", "svc", "-n", "knative-eventing", "broker-ingress")
+	checkCmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
+	if err := checkCmd.Run(); err != nil {
+		t.Skip("Skipping test: Knative Eventing is not installed (broker-ingress service not found)")
+	}
+
 	brokerName := "default"
 	createBroker(t, Namespace, brokerName)
 	defer deleteBroker(t, Namespace, brokerName)
