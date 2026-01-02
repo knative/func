@@ -604,7 +604,12 @@ func Handle(ctx context.Context, e event.Event) (*event.Event, error) {
 		t.Fatal(err)
 	}
 
-	if err := newCmd(t, "subscribe", "--filter", "type=test.event").Run(); err != nil {
+	// Run func subscribe (without -v flag which subscribe doesn't support)
+	subscribeCmd := exec.Command(Bin, "subscribe", "--filter", "type=test.event")
+	subscribeCmd.Stdout = os.Stdout
+	subscribeCmd.Stderr = os.Stderr
+	t.Log("$ func subscribe --filter type=test.event")
+	if err := subscribeCmd.Run(); err != nil {
 		t.Fatal(err)
 	}
 
