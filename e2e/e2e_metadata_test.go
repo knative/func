@@ -562,13 +562,6 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 // TestMetadata_Subscriptions verifies the full event flow using Knative Eventing:
 // Producer function -> Broker -> Trigger -> Subscriber function
 func TestMetadata_Subscriptions(t *testing.T) {
-	// Verify Knative Eventing is installed
-	checkCmd := exec.Command("kubectl", "get", "svc", "-n", "knative-eventing", "broker-ingress")
-	checkCmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
-	if err := checkCmd.Run(); err != nil {
-		t.Skip("Skipping test: Knative Eventing is not installed (broker-ingress service not found)")
-	}
-
 	brokerName := "default"
 	createBroker(t, Namespace, brokerName)
 	defer deleteBroker(t, Namespace, brokerName)
@@ -776,6 +769,20 @@ metadata:
 	} else {
 		t.Logf("Broker %s is ready", name)
 	}
+
+	// Wait for broker-ingress service to be available (critical for CI)
+	// This ensures DNS has propagated before we try to send events
+	t.Log("Waiting for broker-ingress service to be available...")
+	for i := 0; i < 30; i++ {
+		checkCmd := exec.Command("kubectl", "get", "svc", "-n", "knative-eventing", "broker-ingress")
+		checkCmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
+		if err := checkCmd.Run(); err == nil {
+			t.Log("broker-ingress service is available")
+			return
+		}
+		time.Sleep(2 * time.Second)
+	}
+	t.Log("Warning: broker-ingress service check timed out, proceeding anyway")
 }
 
 // deleteBroker removes a Knative Broker from the given namespace.
