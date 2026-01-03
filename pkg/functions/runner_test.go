@@ -39,3 +39,93 @@ func TestGetRunFuncErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestParseAddress(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		expectedHost string
+		expectedPort string
+		explicitPort bool
+	}{
+		{
+			name:         "empty value",
+			input:        "",
+			expectedHost: defaultRunHost,
+			expectedPort: defaultRunPort,
+			explicitPort: false,
+		},
+		{
+			name:         "host-only hostname",
+			input:        "localhost",
+			expectedHost: "localhost",
+			expectedPort: defaultRunPort,
+			explicitPort: false,
+		},
+		{
+			name:         "host-only ipv4",
+			input:        "127.0.0.2",
+			expectedHost: "127.0.0.2",
+			expectedPort: defaultRunPort,
+			explicitPort: false,
+		},
+		{
+			name:         "host-only ipv6",
+			input:        "::1",
+			expectedHost: "::1",
+			expectedPort: defaultRunPort,
+			explicitPort: false,
+		},
+		{
+			name:         "hostname with explicit port",
+			input:        "localhost:5000",
+			expectedHost: "localhost",
+			expectedPort: "5000",
+			explicitPort: true,
+		},
+		{
+			name:         "ipv4 with explicit port",
+			input:        "127.0.0.2:5000",
+			expectedHost: "127.0.0.2",
+			expectedPort: "5000",
+			explicitPort: true,
+		},
+		{
+			name:         "ipv6 with explicit port",
+			input:        "[::1]:5000",
+			expectedHost: "::1",
+			expectedPort: "5000",
+			explicitPort: true,
+		},
+		{
+			name:         "ipv4 with empty port",
+			input:        "127.0.0.1:",
+			expectedHost: "127.0.0.1",
+			expectedPort: defaultRunPort,
+			explicitPort: false,
+		},
+		{
+			name:         "empty host with explicit port",
+			input:        ":5000",
+			expectedHost: defaultRunHost,
+			expectedPort: "5000",
+			explicitPort: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h, p, explicit := ParseAddress(tt.input)
+
+			if h != tt.expectedHost {
+				t.Errorf("host = %v, want %v", h, tt.expectedHost)
+			}
+			if p != tt.expectedPort {
+				t.Errorf("port = %v, want %v", p, tt.expectedPort)
+			}
+			if explicit != tt.explicitPort {
+				t.Errorf("explicitPort = %v, want %v", explicit, tt.explicitPort)
+			}
+		})
+	}
+}

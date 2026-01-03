@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultRunHost    = "127.0.0.1" // TODO allow to be altered via a runOpt
+	defaultRunHost    = "127.0.0.1"
 	defaultRunPort    = "8080"
 	readinessEndpoint = "/health/readiness"
 )
@@ -24,6 +24,24 @@ type defaultRunner struct {
 	client *Client
 	out    io.Writer
 	err    io.Writer
+}
+
+func ParseAddress(val string) (host, port string, explicitPort bool) {
+	if val == "" {
+		return defaultRunHost, defaultRunPort, false
+	}
+
+	if h, p, err := net.SplitHostPort(val); err == nil {
+		if h == "" {
+			h = defaultRunHost
+		}
+		if p == "" {
+			return h, defaultRunPort, false
+		}
+		return h, p, true
+	}
+
+	return val, defaultRunPort, false
 }
 
 func newDefaultRunner(client *Client, out, err io.Writer) *defaultRunner {
@@ -41,17 +59,7 @@ func (r *defaultRunner) Run(ctx context.Context, f Function, address string, sta
 	)
 
 	// Parse address if provided, otherwise use defaults
-	host := defaultRunHost
-	port := defaultRunPort
-	explicitPort := address != ""
-
-	if address != "" {
-		var err error
-		host, port, err = net.SplitHostPort(address)
-		if err != nil {
-			return nil, fmt.Errorf("invalid address format '%s': %w", address, err)
-		}
-	}
+	host, port, explicitPort := ParseAddress(address)
 
 	port, err = choosePort(host, port, explicitPort)
 	if err != nil {
@@ -95,15 +103,7 @@ func getRunFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
 		runFn = func() error { return runGo(ctx, job) }
 	case "python":
 		runFn = func() error { return runPython(ctx, job) }
-	case "springboot":
-		err = ErrRunnerNotImplemented{runtime}
-	case "node":
-		err = ErrRunnerNotImplemented{runtime}
-	case "typescript":
-		err = ErrRunnerNotImplemented{runtime}
-	case "rust":
-		err = ErrRunnerNotImplemented{runtime}
-	case "quarkus":
+	case "springboot", "node", "typescript", "rust", "quarkus":
 		err = ErrRunnerNotImplemented{runtime}
 	default:
 		err = ErrRuntimeNotRecognized{runtime}
