@@ -87,7 +87,7 @@ fi
 // PythonAssembler
 //
 // Adapted from /usr/libexec/s2i/assemble within the UBI-8 python-toolchain
-// such that the the script executes from subdirectory .s2i/builds/last
+// such that the script executes from subdirectory .s2i/builds/last
 // (where main resides) rather than the root, and indicates the main is
 // likewise in .s2i/builds/last/service/main.py via Procfile.  See the comment
 // inline on line 50 of the script for where the directory change instruction

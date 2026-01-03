@@ -84,7 +84,7 @@ func (b pythonBuilder) WriteShared(job buildJob) (layers []imageLayer, err error
 	}
 
 	// Install Dependencies of the current project into ./lib
-	// In the scaffolding direcotory.
+	// In the scaffolding directory.
 	if job.verbose {
 		fmt.Printf(".venv/bin/pip install . --target lib\n")
 	}

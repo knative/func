@@ -143,9 +143,9 @@ func TestDelete_Namespace(t *testing.T) {
 	}
 }
 
-// TestDelete_NamespaceFlagPriority ensures that even thought there is
+// TestDelete_NamespaceFlagPriority ensures that even though there is
 // a deployed function the namespace flag takes precedence and essentially
-// ignores the the function on disk
+// ignores the function on disk
 func TestDelete_NamespaceFlagPriority(t *testing.T) {
 	var (
 		root       = FromTempDirectory(t)

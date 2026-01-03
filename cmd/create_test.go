@@ -96,5 +96,5 @@ func TestCreate_ConfigOptional(t *testing.T) {
 	}
 
 	// Not failing is success. Config files or settings beyond what are
-	// automatically written to to the given config home are currently optional.
+	// automatically written to the given config home are currently optional.
 }

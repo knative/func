@@ -16,7 +16,7 @@ import (
 // signature used by the function's source code and then writes the
 // appropriate scaffolding.
 //
-// NOTE: Scaffoding is not per-template, because a template is merely an
+// NOTE: Scaffolding is not per-template, because a template is merely an
 // example starting point for a Function implementation and should have no
 // bearing on the shape that function can eventually take.  The language,
 // and optionally invocation hint (For cloudevents) are used for this.  For
@@ -27,8 +27,8 @@ import (
 //	out:     the path to output scaffolding
 //	src:      the path to the source code to scaffold
 //	runtime: the expected runtime of the target source code "go", "node" etc.
-//	invoke:  the optional invocatin hint (default "http")
-//	fs:      filesytem which contains scaffolding at '[runtime]/scaffolding'
+//	invoke:  the optional invocation hint (default "http")
+//	fs:      filesystem which contains scaffolding at '[runtime]/scaffolding'
 //	         (exclusive with 'repo')
 func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err error) {
 	// detect the signature of the source code in the given location, presuming
