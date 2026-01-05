@@ -52,15 +52,6 @@ func TestInt_Gitlab(t *testing.T) {
 			"See https://github.com/paketo-buildpacks/nodejs/issues/712")
 	}
 
-	// Skip in CI due to persistent timeout issues regardless of allocated time
-	// Note it does indeed run locally.
-	// TODO: Investigate why GitLab webhook builds are not completing in CI
-	// https://github.com/knative/func/issues/3212
-	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
-		t.Skip("Skipping GitLab test in CI due to persistent timeout issues. " +
-			"Please run GitLab integration tests locally with 'make test-integration' to verify changes.")
-	}
-
 	var err error
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
@@ -87,8 +78,8 @@ func TestInt_Gitlab(t *testing.T) {
 	f := fn.Function{
 		Root:     projDir,
 		Name:     glabEnv.ProjectName,
-		Runtime:  "test-runtime",
-		Template: "test-template",
+		Runtime:  "node",
+		Template: "http",
 		Image:    funcImg,
 		Created:  time.Now(),
 		Invoke:   "none",
@@ -173,7 +164,7 @@ func TestInt_Gitlab(t *testing.T) {
 	case <-buildDoneCh:
 		t.Log("build done on time")
 	case <-time.After(time.Minute * 10):
-		t.Error("build has not been done in time (15 minute timeout)")
+		t.Error("build has not been done in time (10 minute timeout)")
 	case <-ctx.Done():
 		t.Error("cancelled")
 	}
