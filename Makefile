@@ -190,7 +190,7 @@ docs:
 
 .PHONY: presubmit-unit-tests
 presubmit-unit-tests: ## Run prow presubmit unit tests locally
-	docker run --platform linux/amd64 -it --rm -v$(MAKEFILE_DIR):/src/ us-docker.pkg.dev/knative-tests/images/prow-tests:v20230616-086ddd644 sh -c 'cd /src && runner.sh ./test/presubmit-tests.sh --unit-tests'
+	docker run --platform linux/amd64 -it --rm -v$(MAKEFILE_DIR):/src/ us-docker.pkg.dev/knative-tests/images/prow-tests:v20251211-ce6d6c676 sh -c 'cd /src && runner.sh ./test/presubmit-tests.sh --unit-tests'
 
 
 #############
