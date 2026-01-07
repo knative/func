@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"strings"
@@ -16,8 +17,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
+	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
+	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
+	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1"
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 const (
@@ -67,6 +74,19 @@ func onClusterFix(f fn.Function) fn.Function {
 		f.Namespace, _ = GetDefaultNamespace()
 	}
 	return f
+}
+
+// NewEventingClient creates a Knative Eventing client
+func NewEventingClient(namespace string) (clienteventingv1.KnEventingClient, error) {
+	config, err := GetClientConfig().ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	eventingClient, err := eventingv1client.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return clienteventingv1.NewKnEventingClient(eventingClient, namespace), nil
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
@@ -177,6 +197,15 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("deployment did not become ready: %w", err)
 	}
 
+	// Create triggers
+	eventingClient, err := NewEventingClient(namespace)
+	if err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("failed to create eventing client: %w", err)
+	}
+	if err := createTriggers(ctx, f, namespace, eventingClient, clientset); err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("failed to create triggers: %w", err)
+	}
+
 	url := fmt.Sprintf("http://%s.%s.svc.cluster.local", f.Name, namespace)
 
 	return fn.DeploymentResult{
@@ -184,6 +213,62 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		URL:       url,
 		Namespace: namespace,
 	}, nil
+}
+
+func createTriggers(ctx context.Context, f fn.Function, namespace string, eventingClient clienteventingv1.KnEventingClient, clientset kubernetes.Interface) error {
+	if len(f.Deploy.Subscriptions) == 0 {
+		return nil
+	}
+
+	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, f.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get service: %w", err)
+	}
+
+	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get deployment: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "🎯 Creating Triggers on the cluster\n")
+
+	for i, sub := range f.Deploy.Subscriptions {
+		attributes := make(map[string]string)
+		maps.Copy(attributes, sub.Filters)
+
+		trigger := &eventingv1.Trigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("%s-trigger-%d", f.Name, i),
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       deployment.Name,
+						UID:        deployment.UID,
+					},
+				},
+			},
+			Spec: eventingv1.TriggerSpec{
+				Broker: sub.Source,
+				Subscriber: duckv1.Destination{
+					URI: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s.%s.svc.cluster.local", svc.Name, namespace),
+					},
+				},
+				Filter: &eventingv1.TriggerFilter{
+					Attributes: attributes,
+				},
+			},
+		}
+
+		err := eventingClient.CreateTrigger(ctx, trigger)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create trigger: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstalled bool) (*appsv1.Deployment, *corev1.Service, error) {
