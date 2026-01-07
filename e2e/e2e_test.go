@@ -1166,7 +1166,6 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
 	cmd.Stdout = stdoutWriter
 	cmd.Stderr = stderr
 
-
 	type runOutput struct {
 		Address string `json:"address"`
 		Host    string `json:"host"`
@@ -1205,11 +1204,14 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
 	}
 
 	// Return address and a cleanup function that waits for the command to exit
-	return address,func(){
+	return address, func() {
+		// Wait for the command to finish (it should have been interrupted by the caller)
+		// We must wait for the command to complete writing to stdout before closing the pipe,
+		// otherwise we might get "io: read/write on closed pipe" errors.
+		err := <-runErrCh
 		stdoutWriter.Close()
-		err:=<-runErrCh
-		if(isAbnormalExit(t,err)){
-              t.Errorf("Function exited abnormally: %v",err)
+		if isAbnormalExit(t, err) {
+			t.Errorf("Function exited abnormally: %v", err)
 		}
 	}
 }
