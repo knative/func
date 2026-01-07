@@ -76,10 +76,6 @@ func TestMatrix_Run(t *testing.T) {
 			fmt.Fprintf(os.Stderr, "error interrupting. %v", err)
 		}
 
-		// Wait for exit and error if anything other than 130 (^C/interrupt)
-		if err := cmd.Wait(); isAbnormalExit(t, err) {
-			t.Fatalf("function exited abnormally %v", err)
-		}
 	})
 }
 

@@ -1166,9 +1166,6 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
 	cmd.Stdout = stdoutWriter
 	cmd.Stderr = stderr
 
-	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
-	}
 
 	type runOutput struct {
 		Address string `json:"address"`
@@ -1190,15 +1187,29 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
 		io.Copy(io.Discard, stdoutReader) // Prevent blocking
 	}()
 
+	runErrCh := make(chan error, 1)
+	go func() {
+		runErrCh <- cmd.Run()
+	}()
 	var address string
 	select {
 	case address = <-addressChan:
 		t.Logf("Function running on %s (from JSON output)", address)
+	case err := <-runErrCh:
+		// The command exited before we got the address
+		t.Fatalf("Command exited early: %v\nstderr: %s", err, stderr.String())
 	case err := <-errChan:
 		t.Fatalf("JSON parsing error: %v\nstderr: %s", err, stderr.String())
 	case <-time.After(5 * time.Minute):
 		t.Fatalf("timeout waiting for func run JSON output. stderr: %s", stderr.String())
 	}
 
-	return address, func() { stdoutWriter.Close() }
+	// Return address and a cleanup function that waits for the command to exit
+	return address,func(){
+		stdoutWriter.Close()
+		err:=<-runErrCh
+		if(isAbnormalExit(t,err)){
+              t.Errorf("Function exited abnormally: %v",err)
+		}
+	}
 }
