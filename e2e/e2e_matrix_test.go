@@ -44,7 +44,7 @@ func TestMatrix_Run(t *testing.T) {
 		// func init
 		init := []string{"init", "-l", runtime, "-t", template}
 
-		// func run
+		// func run with --json to get dynamic address
 		run := []string{"run", "--builder", builder, "--json"}
 
 		// Language and architecture special treatment

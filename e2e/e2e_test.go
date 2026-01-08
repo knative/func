@@ -9,6 +9,7 @@ See README.md for more details.
 package e2e
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -1156,8 +1157,9 @@ func chooseOpenAddress(t *testing.T) (address string, err error) {
 	return l.Addr().String(), nil
 }
 
-// parseRunJSON parses JSON output from "func run --json" and returns the
-// function's address and a cleanup function that must be deferred.
+// parseRunJSON runs the command and extracts the function address from JSON output.
+// We scan line-by-line because container builders (s2i/pack) may print build logs
+// to stdout before the JSON, so we need to skip those lines to find valid JSON.
 func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
 	t.Helper()
 
@@ -1175,18 +1177,28 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
 	addressChan := make(chan string, 1)
 	errChan := make(chan error, 1)
 
+	// Must spawn reader before starting the command, otherwise we may miss output
 	go func() {
-		var result runOutput
-		decoder := json.NewDecoder(stdoutReader)
-		if err := decoder.Decode(&result); err != nil {
-			errChan <- fmt.Errorf("failed to decode JSON output: %w", err)
-			return
+		scanner := bufio.NewScanner(stdoutReader)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(strings.TrimSpace(line), "{") {
+				var result runOutput
+				if err := json.Unmarshal([]byte(line), &result); err == nil && result.Address != "" {
+					addressChan <- result.Address
+					io.Copy(io.Discard, stdoutReader) // Prevent command from blocking on full pipe
+					return
+				}
+			}
 		}
-		addressChan <- result.Address
-		io.Copy(io.Discard, stdoutReader) // Prevent blocking
+		if err := scanner.Err(); err != nil {
+			errChan <- fmt.Errorf("error reading stdout: %w", err)
+		} else {
+			errChan <- fmt.Errorf("no JSON output found in stdout")
+		}
 	}()
 
-	// Use blocking cmd.Run() after the goroutine is spawned
+	// Run in goroutine so we can return the address while the function keeps running
 	go func() {
 		cmd.Run()
 	}()
