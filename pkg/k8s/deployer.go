@@ -241,8 +241,8 @@ func createTriggers(ctx context.Context, f fn.Function, namespace string, eventi
 				Name: fmt.Sprintf("%s-trigger-%d", f.Name, i),
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: "apps/v1",
-						Kind:       "Deployment",
+						APIVersion: deployment.APIVersion,
+						Kind:       deployment.Kind,
 						Name:       deployment.Name,
 						UID:        deployment.UID,
 					},
