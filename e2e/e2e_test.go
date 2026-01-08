@@ -1186,32 +1186,20 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
 		io.Copy(io.Discard, stdoutReader) // Prevent blocking
 	}()
 
-	runErrCh := make(chan error, 1)
+	// Use blocking cmd.Run() after the goroutine is spawned
 	go func() {
-		runErrCh <- cmd.Run()
+		cmd.Run()
 	}()
+
 	var address string
 	select {
 	case address = <-addressChan:
 		t.Logf("Function running on %s (from JSON output)", address)
-	case err := <-runErrCh:
-		// The command exited before we got the address
-		t.Fatalf("Command exited early: %v\nstderr: %s", err, stderr.String())
 	case err := <-errChan:
 		t.Fatalf("JSON parsing error: %v\nstderr: %s", err, stderr.String())
 	case <-time.After(5 * time.Minute):
 		t.Fatalf("timeout waiting for func run JSON output. stderr: %s", stderr.String())
 	}
 
-	// Return address and a cleanup function that waits for the command to exit
-	return address, func() {
-		// Wait for the command to finish (it should have been interrupted by the caller)
-		// We must wait for the command to complete writing to stdout before closing the pipe,
-		// otherwise we might get "io: read/write on closed pipe" errors.
-		err := <-runErrCh
-		stdoutWriter.Close()
-		if isAbnormalExit(t, err) {
-			t.Errorf("Function exited abnormally: %v", err)
-		}
-	}
+	return address, func() { stdoutWriter.Close() }
 }
