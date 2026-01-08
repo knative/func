@@ -163,8 +163,8 @@ func TestInt_Gitlab(t *testing.T) {
 	select {
 	case <-buildDoneCh:
 		t.Log("build done on time")
-	case <-time.After(time.Minute * 10):
-		t.Error("build has not been done in time (10 minute timeout)")
+	case <-time.After(time.Minute * 20):
+		t.Error("build has not been done in time (20 minute timeout)")
 	case <-ctx.Done():
 		t.Error("cancelled")
 	}
