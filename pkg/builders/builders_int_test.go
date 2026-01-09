@@ -139,6 +139,7 @@ password=nbusr123
 
 	testCases := []struct {
 		Name         string
+		Scaffolder   fn.Scaffolder
 		Builder      fn.Builder
 		BuilderImage func(ctx context.Context, t *testing.T, certDir string) string
 		Envs         []fn.Env
@@ -146,6 +147,7 @@ password=nbusr123
 	}{
 		{
 			Name:         "s2i",
+			Scaffolder:   s2i.NewScaffolder(true),
 			Builder:      s2i.NewBuilder(s2i.WithVerbose(true)),
 			BuilderImage: buildPatchedS2IBuilder,
 			Mounts: []fn.MountSpec{
@@ -156,6 +158,7 @@ password=nbusr123
 		},
 		{
 			Name:         "pack",
+			Scaffolder:   buildpacks.NewScaffolder(true),
 			Builder:      buildpacks.NewBuilder(buildpacks.WithVerbose(true)),
 			BuilderImage: buildPatchedBuildpackBuilder,
 			Envs: []fn.Env{
@@ -184,6 +187,10 @@ password=nbusr123
 			f.Build.Mounts = append(f.Build.Mounts, tt.Mounts...)
 			f.Build.BuildEnvs = append(f.Build.BuildEnvs, tt.Envs...)
 
+			err = tt.Scaffolder.Scaffold(ctx, f, "")
+			if err != nil {
+				t.Fatal(err)
+			}
 			err = tt.Builder.Build(ctx, f, nil)
 			if err != nil {
 				t.Fatal(err)
@@ -282,7 +289,7 @@ USER 1001:0
 // Builds a tiny paketo builder that trusts to our self-signed certificate (see createCertificate).
 func buildPatchedBuildpackBuilder(ctx context.Context, t *testing.T, certDir string) string {
 	tag := "localhost:50000/builder-jammy-tin:test"
-	dockerfile := `FROM ghcr.io/knative/builder-jammy-tiny:latest
+	dockerfile := `FROM ghcr.io/knative/builder-jammy-tiny:v2
 COPY 85c05568.0 /etc/ssl/certs/
 `
 	return buildPatchedBuilder(ctx, t, tag, dockerfile, certDir)

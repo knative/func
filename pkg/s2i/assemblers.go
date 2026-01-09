@@ -41,7 +41,7 @@ func assembler(f fn.Function) (string, error) {
 // GoAssembler
 //
 // Adapted from /usr/libexec/s2i/assemble within the UBI-8 go-toolchain
-// such that the "go build" command builds subdirectory .s2i/builds/last
+// such that the "go build" command builds subdirectory .s2i/build
 // (where main resides) rather than the root.
 const GoAssembler = `
 #!/bin/bash
@@ -76,7 +76,7 @@ if [[ $(go list -f {{.Incomplete}}) == "true" ]]; then
     /$STI_SCRIPTS_PATH/usage
     exit 1
 else
-    pushd .s2i/builds/last
+    pushd .s2i/build
     go mod tidy
     go build -o /opt/app-root/gobinary
     popd
@@ -89,7 +89,7 @@ fi
 // Adapted from /usr/libexec/s2i/assemble within the UBI-8 python-toolchain
 // such that the script executes from subdirectory .s2i/builds/last
 // (where main resides) rather than the root, and indicates the main is
-// likewise in .s2i/builds/last/service/main.py via Procfile.  See the comment
+// likewise in .s2i/build/service/main.py via Procfile.  See the comment
 // inline on line 50 of the script for where the directory change instruction
 // was added.
 const PythonAssembler = `
@@ -151,12 +151,12 @@ echo "---> (Functions) Writing app.sh ..."
 cat << 'EOF' > app.sh
 #!/bin/bash
 set -e
-exec python .s2i/builds/last/service/main.py
+exec python .s2i/build/service/main.py
 EOF
 chmod +x app.sh
 
-echo "---> (Functions) Changing directory to .s2i/builds/last ..."
-cd .s2i/builds/last
+echo "---> (Functions) Changing directory to .s2i/build ..."
+cd .s2i/build
 # END MODIFICATION FOR FUNCTIONS
 # ------------------------------
 

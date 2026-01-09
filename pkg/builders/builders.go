@@ -40,6 +40,11 @@ func (k Known) String() string {
 	return b.String()
 }
 
+type BuildLock interface {
+	Unlock()
+	Lock()
+}
+
 // ErrUnknownBuilder may be used by whomever is choosing a concrete
 // implementation of a builder to invoke based on potentially invalid input.
 type ErrUnknownBuilder struct {

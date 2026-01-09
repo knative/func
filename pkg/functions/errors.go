@@ -24,10 +24,10 @@ var (
 	ErrTemplateNotFound          = errors.New("template not found")
 	ErrTemplatesNotFound         = errors.New("templates path (runtimes) not found")
 	ErrContextCanceled           = errors.New("the operation was canceled")
+	ErrLockMissing               = errors.New("lock missing")
+	ErrInvalidLock               = errors.New("invalid lock")
 
-	// TODO: change the wording of this error to not be CLI-specific;
-	// eg "registry required".  Then catch the error in the CLI and add the
-	// cli-specific usage hints there
+	// ErrRegistryRequired is returned when registry was not provided/empty
 	ErrRegistryRequired = errors.New("registry required")
 
 	// ErrPlatformNotSupported is returned when a platform is specified for a builder that doesn't support it
@@ -130,4 +130,20 @@ func (e *ErrPortUnavailableError) IsPermissionDenied() bool {
 	return strings.Contains(errStr, "permission denied") ||
 		strings.Contains(errStr, "access denied") ||
 		strings.Contains(errStr, "operation not permitted")
+}
+
+type ErrBuildInProgress struct {
+	Dir string
+}
+
+func (e ErrBuildInProgress) Error() string {
+	return fmt.Sprintf("build for function at '%v' is already in progress", e.Dir)
+}
+
+type ErrLockFail struct {
+	Err error
+}
+
+func (e *ErrLockFail) Error() string {
+	return fmt.Sprintf("error manipulating with lock: %v", e.Err)
 }

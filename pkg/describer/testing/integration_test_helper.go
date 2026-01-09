@@ -24,6 +24,7 @@ func TestInt_Describe(t *testing.T, describer fn.Describer, deployer fn.Deployer
 	t.Cleanup(cancel)
 
 	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDescribers(describer),
@@ -38,6 +39,12 @@ func TestInt_Describe(t *testing.T, describer fn.Describer, deployer fn.Deployer
 		Namespace: ns,
 		Registry:  Registry(),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Scaffold
+	err = client.Scaffold(ctx, f, "")
 	if err != nil {
 		t.Fatal(err)
 	}

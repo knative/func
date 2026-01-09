@@ -32,6 +32,18 @@ const (
 	// metadata dir (RunDataDir)
 	BuiltHash = "built-hash"
 
+	// BuildLock indicates that Function is being currently built to prevent
+	// multiple builds occurring at the same time (think on-disk write) - wraps
+	// scaffolding + building phases.
+	// This file contains PID and UUID. Unique identifiers to know who is running
+	// the current build.
+	// Existing build lock file with a PID that doesnt exist indicates a previously
+	// failed build.
+	// Building with this lock is optional. He who uses function's client library
+	// must implement (or not) the locking mechanism.
+	// Found in metadata dir (RunDataDir).
+	BuildLock = "build.lock"
+
 	// BuiltImage is a name of a file that holds name of built image in runtime
 	// metadata dir (RunDataDir)
 	BuiltImage = "built-image"
@@ -528,7 +540,7 @@ func WithStampJournal() stampOption {
 // stamp is checked before certain operations, and if it has been updated,
 // the build can be skipped.  If in doubt, just use .Write only.
 //
-// Updates the build stamp at ./func/built (and the log
+// Updates the build stamp at .func/built-hash (and the log
 // at .func/built.log) to reflect the current state of the filesystem.
 // Note that the caller should call .Write first to flush any changes to the
 // function in-memory to the filesystem prior to calling stamp.
@@ -736,7 +748,7 @@ func (f Function) Built() bool {
 	return true
 }
 
-// BuildStamp accesses the current (last) build stamp for the function.
+// BuildStamp accesses the current build stamp for the function.
 // Unbuilt functions return empty string.
 func (f Function) BuildStamp() string {
 	path := filepath.Join(f.Root, RunDataDir, BuiltHash)
@@ -831,4 +843,8 @@ func (f Function) ImageNameWithDigest(newDigest string) string {
 	part2 := string(imageAsBytes[lastSlashIdx+1:])
 	// Remove tag from the image name and append SHA256 hash instead
 	return part1 + strings.Split(part2, ":")[0] + "@" + newDigest
+}
+
+func (f Function) LockFile() string {
+	return filepath.Join(f.Root, RunDataDir, BuildLock)
 }

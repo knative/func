@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -13,13 +14,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
-	"knative.dev/func/pkg/scaffolding"
 	"knative.dev/func/pkg/utils"
 )
 
@@ -65,6 +67,7 @@ type Client struct {
 	repositoriesPath  string            // path to repositories
 	repositoriesURI   string            // repo URI (overrides repositories path)
 	verbose           bool              // print verbose logs
+	scaffolder        Scaffolder        // Scaffolds a function to have main
 	builder           Builder           // Builds a runnable image source
 	pusher            Pusher            // Pushes function image to a remote
 	deployer          Deployer          // Deploys or Updates a function
@@ -81,6 +84,14 @@ type Client struct {
 	pipelinesProvider PipelinesProvider // CI/CD pipelines management
 	mcpServer         MCPServer         // MCP Server
 	startTimeout      time.Duration     // default start timeout for all runs
+	uuid              string            // uuid for multi-thread building
+}
+
+// Scaffolder of a function's entry (main)
+type Scaffolder interface {
+	// Scaffold a function - create its main wrapper
+	// string parameter: optional path override for scaffolding destination
+	Scaffold(context.Context, Function, string) error
 }
 
 // Builder of function source to runnable image.
@@ -217,6 +228,7 @@ type MCPServer interface {
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
 	c := &Client{
+		scaffolder:        &noopScaffolder{},
 		builder:           &noopBuilder{output: os.Stdout},
 		pusher:            &noopPusher{output: os.Stdout},
 		deployer:          &noopDeployer{output: os.Stdout},
@@ -228,6 +240,7 @@ func New(options ...Option) *Client {
 		mcpServer:         &noopMCPServer{},
 		transport:         http.DefaultTransport,
 		startTimeout:      DefaultStartTimeout,
+		uuid:              newUUID(),
 	}
 	c.runner = newDefaultRunner(c, os.Stdout, os.Stderr)
 	for _, o := range options {
@@ -268,6 +281,13 @@ type Option func(*Client)
 func WithVerbose(v bool) Option {
 	return func(c *Client) {
 		c.verbose = v
+	}
+}
+
+// WithScaffolder provides the implementation of a scaffolder based on builder
+func WithScaffolder(s Scaffolder) Option {
+	return func(c *Client) {
+		c.scaffolder = s
 	}
 }
 
@@ -462,14 +482,18 @@ func (c *Client) Apply(ctx context.Context, f Function) (string, Function, error
 // Updates a function which has already been initialized to run the latest
 // source code.
 //
-// Use Apply for higher level control. Use Init, Build, Push and Deploy
+// Use Apply for higher level control. Use Init, Scaffold, Build, Push and Deploy
 // independently for lower level control.
 // Returns final primary route to the Function and any errors.
 func (c *Client) Update(ctx context.Context, f Function) (string, Function, error) {
 	if !f.Initialized() {
 		return "", f, ErrNotInitialized{f.Root}
 	}
+
 	var err error
+	if err = c.Scaffold(ctx, f, ""); err != nil {
+		return "", f, err
+	}
 	if f, err = c.Build(ctx, f); err != nil {
 		return "", f, err
 	}
@@ -477,10 +501,7 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 		return "", f, err
 	}
 
-	// TODO: change this later when push doesn't return built image.
-	// Assign this as c.Push is going to produce the built image (for now) to
-	// .Deploy.Image for the deployer -- figure out where to assign .Deploy.Image
-	// first, might be just moved above push
+	// image name is generated via push to registry
 	f.Deploy.Image = f.Build.Image
 
 	if f, err = c.Deploy(ctx, f); err != nil {
@@ -495,7 +516,7 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 // Function. Used by Apply when the path is not yet an initialized function.
 // Errors if the path is already an initialized function.
 //
-// Use Apply for higher level control. Use Init, Build, Push, Deploy
+// Use Apply for higher level control. Use Init, Scaffold, Build, Push, Deploy
 // independently for lower level control.
 //
 // Returns the primary route to the function or error.
@@ -511,6 +532,13 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 	f, err := c.Init(cfg)
 	if err != nil {
 		return route, cfg, err
+	}
+
+	// Scaffold the function
+	fmt.Fprintf(os.Stderr, "Scaffolding function\n")
+	err = c.Scaffold(ctx, f, "")
+	if err != nil {
+		return route, f, err
 	}
 
 	// Build the now-initialized function
@@ -645,6 +673,9 @@ func BuildWithPlatforms(pp []Platform) BuildOption {
 // Build the function at path. Errors if the function is either unloadable or does
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) (Function, error) {
+	if err := c.verifyLockOwner(f); err != nil && !errors.Is(err, ErrLockMissing) {
+		return f, err
+	}
 	fmt.Fprintf(os.Stderr, "Building function image\n")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -702,15 +733,15 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 	return f, err
 }
 
-// Scaffold writes a functions's scaffolding to a given path.
-// It also updates the included symlink to function source 'f' to point to
-// the current function's source.
-func (c *Client) Scaffold(ctx context.Context, f Function, dest string) (err error) {
-	repo, err := NewRepository("", "") // default (embedded) repository
-	if err != nil {
-		return
+// Scaffold scaffolds a function given scaffolder implementation at path.
+// It will delete the directory contents before writing.
+// 'pathOverride' is optional override of target path. Assign "" (empty string)
+// for scaffolder's default to be used.
+func (c *Client) Scaffold(ctx context.Context, f Function, pathOverride string) (err error) {
+	if err := c.verifyLockOwner(f); err != nil && !errors.Is(err, ErrLockMissing) {
+		return err
 	}
-	return scaffolding.Write(dest, f.Root, f.Runtime, f.Invoke, repo.FS())
+	return c.scaffolder.Scaffold(ctx, f, pathOverride)
 }
 
 // printBuildActivity is a helper for ensuring the user gets feedback from
@@ -1184,6 +1215,150 @@ func (c *Client) StartMCPServer(ctx context.Context, writeEnabled bool) error {
 	return c.mcpServer.Start(ctx, writeEnabled)
 }
 
+// This is not thread/process safe -- THE ISSUE:
+// if Process B writes after Process A check #2, A won't catch it.
+// Process A: check #1
+// Process B: check #1
+// Process A: writes Lock
+// Process A: check #2
+// Process B: writes Lock (overwritten)
+//
+// Lock() creates a lock file to indicate a function build is in process.
+func (c *Client) Lock(f Function) error {
+	lockFile := f.LockFile()
+	if err := os.MkdirAll(filepath.Dir(lockFile), 0755); err != nil {
+		return &ErrLockFail{Err: err}
+	}
+
+	// Early exit: already own the lock (re-entrant, skip re-write)
+	if c.verifyLockOwner(f) == nil {
+		return nil
+	}
+
+	// CHECK #1
+	if c.isLocked(f) {
+		return &ErrBuildInProgress{Dir: f.Root}
+	}
+
+	// LOCK
+	// write build lock file
+	content := fmt.Sprintf("PID=%d\nUUID=%s", os.Getpid(), c.uuid)
+	if err := os.WriteFile(lockFile, []byte(content), 0644); err != nil {
+		return &ErrLockFail{Err: err}
+	}
+
+	// CHECK #2
+	if c.isLocked(f) {
+		return &ErrBuildInProgress{Dir: f.Root}
+	}
+	return nil
+}
+
+// ForceUnlock tries to unlock the lock (remove the lock file) without any condition.
+// For ownership-based unlocking check Unlock method.
+func (c *Client) ForceUnlock(f Function) error {
+	return os.Remove(f.LockFile())
+}
+
+// Unlock tries to unlock the lock only if the client instance is the owner
+// of the lock - only if PID and UUID match the current run. Otherwise returns
+// an error. If no lock file exists, returns nil (nothing to unlock).
+func (c *Client) Unlock(f Function) error {
+	if err := c.verifyLockOwner(f); err != nil {
+		if errors.Is(err, ErrLockMissing) {
+			return nil // Nothing to unlock
+		}
+		return err
+	}
+	return os.Remove(f.LockFile())
+}
+
+// verifyLockOwner verifies the current build lock. Returns nil only if the
+// lock file exists AND is owned by this client (PID + UUID match).
+// Returns ErrLockMissing if no lock file exists - caller decides if that's OK.
+func (c *Client) verifyLockOwner(f Function) error {
+	data, err := os.ReadFile(f.LockFile())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ErrLockMissing
+		}
+		return err
+	}
+
+	// stale locks
+	pid := lockValue(data, "PID")
+	if pid == "" {
+		err := fmt.Errorf("PID not found in build.lock file")
+		return &ErrLockFail{Err: err}
+	}
+	if pid != strconv.Itoa(os.Getpid()) {
+		return &ErrBuildInProgress{Dir: f.Root}
+	}
+
+	uuid := lockValue(data, "UUID")
+	if uuid == "" {
+		err := fmt.Errorf("UUID not found in build.lock file")
+		return &ErrLockFail{Err: err}
+	}
+	if uuid != c.uuid {
+		return &ErrBuildInProgress{Dir: f.Root}
+	}
+	// success
+	return nil
+}
+
+// isLocked determines if building process exists
+func (c *Client) isLocked(f Function) bool {
+	data, err := os.ReadFile(f.LockFile())
+	if err != nil {
+		return false // could catch error here. Permissive for now
+	}
+
+	pid := lockValue(data, "PID")
+	if !processExists(pid) {
+		// stale lock
+		return false
+	}
+	if pid != strconv.Itoa(os.Getpid()) {
+		// not my process
+		return true
+	}
+	// process exists AND process is me; is UUID me?
+	return c.uuid != lockValue(data, "UUID")
+}
+
+// ----------------------------- helper functions -----------------------------
+
+func lockValue(b []byte, s string) string {
+	// ensure cut with "="
+	if !strings.HasSuffix(s, "=") {
+		s += "="
+	}
+	for line := range strings.SplitSeq(string(b), "\n") {
+		if cut, f := strings.CutPrefix(line, s); f {
+			return cut
+		}
+	}
+	return ""
+}
+
+// processExists returns true if the process with the given PID exists.
+func processExists(pid string) bool {
+	p, err := strconv.Atoi(pid)
+	if err != nil {
+		return false
+	}
+	process, err := os.FindProcess(p)
+	if err != nil {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return true
+	}
+	err = process.Signal(syscall.Signal(0))
+	return err == nil
+}
+
 // ensureRunDataDir creates a .func directory at the given path, and
 // registers it as ignored in a .gitignore file.
 func ensureRunDataDir(root string) error {
@@ -1281,7 +1456,7 @@ func ensureFuncIgnore(root string) error {
 
 // Fingerprint the files at a given path.  Returns a hash calculated from the
 // filenames and modification timestamps of the files within the given root.
-// Also returns a logfile consiting of the filenames and modification times
+// Also returns a logfile consisting of the filenames and modification times
 // which contributed to the hash.
 // Intended to determine if there were appreciable changes to a function's
 // source code, certain directories and files are ignored, such as
@@ -1391,6 +1566,21 @@ func hasInitializedFunction(path string) (bool, error) {
 	return f.Initialized(), nil
 }
 
+// newUUID creates a UUID v4 per RFC 4122 (pseudo-random numbers)
+func newUUID() string {
+	// https://datatracker.ietf.org/doc/html/rfc4122
+	//
+	// bytes:  0-3      4-5  6-7  8-9  10-15
+	// format: xxxxxxxx-xxxx-4xxx-Vxxx-xxxxxxxxxxxx
+	b := make([]byte, 16)
+	// never returns an error
+	_, _ = rand.Read(b)
+	b[6] = (b[6] & 0b0000_1111) | 0b0100_0000 // version 4
+	b[8] = (b[8] & 0b0011_1111) | 0b1000_0000 // RFC4122 variant
+	return fmt.Sprintf("%x-%x-%x-%x-%x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+}
+
 // DEFAULTS
 // ---------
 
@@ -1405,6 +1595,11 @@ func hasInitializedFunction(path string) (bool, error) {
 // serve to keep the core logic here separate from the imperative, and
 // with a minimum of external dependencies.
 // -----------------------------------------------------
+
+// Scaffolder
+type noopScaffolder struct{}
+
+func (n *noopScaffolder) Scaffold(ctx context.Context, _ Function, _ string) error { return nil }
 
 // Builder
 type noopBuilder struct{ output io.Writer }
