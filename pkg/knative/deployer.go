@@ -1,24 +1,37 @@
 package knative
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	stdErrors "errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/docker/cli/cli/config"
+	"github.com/docker/cli/cli/config/configfile"
+	"github.com/docker/cli/cli/config/types"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	"knative.dev/client/pkg/flags"
 	servingclientlib "knative.dev/client/pkg/serving"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/client/pkg/wait"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
+	fnhttp "knative.dev/func/pkg/http"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -154,6 +167,24 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	_, err = k8sClient.CoreV1().Namespaces().Get(ctx, "dapr-system", metav1.GetOptions{})
 	if err == nil {
 		daprInstalled = true
+	}
+
+	t := fnhttp.NewRoundTripper(fnhttp.WithOpenShiftServiceCA())
+	defer func(t fnhttp.RoundTripCloser) {
+		_ = t.Close()
+	}(t)
+	if err = checkPullPermissions(ctx, k8sClient.CoreV1(), t, f.Deploy.Image, namespace); err != nil {
+		msg := fmt.Sprintf("warning: error while checking pull secrets: %v", err)
+		switch {
+		case stdErrors.Is(err, errPullSecretNotFound):
+			msg = `warning: pull secrets not detected, the cluster **may** fail to pull the image
+consider setting up the pull secrets and linking it to the default service account, sample setup:
+  $ kubectl create secret docker-registry sample-secret --docker-server <REG> --docker-username <UNAME> --docker-password <PWD>
+  $ kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "sample-secret"}]}'`
+		case stdErrors.Is(err, errOnlyIncorrectPullSecretFound):
+			msg = `warning: pull secrets found, but they seem invalid (possibly expired)`
+		}
+		_, _ = fmt.Fprintln(os.Stderr, msg)
 	}
 
 	var outBuff k8s.SynchronizedBuffer
@@ -631,6 +662,133 @@ func UsesKnativeDeployer(annotations map[string]string) bool {
 	// annotation is not set (which defines for backwards compatibility the knative deployer)
 	// or the deployer is set explicitly to the knative deployer
 	return !ok || deployer == KnativeDeployerName
+}
+
+func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans http.RoundTripper, img, ns string) error {
+	ref, err := name.ParseReference(img)
+	if err != nil {
+		return fmt.Errorf("failed to parse image %q: %w", img, err)
+	}
+
+	// first we try anonymous access
+	_, err = remote.Head(ref, remote.WithContext(ctx), remote.WithTransport(trans), remote.WithAuth(authn.Anonymous))
+	if err == nil {
+		return nil // image is public
+	}
+	if !isUnauthorized(err) {
+		return err
+	}
+
+	sa, err := core.ServiceAccounts(ns).Get(ctx, "default", metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get default ServiceAccount: %w", err)
+	}
+	var incorrectCredentialsFound bool
+	for _, secret := range sa.ImagePullSecrets {
+		sc, err := core.Secrets(ns).Get(ctx, secret.Name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get secret: %w", err)
+		}
+
+		cf, err := secretToConfigFile(sc)
+		if err != nil {
+			return err
+		}
+
+		_, err = remote.Head(ref,
+			remote.WithContext(ctx),
+			remote.WithTransport(trans),
+			remote.WithAuthFromKeychain(configFileKeychain{cf: cf}),
+		)
+
+		if err == nil {
+			return nil // found credentials
+		}
+		if stdErrors.Is(err, errPullSecretNotFound) {
+			continue
+		}
+		if !isUnauthorized(err) {
+			return err
+		}
+		incorrectCredentialsFound = true
+	}
+
+	if incorrectCredentialsFound {
+		return errOnlyIncorrectPullSecretFound
+	}
+
+	return errPullSecretNotFound
+}
+
+func secretToConfigFile(sc *corev1.Secret) (*configfile.ConfigFile, error) {
+	var cf *configfile.ConfigFile
+	var err error
+	switch sc.Type {
+	case corev1.SecretTypeDockerConfigJson:
+		cf, err = config.LoadFromReader(bytes.NewReader(sc.Data[corev1.DockerConfigJsonKey]))
+		if err != nil {
+			return nil, fmt.Errorf("cannot load config: %w", err)
+		}
+	case corev1.SecretTypeDockercfg:
+		cf = &configfile.ConfigFile{}
+		err = json.Unmarshal(sc.Data[corev1.DockerConfigKey], &cf.AuthConfigs)
+		if err != nil {
+			return nil, fmt.Errorf("cannot unmarshal config: %w", err)
+		}
+	default:
+		cf = &configfile.ConfigFile{}
+	}
+	return cf, nil
+}
+
+type configFileKeychain struct {
+	cf *configfile.ConfigFile
+}
+
+func (k configFileKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
+	var err error
+
+	// Following piece of code is mostly copied form the defaultKeychain from the go-containerregistry library
+	var cfg, empty types.AuthConfig
+	keys := []string{
+		target.String(),
+		target.RegistryStr(),
+	}
+	if target.RegistryStr() == name.DefaultRegistry {
+		keys = append(keys, "docker.io")
+	}
+	for _, key := range keys {
+
+		cfg, err = k.cf.GetAuthConfig(key)
+		if err != nil {
+			return nil, err
+		}
+		cfg.ServerAddress = ""
+		if cfg != empty {
+			break
+		}
+	}
+	if cfg == empty {
+		return nil, errPullSecretNotFound
+	}
+	return authn.FromConfig(authn.AuthConfig{
+		Username:      cfg.Username,
+		Password:      cfg.Password,
+		Auth:          cfg.Auth,
+		IdentityToken: cfg.IdentityToken,
+		RegistryToken: cfg.RegistryToken,
+	}), nil
+}
+
+var errOnlyIncorrectPullSecretFound = stdErrors.New("only incorrect pull secrets found")
+var errPullSecretNotFound = stdErrors.New("pull secret not found")
+
+func isUnauthorized(err error) bool {
+	var transportErr *transport.Error
+	if stdErrors.As(err, &transportErr) && (transportErr.StatusCode == 401 || transportErr.StatusCode == 403) {
+		return true
+	}
+	return false
 }
 
 // wrapDeployerClientError wraps Kubernetes client creation errors with typed errors
