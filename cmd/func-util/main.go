@@ -73,6 +73,8 @@ func socat(ctx context.Context) error {
 	return cmd.Execute()
 }
 
+const middlewareFileName = "middleware-version"
+
 func scaffold(ctx context.Context) error {
 
 	if len(os.Args) != 2 {
@@ -98,6 +100,10 @@ func scaffold(ctx context.Context) error {
 
 	if err := os.WriteFile("/tekton/results/middlewareVersion", []byte(middlewareVersion), 0644); err != nil {
 		return fmt.Errorf("cannot write middleware version as a result: %w", err)
+	}
+
+	if err := os.WriteFile(middlewareFileName, []byte(middlewareVersion), 0644); err != nil {
+		return fmt.Errorf("cannot write middleware version as a file: %w", err)
 	}
 
 	if f.Runtime != "go" && f.Runtime != "python" {
@@ -141,6 +147,8 @@ func s2iCmd(ctx context.Context) error {
 	return cmd.Execute()
 }
 
+const imageDigestFileName = "image-digest"
+
 func deploy(ctx context.Context) error {
 	var err error
 	deployer := knative.NewDeployer(
@@ -161,8 +169,14 @@ func deploy(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot load function: %w", err)
 	}
+
+	var digestPart string
+	if d, err := os.ReadFile(imageDigestFileName); err == nil {
+		digestPart = "@" + string(d)
+	}
+
 	if len(os.Args) > 2 {
-		f.Deploy.Image = os.Args[2]
+		f.Deploy.Image = os.Args[2] + digestPart
 	}
 	if f.Deploy.Image == "" {
 		f.Deploy.Image = f.Image
