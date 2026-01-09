@@ -173,17 +173,16 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	defer func(t fnhttp.RoundTripCloser) {
 		_ = t.Close()
 	}(t)
-	err = checkPullPermissions(ctx, k8sClient.CoreV1(), t, f.Deploy.Image, namespace)
-	if err != nil {
-		var msg string
-		if stdErrors.Is(err, errPullSecretNotFound) {
-			msg = `warning: pull secretes not detected, the cluster **may** fail to pull the image
+	if err = checkPullPermissions(ctx, k8sClient.CoreV1(), t, f.Deploy.Image, namespace); err != nil {
+		msg := fmt.Sprintf("warning: error while checking pull secrets: %v", err)
+		switch {
+		case stdErrors.Is(err, errPullSecretNotFound):
+			msg = `warning: pull secrets not detected, the cluster **may** fail to pull the image
 consider setting up the pull secrets and linking it to the default service account, sample setup:
   $ kubectl create secret docker-registry sample-secret --docker-server <REG> --docker-username <UNAME> --docker-password <PWD>
   $ kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "sample-secret"}]}'`
-
-		} else {
-			msg = fmt.Sprintf("warning: error while checking pull secrets: %v", err)
+		case stdErrors.Is(err, errOnlyIncorrectPullSecretFound):
+			msg = `warning: pull secrets found, but they seem invalid (possibly expired)`
 		}
 		_, _ = fmt.Fprintln(os.Stderr, msg)
 	}
@@ -668,20 +667,13 @@ func UsesKnativeDeployer(annotations map[string]string) bool {
 func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans http.RoundTripper, img, ns string) error {
 	ref, err := name.ParseReference(img)
 	if err != nil {
-		return fmt.Errorf("failed to parse image %q: %v", img, err)
+		return fmt.Errorf("failed to parse image %q: %w", img, err)
 	}
 
 	// first we try anonymous access
-	puller, err := remote.NewPuller(
-		remote.WithTransport(trans),
-		remote.WithAuth(authn.Anonymous),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create puller: %v", err)
-	}
-	_, err = puller.Head(ctx, ref)
+	_, err = remote.Head(ref, remote.WithContext(ctx), remote.WithTransport(trans), remote.WithAuth(authn.Anonymous))
 	if err == nil {
-		return nil // the image is public
+		return nil // image is public
 	}
 	if !isUnauthorized(err) {
 		return err
@@ -689,12 +681,13 @@ func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans ht
 
 	sa, err := core.ServiceAccounts(ns).Get(ctx, "default", metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get default ServiceAccount: %v", err)
+		return fmt.Errorf("failed to get default ServiceAccount: %w", err)
 	}
+	var incorrectCredentialsFound bool
 	for _, secret := range sa.ImagePullSecrets {
 		sc, err := core.Secrets(ns).Get(ctx, secret.Name, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to get secret %s/%s: %v", ns, secret.Name, err)
+			return fmt.Errorf("failed to get secret: %w", err)
 		}
 
 		cf, err := secretToConfigFile(sc)
@@ -702,14 +695,12 @@ func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans ht
 			return err
 		}
 
-		puller, err = remote.NewPuller(
+		_, err = remote.Head(ref,
+			remote.WithContext(ctx),
 			remote.WithTransport(trans),
 			remote.WithAuthFromKeychain(configFileKeychain{cf: cf}),
 		)
-		if err != nil {
-			return fmt.Errorf("failed to create puller: %v", err)
-		}
-		_, err = puller.Head(ctx, ref)
+
 		if err == nil {
 			return nil // found credentials
 		}
@@ -719,6 +710,11 @@ func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans ht
 		if !isUnauthorized(err) {
 			return err
 		}
+		incorrectCredentialsFound = true
+	}
+
+	if incorrectCredentialsFound {
+		return errOnlyIncorrectPullSecretFound
 	}
 
 	return errPullSecretNotFound
@@ -784,7 +780,8 @@ func (k configFileKeychain) Resolve(target authn.Resource) (authn.Authenticator,
 	}), nil
 }
 
-var errPullSecretNotFound = fmt.Errorf("pull secret not found")
+var errOnlyIncorrectPullSecretFound = stdErrors.New("only incorrect pull secrets found")
+var errPullSecretNotFound = stdErrors.New("pull secret not found")
 
 func isUnauthorized(err error) bool {
 	var transportErr *transport.Error

@@ -105,17 +105,6 @@ func TestCheckPullPermissions(t *testing.T) {
 			},
 		},
 		{
-			name:  "broken server",
-			core:  core(),
-			image: brokenRegistry + "/" + imageShortName,
-			errPred: func(err error) bool {
-				if err == nil {
-					return false
-				}
-				return strings.Contains(err.Error(), " 500 ")
-			},
-		},
-		{
 			name:  "dockerhub as https://index.docker.io/v1/",
 			core:  core(secretC),
 			image: imageShortName,
@@ -130,11 +119,38 @@ func TestCheckPullPermissions(t *testing.T) {
 			core:  core(secretE),
 			image: imageShortName,
 		},
+		{
+			name: "refer non-existent secret",
+			core: fake.NewClientset(&corev1.ServiceAccount{
+				ObjectMeta:       metav1.ObjectMeta{Name: "default", Namespace: "default"},
+				ImagePullSecrets: []corev1.LocalObjectReference{{Name: "non-existent"}},
+			}).CoreV1(),
+			image: imageShortName,
+			errPred: func(err error) bool {
+				return err != nil && strings.Contains(err.Error(), "not found")
+			},
+		},
+		{
+			name:  "only incorrect credentials in secret",
+			core:  core(createSecret(securedRegistry, username, "incorrect", corev1.SecretTypeDockercfg)),
+			image: securedImage,
+			errPred: func(err error) bool {
+				return errors.Is(err, errOnlyIncorrectPullSecretFound)
+			},
+		},
+		{
+			name:  "broken server",
+			core:  core(),
+			image: brokenRegistry + "/" + imageShortName,
+			errPred: func(err error) bool {
+				return err != nil && strings.Contains(err.Error(), " 500 ")
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = checkPullPermissions(t.Context(), tt.core, trans, tt.image, "default")
+			err = checkPullPermissions(context.Background(), tt.core, trans, tt.image, "default")
 			p := tt.errPred
 			if p == nil {
 				p = func(err error) bool {
@@ -142,7 +158,7 @@ func TestCheckPullPermissions(t *testing.T) {
 				}
 			}
 			if !p(err) {
-				t.Error("unexpected return value")
+				t.Errorf("unexpected return value: %v", err)
 			}
 		})
 	}
