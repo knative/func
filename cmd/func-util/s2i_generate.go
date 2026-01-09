@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -46,6 +47,17 @@ func newS2IGenerateCmd() *cobra.Command {
 	genCmd := &cobra.Command{
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config.envVars = args
+
+			if config.middlewareVersion == "" {
+				bs, err := os.ReadFile(middlewareFileName)
+				if err != nil {
+					return fmt.Errorf("cannot read middleware file: %w", err)
+				}
+				config.middlewareVersion = string(bs)
+			}
+
+			logger := log.New(os.Stderr, "s2i-gen:", log.LstdFlags)
+			logger.Printf("config: %+v\n", config)
 			return runS2IGenerate(cmd.Context(), config)
 		},
 	}

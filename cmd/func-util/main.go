@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -73,7 +74,11 @@ func socat(ctx context.Context) error {
 	return cmd.Execute()
 }
 
+const middlewareFileName = "middleware-version"
+
 func scaffold(ctx context.Context) error {
+	logger := log.New(os.Stderr, "scaffold:", log.LstdFlags)
+	logger.Printf("args: %#v", os.Args)
 
 	if len(os.Args) != 2 {
 		return fmt.Errorf("expected exactly one positional argument (function project path)")
@@ -96,7 +101,9 @@ func scaffold(ctx context.Context) error {
 		return fmt.Errorf("cannot get middleware version: %w", err)
 	}
 
-	if err := os.WriteFile("/tekton/results/middlewareVersion", []byte(middlewareVersion), 0644); err != nil {
+	logger.Println("middleware:", middlewareVersion)
+
+	if err := os.WriteFile("middleware-version", []byte(middlewareVersion), 0644); err != nil {
 		return fmt.Errorf("cannot write middleware version as a result: %w", err)
 	}
 
@@ -141,7 +148,12 @@ func s2iCmd(ctx context.Context) error {
 	return cmd.Execute()
 }
 
+const imageDigestFileName = "image-digest"
+
 func deploy(ctx context.Context) error {
+	logger := log.New(os.Stderr, "deploy:", log.LstdFlags)
+	logger.Printf("args: %#v", os.Args)
+
 	var err error
 	deployer := knative.NewDeployer(
 		knative.WithDeployerVerbose(true),
@@ -161,12 +173,21 @@ func deploy(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot load function: %w", err)
 	}
+
+	var digestPart string
+	d, err := os.ReadFile(imageDigestFileName)
+	if err == nil {
+		digestPart = "@" + string(d)
+	}
+
 	if len(os.Args) > 2 {
-		f.Deploy.Image = os.Args[2]
+		f.Deploy.Image = os.Args[2] + digestPart
 	}
 	if f.Deploy.Image == "" {
 		f.Deploy.Image = f.Image
 	}
+
+	logger.Printf("fn: %#v", f)
 
 	res, err := deployer.Deploy(ctx, f)
 	if err != nil {
