@@ -157,8 +157,6 @@ func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
 	}{
 		{getBuildpackTask(), &data.FuncBuildpacksTaskRef},
 		{getS2ITask(), &data.FuncS2iTaskRef},
-		{getDeployTask(), &data.FuncDeployTaskRef},
-		{getScaffoldTask(), &data.FuncScaffoldTaskRef},
 	} {
 		ts, err := getTaskSpec(val.ref)
 		if err != nil {
@@ -366,8 +364,6 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	}{
 		{getBuildpackTask(), &data.FuncBuildpacksTaskRef},
 		{getS2ITask(), &data.FuncS2iTaskRef},
-		{getDeployTask(), &data.FuncDeployTaskRef},
-		{getScaffoldTask(), &data.FuncScaffoldTaskRef},
 	} {
 		ts, err := getTaskSpec(val.ref)
 		if err != nil {

@@ -25,7 +25,7 @@ func init() {
 }
 
 func getBuildpackTask() string {
-	return `apiVersion: tekton.dev/v1
+	return fmt.Sprintf(`apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   name: func-buildpacks
@@ -90,16 +90,18 @@ spec:
       description: The name of the platform directory.
       default: empty-dir
 
-  results:
-    - name: IMAGE_DIGEST
-      description: The digest of the built "APP_IMAGE".
-
   stepTemplate:
     env:
       - name: CNB_PLATFORM_API
         value: "0.10"
 
   steps:
+
+    - name: func-scaffold
+      image: %s
+      workingDir: $(workspaces.source.path)
+      command: ["scaffold", $(params.SOURCE_SUBPATH)]
+
     - name: prepare
       image: docker.io/library/bash:5.1
       args:
@@ -211,13 +213,13 @@ spec:
       script: |
         #!/usr/bin/env bash
         set -e
-        cat /layers/report.toml | grep "digest" | cut -d'"' -f2 | cut -d'"' -f2 | tr -d '\n' | tee $(results.IMAGE_DIGEST.path)
+        cat /layers/report.toml | grep "digest" | cut -d'"' -f2 | cut -d'"' -f2 | tr -d '\n' | tee $(workspaces.source.path)/image-digest
 
         ############################################
         ##### Added part for Knative Functions #####
         ############################################
 
-        digest=$(cat $(results.IMAGE_DIGEST.path))
+        digest=$(cat $(workspaces.source.path)/image-digest)
 
         func_file="$(workspaces.source.path)/func.yaml"
         if [ "$(params.SOURCE_SUBPATH)" != "" ]; then
@@ -249,12 +251,17 @@ spec:
         - name: empty-dir
           mountPath: /emptyDir
 
+    - name: func-deploy
+      image: "%s"
+      workingDir: $(workspaces.source.path)
+      command: ["deploy", $(params.SOURCE_SUBPATH), "$(params.APP_IMAGE)"]
+
   volumes:
     - name: empty-dir
       emptyDir: {}
     - name: layers-dir
       emptyDir: {}
-`
+`, ScaffoldImage, DeployerImage)
 }
 
 func getS2ITask() string {
@@ -303,9 +310,6 @@ spec:
     - name: S2I_IMAGE_SCRIPTS_URL
       description: The URL containing the default assemble and run scripts for the builder image.
       default: "image:///usr/libexec/s2i"
-    - name: MIDDLEWARE_VERSION
-      description: Used middleware version
-      default: ""
   workspaces:
     - name: source
     - name: cache
@@ -319,10 +323,14 @@ spec:
         for Buildah to access the container registry.
         The file should be placed at the root of the Workspace with name config.json.
       optional: true
-  results:
-    - name: IMAGE_DIGEST
-      description: Digest of the image just built.
+
   steps:
+
+    - name: func-scaffold
+      image: %s
+      workingDir: $(workspaces.source.path)
+      command: ["scaffold", $(params.PATH_CONTEXT)]
+
     - name: generate
       image: %s
       workingDir: $(workspaces.source.path)
@@ -340,14 +348,13 @@ spec:
         - $(params.S2I_IMAGE_SCRIPTS_URL)
         - "--log-level"
         - $(params.LOGLEVEL)
-        - "--middleware-version"
-        - $(params.MIDDLEWARE_VERSION)
         - $(params.ENV_VARS[*])
       volumeMounts:
         - mountPath: /gen-source
           name: gen-source
         - mountPath: /env-vars
           name: env-vars
+
     - name: build
       image: quay.io/buildah/stable:v1.31.0
       workingDir: /gen-source
@@ -377,7 +384,7 @@ spec:
           $(params.IMAGE) docker://$(params.IMAGE)
 
         # Output the image digest
-        cat $(workspaces.source.path)/image-digest | tee /tekton/results/IMAGE_DIGEST
+        cat $(workspaces.source.path)/image-digest
       volumeMounts:
       - name: varlibcontainers
         mountPath: /var/lib/containers
@@ -386,6 +393,12 @@ spec:
       securityContext:
         capabilities:
           add: ["SETFCAP"]
+
+    - name: func-deploy
+      image: "%s"
+      workingDir: $(workspaces.source.path)
+      command: ["deploy", $(params.PATH_CONTEXT), "$(params.IMAGE)"]
+
   volumes:
     - emptyDir: {}
       name: varlibcontainers
@@ -393,73 +406,12 @@ spec:
       name: gen-source
     - emptyDir: {}
       name: env-vars
-`, S2IImage)
-}
-
-func getDeployTask() string {
-	return fmt.Sprintf(`apiVersion: tekton.dev/v1
-kind: Task
-metadata:
-  name: func-deploy
-  labels:
-    app.kubernetes.io/version: "0.1"
-  annotations:
-    tekton.dev/pipelines.minVersion: "0.12.1"
-    tekton.dev/categories: CLI
-    tekton.dev/tags: cli
-    tekton.dev/platforms: "linux/amd64"
-spec:
-  description: >-
-    This Task performs a deploy operation using the Knative "func"" CLI
-  params:
-    - name: path
-      description: Path to the function project
-      default: ""
-    - name: image
-      description: Container image to be deployed
-      default: ""
-  workspaces:
-    - name: source
-      description: The workspace containing the function project
-  steps:
-    - name: func-deploy
-      image: "%s"
-      command: ["deploy", "$(params.path)", "$(params.image)"]
-`, DeployerImage)
-}
-
-func getScaffoldTask() string {
-	return fmt.Sprintf(`apiVersion: tekton.dev/v1
-kind: Task
-metadata:
-  name: func-scaffold
-  labels:
-    app.kubernetes.io/version: "0.1"
-  annotations:
-    tekton.dev/pipelines.minVersion: "0.12.1"
-    tekton.dev/categories: CLI
-    tekton.dev/tags: cli
-    tekton.dev/platforms: "linux/amd64"
-spec:
-  params:
-    - name: path
-      description: Path to the function project
-      default: ""
-  results:
-    - name: middlewareVersion
-  workspaces:
-    - name: source
-      description: The workspace containing the function project
-  steps:
-    - name: func-scaffold
-      image: %s
-      command: ["scaffold", "$(params.path)"]
-`, ScaffoldImage)
+`, ScaffoldImage, S2IImage, DeployerImage)
 }
 
 // GetClusterTasks returns multi-document yaml containing tekton tasks used by func.
 func GetClusterTasks() string {
-	tasks := getBuildpackTask() + "\n---\n" + getS2ITask() + "\n---\n" + getDeployTask() + "\n---\n" + getScaffoldTask()
+	tasks := getBuildpackTask() + "\n---\n" + getS2ITask()
 	tasks = strings.ReplaceAll(tasks, "kind: Task", "kind: ClusterTask")
 	tasks = strings.ReplaceAll(tasks, "apiVersion: tekton.dev/v1", "apiVersion: tekton.dev/v1beta1")
 	return tasks
