@@ -657,7 +657,7 @@ func (f Function) ImageName() (image string, err error) {
 
 	ref, err := name.ParseReference(refStr)
 	if err != nil {
-		return "", fmt.Errorf("cannot determine function image: %w", err)
+		return "", fmt.Errorf("%w: cannot determine function image: %v", ErrInvalidRegistry, err)
 	}
 
 	return ref.Name(), nil
