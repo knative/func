@@ -1848,10 +1848,12 @@ func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
 	// if specifying --build=false
 	cmd := NewDeployCmd(NewTestClient())
 	cmd.SetArgs([]string{"--registry", registry, "--build=false"})
-	if err := cmd.Execute(); err == nil {
-		// TODO: should be a typed error which can be checked.  This will
-		// succeed even if an unrelated error is thrown.
-		t.Fatalf("expected error 'not built' not received")
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatal("expected ErrNotBuilt, got nil")
+	}
+	if !errors.Is(err, fn.ErrNotBuilt) {
+		t.Fatalf("expected ErrNotBuilt, got: %v", err)
 	}
 
 	// Assert that the requested change did not take effect
