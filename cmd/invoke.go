@@ -106,7 +106,7 @@ EXAMPLES
 			"onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
 		PreRunE: bindEnv("path", "format", "target", "id", "source", "type",
 			"data", "content-type", "request-type", "file", "insecure",
-			"confirm", "verbose"),
+			"confirm", "verbose", "extension"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInvoke(cmd, args, newClient)
 		},
@@ -129,6 +129,7 @@ EXAMPLES
 	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. ($FUNC_DATA)")
 	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. ($FUNC_FILE)")
 	cmd.Flags().BoolP("insecure", "i", false, "Allow insecure server connections when using SSL. ($FUNC_INSECURE)")
+	cmd.Flags().StringSliceP("extension", "e", nil, "Extensions as key=value pairs. Can be repeated. cloudevents only ($FUNC_EXTENSION)")
 	addConfirmFlag(cmd, cfg.Confirm)
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
@@ -169,6 +170,19 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
 	defer done()
 
+	// Build extensions map
+	if cfg.Extensions == nil {
+		cfg.Extensions = []string{}
+	}
+	extensionsMap := make(map[string]string)
+	for _, ext := range cfg.Extensions {
+		parts := strings.SplitN(ext, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid extension format: %q, expected key=value", ext)
+		}
+		extensionsMap[parts[0]] = parts[1]
+	}
+
 	// Message to send the running function built from parameters gathered
 	// from the user (or defaults)
 	m := fn.InvokeMessage{
@@ -179,6 +193,7 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		RequestType: strings.ToUpper(cfg.RequestType),
 		Data:        cfg.Data,
 		Format:      cfg.Format,
+		Extensions:  extensionsMap,
 	}
 
 	// If --file was specified, use its content for message data
@@ -239,6 +254,7 @@ type invokeConfig struct {
 	Confirm     bool
 	Verbose     bool
 	Insecure    bool
+	Extensions  []string
 }
 
 func newInvokeConfig() (cfg invokeConfig, err error) {
@@ -256,6 +272,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 		Confirm:     viper.GetBool("confirm"),
 		Verbose:     viper.GetBool("verbose"),
 		Insecure:    viper.GetBool("insecure"),
+		Extensions:  viper.GetStringSlice("extension"),
 	}
 
 	// If file was passed, read it in as data
@@ -293,6 +310,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 	fmt.Printf("Content Type: %v\n", cfg.ContentType)
 	fmt.Printf("File: %v\n", cfg.File)
 	fmt.Printf("Insecure: %v\n", cfg.Insecure)
+	fmt.Printf("Extensions: %v\n", cfg.Extensions)
 	return
 }
 
