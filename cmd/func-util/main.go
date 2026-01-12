@@ -108,9 +108,10 @@ func scaffold(ctx context.Context) error {
 	appRoot := filepath.Join(f.Root, ".s2i", "builds", "last")
 	_ = os.RemoveAll(appRoot)
 
-	err = scaffolding.Write(appRoot, f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
+	middlewareVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
 	if err != nil {
-		return fmt.Errorf("cannot write the scaffolding: %w", err)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: cannot get middleware version: %v\n", err)
+		middlewareVersion = "<unknown>"
 	}
 
 	if err := os.MkdirAll(filepath.Join(f.Root, ".s2i", "bin"), 0755); err != nil {
