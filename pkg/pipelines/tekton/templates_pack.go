@@ -41,9 +41,12 @@ spec:
       name: buildEnvs
       type: array
   tasks:
-    {{.GitCloneTaskRef}}
     - name: build
       params:
+        - name: GIT_REPOSITORY
+          value: $(params.gitRepository)
+        - name: GIT_REVISION
+          value: $(params.gitRevision)
         - name: APP_IMAGE
           value: $(params.imageName)
         - name: REGISTRY
@@ -55,7 +58,6 @@ spec:
         - name: ENV_VARS
           value:
             - '$(params.buildEnvs[*])'
-      {{.RunAfterFetchSources}}
       {{.FuncBuildpacksTaskRef}}
       workspaces:
         - name: source
@@ -141,9 +143,6 @@ metadata:
 
     # The branch or tag we are targeting (ie: main, refs/tags/*)
     pipelinesascode.tekton.dev/on-target-branch: "[{{.PipelinesTargetBranch}}]"
-
-    # Fetch the git-clone task from hub
-    pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
 
     # How many runs we want to keep attached to this event
     pipelinesascode.tekton.dev/max-keep-runs: "5"

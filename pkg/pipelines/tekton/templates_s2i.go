@@ -53,9 +53,12 @@ spec:
       type: string
       default: ''
   tasks:
-    {{.GitCloneTaskRef}}
     - name: build
       params:
+        - name: GIT_REPOSITORY
+          value: $(params.gitRepository)
+        - name: GIT_REVISION
+          value: $(params.gitRevision)
         - name: IMAGE
           value: $(params.imageName)
         - name: REGISTRY
@@ -71,7 +74,6 @@ spec:
           value: $(params.s2iImageScriptsUrl)
         - name: TLSVERIFY
           value: $(params.tlsVerify)
-      {{.RunAfterFetchSources}}
       {{.FuncS2iTaskRef}}
       workspaces:
         - name: source
@@ -160,9 +162,6 @@ metadata:
 
     # The branch or tag we are targeting (ie: main, refs/tags/*)
     pipelinesascode.tekton.dev/on-target-branch: "[{{.PipelinesTargetBranch}}]"
-
-    # Fetch the git-clone task from hub
-    pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
 
     # Fetch the pipelie definition from the .tekton directory
     pipelinesascode.tekton.dev/pipeline: {{.PipelineYamlURL}}
