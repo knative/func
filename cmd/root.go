@@ -101,7 +101,13 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 		{
 			Header: "System Commands:",
 			Commands: []*cobra.Command{
-				NewConfigCmd(common.DefaultLoaderSaver, ci.DefaultWorkflowWriter, newClient),
+				NewConfigCmd(
+					common.DefaultLoaderSaver,
+					ci.DefaultWorkflowWriter,
+					common.DefaultCurrentBranch,
+					common.DefaultWorkDir,
+					newClient,
+				),
 				NewLanguagesCmd(newClient),
 				NewTemplatesCmd(newClient),
 				NewRepositoryCmd(newClient),
@@ -247,7 +253,7 @@ func deriveName(explicitName string, path string) string {
 
 // deriveNameAndAbsolutePathFromPath returns resolved function name and absolute path
 // to the function project root. The input parameter path could be one of:
-// 'relative/path/to/foo', '/absolute/path/to/foo', 'foo' or ”.
+// 'relative/path/to/foo', '/absolute/path/to/foo', 'foo' or "."
 func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 	var absPath string
 

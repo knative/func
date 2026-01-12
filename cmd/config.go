@@ -14,7 +14,13 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-func NewConfigCmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWriter, newClient ClientFactory) *cobra.Command {
+func NewConfigCmd(
+	loaderSaver common.FunctionLoaderSaver,
+	writer ci.WorkflowWriter,
+	currentBranch common.CurrentBranchFunc,
+	workingDir common.WorkDirFunc,
+	newClient ClientFactory,
+) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Configure a function",
@@ -42,7 +48,7 @@ or from the directory specified with --path.
 	cmd.AddCommand(NewConfigVolumesCmd())
 
 	if os.Getenv(ci.ConfigCIFeatureFlag) == "true" {
-		cmd.AddCommand(NewConfigCICmd(loaderSaver, writer))
+		cmd.AddCommand(NewConfigCICmd(loaderSaver, writer, currentBranch, workingDir))
 	}
 
 	return cmd
