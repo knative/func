@@ -106,7 +106,7 @@ spec:
         resolver: http
         params:
           - name: url
-            value: https://raw.githubusercontent.com/tektoncd/catalog/refs/heads/main/stepaction/git-clone/0.2/git-clone.yaml
+            value: https://raw.githubusercontent.com/tektoncd/catalog/c9818f3d/stepaction/git-clone/0.2/git-clone.yaml
       when:
         - input: "$(params.GIT_REPOSITORY)"
           operator: notin
@@ -357,7 +357,7 @@ spec:
         resolver: http
         params:
           - name: url
-            value: https://raw.githubusercontent.com/tektoncd/catalog/refs/heads/main/stepaction/git-clone/0.2/git-clone.yaml
+            value: https://raw.githubusercontent.com/tektoncd/catalog/c9818f3d/stepaction/git-clone/0.2/git-clone.yaml
       when:
         - input: "$(params.GIT_REPOSITORY)"
           operator: notin
