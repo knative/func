@@ -32,6 +32,7 @@ import (
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	v1 "k8s.io/api/core/v1"
+	rbacV1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"knative.dev/pkg/apis"
@@ -112,7 +113,7 @@ func TestInt_Gitlab(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile(filepath.Join(projDir, "Procfile"), []byte("web: non-existent-app\n"), 0644)
+	err = os.WriteFile(filepath.Join(projDir, "main.go"), []byte(mainGo), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,6 +180,25 @@ func TestInt_Gitlab(t *testing.T) {
 	}
 
 }
+
+const mainGo = `package main
+
+import "net/http"
+
+func main() {
+	s := http.Server{
+		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			writer.WriteHeader(200)
+			_, _ = writer.Write([]byte("OK"))
+		}),
+		Addr: ":8080",
+	}
+	err := s.ListenAndServe()
+	if err != nil {
+		panic(err)
+	}
+}
+`
 
 func parseEnv(t *testing.T) (gitlabHostname string, gitlabRootPassword string, pacCtrHostname string, err error) {
 	if enabled, _ := strconv.ParseBool(os.Getenv("FUNC_INT_GITLAB_ENABLED")); !enabled {
@@ -615,9 +635,35 @@ func usingNamespace(t *testing.T) string {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		deleteOpts := metav1.DeleteOptions{}
+		pp := metav1.DeletePropagationForeground
+		deleteOpts := metav1.DeleteOptions{
+			PropagationPolicy: &pp,
+		}
 		_ = k8sClient.CoreV1().Namespaces().Delete(context.Background(), name, deleteOpts)
 	})
+
+	crb := &rbacV1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name + ":knative-serving-namespaced-admin",
+		},
+		Subjects: []rbacV1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "default",
+				Namespace: name,
+			},
+		},
+		RoleRef: rbacV1.RoleRef{
+			Name:     "knative-serving-namespaced-admin",
+			Kind:     "ClusterRole",
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+	_, err = k8sClient.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	return name
 }
 
