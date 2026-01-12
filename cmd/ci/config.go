@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/ory/viper"
+	"knative.dev/func/cmd/common"
 )
 
 const (
@@ -66,12 +67,33 @@ type CIConfig struct {
 	useWorkflowDispatch bool
 }
 
-func NewCIGitHubConfig() CIConfig {
+func NewCIGitHubConfig(
+	getCgb common.GetCgbFunc,
+	getCwd common.GetCwdFunc,
+) (CIConfig, error) {
+	path := viper.GetString(PathFlag)
+	if path == "" || path == "." {
+		cwd, err := getCwd()
+		if err != nil {
+			return CIConfig{}, err
+		}
+		path = cwd
+	}
+
+	branch := viper.GetString(BranchFlag)
+	if branch == "" {
+		var err error
+		branch, err = getCgb(path)
+		if err != nil {
+			return CIConfig{}, err
+		}
+	}
+
 	return CIConfig{
 		githubWorkflowDir:      DefaultGitHubWorkflowDir,
 		githubWorkflowFilename: DefaultGitHubWorkflowFilename,
-		path:                   viper.GetString(PathFlag),
-		branch:                 viper.GetString(BranchFlag),
+		path:                   path,
+		branch:                 branch,
 		workflowName:           viper.GetString(WorkflowNameFlag),
 		kubeconfigSecret:       viper.GetString(KubeconfigSecretNameFlag),
 		registryLoginUrlVar:    viper.GetString(RegistryLoginUrlVariableNameFlag),
@@ -82,7 +104,7 @@ func NewCIGitHubConfig() CIConfig {
 		useSelfHostedRunner:    viper.GetBool(UseSelfHostedRunnerFlag),
 		useRemoteBuild:         viper.GetBool(UseRemoteBuildFlag),
 		useWorkflowDispatch:    viper.GetBool(WorkflowDispatchFlag),
-	}
+	}, nil
 }
 
 func (cc *CIConfig) FnGitHubWorkflowDir(fnRoot string) string {
