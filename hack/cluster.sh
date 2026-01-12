@@ -500,18 +500,6 @@ tekton() {
 
   $KUBECTL create clusterrolebinding "${namespace}:knative-serving-namespaced-admin" --clusterrole=knative-serving-namespaced-admin --serviceaccount="${namespace}:default"
 
-  # TEMPORARY WORKAROUND: Disable affinity assistant to prevent pod scheduling issues
-  # This is a workaround for issues where affinity assistant pod names don't match
-  # what's expected by task pods, causing them to fail scheduling.
-  # Related issues:
-  # - https://github.com/tektoncd/pipeline/issues/6740
-  # - https://github.com/tektoncd/pipeline/issues/7503
-  # TODO: Remove this workaround once the underlying Tekton issue is resolved
-  echo "${blue}- Disabling affinity assistant (temporary workaround)${reset}"
-  $KUBECTL patch configmap feature-flags -n tekton-pipelines \
-    -p '{"data":{"disable-affinity-assistant":"true", "coschedule":"disabled"}}' \
-    --type=merge
-
   echo "${green}✅ Tekton${reset}"
 }
 
