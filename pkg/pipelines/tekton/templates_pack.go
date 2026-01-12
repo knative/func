@@ -41,9 +41,12 @@ spec:
       name: buildEnvs
       type: array
   tasks:
-    {{.GitCloneTaskRef}}
     - name: build
       params:
+        - name: GIT_REPOSITORY
+          value: $(params.gitRepository)
+        - name: GIT_REVISION
+          value: $(params.gitRevision)
         - name: APP_IMAGE
           value: $(params.imageName)
         - name: REGISTRY
@@ -55,7 +58,6 @@ spec:
         - name: ENV_VARS
           value:
             - '$(params.buildEnvs[*])'
-      {{.RunAfterFetchSources}}
       {{.FuncBuildpacksTaskRef}}
       workspaces:
         - name: source

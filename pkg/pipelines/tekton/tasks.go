@@ -56,6 +56,10 @@ spec:
       optional: true
 
   params:
+    - name: GIT_REPOSITORY
+      description: ""
+    - name: GIT_REVISION
+      description: ""
     - name: APP_IMAGE
       description: The name of where to store the app image.
     - name: REGISTRY
@@ -96,6 +100,24 @@ spec:
         value: "0.10"
 
   steps:
+
+    - name: fetch-src
+      ref:
+        resolver: http
+        params:
+          - name: url
+            value: https://raw.githubusercontent.com/tektoncd/catalog/refs/heads/main/stepaction/git-clone/0.2/git-clone.yaml
+      when:
+        - input: "$(params.GIT_REPOSITORY)"
+          operator: notin
+          values: [""]
+      params:
+        - name: "output-path"
+          value: "$(workspaces.source.path)"
+        - name: "url"
+          value: "$(params.GIT_REPOSITORY)"
+        - name: "revision"
+          value: "$(params.GIT_REVISION)"
 
     - name: func-scaffold
       image: %s
@@ -287,6 +309,10 @@ spec:
     building and running the source code.
 
   params:
+    - name: GIT_REPOSITORY
+      description: ""
+    - name: GIT_REVISION
+      description: ""
     - name: BUILDER_IMAGE
       description: The location of the s2i builder image.
     - name: IMAGE
@@ -325,6 +351,24 @@ spec:
       optional: true
 
   steps:
+
+    - name: fetch-src
+      ref:
+        resolver: http
+        params:
+          - name: url
+            value: https://raw.githubusercontent.com/tektoncd/catalog/refs/heads/main/stepaction/git-clone/0.2/git-clone.yaml
+      when:
+        - input: "$(params.GIT_REPOSITORY)"
+          operator: notin
+          values: [""]
+      params:
+        - name: "output-path"
+          value: "$(workspaces.source.path)"
+        - name: "url"
+          value: "$(params.GIT_REPOSITORY)"
+        - name: "revision"
+          value: "$(params.GIT_REVISION)"
 
     - name: func-scaffold
       image: %s
