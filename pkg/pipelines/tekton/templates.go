@@ -40,8 +40,10 @@ const (
         - name: gitInitImage
           value: ghcr.io/tektoncd/github.com/tektoncd/pipeline/cmd/git-init:v0.21.0
       taskRef:
-        kind: Task
-        name: git-clone
+        resolver: http
+        params:
+         - name: url
+           value: http://raw.githubusercontent.com/tektoncd/catalog/refs/heads/main/task/git-clone/0.4/git-clone.yaml
       workspaces:
         - name: output
           workspace: source-workspace`
