@@ -186,7 +186,7 @@ metadata:
     pipelinesascode.tekton.dev/on-target-branch: "[{{.PipelinesTargetBranch}}]"
 
     # Fetch the git-clone task from hub
-    pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
+    pipelinesascode.tekton.dev/task: "https://raw.githubusercontent.com/tektoncd/catalog/refs/heads/main/task/git-clone/0.4/git-clone.yaml"
 
     # Fetch the pipelie definition from the .tekton directory
     pipelinesascode.tekton.dev/pipeline: {{.PipelineYamlURL}}
