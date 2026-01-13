@@ -236,7 +236,11 @@ networking() {
   echo "Version: ${contour_version}"
 
   echo "Installing a configured Contour."
-  $KUBECTL apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
+  curl -sSL "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml" \
+    | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args)
+          += ["--envoy-service-http-address=::", "--envoy-service-https-address=::"]' \
+    | $KUBECTL apply -f -
+
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
 
