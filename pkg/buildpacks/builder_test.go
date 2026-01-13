@@ -232,6 +232,35 @@ func TestBuild_Errors(t *testing.T) {
 	}
 }
 
+// TestParseGoModVersion tests parsing of Go version from go.mod
+func TestParseGoModVersion(t *testing.T) {
+	tests := []struct {
+		name      string
+		content   string
+		writeFile bool
+		expected  string
+	}{
+		{"valid go version", "module test\n\ngo 1.25", true, "1.25"},
+		{"go version with toolchain", "module test\n\ngo 1.25\ntoolchain go1.25.4", true, "1.25"},
+		{"no go directive", "module test", true, ""},
+		{"no go.mod file", "", false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			if tt.writeFile {
+				if err := os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(tt.content), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if got := parseGoModVersion(tempDir); got != tt.expected {
+				t.Errorf("parseGoModVersion() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
 type mockImpl struct {
 	BuildFn func(context.Context, pack.BuildOptions) error
 }

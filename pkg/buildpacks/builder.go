@@ -19,6 +19,7 @@ import (
 	"github.com/buildpacks/pack/pkg/project/types"
 	"github.com/docker/docker/client"
 	"github.com/heroku/color"
+	"golang.org/x/mod/modfile"
 
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/docker"
@@ -186,6 +187,17 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		opts.Env["BPE_DEFAULT_LISTEN_ADDRESS"] = "[::]:8080"
 	}
 
+	// use "explicit default" go version in function's go.mod file via variable
+	// if not explicitly set via buildEnvs (in func.yaml). This ensures single
+	// go version in buildpacks. See https://github.com/knative/func/issues/3178
+	if f.Runtime == "go" {
+		if _, ok := opts.Env["BP_GO_VERSION"]; !ok {
+			if goVersion := parseGoModVersion(f.Root); goVersion != "" {
+				opts.Env["BP_GO_VERSION"] = goVersion
+			}
+		}
+	}
+
 	var bindings = make([]string, 0, len(f.Build.Mounts))
 	for _, m := range f.Build.Mounts {
 		bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
@@ -295,6 +307,24 @@ func isLocalhost(img string) bool {
 // Builder Image chooses the correct builder image or defaults.
 func BuilderImage(f fn.Function, builderName string) (string, error) {
 	return builders.Image(f, builderName, DefaultBuilderImages)
+}
+
+// parseGoModVersion reads the go.mod file and returns the Go version directive.
+// Returns empty string if go.mod doesn't exist or has no go directive.
+func parseGoModVersion(root string) string {
+	goModPath := filepath.Join(root, "go.mod")
+	data, err := os.ReadFile(goModPath)
+	if err != nil {
+		return ""
+	}
+	f, err := modfile.Parse(goModPath, data, nil)
+	if err != nil {
+		return ""
+	}
+	if f.Go == nil {
+		return ""
+	}
+	return f.Go.Version
 }
 
 // Errors
