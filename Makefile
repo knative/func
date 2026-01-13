@@ -292,7 +292,7 @@ templates/certs/ca-certificates.crt:
 
 .PHONY: test-integration
 test-integration: ## Run integration tests using an available cluster.
-	go test -cover -coverprofile=coverage.txt -tags integration -timeout 60m ./... -v -run TestInt_Gitlab
+	go test -cover -coverprofile=coverage.txt -tags integration -timeout 60m ./pkg/pipelines/tekton -v -run TestInt_Gitlab
 
 .PHONY: test-e2e
 test-e2e: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
