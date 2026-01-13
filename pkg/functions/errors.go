@@ -48,6 +48,9 @@ var (
 	// ErrInvalidNamespace is returned when a namespace name doesn't meet Kubernetes naming requirements
 	ErrInvalidNamespace = errors.New("invalid namespace")
 
+	// ErrInvalidRegistry is returned when a registry format is invalid
+	ErrInvalidRegistry = errors.New("invalid registry")
+
 	// ErrNotHandled is returned when a handler (describer, remover, ...) was not responsible for the function
 	ErrNotHandled = errors.New("describer does not handle this function")
 )
