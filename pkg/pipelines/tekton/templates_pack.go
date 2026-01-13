@@ -164,6 +164,9 @@ metadata:
     # The branch or tag we are targeting (ie: main, refs/tags/*)
     pipelinesascode.tekton.dev/on-target-branch: "[{{.PipelinesTargetBranch}}]"
 
+    # Fetch the git-clone task from hub
+    pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
+
     # How many runs we want to keep attached to this event
     pipelinesascode.tekton.dev/max-keep-runs: "5"
 
