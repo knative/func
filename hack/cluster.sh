@@ -237,6 +237,17 @@ networking() {
 
   echo "Installing a configured Contour."
   $KUBECTL apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
+
+  $KUBECTL patch -n contour-external deployment/contour --type json -p '[
+{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--envoy-service-http-address=::"},
+{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--envoy-service-https-address=::"},
+]'
+
+  $KUBECTL patch -n contour-internal deployment/contour --type json -p '[
+{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--envoy-service-http-address=::"},
+{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--envoy-service-https-address=::"},
+]'
+
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
 
