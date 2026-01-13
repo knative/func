@@ -93,7 +93,8 @@ func scaffold(ctx context.Context) error {
 
 	middlewareVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
 	if err != nil {
-		return fmt.Errorf("cannot get middleware version: %w", err)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: cannot get middleware version: %v\n", err)
+		middlewareVersion = "<unknown>"
 	}
 
 	if err := os.WriteFile("/tekton/results/middlewareVersion", []byte(middlewareVersion), 0644); err != nil {
