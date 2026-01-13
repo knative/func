@@ -27,6 +27,7 @@ find_executables() {
   STERN=$(find_executable "stern" || true)
   KN=$(find_executable "kn" || true)
   JQ=$(find_executable "jq" || true)
+  YQ=$(find_executable "yq" || true)
 }
 
 populate_environment() {

@@ -33,6 +33,7 @@ install_binaries() {
   local stern_version=1.32.0
   local kn_version=1.18.0
   local jq_version=1.7.1
+  local yq_version=4.50.1
 
   echo "${blue}Installing binaries${reset}"
   echo "  OS:           ${OS}"
@@ -48,6 +49,7 @@ install_binaries() {
   install_stern
   install_kn
   install_jq
+  install_yq
 
   echo "${green}DONE${reset}"
 
@@ -146,6 +148,11 @@ install_jq() {
   curl -sSLo "${bin}"/jq "https://github.com/jqlang/jq/releases/download/jq-${jq_version}/jq-${JQ_OS}-${ARCH}"
   chmod +x "${bin}"/jq
   "${bin}"/jq --version
+}
+
+install_yq() {
+  echo '=== yq'
+  CGO_ENABLED=0 GOBIN="${bin}" go install "github.com/mikefarah/yq/v4@v${yq_version}"
 }
 
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then
