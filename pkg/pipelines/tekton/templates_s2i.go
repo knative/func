@@ -185,9 +185,6 @@ metadata:
     # The branch or tag we are targeting (ie: main, refs/tags/*)
     pipelinesascode.tekton.dev/on-target-branch: "[{{.PipelinesTargetBranch}}]"
 
-    # Fetch the git-clone task from hub
-    pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
-
     # Fetch the pipelie definition from the .tekton directory
     pipelinesascode.tekton.dev/pipeline: {{.PipelineYamlURL}}
 
