@@ -642,9 +642,10 @@ func usingNamespace(t *testing.T) string {
 		_ = k8sClient.CoreV1().Namespaces().Delete(context.Background(), name, deleteOpts)
 	})
 
+	crbName := name + ":knative-serving-namespaced-admin"
 	crb := &rbacV1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name + ":knative-serving-namespaced-admin",
+			Name: crbName,
 		},
 		Subjects: []rbacV1.Subject{
 			{
@@ -663,6 +664,9 @@ func usingNamespace(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		_ = k8sClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crbName, metav1.DeleteOptions{})
+	})
 
 	return name
 }
