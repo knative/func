@@ -48,10 +48,6 @@ spec:
       name: tlsVerify
       type: string
       default: 'true'
-    - description: Used middleware version
-      name: middlewareVersion
-      type: string
-      default: ''
   tasks:
     - name: build
       params:
