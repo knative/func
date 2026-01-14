@@ -26,6 +26,8 @@ import (
 	"knative.dev/func/pkg/tar"
 )
 
+const middlewareFileName = "middleware-version"
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -72,8 +74,6 @@ func socat(ctx context.Context) error {
 	cmd.SetContext(ctx)
 	return cmd.Execute()
 }
-
-const middlewareFileName = "middleware-version"
 
 func scaffold(ctx context.Context) error {
 
@@ -148,9 +148,8 @@ func s2iCmd(ctx context.Context) error {
 	return cmd.Execute()
 }
 
-const imageDigestFileName = "image-digest"
-
 func deploy(ctx context.Context) error {
+	const imageDigestFileName = "image-digest"
 	var err error
 	deployer := knative.NewDeployer(
 		knative.WithDeployerVerbose(true),
