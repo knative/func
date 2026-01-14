@@ -3,7 +3,7 @@ package tekton
 const (
 	// packPipelineTemplate contains the Buildpacks template used for both Tekton standard and PAC Pipeline
 	packPipelineTemplate = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   labels:
@@ -78,7 +78,7 @@ spec:
 
 	// packRunTemplate contains the Buildpacks template used for Tekton standard PipelineRun
 	packRunTemplate = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   labels:
@@ -128,7 +128,7 @@ spec:
 `
 	// packRunTemplatePAC contains the Buildpacks template used for the Tekton PAC PipelineRun
 	packRunTemplatePAC = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   labels:

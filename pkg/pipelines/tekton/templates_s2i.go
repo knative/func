@@ -3,7 +3,7 @@ package tekton
 const (
 	// s2iPipelineTemplate contains the S2I template used for both Tekton standard and PAC Pipeline
 	s2iPipelineTemplate = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   labels:
@@ -89,7 +89,7 @@ spec:
 `
 	// s2iRunTemplate contains the S2I template used for Tekton standard PipelineRun
 	s2iRunTemplate = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   labels:
@@ -143,7 +143,7 @@ spec:
 `
 	// s2iRunTemplatePAC contains the S2I template used for Tekton PAC PipelineRun
 	s2iRunTemplatePAC = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   labels:
