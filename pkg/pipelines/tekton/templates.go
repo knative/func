@@ -22,7 +22,6 @@ const (
 	// Local resources properties
 	resourcesDirectory     = ".tekton"
 	pipelineFileName       = "pipeline.yaml"
-	pipelineRunFilenane    = "pipeline-run.yaml"
 	pipelineFileNamePAC    = "pipeline-pac.yaml"
 	pipelineRunFilenamePAC = "pipeline-run-pac.yaml"
 
@@ -78,14 +77,8 @@ type templateData struct {
 	Revision string
 
 	// Task references
-	GitCloneTaskRef       string
 	FuncBuildpacksTaskRef string
 	FuncS2iTaskRef        string
-	FuncDeployTaskRef     string
-	FuncScaffoldTaskRef   string
-
-	// Reference for build task - whether it should run after fetch-sources task or not
-	RunAfterFetchSources string
 
 	PipelineYamlURL string
 
