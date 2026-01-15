@@ -103,10 +103,16 @@ spec:
 
     - name: fetch-src
       ref:
-        resolver: http
+        resolver: bundles
         params:
-          - name: url
-            value: https://raw.githubusercontent.com/tektoncd/catalog/c9818f3d/stepaction/git-clone/0.2/git-clone.yaml
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/stepactions/git-clone:09f70e6a6485a7d99b01d75610870b13222732e8
+          - name: kind
+            value: StepAction
+          - name: version
+            value: 0.2
+          - name: name
+            value: git-clone
       when:
         - input: "$(params.GIT_REPOSITORY)"
           operator: notin
@@ -354,10 +360,16 @@ spec:
 
     - name: fetch-src
       ref:
-        resolver: http
+        resolver: bundles
         params:
-          - name: url
-            value: https://raw.githubusercontent.com/tektoncd/catalog/c9818f3d/stepaction/git-clone/0.2/git-clone.yaml
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/stepactions/git-clone:09f70e6a6485a7d99b01d75610870b13222732e8
+          - name: kind
+            value: StepAction
+          - name: version
+            value: 0.2
+          - name: name
+            value: git-clone
       when:
         - input: "$(params.GIT_REPOSITORY)"
           operator: notin
