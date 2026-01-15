@@ -287,6 +287,28 @@ eventing() {
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-eventing --timeout=5m
 
+  echo "Exposing broker at broker.localtest.me"
+  $KUBECTL apply -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: broker-ingress
+  namespace: knative-eventing
+spec:
+  ingressClassName: contour-external
+  rules:
+    - host: broker.localtest.me
+      http:
+        paths:
+          - backend:
+              service:
+                name: broker-ingress
+                port:
+                  number: 80
+            pathType: Prefix
+            path: /
+EOF
+
   echo "${green}✅ Eventing${reset}"
 }
 
