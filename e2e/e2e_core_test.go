@@ -69,8 +69,7 @@ func TestCore_Run(t *testing.T) {
 	}
 
 	cmd := newCmd(t, "run", "--json")
-	address, cleanup := parseRunJSON(t, cmd)
-	defer cleanup()
+	address := parseRunJSON(t, cmd)
 
 	if !waitFor(t, address) {
 		t.Fatal("service does not appear to have started correctly.")
@@ -270,8 +269,7 @@ func TestCore_Invoke(t *testing.T) {
 	// Runs the function locally, which `func invoke` will invoke when
 	// it detects it is running.
 	cmd := newCmd(t, "run", "--json")
-	address, cleanup := parseRunJSON(t, cmd)
-	defer cleanup()
+	address := parseRunJSON(t, cmd)
 
 	run := cmd // for the closure
 	defer func() {

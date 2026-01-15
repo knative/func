@@ -1160,7 +1160,7 @@ func chooseOpenAddress(t *testing.T) (address string, err error) {
 // parseRunJSON runs the command and extracts the function address from JSON output.
 // We scan line-by-line because container builders (s2i/pack) may print build logs
 // to stdout before the JSON, so we need to skip those lines to find valid JSON.
-func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
+func parseRunJSON(t *testing.T, cmd *exec.Cmd) string {
 	t.Helper()
 
 	stdoutReader, stdoutWriter := io.Pipe()
@@ -1198,10 +1198,10 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
 		}
 	}()
 
-	// Run in goroutine so we can return the address while the function keeps running
-	go func() {
-		cmd.Run()
-	}()
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start command: %v", err)
+	}
 
 	var address string
 	select {
@@ -1213,5 +1213,6 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) (string, func()) {
 		t.Fatalf("timeout waiting for func run JSON output. stderr: %s", stderr.String())
 	}
 
-	return address, func() { stdoutWriter.Close() }
+	t.Cleanup(func() { stdoutWriter.Close() })
+	return address
 }

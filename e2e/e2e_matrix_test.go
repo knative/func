@@ -61,8 +61,7 @@ func TestMatrix_Run(t *testing.T) {
 
 		// Run
 		cmd := newCmd(t, run...)
-		address, cleanup := parseRunJSON(t, cmd)
-		defer cleanup()
+		address := parseRunJSON(t, cmd)
 
 		// Ensure the Function comes up
 		if !waitFor(t, address,
