@@ -4,21 +4,23 @@
 package e2e
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	fn "knative.dev/func/pkg/functions"
+	fnhttp "knative.dev/func/pkg/http"
 )
 
 // ---------------------------------------------------------------------------
@@ -562,18 +564,15 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 // Tests the complete event flow using func subscribe
 func TestMetadata_Subscriptions(t *testing.T) {
 	brokerName := "default"
-	if !createBrokerWithCheck(t, Namespace, brokerName) {
-		t.Fatal("Failed to create broker")
-	}
-	defer deleteBroker(t, Namespace, brokerName)
+
+	createBrokerWithCheck(t, Namespace, brokerName)
 
 	uniqueEventID := fmt.Sprintf("e2e-test-%d", time.Now().UnixNano())
-	eventReceived := make(chan string, 10)
 
-	callbackURL, cleanup := startCallbackServer(t, eventReceived)
-	defer cleanup()
+	eventReceived := waitForEvent(t, uniqueEventID)
 
-	subscriberName := "func-e2e-test-subscriber"
+	subscriber := "func-e2e-test-subscriber"
+	subscriberName := subscriber
 	subscriberRoot := fromCleanEnv(t, subscriberName)
 	if err := newCmd(t, "init", "-l=go", "-t=cloudevents").Run(); err != nil {
 		t.Fatal(err)
@@ -586,10 +585,6 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	subscribeCmd := exec.Command(Bin, "subscribe", "--filter", "type=test.event")
 	subscribeCmd.Stdout, subscribeCmd.Stderr = os.Stdout, os.Stderr
 	if err := subscribeCmd.Run(); err != nil {
-		t.Fatal(err)
-	}
-	if err := newCmd(t, "config", "envs", "add",
-		"--name=CALLBACK_URL", "--value="+callbackURL).Run(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -612,34 +607,28 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	}
 	waitForTrigger(t, Namespace, subscriberName)
 
-	producerName := "func-e2e-test-producer"
-	producerRoot := fromCleanEnv(t, producerName)
-	if err := newCmd(t, "init", "-l=go", "-t=http").Run(); err != nil {
-		t.Fatal(err)
+	transport := fnhttp.NewRoundTripper()
+	defer transport.Close()
+	client := http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second,
 	}
-	if err := os.WriteFile(filepath.Join(producerRoot, "handle.go"),
-		[]byte(producerCode(Namespace, brokerName)), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := newCmd(t, "deploy").Run(); err != nil {
-		t.Fatal(err)
-	}
-	defer clean(t, producerName, Namespace)
+	url := fmt.Sprintf("http://broker-ingress.knative-eventing.svc/%s/%s", Namespace, brokerName)
+	req, _ := http.NewRequestWithContext(t.Context(), "POST", url, strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("ce-specversion", "1.0")
+	req.Header.Set("ce-type", "test.event")
+	req.Header.Set("ce-source", "producer")
+	req.Header.Set("ce-id", uniqueEventID)
 
-	producerURL := fmt.Sprintf("http://%s.%s.%s", producerName, Namespace, Domain)
-	if !waitFor(t, producerURL, withContentMatch("Producer is ready")) {
-		t.Fatal("producer not ready")
-	}
-
-	client := http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Post(producerURL+"?event_id="+uniqueEventID, "application/json", strings.NewReader("{}"))
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("Failed to invoke producer: %v", err)
 	}
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Fatalf("Broker rejected event: %s", body)
+	if resp.StatusCode != 202 {
+		t.Fatalf("Broker rejected event: code: %d, body: %q", resp.StatusCode, body)
 	}
 	t.Logf("Broker accepted event %s", uniqueEventID)
 
@@ -651,56 +640,52 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	}
 }
 
-// Starts HTTP server to receive callbacks from subscriber pod
-func startCallbackServer(t *testing.T, ch chan<- string) (string, func()) {
+func waitForEvent(t *testing.T, eventId string) <-chan string {
 	t.Helper()
-	hostIP := getHostIPForCluster(t)
-	listener, err := net.Listen("tcp", ":0")
+
+	eventReceived := make(chan string, 10)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	pr, pw := io.Pipe()
+	cmd := exec.CommandContext(ctx, "stern", "func-e2e-test-subscriber-.*")
+	cmd.Stderr = io.Discard
+	cmd.Stdout = pw
+	cmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
+	err := cmd.Start()
 	if err != nil {
-		t.Fatalf("Failed to listen: %v", err)
+		t.Fatal(err)
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		select {
-		case ch <- string(body):
-		default:
+	go func() {
+		r := bufio.NewReader(pr)
+		m, e := regexp.MatchReader(`EVENT_RECEIVED: id=`+eventId, r)
+		if e != nil {
+			panic(e)
 		}
-		w.WriteHeader(200)
-	})
+		if m {
+			eventReceived <- "OK"
+			close(eventReceived)
+			cancel()
+		}
+		_, _ = io.Copy(io.Discard, r)
+	}()
 
-	srv := &http.Server{Handler: mux}
-	go srv.Serve(listener)
-	return fmt.Sprintf("http://%s:%d/callback", hostIP, port), func() { srv.Shutdown(context.Background()) }
+	return eventReceived
 }
 
-// CloudEvents handler that calls back to test server
+// CloudEvents handler that logs events
 func subscriberCode() string {
 	return `package function
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"net/http"
-	"os"
-	"time"
 	"github.com/cloudevents/sdk-go/v2/event"
 )
 
 func Handle(ctx context.Context, e event.Event) (*event.Event, error) {
 	fmt.Printf("EVENT_RECEIVED: id=%s type=%s source=%s\n", e.ID(), e.Type(), e.Source())
-	if url := os.Getenv("CALLBACK_URL"); url != "" {
-		c := &http.Client{Timeout: 5 * time.Second}
-		if resp, err := c.Post(url, "text/plain", bytes.NewBufferString(e.ID())); err == nil {
-			resp.Body.Close()
-			fmt.Printf("Callback sent to %s\n", url)
-		} else {
-			fmt.Printf("Callback failed: %v\n", err)
-		}
-	}
 	r := event.New()
 	r.SetID("response-" + e.ID())
 	r.SetSource("subscriber")
@@ -711,84 +696,8 @@ func Handle(ctx context.Context, e event.Event) (*event.Event, error) {
 `
 }
 
-// HTTP handler that sends CloudEvents to broker
-func producerCode(namespace, broker string) string {
-	return fmt.Sprintf(`package function
-
-import (
-	"fmt"
-	"io"
-	"net/http"
-	"strings"
-	"time"
-)
-
-func Handle(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		fmt.Fprint(w, "Producer is ready")
-		return
-	}
-	eventID := r.URL.Query().Get("event_id")
-	if eventID == "" {
-		eventID = fmt.Sprintf("evt-%%d", time.Now().UnixNano())
-	}
-	url := "http://broker-ingress.knative-eventing.svc.cluster.local/%s/%s"
-	req, _ := http.NewRequest("POST", url, strings.NewReader(`+"`"+`{}`+"`"+`))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("ce-specversion", "1.0")
-	req.Header.Set("ce-type", "test.event")
-	req.Header.Set("ce-source", "producer")
-	req.Header.Set("ce-id", eventID)
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		fmt.Fprintf(w, "Event %%s sent (%%d)", eventID, resp.StatusCode)
-	} else {
-		http.Error(w, string(body), 500)
-	}
-}
-`, namespace, broker)
-}
-
-// Returns host IP accessible from kind cluster
-func getHostIPForCluster(t *testing.T) string {
-	t.Helper()
-	cmd := exec.Command("docker", "network", "inspect", "kind", "-f", "{{(index .IPAM.Config 0).Gateway}}")
-	output, err := cmd.Output()
-	if err == nil && len(output) > 0 {
-		ip := strings.TrimSpace(string(output))
-
-		if ip != "" && !strings.Contains(ip, ":") {
-			t.Logf("Using kind network gateway: %s", ip)
-			return ip
-		}
-	}
-
-	cmd = exec.Command("ip", "route", "get", "1")
-	output, err = cmd.Output()
-	if err == nil {
-		// Parse output like "1.0.0.0 via 192.168.1.1 dev eth0 src 192.168.1.100"
-		fields := strings.Fields(string(output))
-		for i, f := range fields {
-			if f == "src" && i+1 < len(fields) {
-				t.Logf("Using host IP from route: %s", fields[i+1])
-				return fields[i+1]
-			}
-		}
-	}
-
-	// Last resort: use common Docker bridge IP
-	t.Log("Warning: Could not determine host IP, using 172.17.0.1 (Docker default)")
-	return "172.17.0.1"
-}
-
-// createBrokerWithCheck creates a Knative Broker and returns true if successful.
-func createBrokerWithCheck(t *testing.T, namespace, name string) bool {
+// createBrokerWithCheck creates a Knative Broker
+func createBrokerWithCheck(t *testing.T, namespace, name string) {
 	t.Helper()
 
 	brokerYAML := fmt.Sprintf(`apiVersion: eventing.knative.dev/v1
@@ -804,9 +713,11 @@ metadata:
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Logf("Failed to create broker: %v, output: %s", err, string(output))
-		return false
+		t.Fatalf("Failed to create broker: %v, output: %s", err, string(output))
 	}
+	t.Cleanup(func() {
+		deleteBroker(t, namespace, name)
+	})
 	t.Logf("Created broker %s in namespace %s", name, namespace)
 
 	waitCmd := exec.Command("kubectl", "wait", "--for=condition=Ready",
@@ -815,7 +726,6 @@ metadata:
 	waitOutput, err := waitCmd.CombinedOutput()
 	if err != nil {
 		t.Logf("Broker not ready: %v, output: %s", err, string(waitOutput))
-		return false
 	}
 	t.Logf("Broker %s is ready", name)
 
@@ -826,12 +736,11 @@ metadata:
 		checkCmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
 		if err := checkCmd.Run(); err == nil {
 			t.Log("broker-ingress service is available")
-			return true
+			return
 		}
 		time.Sleep(2 * time.Second)
 	}
-	t.Log("broker-ingress service check timed out")
-	return false
+	t.Fatal("broker-ingress service check timed out")
 }
 
 // deleteBroker removes a Knative Broker from the given namespace.
