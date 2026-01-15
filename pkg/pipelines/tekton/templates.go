@@ -22,52 +22,8 @@ const (
 	// Local resources properties
 	resourcesDirectory     = ".tekton"
 	pipelineFileName       = "pipeline.yaml"
-	pipelineRunFilenane    = "pipeline-run.yaml"
 	pipelineFileNamePAC    = "pipeline-pac.yaml"
 	pipelineRunFilenamePAC = "pipeline-run-pac.yaml"
-
-	// Tasks references for PAC PipelineRun that are defined in the annotations
-	taskGitCloneRef = "git-clone"
-
-	// Following part holds a reference to Git Clone Task to be used in Pipeline template,
-	// the usage depends whether we use direct code upload or Git reference for a standard (non PAC) on-cluster build
-	taskGitClonePACTaskRef = `- name: fetch-sources
-      params:
-        - name: url
-          value: $(params.gitRepository)
-        - name: revision
-          value: $(params.gitRevision)
-        - name: gitInitImage
-          value: ghcr.io/tektoncd/github.com/tektoncd/pipeline/cmd/git-init:v0.21.0
-      taskRef:
-        kind: Task
-        name: git-clone
-      workspaces:
-        - name: output
-          workspace: source-workspace`
-	// TODO fix Tekton Hub reference
-	taskGitCloneTaskRef = `- name: fetch-sources
-      params:
-        - name: url
-          value: $(params.gitRepository)
-        - name: revision
-          value: $(params.gitRevision)
-        - name: gitInitImage
-          value: ghcr.io/tektoncd/github.com/tektoncd/pipeline/cmd/git-init:v0.21.0
-      taskRef:
-        resolver: hub
-        params:
-          - name: kind
-            value: task
-          - name: name
-            value: git-clone
-          - name: version
-            value: "0.4"
-      workspaces:
-        - name: output
-          workspace: source-workspace`
-	runAfterFetchSourcesRef = `runAfter:
-        - fetch-sources`
 
 	// S2I related properties
 	defaultS2iImageScriptsUrl = "image:///usr/libexec/s2i"
@@ -121,14 +77,8 @@ type templateData struct {
 	Revision string
 
 	// Task references
-	GitCloneTaskRef       string
 	FuncBuildpacksTaskRef string
 	FuncS2iTaskRef        string
-	FuncDeployTaskRef     string
-	FuncScaffoldTaskRef   string
-
-	// Reference for build task - whether it should run after fetch-sources task or not
-	RunAfterFetchSources string
 
 	PipelineYamlURL string
 
@@ -143,12 +93,10 @@ type templateData struct {
 // it creates the resource in the project directory
 func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
 	data := templateData{
-		FunctionName:         f.Name,
-		Annotations:          f.Deploy.Annotations,
-		Labels:               labels,
-		PipelineName:         getPipelineName(f),
-		RunAfterFetchSources: runAfterFetchSourcesRef,
-		GitCloneTaskRef:      taskGitClonePACTaskRef,
+		FunctionName: f.Name,
+		Annotations:  f.Deploy.Annotations,
+		Labels:       labels,
+		PipelineName: getPipelineName(f),
 	}
 
 	for _, val := range []struct {
@@ -157,8 +105,6 @@ func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
 	}{
 		{getBuildpackTask(), &data.FuncBuildpacksTaskRef},
 		{getS2ITask(), &data.FuncS2iTaskRef},
-		{getDeployTask(), &data.FuncDeployTaskRef},
-		{getScaffoldTask(), &data.FuncScaffoldTaskRef},
 	} {
 		ts, err := getTaskSpec(val.ref)
 		if err != nil {
@@ -236,8 +182,6 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 		SecretName:      getPipelineSecretName(f),
 
 		PipelinesTargetBranch: pipelinesTargetBranch,
-
-		GitCloneTaskRef: taskGitCloneRef,
 
 		PipelineYamlURL: fmt.Sprintf("%s/%s", resourcesDirectory, pipelineFileNamePAC),
 
@@ -344,20 +288,12 @@ func getTaskSpec(taskYaml string) (string, error) {
 func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[string]string) error {
 	// If Git is set up create fetch task and reference it from build task,
 	// otherwise sources have been already uploaded to workspace PVC.
-	gitCloneTaskRef := ""
-	runAfterFetchSources := ""
-	if f.Build.Git.URL != "" {
-		runAfterFetchSources = runAfterFetchSourcesRef
-		gitCloneTaskRef = taskGitCloneTaskRef
-	}
 
 	data := templateData{
-		FunctionName:         f.Name,
-		Annotations:          f.Deploy.Annotations,
-		Labels:               labels,
-		PipelineName:         getPipelineName(f),
-		RunAfterFetchSources: runAfterFetchSources,
-		GitCloneTaskRef:      gitCloneTaskRef,
+		FunctionName: f.Name,
+		Annotations:  f.Deploy.Annotations,
+		Labels:       labels,
+		PipelineName: getPipelineName(f),
 	}
 
 	for _, val := range []struct {
@@ -366,8 +302,6 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	}{
 		{getBuildpackTask(), &data.FuncBuildpacksTaskRef},
 		{getS2ITask(), &data.FuncS2iTaskRef},
-		{getDeployTask(), &data.FuncDeployTaskRef},
-		{getScaffoldTask(), &data.FuncScaffoldTaskRef},
 	} {
 		ts, err := getTaskSpec(val.ref)
 		if err != nil {

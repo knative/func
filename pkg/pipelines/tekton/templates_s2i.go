@@ -3,7 +3,7 @@ package tekton
 const (
 	// s2iPipelineTemplate contains the S2I template used for both Tekton standard and PAC Pipeline
 	s2iPipelineTemplate = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   labels:
@@ -48,23 +48,13 @@ spec:
       name: tlsVerify
       type: string
       default: 'true'
-    - description: Used middleware version
-      name: middlewareVersion
-      type: string
-      default: ''
   tasks:
-    {{.GitCloneTaskRef}}
-    - name: scaffold
-      params:
-        - name: path
-          value: $(workspaces.source.path)/$(params.contextDir)
-      workspaces:
-        - name: source
-          workspace: source-workspace
-      {{.RunAfterFetchSources}}
-      {{.FuncScaffoldTaskRef}}
     - name: build
       params:
+        - name: GIT_REPOSITORY
+          value: $(params.gitRepository)
+        - name: GIT_REVISION
+          value: $(params.gitRevision)
         - name: IMAGE
           value: $(params.imageName)
         - name: REGISTRY
@@ -80,10 +70,6 @@ spec:
           value: $(params.s2iImageScriptsUrl)
         - name: TLSVERIFY
           value: $(params.tlsVerify)
-        - name: MIDDLEWARE_VERSION
-          value: $(tasks.scaffold.results.middlewareVersion)
-      runAfter:
-        - scaffold
       {{.FuncS2iTaskRef}}
       workspaces:
         - name: source
@@ -92,18 +78,6 @@ spec:
           workspace: cache-workspace
         - name: dockerconfig
           workspace: dockerconfig-workspace
-    - name: deploy
-      params:
-        - name: path
-          value: $(workspaces.source.path)/$(params.contextDir)
-        - name: image
-          value: $(params.imageName)@$(tasks.build.results.IMAGE_DIGEST)
-      runAfter:
-        - build
-      {{.FuncDeployTaskRef}}
-      workspaces:
-        - name: source
-          workspace: source-workspace
   workspaces:
     - description: Directory where function source is located.
       name: source-workspace
@@ -115,7 +89,7 @@ spec:
 `
 	// s2iRunTemplate contains the S2I template used for Tekton standard PipelineRun
 	s2iRunTemplate = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   labels:
@@ -169,7 +143,7 @@ spec:
 `
 	// s2iRunTemplatePAC contains the S2I template used for Tekton PAC PipelineRun
 	s2iRunTemplatePAC = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   labels:
@@ -184,9 +158,6 @@ metadata:
 
     # The branch or tag we are targeting (ie: main, refs/tags/*)
     pipelinesascode.tekton.dev/on-target-branch: "[{{.PipelinesTargetBranch}}]"
-
-    # Fetch the git-clone task from hub
-    pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
 
     # Fetch the pipelie definition from the .tekton directory
     pipelinesascode.tekton.dev/pipeline: {{.PipelineYamlURL}}
