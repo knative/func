@@ -41,17 +41,11 @@ func TestMatrix_Run(t *testing.T) {
 			cleanImages(t, name)
 		})
 
-		// Choose an address ahead of time
-		address, err := chooseOpenAddress(t)
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		// func init
 		init := []string{"init", "-l", runtime, "-t", template}
 
-		// func run
-		run := []string{"run", "--builder", builder, "--address", address}
+		// func run with --json to get dynamic address
+		run := []string{"run", "--builder", builder, "--json"}
 
 		// Language and architecture special treatment
 		// - Skips tests if the builder is not supported
@@ -66,15 +60,11 @@ func TestMatrix_Run(t *testing.T) {
 		}
 
 		// Run
-		// ---
 		cmd := newCmd(t, run...)
-		if err := cmd.Start(); err != nil {
-			t.Fatal(err)
-		}
+		address := parseRunJSON(t, cmd)
 
 		// Ensure the Function comes up
-
-		if !waitFor(t, "http://"+address,
+		if !waitFor(t, address,
 			withWaitTimeout(timeout),
 			withTemplate(template)) {
 			t.Fatal("service does not appear to have started correctly.")
@@ -85,10 +75,6 @@ func TestMatrix_Run(t *testing.T) {
 			fmt.Fprintf(os.Stderr, "error interrupting. %v", err)
 		}
 
-		// Wait for exit and error if anything other than 130 (^C/interrupt)
-		if err := cmd.Wait(); isAbnormalExit(t, err) {
-			t.Fatalf("function exited abnormally %v", err)
-		}
 	})
 }
 

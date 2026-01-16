@@ -9,6 +9,8 @@ See README.md for more details.
 package e2e
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -1153,4 +1155,64 @@ func chooseOpenAddress(t *testing.T) (address string, err error) {
 	}
 	defer l.Close()
 	return l.Addr().String(), nil
+}
+
+// parseRunJSON runs the command and extracts the function address from JSON output.
+// We scan line-by-line because container builders (s2i/pack) may print build logs
+// to stdout before the JSON, so we need to skip those lines to find valid JSON.
+func parseRunJSON(t *testing.T, cmd *exec.Cmd) string {
+	t.Helper()
+
+	stdoutReader, stdoutWriter := io.Pipe()
+	stderr := &bytes.Buffer{}
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderr
+
+	type runOutput struct {
+		Address string `json:"address"`
+		Host    string `json:"host"`
+		Port    string `json:"port"`
+	}
+
+	addressChan := make(chan string, 1)
+	errChan := make(chan error, 1)
+
+	// Must spawn reader before starting the command, otherwise we may miss output
+	go func() {
+		scanner := bufio.NewScanner(stdoutReader)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(strings.TrimSpace(line), "{") {
+				var result runOutput
+				if err := json.Unmarshal([]byte(line), &result); err == nil && result.Address != "" {
+					addressChan <- result.Address
+					io.Copy(io.Discard, stdoutReader) // Prevent command from blocking on full pipe
+					return
+				}
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			errChan <- fmt.Errorf("error reading stdout: %w", err)
+		} else {
+			errChan <- fmt.Errorf("no JSON output found in stdout")
+		}
+	}()
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start command: %v", err)
+	}
+
+	var address string
+	select {
+	case address = <-addressChan:
+		t.Logf("Function running on %s (from JSON output)", address)
+	case err := <-errChan:
+		t.Fatalf("JSON parsing error: %v\nstderr: %s", err, stderr.String())
+	case <-time.After(5 * time.Minute):
+		t.Fatalf("timeout waiting for func run JSON output. stderr: %s", stderr.String())
+	}
+
+	t.Cleanup(func() { stdoutWriter.Close() })
+	return address
 }
