@@ -190,7 +190,7 @@ docs:
 
 .PHONY: presubmit-unit-tests
 presubmit-unit-tests: ## Run prow presubmit unit tests locally
-	docker run --platform linux/amd64 -it --rm -v$(MAKEFILE_DIR):/src/ us-docker.pkg.dev/knative-tests/images/prow-tests:v20230616-086ddd644 sh -c 'cd /src && runner.sh ./test/presubmit-tests.sh --unit-tests'
+	docker run --platform linux/amd64 -it --rm -v$(MAKEFILE_DIR):/src/ us-docker.pkg.dev/knative-tests/images/prow-tests:v20251211-ce6d6c676 sh -c 'cd /src && runner.sh ./test/presubmit-tests.sh --unit-tests'
 
 
 #############
@@ -219,8 +219,8 @@ check-rust: ## Check Rust templates' source
 
 .PHONY: check-typescript
 check-typescript: ## Check TypeScript templates' source
-	cd templates/typescript/cloudevents && npm ci && npx eslint --ext .ts . && rm -rf node_modules build
-	cd templates/typescript/http && npm ci && npx eslint --ext .ts . && rm -rf node_modules build
+	export npm_config_cache=/tmp/.npm-cache && cd templates/typescript/cloudevents && npm ci && npx eslint --ext .ts . && rm -rf node_modules build
+	export npm_config_cache=/tmp/.npm-cache && cd templates/typescript/http && npm ci && npx eslint --ext .ts . && rm -rf node_modules build
 
 .PHONY: test-templates
 test-templates: test-go test-node test-python test-quarkus test-springboot test-rust test-typescript ## Run all template tests
@@ -232,8 +232,8 @@ test-go: ## Test Go templates
 
 .PHONY: test-node
 test-node: ## Test Node templates
-	cd templates/node/cloudevents && npm ci && npm test && rm -rf node_modules
-	cd templates/node/http && npm ci && npm test && rm -rf node_modules
+	export npm_config_cache=/tmp/.npm-cache && cd templates/node/cloudevents && npm ci && npm test && rm -rf node_modules
+	export npm_config_cache=/tmp/.npm-cache && cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
 .PHONY: test-python
 test-python: ## Test Python templates
@@ -256,8 +256,8 @@ test-rust: ## Test Rust templates
 
 .PHONY: test-typescript
 test-typescript: ## Test Typescript templates
-	cd templates/typescript/cloudevents && npm ci && npm test && rm -rf node_modules build
-	cd templates/typescript/http && npm ci && npm test && rm -rf node_modules build
+	export npm_config_cache=/tmp/.npm-cache && cd templates/typescript/cloudevents && npm ci && npm test && rm -rf node_modules build
+	export npm_config_cache=/tmp/.npm-cache && cd templates/typescript/http && npm ci && npm test && rm -rf node_modules build
 
 ###############
 ##@ Scaffolding
