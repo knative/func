@@ -2,10 +2,12 @@ package k8s
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"maps"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -215,6 +217,26 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}, nil
 }
 
+// generateTriggerName creates a deterministic trigger name based on subscription content
+func generateTriggerName(functionName, broker string, filters map[string]string) string {
+	var filterKeys []string
+	for k := range filters {
+		filterKeys = append(filterKeys, k)
+	}
+	sort.Strings(filterKeys)
+
+	var parts []string
+	parts = append(parts, broker)
+	for _, k := range filterKeys {
+		parts = append(parts, fmt.Sprintf("%s=%s", k, filters[k]))
+	}
+
+	hash := sha256.Sum256([]byte(strings.Join(parts, "|")))
+	hashStr := fmt.Sprintf("%x", hash[:4])
+
+	return fmt.Sprintf("%s-trigger-%s", functionName, hashStr)
+}
+
 func createTriggers(ctx context.Context, f fn.Function, namespace string, eventingClient clienteventingv1.KnEventingClient, clientset kubernetes.Interface) error {
 	if len(f.Deploy.Subscriptions) == 0 {
 		return nil
@@ -232,17 +254,19 @@ func createTriggers(ctx context.Context, f fn.Function, namespace string, eventi
 
 	fmt.Fprintf(os.Stderr, "🎯 Creating Triggers on the cluster\n")
 
-	for i, sub := range f.Deploy.Subscriptions {
+	for _, sub := range f.Deploy.Subscriptions {
 		attributes := make(map[string]string)
 		maps.Copy(attributes, sub.Filters)
 
+		triggerName := generateTriggerName(f.Name, sub.Source, sub.Filters)
+
 		trigger := &eventingv1.Trigger{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("%s-trigger-%d", f.Name, i),
+				Name: triggerName,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: deployment.APIVersion,
-						Kind:       deployment.Kind,
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
 						Name:       deployment.Name,
 						UID:        deployment.UID,
 					},
