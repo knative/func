@@ -126,8 +126,17 @@ func jobPorts(f Function) []string {
 	}
 	ports := []string{}
 	for _, f := range files {
+		// only include directories named as valid port numbers
+		if !f.IsDir() || !isValidPort(f.Name()) {
+			continue
+		}
 		ports = append(ports, f.Name())
 	}
-	// TODO: validate it's a directory whose name parses as an integer?
 	return ports
+}
+
+// isValidPort checks if the name is a valid port number (integer)
+func isValidPort(name string) bool {
+	_, err := strconv.Atoi(name)
+	return err == nil
 }

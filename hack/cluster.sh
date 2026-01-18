@@ -236,7 +236,11 @@ networking() {
   echo "Version: ${contour_version}"
 
   echo "Installing a configured Contour."
-  $KUBECTL apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
+  curl -sSL "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml" \
+    | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args)
+          += ["--envoy-service-http-address=::", "--envoy-service-https-address=::"]' \
+    | $KUBECTL apply -f -
+
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
 
@@ -282,6 +286,28 @@ eventing() {
   curl -L -s https://github.com/knative/eventing/releases/download/knative-$knative_eventing_version/mt-channel-broker.yaml | $KUBECTL apply -f -
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-eventing --timeout=5m
+
+  echo "Exposing broker at broker.localtest.me"
+  $KUBECTL apply -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: broker-ingress
+  namespace: knative-eventing
+spec:
+  ingressClassName: contour-external
+  rules:
+    - host: broker.localtest.me
+      http:
+        paths:
+          - backend:
+              service:
+                name: broker-ingress
+                port:
+                  number: 80
+            pathType: Prefix
+            path: /
+EOF
 
   echo "${green}✅ Eventing${reset}"
 }
@@ -499,18 +525,6 @@ tekton() {
   sleep 10
 
   $KUBECTL create clusterrolebinding "${namespace}:knative-serving-namespaced-admin" --clusterrole=knative-serving-namespaced-admin --serviceaccount="${namespace}:default"
-
-  # TEMPORARY WORKAROUND: Disable affinity assistant to prevent pod scheduling issues
-  # This is a workaround for issues where affinity assistant pod names don't match
-  # what's expected by task pods, causing them to fail scheduling.
-  # Related issues:
-  # - https://github.com/tektoncd/pipeline/issues/6740
-  # - https://github.com/tektoncd/pipeline/issues/7503
-  # TODO: Remove this workaround once the underlying Tekton issue is resolved
-  echo "${blue}- Disabling affinity assistant (temporary workaround)${reset}"
-  $KUBECTL patch configmap feature-flags -n tekton-pipelines \
-    -p '{"data":{"disable-affinity-assistant":"true", "coschedule":"disabled"}}' \
-    --type=merge
 
   echo "${green}✅ Tekton${reset}"
 }

@@ -3,7 +3,7 @@ package tekton
 const (
 	// packPipelineTemplate contains the Buildpacks template used for both Tekton standard and PAC Pipeline
 	packPipelineTemplate = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   labels:
@@ -41,18 +41,12 @@ spec:
       name: buildEnvs
       type: array
   tasks:
-    {{.GitCloneTaskRef}}
-    - name: scaffold
-      params:
-        - name: path
-          value: $(workspaces.source.path)/$(params.contextDir)
-      workspaces:
-        - name: source
-          workspace: source-workspace
-      {{.RunAfterFetchSources}}
-      {{.FuncScaffoldTaskRef}}
     - name: build
       params:
+        - name: GIT_REPOSITORY
+          value: $(params.gitRepository)
+        - name: GIT_REVISION
+          value: $(params.gitRevision)
         - name: APP_IMAGE
           value: $(params.imageName)
         - name: REGISTRY
@@ -64,8 +58,6 @@ spec:
         - name: ENV_VARS
           value:
             - '$(params.buildEnvs[*])'
-      runAfter:
-        - scaffold
       {{.FuncBuildpacksTaskRef}}
       workspaces:
         - name: source
@@ -74,18 +66,6 @@ spec:
           workspace: cache-workspace
         - name: dockerconfig
           workspace: dockerconfig-workspace
-    - name: deploy
-      params:
-        - name: path
-          value: $(workspaces.source.path)/$(params.contextDir)
-        - name: image
-          value: $(params.imageName)@$(tasks.build.results.IMAGE_DIGEST)
-      runAfter:
-        - build
-      {{.FuncDeployTaskRef}}
-      workspaces:
-        - name: source
-          workspace: source-workspace
   workspaces:
     - description: Directory where function source is located.
       name: source-workspace
@@ -98,7 +78,7 @@ spec:
 
 	// packRunTemplate contains the Buildpacks template used for Tekton standard PipelineRun
 	packRunTemplate = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   labels:
@@ -148,7 +128,7 @@ spec:
 `
 	// packRunTemplatePAC contains the Buildpacks template used for the Tekton PAC PipelineRun
 	packRunTemplatePAC = `
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   labels:
@@ -163,9 +143,6 @@ metadata:
 
     # The branch or tag we are targeting (ie: main, refs/tags/*)
     pipelinesascode.tekton.dev/on-target-branch: "[{{.PipelinesTargetBranch}}]"
-
-    # Fetch the git-clone task from hub
-    pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
 
     # How many runs we want to keep attached to this event
     pipelinesascode.tekton.dev/max-keep-runs: "5"

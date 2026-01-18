@@ -26,6 +26,8 @@ import (
 	"knative.dev/func/pkg/tar"
 )
 
+const middlewareFileName = "middleware-version"
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -93,11 +95,16 @@ func scaffold(ctx context.Context) error {
 
 	middlewareVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
 	if err != nil {
-		return fmt.Errorf("cannot get middleware version: %w", err)
+		_, _ = fmt.Fprintf(os.Stderr, "warning: cannot get middleware version: %v\n", err)
+		middlewareVersion = "<unknown>"
 	}
 
 	if err := os.WriteFile("/tekton/results/middlewareVersion", []byte(middlewareVersion), 0644); err != nil {
 		return fmt.Errorf("cannot write middleware version as a result: %w", err)
+	}
+
+	if err := os.WriteFile(middlewareFileName, []byte(middlewareVersion), 0644); err != nil {
+		return fmt.Errorf("cannot write middleware version as a file: %w", err)
 	}
 
 	if f.Runtime != "go" && f.Runtime != "python" {
@@ -142,6 +149,7 @@ func s2iCmd(ctx context.Context) error {
 }
 
 func deploy(ctx context.Context) error {
+	const imageDigestFileName = "image-digest"
 	var err error
 	deployer := knative.NewDeployer(
 		knative.WithDeployerVerbose(true),
@@ -161,8 +169,14 @@ func deploy(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot load function: %w", err)
 	}
+
+	var digestPart string
+	if d, err := os.ReadFile(imageDigestFileName); err == nil {
+		digestPart = "@" + string(d)
+	}
+
 	if len(os.Args) > 2 {
-		f.Deploy.Image = os.Args[2]
+		f.Deploy.Image = os.Args[2] + digestPart
 	}
 	if f.Deploy.Image == "" {
 		f.Deploy.Image = f.Image

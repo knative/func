@@ -990,9 +990,12 @@ func testInvalidRegistry(cmdFn commandConstructor, t *testing.T) {
 
 	cmd.SetArgs([]string{"--registry=foo/bar/invald/myfunc"})
 
-	if err := cmd.Execute(); err == nil {
-		// TODO: typed ErrInvalidRegistry
-		t.Fatal("invalid registry did not generate expected error")
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatal("expected ErrInvalidRegistry, got nil")
+	}
+	if !errors.Is(err, fn.ErrInvalidRegistry) {
+		t.Fatalf("expected ErrInvalidRegistry, got: %v", err)
 	}
 }
 
@@ -1848,10 +1851,12 @@ func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
 	// if specifying --build=false
 	cmd := NewDeployCmd(NewTestClient())
 	cmd.SetArgs([]string{"--registry", registry, "--build=false"})
-	if err := cmd.Execute(); err == nil {
-		// TODO: should be a typed error which can be checked.  This will
-		// succeed even if an unrelated error is thrown.
-		t.Fatalf("expected error 'not built' not received")
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatal("expected ErrNotBuilt, got nil")
+	}
+	if !errors.Is(err, fn.ErrNotBuilt) {
+		t.Fatalf("expected ErrNotBuilt, got: %v", err)
 	}
 
 	// Assert that the requested change did not take effect
