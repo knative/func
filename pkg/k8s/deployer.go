@@ -78,8 +78,8 @@ func onClusterFix(f fn.Function) fn.Function {
 	return f
 }
 
-// NewEventingClient creates a Knative Eventing client
-func NewEventingClient(namespace string) (clienteventingv1.KnEventingClient, error) {
+// newEventingClient creates a Knative Eventing client
+func newEventingClient(namespace string) (clienteventingv1.KnEventingClient, error) {
 	config, err := GetClientConfig().ClientConfig()
 	if err != nil {
 		return nil, err
@@ -200,7 +200,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// Create triggers
-	eventingClient, err := NewEventingClient(namespace)
+	eventingClient, err := newEventingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create eventing client: %w", err)
 	}
@@ -219,13 +219,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 // generateTriggerName creates a deterministic trigger name based on subscription content
 func generateTriggerName(functionName, broker string, filters map[string]string) string {
-	var filterKeys []string
+	filterKeys := make([]string, 0, len(filters))
 	for k := range filters {
 		filterKeys = append(filterKeys, k)
 	}
 	sort.Strings(filterKeys)
 
-	var parts []string
+	parts := make([]string, 0, 1+len(filters))
 	parts = append(parts, broker)
 	for _, k := range filterKeys {
 		parts = append(parts, fmt.Sprintf("%s=%s", k, filters[k]))

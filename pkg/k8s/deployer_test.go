@@ -266,22 +266,6 @@ func TestGenerateTriggerName_ReorderingScenario(t *testing.T) {
 	}
 }
 
-// TestCreateTriggers_NoSubscriptions verifies createTriggers returns early when no subscriptions exist
-func TestCreateTriggers_NoSubscriptions(t *testing.T) {
-	f := fn.Function{
-		Name: "test-func",
-		Deploy: fn.DeploySpec{
-			Subscriptions: []fn.KnativeSubscription{},
-		},
-	}
-
-	// With no subscriptions, createTriggers should return immediately without error
-	// We can't fully test without mocking clients, but we can verify the early return logic
-	if len(f.Deploy.Subscriptions) != 0 {
-		t.Error("Test setup error: expected empty subscriptions")
-	}
-}
-
 // TestGenerateTriggerName_TriggerNamingConsistency verifies that the naming
 // follows a consistent pattern across multiple subscriptions
 func TestGenerateTriggerName_TriggerNamingConsistency(t *testing.T) {
@@ -377,50 +361,5 @@ func TestGenerateTriggerName_DifferentBrokers(t *testing.T) {
 
 	if name1 == name2 || name2 == name3 || name1 == name3 {
 		t.Errorf("Different brokers should produce different names: %s, %s, %s", name1, name2, name3)
-	}
-}
-
-// TestCreateTriggers_OwnerReferenceFormat documents the expected owner reference format
-func TestCreateTriggers_OwnerReferenceFormat(t *testing.T) {
-	// This test documents the expected owner reference format for triggers
-	// The actual creation is tested via integration/E2E tests
-
-	// Expected format:
-	// OwnerReference {
-	//     APIVersion: "apps/v1",          // Hardcoded for Deployments
-	//     Kind:       "Deployment",        // Hardcoded for Deployments
-	//     Name:       deployment.Name,     // From the deployment object
-	//     UID:        deployment.UID,      // From the deployment object
-	// }
-
-	expectedAPIVersion := "apps/v1"
-	expectedKind := "Deployment"
-
-	// These are hardcoded in createTriggers due to Kubernetes not populating
-	// TypeMeta fields when getting objects via client-go
-	if expectedAPIVersion != "apps/v1" {
-		t.Errorf("Expected APIVersion 'apps/v1'")
-	}
-	if expectedKind != "Deployment" {
-		t.Errorf("Expected Kind 'Deployment'")
-	}
-}
-
-// TestCreateTriggers_URIFormat documents the expected URI format for subscribers
-func TestCreateTriggers_URIFormat(t *testing.T) {
-	// This test documents the expected URI format for trigger subscribers
-
-	// Format: http://<service-name>.<namespace>.svc.cluster.local
-	namespace := "default"
-	serviceName := "order-processor"
-
-	expectedHost := serviceName + "." + namespace + ".svc.cluster.local"
-	expectedScheme := "http"
-
-	if expectedHost != "order-processor.default.svc.cluster.local" {
-		t.Errorf("Unexpected host format: %s", expectedHost)
-	}
-	if expectedScheme != "http" {
-		t.Errorf("Expected scheme 'http', got '%s'", expectedScheme)
 	}
 }
