@@ -605,7 +605,7 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	if !waitFor(t, subscriberURL, withTemplate("cloudevents")) {
 		t.Fatal("subscriber not ready")
 	}
-	waitForTrigger(t, Namespace, subscriberName)
+	waitForTriggerKnative(t, Namespace, subscriberName)
 
 	transport := fnhttp.NewRoundTripper()
 	defer transport.Close()
@@ -687,7 +687,7 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 	waitForDeployment(t, Namespace, subscriberName)
 
 	// Wait for trigger to be created and ready
-	waitForTrigger(t, Namespace, subscriberName)
+	waitForTriggerRaw(t, Namespace, subscriberName)
 
 	transport := fnhttp.NewRoundTripper()
 	defer transport.Close()
@@ -838,14 +838,35 @@ func deleteBroker(t *testing.T, namespace, name string) {
 	t.Logf("Deleted broker %s from namespace %s", name, namespace)
 }
 
-// waitForTrigger waits for the function's trigger to become ready.
-// For raw deployer, triggers are named with pattern: {functionName}-trigger-{hash}
-func waitForTrigger(t *testing.T, namespace, functionName string) {
+// waitForTriggerKnative waits for the function's trigger to become ready.
+// For Knative deployer, triggers are named with pattern: {functionName}-function-trigger-{index}
+func waitForTriggerKnative(t *testing.T, namespace, functionName string) {
 	t.Helper()
 
-	// List all triggers and find the one for our function
+	// Knative deployer uses predictable sequential naming
+	triggerName := fmt.Sprintf("%s-function-trigger-0", functionName)
+
+	cmd := exec.Command("kubectl", "wait", "--for=condition=Ready",
+		fmt.Sprintf("trigger/%s", triggerName), "-n", namespace, "--timeout=60s")
+	cmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("Warning: trigger may not be ready: %v, output: %s", err, string(output))
+	} else {
+		t.Logf("Trigger %s is ready", triggerName)
+	}
+}
+
+// waitForTriggerRaw waits for the function's trigger to become ready.
+// For raw deployer, triggers are named with pattern: {functionName}-trigger-{hash}
+func waitForTriggerRaw(t *testing.T, namespace, functionName string) {
+	t.Helper()
+
+	// List triggers matching the pattern using kubectl
 	// Raw deployer creates triggers with pattern: {functionName}-trigger-{hash}
-	listCmd := exec.Command("kubectl", "get", "triggers", "-n", namespace, "-o", "json")
+	listCmd := exec.Command("kubectl", "get", "triggers", "-n", namespace,
+		"-o", "name", "--field-selector", "metadata.name!=")
 	listCmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
 	output, err := listCmd.CombinedOutput()
 	if err != nil {
@@ -853,23 +874,13 @@ func waitForTrigger(t *testing.T, namespace, functionName string) {
 		return
 	}
 
-	// Parse trigger list to find our function's trigger
-	var triggerList struct {
-		Items []struct {
-			Metadata struct {
-				Name string `json:"name"`
-			} `json:"metadata"`
-		} `json:"items"`
-	}
-	if err := json.Unmarshal(output, &triggerList); err != nil {
-		t.Logf("Warning: could not parse trigger list: %v", err)
-		return
-	}
-
+	// Find trigger matching our function name pattern
+	prefix := "trigger.eventing.knative.dev/" + functionName + "-trigger-"
 	var triggerName string
-	for _, trigger := range triggerList.Items {
-		if strings.HasPrefix(trigger.Metadata.Name, functionName+"-trigger-") {
-			triggerName = trigger.Metadata.Name
+	for _, line := range strings.Split(string(output), "\n") {
+		if strings.HasPrefix(line, prefix) {
+			// Extract just the trigger name
+			triggerName = strings.TrimPrefix(line, "trigger.eventing.knative.dev/")
 			break
 		}
 	}
