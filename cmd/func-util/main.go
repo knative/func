@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/source-to-image/pkg/cmd/cli"
 	"k8s.io/klog/v2"
 
+	"knative.dev/func/pkg/buildpacks"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
@@ -76,12 +77,12 @@ func socat(ctx context.Context) error {
 }
 
 func scaffold(ctx context.Context) error {
-
-	if len(os.Args) != 2 {
-		return fmt.Errorf("expected exactly one positional argument (function project path)")
+	if len(os.Args) != 3 {
+		return fmt.Errorf("expected exactly 2 positional arguments (function project path & builder)")
 	}
 
 	path := os.Args[1]
+	builder := os.Args[2]
 
 	f, err := fn.NewFunction(path)
 	if err != nil {
@@ -107,38 +108,17 @@ func scaffold(ctx context.Context) error {
 		return fmt.Errorf("cannot write middleware version as a file: %w", err)
 	}
 
-	if f.Runtime != "go" && f.Runtime != "python" {
-		// Scaffolding is for now supported/needed only for Go/Python.
-		return nil
-	}
-
-	appRoot := filepath.Join(f.Root, ".s2i", "builds", "last")
-	_ = os.RemoveAll(appRoot)
-
-	err = scaffolding.Write(appRoot, f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
-	if err != nil {
-		return fmt.Errorf("cannot write the scaffolding: %w", err)
-	}
-
-	if err := os.MkdirAll(filepath.Join(f.Root, ".s2i", "bin"), 0755); err != nil {
-		return fmt.Errorf("unable to create .s2i bin dir. %w", err)
-	}
-
-	var asm string
-	switch f.Runtime {
-	case "go":
-		asm = s2i.GoAssembler
-	case "python":
-		asm = s2i.PythonAssembler
+	var scaffolder fn.Scaffolder
+	switch builder {
+	case "pack":
+		scaffolder = buildpacks.NewScaffolder(true)
+	case "s2i":
+		scaffolder = s2i.NewScaffolder(true)
 	default:
-		panic("unreachable")
+		return fmt.Errorf("unknown builder in func-util image '%v'", builder)
 	}
 
-	if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(asm), 0755); err != nil {
-		return fmt.Errorf("unable to write go assembler. %w", err)
-	}
-
-	return nil
+	return fn.New(fn.WithScaffolder(scaffolder)).Scaffold(ctx, f, "")
 }
 
 func s2iCmd(ctx context.Context) error {
@@ -151,10 +131,6 @@ func s2iCmd(ctx context.Context) error {
 func deploy(ctx context.Context) error {
 	const imageDigestFileName = "image-digest"
 	var err error
-	deployer := knative.NewDeployer(
-		knative.WithDeployerVerbose(true),
-		knative.WithDeployerDecorator(deployDecorator{}))
-
 	var root string
 	if len(os.Args) > 1 {
 		root = os.Args[1]
@@ -182,7 +158,14 @@ func deploy(ctx context.Context) error {
 		f.Deploy.Image = f.Image
 	}
 
-	res, err := deployer.Deploy(ctx, f)
+	client := fn.New(
+		fn.WithDeployer(
+			knative.NewDeployer(
+				knative.WithDeployerDecorator(deployDecorator{}),
+				knative.WithDeployerVerbose(true)),
+		),
+	)
+	res, err := client.Deploy(ctx, f, fn.WithDeploySkipBuildCheck(true))
 	if err != nil {
 		return fmt.Errorf("cannot deploy the function: %w", err)
 	}

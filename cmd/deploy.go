@@ -458,12 +458,7 @@ For more options, run 'func deploy --help'`, err)
 		if buildOptions, err = cfg.buildOptions(); err != nil {
 			return
 		}
-
-		var (
-			digested   bool
-			justBuilt  bool
-			justPushed bool
-		)
+		var digested bool
 
 		// Validate the image and check whether its digested or not
 		if cfg.Image != "" {
@@ -483,20 +478,30 @@ For more options, run 'func deploy --help'`, err)
 		if digested {
 			f.Deploy.Image = cfg.Image
 		} else {
-			// NOT digested, build & push the Function unless specified otherwise
-			if f, justBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+			// NOT digested: scaffold, build & push as per config
+			var (
+				shouldBuild bool
+				justPushed  bool
+			)
+			if shouldBuild, err = build(cmd, cfg.Build, f); err != nil {
 				return
+			}
+			if shouldBuild {
+				if err = client.Scaffold(cmd.Context(), f, ""); err != nil {
+					return
+				}
+				if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
+					return
+				}
 			}
 			if cfg.Push {
 				if f, justPushed, err = client.Push(cmd.Context(), f); err != nil {
 					return
 				}
 			}
-			// TODO: gauron99 - temporary fix for undigested image direct deploy
-			// (w/out build) This might be more complex to do than leaving like this
-			// image digests are created via the registry on push.
-			if (justBuilt || justPushed) && f.Build.Image != "" {
-				// f.Build.Image is set in Push for now, just set it as a deployed image
+			// image was just built and pushed to registry => potentially new image
+			if (shouldBuild || justPushed) && f.Build.Image != "" {
+				// f.Build.Image is set when pushed to registry, just set it as a deployed image
 				f.Deploy.Image = f.Build.Image
 			}
 		}
@@ -523,33 +528,23 @@ For more options, run 'func deploy --help'`, err)
 	return f.Stamp()
 }
 
-// build when flag == 'auto' and the function is out-of-date, or when the
-// flag value is explicitly truthy such as 'true' or '1'.  Error if flag
-// is neither 'auto' nor parseable as a boolean.  Return CLI-specific error
-// message verbeage suitable for both Deploy and Run commands which feature an
-// optional build step. Boolean return value signifies if the image has gone
-// through a build process.
-func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, bool, error) {
-	var err error
+// build determines if the function should be built based on given flag
+func build(cmd *cobra.Command, flag string, f fn.Function) (bool, error) {
 	if flag == "auto" {
 		if f.Built() {
 			fmt.Fprintln(cmd.OutOrStdout(), "function up-to-date. Force rebuild with --build")
-			return f, false, nil
+			return false, nil
 		} else {
-			if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
-				return f, false, err
-			}
+			return true, nil
 		}
 	} else if build, _ := strconv.ParseBool(flag); build {
-		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
-			return f, false, err
-		}
-	} else if _, err = strconv.ParseBool(flag); err != nil {
-		return f, false, fmt.Errorf("invalid value for the build flag (%q), valid value is either 'auto' or a boolean", flag)
+		return true, nil
+	} else if _, err := strconv.ParseBool(flag); err != nil {
+		return false, fmt.Errorf("invalid value for the build flag (%q), valid value is either 'auto' or a boolean", flag)
 	} else if !build {
-		return f, false, nil
+		return false, nil
 	}
-	return f, true, nil
+	return false, nil
 }
 
 func NewRegistryValidator(path string) survey.Validator {

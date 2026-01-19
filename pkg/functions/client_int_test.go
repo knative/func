@@ -125,6 +125,9 @@ func TestInt_Deploy_Defaults(t *testing.T) {
 	if f, err = client.Init(f); err != nil {
 		t.Fatal(err)
 	}
+	if err = client.Scaffold(context.Background(), f, ""); err != nil {
+		t.Fatal(err)
+	}
 	if f, err = client.Build(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
@@ -657,6 +660,7 @@ func resetEnv() {
 func newClient(verbose bool) *fn.Client {
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),
+		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", verbose)),
 		fn.WithPusher(oci.NewPusher(true, true, verbose)),
 		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
@@ -667,18 +671,15 @@ func newClient(verbose bool) *fn.Client {
 	)
 }
 
-// copy of newClient just builder is s2i instead of buildpacks
+// copy of newClient just with s2i methods instead
 func newClientWithS2i(verbose bool) *fn.Client {
-	builder := s2i.NewBuilder(s2i.WithVerbose(verbose))
-	pusher := docker.NewPusher(docker.WithVerbose(verbose))
-	deployer := knative.NewDeployer(knative.WithDeployerVerbose(verbose))
-
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),
 		fn.WithVerbose(verbose),
-		fn.WithBuilder(builder),
-		fn.WithPusher(pusher),
-		fn.WithDeployer(deployer),
+		fn.WithScaffolder(s2i.NewScaffolder(true)),
+		fn.WithBuilder(s2i.NewBuilder(s2i.WithVerbose(verbose))),
+		fn.WithPusher(docker.NewPusher(docker.WithVerbose(verbose))),
+		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
 		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
 		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
 		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),

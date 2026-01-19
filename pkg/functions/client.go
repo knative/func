@@ -19,7 +19,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
-	"knative.dev/func/pkg/scaffolding"
 	"knative.dev/func/pkg/utils"
 )
 
@@ -65,6 +64,7 @@ type Client struct {
 	repositoriesPath  string            // path to repositories
 	repositoriesURI   string            // repo URI (overrides repositories path)
 	verbose           bool              // print verbose logs
+	scaffolder        Scaffolder        // Scaffolds a function to have main
 	builder           Builder           // Builds a runnable image source
 	pusher            Pusher            // Pushes function image to a remote
 	deployer          Deployer          // Deploys or Updates a function
@@ -81,6 +81,13 @@ type Client struct {
 	pipelinesProvider PipelinesProvider // CI/CD pipelines management
 	mcpServer         MCPServer         // MCP Server
 	startTimeout      time.Duration     // default start timeout for all runs
+}
+
+// Scaffolder wraps a function with a service scaffolding (entrypoint)
+type Scaffolder interface {
+	// Scaffold a function - create its main wrapper
+	// string parameter: optional path override for scaffolding destination
+	Scaffold(context.Context, Function, string) error
 }
 
 // Builder of function source to runnable image.
@@ -217,6 +224,7 @@ type MCPServer interface {
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
 	c := &Client{
+		scaffolder:        &noopScaffolder{},
 		builder:           &noopBuilder{output: os.Stdout},
 		pusher:            &noopPusher{output: os.Stdout},
 		deployer:          &noopDeployer{output: os.Stdout},
@@ -268,6 +276,13 @@ type Option func(*Client)
 func WithVerbose(v bool) Option {
 	return func(c *Client) {
 		c.verbose = v
+	}
+}
+
+// WithScaffolder provides the implementation of a scaffolder based on builder
+func WithScaffolder(s Scaffolder) Option {
+	return func(c *Client) {
+		c.scaffolder = s
 	}
 }
 
@@ -462,14 +477,18 @@ func (c *Client) Apply(ctx context.Context, f Function) (string, Function, error
 // Updates a function which has already been initialized to run the latest
 // source code.
 //
-// Use Apply for higher level control. Use Init, Build, Push and Deploy
+// Use Apply for higher level control. Use Init, Scaffold, Build, Push and Deploy
 // independently for lower level control.
 // Returns final primary route to the Function and any errors.
 func (c *Client) Update(ctx context.Context, f Function) (string, Function, error) {
 	if !f.Initialized() {
 		return "", f, ErrNotInitialized{f.Root}
 	}
+
 	var err error
+	if err = c.Scaffold(ctx, f, ""); err != nil {
+		return "", f, err
+	}
 	if f, err = c.Build(ctx, f); err != nil {
 		return "", f, err
 	}
@@ -477,10 +496,7 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 		return "", f, err
 	}
 
-	// TODO: change this later when push doesn't return built image.
-	// Assign this as c.Push is going to produce the built image (for now) to
-	// .Deploy.Image for the deployer -- figure out where to assign .Deploy.Image
-	// first, might be just moved above push
+	// image name is generated via push to registry
 	f.Deploy.Image = f.Build.Image
 
 	if f, err = c.Deploy(ctx, f); err != nil {
@@ -495,7 +511,7 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 // Function. Used by Apply when the path is not yet an initialized function.
 // Errors if the path is already an initialized function.
 //
-// Use Apply for higher level control. Use Init, Build, Push, Deploy
+// Use Apply for higher level control. Use Init, Scaffold, Build, Push, Deploy
 // independently for lower level control.
 //
 // Returns the primary route to the function or error.
@@ -511,6 +527,13 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 	f, err := c.Init(cfg)
 	if err != nil {
 		return route, cfg, err
+	}
+
+	// Scaffold the function
+	fmt.Fprintf(os.Stderr, "Scaffolding function\n")
+	err = c.Scaffold(ctx, f, "")
+	if err != nil {
+		return route, f, err
 	}
 
 	// Build the now-initialized function
@@ -702,15 +725,11 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 	return f, err
 }
 
-// Scaffold writes a functions's scaffolding to a given path.
-// It also updates the included symlink to function source 'f' to point to
-// the current function's source.
-func (c *Client) Scaffold(ctx context.Context, f Function, dest string) (err error) {
-	repo, err := NewRepository("", "") // default (embedded) repository
-	if err != nil {
-		return
-	}
-	return scaffolding.Write(dest, f.Root, f.Runtime, f.Invoke, repo.FS())
+// Scaffold the function given scaffolder implementation.
+// This will delete the scaffolding directory contents before writing.
+// Pass "" (empty string) to pathOverride to use scaffolder's default path.
+func (c *Client) Scaffold(ctx context.Context, f Function, pathOverride string) (err error) {
+	return c.scaffolder.Scaffold(ctx, f, pathOverride)
 }
 
 // printBuildActivity is a helper for ensuring the user gets feedback from
@@ -1281,7 +1300,7 @@ func ensureFuncIgnore(root string) error {
 
 // Fingerprint the files at a given path.  Returns a hash calculated from the
 // filenames and modification timestamps of the files within the given root.
-// Also returns a logfile consiting of the filenames and modification times
+// Also returns a logfile consisting of the filenames and modification times
 // which contributed to the hash.
 // Intended to determine if there were appreciable changes to a function's
 // source code, certain directories and files are ignored, such as
@@ -1405,6 +1424,11 @@ func hasInitializedFunction(path string) (bool, error) {
 // serve to keep the core logic here separate from the imperative, and
 // with a minimum of external dependencies.
 // -----------------------------------------------------
+
+// Scaffolder
+type noopScaffolder struct{}
+
+func (n *noopScaffolder) Scaffold(ctx context.Context, _ Function, _ string) error { return nil }
 
 // Builder
 type noopBuilder struct{ output io.Writer }

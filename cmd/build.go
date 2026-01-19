@@ -226,6 +226,11 @@ For more options, run 'func build --help'`, err)
 	if err != nil {
 		return
 	}
+
+	if err = client.Scaffold(cmd.Context(), f, ""); err != nil {
+		return
+	}
+
 	if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 		return
 	}
@@ -479,6 +484,7 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 	switch c.Builder {
 	case builders.Host:
 		o = append(o,
+			fn.WithScaffolder(oci.NewScaffolder(c.Verbose)),
 			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
 			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose,
 				oci.WithTransport(newTransport(c.RegistryInsecure)),
@@ -487,6 +493,7 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 		)
 	case builders.Pack:
 		o = append(o,
+			fn.WithScaffolder(buildpacks.NewScaffolder(c.Verbose)),
 			fn.WithBuilder(buildpacks.NewBuilder(
 				buildpacks.WithName(builders.Pack),
 				buildpacks.WithTimestamp(c.WithTimestamp),
@@ -497,6 +504,7 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 				docker.WithVerbose(c.Verbose))))
 	case builders.S2I:
 		o = append(o,
+			fn.WithScaffolder(s2i.NewScaffolder(c.Verbose)),
 			fn.WithBuilder(s2i.NewBuilder(
 				s2i.WithName(builders.S2I),
 				s2i.WithVerbose(c.Verbose))),

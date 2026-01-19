@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strconv"
-	"syscall"
 	"time"
 
 	"archive/tar"
@@ -112,24 +109,12 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (e
 	if err = setup(job); err != nil { // create some directories etc
 		return
 	}
-	defer cleanup(job)
-	defer func() {
-		// Always remove our own PID link when build completes
-		if job.verbose {
-			fmt.Fprintf(os.Stderr, "rm %v\n", job.pidLink())
-		}
-		_ = os.Remove(job.pidLink())
-	}()
 
-	if err = scaffold(&job); err != nil { // write out the service wrapper
+	if err = fetchMiddlewareLabels(&job); err != nil {
 		return
 	}
 
-	if err = containerize(job); err != nil { // write image to .func/builds
-		return
-	}
-
-	if err = updateLastLink(job); err != nil { // .func/builds/last
+	if err = containerize(job); err != nil { // write image to .func/build
 		return
 	}
 
@@ -149,11 +134,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (e
 
 // setup the build task prerequisites on the filesystem
 func setup(job buildJob) (err error) {
-	// Fail if another build is in progress
-	if job.isActive() {
-		return ErrBuildInProgress{job.buildDir()}
-	}
-
 	// Build directory
 	if _, err = os.Stat(job.buildDir()); !os.IsNotExist(err) {
 		if job.verbose {
@@ -168,25 +148,6 @@ func setup(job buildJob) (err error) {
 	}
 	if err = os.MkdirAll(job.buildDir(), 0774); err != nil {
 		return
-	}
-
-	// PID links directory
-	if _, err = os.Stat(job.pidsDir()); os.IsNotExist(err) {
-		if job.verbose {
-			fmt.Fprintf(os.Stderr, "mkdir -p %v\n", job.pidsDir())
-		}
-		if err = os.MkdirAll(job.pidsDir(), 0774); err != nil {
-			return
-		}
-	}
-
-	// Link to last build attempted (this)
-	target := filepath.Join("..", "by-hash", job.hash)
-	if job.verbose {
-		fmt.Fprintf(os.Stderr, "ln -s %v %v\n", target, job.pidLink())
-	}
-	if err = os.Symlink(target, job.pidLink()); err != nil {
-		return err
 	}
 
 	// Creates the blobs directory where layer data resides
@@ -209,45 +170,8 @@ func setup(job buildJob) (err error) {
 	return
 }
 
-// cleanup various filesystem artifacts of the build.
-func cleanup(job buildJob) {
-	// cleanup orphaned build links
-	dd, _ := os.ReadDir(job.pidsDir())
-	for _, d := range dd {
-		if processExists(d.Name()) {
-			continue
-		}
-		dir := filepath.Join(job.pidsDir(), d.Name())
-		if job.verbose {
-			fmt.Fprintf(os.Stderr, "rm %v\n", dir)
-		}
-		_ = os.RemoveAll(dir)
-	}
-
-	// remove build file directories unless they are either:
-	// 1. The build files from the last successful build
-	// 2. Are associated with a pid link (currently in progress)
-	dd, _ = os.ReadDir(job.buildsDir())
-	for _, d := range dd {
-		dir := filepath.Join(job.buildsDir(), d.Name())
-		if isLinkTo(job.lastLink(), dir) {
-			continue
-		}
-		if job.isActive() {
-			continue
-		}
-		if job.verbose {
-			fmt.Fprintf(os.Stderr, "rm %v\n", dir)
-		}
-		_ = os.RemoveAll(dir)
-	}
-}
-
-// scaffold writes out the process wrapper code which will instantiate the
-// Function and expose it as a service when included in the final container.
-func scaffold(job *buildJob) (err error) {
-	// extract the embedded filesystem which holds the scaffolding for
-	// the given runtime
+// fetchMiddlewareLabels retrieves middleware version for image labels
+func fetchMiddlewareLabels(job *buildJob) (err error) {
 	repo, err := fn.NewRepository("", "")
 	if err != nil {
 		return
@@ -317,7 +241,7 @@ func containerize(job buildJob) error {
 
 	// For each platform, create a new slice of layers consisting of first
 	// the shared layers followed by newly-generated platform-specific layers
-	// for each platform.  Bundle these into a new image manifest for inclusion
+	// for each platform. Bundle these into a new image manifest for inclusion
 	// in the final container.
 	for _, p := range job.platforms {
 
@@ -932,44 +856,17 @@ func newBuildJob(ctx context.Context, f fn.Function, pp []fn.Platform, verbose b
 
 // some convenience accessors
 
-func (j buildJob) lastLink() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "builds", "last")
-}
-func (j buildJob) pidsDir() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "builds", "by-pid")
-}
-func (j buildJob) pidLink() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "builds", "by-pid", strconv.Itoa(os.Getpid()))
-}
-func (j buildJob) buildsDir() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "builds", "by-hash")
-}
 func (j buildJob) buildDir() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "builds", "by-hash", j.hash)
+	return filepath.Join(j.function.Root, fn.RunDataDir, "build")
 }
 func (j buildJob) ociDir() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "builds", "by-hash", j.hash, "oci")
+	return filepath.Join(j.function.Root, fn.RunDataDir, "build", "oci")
 }
 func (j buildJob) blobsDir() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "builds", "by-hash", j.hash, "oci", "blobs", "sha256")
+	return filepath.Join(j.function.Root, fn.RunDataDir, "build", "oci", "blobs", "sha256")
 }
 func (j buildJob) cacheDir() string {
 	return filepath.Join(j.function.Root, fn.RunDataDir, "blob-cache")
-}
-
-// isActive returns false if an active build for this Function is detected.
-func (j buildJob) isActive() bool {
-	dd, _ := os.ReadDir(j.pidsDir())
-	for _, d := range dd {
-		// for each link in PIDs dir
-		// the build is active if a process exists of the same name
-		// AND it is a link to this job's build directory.
-		link := filepath.Join(j.pidsDir(), d.Name())
-		if processExists(d.Name()) && isLinkTo(link, j.buildDir()) {
-			return true
-		}
-	}
-	return false
 }
 
 // -------------------------
@@ -982,60 +879,11 @@ func (j buildJob) isActive() bool {
 // build directory.  If it is not a subpath, the full path is returned
 // unchanged.
 func rel(base, path string) string {
-	if strings.HasPrefix(path, base) {
-		return "." + strings.TrimPrefix(path, base)
+	s, cut := strings.CutPrefix(path, base)
+	if cut {
+		return "." + s
 	}
 	return path
-}
-
-// processExists returns true if the process with the given PID
-// exists.
-func processExists(pid string) bool {
-	p, err := strconv.Atoi(pid)
-	if err != nil {
-		return false
-	}
-	process, err := os.FindProcess(p)
-	if err != nil {
-		return false
-	}
-	if runtime.GOOS == "windows" {
-		return true
-	}
-	err = process.Signal(syscall.Signal(0))
-	return err == nil
-}
-
-// isLinkTo returns true if link is a link to target.
-func isLinkTo(link, target string) bool {
-	var err error
-	if link, err = filepath.EvalSymlinks(link); err != nil {
-		return false
-	}
-	if link, err = filepath.Abs(link); err != nil {
-		return false
-	}
-
-	if target, err = filepath.EvalSymlinks(target); err != nil {
-		return false
-	}
-	if target, err = filepath.Abs(target); err != nil {
-		return false
-	}
-
-	return link == target
-}
-
-func updateLastLink(job buildJob) error {
-	if job.verbose {
-		fmt.Fprintf(os.Stderr, "ln -s %v %v\n", job.buildDir(), job.lastLink())
-	}
-	_ = os.RemoveAll(job.lastLink())
-	rp, err := filepath.Rel(filepath.Dir(job.lastLink()), job.buildDir())
-	if err != nil {
-		return err
-	}
-	return os.Symlink(rp, job.lastLink())
 }
 
 // toPlatforms converts func's implementation-agnostic Platform struct
