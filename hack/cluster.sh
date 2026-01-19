@@ -255,6 +255,9 @@ networking() {
     --type merge \
     --patch '{"data":{"ingress-class":"contour.ingress.networking.knative.dev"}}'
 
+  echo "Patch domain-template"
+  $KUBECTL patch -n knative-serving cm/config-network --patch '{"data":{"domain-template":"{{.Name}}-{{.Namespace}}-ksvc.{{.Domain}}"}}'
+
   echo "Patching contour to prefer duals-tack"
   kubectl patch -n contour-external svc/envoy --type merge --patch '{"spec":{"ipFamilyPolicy":"PreferDualStack"}}'
 

@@ -106,7 +106,7 @@ func TestMatrix_Deploy(t *testing.T) {
 		}
 
 		// Ensure the Function comes up
-		if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain),
+		if !waitFor(t, ksvcUrl(name),
 			withWaitTimeout(timeout),
 			withTemplate(template)) {
 			t.Fatal("function did not deploy correctly")
@@ -142,7 +142,7 @@ func TestMatrix_Remote(t *testing.T) {
 		}
 
 		// Ensure the Function comes up
-		if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain),
+		if !waitFor(t, ksvcUrl(name),
 			withWaitTimeout(timeout),
 			withTemplate(template)) {
 			t.Fatal("function did not deploy correctly")

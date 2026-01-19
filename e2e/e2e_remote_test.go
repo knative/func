@@ -35,7 +35,7 @@ func TestRemote_Deploy(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 }
@@ -67,7 +67,7 @@ func TestRemote_Source(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain),
+	if !waitFor(t, ksvcUrl(name),
 		withContentMatch(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
@@ -112,7 +112,7 @@ func TestRemote_Ref(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain),
+	if !waitFor(t, ksvcUrl(name),
 		withContentMatch(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
@@ -159,7 +159,7 @@ func TestRemote_Dir(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain),
+	if !waitFor(t, ksvcUrl(name),
 		withContentMatch(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
