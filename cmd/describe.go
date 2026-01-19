@@ -146,7 +146,7 @@ func newDescribeConfig(cmd *cobra.Command, args []string) (cfg describeConfig, e
 		Verbose:   viper.GetBool("verbose"),
 	}
 	if cfg.Name == "" && cmd.Flags().Changed("namespace") {
-		// logicially inconsistent to supply only a namespace.
+		// logically inconsistent to supply only a namespace.
 		// Either use the function's local state in its entirety, or specify
 		// both a name and a namespace to ignore any local function source.
 		err = fmt.Errorf("must also specify a name when specifying namespace")

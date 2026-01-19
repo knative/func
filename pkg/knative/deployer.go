@@ -721,24 +721,22 @@ func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans ht
 }
 
 func secretToConfigFile(sc *corev1.Secret) (*configfile.ConfigFile, error) {
-	var cf *configfile.ConfigFile
-	var err error
 	switch sc.Type {
 	case corev1.SecretTypeDockerConfigJson:
-		cf, err = config.LoadFromReader(bytes.NewReader(sc.Data[corev1.DockerConfigJsonKey]))
+		cf, err := config.LoadFromReader(bytes.NewReader(sc.Data[corev1.DockerConfigJsonKey]))
 		if err != nil {
 			return nil, fmt.Errorf("cannot load config: %w", err)
 		}
+		return cf, nil
 	case corev1.SecretTypeDockercfg:
-		cf = &configfile.ConfigFile{}
-		err = json.Unmarshal(sc.Data[corev1.DockerConfigKey], &cf.AuthConfigs)
-		if err != nil {
+		cf := &configfile.ConfigFile{}
+		if err := json.Unmarshal(sc.Data[corev1.DockerConfigKey], &cf.AuthConfigs); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal config: %w", err)
 		}
+		return cf, nil
 	default:
-		cf = &configfile.ConfigFile{}
+		return &configfile.ConfigFile{}, nil
 	}
-	return cf, nil
 }
 
 type configFileKeychain struct {

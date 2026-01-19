@@ -1,6 +1,8 @@
 package common_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -11,7 +13,7 @@ import (
 )
 
 func TestDefaultLoaderSaver_SuccessfulLoad(t *testing.T) {
-	existingFunc := cmdTest.CreateFuncInTempDir(t, "ls-func")
+	existingFunc := cmdTest.CreateFuncWithGitInTempDir(t, "ls-func")
 
 	actualFunc, err := common.DefaultLoaderSaver.Load(existingFunc.Root)
 
@@ -34,7 +36,7 @@ func TestDefaultLoaderSaver_IsNotInitializedError_WhenNoFuncAtPath(t *testing.T)
 }
 
 func TestDefaultLoaderSaver_SuccessfulSave(t *testing.T) {
-	existingFunc := cmdTest.CreateFuncInTempDir(t, "")
+	existingFunc := cmdTest.CreateFuncWithGitInTempDir(t, "")
 	name := "environment"
 	value := "test"
 	existingFunc.Run.Envs.Add(name, value)
@@ -51,4 +53,56 @@ func TestDefaultLoaderSaver_ForwardsSaveError(t *testing.T) {
 	err := common.DefaultLoaderSaver.Save(fn.Function{})
 
 	assert.Error(t, err, "function root path is required")
+}
+
+func TestGitCliWrapper_Init_InitializesRepo(t *testing.T) {
+	tempDir := fnTest.FromTempDirectory(t)
+
+	_, err := common.NewGitCliWrapper().Init(tempDir)
+	_, statErr := os.Stat(filepath.Join(tempDir, ".git"))
+
+	assert.NilError(t, err)
+	assert.NilError(t, statErr)
+}
+
+func TestGitCliWrapper_Init_ErrorForNonExistentPath(t *testing.T) {
+	_, err := common.NewGitCliWrapper().Init("/non-existing-path")
+
+	assert.Assert(t, os.IsNotExist(err))
+}
+
+func TestGitCliWrapper_CurrentBranch_ReturnsBranchName(t *testing.T) {
+	tempDir := fnTest.FromTempDirectory(t)
+	_, initErr := common.NewGitCliWrapper().Init(tempDir)
+
+	branch, err := common.NewGitCliWrapper().CurrentBranch(tempDir)
+
+	assert.NilError(t, initErr)
+	assert.NilError(t, err)
+	assert.Assert(t, branch != "")
+}
+
+func TestGitCliWrapper_CurrentBranch_ErrorForNonExistentPath(t *testing.T) {
+	_, err := common.NewGitCliWrapper().CurrentBranch("/non-existing-path")
+
+	assert.Assert(t, os.IsNotExist(err))
+}
+
+func TestGitCliWrapper_CurrentBranch_ErrorForNonGitDirectory(t *testing.T) {
+	tempDir := fnTest.FromTempDirectory(t)
+
+	_, err := common.NewGitCliWrapper().CurrentBranch(tempDir)
+
+	assert.ErrorContains(t, err, "failed")
+	assert.ErrorContains(t, err, "stderr")
+}
+
+func TestGitCliWrapper_CurrentBranch_ErrorWhenCommandNotFound(t *testing.T) {
+	tempDir := fnTest.FromTempDirectory(t)
+	t.Setenv("FUNC_GIT", "nonexistent-git-command")
+
+	_, err := common.NewGitCliWrapper().CurrentBranch(tempDir)
+
+	assert.ErrorContains(t, err, "failed")
+	assert.ErrorContains(t, err, "nonexistent-git-command")
 }
