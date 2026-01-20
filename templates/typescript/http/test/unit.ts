@@ -13,10 +13,10 @@ test('Unit: handles a valid request', async (t) => {
     customerId: '01234'
   };
 
-  // Invoke the function which should complete without error and echo the data
+  // Invoke the function which should complete without error and return OK
   const result = await handle({ method: 'POST', log: { info: (_) => _ } } as Context, body);
   t.ok(result);
-  t.equal(result.body, body);
+  t.equal(result.body, 'OK');
   t.end();
 });
 

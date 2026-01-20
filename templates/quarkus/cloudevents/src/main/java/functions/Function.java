@@ -11,7 +11,7 @@ public class Function {
 
     /**
      * Use the Quarkus Funq extension for the function. This example
-     * function simply echoes its input data.
+     * function returns "OK" as the response data.
      * @param input a CloudEvent
      * @return a CloudEvent
      */
@@ -21,7 +21,7 @@ public class Function {
         // Add your business logic here
 
         System.out.println(input);
-        Output output = new Output(input.data().getMessage());
+        Output output = new Output("OK");
         return CloudEventBuilder.create().build(output);
     }
 
