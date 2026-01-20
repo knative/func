@@ -42,9 +42,9 @@ test('Integration: handles a valid event', (t) => {
       .end((err, result) => {
         t.error(err, 'No error');
         t.ok(result);
-        t.deepEqual(result.body, JSON.parse(message.body as string));
-        t.equal(result.headers['ce-type'], 'echo');
-        t.equal(result.headers['ce-source'], 'function.eventViewer');
+        t.deepEqual(result.body, { message: 'OK' });
+        t.equal(result.headers['ce-type'], 'function.response');
+        t.equal(result.headers['ce-source'], 'function');
         t.end();
         server.close();
       });

@@ -631,7 +631,7 @@ func waitFor(t *testing.T, address string, options ...waitOption) (ok bool) {
 	} else if cfg.content != "" {
 		return waitForContent(t, address, cfg.content, "expected content not found", options...)
 	} else {
-		return waitForContent(t, address+"?test-echo-param&message=test-echo-param", "test-echo-param", "does not appear to be an echo", options...)
+		return waitForContent(t, address, "OK", "expected OK response", options...)
 	}
 }
 

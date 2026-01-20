@@ -16,7 +16,7 @@ public class FunctionTest {
     @Test
     void testFunction() {
         Output output = (new Function()).function(CloudEventBuilder.create().build(new Input("Hello!"))).data();
-        Assertions.assertEquals("Hello!", output.getMessage());
+        Assertions.assertEquals("OK", output.getMessage());
     }
 
     @Test
@@ -31,7 +31,7 @@ public class FunctionTest {
                 .header("ce-specversion", equalTo("1.0"))
                 .header("ce-source", equalTo("function"))
                 .header("ce-type", equalTo("function.output"))
-                .body("message", equalTo("Hello!"));
+                .body("message", equalTo("OK"));
     }
 
 }

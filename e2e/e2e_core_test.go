@@ -187,11 +187,13 @@ func TestCore_Update(t *testing.T) {
 	package function
 	import "fmt"
 	import "net/http"
-	func Handle(w http.ResponseWriter, _ *http.Request) {
+	type Function struct{}
+	func New() *Function { return &Function{} }
+	func (f *Function) Handle(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintln(w, "UPDATED")
 	}
 	`
-	err := os.WriteFile(filepath.Join(root, "handle.go"), []byte(update), 0644)
+	err := os.WriteFile(filepath.Join(root, "function.go"), []byte(update), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +262,9 @@ func TestCore_Invoke(t *testing.T) {
 	name := "func-e2e-test-core-invoke"
 	_ = fromCleanEnv(t, name)
 
-	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
+	if err := newCmd(t, "init", "-l=go",
+		"--repository", "https://github.com/functions-dev/templates",
+		"-t", "echo").Run(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -279,7 +283,8 @@ func TestCore_Invoke(t *testing.T) {
 		}
 	}()
 
-	if !waitFor(t, address) {
+	if !waitFor(t, address+"?test-echo-param&message=test-echo-param",
+		withContentMatch("test-echo-param")) {
 		t.Fatal("service does not appear to have started correctly.")
 	}
 
@@ -308,11 +313,67 @@ func TestCore_Invoke(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name)) {
+
+	if !waitFor(t, ksvcUrl(name)+"?test-echo-param&message=test-echo-param",
+		withContentMatch("test-echo-param")) {
 		t.Fatal("function did not deploy correctly")
 	}
 
 	checkInvoke("func-e2e-test-core-invoke-remote")
+}
+
+// TestCore_StaticSignature ensures backward compatibility with the static
+// (non-instanced) function signature. Functions can use either:
+// - Instanced: type MyFunction struct{} + New() + Handle method (default)
+// - Static: package-level func Handle(...) in handle.go (legacy, still supported)
+func TestCore_StaticSignature(t *testing.T) {
+	name := "func-e2e-test-core-static"
+	root := fromCleanEnv(t, name)
+
+	// Create func.yaml
+	funcYaml := fmt.Sprintf(`specVersion: %s
+name: %s
+runtime: go
+created: 2025-01-01T00:00:00Z
+`, fn.LastSpecVersion(), name)
+	if err := os.WriteFile(filepath.Join(root, "func.yaml"), []byte(funcYaml), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create go.mod
+	goMod := "module function\n\ngo 1.23\n"
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte(goMod), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create handle.go with static signature
+	handleGo := `package function
+
+import (
+	"fmt"
+	"net/http"
+)
+
+func Handle(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "OK")
+}
+`
+	if err := os.WriteFile(filepath.Join(root, "handle.go"), []byte(handleGo), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy
+	if err := newCmd(t, "deploy").Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		clean(t, name, Namespace)
+	}()
+
+	// Verify - waitFor defaults to checking for "OK"
+	if !waitFor(t, ksvcUrl(name)) {
+		t.Fatal("static signature function did not deploy correctly")
+	}
 }
 
 // TestCore_Delete ensures that a function registered as deleted when deleted.

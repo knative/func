@@ -44,8 +44,8 @@ const (
 	TestNamespace = "default"
 )
 
-func newRemoteTestClient(verbose bool) *fn.Client {
-	return fn.New(
+func newRemoteTestClient(verbose bool, opts ...fn.Option) *fn.Client {
+	baseOpts := []fn.Option{
 		fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithCredentialsProvider(testCP))),
 		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
@@ -53,7 +53,8 @@ func newRemoteTestClient(verbose bool) *fn.Client {
 		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
 		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
 		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose))),
-	)
+	}
+	return fn.New(append(baseOpts, opts...)...)
 }
 
 // assertFunctionEchoes returns without error when the function of the given
@@ -119,13 +120,15 @@ func TestInt_Remote_Default(t *testing.T) {
 		url         string
 		verbose     = false
 		ctx, cancel = signal.NotifyContext(context.Background(), os.Interrupt)
-		client      = newRemoteTestClient(verbose)
+		client      = newRemoteTestClient(verbose,
+			fn.WithRepository("https://github.com/functions-dev/templates"))
 	)
 	defer cancel()
 
 	f := fn.Function{
 		Name:      "testremote-default",
-		Runtime:   "node",
+		Runtime:   "go",
+		Template:  "echo",
 		Registry:  TestRegistry,
 		Namespace: TestNamespace,
 		Build: fn.BuildSpec{

@@ -1,7 +1,6 @@
 package function
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cloudevents/sdk-go/v2/event"
@@ -17,16 +16,16 @@ func TestHandle(t *testing.T) {
 	e.SetData("text/plain", "data")
 
 	// Act
-	echo, err := New().Handle(context.Background(), e)
-	if err != nil {
-		t.Fatal(err)
-	}
+	data, err := New().Handle(e)
 
 	// Assert
-	if echo == nil {
+	if err != nil {
+		t.Errorf("didnt expect err, got: %v", err)
+	}
+	if data == nil {
 		t.Errorf("received nil event") // fail on nil
 	}
-	if string(echo.Data()) != "data" {
-		t.Errorf("the received event expected data to be 'data', got '%s'", echo.Data())
+	if string(data.Data()) != `{"message":"OK"}` {
+		t.Errorf("the received event expected data to be '{\"message\":\"OK\"}', got '%s'", data.Data())
 	}
 }

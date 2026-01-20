@@ -24,8 +24,12 @@ func New() *MyFunction {
 
 // Handle a request using your function instance.
 func (f *MyFunction) Handle(res http.ResponseWriter, req *http.Request) {
-	fmt.Println("Request received")
-	fmt.Fprintf(res, "Request received\n")
+	/*
+	 * YOUR CODE HERE
+	 *
+	 * Try running `go test`.  Add more tests as you code in `function_test.go`.
+	 */
+	fmt.Fprintln(res, "OK")
 }
 
 // Start is called whenever a function instance is started.

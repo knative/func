@@ -411,11 +411,15 @@ package function
 
 import "net/http"
 
-func Handle(res http.ResponseWriter, req *http.Request) {
+type Function struct{}
+
+func New() *Function { return &Function{} }
+
+func (f *Function) Handle(res http.ResponseWriter, req *http.Request) {
   res.Write([]byte("TestInvoke_ClientToService OK"))
 }
 `
-	err = os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
+	err = os.WriteFile(filepath.Join(root, "function.go"), []byte(source), os.ModePerm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -481,11 +485,15 @@ package function
 
 import "net/http"
 
-func Handle(res http.ResponseWriter, req *http.Request) {
+type Function struct{}
+
+func New() *Function { return &Function{} }
+
+func (f *Function) Handle(res http.ResponseWriter, req *http.Request) {
   res.Write([]byte("TestInvoke_ServiceToService OK"))
 }
 `
-	err = os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
+	err = os.WriteFile(filepath.Join(root, "function.go"), []byte(source), os.ModePerm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -518,7 +526,11 @@ import (
 	"time"
 )
 
-func Handle(w http.ResponseWriter, req *http.Request) {
+type Function struct{}
+
+func New() *Function { return &Function{} }
+
+func (f *Function) Handle(w http.ResponseWriter, req *http.Request) {
 	var e error
 	var r *http.Response
 	var buff bytes.Buffer
@@ -544,7 +556,7 @@ func Handle(w http.ResponseWriter, req *http.Request) {
 	return
 }
 `
-	err = os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
+	err = os.WriteFile(filepath.Join(root, "function.go"), []byte(source), os.ModePerm)
 	if err != nil {
 		t.Fatal(err)
 	}

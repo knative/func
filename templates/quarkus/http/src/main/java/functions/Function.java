@@ -8,7 +8,7 @@ import io.quarkus.funqy.Funq;
 public class Function {
 
     /**
-     * Use the Quarkus Funqy extension for our function. This function simply echoes its input
+     * Use the Quarkus Funqy extension for our function. This function returns "OK".
      * @param input a Java bean
      * @return a Java bean
      */
@@ -17,7 +17,7 @@ public class Function {
 
         // Add business logic here
 
-        return new Output(input.getMessage());
+        return new Output("OK");
     }
 
 }

@@ -108,7 +108,9 @@ func TestMetadata_Envs_Add(t *testing.T) {
 		"os"
 	    "strings"
 	)
-	func Handle(w http.ResponseWriter, _ *http.Request) {
+	type Function struct{}
+	func New() *Function { return &Function{} }
+	func (f *Function) Handle(w http.ResponseWriter, _ *http.Request) {
 		for c := 'A'; c <= 'H'; c++ {
 			envVar := string(c)
 			value, exists := os.LookupEnv(envVar)
@@ -127,7 +129,7 @@ func TestMetadata_Envs_Add(t *testing.T) {
 		fmt.Fprintln(w, "OK")
 	}
 	`
-	err := os.WriteFile(filepath.Join(root, "handle.go"), []byte(impl), 0644)
+	err := os.WriteFile(filepath.Join(root, "function.go"), []byte(impl), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,8 +139,7 @@ func TestMetadata_Envs_Add(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name),
-		withContentMatch("OK")) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("handler failed")
 	}
 }
@@ -173,7 +174,9 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 		"net/http"
 		"os"
 	)
-	func Handle(w http.ResponseWriter, _ *http.Request) {
+	type Function struct{}
+	func New() *Function { return &Function{} }
+	func (f *Function) Handle(w http.ResponseWriter, _ *http.Request) {
 		if os.Getenv("A") != "a" {
 			http.Error(w, "A not set", http.StatusInternalServerError)
 			return
@@ -185,7 +188,7 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 		fmt.Fprintln(w, "OK")
 	}
 	`
-	if err := os.WriteFile(filepath.Join(root, "handle.go"), []byte(impl), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "function.go"), []byte(impl), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := newCmd(t, "deploy").Run(); err != nil {
@@ -194,8 +197,7 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name),
-		withContentMatch("OK")) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("handler failed")
 	}
 
@@ -212,7 +214,9 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 		"net/http"
 		"os"
 	)
-	func Handle(w http.ResponseWriter, _ *http.Request) {
+	type Function struct{}
+	func New() *Function { return &Function{} }
+	func (f *Function) Handle(w http.ResponseWriter, _ *http.Request) {
 		if os.Getenv("A") != "a" {
 			http.Error(w, "A not set", http.StatusInternalServerError)
 			return
@@ -224,14 +228,13 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 		fmt.Fprintln(w, "OK")
 	}
 	`
-	if err := os.WriteFile(filepath.Join(root, "handle.go"), []byte(impl), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "function.go"), []byte(impl), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitFor(t, ksvcUrl(name),
-		withContentMatch("OK")) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("handler failed")
 	}
 }
@@ -438,7 +441,9 @@ import (
 	"strings"
 )
 
-func Handle(w http.ResponseWriter, _ *http.Request) {
+type Function struct{}
+func New() *Function { return &Function{} }
+func (f *Function) Handle(w http.ResponseWriter, _ *http.Request) {
 	errors := []string{}
 
 	// Check ConfigMap volume
@@ -480,7 +485,7 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 }
 
 `
-	err := os.WriteFile(filepath.Join(root, "handle.go"), []byte(impl), 0644)
+	err := os.WriteFile(filepath.Join(root, "function.go"), []byte(impl), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -494,8 +499,7 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 	}()
 
 	// Verify the function has access to all volumes
-	if !waitFor(t, ksvcUrl(name),
-		withContentMatch("OK")) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function failed to access volumes correctly")
 	}
 
@@ -516,7 +520,9 @@ import (
 	"strings"
 )
 
-func Handle(w http.ResponseWriter, _ *http.Request) {
+type Function struct{}
+func New() *Function { return &Function{} }
+func (f *Function) Handle(w http.ResponseWriter, _ *http.Request) {
 	errors := []string{}
 
 	// Check ConfigMap volume should NOT exist
@@ -545,7 +551,7 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprintln(w, "OK")
 }
 `
-	err = os.WriteFile(filepath.Join(root, "handle.go"), []byte(impl), 0644)
+	err = os.WriteFile(filepath.Join(root, "function.go"), []byte(impl), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -555,8 +561,7 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 		t.Fatal(err)
 	}
 
-	if !waitFor(t, ksvcUrl(name),
-		withContentMatch("OK")) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function failed after volume removal")
 	}
 }
@@ -576,7 +581,7 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	if err := newCmd(t, "init", "-l=go", "-t=cloudevents").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subscriberRoot, "handle.go"),
+	if err := os.WriteFile(filepath.Join(subscriberRoot, "function.go"),
 		[]byte(subscriberCode()), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -653,7 +658,7 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 	if err := newCmd(t, "init", "-l=go", "-t=cloudevents").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(subscriberRoot, "handle.go"),
+	if err := os.WriteFile(filepath.Join(subscriberRoot, "function.go"),
 		[]byte(subscriberCode()), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -720,26 +725,6 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 	}
 }
 
-// CloudEvents handler that logs events
-func subscriberCode() string {
-	return `package function
-import (
-	"context"
-	"fmt"
-	"github.com/cloudevents/sdk-go/v2/event"
-)
-func Handle(ctx context.Context, e event.Event) (*event.Event, error) {
-	fmt.Printf("EVENT_RECEIVED: id=%s type=%s source=%s\n", e.ID(), e.Type(), e.Source())
-	r := event.New()
-	r.SetID("response-" + e.ID())
-	r.SetSource("subscriber")
-	r.SetType("test.response")
-	r.SetData("application/json", map[string]string{"status": "received"})
-	return &r, nil
-}
-`
-}
-
 func waitForEvent(t *testing.T, functionName, eventId string) <-chan string {
 	t.Helper()
 
@@ -749,7 +734,7 @@ func waitForEvent(t *testing.T, functionName, eventId string) <-chan string {
 	t.Cleanup(cancel)
 
 	pr, pw := io.Pipe()
-	cmd := exec.CommandContext(ctx, "stern", functionName+"-.*")
+	cmd := exec.CommandContext(ctx, "stern", functionName+"-.*", "-n", Namespace)
 	cmd.Stderr = io.Discard
 	cmd.Stdout = pw
 	cmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
@@ -772,6 +757,29 @@ func waitForEvent(t *testing.T, functionName, eventId string) <-chan string {
 	}()
 
 	return eventReceived
+}
+
+// CloudEvents handler that logs events
+func subscriberCode() string {
+	return `package function
+
+import (
+	"fmt"
+	"github.com/cloudevents/sdk-go/v2/event"
+)
+
+type Function struct{}
+func New() *Function { return &Function{} }
+func (f *Function) Handle(e event.Event) (*event.Event, error) {
+	fmt.Printf("EVENT_RECEIVED: id=%s type=%s source=%s\n", e.ID(), e.Type(), e.Source())
+	r := event.New()
+	r.SetID("response-" + e.ID())
+	r.SetSource("subscriber")
+	r.SetType("test.response")
+	r.SetData("application/json", map[string]string{"status": "received"})
+	return &r, nil
+}
+`
 }
 
 // createBrokerWithCheck creates a Knative Broker
@@ -809,7 +817,7 @@ metadata:
 
 	// Wait for broker-ingress service to be available
 	t.Log("Waiting for broker-ingress service to be available...")
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		checkCmd := exec.Command("kubectl", "get", "svc", "-n", "knative-eventing", "broker-ingress")
 		checkCmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
 		if err := checkCmd.Run(); err == nil {

@@ -179,9 +179,9 @@ func TestBuilder_Files(t *testing.T) {
 		{Path: "/func/a.txt"},
 		{Path: "/func/f", Executable: true},
 		{Path: "/func/func.yaml"},
+		{Path: "/func/function.go"},
+		{Path: "/func/function_test.go"},
 		{Path: "/func/go.mod"},
-		{Path: "/func/handle.go"},
-		{Path: "/func/handle_test.go"},
 	}
 
 	oci := filepath.Join(f.Root, fn.RunDataDir, "build", "oci")

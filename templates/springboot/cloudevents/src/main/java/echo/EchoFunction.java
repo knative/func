@@ -35,9 +35,9 @@ public class EchoFunction implements Function<Message<String>, Message<String>> 
      String input = inputMessage.getPayload();
      LOGGER.log(Level.INFO, "Input {0} ", input);
 
-     return CloudEventMessageBuilder.withData(input)
-        .setType("echo").setId(UUID.randomUUID().toString())
-        .setSubject("Echo event")
-        .setSource(URI.create("http://example.com/echo")).build();
+     return CloudEventMessageBuilder.withData("{\"message\":\"OK\"}")
+        .setType("function.response").setId(UUID.randomUUID().toString())
+        .setSubject("Function response")
+        .setSource(URI.create("http://example.com/function")).build();
   }
 }

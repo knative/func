@@ -16,8 +16,8 @@ fn
 ├── func.yaml
 ├── go.mod
 ├── go.sum
-├── handle.go
-└── handle_test.go
+├── function.go
+└── function_test.go
 ```
 
 Aside from the `func.yaml` file, this looks like the beginning of just about
@@ -69,8 +69,8 @@ You can get the URL for your deployed function with the `info` command.
 
 
 Go functions can be tested locally on your computer. In the project there is
-a `handle_test.go` file which contains simple test which can be extended as needed.
-Yo can run this test locally as you would do with any Go project.
+a `function_test.go` file which contains a simple test which can be extended as needed.
+You can run this test locally as you would do with any Go project.
 
 ```
 ❯ go test
@@ -79,9 +79,10 @@ Yo can run this test locally as you would do with any Go project.
 ## Function reference
 
 Boson Go functions have very few restrictions. You can add any required dependencies
-in `go.mod` and you may include additional local Go files. The only real requirement are
-that your project is defined in a `function` module and exports the function `Handle()`
-(supported contracts of this function will be discussed more deeply later).
+in `go.mod` and you may include additional local Go files. The only real requirement is
+that your project is defined in a `function` module and exports a `New()` constructor
+that returns a struct with a `Handle()` method (supported contracts of this method
+will be discussed more deeply later).
 In this section, we will look in a little more detail at how Boson functions are invoked,
 and what APIs are available to you as a developer.
 
@@ -94,14 +95,18 @@ They each will listen and respond to incoming HTTP events.
 
 #### Function triggered by HTTP request
 
-When an incoming request is received, your function will be invoked with two parameters:
+When an incoming request is received, your function's `Handle` method will be invoked with two parameters:
 Golang's [http.ResponseWriter](https://golang.org/pkg/net/http/#ResponseWriter) and [http.Request](https://golang.org/pkg/net/http/#Request).
 
 Then you can use standard Golang techniques to access the request (eg. read the body)
 and set a proper HTTP response of your function, as you can see on the following example:
 
 ```go
-func Handle(res http.ResponseWriter, req *http.Request) {
+type Function struct{}
+
+func New() *Function { return &Function{} }
+
+func (f *Function) Handle(res http.ResponseWriter, req *http.Request) {
 
   // Read body
   body, err := ioutil.ReadAll(req.Body)
@@ -121,22 +126,22 @@ func Handle(res http.ResponseWriter, req *http.Request) {
 If the incoming request is a `CloudEvent`, the event is provided via
 [CloudEvents Golang SDK](https://cloudevents.github.io/sdk-go/) and its `Event` type
 as a parameter. There's possibility to leverage Golang's
-[Context](https://golang.org/pkg/context/) as the optional parameter in the function contract,
-as you can see in the list of supported function signatures:
+[Context](https://golang.org/pkg/context/) as the optional parameter in the method contract,
+as you can see in the list of supported `Handle` method signatures:
 
 ```go
-Handle()
-Handle() error
-Handle(context.Context)
-Handle(context.Context) error
-Handle(cloudevents.Event)
-Handle(cloudevents.Event) error
-Handle(context.Context, cloudevents.Event)
-Handle(context.Context, cloudevents.Event) error
-Handle(cloudevents.Event) *cloudevents.Event
-Handle(cloudevents.Event) (*cloudevents.Event, error)
-Handle(context.Context, cloudevents.Event) *cloudevents.Event
-Handle(context.Context, cloudevents.Event) (*cloudevents.Event, error)
+(f *Function) Handle()
+(f *Function) Handle() error
+(f *Function) Handle(context.Context)
+(f *Function) Handle(context.Context) error
+(f *Function) Handle(cloudevents.Event)
+(f *Function) Handle(cloudevents.Event) error
+(f *Function) Handle(context.Context, cloudevents.Event)
+(f *Function) Handle(context.Context, cloudevents.Event) error
+(f *Function) Handle(cloudevents.Event) *cloudevents.Event
+(f *Function) Handle(cloudevents.Event) (*cloudevents.Event, error)
+(f *Function) Handle(context.Context, cloudevents.Event) *cloudevents.Event
+(f *Function) Handle(context.Context, cloudevents.Event) (*cloudevents.Event, error)
 ```
 
 For example, a `CloudEvent` is received which contains a JSON string such as this in its data property,
@@ -157,7 +162,11 @@ type Purchase struct {
   ProductId  string `json:"productId"`
 }
 
-func Handle(ctx context.Context, event cloudevents.Event) err error {
+type Function struct{}
+
+func New() *Function { return &Function{} }
+
+func (f *Function) Handle(ctx context.Context, event cloudevents.Event) err error {
 
   purchase := &Purchase{}
   if err = cloudevents.DataAs(purchase); err != nil {
@@ -172,8 +181,12 @@ func Handle(ctx context.Context, event cloudevents.Event) err error {
 Or we can use Golang's `encoding/json` package to access the `CloudEvent` directly as
 a JSON in form of bytes array:
 
-```golang
-func Handle(ctx context.Context, event cloudevents.Event) {
+```go
+type Function struct{}
+
+func New() *Function { return &Function{} }
+
+func (f *Function) Handle(ctx context.Context, event cloudevents.Event) {
 
   bytes, err := json.Marshal(event)
 
@@ -186,7 +199,11 @@ As mentioned above, HTTP triggered functions can set the response directly via
 Golang's [http.ResponseWriter](https://golang.org/pkg/net/http/#ResponseWriter).
 
 ```go
-func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
+type Function struct{}
+
+func New() *Function { return &Function{} }
+
+func (f *Function) Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 
   // Set response
   res.Header().Add("Content-Type", "text/plain")
@@ -206,7 +223,11 @@ to set a unique `ID`, proper `Source` and a `Type` of the CloudEvent. The data c
 from a defined structure or from a `map`.
 
 ```go
-func Handle(ctx context.Context, event cloudevents.Event) (resp *cloudevents.Event, err error) {
+type Function struct{}
+
+func New() *Function { return &Function{} }
+
+func (f *Function) Handle(ctx context.Context, event cloudevents.Event) (resp *cloudevents.Event, err error) {
 
   // ...
 

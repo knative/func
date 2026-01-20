@@ -3,7 +3,7 @@ const { CloudEvent } = require('cloudevents');
 /**
  * Your CloudEvent handling function, invoked with each request.
  * This example function logs its input, and responds with a CloudEvent
- * which echoes the incoming event data
+ * containing "OK" as the data.
  *
  * It can be invoked with 'func invoke'
  * It can be tested with 'npm test'
@@ -24,9 +24,9 @@ const handle = async (context, event) => {
   context.log.info("event", event);
 
   return new CloudEvent({
-    source: 'event.handler',
-    type: 'echo',
-    data: event.data
+    source: 'function',
+    type: 'function.response',
+    data: { message: 'OK' }
   });
 };
 

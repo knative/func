@@ -22,11 +22,10 @@ test('Integration: handles a valid request', (t) => {
       .post('/')
       .send(data)
       .expect(200)
-      .expect('Content-Type', /json/)
       .end((err, result) => {
         t.error(err, 'No error');
         t.ok(result);
-        t.equal(JSON.stringify(result.body), JSON.stringify(data));
+        t.equal(result.text, 'OK');
         t.end();
         server.close();
       });

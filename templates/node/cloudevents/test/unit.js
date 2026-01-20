@@ -23,8 +23,8 @@ test('Unit: handles a valid event', async t => {
   // Invoke the function with the valid event, which should complete without error.
   const result = await func({ log: { info: (_) => _ } }, cloudevent);
   t.ok(result);
-  t.equal(result.data, data);
-  t.equal(result.type, 'echo');
-  t.equal(result.source, 'event.handler');
+  t.deepEqual(result.data, { message: 'OK' });
+  t.equal(result.type, 'function.response');
+  t.equal(result.source, 'function');
   t.end();
 });

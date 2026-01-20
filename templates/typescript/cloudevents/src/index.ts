@@ -3,8 +3,8 @@ import { Context } from 'faas-js-runtime';
 
 /**
  * Your CloudEvents function, invoked with each request. This
- * is an example function which logs the incoming event and echoes
- * the received event data to the caller.
+ * is an example function which logs the incoming event and returns
+ * a CloudEvent with "OK" as the data.
  *
  * It can be invoked with 'func invoke'.
  * It can be tested with 'npm test'.
@@ -20,22 +20,10 @@ import { Context } from 'faas-js-runtime';
  * @param {CloudEvent} cloudevent the CloudEvent
  */
 // eslint-disable-next-line prettier/prettier
-const handle = async (context: Context, cloudevent?: CloudEvent<Customer>): Promise<CloudEvent<Customer|string>> => {
+const handle = async (context: Context, cloudevent?: CloudEvent<unknown>): Promise<CloudEvent<{ message: string }>> => {
   // YOUR CODE HERE
-  const meta = {
-    source: 'function.eventViewer',
-    type: 'echo'
-  };
-  // The incoming CloudEvent
-  if (!cloudevent) {
-    const response: CloudEvent<string> = new CloudEvent<string>({
-      ...meta,
-      ...{ type: 'error', data: 'No event received' }
-    });
-    context.log.info(response.toString());
-    return response;
-  }
-  context.log.info(`
+  if (cloudevent) {
+    context.log.info(`
 -----------------------------------------------------------
 CloudEvent:
 ${cloudevent}
@@ -44,13 +32,13 @@ Data:
 ${JSON.stringify(cloudevent.data)}
 -----------------------------------------------------------
 `);
-  // respond with a new CloudEvent
-  return new CloudEvent<Customer>({ ...meta, data: cloudevent.data });
-};
+  }
 
-export interface Customer {
-  name: string;
-  customerId: string;
-}
+  return new CloudEvent<{ message: string }>({
+    source: 'function',
+    type: 'function.response',
+    data: { message: 'OK' }
+  });
+};
 
 export { handle };

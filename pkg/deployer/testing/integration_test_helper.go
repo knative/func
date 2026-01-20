@@ -62,7 +62,7 @@ func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		t.Fatal(err)
 	}
 	// Not really necessary, but it allows us to reuse the "invoke" method:
-	handlerPath := filepath.Join(root, "handle.go")
+	handlerPath := filepath.Join(root, "function.go")
 	if err := os.WriteFile(handlerPath, []byte(testHandler), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 	if err != nil {
 		t.Fatal(err)
 	}
-	handlerPath := filepath.Join(root, "handle.go")
+	handlerPath := filepath.Join(root, "function.go")
 
 	if err := os.WriteFile(handlerPath, []byte(testHandler), 0644); err != nil {
 		t.Fatal(err)
@@ -519,7 +519,7 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 	}
 
 	// Write custom test handler
-	handlerPath := filepath.Join(root, "handle.go")
+	handlerPath := filepath.Join(root, "function.go")
 	if err := os.WriteFile(handlerPath, []byte(testHandler), 0644); err != nil {
 		t.Fatal(err)
 	}

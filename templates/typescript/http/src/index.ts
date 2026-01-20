@@ -2,10 +2,7 @@ import { Context, StructuredReturn } from 'faas-js-runtime';
 
 /**
  * Your HTTP handling function, invoked with each request. This is an example
- * function that logs the incoming request and echoes its input to the caller.
- *
- * It can be invoked with `func invoke`
- * It can be tested with `npm test`
+ * function that returns "OK" for all requests.
  *
  * It can be invoked with `func invoke`
  * It can be tested with `npm test`
@@ -21,43 +18,13 @@ import { Context, StructuredReturn } from 'faas-js-runtime';
  */
 const handle = async (context: Context, body: string): Promise<StructuredReturn> => {
   // YOUR CODE HERE
-  context.log.info(`
------------------------------------------------------------
-Headers:
-${JSON.stringify(context.headers)}
-
-Query:
-${JSON.stringify(context.query)}
-
-Body:
-${JSON.stringify(body)}
------------------------------------------------------------
-`);
-  // If the request is an HTTP POST, return the request body
-  if (context.method === 'POST') {
-    return {
-      body: body,
-      headers: {
-        'content-type': 'application/json'
-      }
-    };
-  } else if (context.method === 'GET') {
-    // If the request is an HTTP GET, return the query parameters
-    return {
-      body: context.query,
-      headers: {
-        'content-type': 'application/json'
-      }
-    };
-  } else {
-    return {
-      statusCode: 405,
-      body: { error: 'Method not allowed' },
-      headers: {
-        'content-type': 'application/json'
-      }
-    };
-  }
+  context.log.info(`body: ${body}`);
+  return {
+    body: 'OK',
+    headers: {
+      'content-type': 'text/plain'
+    }
+  };
 };
 
 export { handle };

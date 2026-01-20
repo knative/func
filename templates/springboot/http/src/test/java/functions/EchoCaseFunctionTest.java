@@ -20,23 +20,23 @@ public class EchoCaseFunctionTest {
   private TestRestTemplate rest;
 
   @Test
-  public void testEchoWithBody() throws Exception {
+  public void testReqWithBody() throws Exception {
     ResponseEntity<String> response = this.rest.exchange(
       RequestEntity.post(new URI("/echo"))
                    .body("hello"), String.class);
     assertThat(response.getStatusCode()
                        .value(), equalTo(200));
-    assertThat(response.getBody(), containsString("echo: hello"));
+    assertThat(response.getBody(), equalTo("OK"));
   }
 
   @Test
-  public void testEchoWithoutBody() throws Exception {
+  public void testReqWithoutBody() throws Exception {
     ResponseEntity<String> response = this.rest.exchange(
       RequestEntity.get(new URI("/echo/"))
           .header("custom-header", "custom-value")
             .build(), String.class);
     assertThat(response.getStatusCode()
       .value(), equalTo(200));
-    assertThat(response.getBody(), containsString("custom-header: custom-value"));
+    assertThat(response.getBody(), equalTo("OK"));
   }
 }

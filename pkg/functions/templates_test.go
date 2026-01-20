@@ -118,7 +118,7 @@ func TestTemplates_Embedded(t *testing.T) {
 	}
 
 	// Assert file exists as expected
-	_, err = os.Stat(filepath.Join(root, "handle.go"))
+	_, err = os.Stat(filepath.Join(root, "function.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestTemplates_Default(t *testing.T) {
 	}
 
 	// Assert file exists as expected
-	_, err = os.Stat(filepath.Join(root, "handle.go"))
+	_, err = os.Stat(filepath.Join(root, "function.go"))
 	if err != nil {
 		t.Fatal(err)
 	}

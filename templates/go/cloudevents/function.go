@@ -6,14 +6,11 @@
 package function
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/cloudevents/sdk-go/v2/event"
 )
 
 // MyFunction is your function's implementation.
-// This struction name can be changed.
+// This structure name can be changed.
 type MyFunction struct{}
 
 // New constructs an instance of your function.  It is called each time a
@@ -44,16 +41,20 @@ func New() *MyFunction {
 //
 // One of these function signatures must be implemented for your function
 // to start.
-func (f *MyFunction) Handle(ctx context.Context, e event.Event) (*event.Event, error) {
+func (f *MyFunction) Handle(e event.Event) (*event.Event, error) {
 	/*
 	 * YOUR CODE HERE
 	 *
-	 * Try running `go test`.  Add more test as you code in `handle_test.go`.
+	 * Try running `go test`.  Add more tests as you code in `function_test.go`.
 	 */
-
-	fmt.Println("Received event")
-	fmt.Println(e) // echo to local output
-	return &e, nil // echo to caller
+	ret := event.New()
+	ret.SetType("function.response")
+	ret.SetID("response-" + e.ID())
+	ret.SetSource("function")
+	if err := ret.SetData(event.ApplicationJSON, map[string]string{"message": "OK"}); err != nil {
+		return nil, err
+	}
+	return &ret, nil
 }
 
 // TODO: Start
@@ -65,7 +66,7 @@ func (f *MyFunction) Handle(ctx context.Context, e event.Event) (*event.Event, e
 // functions with little or no state and minimal testing requirements.  By
 // instead choosing this package static function, one can forego the
 // constructor and struct outlined above.  The same method signatures are
-// supported here as well, simply withouth the struct pointer receiver.
+// supported here as well, simply without the struct pointer receiver.
 //
 // func Handle(ctx context.Context, e event.Event) (*event.Event, error) {
 //

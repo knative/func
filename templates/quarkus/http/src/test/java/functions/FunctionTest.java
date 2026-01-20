@@ -15,7 +15,7 @@ public class FunctionTest {
     @Test
     void testFunction() {
         Output output = (new Function()).function(new Input("Hello!"));
-        Assertions.assertEquals("Hello!", output.getMessage());
+        Assertions.assertEquals("OK", output.getMessage());
     }
 
     @Test
@@ -26,7 +26,7 @@ public class FunctionTest {
                 .header("ce-specversion", "1.0")
                 .post("/")
                 .then().statusCode(200)
-                .body("message", equalTo("Hello"));
+                .body("message", equalTo("OK"));
     }
 
 }

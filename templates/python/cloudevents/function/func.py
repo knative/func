@@ -32,15 +32,15 @@ class Function:
         # 1) Extract the CloudEvent from the scope
         request = scope["event"]
 
-        # 2) Create a new CloudEvent as response
+        # 2) Create a new CloudEvent as response with "OK" as data
         response = CloudEvent({
-            "type": "dev.knative.function.response",
-            "source": "https://knative.dev/python-function-response",
+            "type": "function.response",
+            "source": "function",
             "id": f"response-{request.get('id', 'unknown')}"
         })
 
-        # 3) Set the response's data field to the request event's data field
-        response.data = request.data
+        # 3) Set the response's data field to {"message": "OK"}
+        response.data = {"message": "OK"}
 
         # 4) Send the response CloudEvent
         # The 'send' method is already decorated with CloudEvent middleware
