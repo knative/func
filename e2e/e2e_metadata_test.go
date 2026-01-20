@@ -569,10 +569,9 @@ func TestMetadata_Subscriptions(t *testing.T) {
 
 	uniqueEventID := fmt.Sprintf("e2e-test-%d", time.Now().UnixNano())
 
-	eventReceived := waitForEvent(t, uniqueEventID)
+	subscriberName := "func-e2e-test-subscriber-knative"
+	eventReceived := waitForEvent(t, subscriberName, uniqueEventID)
 
-	subscriber := "func-e2e-test-subscriber"
-	subscriberName := subscriber
 	subscriberRoot := fromCleanEnv(t, subscriberName)
 	if err := newCmd(t, "init", "-l=go", "-t=cloudevents").Run(); err != nil {
 		t.Fatal(err)
@@ -647,10 +646,9 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 
 	uniqueEventID := fmt.Sprintf("e2e-test-%d", time.Now().UnixNano())
 
-	eventReceived := waitForEvent(t, uniqueEventID)
+	subscriberName := "func-e2e-test-subscriber-raw"
+	eventReceived := waitForEvent(t, subscriberName, uniqueEventID)
 
-	subscriber := "func-e2e-test-subscriber"
-	subscriberName := subscriber
 	subscriberRoot := fromCleanEnv(t, subscriberName)
 	if err := newCmd(t, "init", "-l=go", "-t=cloudevents").Run(); err != nil {
 		t.Fatal(err)
@@ -742,7 +740,7 @@ func Handle(ctx context.Context, e event.Event) (*event.Event, error) {
 `
 }
 
-func waitForEvent(t *testing.T, eventId string) <-chan string {
+func waitForEvent(t *testing.T, functionName, eventId string) <-chan string {
 	t.Helper()
 
 	eventReceived := make(chan string, 10)
@@ -751,7 +749,7 @@ func waitForEvent(t *testing.T, eventId string) <-chan string {
 	t.Cleanup(cancel)
 
 	pr, pw := io.Pipe()
-	cmd := exec.CommandContext(ctx, "stern", "func-e2e-test-subscriber-.*")
+	cmd := exec.CommandContext(ctx, "stern", functionName+"-.*")
 	cmd.Stderr = io.Discard
 	cmd.Stdout = pw
 	cmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
