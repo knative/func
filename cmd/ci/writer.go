@@ -14,17 +14,17 @@ const (
 var DefaultWorkflowWriter = &fileWriter{}
 
 type WorkflowWriter interface {
-	Write(path string, p []byte) error
+	Write(path string, raw []byte) error
 }
 
 type fileWriter struct{}
 
-func (fw *fileWriter) Write(path string, p []byte) error {
+func (fw *fileWriter) Write(path string, raw []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(path, p, filePerm); err != nil {
+	if err := os.WriteFile(path, raw, filePerm); err != nil {
 		return err
 	}
 
@@ -32,6 +32,7 @@ func (fw *fileWriter) Write(path string, p []byte) error {
 }
 
 type bufferWriter struct {
+	Path   string
 	Buffer *bytes.Buffer
 }
 
@@ -39,7 +40,8 @@ func NewBufferWriter() *bufferWriter {
 	return &bufferWriter{Buffer: &bytes.Buffer{}}
 }
 
-func (bw *bufferWriter) Write(_ string, p []byte) error {
-	_, err := bw.Buffer.Write(p)
+func (bw *bufferWriter) Write(path string, raw []byte) error {
+	bw.Path = path
+	_, err := bw.Buffer.Write(raw)
 	return err
 }

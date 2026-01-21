@@ -9,7 +9,12 @@ import (
 	"knative.dev/func/cmd/common"
 )
 
-func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWriter) *cobra.Command {
+func NewConfigCICmd(
+	loaderSaver common.FunctionLoaderSaver,
+	writer ci.WorkflowWriter,
+	currentBranch common.CurrentBranchFunc,
+	workingDir common.WorkDirFunc,
+) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ci",
 		Short: "Generate a GitHub Workflow for function deployment",
@@ -28,7 +33,7 @@ func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWr
 			ci.RegistryUrlVariableNameFlag,
 		),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			return runConfigCIGitHub(cmd, loaderSaver, writer)
+			return runConfigCIGitHub(cmd, loaderSaver, writer, currentBranch, workingDir)
 		},
 	}
 
@@ -67,7 +72,7 @@ func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWr
 
 	cmd.Flags().String(
 		ci.BranchFlag,
-		ci.DefaultBranch,
+		"",
 		"Use a custom branch name in the workflow",
 	)
 
@@ -108,8 +113,13 @@ func runConfigCIGitHub(
 	cmd *cobra.Command,
 	fnLoaderSaver common.FunctionLoaderSaver,
 	writer ci.WorkflowWriter,
+	currentBranch common.CurrentBranchFunc,
+	workingDir common.WorkDirFunc,
 ) error {
-	cfg := ci.NewCIGitHubConfig()
+	cfg, err := ci.NewCIGitHubConfig(currentBranch, workingDir)
+	if err != nil {
+		return err
+	}
 
 	f, err := fnLoaderSaver.Load(cfg.Path())
 	if err != nil {
