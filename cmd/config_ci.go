@@ -19,6 +19,7 @@ func NewConfigCICmd(
 		Use:   "ci",
 		Short: "Generate a GitHub Workflow for function deployment",
 		PreRunE: bindEnv(
+			ci.PlatformFlag,
 			ci.PathFlag,
 			ci.UseRegistryLoginFlag,
 			ci.WorkflowDispatchFlag,
@@ -36,6 +37,12 @@ func NewConfigCICmd(
 			return runConfigCIGitHub(cmd, loaderSaver, writer, currentBranch, workingDir)
 		},
 	}
+
+	cmd.Flags().String(
+		ci.PlatformFlag,
+		ci.DefaultPlatform,
+		"Pick a CI/CD platform for which a manifest will be generated. Currently only GitHub is supported.",
+	)
 
 	addPathFlag(cmd)
 
@@ -116,7 +123,7 @@ func runConfigCIGitHub(
 	currentBranch common.CurrentBranchFunc,
 	workingDir common.WorkDirFunc,
 ) error {
-	cfg, err := ci.NewCIGitHubConfig(currentBranch, workingDir)
+	cfg, err := ci.NewCIConfig(currentBranch, workingDir)
 	if err != nil {
 		return err
 	}

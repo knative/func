@@ -11,7 +11,7 @@ import (
 
 func TestGitHubWorkflow_Export(t *testing.T) {
 	// GIVEN
-	cfg, _ := ci.NewCIGitHubConfig(
+	cfg, _ := ci.NewCIConfig(
 		common.CurrentBranchStub("", nil),
 		common.WorkDirStub("", nil),
 	)

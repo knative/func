@@ -228,6 +228,54 @@ func TestNewConfigCICmd_BranchFlagResolutionError(t *testing.T) {
 	assert.Error(t, result.executeErr, expectedErr.Error())
 }
 
+func TestNewConfigCICmd_GithubPlatformFlagSupported(t *testing.T) {
+	testCases := []struct {
+		name        string
+		platformArg string
+	}{
+		{
+			name:        "empty value picks GitHub CI/CD platform as default",
+			platformArg: "",
+		},
+		{
+			name:        "GitHub value is supported",
+			platformArg: "--platform=github",
+		},
+		{
+			name:        "GitHub value is case insensitive",
+			platformArg: "--platform=GitHub",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// GIVEN
+			opts := defaultOpts()
+			opts.args = append(opts.args, tc.platformArg)
+
+			// WHEN
+			result := runConfigCiCmd(t, opts)
+
+			// THEN
+			assert.NilError(t, result.executeErr)
+		})
+	}
+}
+
+func TestNewConfigCICmd_UnsupportedPlatformError(t *testing.T) {
+	// GIVEN
+	platform := "unsupported"
+	expectedErr := fmt.Errorf("%s support is not implemented", platform)
+	opts := defaultOpts()
+	opts.args = append(opts.args, "--platform="+platform)
+
+	// WHEN
+	result := runConfigCiCmd(t, opts)
+
+	// THEN
+	assert.Error(t, result.executeErr, expectedErr.Error())
+}
+
 // ---------------------
 // END: Broad Unit Tests
 

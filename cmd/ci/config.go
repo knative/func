@@ -1,7 +1,9 @@
 package ci
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/ory/viper"
 	"knative.dev/func/cmd/common"
@@ -11,6 +13,9 @@ const (
 	ConfigCIFeatureFlag = "FUNC_ENABLE_CI_CONFIG"
 
 	PathFlag = "path"
+
+	PlatformFlag    = "platform"
+	DefaultPlatform = "github"
 
 	DefaultGitHubWorkflowDir      = ".github/workflows"
 	DefaultGitHubWorkflowFilename = "func-deploy.yaml"
@@ -67,10 +72,15 @@ type CIConfig struct {
 	useWorkflowDispatch bool
 }
 
-func NewCIGitHubConfig(
+func NewCIConfig(
 	currentBranch common.CurrentBranchFunc,
 	workingDir common.WorkDirFunc,
 ) (CIConfig, error) {
+	platform := viper.GetString(PlatformFlag)
+	if strings.ToLower(platform) != DefaultPlatform {
+		return CIConfig{}, fmt.Errorf("%s support is not implemented", platform)
+	}
+
 	path := viper.GetString(PathFlag)
 	if path == "" || path == "." {
 		cwd, err := workingDir()
