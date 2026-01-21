@@ -347,6 +347,11 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		}
 	}
 
+	// add BP_GO_WORKDIR for go-build buildpack
+	if f.Runtime == "go" {
+		buildEnvs = append(buildEnvs, "BP_GO_WORKDIR=.func/build")
+	}
+
 	s2iImageScriptsUrl := defaultS2iImageScriptsUrl
 	if f.Runtime == "quarkus" {
 		s2iImageScriptsUrl = quarkusS2iImageScriptsUrl

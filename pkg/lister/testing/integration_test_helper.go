@@ -24,6 +24,7 @@ func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describe
 	t.Cleanup(cancel)
 
 	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", false)),
 		fn.WithPusher(oci.NewPusher(true, true, true)),
 		fn.WithDeployer(deployer),
@@ -39,6 +40,12 @@ func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describe
 		Namespace: ns,
 		Registry:  Registry(),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Scaffold
+	err = client.Scaffold(ctx, f, "")
 	if err != nil {
 		t.Fatal(err)
 	}
