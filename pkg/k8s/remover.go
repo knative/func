@@ -49,21 +49,13 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 
 	deploymentClient := clientset.AppsV1().Deployments(ns)
 
-	// TODO: delete only one and let the api server handle the other via the owner reference
+	// delete only the deployment and let the api server handle the service via the owner reference
 	err = deploymentClient.Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		if apiErrors.IsNotFound(err) {
 			return fn.ErrFunctionNotFound
 		}
 		return fmt.Errorf("k8s remover failed to delete the deployment: %v", err)
-	}
-
-	err = serviceClient.Delete(ctx, name, metav1.DeleteOptions{})
-	if err != nil {
-		if apiErrors.IsNotFound(err) {
-			return fn.ErrFunctionNotFound
-		}
-		return fmt.Errorf("k8s remover failed to delete the service: %v", err)
 	}
 
 	return nil
