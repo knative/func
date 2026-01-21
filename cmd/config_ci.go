@@ -19,7 +19,7 @@ func NewConfigCICmd(
 		Use:   "ci",
 		Short: "Generate a GitHub Workflow for function deployment",
 		PreRunE: bindEnv(
-			ci.CICDPlatformFlag,
+			ci.PlatformFlag,
 			ci.PathFlag,
 			ci.UseRegistryLoginFlag,
 			ci.WorkflowDispatchFlag,
@@ -39,8 +39,8 @@ func NewConfigCICmd(
 	}
 
 	cmd.Flags().String(
-		ci.CICDPlatformFlag,
-		ci.DefaultCICDPlatform,
+		ci.PlatformFlag,
+		ci.DefaultPlatform,
 		"Pick a CI/CD platform for which a manifest will be generated. Currently only GitHub is supported.",
 	)
 

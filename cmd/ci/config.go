@@ -14,8 +14,8 @@ const (
 
 	PathFlag = "path"
 
-	CICDPlatformFlag    = "platform"
-	DefaultCICDPlatform = "github"
+	PlatformFlag    = "platform"
+	DefaultPlatform = "github"
 
 	DefaultGitHubWorkflowDir      = ".github/workflows"
 	DefaultGitHubWorkflowFilename = "func-deploy.yaml"
@@ -76,9 +76,9 @@ func NewCIConfig(
 	currentBranch common.CurrentBranchFunc,
 	workingDir common.WorkDirFunc,
 ) (CIConfig, error) {
-	CICDPlatform := viper.GetString(CICDPlatformFlag)
-	if strings.ToLower(CICDPlatform) != DefaultCICDPlatform {
-		return CIConfig{}, fmt.Errorf("%s support is not implemented", CICDPlatform)
+	platform := viper.GetString(PlatformFlag)
+	if strings.ToLower(platform) != DefaultPlatform {
+		return CIConfig{}, fmt.Errorf("%s support is not implemented", platform)
 	}
 
 	path := viper.GetString(PathFlag)

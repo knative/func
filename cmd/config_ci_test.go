@@ -228,22 +228,22 @@ func TestNewConfigCICmd_BranchFlagResolutionError(t *testing.T) {
 	assert.Error(t, result.executeErr, expectedErr.Error())
 }
 
-func TestNewConfigCICmd_CICDFlagGitHubSupported(t *testing.T) {
+func TestNewConfigCICmd_GithubPlatformFlagSupported(t *testing.T) {
 	testCases := []struct {
-		name            string
-		cicdPlatformArg string
+		name        string
+		platformArg string
 	}{
 		{
-			name:            "empty value picks GitHub CI/CD platform as default",
-			cicdPlatformArg: "",
+			name:        "empty value picks GitHub CI/CD platform as default",
+			platformArg: "",
 		},
 		{
-			name:            "GitHub value is supported",
-			cicdPlatformArg: "--platform=github",
+			name:        "GitHub value is supported",
+			platformArg: "--platform=github",
 		},
 		{
-			name:            "GitHub value is case insensitive",
-			cicdPlatformArg: "--platform=GitHub",
+			name:        "GitHub value is case insensitive",
+			platformArg: "--platform=GitHub",
 		},
 	}
 
@@ -251,7 +251,7 @@ func TestNewConfigCICmd_CICDFlagGitHubSupported(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// GIVEN
 			opts := defaultOpts()
-			opts.args = append(opts.args, tc.cicdPlatformArg)
+			opts.args = append(opts.args, tc.platformArg)
 
 			// WHEN
 			result := runConfigCiCmd(t, opts)
@@ -262,7 +262,7 @@ func TestNewConfigCICmd_CICDFlagGitHubSupported(t *testing.T) {
 	}
 }
 
-func TestNewConfigCICmd_UnsupportedCICDError(t *testing.T) {
+func TestNewConfigCICmd_UnsupportedPlatformError(t *testing.T) {
 	// GIVEN
 	platform := "unsupported"
 	expectedErr := fmt.Errorf("%s support is not implemented", platform)
