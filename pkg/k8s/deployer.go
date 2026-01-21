@@ -36,6 +36,10 @@ const (
 	DefaultLivenessEndpoint  = "/health/liveness"
 	DefaultReadinessEndpoint = "/health/readiness"
 	DefaultHTTPPort          = 8080
+
+	// managedByAnnotation identifies triggers managed by this deployer
+	managedByAnnotation = "func.knative.dev/managed-by"
+	managedByValue      = "func-raw-deployer"
 )
 
 type DeployerOpt func(*Deployer)
@@ -202,13 +206,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("deployment did not become ready: %w", err)
 	}
 
-	// Create triggers
+	// Sync triggers
 	eventingClient, err := newEventingClient(config, namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create eventing client: %w", err)
 	}
-	if err := createTriggers(ctx, f, namespace, eventingClient, clientset); err != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("failed to create triggers: %w", err)
+	if err := syncTriggers(ctx, f, namespace, eventingClient, clientset); err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("failed to sync triggers: %w", err)
 	}
 
 	url := fmt.Sprintf("http://%s.%s.svc.cluster.local", f.Name, namespace)
@@ -240,58 +244,98 @@ func generateTriggerName(functionName, broker string, filters map[string]string)
 	return fmt.Sprintf("%s-trigger-%s", functionName, hashStr)
 }
 
-func createTriggers(ctx context.Context, f fn.Function, namespace string, eventingClient clienteventingv1.KnEventingClient, clientset kubernetes.Interface) error {
-	if len(f.Deploy.Subscriptions) == 0 {
-		return nil
-	}
-
-	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, f.Name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get service: %w", err)
-	}
-
-	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get deployment: %w", err)
-	}
-
-	fmt.Fprintf(os.Stderr, "🎯 Creating Triggers on the cluster\n")
-
+func syncTriggers(ctx context.Context, f fn.Function, namespace string, eventingClient clienteventingv1.KnEventingClient, clientset kubernetes.Interface) error {
+	// Build set of desired trigger names from current subscriptions
+	desiredTriggers := sets.New[string]()
 	for _, sub := range f.Deploy.Subscriptions {
-		attributes := make(map[string]string)
-		maps.Copy(attributes, sub.Filters)
-
 		triggerName := generateTriggerName(f.Name, sub.Source, sub.Filters)
+		desiredTriggers.Insert(triggerName)
+	}
 
-		trigger := &eventingv1.Trigger{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: triggerName,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: "apps/v1",
-						Kind:       "Deployment",
-						Name:       deployment.Name,
-						UID:        deployment.UID,
-					},
-				},
-			},
-			Spec: eventingv1.TriggerSpec{
-				Broker: sub.Source,
-				Subscriber: duckv1.Destination{
-					URI: &apis.URL{
-						Scheme: "http",
-						Host:   fmt.Sprintf("%s.%s.svc.cluster.local", svc.Name, namespace),
-					},
-				},
-				Filter: &eventingv1.TriggerFilter{
-					Attributes: attributes,
-				},
-			},
+	// Create or update triggers from current subscriptions
+	if len(f.Deploy.Subscriptions) > 0 {
+		svc, err := clientset.CoreV1().Services(namespace).Get(ctx, f.Name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get service: %w", err)
 		}
 
-		err := eventingClient.CreateTrigger(ctx, trigger)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create trigger: %w", err)
+		deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get deployment: %w", err)
+		}
+
+		fmt.Fprintf(os.Stderr, "🎯 Syncing Triggers on the cluster\n")
+
+		for _, sub := range f.Deploy.Subscriptions {
+			attributes := make(map[string]string)
+			maps.Copy(attributes, sub.Filters)
+
+			triggerName := generateTriggerName(f.Name, sub.Source, sub.Filters)
+
+			trigger := &eventingv1.Trigger{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: triggerName,
+					Annotations: map[string]string{
+						managedByAnnotation: managedByValue,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       deployment.Name,
+							UID:        deployment.UID,
+						},
+					},
+				},
+				Spec: eventingv1.TriggerSpec{
+					Broker: sub.Source,
+					Subscriber: duckv1.Destination{
+						URI: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s.%s.svc.cluster.local", svc.Name, namespace),
+						},
+					},
+					Filter: &eventingv1.TriggerFilter{
+						Attributes: attributes,
+					},
+				},
+			}
+
+			err := eventingClient.CreateTrigger(ctx, trigger)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				return fmt.Errorf("failed to create trigger: %w", err)
+			}
+		}
+	}
+
+	// Clean up stale triggers
+	return deleteStaleTriggers(ctx, eventingClient, desiredTriggers)
+}
+
+// deleteStaleTriggers removes triggers managed by this deployer that are no longer in the desired set
+func deleteStaleTriggers(ctx context.Context, eventingClient clienteventingv1.KnEventingClient, desiredTriggers sets.Set[string]) error {
+	// List existing triggers in the namespace
+	existingTriggers, err := eventingClient.ListTriggers(ctx)
+	if err != nil {
+		// If triggers can't be listed ,skip cleanup
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to list triggers: %w", err)
+	}
+
+	// Delete stale triggers
+	for _, trigger := range existingTriggers.Items {
+		// Only delete triggers we manage
+		if trigger.Annotations[managedByAnnotation] == managedByValue {
+			// Check if this trigger is still desired
+			if !desiredTriggers.Has(trigger.Name) {
+				fmt.Fprintf(os.Stderr, "🗑️  Deleting stale trigger: %s\n", trigger.Name)
+				err := eventingClient.DeleteTrigger(ctx, trigger.Name)
+				if err != nil && !errors.IsNotFound(err) {
+					return fmt.Errorf("failed to delete stale trigger %s: %w", trigger.Name, err)
+				}
+			}
 		}
 	}
 
@@ -308,9 +352,7 @@ func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstal
 
 	// Use annotations for pod template
 	podAnnotations := make(map[string]string)
-	for k, v := range annotations {
-		podAnnotations[k] = v
-	}
+	maps.Copy(podAnnotations, annotations)
 
 	// Process environment variables and volumes
 	referencedSecrets := sets.New[string]()
