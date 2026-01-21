@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
+	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
@@ -1137,6 +1138,30 @@ func ptr[T interface{}](s T) *T {
 	return &s
 }
 
+// kedaRoundTripper rewrites requests to go through the KEDA HTTP interceptor-proxy
+// while preserving the original Host header for routing
+type kedaRoundTripper struct {
+	transport http.RoundTripper
+}
+
+func (k *kedaRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Preserve the original host from the URL
+	originalHost := req.URL.Host
+	if originalHost == "" {
+		originalHost = req.Host
+	}
+
+	// Rewrite the URL to point to the KEDA interceptor-proxy
+	// TODO: maybe we can point to the ingress controller here instead
+	req.URL.Scheme = "http"
+	req.URL.Host = "keda-add-ons-http-interceptor-proxy.keda.svc:8080"
+
+	// Set the Host header to the original host so KEDA routes correctly
+	req.Host = originalHost
+
+	return k.transport.RoundTrip(req)
+}
+
 func getHttpClient(ctx context.Context, deployer string) (*http.Client, func(), error) {
 	noopDeferFunc := func() {}
 
@@ -1165,6 +1190,33 @@ func getHttpClient(ctx context.Context, deployer string) (*http.Client, func(), 
 	case knative.KnativeDeployerName:
 		// For Knative deployments, use default client (service is externally accessible)
 		return http.DefaultClient, noopDeferFunc, nil
+	case keda.KedaDeployerName:
+		// For KEDA deployments, route all requests through the KEDA HTTP interceptor-proxy
+		// The interceptor-proxy routes requests based on the Host header
+
+		clientConfig := k8s.GetClientConfig()
+		dialer, err := k8s.NewInClusterDialer(ctx, clientConfig)
+		if err != nil {
+			return nil, noopDeferFunc, fmt.Errorf("failed to create in-cluster dialer: %w", err)
+		}
+
+		baseTransport := &http.Transport{
+			DialContext: dialer.DialContext,
+		}
+
+		// Wrap with custom round tripper that rewrites URLs to interceptor-proxy
+		transport := &kedaRoundTripper{
+			transport: baseTransport,
+		}
+
+		deferFunc := func() {
+			_ = dialer.Close()
+		}
+
+		return &http.Client{
+			Transport: transport,
+			Timeout:   time.Minute,
+		}, deferFunc, nil
 	default:
 		return nil, noopDeferFunc, fmt.Errorf("unknown deploy type: %s", deployer)
 	}

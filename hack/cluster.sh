@@ -81,6 +81,7 @@ allocate_cluster() {
   echo "reg:  Local Registry"
   echo "dpr:  Dapr Runtime"
   echo "tkt:  Tekton Pipelines"
+  echo "keda: Keda"
   echo ""
 
   ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
@@ -88,6 +89,7 @@ allocate_cluster() {
   ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
   ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
   ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
+  ( set -o pipefail; (keda && keda_http_addon) 2>&1 | sed  -e 's/^/keda /')&
 
   local job
   for job in $(jobs -p); do
@@ -643,6 +645,32 @@ EOF
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=15s
 
   echo "${green}✅ Magic DNS${reset}"
+}
+
+keda() {
+  echo "${blue}Installing Keda${reset}"
+  echo "Version: ${keda_version}"
+
+  $KUBECTL apply --server-side -f https://github.com/kedacore/keda/releases/download/${keda_version}/keda-${keda_version:1}.yaml
+  $KUBECTL apply --server-side -f https://github.com/kedacore/keda/releases/download/${keda_version}/keda-${keda_version:1}-core.yaml
+  echo "Waiting for Keda to become ready"
+  $KUBECTL wait deployment --all --timeout=-1s --for=condition=Available --namespace keda
+
+  $KUBECTL get pod -n keda
+  echo "${green}✅ Keda${reset}"
+}
+
+keda_http_addon() {
+  echo "${blue}Installing Keda HTTP add-on${reset}"
+  echo "Version: ${keda_http_addon_version}"
+
+  $KUBECTL apply --server-side -f https://github.com/kedacore/http-add-on/releases/download/${keda_http_addon_version}/keda-add-ons-http-${keda_http_addon_version:1}-crds.yaml
+  $KUBECTL apply --server-side -f https://github.com/kedacore/http-add-on/releases/download/${keda_http_addon_version}/keda-add-ons-http-${keda_http_addon_version:1}.yaml
+  echo "Waiting for Keda HTTP add-on to become ready"
+  $KUBECTL wait deployment --all --timeout=-1s --for=condition=Available --namespace keda
+
+  $KUBECTL get pod -n keda
+  echo "${green}✅ Keda HTTP add-on${reset}"
 }
 
 next_steps() {
