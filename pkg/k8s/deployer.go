@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1"
@@ -78,12 +79,8 @@ func onClusterFix(f fn.Function) fn.Function {
 	return f
 }
 
-// newEventingClient creates a Knative Eventing client
-func newEventingClient(namespace string) (clienteventingv1.KnEventingClient, error) {
-	config, err := GetClientConfig().ClientConfig()
-	if err != nil {
-		return nil, err
-	}
+// newEventingClient creates a Knative Eventing client from a REST config
+func newEventingClient(config *rest.Config, namespace string) (clienteventingv1.KnEventingClient, error) {
 	eventingClient, err := eventingv1client.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -120,7 +117,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		f.Deploy.Image = f.Build.Image
 	}
 
-	clientset, err := NewKubernetesClientset()
+	// Get the Kubernetes REST config
+	config, err := GetClientConfig().ClientConfig()
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
@@ -200,7 +203,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// Create triggers
-	eventingClient, err := newEventingClient(namespace)
+	eventingClient, err := newEventingClient(config, namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create eventing client: %w", err)
 	}
