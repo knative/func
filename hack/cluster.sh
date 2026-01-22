@@ -669,6 +669,17 @@ keda_http_addon() {
   echo "Waiting for Keda HTTP add-on to become ready"
   $KUBECTL wait deployment --all --timeout=-1s --for=condition=Available --namespace keda
 
+  # Reduce resource requests for CI environments
+  if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+    echo "${blue}Reducing KEDA HTTP add-on resource requests for CI${reset}"
+
+    # Reduce replica counts for CI (3 replicas is overkill for testing)
+    $KUBECTL scale deployment keda-add-ons-http-interceptor -n keda --replicas=1 || echo "Warning: Failed to scale keda-add-ons-http-interceptor"
+    $KUBECTL scale deployment keda-add-ons-http-scaler -n keda --replicas=1 || echo "Warning: Failed to scale keda-add-ons-http-scaler"
+
+    echo "${green}✅ Resource requests reduced for CI${reset}"
+  fi
+
   $KUBECTL get pod -n keda
   echo "${green}✅ Keda HTTP add-on${reset}"
 }
