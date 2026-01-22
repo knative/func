@@ -6,14 +6,14 @@ import (
 	"time"
 
 	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
-	"k8s.io/api/apps/v1"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -144,14 +144,14 @@ func (d *Deployer) httpScaledObject(f fn.Function, namespace string, deployment 
 
 	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, false /*we don't care about dapr for the HttpScaledObject*/, KedaDeployerName)
 
-	minScale := pointer.Int32(1)
-	maxScale := pointer.Int32(10)
+	minScale := int32(1)
+	maxScale := int32(10)
 	if scaleOptions := f.Deploy.Options.Scale; scaleOptions != nil {
 		if scaleOptions.Min != nil {
-			minScale = pointer.Int32(int32(*scaleOptions.Min))
+			minScale = int32(*scaleOptions.Min)
 		}
 		if scaleOptions.Max != nil {
-			maxScale = pointer.Int32(int32(*scaleOptions.Max))
+			maxScale = int32(*scaleOptions.Max)
 		}
 	}
 
@@ -167,7 +167,7 @@ func (d *Deployer) httpScaledObject(f fn.Function, namespace string, deployment 
 					Kind:       "Deployment",
 					Name:       deployment.Name,
 					UID:        deployment.UID,
-					Controller: pointer.Bool(true),
+					Controller: ptr.To(true),
 				},
 			},
 		},
@@ -181,10 +181,10 @@ func (d *Deployer) httpScaledObject(f fn.Function, namespace string, deployment 
 				Port:       service.Spec.Ports[0].Port,
 			},
 			Replicas: &httpv1alpha1.ReplicaStruct{
-				Min: minScale,
-				Max: maxScale,
+				Min: &minScale,
+				Max: &maxScale,
 			},
-			CooldownPeriod: pointer.Int32(300),
+			CooldownPeriod: ptr.To(int32(300)),
 			ScalingMetric: &httpv1alpha1.ScalingMetricSpec{
 				Rate: &httpv1alpha1.RateMetricSpec{
 					TargetValue: 100,
@@ -208,7 +208,7 @@ func (d *Deployer) interceptorProxyService(f fn.Function, namespace string) *cor
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: fmt.Sprintf("keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local"), // TODO: check for real cluster domain
+			ExternalName: "keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local", // TODO: check for real cluster domain
 			Ports: []corev1.ServicePort{
 				{
 					Protocol: "TCP",
@@ -260,7 +260,7 @@ func (d *Deployer) ensureHTTPScaledObject(ctx context.Context, f fn.Function, na
 
 	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
 	if err != nil {
-		fmt.Errorf("failed to create HTTPScaledObject clientset: %v", err)
+		return fmt.Errorf("failed to create HTTPScaledObject clientset: %v", err)
 	}
 
 	existing, err := httpScaledObjectClientset.HttpV1alpha1().HTTPScaledObjects(expected.Namespace).Get(ctx, expected.Name, metav1.GetOptions{})
