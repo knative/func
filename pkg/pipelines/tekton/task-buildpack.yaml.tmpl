@@ -12,9 +12,7 @@ metadata:
     tekton.dev/platforms: "linux/amd64"
 spec:
   description: >-
-    The Knative Functions Buildpacks task builds source into a container image and pushes it to a registry,
-    using Cloud Native Buildpacks. This task is based on the Buildpacks Tekton task v 0.4.
-
+    The Knative Functions Buildpacks task builds source into a container image and pushes it to a registry, using Cloud Native Buildpacks. This task is based on the Buildpacks Tekton task v 0.4.
   workspaces:
     - name: source
       description: Directory where application source is located.
@@ -23,11 +21,8 @@ spec:
       optional: true
     - name: dockerconfig
       description: >-
-        An optional workspace that allows providing a .docker/config.json file
-        for Buildpacks lifecycle binary to access the container registry.
-        The file should be placed at the root of the Workspace with name config.json.
+        An optional workspace that allows providing a .docker/config.json file for Buildpacks lifecycle binary to access the container registry. The file should be placed at the root of the Workspace with name config.json.
       optional: true
-
   params:
     - name: GIT_REPOSITORY
       description: ""
@@ -66,14 +61,11 @@ spec:
     - name: PLATFORM_DIR
       description: The name of the platform directory.
       default: empty-dir
-
   stepTemplate:
     env:
       - name: CNB_PLATFORM_API
         value: "0.10"
-
   steps:
-
     - name: fetch-src
       ref:
         resolver: bundles
@@ -95,12 +87,10 @@ spec:
           value: "$(params.GIT_REPOSITORY)"
         - name: "revision"
           value: "$(params.GIT_REVISION)"
-
     - name: func-scaffold
       image: '{{.ScaffoldImage}}'
       workingDir: $(workspaces.source.path)
       command: ["scaffold", $(params.SOURCE_SUBPATH), "pack"]
-
     - name: prepare
       image: docker.io/library/bash:5.1
       args:
@@ -165,7 +155,6 @@ spec:
         cp $func_file /emptyDir/func.yaml
 
         ############################################
-
       volumeMounts:
         - name: layers-dir
           mountPath: /layers
@@ -175,7 +164,6 @@ spec:
           #####   "/emptyDir" has been added for Knative Functions
         - name: empty-dir
           mountPath: /emptyDir
-
     - name: create
       image: $(params.BUILDER_IMAGE)
       imagePullPolicy: Always
@@ -206,7 +194,6 @@ spec:
         #################################################################
         #####  "runAsGroup" has been changed to "0" for Knative Functions
         runAsGroup: 0
-
     - name: results
       image: docker.io/library/bash:5.1
       script: |
@@ -249,12 +236,10 @@ spec:
           #####   "/emptyDir" has been added for Knative Functions
         - name: empty-dir
           mountPath: /emptyDir
-
     - name: func-deploy
       image: '{{.DeployerImage}}'
       workingDir: $(workspaces.source.path)
       command: ["deploy", $(params.SOURCE_SUBPATH), "$(params.APP_IMAGE)"]
-
   volumes:
     - name: empty-dir
       emptyDir: {}
