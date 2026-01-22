@@ -1,0 +1,167 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+    name: func-s2i
+    labels:
+        app.kubernetes.io/version: "0.1"
+    annotations:
+        tekton.dev/pipelines.minVersion: "0.17.0"
+        tekton.dev/categories: Image Build
+        tekton.dev/tags: image-build
+        tekton.dev/platforms: "linux/amd64"
+spec:
+    description: >-
+        Knative Functions Source-to-Image (S2I) is a toolkit and workflow for building reproducible
+        container images from source code
+
+        S2I produces images by injecting source code into a base S2I container image
+        and letting the container prepare that source code for execution. The base
+        S2I container images contains the language runtime and build tools needed for
+        building and running the source code.
+
+    params:
+        - name: GIT_REPOSITORY
+          description: ""
+        - name: GIT_REVISION
+          description: ""
+        - name: BUILDER_IMAGE
+          description: The location of the s2i builder image.
+        - name: IMAGE
+          description: Reference of the image S2I will produce.
+        - name: REGISTRY
+          description: The registry associated with the function image.
+          default: ""
+        - name: PATH_CONTEXT
+          description: The location of the path to run s2i from.
+          default: .
+        - name: TLSVERIFY
+          description: Verify the TLS on the registry endpoint (for push/pull to a non-TLS registry)
+          default: "true"
+        - name: LOGLEVEL
+          description: Log level when running the S2I binary
+          default: "0"
+        - name: ENV_VARS
+          type: array
+          description: Environment variables to set during _build-time_.
+          default: []
+        - name: S2I_IMAGE_SCRIPTS_URL
+          description: The URL containing the default assemble and run scripts for the builder image.
+          default: "image:///usr/libexec/s2i"
+    workspaces:
+        - name: source
+        - name: cache
+          description: Directory where cache is stored (e.g. local mvn repo).
+          optional: true
+        - name: sslcertdir
+          optional: true
+        - name: dockerconfig
+          description: >-
+              An optional workspace that allows providing a .docker/config.json file
+              for Buildah to access the container registry.
+              The file should be placed at the root of the Workspace with name config.json.
+          optional: true
+
+    steps:
+
+        - name: fetch-src
+          ref:
+              resolver: bundles
+              params:
+                  - name: bundle
+                    value: ghcr.io/tektoncd/catalog/upstream/stepactions/git-clone:09f70e6a6485a7d99b01d75610870b13222732e8
+                  - name: kind
+                    value: StepAction
+                  - name: name
+                    value: git-clone
+          when:
+              - input: "$(params.GIT_REPOSITORY)"
+                operator: notin
+                values: [""]
+          params:
+              - name: "output-path"
+                value: "$(workspaces.source.path)"
+              - name: "url"
+                value: "$(params.GIT_REPOSITORY)"
+              - name: "revision"
+                value: "$(params.GIT_REVISION)"
+
+        - name: func-scaffold
+          image: '{{.ScaffoldImage}}'
+          workingDir: $(workspaces.source.path)
+          command: ["scaffold", $(params.PATH_CONTEXT), "s2i"]
+
+        - name: generate
+          image: '{{.S2IImage}}'
+          workingDir: $(workspaces.source.path)
+          command:
+              - s2i-generate
+              - "--target"
+              - /gen-source
+              - "--path-context"
+              - $(params.PATH_CONTEXT)
+              - "--builder-image"
+              - $(params.BUILDER_IMAGE)
+              - "--registry"
+              - $(params.REGISTRY)
+              - "--image-script-url"
+              - $(params.S2I_IMAGE_SCRIPTS_URL)
+              - "--log-level"
+              - $(params.LOGLEVEL)
+              - $(params.ENV_VARS[*])
+          volumeMounts:
+              - mountPath: /gen-source
+                name: gen-source
+              - mountPath: /env-vars
+                name: env-vars
+
+        - name: build
+          image: quay.io/buildah/stable:v1.31.0
+          workingDir: /gen-source
+          script: |
+              TLS_VERIFY_FLAG=""
+              if [ "$(params.TLSVERIFY)" = "false" ] || [ "$(params.TLSVERIFY)" = "0" ]; then
+                TLS_VERIFY_FLAG="--tls-verify=false"
+              fi
+
+              # Set certificate directory flag if workspace is bound
+              [[ "$(workspaces.sslcertdir.bound)" == "true" ]] && CERT_DIR_FLAG="--cert-dir $(workspaces.sslcertdir.path)"
+
+              # Set docker config before any buildah commands
+              [[ "$(workspaces.dockerconfig.bound)" == "true" ]] && export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
+
+              # Setup artifacts cache path
+              ARTIFACTS_CACHE_PATH="$(workspaces.cache.path)/mvn-artifacts"
+              [ -d "${ARTIFACTS_CACHE_PATH}" ] || mkdir "${ARTIFACTS_CACHE_PATH}"
+
+              # Build the image
+              buildah ${CERT_DIR_FLAG} bud --storage-driver=vfs ${TLS_VERIFY_FLAG} --layers \
+                -v "${ARTIFACTS_CACHE_PATH}:/tmp/artifacts/:rw,z,U" \
+                -f /gen-source/Dockerfile.gen -t $(params.IMAGE) .
+
+              # Push the image
+              buildah ${CERT_DIR_FLAG} push --storage-driver=vfs ${TLS_VERIFY_FLAG} --digestfile $(workspaces.source.path)/image-digest \
+                $(params.IMAGE) docker://$(params.IMAGE)
+
+              # Output the image digest
+              cat $(workspaces.source.path)/image-digest
+          volumeMounts:
+              - name: varlibcontainers
+                mountPath: /var/lib/containers
+              - mountPath: /gen-source
+                name: gen-source
+          securityContext:
+              capabilities:
+                  add: ["SETFCAP"]
+
+        - name: func-deploy
+          image: '{{.DeployerImage}}'
+          workingDir: $(workspaces.source.path)
+          command: ["deploy", $(params.PATH_CONTEXT), "$(params.IMAGE)"]
+
+    volumes:
+        - emptyDir: {}
+          name: varlibcontainers
+        - emptyDir: {}
+          name: gen-source
+        - emptyDir: {}
+          name: env-vars
