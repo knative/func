@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 
@@ -245,58 +244,6 @@ EXAMPLES
 	return cmd
 }
 
-// wrapInvalidKubeconfigError returns a user-friendly error for invalid kubeconfig paths
-func wrapInvalidKubeconfigError(err error) error {
-	kubeconfigPath := os.Getenv("KUBECONFIG")
-	if kubeconfigPath == "" {
-		kubeconfigPath = "~/.kube/config (default)"
-	}
-
-	return fmt.Errorf(`%w
-
-The kubeconfig file at '%s' does not exist or is not accessible.
-
-Try this:
-  export KUBECONFIG=~/.kube/config           Use default kubeconfig
-  kubectl config view                        Verify current config
-  ls -la ~/.kube/config                      Check if config file exists
-
-For more options, run 'func deploy --help'`, fn.ErrInvalidKubeconfig, kubeconfigPath)
-}
-
-// wrapClusterNotAccessibleError returns a user-friendly error for cluster connection failures
-func wrapClusterNotAccessibleError(err error) error {
-	errMsg := err.Error()
-
-	// Case 1: Empty/no cluster configuration in kubeconfig
-	if strings.Contains(errMsg, "no configuration has been provided") ||
-		strings.Contains(errMsg, "invalid configuration") {
-		return fmt.Errorf(`%w
-
-Cannot connect to Kubernetes cluster. No valid cluster configuration found.
-
-Try this:
-  minikube start                             Start Minikube cluster
-  kind create cluster                        Start Kind cluster
-  kubectl cluster-info                       Verify cluster is running
-  kubectl config get-contexts                List available contexts
-
-For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
-	}
-
-	// Case 2: Cluster is down, network issues, auth errors, etc
-	return fmt.Errorf(`%w
-
-Cannot connect to Kubernetes cluster.
-
-Try this:
-  kubectl cluster-info                       Verify cluster is accessible
-  minikube status                            Check Minikube cluster status
-  kubectl get nodes                          Test cluster connection
-
-For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
-}
-
 func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg deployConfig
@@ -315,13 +262,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if !f.Initialized() {
 		if !cfg.Remote || f.Build.Git.URL == "" {
 			// Only error if this is not a fully remote build
-			// Layer 2: Wrap technical error with CLI-specific guidance
-			var errNotInit *fn.ErrNotInitialized
-			notInitErr := fn.NewErrNotInitialized(f.Root)
-			if errors.As(notInitErr, &errNotInit) {
-				return wrapNotInitializedError(notInitErr, "deploy")
-			}
-			return notInitErr
+			return NewErrNotInitializedFromPath(f.Root, "deploy")
 		} else {
 			// TODO: this case is not supported because the pipeline
 			// implementation requires the function's name, which is in the
@@ -333,73 +274,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Now that we know function exists, proceed with prompting
 	if cfg, err = cfg.Prompt(); err != nil {
-		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
 		if errors.Is(err, fn.ErrRegistryRequired) {
-			return wrapRegistryRequiredError(err, "deploy")
+			return NewErrRegistryRequired(err, "deploy")
 		}
 		return
 	}
 	if err = cfg.Validate(cmd); err != nil {
-		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
-		if errors.Is(err, fn.ErrInvalidDomain) {
-			return fmt.Errorf(`%w
-
-Domain names must be valid DNS subdomains:
-  - Lowercase letters, numbers, hyphens (-), and dots (.) only
-  - Start and end with a letter or number
-  - Max 253 characters total, each part between dots max 63 characters
-
-Valid examples:
-  func deploy --registry ghcr.io/user --domain example.com
-  func deploy --registry ghcr.io/user --domain api.example.com
-
-Note: Domain must be configured on your Knative cluster, or it will be ignored.
-
-For more options, run 'func deploy --help'`, err)
-		}
-		if errors.Is(err, fn.ErrInvalidNamespace) {
-			return fmt.Errorf(`%w
-
-Invalid namespace name. Kubernetes namespaces must:
-  - Contain only lowercase letters, numbers, and hyphens (-)
-  - Start with a letter and end with a letter or number
-  - Be 63 characters or less
-
-Valid examples:
-  func deploy --namespace myapp
-  func deploy --namespace my-app-123
-
-For more options, run 'func deploy --help'`, err)
-		}
-		if errors.Is(err, fn.ErrConflictingImageAndRegistry) {
-			return fmt.Errorf(`%w
-
-Cannot use both --image and --registry together. Choose one:
-
-  Use --image for complete image name:
-    func deploy --image example.com/user/myfunc
-
-  Use --registry for automatic naming:
-    func deploy --registry example.com/user
-
-Note: FUNC_REGISTRY environment variable doesn't conflict with --image flag
-
-For more options, run 'func deploy --help'`, err)
-		}
-		if errors.Is(err, fn.ErrPlatformNotSupported) {
-			return fmt.Errorf(`%w
-
-The --platform flag is only supported with the S2I builder.
-
-Try this:
-  func deploy --registry <registry> --builder=s2i --platform linux/amd64
-
-Or remove the --platform flag:
-  func deploy --registry <registry>
-
-For more options, run 'func deploy --help'`, err)
-		}
-		return
+		return wrapValidateError(err, "deploy")
 	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
@@ -444,13 +325,7 @@ For more options, run 'func deploy --help'`, err)
 		// Returned is the function with fields like Registry, f.Deploy.Image &
 		// f.Deploy.Namespace populated.
 		if url, f, err = client.RunPipeline(cmd.Context(), f); err != nil {
-			if errors.Is(err, fn.ErrInvalidKubeconfig) {
-				return wrapInvalidKubeconfigError(err)
-			}
-			if errors.Is(err, fn.ErrClusterNotAccessible) {
-				return wrapClusterNotAccessibleError(err)
-			}
-			return
+			return wrapDeploymentError(err)
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Function Deployed at %v\n", url)
 	} else {
@@ -506,13 +381,7 @@ For more options, run 'func deploy --help'`, err)
 			}
 		}
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
-			if errors.Is(err, fn.ErrInvalidKubeconfig) {
-				return wrapInvalidKubeconfigError(err)
-			}
-			if errors.Is(err, fn.ErrClusterNotAccessible) {
-				return wrapClusterNotAccessibleError(err)
-			}
-			return
+			return wrapDeploymentError(err)
 		}
 	}
 
@@ -843,14 +712,12 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Validate domain format if provided
 	if c.Domain != "" {
 		if err = utils.ValidateDomain(c.Domain); err != nil {
-			// Wrap the validation error as fn.ErrInvalidDomain for layer consistency
 			return fn.ErrInvalidDomain
 		}
 	}
 	// Validate namespace format if provided
 	if c.Namespace != "" {
 		if err = utils.ValidateNamespace(c.Namespace); err != nil {
-			// Wrap the validation error as fn.ErrInvalidNamespace for layer consistency
 			return fn.ErrInvalidNamespace
 		}
 	}

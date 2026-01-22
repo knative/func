@@ -160,17 +160,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 	if !f.Initialized() {
-		return fmt.Errorf(`no function found in current directory.
-You need to be inside a function directory to run it.
-
-Try this:
-  func create --language go myfunction    Create a new function
-  cd myfunction                          Go into the function directory
-  func run                               Run the function locally
-
-Or if you have an existing function:
-  cd path/to/your/function              Go to your function directory
-  func run                              Run the function locally`)
+		return NewErrNotInitializedFromPath(f.Root, "run")
 	}
 
 	if err = cfg.Validate(cmd, f); err != nil {
@@ -262,35 +252,7 @@ Or if you have an existing function:
 	// configured to build/run the language of the function.
 	job, err := client.Run(cmd.Context(), f, fn.RunWithAddress(cfg.Address))
 	if err != nil {
-		// Catch port unavailable errors and provide helpful CLI guidance
-		var portErr *fn.ErrPortUnavailableError
-		if errors.As(err, &portErr) {
-			if portErr.IsPermissionDenied() {
-				return fmt.Errorf(`cannot choose port
-
-Cannot bind to port %s: permission denied.
-
-Port %s is a privileged port and requires administrator/root permissions.
-
-Try this:
-  sudo func run --address %s        Run with elevated permissions
-  func run --address 127.0.0.1:8080          Use non-privileged port
-
-For more options, run 'func run --help'`, portErr.Port, portErr.Port, cfg.Address)
-			}
-			return fmt.Errorf(`cannot choose port
-
-Port %s is not available.
-
-The port may be in use by another process, or you may not have permission to bind to it.
-
-Try this:
-  func run --address 127.0.0.1:8080          Use a different port
-  lsof -i :%s                                Check if port is in use (Linux/Mac)
-
-For more options, run 'func run --help'`, portErr.Port, portErr.Port)
-		}
-		return
+		return wrapRunError(err, cfg.Address)
 	}
 	defer func() {
 		if err = job.Stop(); err != nil {
@@ -434,39 +396,18 @@ func (c runConfig) Validate(cmd *cobra.Command, f fn.Function) (err error) {
 			return nil // Let runner handle address format errors
 		}
 
-		// Warn about port-only addresses (missing host)
 		if host == "" {
-			return fmt.Errorf(`invalid address format '%s': address must include both host and port
-
-Address format: host:port
-
-Examples:
-  127.0.0.1:8080    Localhost only
-  0.0.0.0:8080      All interfaces (IPv4)
-  [::]:8080         All interfaces (IPv6)
-
-For more options, run 'func run --help'`, c.Address)
+			return NewErrInvalidAddress(err, c.Address)
 		}
 
 		// Validate port range (1-65535)
 		portNum, err := strconv.Atoi(port)
 		if err != nil {
-			return fmt.Errorf(`invalid port '%s': port must be a number between 1 and 65535
-
-Examples:
-  func run --address 127.0.0.1:8080
-  func run --address 0.0.0.0:9090
-
-For more options, run 'func run --help'`, port)
+			return NewErrInvalidPort(err, port)
 		}
 		if portNum < 1 || portNum > 65535 {
-			return fmt.Errorf(`invalid port '%d': port must be between 1 and 65535
-
-Examples:
-  func run --address 127.0.0.1:8080
-  func run --address 0.0.0.0:9090
-
-For more options, run 'func run --help'`, portNum)
+			err = errors.New("port number out of valid range (1-65535)")
+			return NewErrInvalidPort(err, strconv.Itoa(portNum))
 		}
 	}
 
