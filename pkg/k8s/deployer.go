@@ -309,11 +309,11 @@ func syncTriggers(ctx context.Context, f fn.Function, namespace string, eventing
 	}
 
 	// Clean up stale triggers
-	return deleteStaleTriggers(ctx, eventingClient, desiredTriggers)
+	return deleteStaleTriggers(ctx, eventingClient, f.Name, desiredTriggers)
 }
 
 // deleteStaleTriggers removes triggers managed by this deployer that are no longer in the desired set
-func deleteStaleTriggers(ctx context.Context, eventingClient clienteventingv1.KnEventingClient, desiredTriggers sets.Set[string]) error {
+func deleteStaleTriggers(ctx context.Context, eventingClient clienteventingv1.KnEventingClient, functionName string, desiredTriggers sets.Set[string]) error {
 	// List existing triggers in the namespace
 	existingTriggers, err := eventingClient.ListTriggers(ctx)
 	if err != nil {
@@ -324,8 +324,13 @@ func deleteStaleTriggers(ctx context.Context, eventingClient clienteventingv1.Kn
 		return fmt.Errorf("failed to list triggers: %w", err)
 	}
 
-	// Delete stale triggers
+	// Delete stale triggers (only those belonging to this function)
+	triggerPrefix := functionName + "-trigger-"
 	for _, trigger := range existingTriggers.Items {
+		if !strings.HasPrefix(trigger.Name, triggerPrefix) {
+			continue
+		}
+
 		// Only delete triggers we manage
 		if trigger.Annotations[managedByAnnotation] == managedByValue {
 			// Check if this trigger is still desired
