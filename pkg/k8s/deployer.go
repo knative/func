@@ -358,7 +358,7 @@ func deleteStaleTriggers(ctx context.Context, eventingClient clienteventingv1.Kn
 	return nil
 }
 
-func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstalled bool) (*appsv1.Deployment, *corev1.Service, error) {
+func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInstalled bool) (*appsv1.Deployment, error) {
 	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
 	if err != nil {
 		return nil, err
