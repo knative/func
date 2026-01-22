@@ -9,11 +9,17 @@ import (
 	"knative.dev/func/cmd/common"
 )
 
-func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWriter) *cobra.Command {
+func NewConfigCICmd(
+	loaderSaver common.FunctionLoaderSaver,
+	writer ci.WorkflowWriter,
+	currentBranch common.CurrentBranchFunc,
+	workingDir common.WorkDirFunc,
+) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ci",
 		Short: "Generate a GitHub Workflow for function deployment",
 		PreRunE: bindEnv(
+			ci.PlatformFlag,
 			ci.PathFlag,
 			ci.UseRegistryLoginFlag,
 			ci.WorkflowDispatchFlag,
@@ -28,9 +34,15 @@ func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWr
 			ci.RegistryUrlVariableNameFlag,
 		),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			return runConfigCIGitHub(cmd, loaderSaver, writer)
+			return runConfigCIGitHub(cmd, loaderSaver, writer, currentBranch, workingDir)
 		},
 	}
+
+	cmd.Flags().String(
+		ci.PlatformFlag,
+		ci.DefaultPlatform,
+		"Pick a CI/CD platform for which a manifest will be generated. Currently only GitHub is supported.",
+	)
 
 	addPathFlag(cmd)
 
@@ -67,7 +79,7 @@ func NewConfigCICmd(loaderSaver common.FunctionLoaderSaver, writer ci.WorkflowWr
 
 	cmd.Flags().String(
 		ci.BranchFlag,
-		ci.DefaultBranch,
+		"",
 		"Use a custom branch name in the workflow",
 	)
 
@@ -108,8 +120,13 @@ func runConfigCIGitHub(
 	cmd *cobra.Command,
 	fnLoaderSaver common.FunctionLoaderSaver,
 	writer ci.WorkflowWriter,
+	currentBranch common.CurrentBranchFunc,
+	workingDir common.WorkDirFunc,
 ) error {
-	cfg := ci.NewCIGitHubConfig()
+	cfg, err := ci.NewCIConfig(currentBranch, workingDir)
+	if err != nil {
+		return err
+	}
 
 	f, err := fnLoaderSaver.Load(cfg.Path())
 	if err != nil {

@@ -137,7 +137,7 @@ func TestMetadata_Envs_Add(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain),
+	if !waitFor(t, ksvcUrl(name),
 		withContentMatch("OK")) {
 		t.Fatal("handler failed")
 	}
@@ -194,7 +194,7 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain),
+	if !waitFor(t, ksvcUrl(name),
 		withContentMatch("OK")) {
 		t.Fatal("handler failed")
 	}
@@ -230,7 +230,7 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain),
+	if !waitFor(t, ksvcUrl(name),
 		withContentMatch("OK")) {
 		t.Fatal("handler failed")
 	}
@@ -268,7 +268,7 @@ func TestMetadata_Labels_Add(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 
@@ -318,7 +318,7 @@ func TestMetadata_Labels_Remove(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 
@@ -350,7 +350,7 @@ func TestMetadata_Labels_Remove(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not redeploy correctly")
 	}
 
@@ -494,7 +494,7 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 	}()
 
 	// Verify the function has access to all volumes
-	if !waitFor(t, fmt.Sprintf("http://%s.%s.%s", name, Namespace, Domain),
+	if !waitFor(t, ksvcUrl(name),
 		withContentMatch("OK")) {
 		t.Fatal("function failed to access volumes correctly")
 	}
@@ -555,7 +555,7 @@ func Handle(w http.ResponseWriter, _ *http.Request) {
 		t.Fatal(err)
 	}
 
-	if !waitFor(t, fmt.Sprintf("http://%s.%s.%s", name, Namespace, Domain),
+	if !waitFor(t, ksvcUrl(name),
 		withContentMatch("OK")) {
 		t.Fatal("function failed after volume removal")
 	}
@@ -600,7 +600,7 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	}
 	defer clean(t, subscriberName, Namespace)
 
-	subscriberURL := fmt.Sprintf("http://%s.%s.%s", subscriberName, Namespace, Domain)
+	subscriberURL := ksvcUrl(subscriberName)
 	if !waitFor(t, subscriberURL, withTemplate("cloudevents")) {
 		t.Fatal("subscriber not ready")
 	}

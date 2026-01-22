@@ -124,7 +124,7 @@ func goBuildCmd(p v1.Platform, cfg buildJob) (gobin string, args []string, outpa
 		gobin = "go"
 	}
 
-	// Build as ./func/builds/$PID/result/f.$OS.$Architecture
+	// Build as ./func/build/result/f.$OS.$Architecture
 	name := fmt.Sprintf("f.%v.%v", p.OS, p.Architecture)
 	if p.Variant != "" {
 		name = name + "." + p.Variant

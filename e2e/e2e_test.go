@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
 
 	fn "knative.dev/func/pkg/functions"
@@ -1215,4 +1216,23 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) string {
 
 	t.Cleanup(func() { stdoutWriter.Close() })
 	return address
+}
+
+func ksvcUrl(name string) string {
+	// TODO get `default-external-scheme` from the config in cluster
+	const ksvcDefaultExternalScheme = `http`
+	// TODO get `domain-template` from the config in cluster
+	const ksvcDomainTemplate = `{{.Name}}-{{.Namespace}}-ksvc.{{.Domain}}`
+	t, err := template.New("").Parse(ksvcDomainTemplate)
+	if err != nil {
+		panic(err)
+	}
+	var buf bytes.Buffer
+	err = t.Execute(&buf, struct {
+		Name, Namespace, Domain string
+	}{name, Namespace, Domain})
+	if err != nil {
+		panic(err)
+	}
+	return ksvcDefaultExternalScheme + `://` + buf.String()
 }

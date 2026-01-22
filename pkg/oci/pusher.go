@@ -94,7 +94,7 @@ func (p *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 
 	go p.handleUpdates(ctx)
 	defer func() { p.done <- true }()
-	buildDir, err := getLastBuildDir(f)
+	buildDir, err := getBuildDir(f)
 	if err != nil {
 		return
 	}
@@ -157,11 +157,11 @@ func (p *Pusher) handleUpdates(ctx context.Context) {
 	}
 }
 
-// The last build directory is symlinked upon successful build.
-func getLastBuildDir(f fn.Function) (string, error) {
-	dir := filepath.Join(f.Root, fn.RunDataDir, "builds", "last")
+// getBuildDir returns the build directory
+func getBuildDir(f fn.Function) (string, error) {
+	dir := filepath.Join(f.Root, fn.RunDataDir, "build")
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return dir, fmt.Errorf("last build directory not found '%v'. Has it been built?", dir)
+		return dir, fmt.Errorf("build directory not found '%v'. Has it been built?", dir)
 	}
 	return dir, nil
 }

@@ -108,31 +108,6 @@ EXAMPLES
 		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
 	}
 
-	// Detect hyphen-prefixed arguments mis-parsed as flags
-	cmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
-		for _, arg := range os.Args[1:] {
-			if strings.HasPrefix(arg, "--") {
-				flagName := strings.TrimPrefix(arg, "--")
-				if cmd.Flags().Lookup(flagName) != nil {
-					continue
-				}
-				if strings.Contains(err.Error(), "unknown flag") && strings.Contains(err.Error(), arg) {
-					return wrapFlagParsingError(err, arg)
-				}
-			} else if strings.HasPrefix(arg, "-") && len(arg) > 1 {
-				firstChar := string(arg[1])
-				shortFlag := cmd.Flags().ShorthandLookup(firstChar)
-
-				if shortFlag != nil && len(arg) > 2 && strings.Contains(arg, "-") {
-					return wrapFlagParsingError(err, arg)
-				} else if strings.Contains(err.Error(), "unknown shorthand flag") && strings.Contains(err.Error(), arg[1:2]) {
-					return wrapFlagParsingError(err, arg)
-				}
-			}
-		}
-		return err
-	})
-
 	return cmd
 }
 
@@ -206,6 +181,16 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 		dirName      string
 		absolutePath string
 	)
+
+	// Before Cobra parses flags, lets check for potential that func name was
+	// given with a hyphen (as flag).
+	//
+	// If this were to provide more complexity or unreasonable maintainability
+	// in the future, we can move to ValidateFunctionName() function which will
+	// print effectively "Note: func names cant start with '-\..." on errors
+	if err := detectPrefixHyphen(cmd); err != nil {
+		return cfg, err
+	}
 
 	pathFlag = viper.GetString("path")
 
@@ -415,20 +400,11 @@ func newInvalidRuntimeError(client *fn.Client, runtime string) error {
 	for _, v := range runtimes {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-
-	baseErr := ErrInvalidRuntime(errors.New(b.String()))
-
-	// Check if runtime value indicates mis-parsed function name
-	for _, arg := range os.Args[1:] {
-		if strings.HasPrefix(arg, "-") && len(arg) > 2 && strings.Contains(arg[2:], "-") {
-			if strings.HasPrefix(arg[2:], runtime) || runtime == strings.TrimPrefix(arg, "-"+string(arg[1])) {
-				flagChar := string(arg[1])
-				return wrapFlagParsingErrorWithDetails(baseErr, arg, flagChar, runtime)
-			}
-		}
-	}
-
-	return baseErr
+	// a handy edge case note for something like "func create -ly-func" which
+	// would parse flag -l with 'y-func' value
+	fmt.Fprintln(&b, "\nNote: If you meant to specify a function name, "+
+		"remember that they can't start with a '-'")
+	return ErrInvalidRuntime(errors.New(b.String()))
 }
 
 // newInvalidTemplateError creates an error stating that the given template
@@ -445,20 +421,11 @@ func newInvalidTemplateError(client *fn.Client, runtime, template string) error 
 	for _, v := range templates {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-
-	baseErr := ErrInvalidTemplate(errors.New(b.String()))
-
-	// Check if template value indicates mis-parsed function name
-	for _, arg := range os.Args[1:] {
-		if strings.HasPrefix(arg, "-") && len(arg) > 2 && strings.Contains(arg[2:], "-") {
-			if strings.HasPrefix(arg[2:], template) || template == strings.TrimPrefix(arg, "-"+string(arg[1])) {
-				flagChar := string(arg[1])
-				return wrapFlagParsingErrorWithDetails(baseErr, arg, flagChar, template)
-			}
-		}
-	}
-
-	return baseErr
+	// a handy edge case note for something like "func create -ty-func" which
+	// would parse flag -t with 'y-func' value
+	fmt.Fprintln(&b, "\nNote: If you meant to specify a function name, "+
+		"remember that they can't start with a '-'")
+	return ErrInvalidTemplate(errors.New(b.String()))
 }
 
 // prompt the user with value of config members, allowing for interactively
@@ -647,4 +614,34 @@ func RuntimeTemplateOptions(client *fn.Client) (string, error) {
 	}
 	writer.Flush()
 	return builder.String(), nil
+}
+
+// detectHyphenPrefixedName checks for the possibility of function name being
+// given with a leading '-' (which is forbidden) and gives user better error.
+func detectPrefixHyphen(cmd *cobra.Command) error {
+	// using os.Args to skip any possible processing from Cobra
+	for _, arg := range os.Args[1:] {
+		if arg == "--" {
+			continue
+		}
+		// skip known long existing flags
+		if strings.HasPrefix(arg, "--") {
+			name := strings.SplitN(strings.TrimPrefix(arg, "--"), "=", 2)[0]
+			if cmd.Flags().Lookup(name) != nil {
+				continue
+			}
+		}
+
+		// skip known short existing flags
+		if len(arg) > 1 && strings.HasPrefix(arg, "-") && arg[1] != '-' {
+			if cmd.Flags().ShorthandLookup(string(arg[1])) != nil {
+				continue
+			}
+		}
+		// anything still beginning with '-'
+		if strings.HasPrefix(arg, "-") {
+			return fmt.Errorf("'%s' appears to be a function name starting with a hyphen (forbidden). Please start with a lowercase letter", arg)
+		}
+	}
+	return nil
 }

@@ -4,7 +4,6 @@
 package e2e
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -32,7 +31,7 @@ func TestPodman_Pack(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 }
@@ -61,7 +60,7 @@ func TestPodman_S2I(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 }

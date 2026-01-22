@@ -6,11 +6,16 @@ import (
 
 	"gotest.tools/v3/assert"
 	"knative.dev/func/cmd/ci"
+	"knative.dev/func/cmd/common"
 )
 
 func TestGitHubWorkflow_Export(t *testing.T) {
 	// GIVEN
-	gw := ci.NewGitHubWorkflow(ci.NewCIGitHubConfig())
+	cfg, _ := ci.NewCIConfig(
+		common.CurrentBranchStub("", nil),
+		common.WorkDirStub("", nil),
+	)
+	gw := ci.NewGitHubWorkflow(cfg)
 	bufferWriter := ci.NewBufferWriter()
 
 	// WHEN

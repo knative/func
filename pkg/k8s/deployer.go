@@ -147,9 +147,14 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	var status fn.Status
 	if err == nil {
 		// Update the existing function
-		deployment, svc, err := d.generateResources(f, namespace, daprInstalled)
+		deployment, err := d.generateDeployment(f, namespace, daprInstalled)
 		if err != nil {
-			return fn.DeploymentResult{}, fmt.Errorf("failed to generate resources: %w", err)
+			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
+		}
+
+		svc, err := d.generateService(f, namespace, daprInstalled, existingDeployment)
+		if err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to generate service resources: %w", err)
 		}
 
 		// Preserve resource version for update
@@ -183,13 +188,19 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to check for existing deployment: %w", err)
 		}
 
-		deployment, svc, err := d.generateResources(f, namespace, daprInstalled)
+		deployment, err := d.generateDeployment(f, namespace, daprInstalled)
 		if err != nil {
-			return fn.DeploymentResult{}, fmt.Errorf("failed to generate resources: %w", err)
+			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
 		}
 
-		if _, err = deploymentClient.Create(ctx, deployment, metav1.CreateOptions{}); err != nil {
+		deployment, err = deploymentClient.Create(ctx, deployment, metav1.CreateOptions{})
+		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to create deployment: %w", err)
+		}
+
+		svc, err := d.generateService(f, namespace, daprInstalled, deployment)
+		if err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to generate service resources: %w", err)
 		}
 
 		if _, err = serviceClient.Create(ctx, svc, metav1.CreateOptions{}); err != nil {
@@ -350,7 +361,7 @@ func deleteStaleTriggers(ctx context.Context, eventingClient clienteventingv1.Kn
 func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstalled bool) (*appsv1.Deployment, *corev1.Service, error) {
 	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, daprInstalled, KubernetesDeployerName)
@@ -366,12 +377,12 @@ func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstal
 
 	envVars, envFrom, err := ProcessEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to process environment variables: %w", err)
+		return nil, fmt.Errorf("failed to process environment variables: %w", err)
 	}
 
 	volumes, volumeMounts, err := ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to process volumes: %w", err)
+		return nil, fmt.Errorf("failed to process volumes: %w", err)
 	}
 
 	container := corev1.Container{
@@ -422,12 +433,26 @@ func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstal
 		},
 	}
 
+	return deployment, nil
+}
+
+func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalled bool, deployment *appsv1.Deployment) (*corev1.Service, error) {
+	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
+	if err != nil {
+		return nil, err
+	}
+
+	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, daprInstalled, KubernetesDeployerName)
+
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        f.Name,
 			Namespace:   namespace,
 			Labels:      labels,
 			Annotations: annotations,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(deployment, appsv1.SchemeGroupVersion.WithKind("Deployment")),
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     corev1.ServiceTypeClusterIP,
@@ -443,7 +468,7 @@ func (d *Deployer) generateResources(f fn.Function, namespace string, daprInstal
 		},
 	}
 
-	return deployment, service, nil
+	return service, nil
 }
 
 // CheckResourcesArePresent returns error if Secrets or ConfigMaps

@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -15,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client/pkg/util"
+	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
@@ -245,58 +244,6 @@ EXAMPLES
 	return cmd
 }
 
-// wrapInvalidKubeconfigError returns a user-friendly error for invalid kubeconfig paths
-func wrapInvalidKubeconfigError(err error) error {
-	kubeconfigPath := os.Getenv("KUBECONFIG")
-	if kubeconfigPath == "" {
-		kubeconfigPath = "~/.kube/config (default)"
-	}
-
-	return fmt.Errorf(`%w
-
-The kubeconfig file at '%s' does not exist or is not accessible.
-
-Try this:
-  export KUBECONFIG=~/.kube/config           Use default kubeconfig
-  kubectl config view                        Verify current config
-  ls -la ~/.kube/config                      Check if config file exists
-
-For more options, run 'func deploy --help'`, fn.ErrInvalidKubeconfig, kubeconfigPath)
-}
-
-// wrapClusterNotAccessibleError returns a user-friendly error for cluster connection failures
-func wrapClusterNotAccessibleError(err error) error {
-	errMsg := err.Error()
-
-	// Case 1: Empty/no cluster configuration in kubeconfig
-	if strings.Contains(errMsg, "no configuration has been provided") ||
-		strings.Contains(errMsg, "invalid configuration") {
-		return fmt.Errorf(`%w
-
-Cannot connect to Kubernetes cluster. No valid cluster configuration found.
-
-Try this:
-  minikube start                             Start Minikube cluster
-  kind create cluster                        Start Kind cluster
-  kubectl cluster-info                       Verify cluster is running
-  kubectl config get-contexts                List available contexts
-
-For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
-	}
-
-	// Case 2: Cluster is down, network issues, auth errors, etc
-	return fmt.Errorf(`%w
-
-Cannot connect to Kubernetes cluster.
-
-Try this:
-  kubectl cluster-info                       Verify cluster is accessible
-  minikube status                            Check Minikube cluster status
-  kubectl get nodes                          Test cluster connection
-
-For more options, run 'func deploy --help'`, fn.ErrClusterNotAccessible)
-}
-
 func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg deployConfig
@@ -315,13 +262,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if !f.Initialized() {
 		if !cfg.Remote || f.Build.Git.URL == "" {
 			// Only error if this is not a fully remote build
-			// Layer 2: Wrap technical error with CLI-specific guidance
-			var errNotInit *fn.ErrNotInitialized
-			notInitErr := fn.NewErrNotInitialized(f.Root)
-			if errors.As(notInitErr, &errNotInit) {
-				return wrapNotInitializedError(notInitErr, "deploy")
-			}
-			return notInitErr
+			return NewErrNotInitializedFromPath(f.Root, "deploy")
 		} else {
 			// TODO: this case is not supported because the pipeline
 			// implementation requires the function's name, which is in the
@@ -333,73 +274,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Now that we know function exists, proceed with prompting
 	if cfg, err = cfg.Prompt(); err != nil {
-		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
 		if errors.Is(err, fn.ErrRegistryRequired) {
-			return wrapRegistryRequiredError(err, "deploy")
+			return NewErrRegistryRequired(err, "deploy")
 		}
 		return
 	}
 	if err = cfg.Validate(cmd); err != nil {
-		// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
-		if errors.Is(err, fn.ErrInvalidDomain) {
-			return fmt.Errorf(`%w
-
-Domain names must be valid DNS subdomains:
-  - Lowercase letters, numbers, hyphens (-), and dots (.) only
-  - Start and end with a letter or number
-  - Max 253 characters total, each part between dots max 63 characters
-
-Valid examples:
-  func deploy --registry ghcr.io/user --domain example.com
-  func deploy --registry ghcr.io/user --domain api.example.com
-
-Note: Domain must be configured on your Knative cluster, or it will be ignored.
-
-For more options, run 'func deploy --help'`, err)
-		}
-		if errors.Is(err, fn.ErrInvalidNamespace) {
-			return fmt.Errorf(`%w
-
-Invalid namespace name. Kubernetes namespaces must:
-  - Contain only lowercase letters, numbers, and hyphens (-)
-  - Start with a letter and end with a letter or number
-  - Be 63 characters or less
-
-Valid examples:
-  func deploy --namespace myapp
-  func deploy --namespace my-app-123
-
-For more options, run 'func deploy --help'`, err)
-		}
-		if errors.Is(err, fn.ErrConflictingImageAndRegistry) {
-			return fmt.Errorf(`%w
-
-Cannot use both --image and --registry together. Choose one:
-
-  Use --image for complete image name:
-    func deploy --image example.com/user/myfunc
-
-  Use --registry for automatic naming:
-    func deploy --registry example.com/user
-
-Note: FUNC_REGISTRY environment variable doesn't conflict with --image flag
-
-For more options, run 'func deploy --help'`, err)
-		}
-		if errors.Is(err, fn.ErrPlatformNotSupported) {
-			return fmt.Errorf(`%w
-
-The --platform flag is only supported with the S2I builder.
-
-Try this:
-  func deploy --registry <registry> --builder=s2i --platform linux/amd64
-
-Or remove the --platform flag:
-  func deploy --registry <registry>
-
-For more options, run 'func deploy --help'`, err)
-		}
-		return
+		return wrapValidateError(err, "deploy")
 	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
@@ -444,13 +325,7 @@ For more options, run 'func deploy --help'`, err)
 		// Returned is the function with fields like Registry, f.Deploy.Image &
 		// f.Deploy.Namespace populated.
 		if url, f, err = client.RunPipeline(cmd.Context(), f); err != nil {
-			if errors.Is(err, fn.ErrInvalidKubeconfig) {
-				return wrapInvalidKubeconfigError(err)
-			}
-			if errors.Is(err, fn.ErrClusterNotAccessible) {
-				return wrapClusterNotAccessibleError(err)
-			}
-			return
+			return wrapDeploymentError(err)
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Function Deployed at %v\n", url)
 	} else {
@@ -458,12 +333,7 @@ For more options, run 'func deploy --help'`, err)
 		if buildOptions, err = cfg.buildOptions(); err != nil {
 			return
 		}
-
-		var (
-			digested   bool
-			justBuilt  bool
-			justPushed bool
-		)
+		var digested bool
 
 		// Validate the image and check whether its digested or not
 		if cfg.Image != "" {
@@ -483,31 +353,35 @@ For more options, run 'func deploy --help'`, err)
 		if digested {
 			f.Deploy.Image = cfg.Image
 		} else {
-			// NOT digested, build & push the Function unless specified otherwise
-			if f, justBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+			// NOT digested: scaffold, build & push as per config
+			var (
+				shouldBuild bool
+				justPushed  bool
+			)
+			if shouldBuild, err = build(cmd, cfg.Build, f); err != nil {
 				return
+			}
+			if shouldBuild {
+				if err = client.Scaffold(cmd.Context(), f, ""); err != nil {
+					return
+				}
+				if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
+					return
+				}
 			}
 			if cfg.Push {
 				if f, justPushed, err = client.Push(cmd.Context(), f); err != nil {
 					return
 				}
 			}
-			// TODO: gauron99 - temporary fix for undigested image direct deploy
-			// (w/out build) This might be more complex to do than leaving like this
-			// image digests are created via the registry on push.
-			if (justBuilt || justPushed) && f.Build.Image != "" {
-				// f.Build.Image is set in Push for now, just set it as a deployed image
+			// image was just built and pushed to registry => potentially new image
+			if (shouldBuild || justPushed) && f.Build.Image != "" {
+				// f.Build.Image is set when pushed to registry, just set it as a deployed image
 				f.Deploy.Image = f.Build.Image
 			}
 		}
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
-			if errors.Is(err, fn.ErrInvalidKubeconfig) {
-				return wrapInvalidKubeconfigError(err)
-			}
-			if errors.Is(err, fn.ErrClusterNotAccessible) {
-				return wrapClusterNotAccessibleError(err)
-			}
-			return
+			return wrapDeploymentError(err)
 		}
 	}
 
@@ -523,33 +397,23 @@ For more options, run 'func deploy --help'`, err)
 	return f.Stamp()
 }
 
-// build when flag == 'auto' and the function is out-of-date, or when the
-// flag value is explicitly truthy such as 'true' or '1'.  Error if flag
-// is neither 'auto' nor parseable as a boolean.  Return CLI-specific error
-// message verbeage suitable for both Deploy and Run commands which feature an
-// optional build step. Boolean return value signifies if the image has gone
-// through a build process.
-func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, bool, error) {
-	var err error
+// build determines if the function should be built based on given flag
+func build(cmd *cobra.Command, flag string, f fn.Function) (bool, error) {
 	if flag == "auto" {
 		if f.Built() {
 			fmt.Fprintln(cmd.OutOrStdout(), "function up-to-date. Force rebuild with --build")
-			return f, false, nil
+			return false, nil
 		} else {
-			if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
-				return f, false, err
-			}
+			return true, nil
 		}
 	} else if build, _ := strconv.ParseBool(flag); build {
-		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
-			return f, false, err
-		}
-	} else if _, err = strconv.ParseBool(flag); err != nil {
-		return f, false, fmt.Errorf("invalid value for the build flag (%q), valid value is either 'auto' or a boolean", flag)
+		return true, nil
+	} else if _, err := strconv.ParseBool(flag); err != nil {
+		return false, fmt.Errorf("invalid value for the build flag (%q), valid value is either 'auto' or a boolean", flag)
 	} else if !build {
-		return f, false, nil
+		return false, nil
 	}
-	return f, true, nil
+	return false, nil
 }
 
 func NewRegistryValidator(path string) survey.Validator {
@@ -848,14 +712,12 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Validate domain format if provided
 	if c.Domain != "" {
 		if err = utils.ValidateDomain(c.Domain); err != nil {
-			// Wrap the validation error as fn.ErrInvalidDomain for layer consistency
 			return fn.ErrInvalidDomain
 		}
 	}
 	// Validate namespace format if provided
 	if c.Namespace != "" {
 		if err = utils.ValidateNamespace(c.Namespace); err != nil {
-			// Wrap the validation error as fn.ErrInvalidNamespace for layer consistency
 			return fn.ErrInvalidNamespace
 		}
 	}
@@ -1005,28 +867,13 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	if f.Local.Remote && f.Build.Git.URL != "" && f.Build.Git.Revision != "" {
 		// Doing a remote build, specified a git repository to pull from, and
 		// specified a reference within that remote.
-		currentBranch, err := getCurrentGitBranch()
+		currentBranch, err := common.DefaultCurrentBranch(f.Root)
 		if err != nil {
 			fmt.Fprintf(out, "Warning: unable to verify local and remote references match. %v\n", err)
 		} else if currentBranch != f.Build.Git.Revision {
 			fmt.Fprintf(out, "Warning: Local git branch '%s' does not match --git-branch '%s'. The local func.yaml will be used for function metadata (name, runtime, etc). Ensure your local branch matches the remote branch to avoid deployment issues.\n", currentBranch, f.Build.Git.Revision)
 		}
 	}
-}
-
-// getCurrentGitBranch returns the current git branch name
-func getCurrentGitBranch() (string, error) {
-	gitCmd := os.Getenv("FUNC_GIT")
-	if gitCmd == "" {
-		gitCmd = "git"
-	}
-
-	cmd := exec.Command(gitCmd, "rev-parse", "--abbrev-ref", "HEAD")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
 }
 
 // isDigested checks that the given image reference has a digest. Invalid

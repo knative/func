@@ -2,8 +2,7 @@ package cmd_test
 
 import (
 	"fmt"
-	"io"
-	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,30 +12,27 @@ import (
 	fnCmd "knative.dev/func/cmd"
 	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
-	cmdTest "knative.dev/func/cmd/testing"
 	fn "knative.dev/func/pkg/functions"
-	fnTest "knative.dev/func/pkg/testing"
 )
 
 // START: Broad Unit Tests
 // -----------------------
-// Execution is testet starting from the entrypoint "func config ci" including
+// Execution is tested starting from the entrypoint "func config ci" including
 // all components working together. Infrastructure components like the
 // filesystem are mocked.
 func TestNewConfigCICmd_RequiresFeatureFlag(t *testing.T) {
-	result := runConfigCiCmd(t, opts{enableFeature: false})
+	opts := defaultOpts()
+	opts.enableFeature = false
+
+	result := runConfigCiCmd(t, opts)
 
 	assert.ErrorContains(t, result.executeErr, "unknown command \"ci\" for \"config\"")
 }
 
 func TestNewConfigCICmd_CISubcommandExist(t *testing.T) {
 	// leave 'ci' to make this test explicitly use this subcommand
-	opts := opts{
-		enableFeature:       true,
-		withMockLoaderSaver: true,
-		withBufferWriter:    true,
-		args:                []string{"ci"},
-	}
+	opts := defaultOpts()
+	opts.args = []string{"ci"}
 
 	result := runConfigCiCmd(t, opts)
 
@@ -44,14 +40,14 @@ func TestNewConfigCICmd_CISubcommandExist(t *testing.T) {
 }
 
 func TestNewConfigCICmd_WritesWorkflowFile(t *testing.T) {
-	result := runConfigCiCmd(t, unitTestOpts())
+	result := runConfigCiCmd(t, defaultOpts())
 
 	assert.NilError(t, result.executeErr)
 	assert.Assert(t, result.gwYamlString != "")
 }
 
 func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
-	result := runConfigCiCmd(t, unitTestOpts())
+	result := runConfigCiCmd(t, defaultOpts())
 
 	assert.NilError(t, result.executeErr)
 	assertDefaultWorkflow(t, result.gwYamlString)
@@ -59,7 +55,7 @@ func TestNewConfigCICmd_WorkflowYAMLHasCorrectStructure(t *testing.T) {
 
 func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 	// GIVEN
-	opts := unitTestOpts()
+	opts := defaultOpts()
 	opts.args = append(opts.args,
 		"--self-hosted-runner",
 		"--workflow-name=Custom Deploy",
@@ -67,7 +63,6 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 		"--registry-login-url-variable-name=DEV_REGISTRY_LOGIN_URL",
 		"--registry-user-variable-name=DEV_REGISTRY_USER",
 		"--registry-pass-secret-name=DEV_REGISTRY_PASS",
-		"--branch=master",
 	)
 
 	// WHEN
@@ -80,7 +75,7 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 
 func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 	// GIVEN
-	opts := unitTestOpts()
+	opts := defaultOpts()
 	opts.args = append(opts.args, "--use-registry-login=false")
 
 	// WHEN
@@ -95,7 +90,7 @@ func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 
 func TestNewConfigCICmd_RemoteBuildAndDeployWorkflow(t *testing.T) {
 	// GIVEN
-	opts := unitTestOpts()
+	opts := defaultOpts()
 	opts.args = append(opts.args, "--remote")
 
 	// WHEN
@@ -109,7 +104,7 @@ func TestNewConfigCICmd_RemoteBuildAndDeployWorkflow(t *testing.T) {
 
 func TestNewConfigCICmd_HasWorkflowDispatch(t *testing.T) {
 	// GIVEN
-	opts := unitTestOpts()
+	opts := defaultOpts()
 	opts.args = append(opts.args, "--workflow-dispatch")
 
 	// WHEN
@@ -120,124 +115,221 @@ func TestNewConfigCICmd_HasWorkflowDispatch(t *testing.T) {
 	assert.Assert(t, yamlContains(result.gwYamlString, "workflow_dispatch"))
 }
 
-// ---------------------
-// END: Broad Unit Tests
-
-// START: Integration Tests
-// ------------------------
-// No more mocking. Using real filesystem here for LoaderSaver and WorkflowWriter.
-func TestNewConfigCICmd_FailsWhenNotInitialized(t *testing.T) {
-	opts := opts{enableFeature: true, withFuncInTempDir: false}
-	expectedErrMsg := fn.NewErrNotInitialized(fnTest.Cwd()).Error()
-
-	result := runConfigCiCmd(t, opts)
-
-	assert.Error(t, result.executeErr, expectedErrMsg)
-}
-
-func TestNewConfigCICmd_SuccessWhenInitialized(t *testing.T) {
-	result := runConfigCiCmd(t, integrationTestOpts())
-
-	assert.NilError(t, result.executeErr)
-}
-
-func TestNewConfigCICmd_FailsToLoadFuncWithWrongPath(t *testing.T) {
-	opts := integrationTestOpts()
-	opts.args = append(opts.args, "--path=nofunc")
-	expectedErrMsg := "failed to create new function"
-
-	result := runConfigCiCmd(t, opts)
-
-	assert.ErrorContains(t, result.executeErr, expectedErrMsg)
-}
-
-func TestNewConfigCICmd_SuccessfulLoadWithCorrectPath(t *testing.T) {
-	tmpDir := t.TempDir()
-	opts := integrationTestOpts()
-	opts.args = append(opts.args, "--path="+tmpDir)
-	_, fnInitErr := fn.New().Init(
-		fn.Function{Name: "github-ci-func", Runtime: "go", Root: tmpDir},
+func TestNewConfigCICmd_PathFlagResolution(t *testing.T) {
+	var (
+		// os-agnostic test paths
+		cwd              = filepath.Join("current-working-directory")
+		explicitFuncPath = filepath.Join("path-to-func")
 	)
+	testCases := []struct {
+		name         string
+		pathArg      string // empty means no --path flag
+		getwdReturn  string
+		expectedPath string
+	}{
+		{
+			name:         "empty path uses cwd",
+			pathArg:      "",
+			getwdReturn:  cwd,
+			expectedPath: cwd,
+		},
+		{
+			name:         "dot path uses cwd",
+			pathArg:      "--path=.",
+			getwdReturn:  cwd,
+			expectedPath: cwd,
+		},
+		{
+			name:         "explicit func path used as-is",
+			pathArg:      "--path=" + explicitFuncPath,
+			getwdReturn:  cwd,
+			expectedPath: explicitFuncPath,
+		},
+	}
 
-	result := runConfigCiCmd(t, opts)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// GIVEN
+			opts := defaultOpts()
+			opts.args = append(opts.args, tc.pathArg)
+			opts.withFakeGetCwdReturn.dir = tc.getwdReturn
 
-	assert.NilError(t, fnInitErr)
-	assert.NilError(t, result.executeErr)
-}
+			// WHEN
+			result := runConfigCiCmd(t, opts)
 
-func TestNewConfigCICmd_CreatesGitHubWorkflowDirectory(t *testing.T) {
-	result := runConfigCiCmd(t, integrationTestOpts())
-
-	assert.NilError(t, result.executeErr)
-	_, err := os.Stat(result.ciConfig.FnGitHubWorkflowDir(result.f.Root))
-	assert.NilError(t, err)
-}
-
-func TestNewConfigCICmd_WritesWorkflowFileToFSWithCorrectYAMLStructure(t *testing.T) {
-	result := runConfigCiCmd(t, integrationTestOpts())
-	file, openErr := os.Open(result.ciConfig.FnGitHubWorkflowFilepath(result.f.Root))
-	raw, readErr := io.ReadAll(file)
-
-	assert.NilError(t, result.executeErr)
-	assert.NilError(t, openErr)
-	assert.NilError(t, readErr)
-	assertDefaultWorkflow(t, string(raw))
-
-	file.Close()
-}
-
-// ----------------------
-// END: Integration Tests
-
-// START: Testing Framework
-// ------------------------
-type opts struct {
-	withMockLoaderSaver bool
-	withFuncInTempDir   bool
-	enableFeature       bool
-	withBufferWriter    bool
-	args                []string
-}
-
-// unitTestOpts contains test options for broad unit tests
-//
-//   - withMockLoaderSaver: true,
-//   - withFuncInTempDir:   false,
-//   - enableFeature:       true,
-//   - withBufferWriter:    true,
-//   - args:                []string{"ci"},
-func unitTestOpts() opts {
-	return opts{
-		withMockLoaderSaver: true,
-		withFuncInTempDir:   false,
-		enableFeature:       true,
-		withBufferWriter:    true,
-		args:                []string{"ci"},
+			// THEN
+			assert.NilError(t, result.executeErr)
+			assert.Assert(t, strings.Contains(result.actualPath, tc.expectedPath))
+		})
 	}
 }
 
-// integrationTestOpts contains test options for integration tests
-//
-//   - withMockLoaderSaver: false,
-//   - withFuncInTempDir:   true,
-//   - enableFeature:       true,
-//   - withBufferWriter:    false,
-//   - args:                []string{"ci"},
-func integrationTestOpts() opts {
+func TestNewConfigCICmd_PathFlagResolutionError(t *testing.T) {
+	// GIVEN
+	opts := defaultOpts()
+	expectedErr := fmt.Errorf("failed getting current working directory")
+	opts.withFakeGetCwdReturn.err = expectedErr
+
+	// WHEN
+	result := runConfigCiCmd(t, opts)
+
+	// THEN
+	assert.Error(t, result.executeErr, expectedErr.Error())
+}
+
+func TestNewConfigCICmd_BranchFlagResolution(t *testing.T) {
+	testCases := []struct {
+		name           string
+		branchArg      string // empty means no --branch flag
+		gitCliReturn   string
+		expectedBranch string
+	}{
+		{
+			name:           "empty branch uses git cli current branch",
+			branchArg:      "",
+			gitCliReturn:   issueBranch,
+			expectedBranch: issueBranch,
+		},
+		{
+			name:           "explicit branch flag used as-is",
+			branchArg:      "--branch=" + mainBranch,
+			gitCliReturn:   issueBranch,
+			expectedBranch: mainBranch,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// GIVEN
+			opts := defaultOpts()
+			opts.args = append(opts.args, tc.branchArg)
+			opts.withFakeGitCliReturn.output = tc.gitCliReturn
+
+			// WHEN
+			result := runConfigCiCmd(t, opts)
+
+			// THEN
+			assert.NilError(t, result.executeErr)
+			assert.Assert(t, yamlContains(result.gwYamlString, "- "+tc.expectedBranch))
+		})
+	}
+}
+
+func TestNewConfigCICmd_BranchFlagResolutionError(t *testing.T) {
+	// GIVEN
+	opts := defaultOpts()
+	expectedErr := fmt.Errorf("failed getting current branch")
+	opts.withFakeGitCliReturn.err = expectedErr
+
+	// WHEN
+	result := runConfigCiCmd(t, opts)
+
+	// THEN
+	assert.Error(t, result.executeErr, expectedErr.Error())
+}
+
+func TestNewConfigCICmd_GithubPlatformFlagSupported(t *testing.T) {
+	testCases := []struct {
+		name        string
+		platformArg string
+	}{
+		{
+			name:        "empty value picks GitHub CI/CD platform as default",
+			platformArg: "",
+		},
+		{
+			name:        "GitHub value is supported",
+			platformArg: "--platform=github",
+		},
+		{
+			name:        "GitHub value is case insensitive",
+			platformArg: "--platform=GitHub",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// GIVEN
+			opts := defaultOpts()
+			opts.args = append(opts.args, tc.platformArg)
+
+			// WHEN
+			result := runConfigCiCmd(t, opts)
+
+			// THEN
+			assert.NilError(t, result.executeErr)
+		})
+	}
+}
+
+func TestNewConfigCICmd_UnsupportedPlatformError(t *testing.T) {
+	// GIVEN
+	platform := "unsupported"
+	expectedErr := fmt.Errorf("%s support is not implemented", platform)
+	opts := defaultOpts()
+	opts.args = append(opts.args, "--platform="+platform)
+
+	// WHEN
+	result := runConfigCiCmd(t, opts)
+
+	// THEN
+	assert.Error(t, result.executeErr, expectedErr.Error())
+}
+
+// ---------------------
+// END: Broad Unit Tests
+
+// START: Testing Framework
+// ------------------------
+const (
+	mainBranch  = "main"
+	issueBranch = "issue-778-current-branch"
+	fnName      = "github-ci-func"
+)
+
+type opts struct {
+	enableFeature        bool
+	withFakeGitCliReturn struct {
+		output string
+		err    error
+	}
+	withFakeGetCwdReturn struct {
+		dir string
+		err error
+	}
+	args []string
+}
+
+// defaultOpts returns test options for broad unit tests with sensible defaults:
+//   - enableFeature:        true
+//   - withFakeGitCliReturn: {output: issueBranch, err: nil}
+//   - withFakeGetCwdReturn: {dir: "", err: nil}
+//   - args:                 []string{"ci"}
+func defaultOpts() opts {
 	return opts{
-		withMockLoaderSaver: false,
-		withFuncInTempDir:   true,
-		enableFeature:       true,
-		withBufferWriter:    false,
-		args:                []string{"ci"},
+		enableFeature: true,
+		withFakeGitCliReturn: struct {
+			output string
+			err    error
+		}{
+			output: issueBranch,
+			err:    nil,
+		},
+		withFakeGetCwdReturn: struct {
+			dir string
+			err error
+		}{
+			dir: "",
+			err: nil,
+		},
+		args: []string{"ci"},
 	}
 }
 
 type result struct {
-	f            fn.Function
-	ciConfig     ci.CIConfig
-	executeErr   error
-	gwYamlString string
+	executeErr error
+	gwYamlString,
+	actualPath string
 }
 
 func runConfigCiCmd(
@@ -248,52 +340,43 @@ func runConfigCiCmd(
 
 	// PRE-RUN PREP
 	// all options for "func config ci" command
-	loaderSaver := common.DefaultLoaderSaver
-	if opts.withMockLoaderSaver {
-		loaderSaver = common.NewMockLoaderSaver()
-	}
-
-	f := fn.Function{}
-	if opts.withFuncInTempDir {
-		f = cmdTest.CreateFuncInTempDir(t, "github-ci-func")
-	}
-
 	if opts.enableFeature {
 		t.Setenv(ci.ConfigCIFeatureFlag, "true")
 	}
 
-	var writer ci.WorkflowWriter = ci.DefaultWorkflowWriter
-	bufferWriter := ci.NewBufferWriter()
-	if opts.withBufferWriter {
-		writer = bufferWriter
+	loaderSaver := common.NewMockLoaderSaver()
+	loaderSaver.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{Root: path}, nil
 	}
-
-	args := opts.args
-	if len(opts.args) == 0 {
-		args = []string{"ci"}
-	}
+	writer := ci.NewBufferWriter()
+	currentBranch := common.CurrentBranchStub(
+		opts.withFakeGitCliReturn.output,
+		opts.withFakeGitCliReturn.err,
+	)
+	workingDir := common.WorkDirStub(
+		opts.withFakeGetCwdReturn.dir,
+		opts.withFakeGetCwdReturn.err,
+	)
 
 	viper.Reset()
 
 	cmd := fnCmd.NewConfigCmd(
 		loaderSaver,
 		writer,
+		currentBranch,
+		workingDir,
 		fnCmd.NewClient,
 	)
-	cmd.SetArgs(args)
+	cmd.SetArgs(opts.args)
 
 	// RUN
 	err := cmd.Execute()
 
 	// POST-RUN GATHER
-	ciConfig := ci.NewCIGitHubConfig()
-	gwYamlString := bufferWriter.Buffer.String()
-
 	return result{
-		f,
-		ciConfig,
 		err,
-		gwYamlString,
+		writer.Buffer.String(),
+		writer.Path,
 	}
 }
 
@@ -308,8 +391,14 @@ func runConfigCiCmd(
 func assertDefaultWorkflow(t *testing.T, actualGw string) {
 	t.Helper()
 
+	assertDefaultWorkflowWithBranch(t, actualGw, issueBranch)
+}
+
+func assertDefaultWorkflowWithBranch(t *testing.T, actualGw, branch string) {
+	t.Helper()
+
 	assert.Assert(t, yamlContains(actualGw, "Func Deploy"))
-	assert.Assert(t, yamlContains(actualGw, "- main"))
+	assert.Assert(t, yamlContains(actualGw, "- "+branch))
 
 	assert.Assert(t, yamlContains(actualGw, "ubuntu-latest"))
 
@@ -356,7 +445,6 @@ func assertCustomWorkflow(t *testing.T, actualGw string) {
 	assert.Assert(t, yamlContains(actualGw, "DEV_REGISTRY_LOGIN_URL"))
 	assert.Assert(t, yamlContains(actualGw, "DEV_REGISTRY_USER"))
 	assert.Assert(t, yamlContains(actualGw, "DEV_REGISTRY_PASS"))
-	assert.Assert(t, yamlContains(actualGw, "- master"))
 }
 
 // ----------------------

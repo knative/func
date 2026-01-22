@@ -21,7 +21,6 @@ import (
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/scaffolding"
 )
 
 // DefaultName when no WithName option is provided to NewBuilder
@@ -158,19 +157,21 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		PreviousImagePullPolicy: api.DefaultPreviousImagePullPolicy,
 		RuntimeImagePullPolicy:  api.DefaultRuntimeImagePullPolicy,
 		DockerConfig:            s2idocker.GetDefaultDockerConfig(),
+		// scaffolding additions
+		KeepSymlinks: true, // Don't infinite loop on the symlink to root.
+		// We want to force that the system use the (copy via filesystem)
+		// method rather than a "git clone" method because (other than being
+		// faster) appears to have a bug where the assemble script is ignored.
+		// Maybe this issue is related:
+		// https://github.com/openshift/source-to-image/issues/1141
+		ForceCopy: true,
+		// Excludes
+		// Do not include .git, .env, .func or any language-specific cache directories
+		// (node_modules, etc) in the tar file sent to the builder, as this both
+		// bloats the build process and can cause unexpected errors in the resultant
+		// function.
+		ExcludeRegExp: "(^|/)\\.git|\\.env|\\.func|node_modules(/|$)",
 	}
-
-	// Scaffold
-	if cfg, err = scaffold(cfg, f); err != nil {
-		return
-	}
-
-	// Excludes
-	// Do not include .git, .env, .func or any language-specific cache directories
-	// (node_modules, etc) in the tar file sent to the builder, as this both
-	// bloats the build process and can cause unexpected errors in the resultant
-	// function.
-	cfg.ExcludeRegExp = "(^|/)\\.git|\\.env|\\.func|node_modules(/|$)"
 
 	// Environment variables
 	// Build Envs have local env var references interpolated then added to the
@@ -232,69 +233,4 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 func BuilderImage(f fn.Function, builderName string) (string, error) {
 	// delegate as the logic is shared amongst builders
 	return builders.Image(f, builderName, DefaultBuilderImages)
-}
-
-// scaffold the project
-// Returns a config with settings suitable for building runtimes which
-// support scaffolding.
-func scaffold(cfg *api.Config, f fn.Function) (*api.Config, error) {
-	// Scaffolding is currently only supported by the Go and Python runtimes
-	if f.Runtime != "go" && f.Runtime != "python" {
-		return cfg, nil
-	}
-
-	contextDir := filepath.Join(".s2i", "builds", "last")
-	appRoot := filepath.Join(f.Root, contextDir)
-	_ = os.RemoveAll(appRoot)
-
-	// The embedded repository contains the scaffolding code itself which glues
-	// together the middleware and a function via main
-	embeddedRepo, err := fn.NewRepository("", "") // default is the embedded fs
-	if err != nil {
-		return cfg, fmt.Errorf("unable to load the embedded scaffolding. %w", err)
-	}
-
-	// Write scaffolding to .s2i/builds/last
-	err = scaffolding.Write(appRoot, f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
-	if err != nil {
-		return cfg, fmt.Errorf("unable to build due to a scaffold error. %w", err)
-	}
-
-	// Write out an S2I assembler script if the runtime needs to override the
-	// one provided in the S2I image.
-	assemble, err := assembler(f)
-	if err != nil {
-		return cfg, err
-	}
-	if assemble != "" {
-		if err := os.MkdirAll(filepath.Join(f.Root, ".s2i", "bin"), 0755); err != nil {
-			return nil, fmt.Errorf("unable to create .s2i bin dir. %w", err)
-		}
-		if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(assemble), 0700); err != nil {
-			return nil, fmt.Errorf("unable to write go assembler. %w", err)
-		}
-	}
-
-	cfg.KeepSymlinks = true // Don't infinite loop on the symlink to root.
-
-	// We want to force that the system use the (copy via filesystem)
-	// method rather than a "git clone" method because (other than being
-	// faster) appears to have a bug where the assemble script is ignored.
-	// Maybe this issue is related:
-	// https://github.com/openshift/source-to-image/issues/1141
-	cfg.ForceCopy = true
-
-	// add used scaffolded middleware information
-	middlewareVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
-	if err != nil {
-		return cfg, fmt.Errorf("unable to get middleware version: %w", err)
-	}
-
-	if cfg.Labels == nil {
-		cfg.Labels = make(map[string]string)
-	}
-
-	cfg.Labels[fn.MiddlewareVersionLabelKey] = middlewareVersion
-
-	return cfg, nil
 }

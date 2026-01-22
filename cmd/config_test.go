@@ -50,7 +50,13 @@ func TestListEnvs(t *testing.T) {
 }
 
 func setupConfigEnvCmd(mock common.FunctionLoaderSaver, args ...string) *cobra.Command {
-	cmd := fnCmd.NewConfigCmd(mock, ci.NewBufferWriter(), fnCmd.NewClient)
+	cmd := fnCmd.NewConfigCmd(
+		mock,
+		ci.NewBufferWriter(),
+		common.CurrentBranchStub("", nil),
+		common.WorkDirStub("", nil),
+		fnCmd.NewClient,
+	)
 	cmd.SetArgs(append([]string{"envs"}, args...))
 	return cmd
 }

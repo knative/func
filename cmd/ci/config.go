@@ -1,15 +1,21 @@
 package ci
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/ory/viper"
+	"knative.dev/func/cmd/common"
 )
 
 const (
 	ConfigCIFeatureFlag = "FUNC_ENABLE_CI_CONFIG"
 
 	PathFlag = "path"
+
+	PlatformFlag    = "platform"
+	DefaultPlatform = "github"
 
 	DefaultGitHubWorkflowDir      = ".github/workflows"
 	DefaultGitHubWorkflowFilename = "func-deploy.yaml"
@@ -66,12 +72,38 @@ type CIConfig struct {
 	useWorkflowDispatch bool
 }
 
-func NewCIGitHubConfig() CIConfig {
+func NewCIConfig(
+	currentBranch common.CurrentBranchFunc,
+	workingDir common.WorkDirFunc,
+) (CIConfig, error) {
+	platform := viper.GetString(PlatformFlag)
+	if strings.ToLower(platform) != DefaultPlatform {
+		return CIConfig{}, fmt.Errorf("%s support is not implemented", platform)
+	}
+
+	path := viper.GetString(PathFlag)
+	if path == "" || path == "." {
+		cwd, err := workingDir()
+		if err != nil {
+			return CIConfig{}, err
+		}
+		path = cwd
+	}
+
+	branch := viper.GetString(BranchFlag)
+	if branch == "" {
+		var err error
+		branch, err = currentBranch(path)
+		if err != nil {
+			return CIConfig{}, err
+		}
+	}
+
 	return CIConfig{
 		githubWorkflowDir:      DefaultGitHubWorkflowDir,
 		githubWorkflowFilename: DefaultGitHubWorkflowFilename,
-		path:                   viper.GetString(PathFlag),
-		branch:                 viper.GetString(BranchFlag),
+		path:                   path,
+		branch:                 branch,
 		workflowName:           viper.GetString(WorkflowNameFlag),
 		kubeconfigSecret:       viper.GetString(KubeconfigSecretNameFlag),
 		registryLoginUrlVar:    viper.GetString(RegistryLoginUrlVariableNameFlag),
@@ -82,7 +114,7 @@ func NewCIGitHubConfig() CIConfig {
 		useSelfHostedRunner:    viper.GetBool(UseSelfHostedRunnerFlag),
 		useRemoteBuild:         viper.GetBool(UseRemoteBuildFlag),
 		useWorkflowDispatch:    viper.GetBool(WorkflowDispatchFlag),
-	}
+	}, nil
 }
 
 func (cc *CIConfig) FnGitHubWorkflowDir(fnRoot string) string {

@@ -100,7 +100,7 @@ func TestCore_Deploy_Basic(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 }
@@ -129,7 +129,7 @@ func TestCore_Deploy_Template(t *testing.T) {
 
 	// The default implementation responds with HTTP 200 and the string
 	// "testcore-deploy-template" for all requests.
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain),
+	if !waitFor(t, ksvcUrl(name),
 		withContentMatch(name)) {
 		t.Fatal("function did not update correctly")
 	}
@@ -178,7 +178,7 @@ func TestCore_Update(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 
@@ -198,7 +198,7 @@ func TestCore_Update(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain),
+	if !waitFor(t, ksvcUrl(name),
 		withContentMatch("UPDATED")) {
 		t.Fatal("function did not update correctly")
 	}
@@ -228,7 +228,7 @@ func TestCore_Describe(t *testing.T) {
 		t.Fatalf("deploy error. %v", err)
 	}
 
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 
@@ -308,7 +308,7 @@ func TestCore_Invoke(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, fmt.Sprintf("http://%s.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 
@@ -334,7 +334,7 @@ func TestCore_Delete(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, fmt.Sprintf("http://%v.%s.%s", name, Namespace, Domain)) {
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 
