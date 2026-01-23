@@ -1152,7 +1152,6 @@ func (k *kedaRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 	}
 
 	// Rewrite the URL to point to the KEDA interceptor-proxy
-	// TODO: maybe we can point to the ingress controller here instead
 	req.URL.Scheme = "http"
 	req.URL.Host = "keda-add-ons-http-interceptor-proxy.keda.svc:8080"
 
