@@ -115,13 +115,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to get service %s/%s: %v", namespace, f.Name, err)
 	}
 
-	if err := d.ensureInterceptorProxyService(ctx, k8sClientset, f, namespace); err != nil {
+	if err := d.ensureInterceptorBridgeService(ctx, k8sClientset, f, namespace); err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to ensure proxy service exists: %w", err)
 	}
 
 	hosts := []string{
-		fmt.Sprintf("%s-interceptor-proxy.%s.svc", f.Name, namespace),
-		fmt.Sprintf("%s-interceptor-proxy", f.Name),
+		fmt.Sprintf("%s.%s.svc", d.interceptorBridgeServiceName(f), namespace),
+		fmt.Sprintf("%s", d.interceptorBridgeServiceName(f)),
 	}
 
 	if err := d.ensureHTTPScaledObject(ctx, f, namespace, deployment, appService, hosts); err != nil {
@@ -199,10 +199,14 @@ func (d *Deployer) httpScaledObject(f fn.Function, namespace string, deployment 
 	}, nil
 }
 
-func (d *Deployer) interceptorProxyService(f fn.Function, namespace string) *corev1.Service {
+func (d *Deployer) interceptorBridgeServiceName(f fn.Function) string {
+	return fmt.Sprintf("%s-interceptor-bridge", f.Name)
+}
+
+func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-interceptor-proxy", f.Name),
+			Name:      d.interceptorBridgeServiceName(f),
 			Namespace: namespace,
 		},
 		Spec: corev1.ServiceSpec{
@@ -212,19 +216,23 @@ func (d *Deployer) interceptorProxyService(f fn.Function, namespace string) *cor
 	}
 }
 
-func (d *Deployer) ensureInterceptorProxyService(ctx context.Context, clientset *kubernetes.Clientset, f fn.Function, namespace string) error {
-	expected := d.interceptorProxyService(f, namespace)
+// ensureInterceptorBridgeService makes sure to create the service which serves as the entrypoint to the function
+// this service will server as an external-name service and forward the request to the keda interceptor-proxy by
+// preserving the host name. This service name is also used in the HTTPScaledObject as host name to allow the
+// interceptor to match the request with the correct target/scaledObject.
+func (d *Deployer) ensureInterceptorBridgeService(ctx context.Context, clientset *kubernetes.Clientset, f fn.Function, namespace string) error {
+	expected := d.interceptorBridgeService(f, namespace)
 	existing, err := clientset.CoreV1().Services(expected.Namespace).Get(ctx, expected.Name, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			if _, err := clientset.CoreV1().Services(expected.Namespace).Create(ctx, expected, metav1.CreateOptions{}); err != nil {
-				return fmt.Errorf("failed to create interceptor bridge service: %w", err)
+				return fmt.Errorf("failed to create service to interceptor proxy: %w", err)
 			}
 
 			return nil
 		}
 
-		return fmt.Errorf("failed to get interceptor bridge service: %w", err)
+		return fmt.Errorf("failed to get service to interceptor proxy: %w", err)
 	}
 
 	// check if we need to update
@@ -233,7 +241,7 @@ func (d *Deployer) ensureInterceptorProxyService(ctx context.Context, clientset 
 		expected.ResourceVersion = existing.ResourceVersion
 
 		if _, err = clientset.CoreV1().Services(namespace).Update(ctx, expected, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("failed to update bridge service: %w", err)
+			return fmt.Errorf("failed to update service to interceptor proxy: %w", err)
 		}
 
 		return nil
