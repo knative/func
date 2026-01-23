@@ -115,13 +115,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to get service %s/%s: %v", namespace, f.Name, err)
 	}
 
-	if err := d.ensureInterceptorBridgeService(ctx, k8sClientset, f, namespace); err != nil {
+	if err := d.ensureInterceptorBridgeService(ctx, k8sClientset, f, namespace, deployment); err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to ensure proxy service exists: %w", err)
 	}
 
 	hosts := []string{
 		fmt.Sprintf("%s.%s.svc", d.interceptorBridgeServiceName(f), namespace),
-		fmt.Sprintf("%s", d.interceptorBridgeServiceName(f)),
+		d.interceptorBridgeServiceName(f),
 	}
 
 	if err := d.ensureHTTPScaledObject(ctx, f, namespace, deployment, appService, hosts); err != nil {
@@ -203,11 +203,20 @@ func (d *Deployer) interceptorBridgeServiceName(f fn.Function) string {
 	return fmt.Sprintf("%s-interceptor-bridge", f.Name)
 }
 
-func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string) *corev1.Service {
+func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string, deployment *v1.Deployment) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      d.interceptorBridgeServiceName(f),
 			Namespace: namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       deployment.Name,
+					UID:        deployment.UID,
+					Controller: ptr.To(true),
+				},
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
@@ -220,8 +229,8 @@ func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string) *co
 // this service will server as an external-name service and forward the request to the keda interceptor-proxy by
 // preserving the host name. This service name is also used in the HTTPScaledObject as host name to allow the
 // interceptor to match the request with the correct target/scaledObject.
-func (d *Deployer) ensureInterceptorBridgeService(ctx context.Context, clientset *kubernetes.Clientset, f fn.Function, namespace string) error {
-	expected := d.interceptorBridgeService(f, namespace)
+func (d *Deployer) ensureInterceptorBridgeService(ctx context.Context, clientset *kubernetes.Clientset, f fn.Function, namespace string, deployment *v1.Deployment) error {
+	expected := d.interceptorBridgeService(f, namespace, deployment)
 	existing, err := clientset.CoreV1().Services(expected.Namespace).Get(ctx, expected.Name, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
