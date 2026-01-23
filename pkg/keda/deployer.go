@@ -208,7 +208,7 @@ func (d *Deployer) interceptorProxyService(f fn.Function, namespace string) *cor
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: "keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local", // TODO: check for real cluster domain
+			ExternalName: fmt.Sprintf("keda-add-ons-http-interceptor-proxy.keda.svc.%s", k8s.GetClusterDomain(f)),
 			Ports: []corev1.ServicePort{
 				{
 					Protocol: "TCP",

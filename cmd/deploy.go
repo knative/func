@@ -132,7 +132,7 @@ EXAMPLES
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
 			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
 			"git-url", "image", "namespace", "path", "platform", "push", "pvc-size",
-			"service-account", "deployer", "registry", "registry-insecure",
+			"service-account", "deployer", "cluster-domain", "registry", "registry-insecure",
 			"registry-authfile", "remote", "username", "password", "token", "verbose",
 			"remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -197,6 +197,8 @@ EXAMPLES
 		"Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)")
 	cmd.Flags().String("deployer", f.Deploy.Deployer,
 		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service (default), '%s' for Kubernetes Deployment or '%s' for Deployment with a Keda HTTP scaler ($FUNC_DEPLOY_TYPE)", knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName))
+	cmd.Flags().String("cluster-domain", f.Deploy.ClusterDomain,
+		"Kubernetes cluster domain for service DNS resolution. Defaults to 'cluster.local' ($FUNC_CLUSTER_DOMAIN)")
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
@@ -535,6 +537,9 @@ type deployConfig struct {
 	// Deployer specifies the type of deployment: "knative" or "raw"
 	Deployer string
 
+	// ClusterDomain specifies the Kubernetes cluster domain for service DNS resolution
+	ClusterDomain string
+
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
 	Remote bool
@@ -569,6 +574,7 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		Timestamp:          viper.GetBool("build-timestamp"),
 		ServiceAccountName: viper.GetString("service-account"),
 		Deployer:           viper.GetString("deployer"),
+		ClusterDomain:      viper.GetString("cluster-domain"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
@@ -604,6 +610,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Build.RemoteStorageClass = c.RemoteStorageClass
 	f.Deploy.ServiceAccountName = c.ServiceAccountName
 	f.Deploy.Deployer = c.Deployer
+	f.Deploy.ClusterDomain = c.ClusterDomain
 	f.Local.Remote = c.Remote
 
 	// PVCSize
