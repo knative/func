@@ -115,6 +115,10 @@
 					"type": "string",
 					"description": "Deployer specifies the type of deployment to use: \"knative\" or \"raw\"\nDefaults to \"knative\" for backwards compatibility"
 				},
+				"clusterDomain": {
+					"type": "string",
+					"description": "ClusterDomain specifies the Kubernetes cluster domain for service DNS resolution"
+				},
 				"subscriptions": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
