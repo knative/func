@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 	"knative.dev/func/pkg/deployer"
@@ -209,15 +208,6 @@ func (d *Deployer) interceptorProxyService(f fn.Function, namespace string) *cor
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
 			ExternalName: fmt.Sprintf("keda-add-ons-http-interceptor-proxy.keda.svc.%s", k8s.GetClusterDomain(f)),
-			Ports: []corev1.ServicePort{
-				{
-					Protocol: "TCP",
-					Port:     8080, // ExternalName services don't do port translation, so this must match kedas interceptors port
-					TargetPort: intstr.IntOrString{
-						IntVal: 8080,
-					},
-				},
-			},
 		},
 	}
 }
