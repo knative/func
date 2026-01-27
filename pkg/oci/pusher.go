@@ -99,6 +99,17 @@ func (p *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 		return
 	}
 
+	// Extract registry from image to log which registry we're pushing to
+	registry := "registry"
+	if ref, err := name.ParseReference(f.Build.Image); err == nil {
+		registry = ref.Context().RegistryStr()
+	}
+
+	// Log credentials being used (consistent with docker pusher)
+	if credentials.Username != "" {
+		fmt.Fprintf(os.Stderr, "Pushing function image to the registry %q using the %q user credentials\n", registry, credentials.Username)
+	}
+
 	var opts []name.Option
 	if p.Insecure {
 		opts = append(opts, name.Insecure)
