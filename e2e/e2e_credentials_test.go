@@ -6,7 +6,6 @@ package e2e
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 )
@@ -15,16 +14,15 @@ import (
 // by asserting the pusher's log message includes the provided username.
 // This test runs for host, pack, and s2i builders automatically.
 func TestCredentials_DockerPusher_EnvUsed(t *testing.T) {
+	const user = "e2euser"
+	const pass = "e2epass"
+	t.Setenv("FUNC_USERNAME", user)
+	t.Setenv("FUNC_PASSWORD", pass)
+
 	for _, builder := range []string{"host", "pack", "s2i"} {
 		t.Run(builder, func(t *testing.T) {
 			name := fmt.Sprintf("func-e2e-creds-docker-%s", builder)
 			_ = fromCleanEnv(t, name)
-
-			// Provide credentials via env (what issue #3314 validates)
-			const user = "e2euser"
-			const pass = "e2epass"
-			os.Setenv("FUNC_USERNAME", user)
-			os.Setenv("FUNC_PASSWORD", pass)
 
 			// Init a simple function
 			if err := newCmd(t, "init", "-l=go").Run(); err != nil {
