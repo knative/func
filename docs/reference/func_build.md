@@ -28,6 +28,15 @@ DESCRIPTION
 	When building a function for the first time, either a registry or explicit
 	image name is required.  Subsequent builds will reuse these option values.
 
+	Authentication
+	  When --push is used, the 'build' command interacts with container registries to push the function image.
+	  Authentication can be configured using environment variables:
+	  - FUNC_USERNAME: Username for the registry
+	  - FUNC_PASSWORD: Password for the registry
+	  - FUNC_TOKEN: Token for the registry
+
+	  These variables are used to authenticate with the registry specified by --registry.
+
 EXAMPLES
 
 	o Build a function container using the given registry.
