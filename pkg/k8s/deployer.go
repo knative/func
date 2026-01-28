@@ -37,8 +37,6 @@ const (
 	DefaultReadinessEndpoint = "/health/readiness"
 	DefaultHTTPPort          = 8080
 
-	DefaultClusterDomain = "cluster.local"
-
 	// managedByAnnotation identifies triggers managed by this deployer
 	managedByAnnotation = "func.knative.dev/managed-by"
 	managedByValue      = "func-raw-deployer"
@@ -228,7 +226,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to sync triggers: %w", err)
 	}
 
-	url := fmt.Sprintf("http://%s.%s.svc.%s", f.Name, namespace, GetClusterDomain(f))
+	url := fmt.Sprintf("http://%s.%s.svc", f.Name, namespace)
 
 	return fn.DeploymentResult{
 		Status:    status,
@@ -910,11 +908,4 @@ func UsesRawDeployer(annotations map[string]string) bool {
 	deployer, ok := annotations[deployer.DeployerNameAnnotation]
 
 	return ok && deployer == KubernetesDeployerName
-}
-
-func GetClusterDomain(f fn.Function) string {
-	if f.Deploy.ClusterDomain != "" {
-		return f.Deploy.ClusterDomain
-	}
-	return DefaultClusterDomain
 }

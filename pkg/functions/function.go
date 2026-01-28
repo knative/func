@@ -212,9 +212,6 @@ type DeploySpec struct {
 	// Defaults to "knative" for backwards compatibility
 	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw"`
 
-	// ClusterDomain specifies the Kubernetes cluster domain for service DNS resolution
-	ClusterDomain string `yaml:"clusterDomain,omitempty"`
-
 	Subscriptions []KnativeSubscription `yaml:"subscriptions,omitempty"`
 }
 
