@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	httpv1alpha1 "github.com/kedacore/http-add-on/operator/generated/clientset/versioned"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"knative.dev/func/pkg/k8s"
 )
 
