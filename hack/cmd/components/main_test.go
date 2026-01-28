@@ -27,6 +27,8 @@ set_versions() {
 	contour_version="v1.19.0"
 	tekton_version="v1.1.0"
 	pac_version="v0.35.2"
+	keda_version="v2.17.0"
+	keda_http_addon_version="v0.11.1"
 }
 `
 
@@ -40,6 +42,12 @@ const expectedJson string = `{
 		"version": "v1.19.0",
 		"owner": "knative",
 		"repo": "eventing"
+	},
+	"Keda": {
+		"version": "v2.17.0"
+	},
+	"KedaHTTPAddOn": {
+		"version": "v0.11.1"
 	},
 	"KindNode": {
 		"version": "v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027"
@@ -110,6 +118,12 @@ func TestWrite(t *testing.T) {
 		},
 		"Tekton": {
 			Version: "v1.1.0",
+		},
+		"Keda": {
+			Version: "v2.17.0",
+		},
+		"KedaHTTPAddOn": {
+			Version: "v0.11.1",
 		},
 	}
 
