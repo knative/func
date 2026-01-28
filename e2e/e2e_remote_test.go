@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 )
 
@@ -162,5 +163,55 @@ func TestRemote_Dir(t *testing.T) {
 	if !waitFor(t, ksvcUrl(name),
 		withContentMatch(name)) {
 		t.Fatal("function did not deploy correctly")
+	}
+}
+
+// TestRemote_Update ensures that a function deployed remotely can be
+// updated with a subsequent remote deployment and verifies the content change.
+//
+//	func deploy --remote (first)
+//	func deploy --remote --build (subsequent with code change)
+func TestRemote_Update(t *testing.T) {
+	name := "func-e2e-test-remote-update"
+	root := fromCleanEnv(t, name)
+
+	// Initialize
+	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	// First deploy
+	if err := newCmd(t, "deploy", "--remote", "--builder=pack", fmt.Sprintf("--registry=%s", ClusterRegistry)).Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		clean(t, name, Namespace)
+	}()
+
+	if !waitFor(t, ksvcUrl(name)) {
+		t.Fatal("first deploy: function did not deploy correctly")
+	}
+
+	// Update the code to return "UPDATED"
+	update := `
+	package function
+	import "fmt"
+	import "net/http"
+	func Handle(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintln(w, "UPDATED")
+	}
+	`
+	err := os.WriteFile(filepath.Join(root, "handle.go"), []byte(update), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Subsequent deploy (force rebuild)
+	if err := newCmd(t, "deploy", "--remote", "--build", "--builder=pack", fmt.Sprintf("--registry=%s", ClusterRegistry)).Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !waitFor(t, ksvcUrl(name), withContentMatch("UPDATED")) {
+		t.Fatal("subsequent deploy: function did not update correctly")
 	}
 }
