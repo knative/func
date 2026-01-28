@@ -30,8 +30,7 @@ async def test_func():
     invoked = False  # Flag indicating send method was invoked
 
     # Send
-    # confirms the Functions responds with a CloudEvent which echoes
-    # the data sent.
+    # confirms the Functions responds with a CloudEvent containing "OK".
     async def send(e):
         nonlocal invoked
         invoked = True  # Flag send was invoked
@@ -39,8 +38,8 @@ async def test_func():
         # Ensure we got a CloudEvent
         assert isinstance(e, CloudEvent), f"Expected CloudEvent, got {type(e)}"
 
-        # Ensure it echoes the data sent
-        assert e.data == data, f"Expected data {data}, got {e.data}"
+        # Ensure it returns "OK" as data
+        assert e.data == "OK", f"Expected data 'OK', got {e.data}"
 
     # Invoke the Function
     scope = {"event": event}  # Add the CloudEvent to the scope

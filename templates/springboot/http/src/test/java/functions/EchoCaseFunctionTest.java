@@ -26,7 +26,7 @@ public class EchoCaseFunctionTest {
                    .body("hello"), String.class);
     assertThat(response.getStatusCode()
                        .value(), equalTo(200));
-    assertThat(response.getBody(), containsString("echo: hello"));
+    assertThat(response.getBody(), equalTo("OK"));
   }
 
   @Test
@@ -37,6 +37,6 @@ public class EchoCaseFunctionTest {
             .build(), String.class);
     assertThat(response.getStatusCode()
       .value(), equalTo(200));
-    assertThat(response.getBody(), containsString("custom-header: custom-value"));
+    assertThat(response.getBody(), equalTo("OK"));
   }
 }

@@ -22,11 +22,18 @@ test('Integration: handles a valid request', (t) => {
       .post('/')
       .send(data)
       .expect(200)
-      .expect('Content-Type', /json/)
+      .buffer(true)
+      .parse((res, callback) => {
+        let data = '';
+        res.on('data', (chunk: string) => {
+          data += chunk;
+        });
+        res.on('end', () => callback(null, data));
+      })
       .end((err, result) => {
         t.error(err, 'No error');
         t.ok(result);
-        t.equal(JSON.stringify(result.body), JSON.stringify(data));
+        t.equal(result.body, 'OK');
         t.end();
         server.close();
       });

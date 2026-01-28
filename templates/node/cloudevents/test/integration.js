@@ -30,13 +30,18 @@ test('Integration: handles a valid event', t => {
       .send(message.body)
       .set(message.headers)
       .expect(200)
-      .expect('Content-Type', /json/)
+      .buffer(true)
+      .parse((res, callback) => {
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => callback(null, data));
+      })
       .end((err, result) => {
         t.error(err, 'No error');
         t.ok(result);
-        t.deepEqual(result.body, data);
-        t.equal(result.headers['ce-type'], 'echo');
-        t.equal(result.headers['ce-source'], 'event.handler');
+        t.equal(result.body, 'OK');
+        t.equal(result.headers['ce-type'], 'function.response');
+        t.equal(result.headers['ce-source'], 'function');
         t.end();
         server.close();
       });

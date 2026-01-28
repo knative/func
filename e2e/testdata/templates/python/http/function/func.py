@@ -20,21 +20,8 @@ class Function:
         """ Handle all HTTP requests to this Function other than readiness
         and liveness probes."""
 
-        # Extract the URL from the scope
-        scheme = scope.get('scheme', 'http')
-        headers = dict(scope.get('headers', []))
-        host = headers.get(b'host', b'').decode('utf-8')
-        path = scope.get('path', '/')
-        query_string = scope.get('query_string', b'').decode('utf-8')
+        logging.info("OK: Request Received")
 
-        # Construct the full URL
-        url = f"{scheme}://{host}{path}"
-        if query_string:
-            url += f"?{query_string}"
-
-        logging.info(f"Request received for URL: {url}")
-
-        # echo the request URL to the calling client
         await send({
             'type': 'http.response.start',
             'status': 200,
@@ -44,7 +31,7 @@ class Function:
         })
         await send({
             'type': 'http.response.body',
-            'body': url.encode(),
+            'body': 'OK'.encode(),
         })
 
     def start(self, cfg):
