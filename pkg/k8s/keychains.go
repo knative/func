@@ -54,7 +54,7 @@ func GetACRCredentialLoader() []creds.CredentialsCallback {
 			if !strings.HasSuffix(registry, ".azurecr.io") {
 				return oci.Credentials{}, creds.ErrCredentialsNotFound
 			}
-
+			// TODO: Use Azure SDK to get access token instead of reading from file
 			f, err := os.Open(path.Join(os.Getenv("HOME"), ".azure", "accessTokens.json"))
 			if err != nil {
 				return oci.Credentials{}, fmt.Errorf("open Azure access tokens: %w", err)
