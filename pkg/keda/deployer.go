@@ -220,7 +220,7 @@ func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string, dep
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: fmt.Sprintf("keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local"),
+			ExternalName: "keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local",
 		},
 	}
 }
