@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
 	"github.com/kedacore/http-add-on/operator/generated/clientset/versioned"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -66,12 +68,10 @@ func (l *Lister) get(ctx context.Context, httpScaledObjectClientset *versioned.C
 	}
 
 	ready := v1.ConditionUnknown
-	// HTTPScaledObject may have multiple Ready conditions, we need to find one that is True
-	// TODO: use Status.Conditions.GetReadyCondition() as soon as this is fixed in http-add-on
-	for _, condition := range httpScaledObject.Status.Conditions {
-		if condition.Type == "Ready" && condition.Status == "True" {
-			ready = v1.ConditionTrue
-		}
+	if meta.IsStatusConditionTrue(httpScaledObject.Status.Conditions, v1alpha1.ConditionTypeReady) {
+		ready = v1.ConditionTrue
+	} else if meta.IsStatusConditionFalse(httpScaledObject.Status.Conditions, v1alpha1.ConditionTypeReady) {
+		ready = v1.ConditionFalse
 	}
 
 	url := ""

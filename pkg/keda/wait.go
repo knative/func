@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
 	"github.com/kedacore/http-add-on/operator/generated/clientset/versioned"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -17,14 +19,7 @@ func WaitForHTTPScaledObjectAvailable(ctx context.Context, clientset *versioned.
 			return false, fmt.Errorf("error getting http scaled object: %w", err)
 		}
 
-		// Check if any Ready condition has status True
-		// HTTPScaledObject may have multiple Ready conditions, we need to find one that is True
-		// TODO: use Status.Conditions.GetReadyCondition() as soon as this is fixed in http-add-on
-		for _, condition := range httpScaledObject.Status.Conditions {
-			if condition.Type == "Ready" && condition.Status == "True" {
-				return true, nil
-			}
-		}
-		return false, nil
+		isReady := meta.IsStatusConditionTrue(httpScaledObject.Status.Conditions, v1alpha1.ConditionTypeReady)
+		return isReady, nil
 	})
 }

@@ -17,5 +17,5 @@ set_versions() {
 	tekton_version="v1.1.0"
 	pac_version="v0.35.2"
 	keda_version="v2.17.0"
-	keda_http_addon_version="v0.11.1"
+	keda_http_addon_version="v0.12.0"
 }
