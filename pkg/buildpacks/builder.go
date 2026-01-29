@@ -23,6 +23,7 @@ import (
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/scaffolding"
 )
 
 // DefaultName when no WithName option is provided to NewBuilder
@@ -189,6 +190,15 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// set scaffolding path to buildpacks builder
 	if f.Runtime == "go" {
 		opts.Env["BP_GO_WORKDIR"] = ".func/build"
+	}
+
+	// Get middleware version and set as image label via BP_IMAGE_LABELS
+	middlewareVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, fn.EmbeddedTemplatesFS)
+	if err != nil {
+		return fmt.Errorf("cannot get middleware version: %w", err)
+	}
+	if middlewareVersion != "" {
+		opts.Env["BP_IMAGE_LABELS"] = fmt.Sprintf("%s=%s", fn.MiddlewareVersionLabelKey, middlewareVersion)
 	}
 
 	var bindings = make([]string, 0, len(f.Build.Mounts))

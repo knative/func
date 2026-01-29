@@ -21,6 +21,7 @@ import (
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/scaffolding"
 )
 
 // DefaultName when no WithName option is provided to NewBuilder
@@ -171,6 +172,15 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		// bloats the build process and can cause unexpected errors in the resultant
 		// function.
 		ExcludeRegExp: "(^|/)\\.git|\\.env|\\.func|node_modules(/|$)",
+	}
+
+	// Set middleware version label
+	middlewareVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, fn.EmbeddedTemplatesFS)
+	if err != nil {
+		return fmt.Errorf("cannot get middleware version: %w", err)
+	}
+	if middlewareVersion != "" {
+		cfg.Labels = map[string]string{fn.MiddlewareVersionLabelKey: middlewareVersion}
 	}
 
 	// Environment variables

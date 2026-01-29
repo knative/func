@@ -210,6 +210,49 @@ func Test_BuildEnvs(t *testing.T) {
 	}
 }
 
+// Test_MiddlewareLabel ensures that the middleware-version label is set
+// on the S2I build config for runtimes that support scaffolding.
+func Test_MiddlewareLabel(t *testing.T) {
+	root, done := Mktemp(t)
+	defer done()
+
+	f := fn.Function{
+		Name:     "test-middleware-label",
+		Root:     root,
+		Runtime:  "go",
+		Registry: "example.com/alice",
+	}
+
+	var err error
+	if f, err = fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	i := &mockImpl{}
+	c := mockDocker{}
+	b := s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c))
+
+	i.BuildFn = func(cfg *api.Config) (*api.Result, error) {
+		// Verify middleware-version label is set
+		if cfg.Labels == nil {
+			t.Fatal("expected Labels to be set on config")
+		}
+		middlewareVersion, ok := cfg.Labels[fn.MiddlewareVersionLabelKey]
+		if !ok {
+			t.Fatalf("expected label %q to be set", fn.MiddlewareVersionLabelKey)
+		}
+		if middlewareVersion == "" {
+			t.Fatalf("expected label %q to have a non-empty value", fn.MiddlewareVersionLabelKey)
+		}
+		t.Logf("middleware-version label: %s", middlewareVersion)
+		return nil, nil
+	}
+
+	if err := b.Build(context.Background(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBuildFail(t *testing.T) {
 	cli := mockDocker{
 		inspect: func(ctx context.Context, image string) (typesImage.InspectResponse, []byte, error) {
