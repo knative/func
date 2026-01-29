@@ -22,5 +22,11 @@
 	},
 	"Tekton": {
 		"version": "v1.1.0"
+	},
+	"Keda": {
+		"version": "v2.17.0"
+	},
+	"KedaHTTPAddOn": {
+		"version": "v0.12.0"
 	}
 }

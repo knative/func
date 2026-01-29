@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/ory/viper"
+	"knative.dev/func/pkg/keda"
 
 	"knative.dev/func/cmd/prompt"
 	"knative.dev/func/pkg/buildpacks"
@@ -68,9 +69,9 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithScaffolder(buildpacks.NewScaffolder(cfg.Verbose)),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
-			fn.WithRemovers(knative.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose)),
-			fn.WithDescribers(knative.NewDescriber(cfg.Verbose), k8s.NewDescriber(cfg.Verbose)),
-			fn.WithListers(knative.NewLister(cfg.Verbose), k8s.NewLister(cfg.Verbose)),
+			fn.WithRemovers(knative.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose), keda.NewRemover(cfg.Verbose)),
+			fn.WithDescribers(knative.NewDescriber(cfg.Verbose), k8s.NewDescriber(cfg.Verbose), keda.NewDescriber(cfg.Verbose)),
+			fn.WithListers(knative.NewLister(cfg.Verbose), k8s.NewLister(cfg.Verbose), keda.NewLister(cfg.Verbose)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(
@@ -168,6 +169,15 @@ func newK8sDeployer(verbose bool) fn.Deployer {
 	}
 
 	return k8s.NewDeployer(options...)
+}
+
+func newKedaDeployer(verbose bool) fn.Deployer {
+	options := []keda.DeployerOpt{
+		keda.WithDeployerVerbose(verbose),
+		keda.WithDeployerDecorator(deployDecorator{}),
+	}
+
+	return keda.NewDeployer(options...)
 }
 
 type deployDecorator struct {

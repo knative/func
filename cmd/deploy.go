@@ -18,6 +18,7 @@ import (
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/utils"
 )
@@ -195,7 +196,7 @@ EXAMPLES
 	cmd.Flags().String("service-account", f.Deploy.ServiceAccountName,
 		"Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)")
 	cmd.Flags().String("deployer", f.Deploy.Deployer,
-		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service (default) or '%s' for Kubernetes Deployment ($FUNC_DEPLOY_TYPE)", knative.KnativeDeployerName, k8s.KubernetesDeployerName))
+		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service (default), '%s' for Kubernetes Deployment or '%s' for Deployment with a Keda HTTP scaler ($FUNC_DEPLOY_TYPE)", knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName))
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
@@ -799,8 +800,10 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 		o = append(o, fn.WithDeployer(newKnativeDeployer(c.Verbose)))
 	case k8s.KubernetesDeployerName:
 		o = append(o, fn.WithDeployer(newK8sDeployer(c.Verbose)))
+	case keda.KedaDeployerName:
+		o = append(o, fn.WithDeployer(newKedaDeployer(c.Verbose)))
 	default:
-		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s)", deployer, knative.KnativeDeployerName, k8s.KubernetesDeployerName)
+		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s, %s)", deployer, knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName)
 	}
 
 	return o, nil

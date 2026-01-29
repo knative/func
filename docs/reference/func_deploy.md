@@ -119,7 +119,7 @@ func deploy
   -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
       --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
-      --deployer string               Type of deployment to use: 'knative' for Knative Service (default) or 'raw' for Kubernetes Deployment ($FUNC_DEPLOY_TYPE)
+      --deployer string               Type of deployment to use: 'knative' for Knative Service (default), 'raw' for Kubernetes Deployment or 'keda' for Deployment with a Keda HTTP scaler ($FUNC_DEPLOY_TYPE)
       --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
   -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
   -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)

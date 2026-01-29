@@ -110,10 +110,11 @@
 				"deployer": {
 					"enum": [
 						"knative",
-						"raw"
+						"raw",
+						"keda"
 					],
 					"type": "string",
-					"description": "Deployer specifies the type of deployment to use: \"knative\" or \"raw\"\nDefaults to \"knative\" for backwards compatibility"
+					"description": "Deployer specifies the type of deployment to use: \"knative\", \"raw\" or \"keda\"\nDefaults to \"knative\" for backwards compatibility"
 				},
 				"subscriptions": {
 					"items": {

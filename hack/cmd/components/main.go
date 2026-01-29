@@ -56,6 +56,8 @@ set_versions() {
 	contour_version="{{.Contour.Version}}"
 	tekton_version="{{.Tekton.Version}}"
 	pac_version="{{.Pac.Version}}"
+	keda_version="{{.Keda.Version}}"
+	keda_http_addon_version="{{.KedaHTTPAddOn.Version}}"
 }
 `
 )

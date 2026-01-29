@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 )
 
@@ -170,6 +171,7 @@ func CompleteDeployerList(cmd *cobra.Command, args []string, complete string) (m
 	deployers := []string{
 		knative.KnativeDeployerName,
 		k8s.KubernetesDeployerName,
+		keda.KedaDeployerName,
 	}
 
 	d = cobra.ShellCompDirectiveNoFileComp

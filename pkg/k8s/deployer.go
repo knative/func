@@ -226,7 +226,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to sync triggers: %w", err)
 	}
 
-	url := fmt.Sprintf("http://%s.%s.svc.cluster.local", f.Name, namespace)
+	url := fmt.Sprintf("http://%s.%s.svc", f.Name, namespace)
 
 	return fn.DeploymentResult{
 		Status:    status,
