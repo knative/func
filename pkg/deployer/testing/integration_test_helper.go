@@ -1142,10 +1142,7 @@ func getHttpClient(ctx context.Context, deployer string) (*http.Client, func(), 
 	noopDeferFunc := func() {}
 
 	switch deployer {
-	case keda.KedaDeployerName:
-		// use same in-cluster dialer as Kubernetes Deployer
-		fallthrough
-	case k8s.KubernetesDeployerName:
+	case k8s.KubernetesDeployerName, keda.KedaDeployerName:
 		// For Kubernetes deployments, use in-cluster dialer to access ClusterIP services
 
 		clientConfig := k8s.GetClientConfig()
