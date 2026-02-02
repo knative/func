@@ -28,7 +28,14 @@ function build_release() {
   local knative_version
   if (( TAG_RELEASE )); then
     knative_version="${TAG}"
-    go_module_version="v0.$(( $(minor_version "$TAG") + 27 )).$(patch_version "$TAG")"
+    # Check if TAG is a nightly date-based tag (vYYYYMMDD-hash) vs semver (knative-vX.Y.Z)
+    if [[ "${TAG}" =~ ^v[0-9]{8}- ]]; then
+      # Nightly build: use TAG directly as version
+      go_module_version="${TAG}"
+    else
+      # Release build: convert knative version to go module version
+      go_module_version="v0.$(( $(minor_version "$TAG") + 27 )).$(patch_version "$TAG")"
+    fi
   else
     knative_version="$(git describe --tags --match 'knative-*')"
     go_module_version="$(git describe --tags --match 'v*')"
