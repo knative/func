@@ -2,6 +2,7 @@ package buildpacks
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,6 +11,8 @@ import (
 	pack "github.com/buildpacks/pack/pkg/client"
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/scaffolding"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestBuild_BuilderImageUntrusted ensures that only known builder images
@@ -83,11 +86,20 @@ func TestBuild_BuilderImageDefault(t *testing.T) {
 // defined in-code, but none defined on the function, the defaults will be
 // used.
 func TestBuild_BuildpacksDefault(t *testing.T) {
+	root, done := Mktemp(t)
+	defer done()
+
 	var (
-		i = &mockImpl{}
-		b = NewBuilder(WithImpl(i))
-		f = fn.Function{Runtime: "go"}
+		i   = &mockImpl{}
+		b   = NewBuilder(WithImpl(i))
+		f   = fn.Function{Runtime: "go", Root: root, Registry: "example.com/alice"}
+		err error
 	)
+
+	// Initialize the function to create proper source files
+	if f, err = fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
 
 	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
 		expected := defaultBuildpacks["go"]
@@ -136,23 +148,32 @@ func TestBuild_BuilderImageConfigurable(t *testing.T) {
 // TestBuild_BuilderImageExclude ensures that ignored files are not added to the func
 // image
 func TestBuild_BuilderImageExclude(t *testing.T) {
+	root, done := Mktemp(t)
+	defer done()
+
 	var (
 		i = &mockImpl{} // mock underlying implementation
 		b = NewBuilder( // Func Builder logic
 			WithName(builders.Pack), WithImpl(i))
 		f = fn.Function{
-			Runtime: "go",
+			Runtime:  "go",
+			Root:     root,
+			Registry: "example.com/alice",
 		}
+		err error
 	)
+
+	// Initialize the function to create proper source files
+	if f, err = fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+
 	funcIgnoreContent := []byte(`#testing comments
 hello.txt`)
 	expected := []string{"hello.txt"}
 
-	tempdir := t.TempDir()
-	f.Root = tempdir
-
 	//create a .funcignore file containing the details of the files to be ignored
-	err := os.WriteFile(filepath.Join(f.Root, ".funcignore"), funcIgnoreContent, 0644)
+	err = os.WriteFile(filepath.Join(f.Root, ".funcignore"), funcIgnoreContent, 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,6 +220,57 @@ func TestBuild_Envs(t *testing.T) {
 		t.Fatal("build envs not added to builder options")
 		return nil
 	}
+	if err := b.Build(context.Background(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestBuild_MiddlewareLabel ensures that the middleware-version label is set
+// on the build options for runtimes that support scaffolding.
+func TestBuild_MiddlewareLabel(t *testing.T) {
+	root, done := Mktemp(t)
+	defer done()
+
+	var (
+		i = &mockImpl{}
+		b = NewBuilder(WithImpl(i))
+		f = fn.Function{
+			Name:     "test-middleware-label",
+			Root:     root,
+			Runtime:  "go",
+			Registry: "example.com/alice",
+		}
+		err error
+	)
+
+	// Initialize the function to create proper source files
+	if f, err = fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Get expected middleware version
+	expectedVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, fn.EmbeddedTemplatesFS)
+	if err != nil {
+		t.Fatalf("failed to get expected middleware version: %v", err)
+	}
+	if expectedVersion == "" {
+		t.Fatal("expected middleware version to be non-empty for go runtime")
+	}
+
+	expectedLabel := fmt.Sprintf("%s=%s", fn.MiddlewareVersionLabelKey, expectedVersion)
+
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		bpLabels, ok := opts.Env["BP_IMAGE_LABELS"]
+		if !ok {
+			t.Fatal("expected BP_IMAGE_LABELS to be set")
+		}
+		if bpLabels != expectedLabel {
+			t.Fatalf("expected BP_IMAGE_LABELS to be %q, got: %q", expectedLabel, bpLabels)
+		}
+		t.Logf("BP_IMAGE_LABELS: %s", bpLabels)
+		return nil
+	}
+
 	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
