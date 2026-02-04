@@ -210,6 +210,29 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// only trust our known builders
 	opts.TrustBuilder = TrustBuilder
 
+	// Python scaffolding via inline pre-buildpack.
+	// Injects a script that rearranges user code into fn/ and copies
+	// scaffolding from .func/build/ to the workspace root.
+	if f.Runtime == "python" {
+		opts.ProjectDescriptor.Build.Pre = types.GroupAddition{
+			Buildpacks: []types.Buildpack{
+				{
+					ID: "knative.dev/func/python-scaffolding",
+					Script: types.Script{
+						API:    "0.10",
+						Inline: pythonScaffoldScript(),
+						Shell:  "/bin/bash",
+					},
+				},
+			},
+		}
+		// The Procfile written by the pre-buildpack is only
+		// available during the build phase, but the procfile
+		// buildpack needs to detect it earlier. Setting this
+		// env var makes it detect from environment instead.
+		opts.Env["BP_PROCFILE_DEFAULT_PROCESS"] = "python -m service.main"
+	}
+
 	var impl = b.impl
 	// Instantiate the pack build client implementation
 	// (and update build opts as necessary)
@@ -228,19 +251,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 		if ok, _ := isPodmanV43(ctx, cli); ok {
 			return fmt.Errorf("podman 4.3 is not supported, use podman 4.2 or 4.4")
-		}
-
-		if f.Runtime == "python" {
-			if fi, _ := os.Lstat(filepath.Join(f.Root, "Procfile")); fi == nil {
-				// HACK (of a hack): need to get the right invocation signature
-				// the standard scaffolding does this in toSignature() func.
-				// we know we have python here.
-				invoke := f.Invoke
-				if invoke == "" {
-					invoke = "http"
-				}
-				cli = pyScaffoldInjector{cli, invoke}
-			}
 		}
 
 		// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.

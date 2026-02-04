@@ -217,10 +217,6 @@ func matrixExceptionsShared(t *testing.T, initArgs []string, funcRuntime, builde
 
 	// Python Special Treatment
 	// --------------------------
-	// Skip Pack builder (not supported)
-	if funcRuntime == "python" && builder == "pack" {
-		t.Skip("The pack builder does not currently support Python Functions")
-	}
 
 	// Echo Implementation
 	// Replace the simple "OK" implementation with an echo.
