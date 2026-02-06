@@ -21,6 +21,7 @@ import (
 	"knative.dev/func/pkg/buildpacks"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/s2i"
 	"knative.dev/func/pkg/scaffolding"
@@ -157,14 +158,31 @@ func deploy(ctx context.Context) error {
 	if f.Deploy.Image == "" {
 		f.Deploy.Image = f.Image
 	}
+	if f.Deploy.Deployer == "" {
+		f.Deploy.Deployer = knative.KnativeDeployerName
+	}
+	var d fn.Deployer
+	switch f.Deploy.Deployer {
+	case knative.KnativeDeployerName:
+		d = knative.NewDeployer(
+			knative.WithDeployerDecorator(deployDecorator{}),
+			knative.WithDeployerVerbose(true),
+		)
+	case k8s.KubernetesDeployerName:
+		d = k8s.NewDeployer(
+			k8s.WithDeployerDecorator(deployDecorator{}),
+			k8s.WithDeployerVerbose(true),
+		)
+	case keda.KedaDeployerName:
+		d = keda.NewDeployer(
+			keda.WithDeployerDecorator(deployDecorator{}),
+			keda.WithDeployerVerbose(true),
+		)
+	default:
+		return fmt.Errorf("unknown deployer: %s", f.Deploy.Deployer)
+	}
 
-	client := fn.New(
-		fn.WithDeployer(
-			knative.NewDeployer(
-				knative.WithDeployerDecorator(deployDecorator{}),
-				knative.WithDeployerVerbose(true)),
-		),
-	)
+	client := fn.New(fn.WithDeployer(d))
 	res, err := client.Deploy(ctx, f, fn.WithDeploySkipBuildCheck(true))
 	if err != nil {
 		return fmt.Errorf("cannot deploy the function: %w", err)
