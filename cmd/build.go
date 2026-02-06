@@ -123,19 +123,12 @@ EXAMPLES
 	cmd.Flags().StringP("platform", "", "",
 		"Optionally specify a target platform, for example \"linux/amd64\" when using the s2i build strategy")
 	cmd.Flags().StringP("username", "", "",
-		"Username to use when pushing to the registry.")
+		"Username to use when pushing to the registry. ($FUNC_USERNAME)")
 	cmd.Flags().StringP("password", "", "",
-		"Password to use when pushing to the registry.")
+		"Password to use when pushing to the registry. ($FUNC_PASSWORD)")
 	cmd.Flags().StringP("token", "", "",
-		"Token to use when pushing to the registry.")
+		"Token to use when pushing to the registry. ($FUNC_TOKEN)")
 	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
-
-	// Temporarily Hidden Basic Auth Flags
-	// Username, Password and Token flags, which plumb through basic auth, are
-	// currently only available on the "host" builder.
-	_ = cmd.Flags().MarkHidden("username")
-	_ = cmd.Flags().MarkHidden("password")
-	_ = cmd.Flags().MarkHidden("token")
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)

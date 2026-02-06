@@ -128,6 +128,7 @@ func deploy
   -h, --help                          help for deploy
   -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
   -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "default")
+      --password string               Password to use when pushing to the registry. ($FUNC_PASSWORD)
   -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
       --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
   -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
@@ -138,6 +139,8 @@ func deploy
   -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
       --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
       --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+      --token string                  Token to use when pushing to the registry. ($FUNC_TOKEN)
+      --username string               Username to use when pushing to the registry. ($FUNC_USERNAME)
   -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
 ```
 

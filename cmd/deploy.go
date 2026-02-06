@@ -207,21 +207,14 @@ EXAMPLES
 	cmd.Flags().String("platform", "",
 		"Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)")
 	cmd.Flags().StringP("username", "", "",
-		"Username to use when pushing to the registry.")
+		"Username to use when pushing to the registry. ($FUNC_USERNAME)")
 	cmd.Flags().StringP("password", "", "",
-		"Password to use when pushing to the registry.")
+		"Password to use when pushing to the registry. ($FUNC_PASSWORD)")
 	cmd.Flags().StringP("token", "", "",
-		"Token to use when pushing to the registry.")
+		"Token to use when pushing to the registry. ($FUNC_TOKEN)")
 	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(f, false),
 		"Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE)")
-
-	// Temporarily Hidden Basic Auth Flags
-	// Username, Password and Token flags, which plumb through basic auth, are
-	// currently only available on "host" builder.
-	_ = cmd.Flags().MarkHidden("username")
-	_ = cmd.Flags().MarkHidden("password")
-	_ = cmd.Flags().MarkHidden("token")
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
