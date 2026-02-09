@@ -9,7 +9,6 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -134,11 +133,19 @@ func IsOpenShift() bool {
 		if err != nil {
 			return
 		}
-		_, err = client.CoreV1().Services("openshift-image-registry").Get(context.TODO(), "image-registry", metav1.GetOptions{})
-		if err == nil || k8sErrors.IsForbidden(err) {
+
+		// Detect OpenShift by checking for OpenShift-specific API groups
+		// This is reliable and works even with restrictive RBAC, unlike checking
+		// for namespaces/services which can produce false positives when forbidden
+		discoveryClient := client.Discovery()
+
+		// Check for route.openshift.io API group (Routes are OpenShift-specific)
+		_, err = discoveryClient.ServerResourcesForGroupVersion("route.openshift.io/v1")
+		if err == nil {
+			// API group exists - this is OpenShift
 			isOpenShift = true
-			return
 		}
+		// If NotFound or any other error, this is most likely not OpenShift
 	})
 	return isOpenShift
 }
