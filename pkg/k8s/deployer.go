@@ -328,6 +328,11 @@ func deleteStaleTriggers(ctx context.Context, eventingClient clienteventingv1.Kn
 	// List existing triggers in the namespace
 	existingTriggers, err := eventingClient.ListTriggers(ctx)
 	if err != nil {
+		if strings.HasPrefix(err.Error(), "no or newer Knative Eventing API found on the backend") {
+			// knative eventing not installed -> nothing to do and return early
+			return nil
+		}
+
 		// If triggers can't be listed ,skip cleanup
 		if errors.IsNotFound(err) {
 			return nil
