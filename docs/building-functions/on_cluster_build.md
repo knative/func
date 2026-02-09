@@ -13,11 +13,59 @@ kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previou
 ```
 
 ## Enabling a namespace to run Function related Tekton Pipelines
-1. Add permission to deploy on Knative to `default` Service Account: (This is not needed on OpenShift)
+1. Set up RBAC permissions for the `default` Service Account to deploy Functions: (This is not needed on OpenShift)
+
 ```bash
 export NAMESPACE=<INSERT_YOUR_NAMESPACE>
+
+# Add Knative Eventing permissions (required for func subscribe for all deployers)
+kubectl create clusterrolebinding $NAMESPACE:knative-eventing-namespaced-admin \
+  --clusterrole=knative-eventing-namespaced-admin \
+  --serviceaccount=$NAMESPACE:default
+```
+
+In addition, choose the appropriate permissions based on which deployer you plan to use:
+
+### Option A: Raw Deployer
+```bash
+export NAMESPACE=<INSERT_YOUR_NAMESPACE>
+
+kubectl create role func-deployer \
+  --verb=get,list,create,update,delete \
+  --resource=deployments.apps,replicasets.apps,pods,services \
+  --namespace=$NAMESPACE
+
+kubectl create rolebinding func-deployer-binding \
+  --role=func-deployer \
+  --serviceaccount=$NAMESPACE:default \
+  --namespace=$NAMESPACE
+```
+
+### Option B: KEDA Deployer
+
+Same as for the raw deployer, but additionally permissions for the `HTTPScaledObjects`:
+
+```bash
+export NAMESPACE=<INSERT_YOUR_NAMESPACE>
+
+kubectl create role func-deployer \
+  --verb=get,list,create,update,delete \
+  --resource=deployments.apps,replicasets.apps,pods,services,httpscaledobjects.http.keda.sh \
+  --namespace=$NAMESPACE
+
+kubectl create rolebinding func-deployer-binding \
+  --role=func-deployer \
+  --serviceaccount=$NAMESPACE:default \
+  --namespace=$NAMESPACE
+```
+
+### Option C: Knative Deployer
+```bash
+export NAMESPACE=<INSERT_YOUR_NAMESPACE>
+
 kubectl create clusterrolebinding $NAMESPACE:knative-serving-namespaced-admin \
---clusterrole=knative-serving-namespaced-admin  --serviceaccount=$NAMESPACE:default
+  --clusterrole=knative-serving-namespaced-admin \
+  --serviceaccount=$NAMESPACE:default
 ```
 
 ## Building a Function on Cluster
@@ -72,6 +120,15 @@ Please provide credentials for image registry used by Pipeline.
 1. In each namespace where Pipelines and Functions were deployed, uninstall following resources:
 ```bash
 export NAMESPACE=<INSERT_YOUR_NAMESPACE>
+
+# Remove the Function deployer role and binding (if created for raw or keda deployer)
+kubectl delete rolebinding func-deployer-binding --namespace=$NAMESPACE
+kubectl delete role func-deployer --namespace=$NAMESPACE
+
+# Remove the Knative Eventing cluster role binding (if created)
+kubectl delete clusterrolebinding $NAMESPACE:knative-eventing-namespaced-admin
+
+# Remove the Knative Serving cluster role binding (if created for knative deployer)
 kubectl delete clusterrolebinding $NAMESPACE:knative-serving-namespaced-admin
 
 ```
