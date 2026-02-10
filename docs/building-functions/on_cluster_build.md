@@ -13,37 +13,13 @@ kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previou
 ```
 
 ## Enabling a namespace to run Function related Tekton Pipelines
-1. Set up RBAC permissions for the `default` Service Account to deploy Functions: (This is not needed on OpenShift)
 
-```bash
-export NAMESPACE=<INSERT_YOUR_NAMESPACE>
+Set up RBAC permissions for the `default` Service Account to deploy Functions: (This is not needed on OpenShift). 
+Depending on the to be used deployers, different permissions are required: 
 
-# Add Knative Eventing permissions (required for func subscribe for all deployers)
-kubectl create clusterrolebinding $NAMESPACE:knative-eventing-namespaced-admin \
-  --clusterrole=knative-eventing-namespaced-admin \
-  --serviceaccount=$NAMESPACE:default
-```
+### Option A: Permissions for all deployers (knative, raw and Keda)
 
-In addition, choose the appropriate permissions based on which deployer you plan to use:
-
-### Option A: Raw Deployer
-```bash
-export NAMESPACE=<INSERT_YOUR_NAMESPACE>
-
-kubectl create role func-deployer \
-  --verb=get,list,create,update,delete \
-  --resource=deployments.apps,replicasets.apps,pods,services \
-  --namespace=$NAMESPACE
-
-kubectl create rolebinding func-deployer-binding \
-  --role=func-deployer \
-  --serviceaccount=$NAMESPACE:default \
-  --namespace=$NAMESPACE
-```
-
-### Option B: KEDA Deployer
-
-Same as for the raw deployer, but additionally permissions for the `HTTPScaledObjects`:
+If you plan to use all deployers, you need the full set of permissions.
 
 ```bash
 export NAMESPACE=<INSERT_YOUR_NAMESPACE>
@@ -57,11 +33,64 @@ kubectl create rolebinding func-deployer-binding \
   --role=func-deployer \
   --serviceaccount=$NAMESPACE:default \
   --namespace=$NAMESPACE
+  
+kubectl create clusterrolebinding $NAMESPACE:knative-eventing-namespaced-admin \
+  --clusterrole=knative-eventing-namespaced-admin \
+  --serviceaccount=$NAMESPACE:default
+  
+kubectl create clusterrolebinding $NAMESPACE:knative-serving-namespaced-admin \
+  --clusterrole=knative-serving-namespaced-admin \
+  --serviceaccount=$NAMESPACE:default
 ```
 
-### Option C: Knative Deployer
+### Option B: Permissions only needed for the raw Deployer
 ```bash
 export NAMESPACE=<INSERT_YOUR_NAMESPACE>
+
+kubectl create clusterrolebinding $NAMESPACE:knative-eventing-namespaced-admin \
+  --clusterrole=knative-eventing-namespaced-admin \
+  --serviceaccount=$NAMESPACE:default
+
+kubectl create role func-deployer \
+  --verb=get,list,create,update,delete \
+  --resource=deployments.apps,replicasets.apps,pods,services \
+  --namespace=$NAMESPACE
+
+kubectl create rolebinding func-deployer-binding \
+  --role=func-deployer \
+  --serviceaccount=$NAMESPACE:default \
+  --namespace=$NAMESPACE
+```
+
+### Option C: Permissions only needed for the KEDA Deployer
+
+Same as for the raw deployer, but additionally permissions for the `HTTPScaledObjects`:
+
+```bash
+export NAMESPACE=<INSERT_YOUR_NAMESPACE>
+
+kubectl create clusterrolebinding $NAMESPACE:knative-eventing-namespaced-admin \
+  --clusterrole=knative-eventing-namespaced-admin \
+  --serviceaccount=$NAMESPACE:default
+
+kubectl create role func-deployer \
+  --verb=get,list,create,update,delete \
+  --resource=deployments.apps,replicasets.apps,pods,services,httpscaledobjects.http.keda.sh \
+  --namespace=$NAMESPACE
+
+kubectl create rolebinding func-deployer-binding \
+  --role=func-deployer \
+  --serviceaccount=$NAMESPACE:default \
+  --namespace=$NAMESPACE
+```
+
+### Option D: Permissions only needed for the Knative Deployer
+```bash
+export NAMESPACE=<INSERT_YOUR_NAMESPACE>
+
+kubectl create clusterrolebinding $NAMESPACE:knative-eventing-namespaced-admin \
+  --clusterrole=knative-eventing-namespaced-admin \
+  --serviceaccount=$NAMESPACE:default
 
 kubectl create clusterrolebinding $NAMESPACE:knative-serving-namespaced-admin \
   --clusterrole=knative-serving-namespaced-admin \
