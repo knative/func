@@ -248,12 +248,12 @@ jobs:
   test-e2e-podman:
     name: E2E - Podman
     needs: precheck
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         os:
           - "ubuntu-latest"      # x86_64
           - "ubuntu-24.04-arm"   # ARM64
+    runs-on: ${{ matrix.os }}
     env:
       FUNC_CLUSTER_RETRIES: 5
       FUNC_E2E_PODMAN: true
@@ -263,8 +263,27 @@ jobs:
       - uses: actions/checkout@v4
       - uses: knative/actions/setup-go@main
 
+      - name: Install Podman
+        run: |
+          # Ubuntu 24.04 ships Podman 4.x (API 1.41) but Docker v29 on the
+          # runner requires API >= 1.44.  Install Podman 5.x from Ubuntu 25.04
+          # (Plucky) packages.  See https://github.com/containers/podman/issues/27890
+          ARCH=$(dpkg --print-architecture)
+          if [ "$ARCH" = "amd64" ]; then
+            MIRROR="http://archive.ubuntu.com/ubuntu"
+          else
+            MIRROR="http://ports.ubuntu.com/ubuntu-ports"
+          fi
+          echo "deb $MIRROR plucky main universe" \
+            | sudo tee /etc/apt/sources.list.d/ubuntu-plucky.list
+          # Pin plucky low; only pull when explicitly requested via -t
+          printf 'Package: *\nPin: release n=plucky\nPin-Priority: 100\n' \
+            | sudo tee /etc/apt/preferences.d/ubuntu-plucky
+          sudo apt-get update
+          sudo apt-get -y install -t plucky podman crun
+          podman --version
       - name: Start Podman
-        run: sudo apt update && sudo apt install -y podman && podman system service --time=0 &
+        run: podman system service --time=0 &
 
       - name: Install Binaries
         run: ./hack/binaries.sh
