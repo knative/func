@@ -14,8 +14,8 @@ kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previou
 
 ## Enabling a namespace to run Function related Tekton Pipelines
 
-Set up RBAC permissions for the `default` Service Account to deploy Functions: (This is not needed on OpenShift). 
-Depending on the to be used deployers, different permissions are required: 
+Set up RBAC permissions for the `default` Service Account to deploy Functions: (This is not needed on OpenShift).
+Depending on the to be used deployers, different permissions are required:
 
 ### Option A: Permissions for all deployers (knative, raw and Keda)
 
@@ -33,11 +33,11 @@ kubectl create rolebinding func-deployer-binding \
   --role=func-deployer \
   --serviceaccount=$NAMESPACE:default \
   --namespace=$NAMESPACE
-  
+
 kubectl create clusterrolebinding $NAMESPACE:knative-eventing-namespaced-admin \
   --clusterrole=knative-eventing-namespaced-admin \
   --serviceaccount=$NAMESPACE:default
-  
+
 kubectl create clusterrolebinding $NAMESPACE:knative-serving-namespaced-admin \
   --clusterrole=knative-serving-namespaced-admin \
   --serviceaccount=$NAMESPACE:default
