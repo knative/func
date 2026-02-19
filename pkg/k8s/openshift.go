@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -93,6 +94,12 @@ func GetDefaultOpenShiftRegistry() string {
 	return openShiftRegistryHostPort + "/" + ns
 }
 
+// IsOpenShiftInternalRegistry returns true if the given registry string
+// refers to the OpenShift internal image registry.
+func IsOpenShiftInternalRegistry(registry string) bool {
+	return strings.HasPrefix(registry, openShiftRegistryHost)
+}
+
 func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
 	conf := GetClientConfig()
 
@@ -125,6 +132,15 @@ func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
 
 var isOpenShift bool
 var checkOpenShiftOnce sync.Once
+
+// SetOpenShiftForTest overrides OpenShift detection for testing.
+// Returns a cleanup function that restores the previous state.
+func SetOpenShiftForTest(val bool) func() {
+	checkOpenShiftOnce.Do(func() {}) // ensure real detection won't run
+	prev := isOpenShift
+	isOpenShift = val
+	return func() { isOpenShift = prev }
+}
 
 func IsOpenShift() bool {
 	checkOpenShiftOnce.Do(func() {

@@ -291,9 +291,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// also update the registry because there is a registry per namespace,
 	// and their name includes the namespace.
 	// This saves needing a manual flag ``--registry={destination namespace registry}``
-	if changingNamespace(f) && k8s.IsOpenShift() {
-		// TODO(lkingland): this appears to force use of the openshift
-		// internal registry.
+	if changingNamespace(f) && k8s.IsOpenShift() && k8s.IsOpenShiftInternalRegistry(f.Registry) {
 		f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Namespace
 		if cfg.Verbose {
 			fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
