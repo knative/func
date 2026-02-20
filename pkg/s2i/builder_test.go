@@ -362,44 +362,49 @@ var _ errdefs.ErrNotFound = notFoundErr{}
 // Test_ScaffoldWritesToFuncBuild ensures that scaffolding for Go/Python
 // runtimes is written to .func/build/ instead of .s2i/build/
 func Test_ScaffoldWritesToFuncBuild(t *testing.T) {
-	var (
-		root, done = Mktemp(t)
-		f          = fn.Function{
-			Name:     "test",
-			Root:     root,
-			Runtime:  "go",
-			Registry: "example.com/alice",
-		}
-		scaffolder = s2i.NewScaffolder(false)
-		err        error
-	)
-	defer done()
+	runtimes := []string{"go", "python"}
+	for _, rt := range runtimes {
+		t.Run(rt, func(t *testing.T) {
+			var (
+				root, done = Mktemp(t)
+				f          = fn.Function{
+					Name:     "test",
+					Root:     root,
+					Runtime:  rt,
+					Registry: "example.com/alice",
+				}
+				scaffolder = s2i.NewScaffolder(false)
+				err        error
+			)
+			defer done()
 
-	// Initialize the test function
-	if f, err = fn.New().Init(f); err != nil {
-		t.Fatal(err)
-	}
+			// Initialize the test function
+			if f, err = fn.New().Init(f); err != nil {
+				t.Fatal(err)
+			}
 
-	// Call Scaffold
-	if err := scaffolder.Scaffold(context.Background(), f, ""); err != nil {
-		t.Fatal(err)
-	}
+			// Call Scaffold
+			if err := scaffolder.Scaffold(context.Background(), f, ""); err != nil {
+				t.Fatal(err)
+			}
 
-	// Assert: scaffolding should be in .func/build/
-	expectedPath := filepath.Join(root, fn.RunDataDir, fn.BuildDir)
-	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
-		t.Errorf("expected scaffolding at %s, but directory does not exist", expectedPath)
-	}
+			// Assert: scaffolding should be in .func/build/
+			expectedPath := filepath.Join(root, fn.RunDataDir, fn.BuildDir)
+			if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+				t.Errorf("expected scaffolding at %s, but directory does not exist", expectedPath)
+			}
 
-	// Assert: S2I scripts should be at .func/build/bin/
-	scriptsPath := filepath.Join(root, fn.RunDataDir, fn.BuildDir, "bin", "assemble")
-	if _, err := os.Stat(scriptsPath); os.IsNotExist(err) {
-		t.Errorf("expected assemble script at %s, but file does not exist", scriptsPath)
-	}
+			// Assert: S2I scripts should be at .func/build/bin/
+			scriptsPath := filepath.Join(root, fn.RunDataDir, fn.BuildDir, "bin", "assemble")
+			if _, err := os.Stat(scriptsPath); os.IsNotExist(err) {
+				t.Errorf("expected assemble script at %s, but file does not exist", scriptsPath)
+			}
 
-	// Assert: .s2i directory should NOT exist at root level
-	s2iPath := filepath.Join(root, ".s2i")
-	if _, err := os.Stat(s2iPath); err == nil {
-		t.Errorf(".s2i directory should not exist at root level, but found at %s", s2iPath)
+			// Assert: .s2i directory should NOT exist at root level
+			s2iPath := filepath.Join(root, ".s2i")
+			if _, err := os.Stat(s2iPath); err == nil {
+				t.Errorf(".s2i directory should not exist at root level, but found at %s", s2iPath)
+			}
+		})
 	}
 }

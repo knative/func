@@ -29,9 +29,9 @@ const (
 	// S2I related properties
 	defaultS2iImageScriptsUrl = "image:///usr/libexec/s2i"
 	quarkusS2iImageScriptsUrl = "image:///usr/local/s2i"
-	// URL (not a filesystem path), so forward slashes are used instead of filepath.Join.
+	// Note: function calls (like path.Join()) can't be used in const declaration
+	// therefore this URL is built via concatenation.
 	scaffoldedS2iImageScriptsUrl = "file://" + fn.RunDataDir + "/" + fn.BuildDir + "/bin"
-
 	// The branch or tag we are targeting with Pipelines (ie: main, refs/tags/*)
 	defaultPipelinesTargetBranch = "main"
 )
