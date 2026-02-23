@@ -19,7 +19,7 @@ jobs:
           sudo rm -rf /opt/ghc || true
       - name: Install Podman Next (Nightly Build)
         env:
-          FEDORA_RELEASE: 41
+          FEDORA_RELEASE: 42
           BASE_ARCH: x86_64
         run: |
           sudo apt update
