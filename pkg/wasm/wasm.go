@@ -12,6 +12,9 @@ const (
 	// MediaType is the OCI media type for WASM modules
 	// See: https://github.com/opencontainers/artifacts/blob/main/artifact-authors.md#defining-a-unique-artifact-type
 	MediaType = "application/vnd.wasm.module.v1+wasm"
+
+	// WasiSuffix is the suffix used to identify WASI runtimes
+	WasiSuffix = "-wasi"
 )
 
 // WASI runtime identifiers for supported languages

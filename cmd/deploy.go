@@ -14,11 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client/pkg/util"
 	"knative.dev/func/cmd/common"
-	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/utils"
 )
@@ -196,7 +194,7 @@ EXAMPLES
 	cmd.Flags().String("service-account", f.Deploy.ServiceAccountName,
 		"Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)")
 	cmd.Flags().String("deployer", f.Deploy.Deployer,
-		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service (default), '%s' for Kubernetes Deployment or '%s' for Deployment with a Keda HTTP scaler ($FUNC_DEPLOY_TYPE)", knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName))
+		fmt.Sprintf("Type of deployment to use (one of: %v). Inferred from runtime when not set. Default is '%s'. ($FUNC_DEPLOY_TYPE)", KnownDeployers(), knative.KnativeDeployerName))
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
@@ -305,7 +303,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Get options based on the value of the config such as concrete impls
 	// of builders and pushers based on the value of the --builder flag
-	clientOptions, err := cfg.clientOptions()
+	clientOptions, err := cfg.clientOptions(f.Runtime)
 	if err != nil {
 		return
 	}
@@ -432,30 +430,6 @@ func NewRegistryValidator(path string) survey.Validator {
 		}
 		return nil
 	}
-}
-
-// ValidateBuilder ensures that the given builder is one that the CLI
-// knows how to instantiate, returning a builkder.ErrUnknownBuilder otherwise.
-func ValidateBuilder(name string) (err error) {
-	for _, known := range KnownBuilders() {
-		if name == known {
-			return
-		}
-	}
-	return builders.ErrUnknownBuilder{Name: name, Known: KnownBuilders()}
-}
-
-// KnownBuilders are a typed string slice of builder short names which this
-// CLI understands.  Includes a customized String() representation intended
-// for use in flags and help text.
-func KnownBuilders() builders.Known {
-	// The set of builders supported by this CLI will likely always equate to
-	// the set of builders enumerated in the builders pacakage.
-	// However, future third-party integrations may support less than, or more
-	// builders, and certain environmental considerations may alter this list.
-
-	// Also a good place to stick feature-flags.
-	return builders.All()
 }
 
 type deployConfig struct {
@@ -767,10 +741,12 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	return
 }
 
-// clientOptions returns client options specific to deploy, including the appropriate deployer
-func (c deployConfig) clientOptions() ([]fn.Option, error) {
+// clientOptions returns client options specific to deploy, including the appropriate deployer.
+// runtime is the function's runtime (e.g. "go", "node", "wasi/http") used to infer the deployer
+// when the user has not explicitly specified one via --deployer.
+func (c deployConfig) clientOptions(runtime string) ([]fn.Option, error) {
 	// Start with build config options
-	o, err := c.buildConfig.clientOptions()
+	o, err := c.buildConfig.clientOptions(runtime)
 	if err != nil {
 		return o, err
 	}
@@ -782,22 +758,34 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 	// This is needed for remote builds (deploy --remote)
 	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(creds, c.Verbose)))
 
-	// Add the appropriate deployer based on deploy type
-	deployer := c.Deployer
-	if deployer == "" {
-		deployer = knative.KnativeDeployerName // default to knative for backwards compatibility
+	// Resolve the deployer name: explicit flag > inferred from runtime > Knative default
+	r := newRegistry()
+	deployerName := c.Deployer
+	if deployerName == "" {
+		deployerName = r.InferDeployer(runtime)
+	}
+	if deployerName == "" {
+		deployerName = knative.KnativeDeployerName // final fallback for backwards compatibility
 	}
 
-	switch deployer {
-	case knative.KnativeDeployerName:
-		o = append(o, fn.WithDeployer(newKnativeDeployer(c.Verbose)))
-	case k8s.KubernetesDeployerName:
-		o = append(o, fn.WithDeployer(newK8sDeployer(c.Verbose)))
-	case keda.KedaDeployerName:
-		o = append(o, fn.WithDeployer(newKedaDeployer(c.Verbose)))
-	default:
-		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s, %s)", deployer, knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName)
+	deployerReg, ok := r.GetDeployer(deployerName)
+	if !ok {
+		return o, fmt.Errorf("unknown deployer %q; registered deployers: %v", deployerName, r.ListDeployers())
 	}
+
+	// Validate that the resolved deployer supports the function's runtime.
+	// This guards against e.g. --deployer=knative used with a wasi runtime.
+	if runtime != "" {
+		if err := r.ValidateDeployerCompatibility(runtime, deployerName); err != nil {
+			return o, err
+		}
+	}
+
+	deployerOpts := deployerReg.Factory(fn.DeployerConfig{
+		Verbose:   c.Verbose,
+		Decorator: deployDecorator{},
+	})
+	o = append(o, deployerOpts...)
 
 	return o, nil
 }

@@ -162,24 +162,6 @@ func newKnativeDeployer(verbose bool) fn.Deployer {
 	return knative.NewDeployer(options...)
 }
 
-func newK8sDeployer(verbose bool) fn.Deployer {
-	options := []k8s.DeployerOpt{
-		k8s.WithDeployerVerbose(verbose),
-		k8s.WithDeployerDecorator(deployDecorator{}),
-	}
-
-	return k8s.NewDeployer(options...)
-}
-
-func newKedaDeployer(verbose bool) fn.Deployer {
-	options := []keda.DeployerOpt{
-		keda.WithDeployerVerbose(verbose),
-		keda.WithDeployerDecorator(deployDecorator{}),
-	}
-
-	return keda.NewDeployer(options...)
-}
-
 type deployDecorator struct {
 	oshDec k8s.OpenshiftMetadataDecorator
 }
