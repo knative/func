@@ -1,6 +1,6 @@
 {
 	"Contour": {
-		"version": "v1.21.0",
+		"version": "v1.21.1",
 		"owner": "knative-extensions",
 		"repo": "net-contour"
 	},
@@ -9,6 +9,12 @@
 		"owner": "knative",
 		"repo": "eventing"
 	},
+	"Keda": {
+		"version": "v2.17.0"
+	},
+	"KedaHTTPAddOn": {
+		"version": "v0.12.0"
+	},
 	"KindNode": {
 		"version": "v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a"
 	},
@@ -16,17 +22,11 @@
 		"version": "v0.35.2"
 	},
 	"Serving": {
-		"version": "v1.21.0",
+		"version": "v1.21.1",
 		"owner": "knative",
 		"repo": "serving"
 	},
 	"Tekton": {
 		"version": "v1.1.0"
-	},
-	"Keda": {
-		"version": "v2.17.0"
-	},
-	"KedaHTTPAddOn": {
-		"version": "v0.12.0"
 	}
 }
