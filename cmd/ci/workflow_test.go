@@ -17,7 +17,7 @@ func TestGitHubWorkflow_Export(t *testing.T) {
 		common.WorkDirStub("", nil),
 		false,
 	)
-	gw := ci.NewGitHubWorkflow(cfg)
+	gw := ci.NewGitHubWorkflow(cfg, "", &bytes.Buffer{})
 	bufferWriter := ci.NewBufferWriter()
 
 	// WHEN

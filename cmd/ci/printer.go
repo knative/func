@@ -13,6 +13,7 @@ GitHub Workflow Configuration
   Branch:             %s
   Build:              %s
   Runner:             %s
+  Test step:          %s
   Registry login:     %s
   Manual dispatch:    %s
   Workflow overwrite: %s
@@ -54,14 +55,15 @@ func PrintConfiguration(w io.Writer, conf CIConfig) error {
 		conf.Branch(),
 		builder(conf),
 		runner(conf),
-		enabledOrDisabled(conf.UseRegistryLogin()),
-		enabledOrDisabled(conf.UseWorkflowDispatch()),
+		enabledOrDisabled(conf.TestStep()),
+		enabledOrDisabled(conf.RegistryLogin()),
+		enabledOrDisabled(conf.WorkflowDispatch()),
 		enabledOrDisabled(conf.Force()),
 	); err != nil {
 		return err
 	}
 
-	if conf.UseRegistryLogin() {
+	if conf.RegistryLogin() {
 		if _, err := fmt.Fprintf(w, RequireManyPlainText,
 			secretsPrefix(conf.KubeconfigSecret()),
 			secretsPrefix(conf.RegistryPassSecret()),
@@ -86,7 +88,7 @@ func PrintConfiguration(w io.Writer, conf CIConfig) error {
 }
 
 func PrintPostExportMessage(w io.Writer, conf CIConfig) error {
-	if conf.UseRegistryLogin() {
+	if conf.RegistryLogin() {
 		_, err := fmt.Fprintf(w, PostExportManyPlainText,
 			conf.OutputPath(),
 			secretsPrefix(conf.KubeconfigSecret()),
@@ -106,7 +108,7 @@ func PrintPostExportMessage(w io.Writer, conf CIConfig) error {
 }
 
 func builder(conf CIConfig) string {
-	if conf.UseRemoteBuild() {
+	if conf.RemoteBuild() {
 		return "remote"
 	}
 	return "host"

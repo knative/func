@@ -3,7 +3,7 @@ package ci
 import "fmt"
 
 func runner(conf CIConfig) string {
-	if conf.UseSelfHostedRunner() {
+	if conf.SelfHostedRunner() {
 		return "self-hosted"
 	}
 	return "ubuntu-latest"

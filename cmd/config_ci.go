@@ -20,19 +20,20 @@ func NewConfigCICmd(
 		Use:   "ci",
 		Short: "Generate a GitHub Workflow for function deployment",
 		PreRunE: bindEnv(
-			ci.PlatformFlag,
 			ci.PathFlag,
-			ci.UseRegistryLoginFlag,
-			ci.WorkflowDispatchFlag,
-			ci.UseRemoteBuildFlag,
-			ci.UseSelfHostedRunnerFlag,
+			ci.PlatformFlag,
+			ci.RegistryLoginFlag,
 			ci.WorkflowNameFlag,
-			ci.BranchFlag,
 			ci.KubeconfigSecretNameFlag,
 			ci.RegistryLoginUrlVariableNameFlag,
 			ci.RegistryUserVariableNameFlag,
 			ci.RegistryPassSecretNameFlag,
 			ci.RegistryUrlVariableNameFlag,
+			ci.WorkflowDispatchFlag,
+			ci.RemoteBuildFlag,
+			ci.SelfHostedRunnerFlag,
+			ci.TestStepFlag,
+			ci.BranchFlag,
 			ci.ForceFlag,
 			ci.VerboseFlag,
 		),
@@ -52,50 +53,24 @@ func NewConfigCICmd(
 		},
 	}
 
+	addPathFlag(cmd)
+
 	cmd.Flags().String(
 		ci.PlatformFlag,
 		ci.DefaultPlatform,
 		"Pick a CI/CD platform for which a manifest will be generated. Currently only GitHub is supported.",
 	)
 
-	addPathFlag(cmd)
-	addVerboseFlag(cmd, ci.DefaultVerbose)
-
-	cmd.Flags().Bool(
-		ci.UseRegistryLoginFlag,
-		ci.DefaultUseRegistryLogin,
-		"Add a registry login step in the github workflow",
-	)
-
-	cmd.Flags().Bool(
-		ci.WorkflowDispatchFlag,
-		ci.DefaultWorkflowDispatch,
-		"Add a workflow dispatch trigger for manual workflow execution",
-	)
-	_ = cmd.Flags().MarkHidden(ci.WorkflowDispatchFlag)
-
-	cmd.Flags().Bool(
-		ci.UseRemoteBuildFlag,
-		ci.DefaultUseRemoteBuild,
-		"Build the function on a Tekton-enabled cluster",
-	)
-
-	cmd.Flags().Bool(
-		ci.UseSelfHostedRunnerFlag,
-		ci.DefaultUseSelfHostedRunner,
-		"Use a 'self-hosted' runner instead of the default 'ubuntu-latest' for local runner execution",
+	cmd.Flags().String(
+		ci.BranchFlag,
+		"",
+		"Use a custom branch name in the workflow",
 	)
 
 	cmd.Flags().String(
 		ci.WorkflowNameFlag,
 		ci.DefaultWorkflowName,
 		"Use a custom workflow name",
-	)
-
-	cmd.Flags().String(
-		ci.BranchFlag,
-		"",
-		"Use a custom branch name in the workflow",
 	)
 
 	cmd.Flags().String(
@@ -129,10 +104,43 @@ func NewConfigCICmd(
 	)
 
 	cmd.Flags().Bool(
+		ci.RegistryLoginFlag,
+		ci.DefaultRegistryLogin,
+		"Add a registry login step in the github workflow",
+	)
+
+	cmd.Flags().Bool(
+		ci.WorkflowDispatchFlag,
+		ci.DefaultWorkflowDispatch,
+		"Add a workflow dispatch trigger for manual workflow execution",
+	)
+	_ = cmd.Flags().MarkHidden(ci.WorkflowDispatchFlag)
+
+	cmd.Flags().Bool(
+		ci.RemoteBuildFlag,
+		ci.DefaultRemoteBuild,
+		"Build the function on a Tekton-enabled cluster",
+	)
+
+	cmd.Flags().Bool(
+		ci.SelfHostedRunnerFlag,
+		ci.DefaultSelfHostedRunner,
+		"Use a 'self-hosted' runner instead of the default 'ubuntu-latest' for local runner execution",
+	)
+
+	cmd.Flags().Bool(
+		ci.TestStepFlag,
+		ci.DefaultTestStep,
+		"Add a language-specific test step (supported: go, node, typescript, python, quarkus)",
+	)
+
+	cmd.Flags().Bool(
 		ci.ForceFlag,
 		ci.DefaultForce,
 		"Use to overwrite an existing GitHub workflow",
 	)
+
+	addVerboseFlag(cmd, ci.DefaultVerbose)
 
 	return cmd
 }
@@ -155,7 +163,7 @@ func runConfigCIGitHub(
 		return err
 	}
 
-	githubWorkflow := ci.NewGitHubWorkflow(cfg)
+	githubWorkflow := ci.NewGitHubWorkflow(cfg, f.Runtime, messageWriter)
 	path := cfg.FnGitHubWorkflowFilepath(f.Root)
 	if err := githubWorkflow.Export(path, writer, cfg.Force(), messageWriter); err != nil {
 		return err
