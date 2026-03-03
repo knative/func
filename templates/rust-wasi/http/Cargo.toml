@@ -1,0 +1,16 @@
+[package]
+name = "function"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+strip = "symbols"
+lto = true
+
+[dependencies]
+wasi = "0.14"

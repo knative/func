@@ -1670,11 +1670,13 @@ func TestClient_Runtimes(t *testing.T) {
 	expected := []string{
 		"customRuntime",
 		"go",
+		"go-wasi",
 		"manifestedRuntime",
 		"node",
 		"python",
 		"quarkus",
 		"rust",
+		"rust-wasi",
 		"springboot",
 		"test",
 		"typescript",

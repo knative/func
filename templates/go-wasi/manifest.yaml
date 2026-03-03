@@ -1,0 +1,2 @@
+# Go WASI runtime manifest.
+# The wasm builder infers the build target (wasip2) from the runtime name.

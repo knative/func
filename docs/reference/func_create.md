@@ -27,22 +27,6 @@ DESCRIPTION
 	  $ func create -c
 
 	Available Language Runtimes and Templates:
-	  Language     Template
-	  --------     --------
-	  go           cloudevents
-	  go           http
-	  node         cloudevents
-	  node         http
-	  python       cloudevents
-	  python       http
-	  quarkus      cloudevents
-	  quarkus      http
-	  rust         cloudevents
-	  rust         http
-	  springboot   cloudevents
-	  springboot   http
-	  typescript   cloudevents
-	  typescript   http
 
 
 	To install more language runtimes and their templates see 'func repository'.

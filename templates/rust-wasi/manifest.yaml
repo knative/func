@@ -1,0 +1,2 @@
+# Rust WASI runtime manifest.
+# The wasm builder infers the build target (wasm32-wasip2) from the runtime name.
