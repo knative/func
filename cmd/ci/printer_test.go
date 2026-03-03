@@ -35,7 +35,7 @@ func TestPrintConfigurationFail(t *testing.T) {
 
 	t.Run("registry secrets write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 2, err: errWrite}
-		conf := CIConfig{useRegistryLogin: true}
+		conf := CIConfig{registryLogin: true}
 
 		err := PrintConfiguration(w, conf)
 
@@ -44,7 +44,7 @@ func TestPrintConfigurationFail(t *testing.T) {
 
 	t.Run("single secret write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 2, err: errWrite}
-		conf := CIConfig{useRegistryLogin: false}
+		conf := CIConfig{registryLogin: false}
 
 		err := PrintConfiguration(w, conf)
 
@@ -55,7 +55,7 @@ func TestPrintConfigurationFail(t *testing.T) {
 func TestPrintPostExportMessageFail(t *testing.T) {
 	t.Run("with registry login write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 1, err: errWrite}
-		conf := CIConfig{useRegistryLogin: true}
+		conf := CIConfig{registryLogin: true}
 
 		err := PrintPostExportMessage(w, conf)
 
@@ -64,7 +64,7 @@ func TestPrintPostExportMessageFail(t *testing.T) {
 
 	t.Run("without registry login write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 1, err: errWrite}
-		conf := CIConfig{useRegistryLogin: false}
+		conf := CIConfig{registryLogin: false}
 
 		err := PrintPostExportMessage(w, conf)
 

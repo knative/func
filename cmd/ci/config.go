@@ -42,17 +42,20 @@ const (
 	RegistryUrlVariableNameFlag    = "registry-url-variable-name"
 	DefaultRegistryUrlVariableName = "REGISTRY_URL"
 
-	UseRegistryLoginFlag    = "use-registry-login"
-	DefaultUseRegistryLogin = true
+	RegistryLoginFlag    = "registry-login"
+	DefaultRegistryLogin = true
 
 	WorkflowDispatchFlag    = "workflow-dispatch"
 	DefaultWorkflowDispatch = false
 
-	UseRemoteBuildFlag    = "remote"
-	DefaultUseRemoteBuild = false
+	RemoteBuildFlag    = "remote"
+	DefaultRemoteBuild = false
 
-	UseSelfHostedRunnerFlag    = "self-hosted-runner"
-	DefaultUseSelfHostedRunner = false
+	SelfHostedRunnerFlag    = "self-hosted-runner"
+	DefaultSelfHostedRunner = false
+
+	TestStepFlag    = "test-step"
+	DefaultTestStep = true
 
 	ForceFlag    = "force"
 	DefaultForce = false
@@ -73,10 +76,11 @@ type CIConfig struct {
 	registryUserVar,
 	registryPassSecret,
 	registryUrlVar string
-	useRegistryLogin,
-	useSelfHostedRunner,
-	useRemoteBuild,
-	useWorkflowDispatch,
+	registryLogin,
+	selfHostedRunner,
+	remoteBuild,
+	workflowDispatch,
+	testStep,
 	force,
 	verbose bool
 }
@@ -113,10 +117,11 @@ func NewCIConfig(
 		registryUserVar:        viper.GetString(RegistryUserVariableNameFlag),
 		registryPassSecret:     viper.GetString(RegistryPassSecretNameFlag),
 		registryUrlVar:         viper.GetString(RegistryUrlVariableNameFlag),
-		useRegistryLogin:       viper.GetBool(UseRegistryLoginFlag),
-		useSelfHostedRunner:    viper.GetBool(UseSelfHostedRunnerFlag),
-		useRemoteBuild:         viper.GetBool(UseRemoteBuildFlag),
-		useWorkflowDispatch:    viper.GetBool(WorkflowDispatchFlag),
+		registryLogin:          viper.GetBool(RegistryLoginFlag),
+		selfHostedRunner:       viper.GetBool(SelfHostedRunnerFlag),
+		remoteBuild:            viper.GetBool(RemoteBuildFlag),
+		workflowDispatch:       viper.GetBool(WorkflowDispatchFlag),
+		testStep:               viper.GetBool(TestStepFlag),
 		force:                  viper.GetBool(ForceFlag),
 		verbose:                viper.GetBool(VerboseFlag),
 	}, nil
@@ -165,7 +170,7 @@ func resolveWorkflowName(explicit bool) string {
 		return workflowName
 	}
 
-	if viper.GetBool(UseRemoteBuildFlag) {
+	if viper.GetBool(RemoteBuildFlag) {
 		return DefaultRemoteBuildWorkflowName
 	}
 
@@ -180,32 +185,20 @@ func (cc CIConfig) FnGitHubWorkflowFilepath(fnRoot string) string {
 	return filepath.Join(cc.fnGitHubWorkflowDir(fnRoot), cc.githubWorkflowFilename)
 }
 
-func (cc CIConfig) Path() string {
-	return cc.path
+func (cc CIConfig) OutputPath() string {
+	return filepath.Join(cc.githubWorkflowDir, cc.githubWorkflowFilename)
 }
 
-func (cc CIConfig) WorkflowName() string {
-	return cc.workflowName
+func (cc CIConfig) Path() string {
+	return cc.path
 }
 
 func (cc CIConfig) Branch() string {
 	return cc.branch
 }
 
-func (cc CIConfig) UseRegistryLogin() bool {
-	return cc.useRegistryLogin
-}
-
-func (cc CIConfig) UseSelfHostedRunner() bool {
-	return cc.useSelfHostedRunner
-}
-
-func (cc CIConfig) UseRemoteBuild() bool {
-	return cc.useRemoteBuild
-}
-
-func (cc CIConfig) UseWorkflowDispatch() bool {
-	return cc.useWorkflowDispatch
+func (cc CIConfig) WorkflowName() string {
+	return cc.workflowName
 }
 
 func (cc CIConfig) KubeconfigSecret() string {
@@ -228,14 +221,30 @@ func (cc CIConfig) RegistryUrlVar() string {
 	return cc.registryUrlVar
 }
 
+func (cc CIConfig) RegistryLogin() bool {
+	return cc.registryLogin
+}
+
+func (cc CIConfig) SelfHostedRunner() bool {
+	return cc.selfHostedRunner
+}
+
+func (cc CIConfig) RemoteBuild() bool {
+	return cc.remoteBuild
+}
+
+func (cc CIConfig) WorkflowDispatch() bool {
+	return cc.workflowDispatch
+}
+
+func (cc CIConfig) TestStep() bool {
+	return cc.testStep
+}
+
 func (cc CIConfig) Force() bool {
 	return cc.force
 }
 
 func (cc CIConfig) Verbose() bool {
 	return cc.verbose
-}
-
-func (cc CIConfig) OutputPath() string {
-	return filepath.Join(cc.githubWorkflowDir, cc.githubWorkflowFilename)
 }

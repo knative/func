@@ -41,9 +41,10 @@ type step struct {
 	With map[string]string `yaml:"with,omitempty"`
 }
 
-func NewGitHubWorkflow(conf CIConfig) *githubWorkflow {
+func NewGitHubWorkflow(conf CIConfig, runtime string, messageWriter io.Writer) *githubWorkflow {
 	var steps []step
 	steps = createCheckoutStep(steps)
+	steps = createRuntimeTestStep(conf, steps, runtime, messageWriter)
 	steps = createK8ContextStep(conf, steps)
 	steps = createRegistryLoginStep(conf, steps)
 	steps = createFuncCLIInstallStep(steps)
@@ -61,23 +62,36 @@ func NewGitHubWorkflow(conf CIConfig) *githubWorkflow {
 	}
 }
 
-func createPushTrigger(conf CIConfig) workflowTriggers {
-	result := workflowTriggers{
-		Push: &pushTrigger{Branches: []string{conf.Branch()}},
-	}
-
-	if conf.UseWorkflowDispatch() {
-		result.WorkflowDispatch = &struct{}{}
-	}
-
-	return result
-}
-
 func createCheckoutStep(steps []step) []step {
 	checkoutCode := newStep("Checkout code").
 		withUses("actions/checkout@v4")
 
 	return append(steps, *checkoutCode)
+}
+
+func createRuntimeTestStep(conf CIConfig, steps []step, runtime string, messageWriter io.Writer) []step {
+	if !conf.TestStep() {
+		return steps
+	}
+
+	testStep := newStep("Run tests")
+
+	switch runtime {
+	case "go":
+		testStep.withRun("go test ./...")
+	case "node", "typescript":
+		testStep.withRun("npm ci && npm test")
+	case "python":
+		testStep.withRun("pip install . && python -m pytest")
+	case "quarkus":
+		testStep.withRun("./mvnw test")
+	default:
+		// best-effort user message; errors are non-critical
+		_, _ = fmt.Fprintf(messageWriter, "WARNING: test step not supported for runtime %s\n", runtime)
+		return steps
+	}
+
+	return append(steps, *testStep)
 }
 
 func createK8ContextStep(conf CIConfig, steps []step) []step {
@@ -90,7 +104,7 @@ func createK8ContextStep(conf CIConfig, steps []step) []step {
 }
 
 func createRegistryLoginStep(conf CIConfig, steps []step) []step {
-	if !conf.UseRegistryLogin() {
+	if !conf.RegistryLogin() {
 		return steps
 	}
 
@@ -114,18 +128,30 @@ func createFuncCLIInstallStep(steps []step) []step {
 
 func createFuncDeployStep(conf CIConfig, steps []step) []step {
 	runFuncDeploy := "func deploy"
-	if conf.UseRemoteBuild() {
+	if conf.RemoteBuild() {
 		runFuncDeploy += " --remote"
 	}
 
 	registryUrl := newVariable(conf.RegistryUrlVar())
-	if conf.UseRegistryLogin() {
+	if conf.RegistryLogin() {
 		registryUrl = newVariable(conf.RegistryLoginUrlVar()) + "/" + newVariable(conf.RegistryUserVar())
 	}
 	deployFunc := newStep("Deploy function").
 		withRun(runFuncDeploy + " --registry=" + registryUrl + " -v")
 
 	return append(steps, *deployFunc)
+}
+
+func createPushTrigger(conf CIConfig) workflowTriggers {
+	result := workflowTriggers{
+		Push: &pushTrigger{Branches: []string{conf.Branch()}},
+	}
+
+	if conf.WorkflowDispatch() {
+		result.WorkflowDispatch = &struct{}{}
+	}
+
+	return result
 }
 
 func newStep(name string) *step {

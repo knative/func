@@ -70,7 +70,7 @@ type Function struct {
 	// validated by the client.
 	Domain string `yaml:"domain,omitempty"`
 
-	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
+	// Runtime is the language plus context.  node|go|quarkus|rust etc.
 	Runtime string `yaml:"runtime,omitempty"`
 
 	// Template for the function.
