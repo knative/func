@@ -56,7 +56,8 @@ type Function struct {
 	// For details see the .Migrated() and .Migrate() methods.
 	SpecVersion string `yaml:"specVersion"` // semver format
 
-	// Root on disk at which to find/create source and config files.
+	// Root is the absolute path on disk at which to find/create source and
+	// config files.
 	Root string `yaml:"-"`
 
 	// Name of the function.
@@ -270,6 +271,9 @@ func NewFunction(root string) (f Function, err error) {
 		if root, err = os.Getwd(); err != nil {
 			return
 		}
+	}
+	if root, err = filepath.Abs(root); err != nil {
+		return
 	}
 	f.Root = root // path is not persisted, as this is the purview of the FS
 

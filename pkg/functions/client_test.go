@@ -556,8 +556,8 @@ func TestClient_New_ImageRegistryDefaults(t *testing.T) {
 // Deploy (and confirms expected fields calculated).
 func TestClient_New_Delegation(t *testing.T) {
 	var (
-		root          = "testdata/example.com/test-new-delegates" // .. in which to initialize
-		expectedName  = "test-new-delegates"                      // expected to be derived
+		root          = absPath("testdata/example.com/test-new-delegates") // .. in which to initialize
+		expectedName  = "test-new-delegates"                               // expected to be derived
 		expectedImage = "example.com/alice/test-new-delegates:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
@@ -642,7 +642,7 @@ func TestClient_New_Delegation(t *testing.T) {
 // See TestClient_Runner for the test of the default runner implementation.
 func TestClient_Run(t *testing.T) {
 	// Create the root function directory
-	root := "testdata/example.com/test-run"
+	root := absPath("testdata/example.com/test-run")
 	defer Using(t, root)()
 
 	// client with the mock runner and the new test function
@@ -2234,4 +2234,12 @@ func TestClient_BuildPopulatesRuntimeImage(t *testing.T) {
 	if string(got) != expect {
 		t.Fatalf("written image in ./.func/built-image '%s' does not match expected '%s'", got, expect)
 	}
+}
+
+func absPath(p string) string {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		panic(err)
+	}
+	return abs
 }
