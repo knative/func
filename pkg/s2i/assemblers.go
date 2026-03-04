@@ -106,7 +106,7 @@ function should_collectstatic() {
 function virtualenv_bin() {
     # New versions of Python (>3.6) should use venv module
     # from stdlib instead of virtualenv package
-    python3.9 -m venv $1
+    python3 -m venv $1
 }
 
 # Install pipenv or micropipenv to the separate virtualenv to isolate it
