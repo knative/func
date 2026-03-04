@@ -1337,6 +1337,78 @@ func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 	}
 }
 
+// TestDeploy_NamespaceChangePreservesExternalRegistry ensures that changing
+// namespace on OpenShift does not overwrite an external registry (e.g.
+// docker.io/user) with the internal OpenShift registry.
+// Regression test for https://github.com/knative/func/issues/2172
+func TestDeploy_NamespaceChangePreservesExternalRegistry(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	cleanup := k8s.SetOpenShiftForTest(true)
+	defer cleanup()
+
+	// Create a function deployed to "ns1" with an external registry
+	f := fn.Function{
+		Runtime:  "go",
+		Root:     root,
+		Registry: "docker.io/user",
+		Deploy:   fn.DeploySpec{Namespace: "ns1"},
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy to a different namespace
+	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
+	cmd.SetArgs([]string{"--namespace=ns2"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Reload and verify the external registry was preserved
+	f, _ = fn.NewFunction(root)
+	if f.Registry != "docker.io/user" {
+		t.Errorf("expected registry 'docker.io/user' to be preserved, got %q", f.Registry)
+	}
+}
+
+// TestDeploy_NamespaceChangeUpdatesInternalRegistry ensures that changing
+// namespace on OpenShift DOES update the registry when the function uses
+// the internal OpenShift registry (the namespace is part of the registry path).
+func TestDeploy_NamespaceChangeUpdatesInternalRegistry(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	cleanup := k8s.SetOpenShiftForTest(true)
+	defer cleanup()
+
+	// Create a function deployed to "ns1" using the internal registry
+	f := fn.Function{
+		Runtime:  "go",
+		Root:     root,
+		Registry: "image-registry.openshift-image-registry.svc:5000/ns1",
+		Deploy:   fn.DeploySpec{Namespace: "ns1"},
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy to a different namespace
+	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
+	cmd.SetArgs([]string{"--namespace=ns2"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Reload and verify the internal registry was updated to the new namespace
+	f, _ = fn.NewFunction(root)
+	expected := "image-registry.openshift-image-registry.svc:5000/ns2"
+	if f.Registry != expected {
+		t.Errorf("expected registry to update to %q, got %q", expected, f.Registry)
+	}
+}
+
 // TestDeploy_Registry ensures that a function's registry member is kept in
 // sync with the image tag.
 // During normal operation (using the client API) a function's state on disk
