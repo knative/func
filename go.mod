@@ -58,7 +58,7 @@ require (
 	gitlab.com/gitlab-org/api/client-go v0.150.0
 	golang.org/x/crypto v0.48.0
 	golang.org/x/mod v0.33.0
-	golang.org/x/net v0.50.0
+	golang.org/x/net v0.51.0
 	golang.org/x/oauth2 v0.34.0
 	golang.org/x/sync v0.19.0
 	golang.org/x/sys v0.41.0
@@ -66,16 +66,16 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/v3 v3.5.2
-	k8s.io/api v0.35.1
-	k8s.io/apimachinery v0.35.1
-	k8s.io/client-go v0.35.1
+	k8s.io/api v0.35.2
+	k8s.io/apimachinery v0.35.2
+	k8s.io/client-go v0.35.2
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20260108192941-914a6e750570
-	knative.dev/client/pkg v0.0.0-20260302142626-ac8b1989cfe0
-	knative.dev/eventing v0.48.1-0.20260302160052-223b43fa6087
+	knative.dev/client/pkg v0.0.0-20260303142256-69d2b55b0317
+	knative.dev/eventing v0.48.1-0.20260304104053-26b9071e4ef3
 	knative.dev/hack v0.0.0-20260212092700-0126b283bf20
-	knative.dev/pkg v0.0.0-20260302190359-1f39e94ef003
-	knative.dev/serving v0.48.1-0.20260301220923-ef443fb5114d
+	knative.dev/pkg v0.0.0-20260304131155-a902bbfa38de
+	knative.dev/serving v0.48.1-0.20260304122354-f161c41d3df3
 )
 
 require (
@@ -302,11 +302,11 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	k8s.io/apiextensions-apiserver v0.35.1 // indirect
-	k8s.io/apiserver v0.35.1 // indirect
+	k8s.io/apiextensions-apiserver v0.35.2 // indirect
+	k8s.io/apiserver v0.35.2 // indirect
 	k8s.io/cli-runtime v0.34.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20251125145642-4e65d59e963e // indirect
-	knative.dev/networking v0.0.0-20260223015858-080d52fcffb4 // indirect
+	knative.dev/networking v0.0.0-20260303015753-965e7c322093 // indirect
 	sigs.k8s.io/controller-runtime v0.22.1 // indirect
 	sigs.k8s.io/gateway-api v1.4.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
