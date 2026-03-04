@@ -160,6 +160,11 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if !f.Initialized() {
 		return NewErrNotInitializedFromPath(f.Root, "build")
 	}
+	// Track if builder was explicitly set via --builder flag or already persisted
+	// in func.yaml. Must be checked before Configure() overwrites f.Build.Builder
+	// with the static default from config.
+	originalBuilder := f.Build.Builder // value from func.yaml before Configure()
+	cfg.BuilderExplicit = cmd.Flags().Changed("builder") || f.Build.Builder != ""
 	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 
 	// Client
@@ -188,6 +193,14 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 			return
 		}
 	}
+	// If builder was inferred (not set via --builder or func.yaml), do not persist
+	// the inferred value. On the next build inference will be repeated, and the
+	// static default (e.g. "pack") won't accidentally lock a WASI function.
+	if !cfg.BuilderExplicit {
+		if inferred := newRegistry().InferBuilder(f.Runtime); inferred != "" {
+			f.Build.Builder = originalBuilder // restore pre-Configure value (empty → omitempty)
+		}
+	}
 	if err = f.Write(); err != nil {
 		return
 	}
@@ -199,6 +212,11 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 type buildConfig struct {
 	// Globals (builder, confirm, registry, verbose)
 	config.Global
+
+	// BuilderExplicit is true when the builder was set via --builder flag
+	// or was already persisted in func.yaml. When false, runtime-based
+	// inference is used (e.g. WASI runtimes → "wasm" builder).
+	BuilderExplicit bool
 
 	// BuilderImage is the image (name or mapping) to use for building.  Usually
 	// set automatically.
@@ -423,11 +441,17 @@ func (c buildConfig) clientOptions(runtime string) ([]fn.Option, error) {
 		return creds.Username, creds.Password, err
 	}
 
-	// Resolve the builder name: explicit flag > inferred from runtime > error
+	// Resolve the builder name:
+	//   explicit (--builder flag or func.yaml) > inferred from runtime > static default
 	r := newRegistry()
 	builderName := c.Builder
-	if builderName == "" {
-		builderName = r.InferBuilder(runtime)
+	if !c.BuilderExplicit {
+		// No explicit choice — try runtime-based inference.
+		// For traditional runtimes InferBuilder returns "" (keeps static default).
+		// For WASI runtimes it returns "wasm".
+		if inferred := r.InferBuilder(runtime); inferred != "" {
+			builderName = inferred
+		}
 	}
 
 	reg, ok := r.GetBuilder(builderName)

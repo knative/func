@@ -22,14 +22,14 @@ func TestInferBuilder_ViaRegistry(t *testing.T) {
 		want    string
 	}{
 		// WASI runtimes -> wasm builder
-		{wasm.RuntimeRustWasi, wasm.Builder},
-		{wasm.RuntimeGoWasi, wasm.Builder},
-		{wasm.RuntimePythonWasi, wasm.Builder},
-		{wasm.RuntimeJsWasi, wasm.Builder},
-		{wasm.RuntimeCWasi, wasm.Builder},
-		{wasm.RuntimeCppWasi, wasm.Builder},
-		{wasm.RuntimeDotnetWasi, wasm.Builder},
-		{wasm.RuntimeSwiftWasi, wasm.Builder},
+		{wasm.RuntimeRustWasi, wasm.BuilderName},
+		{wasm.RuntimeGoWasi, wasm.BuilderName},
+		{wasm.RuntimePythonWasi, wasm.BuilderName},
+		{wasm.RuntimeJsWasi, wasm.BuilderName},
+		{wasm.RuntimeCWasi, wasm.BuilderName},
+		{wasm.RuntimeCppWasi, wasm.BuilderName},
+		{wasm.RuntimeDotnetWasi, wasm.BuilderName},
+		{wasm.RuntimeSwiftWasi, wasm.BuilderName},
 		// Traditional runtimes -> no inference (empty)
 		{"go", ""},
 		{"node", ""},
@@ -57,9 +57,9 @@ func TestInferDeployer_ViaRegistry(t *testing.T) {
 		want    string
 	}{
 		// WASI runtimes -> wasm deployer
-		{wasm.RuntimeRustWasi, wasm.Deployer},
-		{wasm.RuntimeGoWasi, wasm.Deployer},
-		{wasm.RuntimePythonWasi, wasm.Deployer},
+		{wasm.RuntimeRustWasi, wasm.DeployerName},
+		{wasm.RuntimeGoWasi, wasm.DeployerName},
+		{wasm.RuntimePythonWasi, wasm.DeployerName},
 		// Traditional runtimes -> no inference (empty)
 		{"go", ""},
 		{"node", ""},
@@ -82,7 +82,7 @@ func TestInferDeployer_ViaRegistry(t *testing.T) {
 // only supports WASI runtimes.
 func TestWasmBuilderAcceptsOnlyWasi(t *testing.T) {
 	r := newWasmRegistry()
-	reg, ok := r.GetBuilder(wasm.Builder)
+	reg, ok := r.GetBuilder(wasm.BuilderName)
 	if !ok {
 		t.Fatalf("wasm builder not registered")
 	}
@@ -110,7 +110,7 @@ func TestWasmBuilderAcceptsOnlyWasi(t *testing.T) {
 // only supports WASI runtimes.
 func TestWasmDeployerAcceptsOnlyWasi(t *testing.T) {
 	r := newWasmRegistry()
-	reg, ok := r.GetDeployer(wasm.Deployer)
+	reg, ok := r.GetDeployer(wasm.DeployerName)
 	if !ok {
 		t.Fatalf("wasm deployer not registered")
 	}

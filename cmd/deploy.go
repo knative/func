@@ -274,6 +274,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if err = cfg.Validate(cmd); err != nil {
 		return wrapValidateError(err, "deploy")
 	}
+	// Track if builder/deployer were explicitly set via flags or already
+	// persisted in func.yaml. Must be checked before Configure() overwrites
+	// f.Build.Builder with the static default from config.
+	originalBuilder := f.Build.Builder    // value from func.yaml before Configure()
+	originalDeployer := f.Deploy.Deployer // value from func.yaml before Configure()
+	cfg.BuilderExplicit = cmd.Flags().Changed("builder") || f.Build.Builder != ""
+	cfg.DeployerExplicit = cmd.Flags().Changed("deployer") || f.Deploy.Deployer != ""
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
 	}
@@ -377,6 +384,20 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 	}
 
+	// If builder/deployer were inferred (not set via flag or func.yaml), do not persist
+	// the inferred value. On the next deploy inference will be repeated, preventing
+	// the static default (e.g. "pack"/"knative") from locking a WASI function.
+	r := newRegistry()
+	if !cfg.BuilderExplicit {
+		if inferred := r.InferBuilder(f.Runtime); inferred != "" {
+			f.Build.Builder = originalBuilder // restore pre-Configure value (empty → omitempty)
+		}
+	}
+	if !cfg.DeployerExplicit {
+		if inferred := r.InferDeployer(f.Runtime); inferred != "" {
+			f.Deploy.Deployer = originalDeployer // restore pre-Configure value (empty → omitempty)
+		}
+	}
 	// Write
 	if err = f.Write(); err != nil {
 		return
@@ -501,6 +522,11 @@ type deployConfig struct {
 
 	// Deployer specifies the type of deployment: "knative" or "raw"
 	Deployer string
+
+	// DeployerExplicit is true when the deployer was set via --deployer flag
+	// or was already persisted in func.yaml. When false, runtime-based
+	// inference is used (e.g. WASI runtimes → "wasm" deployer).
+	DeployerExplicit bool
 
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
@@ -758,11 +784,17 @@ func (c deployConfig) clientOptions(runtime string) ([]fn.Option, error) {
 	// This is needed for remote builds (deploy --remote)
 	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(creds, c.Verbose)))
 
-	// Resolve the deployer name: explicit flag > inferred from runtime > Knative default
+	// Resolve the deployer name:
+	//   explicit (--deployer flag or func.yaml) > inferred from runtime > Knative default
 	r := newRegistry()
 	deployerName := c.Deployer
-	if deployerName == "" {
-		deployerName = r.InferDeployer(runtime)
+	if !c.DeployerExplicit {
+		// No explicit choice — try runtime-based inference.
+		// For traditional runtimes InferDeployer returns "" (falls through to Knative default).
+		// For WASI runtimes it returns "wasm".
+		if inferred := r.InferDeployer(runtime); inferred != "" {
+			deployerName = inferred
+		}
 	}
 	if deployerName == "" {
 		deployerName = knative.KnativeDeployerName // final fallback for backwards compatibility

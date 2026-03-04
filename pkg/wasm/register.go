@@ -1,6 +1,8 @@
 package wasm
 
 import (
+	"context"
+
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -45,25 +47,44 @@ func nonWasiPostProcessor(exclusion, entity string) fn.PostProcessor {
 // deployers from accepting WASI runtimes.
 func Register(r *fn.Registry) {
 	// Register WASM builder with WASI-only constraint.
-	r.RegisterBuilder(Builder, wasmBuilderFactory, WasmBuilderRule())
+	r.RegisterBuilder(BuilderName, wasmBuilderFactory, WasmBuilderRule())
 
 	// Register WASM deployer with WASI-only constraint.
-	r.RegisterDeployer(Deployer, wasmDeployerFactory, WasmDeployerRule())
+	r.RegisterDeployer(DeployerName, wasmDeployerFactory, WasmDeployerRule())
 
 	// Post-processor: every builder that is NOT the wasm builder gets a
 	// "non-WASI" constraint so that traditional builders clearly reject WASI runtimes.
-	r.RegisterBuilderPostProcessor(nonWasiPostProcessor(Builder, "builder"))
+	r.RegisterBuilderPostProcessor(nonWasiPostProcessor(BuilderName, "builder"))
 
 	// Post-processor: every deployer that is NOT the wasm deployer gets the same.
-	r.RegisterDeployerPostProcessor(nonWasiPostProcessor(Deployer, "deployer"))
+	r.RegisterDeployerPostProcessor(nonWasiPostProcessor(DeployerName, "deployer"))
 }
 
-// TODO: implement WASM build toolchain integration (e.g. wasm-pack, tinygo).
-func wasmBuilderFactory(_ fn.BuilderConfig) []fn.Option {
-	return nil
+// wasmBuilderFactory creates the fn.Options needed to use the WASM builder.
+func wasmBuilderFactory(cfg fn.BuilderConfig) []fn.Option {
+	creds := adapterCredentials(cfg.Credentials)
+	return []fn.Option{
+		fn.WithBuilder(NewBuilder(
+			WithVerbose(cfg.Verbose),
+			WithCredentialsProvider(creds),
+			WithTransport(cfg.Transport),
+			WithInsecure(cfg.RegistryInsecure),
+		)),
+	}
 }
 
+// wasmDeployerFactory creates the fn.Options needed to use the WASM deployer.
 // TODO: implement WasmModule CRD deployer (deploy to a WASM runtime on-cluster).
 func wasmDeployerFactory(_ fn.DeployerConfig) []fn.Option {
 	return nil
+}
+
+// adapterCredentials converts fn.CredentialsCallback to wasm.CredentialsProvider.
+func adapterCredentials(cb fn.CredentialsCallback) CredentialsProvider {
+	if cb == nil {
+		return nil
+	}
+	return func(ctx context.Context, image string) (string, string, error) {
+		return cb(ctx, image)
+	}
 }

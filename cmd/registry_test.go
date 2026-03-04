@@ -39,8 +39,8 @@ func TestRegistry_InferBuilder_WasiRuntime(t *testing.T) {
 
 	for _, rt := range wasm.AllWasiRuntimes() {
 		got := r.InferBuilder(rt)
-		if got != wasm.Builder {
-			t.Errorf("InferBuilder(%q) = %q; want %q", rt, got, wasm.Builder)
+		if got != wasm.BuilderName {
+			t.Errorf("InferBuilder(%q) = %q; want %q", rt, got, wasm.BuilderName)
 		}
 	}
 
@@ -59,8 +59,8 @@ func TestRegistry_InferDeployer_WasiRuntime(t *testing.T) {
 
 	for _, rt := range wasm.AllWasiRuntimes() {
 		got := r.InferDeployer(rt)
-		if got != wasm.Deployer {
-			t.Errorf("InferDeployer(%q) = %q; want %q", rt, got, wasm.Deployer)
+		if got != wasm.DeployerName {
+			t.Errorf("InferDeployer(%q) = %q; want %q", rt, got, wasm.DeployerName)
 		}
 	}
 
@@ -96,11 +96,11 @@ func TestRegistry_ValidateBuilderCompatibility(t *testing.T) {
 		{runtime: wasm.RuntimeGoWasi, builder: s2i.BuilderName, wantErr: fn.ErrIncompatibility},
 		{runtime: wasm.RuntimePythonWasi, builder: oci.BuilderName, wantErr: fn.ErrIncompatibility},
 		// WASM builder accepts WASI runtimes
-		{runtime: wasm.RuntimeRustWasi, builder: wasm.Builder, wantErr: nil},
-		{runtime: wasm.RuntimeGoWasi, builder: wasm.Builder, wantErr: nil},
+		{runtime: wasm.RuntimeRustWasi, builder: wasm.BuilderName, wantErr: nil},
+		{runtime: wasm.RuntimeGoWasi, builder: wasm.BuilderName, wantErr: nil},
 		// WASM builder must reject traditional runtimes
-		{runtime: "go", builder: wasm.Builder, wantErr: fn.ErrIncompatibility},
-		{runtime: "node", builder: wasm.Builder, wantErr: fn.ErrIncompatibility},
+		{runtime: "go", builder: wasm.BuilderName, wantErr: fn.ErrIncompatibility},
+		{runtime: "node", builder: wasm.BuilderName, wantErr: fn.ErrIncompatibility},
 	}
 
 	for _, tt := range tests {
@@ -142,11 +142,11 @@ func TestRegistry_ValidateDeployerCompatibility(t *testing.T) {
 		{runtime: wasm.RuntimeGoWasi, deployer: k8s.KubernetesDeployerName, wantErr: fn.ErrIncompatibility},
 		{runtime: wasm.RuntimePythonWasi, deployer: keda.KedaDeployerName, wantErr: fn.ErrIncompatibility},
 		// WASM deployer accepts WASI runtimes
-		{runtime: wasm.RuntimeRustWasi, deployer: wasm.Deployer, wantErr: nil},
-		{runtime: wasm.RuntimeGoWasi, deployer: wasm.Deployer, wantErr: nil},
+		{runtime: wasm.RuntimeRustWasi, deployer: wasm.DeployerName, wantErr: nil},
+		{runtime: wasm.RuntimeGoWasi, deployer: wasm.DeployerName, wantErr: nil},
 		// WASM deployer must reject traditional runtimes
-		{runtime: "go", deployer: wasm.Deployer, wantErr: fn.ErrIncompatibility},
-		{runtime: "node", deployer: wasm.Deployer, wantErr: fn.ErrIncompatibility},
+		{runtime: "go", deployer: wasm.DeployerName, wantErr: fn.ErrIncompatibility},
+		{runtime: "node", deployer: wasm.DeployerName, wantErr: fn.ErrIncompatibility},
 	}
 
 	for _, tt := range tests {
