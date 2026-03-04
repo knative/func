@@ -37,6 +37,7 @@ AGENTS.override.md
 .claude/*.local.*
 .claude/pr/*
 .roo/*
+.mcp*
 
 # E2E Tests
 /e2e/testdata/default_home/go
