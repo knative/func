@@ -20,6 +20,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/google/go-cmp/cmp"
+	ignore "github.com/sabhiram/go-gitignore"
 
 	"knative.dev/func/pkg/filesystem"
 	fn "knative.dev/func/pkg/functions"
@@ -141,10 +142,36 @@ func loadLocalFiles(root string) ([]FileInfo, error) {
 		permMask = 0
 	}
 
+	// gitignoreCache maps directory absolute path → compiled gitignore rules.
+	gitignoreCache := map[string]*ignore.GitIgnore{}
+
 	err = filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
+
+		// Load .gitignore for the current directory (before checking children).
+		if info.IsDir() {
+			gitignorePath := filepath.Join(path, ".gitignore")
+			if _, statErr := os.Stat(gitignorePath); statErr == nil {
+				if _, cached := gitignoreCache[path]; !cached {
+					compiled, compileErr := ignore.CompileIgnoreFile(gitignorePath)
+					if compileErr == nil {
+						gitignoreCache[path] = compiled
+					}
+				}
+			}
+		}
+
+		// Check if this path is ignored by any .gitignore in its parent chain.
+		// Do NOT skip root itself — it becomes ".".
+		if path != root && localShouldIgnore(path, info.IsDir(), root, gitignoreCache) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
 		fi, err := os.Lstat(path)
 		if err != nil {
 			return err
@@ -176,20 +203,93 @@ func loadLocalFiles(root string) ([]FileInfo, error) {
 	return files, err
 }
 
+// localShouldIgnore mirrors the generator's shouldIgnore: returns true if
+// absPath matches any .gitignore rule cached for any parent directory up to root.
+func localShouldIgnore(absPath string, isDir bool, root string, cache map[string]*ignore.GitIgnore) bool {
+	dir := filepath.Dir(absPath)
+	for {
+		if gi, ok := cache[dir]; ok {
+			rel, err := filepath.Rel(dir, absPath)
+			if err == nil {
+				rel = filepath.ToSlash(rel)
+				if isDir {
+					rel = rel + "/"
+				}
+				if gi.MatchesPath(rel) {
+					return true
+				}
+			}
+		}
+		if dir == root || !strings.HasPrefix(dir, root) {
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return false
+}
+
 func initOSFS(t *testing.T) filesystem.Filesystem {
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return filesystem.NewOsFilesystem(filepath.Join(wd, templatesPath))
+	absRoot := filepath.Join(wd, templatesPath)
+	osFS := filesystem.NewOsFilesystem(absRoot)
+
+	// Build gitignore cache from the templates directory on disk so that the
+	// OS filesystem does not expose paths that the generator would exclude.
+	gitignoreCache := map[string]*ignore.GitIgnore{}
+	_ = filepath.Walk(absRoot, func(p string, info fs.FileInfo, err error) error {
+		if err != nil || !info.IsDir() {
+			return err
+		}
+		gip := filepath.Join(p, ".gitignore")
+		if _, statErr := os.Stat(gip); statErr == nil {
+			if compiled, compileErr := ignore.CompileIgnoreFile(gip); compileErr == nil {
+				gitignoreCache[p] = compiled
+			}
+		}
+		return nil
+	})
+
+	return filesystem.NewMaskingFS(func(relPath string) bool {
+		// relPath is slash-separated relative to root (e.g. "rust-wasi/http/target")
+		absPath := filepath.Join(absRoot, filepath.FromSlash(relPath))
+		fi, err := os.Lstat(absPath)
+		if err != nil {
+			return false
+		}
+		return localShouldIgnore(absPath, fi.IsDir(), absRoot, gitignoreCache)
+	}, osFS)
 }
 
 func initGitFS(t *testing.T) filesystem.Filesystem {
 	repoDir := t.TempDir()
 
-	err := filepath.Walk(templatesPath, func(path string, fi fs.FileInfo, err error) error {
+	absTemplates, err := filepath.Abs(templatesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitignoreCache := map[string]*ignore.GitIgnore{}
+
+	err = filepath.Walk(templatesPath, func(path string, fi fs.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		// Pre-load .gitignore for directories.
+		if fi.IsDir() {
+			gip := filepath.Join(path, ".gitignore")
+			if _, statErr := os.Stat(gip); statErr == nil {
+				absDir, _ := filepath.Abs(path)
+				if compiled, compileErr := ignore.CompileIgnoreFile(gip); compileErr == nil {
+					gitignoreCache[absDir] = compiled
+				}
+			}
 		}
 
 		rel, err := filepath.Rel(templatesPath, path)
@@ -197,6 +297,15 @@ func initGitFS(t *testing.T) filesystem.Filesystem {
 			return err
 		}
 		if rel == "" || rel == "." {
+			return nil
+		}
+
+		// Skip gitignore-excluded paths.
+		absPath, _ := filepath.Abs(path)
+		if localShouldIgnore(absPath, fi.IsDir(), absTemplates, gitignoreCache) {
+			if fi.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 

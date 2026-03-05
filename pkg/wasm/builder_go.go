@@ -14,6 +14,12 @@ type goBuilder struct {
 	verbose bool
 }
 
+// goWasmBinaryPath returns the path where the Go WASM binary will be placed
+// relative to the function root (module.wasm at root).
+func goWasmBinaryPath(root string) string {
+	return filepath.Join(root, "module.wasm")
+}
+
 // build compiles the Go source in the given directory to a WASM binary using TinyGo.
 // It returns the path to the produced module.wasm file.
 //

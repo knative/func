@@ -34,6 +34,14 @@ var ErrNoImageRef = errors.New("no image reference configured")
 // etc.) is not found on the PATH.
 var ErrToolchainNotFound = errors.New("build toolchain not found")
 
+// ErrClientSetup is returned when the WasmModule Kubernetes clientset cannot
+// be constructed (e.g. missing or invalid kubeconfig).
+var ErrClientSetup = errors.New("failed to set up wasm client")
+
+// ErrCRDNotFound is returned when the WasmModule CRD is not installed on the
+// cluster.  Users should be directed to install knative-serving-wasm.
+var ErrCRDNotFound = errors.New("WasmModule CRD not found; install knative-serving-wasm controller")
+
 // ErrNoBinaryProduced is returned when the build toolchain succeeds but no
 // .wasm binary can be located in the expected output directory.
 var ErrNoBinaryProduced = errors.New("no WASM binary produced")

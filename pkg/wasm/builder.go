@@ -3,7 +3,6 @@ package wasm
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
@@ -16,28 +15,23 @@ type Compiler interface {
 	Build(ctx context.Context, root string) (wasmPath string, err error)
 }
 
-// Pusher pushes a WASM binary as an OCI artifact to the registry at imageRef
-// and returns the content digest.
-type Pusher interface {
-	Push(ctx context.Context, imageRef, wasmPath string) (digest string, err error)
-}
-
 // Builder implements fn.Builder for WASI/WASM functions.
-// It compiles source code to a WASM binary and pushes it as an OCI artifact.
+// It compiles source code to a WASM binary only; it does NOT push to a registry.
 //
-// By default, Builder selects a Compiler implementation based on the function
-// runtime (rustBuilder for rust-wasi, goBuilder for go-wasi) and uses the
-// default OCI pusher. Both can be overridden via WithCompiler and WithPusher
-// for testing or custom integration.
+// The standard build/push/deploy pipeline is:
+//
+//	func build  → Builder.Build()  (compile .wasm binary at its natural output location)
+//	func build --push or func deploy → Pusher.Push()  (push OCI artifact to registry)
+//	func deploy → Deployer.Deploy() (create/update WasmModule CR)
+//
+// Builder selects a Compiler implementation based on the function runtime
+// (rustBuilder for rust-wasi, goBuilder for go-wasi).
+// The Compiler can be overridden via WithCompiler for testing or custom integration.
 type Builder struct {
-	verbose             bool
-	credentialsProvider CredentialsProvider
-	transport           http.RoundTripper
-	insecure            bool
+	verbose bool
 
-	// compiler and pusher are injectable for testing; nil means use defaults.
+	// compiler is injectable for testing; nil means use the runtime-selected default.
 	compiler Compiler
-	pusher   Pusher
 }
 
 // Option is a functional option for Builder.
@@ -50,40 +44,11 @@ func WithVerbose(v bool) Option {
 	}
 }
 
-// WithCredentialsProvider sets the registry credentials provider.
-func WithCredentialsProvider(cp CredentialsProvider) Option {
-	return func(b *Builder) {
-		b.credentialsProvider = cp
-	}
-}
-
-// WithTransport sets the HTTP transport for registry communication.
-func WithTransport(t http.RoundTripper) Option {
-	return func(b *Builder) {
-		b.transport = t
-	}
-}
-
-// WithInsecure disables TLS certificate verification for registry communication.
-func WithInsecure(insecure bool) Option {
-	return func(b *Builder) {
-		b.insecure = insecure
-	}
-}
-
 // WithCompiler overrides the default language-specific Compiler used during
 // Build. Primarily intended for testing.
 func WithCompiler(c Compiler) Option {
 	return func(b *Builder) {
 		b.compiler = c
-	}
-}
-
-// WithPusher overrides the default OCI Pusher used during Build.
-// Primarily intended for testing.
-func WithPusher(p Pusher) Option {
-	return func(b *Builder) {
-		b.pusher = p
 	}
 }
 
@@ -96,13 +61,14 @@ func NewBuilder(opts ...Option) *Builder {
 	return b
 }
 
-// Build compiles the function at f.Root to a WASM binary, then pushes it
-// as an OCI WASM artifact to the registry, and sets f.Build.Image.
+// Build compiles the function at f.Root to a WASM binary.
+// The binary is left at its natural compiler output location:
+//   - rust-wasi: target/wasm32-wasip2/release/<name>.wasm
+//   - go-wasi:   module.wasm (at function root)
 //
-// Build implements the fn.Builder interface:
+// Downstream tasks (Pusher, Deployer) locate the binary via WasmBinaryPath.
 //
-//	func Build(ctx context.Context, f fn.Function, platforms []fn.Platform) error
-//
+// Build implements the fn.Builder interface.
 // Platforms are intentionally ignored for WASM builds — WASM binaries are
 // architecture-independent by design.
 func (b *Builder) Build(ctx context.Context, f fn.Function, _ []fn.Platform) error {
@@ -111,8 +77,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, _ []fn.Platform) err
 	}
 
 	// Validate the OCI image reference before doing any work.
-	imageRef := f.Build.Image
-	if imageRef == "" {
+	if f.Build.Image == "" {
 		return fmt.Errorf("function %q: %w", f.Name, ErrNoImageRef)
 	}
 
@@ -139,25 +104,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, _ []fn.Platform) err
 		return fmt.Errorf("compiling WASM for runtime %q: %w", f.Runtime, err)
 	}
 
-	// Select the pusher: use the injected one (for testing) or the real OCI pusher.
-	pusher := b.pusher
-	if pusher == nil {
-		pusher = &ociPusher{
-			credentialsProvider: b.credentialsProvider,
-			transport:           b.transport,
-			insecure:            b.insecure,
-			verbose:             b.verbose,
-		}
-	}
-
-	// Push the WASM binary as an OCI artifact.
-	digest, err := pusher.Push(ctx, imageRef, wasmPath)
-	if err != nil {
-		return fmt.Errorf("pushing WASM OCI artifact: %w", err)
-	}
-
 	if b.verbose {
-		fmt.Fprintf(os.Stderr, "Pushed WASM OCI artifact: %s@%s\n", imageRef, digest)
+		fmt.Fprintf(os.Stderr, "WASM binary compiled: %s\n", wasmPath)
 	}
 	return nil
 }
@@ -174,4 +122,27 @@ func baseLanguage(runtime string) (string, error) {
 		return "", fmt.Errorf("runtime %q: %w", runtime, ErrNotWasiRuntime)
 	}
 	return lang, nil
+}
+
+// WasmBinaryPath returns the path to the compiled WASM binary for function f.
+// The path is determined by the runtime (from func.yaml) and the function root
+// directory.  This is the canonical location where each compiler leaves its
+// output so that the Pusher and other downstream tasks can pick it up without
+// any file movement.
+//
+//   - rust-wasi: target/wasm32-wasip2/release/<name>.wasm  (found via glob)
+//   - go-wasi:   module.wasm  (at function root)
+func WasmBinaryPath(f fn.Function) (string, error) {
+	lang, err := baseLanguage(f.Runtime)
+	if err != nil {
+		return "", err
+	}
+	switch lang {
+	case "rust":
+		return findWasmBinary(f.Root)
+	case "go":
+		return goWasmBinaryPath(f.Root), nil
+	default:
+		return "", fmt.Errorf("WASM binary path: runtime %q: %w", f.Runtime, ErrNotImplemented)
+	}
 }

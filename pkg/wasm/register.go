@@ -60,23 +60,43 @@ func Register(r *fn.Registry) {
 	r.RegisterDeployerPostProcessor(nonWasiPostProcessor(DeployerName, "deployer"))
 }
 
-// wasmBuilderFactory creates the fn.Options needed to use the WASM builder.
+// wasmBuilderFactory creates the fn.Options needed to use the WASM builder and pusher.
+// The builder only compiles; pushing is done via the registered fn.Pusher.
 func wasmBuilderFactory(cfg fn.BuilderConfig) []fn.Option {
 	creds := adapterCredentials(cfg.Credentials)
 	return []fn.Option{
 		fn.WithBuilder(NewBuilder(
 			WithVerbose(cfg.Verbose),
-			WithCredentialsProvider(creds),
-			WithTransport(cfg.Transport),
-			WithInsecure(cfg.RegistryInsecure),
+		)),
+		fn.WithPusher(NewPusher(
+			WithPusherVerbose(cfg.Verbose),
+			WithPusherCredentials(creds),
+			WithPusherTransport(cfg.Transport),
+			WithPusherInsecure(cfg.RegistryInsecure),
 		)),
 	}
 }
 
 // wasmDeployerFactory creates the fn.Options needed to use the WASM deployer.
-// TODO: implement WasmModule CRD deployer (deploy to a WASM runtime on-cluster).
-func wasmDeployerFactory(_ fn.DeployerConfig) []fn.Option {
-	return nil
+func wasmDeployerFactory(cfg fn.DeployerConfig) []fn.Option {
+	var deployerOpts []DeployerOpt
+	deployerOpts = append(deployerOpts, WithDeployerVerbose(cfg.Verbose))
+
+	var listerOpts []ListerOpt
+	listerOpts = append(listerOpts, WithListerVerbose(cfg.Verbose))
+
+	var removerOpts []RemoverOpt
+	removerOpts = append(removerOpts, WithRemoverVerbose(cfg.Verbose))
+
+	var describerOpts []DescriberOpt
+	describerOpts = append(describerOpts, WithDescriberVerbose(cfg.Verbose))
+
+	return []fn.Option{
+		fn.WithDeployer(NewDeployer(deployerOpts...)),
+		fn.WithListers(NewLister(listerOpts...)),
+		fn.WithRemovers(NewRemover(removerOpts...)),
+		fn.WithDescribers(NewDescriber(describerOpts...)),
+	}
 }
 
 // adapterCredentials converts fn.CredentialsCallback to wasm.CredentialsProvider.

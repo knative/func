@@ -213,6 +213,61 @@ type DeploySpec struct {
 	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw,enum=keda"`
 
 	Subscriptions []KnativeSubscription `yaml:"subscriptions,omitempty"`
+
+	// Network specifies WASI network permissions for WASM functions.
+	// Only used when the deployer is "wasm".
+	// +optional
+	Network *NetworkSpec `yaml:"network,omitempty"`
+}
+
+// NetworkSpec specifies WASI network permissions for a WASM function.
+// Maps directly to WasmModule.spec.network in the knative-serving-wasm CRD.
+type NetworkSpec struct {
+	// Inherit indicates whether to inherit the host's full network stack.
+	// When true, all network operations are allowed.
+	// Defaults to false.
+	// +optional
+	Inherit bool `yaml:"inherit,omitempty"`
+
+	// AllowIpNameLookup enables DNS resolution.
+	// Defaults to true when Network is specified.
+	// +optional
+	AllowIpNameLookup *bool `yaml:"allowIpNameLookup,omitempty"`
+
+	// Tcp specifies TCP socket permissions.
+	// +optional
+	Tcp *TcpNetworkSpec `yaml:"tcp,omitempty"`
+
+	// Udp specifies UDP socket permissions.
+	// +optional
+	Udp *UdpNetworkSpec `yaml:"udp,omitempty"`
+}
+
+// TcpNetworkSpec specifies TCP socket permissions for WASI.
+type TcpNetworkSpec struct {
+	// Bind is a list of address patterns allowed for TCP bind.
+	// +optional
+	Bind []string `yaml:"bind,omitempty"`
+
+	// Connect is a list of address patterns allowed for outbound TCP connections.
+	// Format: "host:port", wildcards: "*:443", "host:*", "*:*"
+	// +optional
+	Connect []string `yaml:"connect,omitempty"`
+}
+
+// UdpNetworkSpec specifies UDP socket permissions for WASI.
+type UdpNetworkSpec struct {
+	// Bind is a list of address patterns allowed for UDP bind.
+	// +optional
+	Bind []string `yaml:"bind,omitempty"`
+
+	// Connect is a list of address patterns allowed for outbound UDP.
+	// +optional
+	Connect []string `yaml:"connect,omitempty"`
+
+	// Outgoing is a list of address patterns allowed for outgoing UDP datagrams.
+	// +optional
+	Outgoing []string `yaml:"outgoing,omitempty"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime

@@ -82,6 +82,7 @@ allocate_cluster() {
   echo "dpr:  Dapr Runtime"
   echo "tkt:  Tekton Pipelines"
   echo "keda: Keda"
+  echo "wsm:  Knative Serving WASM"
   echo ""
 
   ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
@@ -90,6 +91,7 @@ allocate_cluster() {
   ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
   ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
   ( set -o pipefail; (keda && keda_http_addon) 2>&1 | sed  -e 's/^/keda /')&
+  ( set -o pipefail; serving_wasm 2>&1 | sed  -e 's/^/wsm /')&
 
   local job
   for job in $(jobs -p); do
@@ -113,10 +115,10 @@ nodes:
     image: kindest/node:${kind_node_version}
     extraPortMappings:
     - containerPort: 80
-      hostPort: 80
+      hostPort: 8080
       listenAddress: "127.0.0.1"
     - containerPort: 443
-      hostPort: 443
+      hostPort: 8443
       listenAddress: "127.0.0.1"
     - containerPort: 30022
       hostPort: 30022
@@ -682,6 +684,28 @@ keda_http_addon() {
 
   $KUBECTL get pod -n keda
   echo "${green}✅ Keda HTTP add-on${reset}"
+}
+
+serving_wasm() {
+  echo "${blue}Installing Knative Serving WASM${reset}"
+
+  local wasm_repo="${WASM_KO_DOCKER_REPO:-kind.local}"
+
+  local tmp_dir
+  tmp_dir="$(mktemp -d)"
+
+  git clone --depth=1 https://github.com/cardil/knative-serving-wasm.git "${tmp_dir}" 2>&1
+
+  KO_DOCKER_REPO="${wasm_repo}" \
+    KUBECONFIG="${KUBECONFIG}" \
+    "${tmp_dir}/goyek" --verbose deploy 2>&1
+
+  rm -rf "${tmp_dir}"
+
+  $KUBECTL wait --for=condition=Available deployment/controller \
+    -n knative-wasm --timeout=5m
+
+  echo "${green}✅ Knative Serving WASM${reset}"
 }
 
 next_steps() {

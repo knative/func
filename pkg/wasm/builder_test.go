@@ -13,9 +13,7 @@ import (
 
 // mockCompiler is an injectable Compiler implementation for testing.
 type mockCompiler struct {
-	// BuildFn is called when Build is invoked.
-	BuildFn func(ctx context.Context, root string) (string, error)
-	// capturedRoot is the root directory passed to Build.
+	BuildFn      func(ctx context.Context, root string) (string, error)
 	capturedRoot string
 }
 
@@ -24,27 +22,7 @@ func (m *mockCompiler) Build(ctx context.Context, root string) (string, error) {
 	if m.BuildFn != nil {
 		return m.BuildFn(ctx, root)
 	}
-	// Default: succeed and return a fake wasm path.
 	return filepath.Join(root, "module.wasm"), nil
-}
-
-// mockPusher is an injectable Pusher implementation for testing.
-type mockPusher struct {
-	// PushFn is called when Push is invoked.
-	PushFn func(ctx context.Context, imageRef, wasmPath string) (string, error)
-	// captured fields record what was passed to Push.
-	capturedImageRef string
-	capturedWasmPath string
-}
-
-func (m *mockPusher) Push(ctx context.Context, imageRef, wasmPath string) (string, error) {
-	m.capturedImageRef = imageRef
-	m.capturedWasmPath = wasmPath
-	if m.PushFn != nil {
-		return m.PushFn(ctx, imageRef, wasmPath)
-	}
-	// Default: succeed and return a fake digest.
-	return "sha256:deadbeef", nil
 }
 
 // TestBuilder_UnsupportedRuntime verifies that Build wraps ErrNotImplemented
@@ -109,7 +87,6 @@ func TestBuilder_MissingImageRef(t *testing.T) {
 	f := fn.Function{
 		Root:    t.TempDir(),
 		Runtime: wasm.RuntimeRustWasi,
-		// No Build.Image set.
 	}
 	err := b.Build(context.Background(), f, nil)
 	if !errors.Is(err, wasm.ErrNoImageRef) {
@@ -152,8 +129,7 @@ func TestBuilder_GoMissingTinygo(t *testing.T) {
 }
 
 // TestBuilder_PlatformsIgnored verifies that the platforms argument is ignored
-// (WASM binaries are platform-independent). The result should be the same
-// regardless of whether platforms are provided.
+// (WASM binaries are architecture-independent).
 func TestBuilder_PlatformsIgnored(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
@@ -179,15 +155,9 @@ func TestBuilder_ImplementsInterface(t *testing.T) {
 	var _ fn.Builder = (*wasm.Builder)(nil)
 }
 
-// TestBuilder_FullPipeline verifies the complete build pipeline using
-// injectable mock Compiler and Pusher — the same approach as buildpacks/s2i
-// which inject mock implementations.
-//
-// This test verifies:
-//   - Compiler.Build is called with the correct root directory
-//   - Pusher.Push is called with the correct imageRef and wasmPath
-//   - Build returns nil on success
-func TestBuilder_FullPipeline(t *testing.T) {
+// TestBuilder_Build verifies that Build calls the Compiler with the correct
+// root directory and returns nil on success.
+func TestBuilder_Build(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -202,39 +172,18 @@ func TestBuilder_FullPipeline(t *testing.T) {
 			return expectedWasmPath, nil
 		},
 	}
-	pusher := &mockPusher{
-		PushFn: func(ctx context.Context, ref, wasmPath string) (string, error) {
-			if ref != imageRef {
-				t.Errorf("pusher got imageRef=%q, want %q", ref, imageRef)
-			}
-			if wasmPath != expectedWasmPath {
-				t.Errorf("pusher got wasmPath=%q, want %q", wasmPath, expectedWasmPath)
-			}
-			return "sha256:abc123", nil
-		},
-	}
 
-	b := wasm.NewBuilder(
-		wasm.WithCompiler(compiler),
-		wasm.WithPusher(pusher),
-	)
+	b := wasm.NewBuilder(wasm.WithCompiler(compiler))
 	f := fn.Function{
 		Root:    root,
-		Runtime: wasm.RuntimeRustWasi, // runtime is irrelevant when compiler is injected
+		Runtime: wasm.RuntimeRustWasi,
 		Build:   fn.BuildSpec{Image: imageRef},
 	}
 	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatalf("Build() unexpected error: %v", err)
 	}
-
 	if compiler.capturedRoot != root {
 		t.Errorf("compiler.capturedRoot=%q, want %q", compiler.capturedRoot, root)
-	}
-	if pusher.capturedImageRef != imageRef {
-		t.Errorf("pusher.capturedImageRef=%q, want %q", pusher.capturedImageRef, imageRef)
-	}
-	if pusher.capturedWasmPath != expectedWasmPath {
-		t.Errorf("pusher.capturedWasmPath=%q, want %q", pusher.capturedWasmPath, expectedWasmPath)
 	}
 }
 
@@ -261,41 +210,15 @@ func TestBuilder_CompilerError(t *testing.T) {
 	}
 }
 
-// TestBuilder_PusherError verifies that a push error is propagated.
-func TestBuilder_PusherError(t *testing.T) {
-	t.Parallel()
-
-	pushErr := errors.New("push failed")
-	compiler := &mockCompiler{}
-	pusher := &mockPusher{
-		PushFn: func(ctx context.Context, imageRef, wasmPath string) (string, error) {
-			return "", pushErr
-		},
-	}
-
-	b := wasm.NewBuilder(wasm.WithCompiler(compiler), wasm.WithPusher(pusher))
-	f := fn.Function{
-		Root:    t.TempDir(),
-		Runtime: wasm.RuntimeRustWasi,
-		Build:   fn.BuildSpec{Image: "reg/ns/fn:latest"},
-	}
-	err := b.Build(context.Background(), f, nil)
-	if !errors.Is(err, pushErr) {
-		t.Fatalf("expected error wrapping pushErr, got: %v", err)
-	}
-}
-
 // TestFindWasmBinary_NoWasm verifies that when the build toolchain succeeds
 // but produces no .wasm binary, Build wraps ErrNoBinaryProduced.
 func TestFindWasmBinary_NoWasm(t *testing.T) {
 	fakeDir := t.TempDir()
 
-	// Fake cargo that exits successfully without producing any output.
 	fakeCargoPath := filepath.Join(fakeDir, "cargo")
 	if err := os.WriteFile(fakeCargoPath, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	// Fake rustup that reports wasm32-wasip2 as installed.
 	fakeRustupPath := filepath.Join(fakeDir, "rustup")
 	if err := os.WriteFile(fakeRustupPath, []byte("#!/bin/sh\necho wasm32-wasip2\n"), 0755); err != nil {
 		t.Fatal(err)
@@ -304,7 +227,6 @@ func TestFindWasmBinary_NoWasm(t *testing.T) {
 	t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	root := t.TempDir()
-	// Create the release directory but leave it empty (no .wasm files).
 	releaseDir := filepath.Join(root, "target", "wasm32-wasip2", "release")
 	if err := os.MkdirAll(releaseDir, 0755); err != nil {
 		t.Fatal(err)

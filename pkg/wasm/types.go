@@ -12,9 +12,9 @@ import (
 type WasiNetworkConfig = wasmv1alpha1.NetworkSpec
 
 // WasiTCPConfig specifies TCP socket permissions for WASI.
-// Alias for TcpSpec from knative-serving-wasm.
-type WasiTCPConfig = wasmv1alpha1.TcpSpec
+// Alias for TCPSpec from knative-serving-wasm.
+type WasiTCPConfig = wasmv1alpha1.TCPSpec
 
 // WasiUDPConfig specifies UDP socket permissions for WASI.
-// Alias for UdpSpec from knative-serving-wasm.
-type WasiUDPConfig = wasmv1alpha1.UdpSpec
+// Alias for UDPSpec from knative-serving-wasm.
+type WasiUDPConfig = wasmv1alpha1.UDPSpec

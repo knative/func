@@ -15,6 +15,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+
+	fn "knative.dev/func/pkg/functions"
 )
 
 const (
@@ -102,6 +104,62 @@ func (p *ociPusher) Push(ctx context.Context, imageRef, wasmPath string) (digest
 		return "", fmt.Errorf("getting image digest: %w", err)
 	}
 	return d.String(), nil
+}
+
+// PushFunction implements fn.Pusher for WASM functions.
+// It locates the compiled .wasm binary via WasmBinaryPath, then delegates to
+// the low-level Push(imageRef, wasmPath) to push the OCI WASM artifact.
+func (p *ociPusher) PushFunction(ctx context.Context, f fn.Function) (string, error) {
+	imageRef := f.Build.Image
+	if imageRef == "" {
+		return "", fmt.Errorf("function %q: %w", f.Name, ErrNoImageRef)
+	}
+
+	wasmPath, err := WasmBinaryPath(f)
+	if err != nil {
+		return "", fmt.Errorf("locating WASM binary for %q: %w", f.Name, err)
+	}
+
+	return p.Push(ctx, imageRef, wasmPath)
+}
+
+// wasmFnPusher wraps ociPusher and implements fn.Pusher.
+type wasmFnPusher struct{ inner *ociPusher }
+
+func (w *wasmFnPusher) Push(ctx context.Context, f fn.Function) (string, error) {
+	return w.inner.PushFunction(ctx, f)
+}
+
+// PusherOpt is a functional option for the WASM fn.Pusher.
+type PusherOpt func(*ociPusher)
+
+// WithPusherVerbose enables verbose logging.
+func WithPusherVerbose(verbose bool) PusherOpt {
+	return func(p *ociPusher) { p.verbose = verbose }
+}
+
+// WithPusherCredentials sets the registry credentials provider.
+func WithPusherCredentials(cp CredentialsProvider) PusherOpt {
+	return func(p *ociPusher) { p.credentialsProvider = cp }
+}
+
+// WithPusherTransport sets the HTTP transport.
+func WithPusherTransport(t http.RoundTripper) PusherOpt {
+	return func(p *ociPusher) { p.transport = t }
+}
+
+// WithPusherInsecure disables TLS verification.
+func WithPusherInsecure(insecure bool) PusherOpt {
+	return func(p *ociPusher) { p.insecure = insecure }
+}
+
+// NewPusher creates a new WASM fn.Pusher with the given options.
+func NewPusher(opts ...PusherOpt) fn.Pusher {
+	p := &ociPusher{}
+	for _, o := range opts {
+		o(p)
+	}
+	return &wasmFnPusher{inner: p}
 }
 
 // BuildWasmOCIArtifact constructs a v1.Image that represents a WASM OCI artifact
