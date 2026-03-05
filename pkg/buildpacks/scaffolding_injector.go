@@ -9,26 +9,26 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
+	mobyClient "github.com/moby/moby/client"
 )
 
 // Hack implementation of DockerClient that overrides CopyToContainer method.
 // The CopyToContainer method hijacks the uploaded project stream and injects function scaffolding to it.
 // It basically moves content of /workspace to /workspace/fn and then setup scaffolding code directly in /workspace.
 type pyScaffoldInjector struct {
-	client.APIClient
+	mobyClient.APIClient
 	invoke string
 }
 
-func (s pyScaffoldInjector) CopyToContainer(ctx context.Context, ctr, p string, r io.Reader, opts container.CopyToContainerOptions) error {
+func (s pyScaffoldInjector) CopyToContainer(ctx context.Context, ctr string, options mobyClient.CopyToContainerOptions) (mobyClient.CopyToContainerResult, error) {
 
 	if pc, _, _, ok := runtime.Caller(1); ok &&
 		!strings.Contains(runtime.FuncForPC(pc).Name(), "build.copyDir") {
 		// We are not called by "project dir copy" so we do simple direct forward call.
-		return s.APIClient.CopyToContainer(ctx, ctr, p, r, opts)
+		return s.APIClient.CopyToContainer(ctx, ctr, options)
 	}
 
+	r := options.Content
 	pr, pw := io.Pipe()
 	go func() {
 		var err error
@@ -70,7 +70,8 @@ func (s pyScaffoldInjector) CopyToContainer(ctx context.Context, ctr, p string, 
 		err = tw.Close()
 	}()
 
-	return s.APIClient.CopyToContainer(ctx, ctr, p, pr, opts)
+	options.Content = pr
+	return s.APIClient.CopyToContainer(ctx, ctr, options)
 }
 
 func writePythonScaffolding(tw *tar.Writer, invoke string) error {
