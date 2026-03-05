@@ -2,8 +2,10 @@
 
 package docker
 
-import "github.com/docker/docker/client"
+import (
+	mobyClient "github.com/moby/moby/client"
+)
 
-func newClientWithPodmanService() (dockerClient client.APIClient, dockerHost string, err error) {
+func newClientWithPodmanService() (*mobyClient.Client, string, error) {
 	panic("only implemented on Linux")
 }

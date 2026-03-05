@@ -16,10 +16,6 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -29,15 +25,18 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	types2 "github.com/google/go-containerregistry/pkg/v1/types"
+	mobyRegistry "github.com/moby/moby/api/types/registry"
+	mobyClient "github.com/moby/moby/client"
+	"github.com/moby/moby/client/pkg/jsonmessage"
 	"golang.org/x/term"
 )
 
 type Opt func(*Pusher)
 
-// PusherDockerClient is sub-interface of client.APIClient required by pusher.
+// PusherDockerClient is sub-interface of mobyClient.APIClient required by pusher.
 type PusherDockerClient interface {
 	daemon.Client
-	ImagePush(ctx context.Context, ref string, options image.PushOptions) (io.ReadCloser, error)
+	ImagePush(ctx context.Context, ref string, options mobyClient.ImagePushOptions) (mobyClient.ImagePushResponse, error)
 	Close() error
 }
 
@@ -81,8 +80,11 @@ func NewPusher(opts ...Opt) *Pusher {
 		credentialsProvider: oci.EmptyCredentialsProvider,
 		transport:           http.DefaultTransport,
 		dockerClientFactory: func() (PusherDockerClient, error) {
-			c, _, err := NewClient(client.DefaultDockerHost)
-			return c, err
+			cli, _, err := NewClient(mobyClient.DefaultDockerHost)
+			if err != nil {
+				return nil, err
+			}
+			return cli.(*closeGuardingClient), nil
 		},
 	}
 	for _, opt := range opts {
@@ -209,7 +211,7 @@ func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials oci.
 	}
 	defer cli.Close()
 
-	authConfig := registry.AuthConfig{
+	authConfig := mobyRegistry.AuthConfig{
 		Username: credentials.Username,
 		Password: credentials.Password,
 	}
@@ -219,7 +221,7 @@ func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials oci.
 		return "", err
 	}
 
-	opts := image.PushOptions{RegistryAuth: base64.StdEncoding.EncodeToString(b)}
+	opts := mobyClient.ImagePushOptions{RegistryAuth: base64.StdEncoding.EncodeToString(b)}
 
 	r, err := cli.ImagePush(ctx, f.Build.Image, opts)
 	if err != nil {

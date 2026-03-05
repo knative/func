@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/client"
+	mobyClient "github.com/moby/moby/client"
 
 	"knative.dev/func/pkg/buildpacks"
 	fn "knative.dev/func/pkg/functions"
@@ -83,13 +83,13 @@ func initFunction(t *testing.T, name string) fn.Function {
 
 func assertMiddlewareLabel(t *testing.T, ctx context.Context, image string) {
 	t.Helper()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := mobyClient.New(mobyClient.FromEnv)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cli.Close()
 
-	inspect, _, err := cli.ImageInspectWithRaw(ctx, image)
+	inspect, err := cli.ImageInspect(ctx, image)
 	if err != nil {
 		t.Fatalf("failed to inspect image %s: %v", image, err)
 	}

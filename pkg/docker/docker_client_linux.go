@@ -11,12 +11,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/client"
+	mobyClient "github.com/moby/moby/client"
 )
 
-// creates a docker client that has its own podman service associated with it
-// the service is shutdown when Close() is called on the client
-func newClientWithPodmanService() (dockerClient client.APIClient, dockerHost string, err error) {
+// newClientWithPodmanService creates a moby client that has its own podman
+// service associated with it. The service is shutdown when Close() is called
+// on the client.
+func newClientWithPodmanService() (dockerClient *mobyClient.Client, dockerHost string, err error) {
 	tmpDir, err := os.MkdirTemp("", "func-podman-")
 	if err != nil {
 		return
@@ -40,30 +41,26 @@ func newClientWithPodmanService() (dockerClient client.APIClient, dockerHost str
 	waitErrCh := make(chan error)
 	go func() { waitErrCh <- cmd.Wait() }()
 
-	dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithHost(dockerHost), client.WithAPIVersionNegotiation())
+	dockerClient, err = mobyClient.New(mobyClient.FromEnv, mobyClient.WithHost(dockerHost))
+	if err != nil {
+		return
+	}
 	stopPodmanService := func() {
 		_ = cmd.Process.Signal(syscall.SIGTERM)
 		_ = os.RemoveAll(tmpDir)
 
 		select {
 		case <-waitErrCh:
-			// the podman service has been shutdown, we don't care about error
 			return
 		case <-time.After(time.Second * 1):
-			// failed to gracefully shutdown the podman service, sending SIGKILL
 			_ = cmd.Process.Signal(syscall.SIGKILL)
 		}
-	}
-	dockerClient = clientWithAdditionalCleanup{
-		APIClient: dockerClient,
-		cleanUp:   stopPodmanService,
 	}
 
 	svcUpCh := make(chan struct{})
 	go func() {
-		// give a time to podman to start
 		for i := 0; i < 40; i++ {
-			if _, e := dockerClient.Ping(context.Background()); e == nil {
+			if _, e := dockerClient.Ping(context.Background(), mobyClient.PingOptions{}); e == nil {
 				svcUpCh <- struct{}{}
 			}
 			time.Sleep(time.Millisecond * 250)
@@ -77,7 +74,6 @@ func newClientWithPodmanService() (dockerClient client.APIClient, dockerHost str
 		stopPodmanService()
 		err = errors.New("the podman service has not come up in time")
 	case err = <-waitErrCh:
-		// If this `case` is not selected then the waitErrCh is eventually read by calling stopPodmanService
 		if err != nil {
 			err = fmt.Errorf("failed to start the podman service (cmd out: %q): %w", outBuff.String(), err)
 		} else {

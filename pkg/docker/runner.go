@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	mobyContainer "github.com/moby/moby/api/types/container"
+	mobyNetwork "github.com/moby/moby/api/types/network"
+	mobyClient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 
 	fn "knative.dev/func/pkg/functions"
@@ -61,16 +61,12 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 	var (
 		host = DefaultHost
 		port = DefaultPort
-		c    client.APIClient // Docker client
-		id   string           // ID of running container
-		conn net.Conn         // Connection to container's stdio
+		c    mobyClient.APIClient // Docker client
+		id   string               // ID of running container
+		conn net.Conn             // Connection to container's stdio
 
 		// Channels for gathering runtime errors from the container instance
-		copyErrCh  = make(chan error, 10)
-		contBodyCh <-chan container.WaitResponse
-		contErrCh  <-chan error
-
-		// Combined runtime error channel for sending all errors to caller
+		copyErrCh    = make(chan error, 10)
 		runtimeErrCh = make(chan error, 10)
 	)
 
@@ -89,7 +85,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 	if f.Build.Image == "" {
 		return job, ErrNoImage{}
 	}
-	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {
+	if c, _, err = NewClient(mobyClient.DefaultDockerHost); err != nil {
 		return job, errors.Wrap(err, "failed to create Docker API client")
 	}
 	if id, err = newContainer(ctx, c, f, host, port, n.verbose); err != nil {
@@ -100,13 +96,15 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 	}
 
 	// Wait for errors premature exits
-	contBodyCh, contErrCh = c.ContainerWait(ctx, id, container.WaitConditionNextExit)
+	waitResult := c.ContainerWait(ctx, id, mobyClient.ContainerWaitOptions{
+		Condition: mobyContainer.WaitConditionNextExit,
+	})
 	go func() {
 		for {
 			select {
 			case err = <-copyErrCh:
 				runtimeErrCh <- err
-			case body := <-contBodyCh:
+			case body := <-waitResult.Result:
 				// NOTE: currently an exit is not expected and thus a return, for any
 				// reason, is considered an error even when the exit code is 0.
 				// Functions are expected to be long-running processes that do not exit
@@ -114,39 +112,14 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 				// change in the future, this channel-based wait may need to be
 				// expanded to accept the case of a voluntary, successful exit.
 				runtimeErrCh <- fmt.Errorf("exited code %v", body.StatusCode)
-			case err = <-contErrCh:
+			case err = <-waitResult.Error:
 				runtimeErrCh <- err
 			}
 		}
 	}()
 
-	if err = c.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
+	if _, err = c.ContainerStart(ctx, id, mobyClient.ContainerStartOptions{}); err != nil {
 		return job, errors.Wrap(err, "runner unable to start container")
-	}
-
-	readyCh := make(chan error, 1)
-	go func() {
-		deadline := time.Now().Add(startTimeout)
-		for {
-			if time.Now().After(deadline) {
-				readyCh <- fmt.Errorf("container did not become ready in %v", startTimeout)
-				return
-			}
-			if err = dial(host, port, 500*time.Millisecond); err == nil {
-				readyCh <- nil
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}()
-
-	select {
-	case err = <-readyCh:
-		if err != nil {
-			return job, err
-		}
-	case <-ctx.Done():
-		return job, ctx.Err()
 	}
 
 	// Stopper
@@ -156,13 +129,12 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 			ctx     = context.Background()
 		)
 		timeoutSecs := int(timeout.Seconds())
-		ctrStopOpts := container.StopOptions{
+		if _, err = c.ContainerStop(ctx, id, mobyClient.ContainerStopOptions{
 			Timeout: &timeoutSecs,
-		}
-		if err = c.ContainerStop(ctx, id, ctrStopOpts); err != nil {
+		}); err != nil {
 			return fmt.Errorf("error stopping container %v: %v", id, err)
 		}
-		if err = c.ContainerRemove(ctx, id, container.RemoveOptions{}); err != nil {
+		if _, err = c.ContainerRemove(ctx, id, mobyClient.ContainerRemoveOptions{}); err != nil {
 			return fmt.Errorf("error removing container %v: %v", id, err)
 		}
 		if err = conn.Close(); err != nil {
@@ -254,10 +226,10 @@ func choosePort(host, preferredPort string, dialTimeout time.Duration) string {
 
 }
 
-func newContainer(ctx context.Context, c client.APIClient, f fn.Function, host, port string, verbose bool) (id string, err error) {
+func newContainer(ctx context.Context, c mobyClient.APIClient, f fn.Function, host, port string, verbose bool) (id string, err error) {
 	var (
-		containerCfg container.Config
-		hostCfg      container.HostConfig
+		containerCfg mobyContainer.Config
+		hostCfg      mobyContainer.HostConfig
 	)
 	if containerCfg, err = newContainerConfig(f, port, verbose); err != nil {
 		return
@@ -265,23 +237,25 @@ func newContainer(ctx context.Context, c client.APIClient, f fn.Function, host, 
 	if hostCfg, err = newHostConfig(host, port); err != nil {
 		return
 	}
-	t, err := c.ContainerCreate(ctx, &containerCfg, &hostCfg, nil, nil, "")
+	t, err := c.ContainerCreate(ctx, mobyClient.ContainerCreateOptions{
+		Config:     &containerCfg,
+		HostConfig: &hostCfg,
+	})
 	if err != nil {
 		return
 	}
 	return t.ID, nil
 }
 
-func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Config, err error) {
-	// httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
-	httpPort := nat.Port("8080/tcp")
-	c = container.Config{
+func newContainerConfig(f fn.Function, _ string, verbose bool) (c mobyContainer.Config, err error) {
+	httpPort := mobyNetwork.MustParsePort("8080/tcp")
+	c = mobyContainer.Config{
 		Image:        f.Build.Image,
 		Tty:          false,
 		AttachStderr: true,
 		AttachStdout: true,
 		AttachStdin:  false,
-		ExposedPorts: map[nat.Port]struct{}{httpPort: {}},
+		ExposedPorts: mobyNetwork.PortSet{httpPort: {}},
 	}
 
 	// Environment Variables
@@ -301,33 +275,33 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	return
 }
 
-func newHostConfig(host, port string) (c container.HostConfig, err error) {
-	// httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
-	httpPort := nat.Port("8080/tcp")
-	ports := map[nat.Port][]nat.PortBinding{
+func newHostConfig(host, port string) (c mobyContainer.HostConfig, err error) {
+	httpPort := mobyNetwork.MustParsePort("8080/tcp")
+	hostAddr, err := netip.ParseAddr(host)
+	if err != nil {
+		return c, fmt.Errorf("invalid host address %q: %w", host, err)
+	}
+	ports := mobyNetwork.PortMap{
 		httpPort: {
-			nat.PortBinding{
+			mobyNetwork.PortBinding{
 				HostPort: port,
-				HostIP:   host,
+				HostIP:   hostAddr,
 			},
 		},
 	}
-	return container.HostConfig{PortBindings: ports}, nil
+	return mobyContainer.HostConfig{PortBindings: ports}, nil
 }
 
 // copy stdin and stdout from the container of the given ID.  Errors encountered
 // during copy are communicated via a provided errs channel.
-func copyStdio(ctx context.Context, c client.APIClient, id string, errs chan error, out, errOut io.Writer) (conn net.Conn, err error) {
-	var (
-		res types.HijackedResponse
-		opt = container.AttachOptions{
-			Stdout: true,
-			Stderr: true,
-			Stdin:  false,
-			Stream: true,
-		}
-	)
-	if res, err = c.ContainerAttach(ctx, id, opt); err != nil {
+func copyStdio(ctx context.Context, c mobyClient.APIClient, id string, errs chan error, out, errOut io.Writer) (conn net.Conn, err error) {
+	res, err := c.ContainerAttach(ctx, id, mobyClient.ContainerAttachOptions{
+		Stdout: true,
+		Stderr: true,
+		Stdin:  false,
+		Stream: true,
+	})
+	if err != nil {
 		return conn, errors.Wrap(err, "runner unable to attach to container's stdio")
 	}
 	go func() {

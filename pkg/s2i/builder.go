@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	dockerClient "github.com/docker/docker/client"
+	mobyClient "github.com/moby/moby/client"
 	"github.com/openshift/source-to-image/pkg/api"
 	"github.com/openshift/source-to-image/pkg/api/validation"
 	"github.com/openshift/source-to-image/pkg/build"
@@ -122,8 +122,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 	var client = b.cli
 	if client == nil {
-		var c dockerClient.APIClient
-		c, _, err = docker.NewClient(dockerClient.DefaultDockerHost)
+		var c mobyClient.APIClient
+		c, _, err = docker.NewClient(mobyClient.DefaultDockerHost)
 		if err != nil {
 			return fmt.Errorf("cannot create docker client: %w", err)
 		}

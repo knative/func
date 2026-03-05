@@ -7,7 +7,7 @@ import (
 	"time"
 
 	winio "github.com/Microsoft/go-winio"
-	"github.com/docker/docker/client"
+	mobyClient "github.com/moby/moby/client"
 
 	"knative.dev/func/pkg/docker"
 )
@@ -22,7 +22,7 @@ func TestNewClientWinPipe(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*1)
 	defer cancel()
 
-	dockerClient, dockerHostToMount, err := docker.NewClient(client.DefaultDockerHost)
+	dockerClient, dockerHostToMount, err := docker.NewClient(mobyClient.DefaultDockerHost)
 	if err != nil {
 		t.Error(err)
 	}
@@ -32,7 +32,7 @@ func TestNewClientWinPipe(t *testing.T) {
 		t.Error("dockerHostToMount should be empty for npipe")
 	}
 
-	_, err = dockerClient.Ping(ctx)
+	_, err = dockerClient.Ping(ctx, mobyClient.PingOptions{})
 	if err != nil {
 		t.Error(err)
 	}

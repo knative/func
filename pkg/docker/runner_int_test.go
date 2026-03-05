@@ -13,8 +13,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol/http"
-	"github.com/docker/docker/api/types/image"
-	dockerClient "github.com/docker/docker/client"
+	mobyClient "github.com/moby/moby/client"
 
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
@@ -99,11 +98,11 @@ func TestInt_Run(t *testing.T) {
 
 func prePullTestImages(t *testing.T, img string) {
 	t.Helper()
-	c, _, err := docker.NewClient(dockerClient.DefaultDockerHost)
+	c, _, err := docker.NewClient(mobyClient.DefaultDockerHost)
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp, err := c.ImagePull(t.Context(), img, image.PullOptions{})
+	resp, err := c.ImagePull(t.Context(), img, mobyClient.ImagePullOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

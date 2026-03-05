@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/client"
+	mobyClient "github.com/moby/moby/client"
 	"golang.org/x/crypto/ssh"
 
 	"knative.dev/func/pkg/docker"
@@ -37,7 +37,7 @@ func TestNewDockerClientWithSSH(t *testing.T) {
 
 	t.Setenv("DOCKER_HOST", fmt.Sprintf("ssh://user:pwd@%s", sshConf.address))
 
-	dockerClient, dockerHostInRemote, err := docker.NewClient(client.DefaultDockerHost)
+	dockerClient, dockerHostInRemote, err := docker.NewClient(mobyClient.DefaultDockerHost)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestNewDockerClientWithSSH(t *testing.T) {
 		t.Errorf("bad remote DOCKER_HOST: expected %q but got %q", `unix://`+sshDockerSocket, dockerHostInRemote)
 	}
 
-	_, err = dockerClient.Ping(ctx)
+	_, err = dockerClient.Ping(ctx, mobyClient.PingOptions{})
 	if err != nil {
 		t.Error(err)
 	}

@@ -24,8 +24,6 @@ import (
 	"github.com/buildpacks/pack/pkg/dist"
 	bpimage "github.com/buildpacks/pack/pkg/image"
 	"github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types/image"
-	docker "github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	ghAuth "github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -37,6 +35,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/go-github/v68/github"
+	moby "github.com/moby/moby/client"
 	"github.com/paketo-buildpacks/libpak/carton"
 	"github.com/pelletier/go-toml"
 )
@@ -107,8 +106,8 @@ func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlP
 
 	addRustBuildpack(&builderConfig)
 
-	var dockerClient docker.APIClient
-	dockerClient, err = docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+	var dockerClient moby.APIClient
+	dockerClient, err = moby.New(moby.FromEnv)
 	if err != nil {
 		return "", fmt.Errorf("cannot create docker client")
 	}
@@ -682,10 +681,10 @@ var DefaultKeychain = authn.NewMultiKeychain(ghAuth.Keychain, authn.DefaultKeych
 // For some reason moby/docker erroneously returns 500 HTTP code for these missing images.
 // Interestingly podman correctly returns 404 for same request.
 type hackDockerClient struct {
-	docker.APIClient
+	moby.APIClient
 }
 
-func (c hackDockerClient) ImagePull(ctx context.Context, ref string, options image.PullOptions) (io.ReadCloser, error) {
+func (c hackDockerClient) ImagePull(ctx context.Context, ref string, options moby.ImagePullOptions) (moby.ImagePullResponse, error) {
 	if strings.HasPrefix(ref, "ghcr.io/knative/buildpacks/") {
 		return nil, fmt.Errorf("this image is supposed to exist only in daemon: %w", errdefs.ErrNotFound)
 	}

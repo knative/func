@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/client"
+	mobyClient "github.com/moby/moby/client"
 
 	"knative.dev/func/pkg/docker"
 )
@@ -34,7 +34,7 @@ func TestNewClient(t *testing.T) {
 
 	t.Setenv("DOCKER_HOST", dockerHost)
 
-	dockerClient, dockerHostInRemote, err := docker.NewClient(client.DefaultDockerHost)
+	dockerClient, dockerHostInRemote, err := docker.NewClient(mobyClient.DefaultDockerHost)
 	if err != nil {
 		t.Error(err)
 	}
@@ -47,7 +47,7 @@ func TestNewClient(t *testing.T) {
 		t.Errorf("unexpected dockerHostInRemote: expected empty string, but got %q", dockerHostInRemote)
 	}
 
-	_, err = dockerClient.Ping(ctx)
+	_, err = dockerClient.Ping(ctx, mobyClient.PingOptions{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -82,7 +82,7 @@ func TestNewClient_DockerHost(t *testing.T) {
 			}
 
 			t.Setenv("DOCKER_HOST", tt.dockerHostEnvVar)
-			_, host, err := docker.NewClient(client.DefaultDockerHost)
+			_, host, err := docker.NewClient(mobyClient.DefaultDockerHost)
 			if err != nil {
 				t.Fatal(err)
 			}

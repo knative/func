@@ -18,14 +18,91 @@ import (
 	"time"
 
 	"github.com/docker/cli/cli/config"
-	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/tlsconfig"
-	"golang.org/x/crypto/ssh"
+	mobyClient "github.com/moby/moby/client"
+	gossh "golang.org/x/crypto/ssh"
 
 	fnssh "knative.dev/func/pkg/ssh"
 )
 
 var ErrNoDocker = errors.New("docker/podman API not available")
+
+// dockerHostInfo holds the results of docker host discovery.
+type dockerHostInfo struct {
+	dockerHost       string
+	dockerHostRemote string
+	sshIdentity      string
+	hostKeyCallback  fnssh.HostKeyCallback
+	isSSH            bool
+	isTCP            bool
+}
+
+// resolveDockerHost performs docker host discovery.
+// It reads DOCKER_HOST env var, checks socket existence, detects podman,
+// and determines the docker host for use inside containers.
+// If needsPodmanService is true, the caller should spawn a podman service (Linux only).
+func resolveDockerHost(defaultHost string) (info *dockerHostInfo, needsPodmanService bool, err error) {
+	info = &dockerHostInfo{
+		hostKeyCallback: fnssh.NewHostKeyCbk(),
+	}
+
+	dockerHost := os.Getenv("DOCKER_HOST")
+	dockerHostSSHIdentity := os.Getenv("DOCKER_HOST_SSH_IDENTITY")
+
+	if dockerHost == "" {
+		_url, e := url.Parse(defaultHost)
+		if e != nil {
+			err = e
+			return
+		}
+		_, statErr := os.Stat(_url.Path)
+		switch {
+		case statErr == nil:
+			dockerHost = defaultHost
+		case statErr != nil && !os.IsNotExist(statErr):
+			err = statErr
+			return
+		case os.IsNotExist(statErr) && podmanPresent():
+			if runtime.GOOS == "linux" {
+				needsPodmanService = true
+				return
+			}
+			// on non-Linux: try to use connection to podman machine
+			dh, dhid := tryGetPodmanRemoteConn()
+			if dh != "" {
+				dockerHost, dockerHostSSHIdentity = dh, dhid
+				info.hostKeyCallback = fnssh.HostKeyCallback(
+					func(string, gossh.PublicKey) error { return nil },
+				)
+			}
+		}
+	}
+
+	if dockerHost == "" {
+		err = ErrNoDocker
+		return
+	}
+
+	info.dockerHost = dockerHost
+	info.dockerHostRemote = dockerHost
+	info.sshIdentity = dockerHostSSHIdentity
+
+	_url, e := url.Parse(dockerHost)
+	info.isSSH = e == nil && _url.Scheme == "ssh"
+	info.isTCP = e == nil && _url.Scheme == "tcp"
+	isNPipe := e == nil && _url.Scheme == "npipe"
+	isUnix := e == nil && _url.Scheme == "unix"
+
+	if info.isTCP || isNPipe {
+		info.dockerHostRemote = ""
+	}
+
+	if isUnix && (runtime.GOOS == "darwin" || strings.HasSuffix(dockerHost, ".docker/desktop/docker.sock")) {
+		info.dockerHostRemote = ""
+	}
+
+	return
+}
 
 // NewClient creates a new docker client.
 // reads the DOCKER_HOST envvar but it may or may not return it as dockerHost.
@@ -33,92 +110,48 @@ var ErrNoDocker = errors.New("docker/podman API not available")
 //     DOCKER_HOST directly.
 //   - For ssh connections it reads the DOCKER_HOST from the ssh remote.
 //   - For TCP connections it returns "" so it defaults in the remote (note that
-//     one should not be use client.DefaultDockerHost in this situation). This is
-//     needed beaus of TCP+tls connections.
-func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInRemote string, err error) {
-	var _url *url.URL
+//     one should not be use mobyClient.DefaultDockerHost in this situation). This is
+//     needed because of TCP+tls connections.
+func NewClient(defaultHost string) (mobyClient.APIClient, string, error) {
+	info, needsPodman, err := resolveDockerHost(defaultHost)
+	if err != nil {
+		return nil, "", err
+	}
 
-	dockerHost := os.Getenv("DOCKER_HOST")
-	dockerHostSSHIdentity := os.Getenv("DOCKER_HOST_SSH_IDENTITY")
-	hostKeyCallback := fnssh.NewHostKeyCbk()
-
-	if dockerHost == "" {
-		_url, err = url.Parse(defaultHost)
+	if needsPodman {
+		cli, host, err := newClientWithPodmanService()
 		if err != nil {
-			return
+			return nil, "", err
 		}
-		_, err = os.Stat(_url.Path)
-		switch {
-		case err == nil:
-			dockerHost = defaultHost
-		case err != nil && !os.IsNotExist(err):
-			return
-		case os.IsNotExist(err) && podmanPresent():
-			if runtime.GOOS == "linux" {
-				// on Linux: spawn temporary podman service
-				dockerClient, dockerHostInRemote, err = newClientWithPodmanService()
-				dockerClient = &closeGuardingClient{pimpl: dockerClient}
-				return
-			} else {
-				// on non-Linux: try to use connection to podman machine
-				dh, dhid := tryGetPodmanRemoteConn()
-				if dh != "" {
-					dockerHost, dockerHostSSHIdentity = dh, dhid
-					hostKeyCallback = func(hostPort string, pubKey ssh.PublicKey) error {
-						return nil
-					}
-				}
+		return &closeGuardingClient{pimpl: cli}, host, nil
+	}
+
+	if !info.isSSH {
+		opts := []mobyClient.Opt{mobyClient.FromEnv}
+		if info.isTCP {
+			if httpClient := newTLSHTTPClient(mobyClient.CheckRedirect); httpClient != nil {
+				opts = append(opts, mobyClient.WithHTTPClient(httpClient))
 			}
 		}
-	}
-
-	if dockerHost == "" {
-		return nil, "", ErrNoDocker
-	}
-
-	dockerHostInRemote = dockerHost
-
-	_url, err = url.Parse(dockerHost)
-	isSSH := err == nil && _url.Scheme == "ssh"
-	isTCP := err == nil && _url.Scheme == "tcp"
-	isNPipe := err == nil && _url.Scheme == "npipe"
-	isUnix := err == nil && _url.Scheme == "unix"
-
-	if isTCP || isNPipe {
-		// With TCP or npipe, it's difficult to determine how to expose the daemon socket to lifecycle containers,
-		// so we are defaulting to standard docker location by returning empty string.
-		// This should work well most of the time.
-		dockerHostInRemote = ""
-	}
-
-	if isUnix && (runtime.GOOS == "darwin" || strings.HasSuffix(dockerHost, ".docker/desktop/docker.sock")) {
-		// The unix socket is most likely tunneled from VM,
-		// so it cannot be mounted under that path.
-		dockerHostInRemote = ""
-	}
-
-	if !isSSH {
-		opts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
-		if isTCP {
-			if httpClient := newHttpClient(); httpClient != nil {
-				opts = append(opts, client.WithHTTPClient(httpClient))
-			}
+		cli, err := mobyClient.New(opts...)
+		if err != nil {
+			return nil, "", err
 		}
-		dockerClient, err = client.NewClientWithOpts(opts...)
-		dockerClient = &closeGuardingClient{pimpl: dockerClient}
-		return
+		return &closeGuardingClient{pimpl: cli}, info.dockerHostRemote, nil
 	}
 
+	// SSH case
 	credentialsConfig := fnssh.Config{
-		Identity:           dockerHostSSHIdentity,
+		Identity:           info.sshIdentity,
 		PassPhrase:         os.Getenv("DOCKER_HOST_SSH_IDENTITY_PASSPHRASE"),
 		PasswordCallback:   fnssh.NewPasswordCbk(),
 		PassPhraseCallback: fnssh.NewPassPhraseCbk(),
-		HostKeyCallback:    hostKeyCallback,
+		HostKeyCallback:    info.hostKeyCallback,
 	}
+	_url, _ := url.Parse(info.dockerHost)
 	contextDialer, dockerHostInRemote, err := fnssh.NewDialContext(_url, credentialsConfig)
 	if err != nil {
-		return
+		return nil, "", err
 	}
 
 	httpClient := &http.Client{
@@ -129,27 +162,26 @@ func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInR
 		},
 	}
 
-	dockerClient, err = client.NewClientWithOpts(
-		client.WithAPIVersionNegotiation(),
-		client.WithHTTPClient(httpClient))
+	cli, err := mobyClient.New(
+		mobyClient.WithHTTPClient(httpClient))
+	if err != nil {
+		return nil, "", err
+	}
 
+	cg := &closeGuardingClient{pimpl: cli}
 	if closer, ok := contextDialer.(io.Closer); ok {
-		dockerClient = clientWithAdditionalCleanup{
-			APIClient: dockerClient,
-			cleanUp: func() {
-				closer.Close()
-			},
+		cg.cleanUp = func() {
+			closer.Close()
 		}
 	}
 
-	dockerClient = &closeGuardingClient{pimpl: dockerClient}
-	return dockerClient, dockerHostInRemote, err
+	return cg, dockerHostInRemote, nil
 }
 
-// If the DOCKER_TLS_VERIFY environment variable is set
-// this function returns HTTP client with appropriately configured TLS config.
-// Otherwise, nil is returned.
-func newHttpClient() *http.Client {
+// newTLSHTTPClient returns an HTTP client configured for TLS if DOCKER_TLS_VERIFY is set.
+// Otherwise, nil is returned. The checkRedirect parameter should be
+// mobyClient.CheckRedirect or client.CheckRedirect depending on the caller.
+func newTLSHTTPClient(checkRedirect func(*http.Request, []*http.Request) error) *http.Client {
 	tlsVerifyStr, tlsVerifyChanged := os.LookupEnv("DOCKER_TLS_VERIFY")
 
 	if !tlsVerifyChanged {
@@ -209,7 +241,7 @@ func newHttpClient() *http.Client {
 			TLSClientConfig: tlsConfig,
 			DialContext:     dialer.DialContext,
 		},
-		CheckRedirect: client.CheckRedirect,
+		CheckRedirect: checkRedirect,
 	}
 }
 
@@ -245,15 +277,4 @@ func tryGetPodmanRemoteConn() (uri string, identity string) {
 func podmanPresent() bool {
 	_, err := exec.LookPath("podman")
 	return err == nil
-}
-
-type clientWithAdditionalCleanup struct {
-	client.APIClient
-	cleanUp func()
-}
-
-// Close function need to stop associated podman service
-func (w clientWithAdditionalCleanup) Close() error {
-	defer w.cleanUp()
-	return w.APIClient.Close()
 }
