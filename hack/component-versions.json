@@ -28,5 +28,10 @@
 	},
 	"KedaHTTPAddOn": {
 		"version": "v0.12.0"
+	},
+	"KnativeServingWasm": {
+		"version": "v0.1.0",
+		"owner": "cardil",
+		"repo": "knative-serving-wasm"
 	}
 }

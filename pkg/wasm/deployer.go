@@ -189,7 +189,7 @@ func buildWasmModuleSpec(f fn.Function) (wasmv1alpha1.WasmModuleSpec, error) {
 	spec.Resources = buildResourceRequirements(f.Deploy.Options)
 
 	// WASI network permissions from deploy.network.
-	spec.Network = buildNetworkSpec(f.Deploy.Network)
+	spec.Network = BuildNetworkSpec(f.Deploy.Network)
 
 	return spec, nil
 }
@@ -232,26 +232,26 @@ func buildResourceRequirements(opts fn.Options) corev1.ResourceRequirements {
 	return reqs
 }
 
-// buildNetworkSpec maps fn.NetworkSpec to wasmv1alpha1.NetworkSpec.
-func buildNetworkSpec(n *fn.NetworkSpec) *wasmv1alpha1.NetworkSpec {
+// BuildNetworkSpec maps fn.NetworkSpec to wasmv1alpha1.NetworkSpec.
+func BuildNetworkSpec(n *fn.NetworkSpec) *wasmv1alpha1.NetworkSpec {
 	if n == nil {
 		return nil
 	}
 
 	ns := &wasmv1alpha1.NetworkSpec{
 		Inherit:           n.Inherit,
-		AllowIpNameLookup: n.AllowIpNameLookup,
+		AllowIPNameLookup: n.AllowIpNameLookup,
 	}
 
 	if n.Tcp != nil {
-		ns.Tcp = &wasmv1alpha1.TcpSpec{
+		ns.TCP = &wasmv1alpha1.TCPSpec{
 			Bind:    n.Tcp.Bind,
 			Connect: n.Tcp.Connect,
 		}
 	}
 
 	if n.Udp != nil {
-		ns.Udp = &wasmv1alpha1.UdpSpec{
+		ns.UDP = &wasmv1alpha1.UDPSpec{
 			Bind:     n.Udp.Bind,
 			Connect:  n.Udp.Connect,
 			Outgoing: n.Udp.Outgoing,

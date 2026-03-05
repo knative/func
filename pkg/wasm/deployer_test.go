@@ -1,4 +1,4 @@
-package wasm
+package wasm_test
 
 import (
 	"context"
@@ -13,10 +13,11 @@ import (
 
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/wasm"
 )
 
-// fakeProvider returns a ClientsetProvider backed by the given fake clientset.
-func fakeProvider(cs wasmclientset.Interface) ClientsetProvider {
+// fakeProvider returns a wasm.ClientsetProvider backed by the given fake clientset.
+func fakeProvider(cs wasmclientset.Interface) wasm.ClientsetProvider {
 	return func() (wasmclientset.Interface, error) {
 		return cs, nil
 	}
@@ -34,7 +35,7 @@ func newFakeClientset(objs ...runtime.Object) *fakewasm.Clientset {
 func minimalFunction(name, namespace, image string) fn.Function {
 	return fn.Function{
 		Name:    name,
-		Runtime: RuntimeRustWasi,
+		Runtime: wasm.RuntimeRustWasi,
 		Deploy: fn.DeploySpec{
 			Namespace: namespace,
 			Image:     image,
@@ -44,8 +45,9 @@ func minimalFunction(name, namespace, image string) fn.Function {
 
 // TestDeploy_Create verifies that deploying a new function creates a WasmModule.
 func TestDeploy_Create(t *testing.T) {
+	t.Parallel()
 	cs := newFakeClientset()
-	d := NewDeployer(WithDeployerClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDeployer(wasm.WithDeployerClientsetProvider(fakeProvider(cs)))
 
 	f := minimalFunction("my-func", "default", "registry.example.com/my-func:latest")
 	result, err := d.Deploy(context.Background(), f)
@@ -67,19 +69,20 @@ func TestDeploy_Create(t *testing.T) {
 	if wm.Spec.Image != "registry.example.com/my-func:latest" {
 		t.Errorf("unexpected image %q", wm.Spec.Image)
 	}
-	if wm.Annotations[deployer.DeployerNameAnnotation] != DeployerName {
+	if wm.Annotations[deployer.DeployerNameAnnotation] != wasm.DeployerName {
 		t.Errorf("deployer annotation not set; got %q", wm.Annotations[deployer.DeployerNameAnnotation])
 	}
 }
 
 // TestDeploy_Update verifies that deploying an existing function updates the WasmModule.
 func TestDeploy_Update(t *testing.T) {
+	t.Parallel()
 	existing := &wasmv1alpha1.WasmModule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-func",
 			Namespace: "default",
 			Annotations: map[string]string{
-				deployer.DeployerNameAnnotation: DeployerName,
+				deployer.DeployerNameAnnotation: wasm.DeployerName,
 			},
 		},
 		Spec: wasmv1alpha1.WasmModuleSpec{
@@ -87,7 +90,7 @@ func TestDeploy_Update(t *testing.T) {
 		},
 	}
 	cs := newFakeClientset(existing)
-	d := NewDeployer(WithDeployerClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDeployer(wasm.WithDeployerClientsetProvider(fakeProvider(cs)))
 
 	f := minimalFunction("my-func", "default", "registry.example.com/my-func:v2")
 	result, err := d.Deploy(context.Background(), f)
@@ -109,10 +112,11 @@ func TestDeploy_Update(t *testing.T) {
 
 // TestDeploy_ErrNamespaceRequired verifies that a missing namespace returns the sentinel error.
 func TestDeploy_ErrNamespaceRequired(t *testing.T) {
+	t.Parallel()
 	cs := newFakeClientset()
-	d := NewDeployer(WithDeployerClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDeployer(wasm.WithDeployerClientsetProvider(fakeProvider(cs)))
 
-	f := fn.Function{Name: "my-func", Runtime: RuntimeRustWasi}
+	f := fn.Function{Name: "my-func", Runtime: wasm.RuntimeRustWasi}
 	f.Deploy.Image = "registry.example.com/my-func:latest"
 
 	_, err := d.Deploy(context.Background(), f)
@@ -123,23 +127,25 @@ func TestDeploy_ErrNamespaceRequired(t *testing.T) {
 
 // TestDeploy_ErrNoImageRef verifies that a missing image returns the sentinel error.
 func TestDeploy_ErrNoImageRef(t *testing.T) {
+	t.Parallel()
 	cs := newFakeClientset()
-	d := NewDeployer(WithDeployerClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDeployer(wasm.WithDeployerClientsetProvider(fakeProvider(cs)))
 
-	f := fn.Function{Name: "my-func", Runtime: RuntimeRustWasi}
+	f := fn.Function{Name: "my-func", Runtime: wasm.RuntimeRustWasi}
 	f.Deploy.Namespace = "default"
 	// No image set.
 
 	_, err := d.Deploy(context.Background(), f)
-	if !errors.Is(err, ErrNoImageRef) {
+	if !errors.Is(err, wasm.ErrNoImageRef) {
 		t.Errorf("expected ErrNoImageRef, got: %v", err)
 	}
 }
 
 // TestDeploy_Network verifies that deploy.network is mapped to WasmModule spec.
 func TestDeploy_Network(t *testing.T) {
+	t.Parallel()
 	cs := newFakeClientset()
-	d := NewDeployer(WithDeployerClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDeployer(wasm.WithDeployerClientsetProvider(fakeProvider(cs)))
 
 	allowDNS := true
 	f := minimalFunction("net-func", "default", "registry.example.com/net-func:latest")
@@ -162,28 +168,29 @@ func TestDeploy_Network(t *testing.T) {
 	if wm.Spec.Network == nil {
 		t.Fatal("expected spec.network to be set")
 	}
-	if wm.Spec.Network.AllowIpNameLookup == nil || !*wm.Spec.Network.AllowIpNameLookup {
-		t.Error("expected AllowIpNameLookup to be true")
+	if wm.Spec.Network.AllowIPNameLookup == nil || !*wm.Spec.Network.AllowIPNameLookup {
+		t.Error("expected AllowIPNameLookup to be true")
 	}
-	if wm.Spec.Network.Tcp == nil || len(wm.Spec.Network.Tcp.Connect) != 1 {
+	if wm.Spec.Network.TCP == nil || len(wm.Spec.Network.TCP.Connect) != 1 {
 		t.Error("expected TCP connect to be set")
 	}
-	if wm.Spec.Network.Tcp.Connect[0] != "*:443" {
-		t.Errorf("unexpected TCP connect: %v", wm.Spec.Network.Tcp.Connect)
+	if wm.Spec.Network.TCP.Connect[0] != "*:443" {
+		t.Errorf("unexpected TCP connect: %v", wm.Spec.Network.TCP.Connect)
 	}
 }
 
 // TestLister_List verifies that WasmModules managed by this deployer are listed.
 func TestLister_List(t *testing.T) {
+	t.Parallel()
 	managed := &wasmv1alpha1.WasmModule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wasm-func",
 			Namespace: "default",
 			Labels: map[string]string{
-				"function.knative.dev/runtime": RuntimeRustWasi,
+				"function.knative.dev/runtime": wasm.RuntimeRustWasi,
 			},
 			Annotations: map[string]string{
-				deployer.DeployerNameAnnotation: DeployerName,
+				deployer.DeployerNameAnnotation: wasm.DeployerName,
 			},
 		},
 		Spec: wasmv1alpha1.WasmModuleSpec{Image: "reg/wasm-func:latest"},
@@ -199,7 +206,7 @@ func TestLister_List(t *testing.T) {
 		Spec: wasmv1alpha1.WasmModuleSpec{Image: "reg/other-func:latest"},
 	}
 	cs := newFakeClientset(managed, other)
-	l := NewLister(WithListerClientsetProvider(fakeProvider(cs)))
+	l := wasm.NewLister(wasm.WithListerClientsetProvider(fakeProvider(cs)))
 
 	items, err := l.List(context.Background(), "default")
 	if err != nil {
@@ -211,25 +218,26 @@ func TestLister_List(t *testing.T) {
 	if items[0].Name != "wasm-func" {
 		t.Errorf("unexpected item name: %q", items[0].Name)
 	}
-	if items[0].Deployer != DeployerName {
+	if items[0].Deployer != wasm.DeployerName {
 		t.Errorf("unexpected deployer: %q", items[0].Deployer)
 	}
 }
 
 // TestRemover_Remove verifies that a managed WasmModule is deleted.
 func TestRemover_Remove(t *testing.T) {
+	t.Parallel()
 	existing := &wasmv1alpha1.WasmModule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wasm-func",
 			Namespace: "default",
 			Annotations: map[string]string{
-				deployer.DeployerNameAnnotation: DeployerName,
+				deployer.DeployerNameAnnotation: wasm.DeployerName,
 			},
 		},
 		Spec: wasmv1alpha1.WasmModuleSpec{Image: "reg/wasm-func:latest"},
 	}
 	cs := newFakeClientset(existing)
-	r := NewRemover(WithRemoverClientsetProvider(fakeProvider(cs)))
+	r := wasm.NewRemover(wasm.WithRemoverClientsetProvider(fakeProvider(cs)))
 
 	if err := r.Remove(context.Background(), "wasm-func", "default"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -244,6 +252,7 @@ func TestRemover_Remove(t *testing.T) {
 
 // TestRemover_Remove_ErrNotHandled verifies that a non-managed WasmModule is not removed.
 func TestRemover_Remove_ErrNotHandled(t *testing.T) {
+	t.Parallel()
 	existing := &wasmv1alpha1.WasmModule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "other-func",
@@ -255,7 +264,7 @@ func TestRemover_Remove_ErrNotHandled(t *testing.T) {
 		Spec: wasmv1alpha1.WasmModuleSpec{Image: "reg/other-func:latest"},
 	}
 	cs := newFakeClientset(existing)
-	r := NewRemover(WithRemoverClientsetProvider(fakeProvider(cs)))
+	r := wasm.NewRemover(wasm.WithRemoverClientsetProvider(fakeProvider(cs)))
 
 	err := r.Remove(context.Background(), "other-func", "default")
 	if !errors.Is(err, fn.ErrNotHandled) {
@@ -265,21 +274,22 @@ func TestRemover_Remove_ErrNotHandled(t *testing.T) {
 
 // TestDescriber_Describe verifies that describing a managed WasmModule returns an instance.
 func TestDescriber_Describe(t *testing.T) {
+	t.Parallel()
 	existing := &wasmv1alpha1.WasmModule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wasm-func",
 			Namespace: "default",
 			Labels: map[string]string{
-				"function.knative.dev/runtime": RuntimeRustWasi,
+				"function.knative.dev/runtime": wasm.RuntimeRustWasi,
 			},
 			Annotations: map[string]string{
-				deployer.DeployerNameAnnotation: DeployerName,
+				deployer.DeployerNameAnnotation: wasm.DeployerName,
 			},
 		},
 		Spec: wasmv1alpha1.WasmModuleSpec{Image: "reg/wasm-func:latest"},
 	}
 	cs := newFakeClientset(existing)
-	d := NewDescriber(WithDescriberClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDescriber(wasm.WithDescriberClientsetProvider(fakeProvider(cs)))
 
 	inst, err := d.Describe(context.Background(), "wasm-func", "default")
 	if err != nil {
@@ -288,13 +298,14 @@ func TestDescriber_Describe(t *testing.T) {
 	if inst.Name != "wasm-func" {
 		t.Errorf("unexpected name: %q", inst.Name)
 	}
-	if inst.Deployer != DeployerName {
+	if inst.Deployer != wasm.DeployerName {
 		t.Errorf("unexpected deployer: %q", inst.Deployer)
 	}
 }
 
 // TestDescriber_Describe_ErrNotHandled verifies that a non-managed WasmModule returns ErrNotHandled.
 func TestDescriber_Describe_ErrNotHandled(t *testing.T) {
+	t.Parallel()
 	existing := &wasmv1alpha1.WasmModule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "other-func",
@@ -306,7 +317,7 @@ func TestDescriber_Describe_ErrNotHandled(t *testing.T) {
 		Spec: wasmv1alpha1.WasmModuleSpec{Image: "reg/other-func:latest"},
 	}
 	cs := newFakeClientset(existing)
-	d := NewDescriber(WithDescriberClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDescriber(wasm.WithDescriberClientsetProvider(fakeProvider(cs)))
 
 	_, err := d.Describe(context.Background(), "other-func", "default")
 	if !errors.Is(err, fn.ErrNotHandled) {
@@ -316,8 +327,9 @@ func TestDescriber_Describe_ErrNotHandled(t *testing.T) {
 
 // TestBuildNetworkSpec verifies the helper that converts fn.NetworkSpec → wasmv1alpha1.NetworkSpec.
 func TestBuildNetworkSpec(t *testing.T) {
+	t.Parallel()
 	// nil input → nil output
-	if out := buildNetworkSpec(nil); out != nil {
+	if out := wasm.BuildNetworkSpec(nil); out != nil {
 		t.Errorf("expected nil, got %v", out)
 	}
 
@@ -334,23 +346,23 @@ func TestBuildNetworkSpec(t *testing.T) {
 			Outgoing: []string{"8.8.8.8:53"},
 		},
 	}
-	out := buildNetworkSpec(in)
+	out := wasm.BuildNetworkSpec(in)
 	if out == nil {
 		t.Fatal("expected non-nil output")
 	}
 	if !out.Inherit {
 		t.Error("Inherit not mapped")
 	}
-	if out.AllowIpNameLookup == nil || !*out.AllowIpNameLookup {
-		t.Error("AllowIpNameLookup not mapped")
+	if out.AllowIPNameLookup == nil || !*out.AllowIPNameLookup {
+		t.Error("AllowIPNameLookup not mapped")
 	}
-	if out.Tcp == nil || len(out.Tcp.Bind) != 1 || out.Tcp.Bind[0] != "127.0.0.1:8080" {
+	if out.TCP == nil || len(out.TCP.Bind) != 1 || out.TCP.Bind[0] != "127.0.0.1:8080" {
 		t.Error("TCP bind not mapped correctly")
 	}
-	if out.Tcp.Connect[0] != "*:443" {
+	if out.TCP.Connect[0] != "*:443" {
 		t.Error("TCP connect not mapped correctly")
 	}
-	if out.Udp == nil || len(out.Udp.Outgoing) != 1 || out.Udp.Outgoing[0] != "8.8.8.8:53" {
+	if out.UDP == nil || len(out.UDP.Outgoing) != 1 || out.UDP.Outgoing[0] != "8.8.8.8:53" {
 		t.Error("UDP outgoing not mapped correctly")
 	}
 }

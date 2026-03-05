@@ -17,6 +17,7 @@ func newWasmRegistry() *fn.Registry {
 // TestInferBuilder_ViaRegistry verifies that InferBuilder returns the
 // appropriate builder for WASI and traditional runtimes through the registry.
 func TestInferBuilder_ViaRegistry(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		runtime string
 		want    string
@@ -41,6 +42,7 @@ func TestInferBuilder_ViaRegistry(t *testing.T) {
 	r := newWasmRegistry()
 	for _, tt := range tests {
 		t.Run(tt.runtime, func(t *testing.T) {
+			t.Parallel()
 			got := r.InferBuilder(tt.runtime)
 			if got != tt.want {
 				t.Errorf("InferBuilder(%q) = %q, want %q", tt.runtime, got, tt.want)
@@ -52,6 +54,7 @@ func TestInferBuilder_ViaRegistry(t *testing.T) {
 // TestInferDeployer_ViaRegistry verifies that InferDeployer returns the
 // appropriate deployer for WASI and traditional runtimes through the registry.
 func TestInferDeployer_ViaRegistry(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		runtime string
 		want    string
@@ -70,6 +73,7 @@ func TestInferDeployer_ViaRegistry(t *testing.T) {
 	r := newWasmRegistry()
 	for _, tt := range tests {
 		t.Run(tt.runtime, func(t *testing.T) {
+			t.Parallel()
 			got := r.InferDeployer(tt.runtime)
 			if got != tt.want {
 				t.Errorf("InferDeployer(%q) = %q, want %q", tt.runtime, got, tt.want)
@@ -81,6 +85,7 @@ func TestInferDeployer_ViaRegistry(t *testing.T) {
 // TestWasmBuilderAcceptsOnlyWasi verifies that the wasm builder registration
 // only supports WASI runtimes.
 func TestWasmBuilderAcceptsOnlyWasi(t *testing.T) {
+	t.Parallel()
 	r := newWasmRegistry()
 	reg, ok := r.GetBuilder(wasm.BuilderName)
 	if !ok {
@@ -109,6 +114,7 @@ func TestWasmBuilderAcceptsOnlyWasi(t *testing.T) {
 // TestWasmDeployerAcceptsOnlyWasi verifies that the wasm deployer registration
 // only supports WASI runtimes.
 func TestWasmDeployerAcceptsOnlyWasi(t *testing.T) {
+	t.Parallel()
 	r := newWasmRegistry()
 	reg, ok := r.GetDeployer(wasm.DeployerName)
 	if !ok {
@@ -136,6 +142,7 @@ func TestWasmDeployerAcceptsOnlyWasi(t *testing.T) {
 // wasm.Register() installs its post-processors, a traditional builder cannot
 // be resolved for a WASI runtime.
 func TestPostProcessors_TraditionalBuilderRejectsWasi(t *testing.T) {
+	t.Parallel()
 	// Add a dummy "pack" builder with no constraints (accepts everything).
 	r := fn.NewRegistry()
 	r.RegisterBuilder("pack", func(_ fn.BuilderConfig) []fn.Option { return nil })
@@ -158,6 +165,7 @@ func TestPostProcessors_TraditionalBuilderRejectsWasi(t *testing.T) {
 
 // TestPostProcessors_TraditionalDeployerRejectsWasi verifies the same for deployers.
 func TestPostProcessors_TraditionalDeployerRejectsWasi(t *testing.T) {
+	t.Parallel()
 	r := fn.NewRegistry()
 	r.RegisterDeployer("knative", func(_ fn.DeployerConfig) []fn.Option { return nil })
 	wasm.Register(r) // installs post-processors

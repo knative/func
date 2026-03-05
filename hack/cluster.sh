@@ -688,19 +688,9 @@ keda_http_addon() {
 
 serving_wasm() {
   echo "${blue}Installing Knative Serving WASM${reset}"
+  echo "Version: ${knative_serving_wasm_version}"
 
-  local wasm_repo="${WASM_KO_DOCKER_REPO:-kind.local}"
-
-  local tmp_dir
-  tmp_dir="$(mktemp -d)"
-
-  git clone --depth=1 https://github.com/cardil/knative-serving-wasm.git "${tmp_dir}" 2>&1
-
-  KO_DOCKER_REPO="${wasm_repo}" \
-    KUBECONFIG="${KUBECONFIG}" \
-    "${tmp_dir}/goyek" --verbose deploy 2>&1
-
-  rm -rf "${tmp_dir}"
+  $KUBECTL apply -f "https://github.com/cardil/knative-serving-wasm/releases/download/${knative_serving_wasm_version}/serving-wasm.yaml"
 
   $KUBECTL wait --for=condition=Available deployment/controller \
     -n knative-wasm --timeout=5m
