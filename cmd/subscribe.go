@@ -28,7 +28,7 @@ and an 'extension' attribute for the value 'my-extension-value'.
 {{rootCmdUse}} subscribe --filter type=com.example --filter extension=my-extension-value --source my-broker
 `,
 		SuggestFor: []string{"subcsribe"}, //nolint:misspell
-		PreRunE:    bindEnv("filter", "source"),
+		PreRunE:    bindEnv("filter", "source", "verbose"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSubscribe(cmd)
 		},
@@ -39,6 +39,7 @@ and an 'extension' attribute for the value 'my-extension-value'.
 	cmd.Flags().StringP("source", "s", "default", "The source, like a Knative Broker")
 
 	addPathFlag(cmd)
+	addVerboseFlag(cmd, false)
 
 	return cmd
 }
