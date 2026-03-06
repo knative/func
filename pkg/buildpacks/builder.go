@@ -17,8 +17,8 @@ import (
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/buildpacks/pack/pkg/project/types"
-	"github.com/docker/docker/client"
 	"github.com/heroku/color"
+	mobyClient "github.com/moby/moby/client"
 
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/docker"
@@ -215,11 +215,11 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// (and update build opts as necessary)
 	if impl == nil {
 		var (
-			cli        client.APIClient
+			cli        mobyClient.APIClient
 			dockerHost string
 		)
 
-		cli, dockerHost, err = docker.NewClient(client.DefaultDockerHost)
+		cli, dockerHost, err = docker.NewMobyClient(mobyClient.DefaultDockerHost)
 		if err != nil {
 			return fmt.Errorf("cannot create docker client: %w", err)
 		}
@@ -232,9 +232,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 		if f.Runtime == "python" {
 			if fi, _ := os.Lstat(filepath.Join(f.Root, "Procfile")); fi == nil {
-				// HACK (of a hack): need to get the right invocation signature
-				// the standard scaffolding does this in toSignature() func.
-				// we know we have python here.
 				invoke := f.Invoke
 				if invoke == "" {
 					invoke = "http"
@@ -263,8 +260,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	return
 }
 
-func isPodmanV43(ctx context.Context, cli client.APIClient) (b bool, err error) {
-	version, err := cli.ServerVersion(ctx)
+func isPodmanV43(ctx context.Context, cli mobyClient.APIClient) (b bool, err error) {
+	version, err := cli.ServerVersion(ctx, mobyClient.ServerVersionOptions{})
 	if err != nil {
 		return
 	}

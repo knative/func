@@ -20,6 +20,7 @@ import (
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/tlsconfig"
+	mobyClient "github.com/moby/moby/client"
 	"golang.org/x/crypto/ssh"
 
 	fnssh "knative.dev/func/pkg/ssh"
@@ -254,6 +255,183 @@ type clientWithAdditionalCleanup struct {
 
 // Close function need to stop associated podman service
 func (w clientWithAdditionalCleanup) Close() error {
+	defer w.cleanUp()
+	return w.APIClient.Close()
+}
+
+// NewMobyClient creates a new moby docker client.
+// This is the same as NewClient but returns a moby/moby/client.APIClient
+// which is required by pack v0.40.1+.
+func NewMobyClient(defaultHost string) (dockerClient mobyClient.APIClient, dockerHostInRemote string, err error) {
+	var _url *url.URL
+
+	dockerHost := os.Getenv("DOCKER_HOST")
+	dockerHostSSHIdentity := os.Getenv("DOCKER_HOST_SSH_IDENTITY")
+	hostKeyCallback := fnssh.NewHostKeyCbk()
+
+	if dockerHost == "" {
+		_url, err = url.Parse(defaultHost)
+		if err != nil {
+			return
+		}
+		_, err = os.Stat(_url.Path)
+		switch {
+		case err == nil:
+			dockerHost = defaultHost
+		case err != nil && !os.IsNotExist(err):
+			return
+		case os.IsNotExist(err) && podmanPresent():
+			if runtime.GOOS == "linux" {
+				// on Linux: spawn temporary podman service
+				dockerClient, dockerHostInRemote, err = newMobyClientWithPodmanService()
+				return
+			} else {
+				// on non-Linux: try to use connection to podman machine
+				dh, dhid := tryGetPodmanRemoteConn()
+				if dh != "" {
+					dockerHost, dockerHostSSHIdentity = dh, dhid
+					hostKeyCallback = func(hostPort string, pubKey ssh.PublicKey) error {
+						return nil
+					}
+				}
+			}
+		}
+	}
+
+	if dockerHost == "" {
+		return nil, "", ErrNoDocker
+	}
+
+	dockerHostInRemote = dockerHost
+
+	_url, err = url.Parse(dockerHost)
+	isSSH := err == nil && _url.Scheme == "ssh"
+	isTCP := err == nil && _url.Scheme == "tcp"
+	isNPipe := err == nil && _url.Scheme == "npipe"
+	isUnix := err == nil && _url.Scheme == "unix"
+
+	if isTCP || isNPipe {
+		dockerHostInRemote = ""
+	}
+
+	if isUnix && (runtime.GOOS == "darwin" || strings.HasSuffix(dockerHost, ".docker/desktop/docker.sock")) {
+		dockerHostInRemote = ""
+	}
+
+	if !isSSH {
+		opts := []mobyClient.Opt{mobyClient.FromEnv}
+		if isTCP {
+			if httpClient := newMobyHttpClient(); httpClient != nil {
+				opts = append(opts, mobyClient.WithHTTPClient(httpClient))
+			}
+		}
+		dockerClient, err = mobyClient.New(opts...)
+		return
+	}
+
+	credentialsConfig := fnssh.Config{
+		Identity:           dockerHostSSHIdentity,
+		PassPhrase:         os.Getenv("DOCKER_HOST_SSH_IDENTITY_PASSPHRASE"),
+		PasswordCallback:   fnssh.NewPasswordCbk(),
+		PassPhraseCallback: fnssh.NewPassPhraseCbk(),
+		HostKeyCallback:    hostKeyCallback,
+	}
+	contextDialer, dockerHostInRemote, err := fnssh.NewDialContext(_url, credentialsConfig)
+	if err != nil {
+		return
+	}
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DialContext: contextDialer.DialContext,
+		},
+	}
+
+	dockerClient, err = mobyClient.New(
+		mobyClient.WithHTTPClient(httpClient))
+
+	if closer, ok := contextDialer.(io.Closer); ok {
+		dockerClient = mobyClientWithAdditionalCleanup{
+			APIClient: dockerClient,
+			cleanUp: func() {
+				closer.Close()
+			},
+		}
+	}
+
+	return dockerClient, dockerHostInRemote, err
+}
+
+// newMobyHttpClient returns an HTTP client configured for TLS if DOCKER_TLS_VERIFY is set.
+// Otherwise, nil is returned.
+func newMobyHttpClient() *http.Client {
+	tlsVerifyStr, tlsVerifyChanged := os.LookupEnv("DOCKER_TLS_VERIFY")
+
+	if !tlsVerifyChanged {
+		return nil
+	}
+
+	var tlsOpts []func(*tls.Config)
+
+	tlsVerify := true
+	if b, err := strconv.ParseBool(tlsVerifyStr); err == nil {
+		tlsVerify = b
+	}
+
+	if !tlsVerify {
+		tlsOpts = append(tlsOpts, func(t *tls.Config) {
+			t.InsecureSkipVerify = true
+		})
+	}
+
+	dockerCertPath := os.Getenv("DOCKER_CERT_PATH")
+	if dockerCertPath == "" {
+		dockerCertPath = config.Dir()
+	}
+
+	caData, err := os.ReadFile(filepath.Join(dockerCertPath, "ca.pem"))
+	if err == nil {
+		certPool := x509.NewCertPool()
+		if certPool.AppendCertsFromPEM(caData) {
+			tlsOpts = append(tlsOpts, func(t *tls.Config) {
+				t.RootCAs = certPool
+			})
+		}
+	}
+
+	certData, certErr := os.ReadFile(filepath.Join(dockerCertPath, "cert.pem"))
+	keyData, keyErr := os.ReadFile(filepath.Join(dockerCertPath, "key.pem"))
+	if certErr == nil && keyErr == nil {
+		cliCert, err := tls.X509KeyPair(certData, keyData)
+		if err == nil {
+			tlsOpts = append(tlsOpts, func(cfg *tls.Config) {
+				cfg.Certificates = []tls.Certificate{cliCert}
+			})
+		}
+	}
+
+	dialer := &net.Dialer{
+		KeepAlive: 30 * time.Second,
+		Timeout:   30 * time.Second,
+	}
+
+	tlsConfig := tlsconfig.ClientDefault(tlsOpts...)
+
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+			DialContext:     dialer.DialContext,
+		},
+		CheckRedirect: mobyClient.CheckRedirect,
+	}
+}
+
+type mobyClientWithAdditionalCleanup struct {
+	mobyClient.APIClient
+	cleanUp func()
+}
+
+func (w mobyClientWithAdditionalCleanup) Close() error {
 	defer w.cleanUp()
 	return w.APIClient.Close()
 }
