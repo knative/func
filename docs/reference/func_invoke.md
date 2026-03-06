@@ -99,6 +99,7 @@ func invoke
   -c, --confirm               Prompt to confirm options interactively ($FUNC_CONFIRM)
       --content-type string   Content Type of the data. ($FUNC_CONTENT_TYPE) (default "application/json")
       --data string           Data to send in the request. ($FUNC_DATA) (default "{\"message\":\"Hello World\"}")
+  -e, --extension strings     Extensions as key=value pairs. Can be repeated. cloudevents only ($FUNC_EXTENSION)
       --file string           Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. ($FUNC_FILE)
   -f, --format string         Format of message to send, 'http' or 'cloudevent(s)'.  Default is to choose automatically. ($FUNC_FORMAT)
   -h, --help                  help for invoke
