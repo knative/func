@@ -15,4 +15,4 @@ LABEL \
    org.opencontainers.image.vendor="https://github.com/knative/func" \
    org.opencontainers.image.url="https://github.com/knative/func/pkgs/container/func-utils"
 
-USER 0:0
+USER 65532:65532
