@@ -153,19 +153,13 @@ func runConfigCIGitHub(
 	messageWriter io.Writer,
 	workflowNameExplicit bool,
 ) error {
-	cfg, err := ci.NewCIConfig(currentBranch, workingDir, workflowNameExplicit)
+	cfg, err := ci.NewCIConfig(fnLoaderSaver, currentBranch, workingDir, workflowNameExplicit)
 	if err != nil {
 		return err
 	}
 
-	f, err := fnLoaderSaver.Load(cfg.Path())
-	if err != nil {
-		return err
-	}
-
-	githubWorkflow := ci.NewGitHubWorkflow(cfg, f.Runtime, messageWriter)
-	path := cfg.FnGitHubWorkflowFilepath(f.Root)
-	if err := githubWorkflow.Export(path, writer, cfg.Force(), messageWriter); err != nil {
+	githubWorkflow := ci.NewGitHubWorkflow(cfg, messageWriter)
+	if err := githubWorkflow.Export(cfg.FnGitHubWorkflowFilepath(), writer, cfg.Force(), messageWriter); err != nil {
 		return err
 	}
 

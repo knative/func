@@ -34,6 +34,7 @@ install_binaries() {
   local kn_version=1.18.0
   local jq_version=1.7.1
   local yq_version=4.50.1
+  local act_version=0.2.84
 
   echo "${blue}Installing binaries${reset}"
   echo "  OS:           ${OS}"
@@ -50,6 +51,7 @@ install_binaries() {
   install_kn
   install_jq
   install_yq
+  install_act
 
   echo "${green}DONE${reset}"
 
@@ -153,6 +155,26 @@ install_jq() {
 install_yq() {
   echo '=== yq'
   CGO_ENABLED=0 GOBIN="${bin}" go install "github.com/mikefarah/yq/v4@v${yq_version}"
+}
+
+install_act() {
+  echo '=== act'
+  # act uses different letter capitalization for macOS and linux
+  if [ "$OS" = "darwin" ]; then
+    ACT_OS="Darwin"
+  else
+    ACT_OS="Linux"
+  fi
+
+  if [ "$ARCH" = "amd64" ]; then
+    ACT_ARCH="x86_64"
+  else
+    ACT_ARCH="$ARCH"
+  fi
+
+  curl -sSL "https://github.com/nektos/act/releases/download/v${act_version}/act_${ACT_OS}_${ACT_ARCH}.tar.gz" | \
+    tar fxz - -C "${bin}" act
+  "${bin}"/act --version
 }
 
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then
