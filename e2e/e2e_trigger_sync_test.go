@@ -15,9 +15,9 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-// TestTriggerSync_StaleTriggerCleanup verifies that stale triggers are deleted
+// TestMetadata_TriggerSyncStaleTriggerCleanup verifies that stale triggers are deleted
 // when subscriptions are removed from func.yaml
-func TestTriggerSync_StaleTriggerCleanup(t *testing.T) {
+func TestMetadata_TriggerSyncStaleTriggerCleanup(t *testing.T) {
 	brokerName := "default"
 	createBrokerWithCheck(t, Namespace, brokerName)
 
@@ -101,9 +101,9 @@ func TestTriggerSync_StaleTriggerCleanup(t *testing.T) {
 	t.Logf("Stale trigger deleted, 1 trigger remains: %v", triggersAfter)
 }
 
-// TestTriggerSync_ManualTriggerPreservation verifies that manually created
+// TestMetadata_TriggerSyncManualTriggerPreservation verifies that manually created
 // triggers (without managed-by annotation) are NOT deleted during sync
-func TestTriggerSync_ManualTriggerPreservation(t *testing.T) {
+func TestMetadata_TriggerSyncManualTriggerPreservation(t *testing.T) {
 	brokerName := "default"
 	createBrokerWithCheck(t, Namespace, brokerName)
 
@@ -166,9 +166,9 @@ func TestTriggerSync_ManualTriggerPreservation(t *testing.T) {
 	t.Log("Managed trigger still exists")
 }
 
-// TestTriggerSync_AddSubscription verifies that new triggers are created
+// TestMetadata_TriggerSyncAddSubscription verifies that new triggers are created
 // when subscriptions are added
-func TestTriggerSync_AddSubscription(t *testing.T) {
+func TestMetadata_TriggerSyncAddSubscription(t *testing.T) {
 	brokerName := "default"
 	createBrokerWithCheck(t, Namespace, brokerName)
 
@@ -232,9 +232,9 @@ func TestTriggerSync_AddSubscription(t *testing.T) {
 	t.Logf("New trigger created, 2 triggers total: %v", triggersAfter)
 }
 
-// TestTriggerSync_Idempotency verifies that repeated deploys with the same
+// TestMetadata_TriggerSyncIdempotency verifies that repeated deploys with the same
 // subscriptions don't create duplicate triggers
-func TestTriggerSync_Idempotency(t *testing.T) {
+func TestMetadata_TriggerSyncIdempotency(t *testing.T) {
 	brokerName := "default"
 	createBrokerWithCheck(t, Namespace, brokerName)
 
@@ -306,9 +306,9 @@ func TestTriggerSync_Idempotency(t *testing.T) {
 	t.Log("Idempotency verified: 3 redeploys produced same triggers")
 }
 
-// TestTriggerSync_RemoveAllSubscriptions verifies that all managed triggers
+// TestMetadata_TriggerSyncRemoveAllSubscriptions verifies that all managed triggers
 // are deleted when all subscriptions are removed
-func TestTriggerSync_RemoveAllSubscriptions(t *testing.T) {
+func TestMetadata_TriggerSyncRemoveAllSubscriptions(t *testing.T) {
 	brokerName := "default"
 	createBrokerWithCheck(t, Namespace, brokerName)
 
