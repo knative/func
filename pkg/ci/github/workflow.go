@@ -1,4 +1,4 @@
-package ci
+package github
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"gopkg.in/yaml.v3"
+	fn "knative.dev/func/pkg/functions"
 )
 
 const defaultFuncCliVersion = "knative-v1.21.0"
@@ -14,7 +15,7 @@ const defaultFuncCliVersion = "knative-v1.21.0"
 // ErrWorkflowExists is returned when a GitHub workflow file already exists and --force is not specified.
 var ErrWorkflowExists = errors.New("existing GitHub workflow detected, overwrite using the --force option")
 
-type githubWorkflow struct {
+type workflow struct {
 	Name string           `yaml:"name"`
 	On   workflowTriggers `yaml:"on"`
 	Jobs map[string]job   `yaml:"jobs"`
@@ -42,7 +43,7 @@ type step struct {
 	With map[string]string `yaml:"with,omitempty"`
 }
 
-func NewGitHubWorkflow(conf CIConfig, messageWriter io.Writer) *githubWorkflow {
+func newGitHubWorkflow(conf Config, messageWriter io.Writer) (*workflow, error) {
 	var steps []step
 	steps = createCheckoutStep(steps)
 	steps = createRuntimeTestStep(conf, messageWriter, steps)
@@ -50,18 +51,21 @@ func NewGitHubWorkflow(conf CIConfig, messageWriter io.Writer) *githubWorkflow {
 	steps = createRegistryLoginStep(conf, steps)
 	steps = createFuncCLIInstallStep(steps)
 
-	steps = createFuncDeployStep(conf, steps)
+	steps, err := createFuncDeployStep(conf, steps)
+	if err != nil {
+		return nil, err
+	}
 
-	return &githubWorkflow{
-		Name: conf.WorkflowName(),
+	return &workflow{
+		Name: conf.WorkflowName,
 		On:   createPushTrigger(conf),
 		Jobs: map[string]job{
 			"deploy": {
-				RunsOn: determineRunner(conf.SelfHostedRunner()),
+				RunsOn: determineRunner(conf.SelfHostedRunner),
 				Steps:  steps,
 			},
 		},
-	}
+	}, nil
 }
 
 func createCheckoutStep(steps []step) []step {
@@ -71,14 +75,14 @@ func createCheckoutStep(steps []step) []step {
 	return append(steps, *checkoutCode)
 }
 
-func createRuntimeTestStep(conf CIConfig, messageWriter io.Writer, steps []step) []step {
-	if !conf.TestStep() {
+func createRuntimeTestStep(conf Config, messageWriter io.Writer, steps []step) []step {
+	if !conf.TestStep {
 		return steps
 	}
 
 	testStep := newStep("Run tests")
 
-	switch conf.FnRuntime() {
+	switch conf.FnRuntime {
 	case "go":
 		testStep.withRun("go test ./...")
 	case "node", "typescript":
@@ -89,32 +93,32 @@ func createRuntimeTestStep(conf CIConfig, messageWriter io.Writer, steps []step)
 		testStep.withRun("./mvnw test")
 	default:
 		// best-effort user message; errors are non-critical
-		_, _ = fmt.Fprintf(messageWriter, "WARNING: test step not supported for runtime %s\n", conf.FnRuntime())
+		_, _ = fmt.Fprintf(messageWriter, "WARNING: test step not supported for runtime %s\n", conf.FnRuntime)
 		return steps
 	}
 
 	return append(steps, *testStep)
 }
 
-func createK8ContextStep(conf CIConfig, steps []step) []step {
+func createK8ContextStep(conf Config, steps []step) []step {
 	setupK8Context := newStep("Setup Kubernetes context").
 		withUses("azure/k8s-set-context@v4").
 		withActionConfig("method", "kubeconfig").
-		withActionConfig("kubeconfig", newSecret(conf.KubeconfigSecret()))
+		withActionConfig("kubeconfig", newSecret(conf.KubeconfigSecret))
 
 	return append(steps, *setupK8Context)
 }
 
-func createRegistryLoginStep(conf CIConfig, steps []step) []step {
-	if !conf.RegistryLogin() {
+func createRegistryLoginStep(conf Config, steps []step) []step {
+	if !conf.RegistryLogin {
 		return steps
 	}
 
 	loginToContainerRegistry := newStep("Login to container registry").
 		withUses("docker/login-action@v3").
-		withActionConfig("registry", newVariable(conf.RegistryLoginUrlVar())).
-		withActionConfig("username", newVariable(conf.RegistryUserVar())).
-		withActionConfig("password", newSecret(conf.RegistryPassSecret()))
+		withActionConfig("registry", newVariable(conf.RegistryLoginUrlVar)).
+		withActionConfig("username", newVariable(conf.RegistryUserVar)).
+		withActionConfig("password", newSecret(conf.RegistryPassSecret))
 
 	return append(steps, *loginToContainerRegistry)
 }
@@ -128,31 +132,36 @@ func createFuncCLIInstallStep(steps []step) []step {
 	return append(steps, *installFuncCli)
 }
 
-func createFuncDeployStep(conf CIConfig, steps []step) []step {
+func createFuncDeployStep(conf Config, steps []step) ([]step, error) {
 	deployFuncStep := newStep("Deploy function").
-		withEnv("FUNC_VERBOSE", "true").
-		withEnv("FUNC_BUILDER", conf.FnBuilder())
+		withEnv("FUNC_VERBOSE", "true")
 
-	if conf.RemoteBuild() {
+	builder, err := determineBuilder(conf.FnRuntime, conf.RemoteBuild)
+	if err != nil {
+		return nil, err
+	}
+	deployFuncStep.withEnv("FUNC_BUILDER", builder)
+
+	if conf.RemoteBuild {
 		deployFuncStep.withEnv("FUNC_REMOTE", "true")
 	}
 
-	registryUrl := newVariable(conf.RegistryUrlVar())
-	if conf.RegistryLogin() {
-		registryUrl = newVariable(conf.RegistryLoginUrlVar()) + "/" + newVariable(conf.RegistryUserVar())
+	registryUrl := newVariable(conf.RegistryUrlVar)
+	if conf.RegistryLogin {
+		registryUrl = newVariable(conf.RegistryLoginUrlVar) + "/" + newVariable(conf.RegistryUserVar)
 	}
 	deployFuncStep.withEnv("FUNC_REGISTRY", registryUrl).
 		withRun("func deploy")
 
-	return append(steps, *deployFuncStep)
+	return append(steps, *deployFuncStep), nil
 }
 
-func createPushTrigger(conf CIConfig) workflowTriggers {
+func createPushTrigger(conf Config) workflowTriggers {
 	result := workflowTriggers{
-		Push: &pushTrigger{Branches: []string{conf.Branch()}},
+		Push: &pushTrigger{Branches: []string{conf.Branch}},
 	}
 
-	if conf.WorkflowDispatch() {
+	if conf.WorkflowDispatch {
 		result.WorkflowDispatch = &struct{}{}
 	}
 
@@ -193,7 +202,7 @@ func (s *step) withEnv(key, value string) *step {
 	return s
 }
 
-func (gw *githubWorkflow) Export(path string, w WorkflowWriter, force bool, m io.Writer) error {
+func (gw *workflow) Export(path string, w fn.PathWriter, force bool, m io.Writer) error {
 	if !force && w.Exist(path) {
 		return ErrWorkflowExists
 	}
@@ -211,7 +220,7 @@ func (gw *githubWorkflow) Export(path string, w WorkflowWriter, force bool, m io
 	return w.Write(path, raw)
 }
 
-func (gw *githubWorkflow) toYaml() ([]byte, error) {
+func (gw *workflow) toYaml() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := yaml.NewEncoder(&buf)
 	encoder.SetIndent(2)

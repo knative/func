@@ -11,9 +11,9 @@ import (
 	"github.com/ory/viper"
 	"gotest.tools/v3/assert"
 	fnCmd "knative.dev/func/cmd"
-	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
 	cmdTest "knative.dev/func/cmd/testing"
+	"knative.dev/func/pkg/ci/github"
 	fn "knative.dev/func/pkg/functions"
 	fnTest "knative.dev/func/pkg/testing"
 )
@@ -70,7 +70,7 @@ func TestNewConfigCICmd_CreatesGitHubWorkflowDirectory(t *testing.T) {
 	err := runConfigCiCmdIntegration(t, opts)
 
 	assert.NilError(t, err)
-	_, statErr := os.Stat(filepath.Join(opts.withFunc.Root, ci.DefaultGitHubWorkflowDir))
+	_, statErr := os.Stat(filepath.Join(opts.withFunc.Root, github.DefaultGitHubWorkflowDir))
 	assert.NilError(t, statErr)
 }
 
@@ -106,7 +106,7 @@ func TestNewConfigCICmd_ForceFlagOverwritesExistingWorkflowOnFS(t *testing.T) {
 		err := runConfigCiCmdIntegration(t, opts)
 		content := readWorkflowFile(t, opts.withFunc.Root)
 
-		assert.ErrorIs(t, err, ci.ErrWorkflowExists)
+		assert.ErrorIs(t, err, github.ErrWorkflowExists)
 		assert.Assert(t, yamlContains(content, workflowName))
 		assert.Assert(t, !strings.Contains(content, changedWorkflowName))
 	})
@@ -165,7 +165,7 @@ func runConfigCiCmdIntegration(
 
 	// PRE-RUN PREP
 	// all options for "func config ci" command
-	t.Setenv(ci.ConfigCIFeatureFlag, "true")
+	t.Setenv(fnCmd.ConfigCIFeatureFlag, "true")
 
 	args := opts.args
 	if len(opts.args) == 0 {
@@ -176,7 +176,7 @@ func runConfigCiCmdIntegration(
 
 	cmd := fnCmd.NewConfigCmd(
 		common.DefaultLoaderSaver,
-		ci.DefaultWorkflowWriter,
+		github.DefaultWorkflowWriter,
 		common.DefaultCurrentBranch,
 		common.DefaultWorkDir,
 		fnCmd.NewClient,
@@ -190,7 +190,7 @@ func runConfigCiCmdIntegration(
 func readWorkflowFile(t *testing.T, root string) string {
 	t.Helper()
 
-	path := filepath.Join(root, ci.DefaultGitHubWorkflowDir, ci.DefaultGitHubWorkflowFilename)
+	path := filepath.Join(root, github.DefaultGitHubWorkflowDir, github.DefaultGitHubWorkflowFilename)
 	result, err := os.ReadFile(path)
 	assert.NilError(t, err)
 

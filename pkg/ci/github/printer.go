@@ -1,4 +1,4 @@
-package ci
+package github
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ GitHub Workflow Configuration
   Workflow name:      %s
   Branch:             %s
   Builder:            %s
-  Remote build:       %s
+	Remote build        %s
   Runner:             %s
   Test step:          %s
   Registry login:     %s
@@ -49,29 +49,34 @@ Create the following Secret on github.com: %s
 `
 )
 
-func PrintConfiguration(w io.Writer, conf CIConfig) error {
+func PrintConfiguration(w io.Writer, conf Config) error {
+	builder, err := determineBuilder(conf.FnRuntime, conf.RemoteBuild)
+	if err != nil {
+		return err
+	}
+
 	if _, err := fmt.Fprintf(w, MainLayoutPlainText,
 		conf.OutputPath(),
-		conf.WorkflowName(),
-		conf.Branch(),
-		conf.FnBuilder(),
-		enabledOrDisabled(conf.RemoteBuild()),
-		determineRunner(conf.SelfHostedRunner()),
-		enabledOrDisabled(conf.TestStep()),
-		enabledOrDisabled(conf.RegistryLogin()),
-		enabledOrDisabled(conf.WorkflowDispatch()),
-		enabledOrDisabled(conf.Force()),
+		conf.WorkflowName,
+		conf.Branch,
+		builder,
+		enabledOrDisabled(conf.RemoteBuild),
+		determineRunner(conf.SelfHostedRunner),
+		enabledOrDisabled(conf.TestStep),
+		enabledOrDisabled(conf.RegistryLogin),
+		enabledOrDisabled(conf.WorkflowDispatch),
+		enabledOrDisabled(conf.Force),
 	); err != nil {
 		return err
 	}
 
-	if conf.RegistryLogin() {
+	if conf.RegistryLogin {
 		if _, err := fmt.Fprintf(w, RequireManyPlainText,
-			secretsPrefix(conf.KubeconfigSecret()),
-			secretsPrefix(conf.RegistryPassSecret()),
-			varsPrefix(conf.RegistryLoginUrlVar()),
-			varsPrefix(conf.RegistryUserVar()),
-			varsPrefix(conf.RegistryUrlVar()),
+			secretsPrefix(conf.KubeconfigSecret),
+			secretsPrefix(conf.RegistryPassSecret),
+			varsPrefix(conf.RegistryLoginUrlVar),
+			varsPrefix(conf.RegistryUserVar),
+			varsPrefix(conf.RegistryUrlVar),
 		); err != nil {
 			return err
 		}
@@ -81,7 +86,7 @@ func PrintConfiguration(w io.Writer, conf CIConfig) error {
 
 	if _, err := fmt.Fprintf(w,
 		RequireOnePlainText,
-		secretsPrefix(conf.KubeconfigSecret()),
+		secretsPrefix(conf.KubeconfigSecret),
 	); err != nil {
 		return err
 	}
@@ -89,22 +94,22 @@ func PrintConfiguration(w io.Writer, conf CIConfig) error {
 	return nil
 }
 
-func PrintPostExportMessage(w io.Writer, conf CIConfig) error {
-	if conf.RegistryLogin() {
+func PrintPostExportMessage(w io.Writer, conf Config) error {
+	if conf.RegistryLogin {
 		_, err := fmt.Fprintf(w, PostExportManyPlainText,
 			conf.OutputPath(),
-			secretsPrefix(conf.KubeconfigSecret()),
-			secretsPrefix(conf.RegistryPassSecret()),
-			varsPrefix(conf.RegistryLoginUrlVar()),
-			varsPrefix(conf.RegistryUserVar()),
-			varsPrefix(conf.RegistryUrlVar()),
+			secretsPrefix(conf.KubeconfigSecret),
+			secretsPrefix(conf.RegistryPassSecret),
+			varsPrefix(conf.RegistryLoginUrlVar),
+			varsPrefix(conf.RegistryUserVar),
+			varsPrefix(conf.RegistryUrlVar),
 		)
 		return err
 	}
 
 	_, err := fmt.Fprintf(w, PostExportOnePlainText,
 		conf.OutputPath(),
-		secretsPrefix(conf.KubeconfigSecret()),
+		secretsPrefix(conf.KubeconfigSecret),
 	)
 	return err
 }

@@ -3,7 +3,7 @@ import { CloudEvent, HTTP } from 'cloudevents';
 import { start, InvokerOptions } from 'faas-js-runtime';
 import request from 'supertest';
 
-import * as func from '../build';
+import * as func from '../src';
 import test, { Test } from 'tape';
 
 // Test typed CloudEvent data

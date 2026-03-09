@@ -1,4 +1,4 @@
-package ci
+package github
 
 import (
 	"bytes"
@@ -14,12 +14,7 @@ const (
 // DefaultWorkflowWriter is the default implementation for writing workflow files to disk.
 var DefaultWorkflowWriter = &fileWriter{}
 
-// WorkflowWriter defines the interface for writing workflow files.
-type WorkflowWriter interface {
-	Exist(path string) bool
-	Write(path string, raw []byte) error
-}
-
+// fileWriter implements functions.PathWriter
 type fileWriter struct{}
 
 // Write writes raw bytes to the specified path, creating directories as needed.
@@ -40,7 +35,7 @@ func (fw *fileWriter) Exist(path string) bool {
 	return err == nil
 }
 
-// BufferWriter is a test double (fake) that implements WorkflowWriter
+// BufferWriter is a test double (fake) that implements functions.PathWriter
 // by writing to an in-memory buffer instead of the filesystem.
 type BufferWriter struct {
 	Path   string

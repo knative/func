@@ -8,7 +8,6 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
@@ -16,7 +15,7 @@ import (
 
 func NewConfigCmd(
 	loaderSaver common.FunctionLoaderSaver,
-	writer ci.WorkflowWriter,
+	pathWriter fn.PathWriter,
 	currentBranch common.CurrentBranchFunc,
 	workingDir common.WorkDirFunc,
 	newClient ClientFactory,
@@ -47,8 +46,14 @@ or from the directory specified with --path.
 	cmd.AddCommand(NewConfigEnvsCmd(loaderSaver))
 	cmd.AddCommand(NewConfigVolumesCmd())
 
-	if os.Getenv(ci.ConfigCIFeatureFlag) == "true" {
-		cmd.AddCommand(NewConfigCICmd(loaderSaver, writer, currentBranch, workingDir))
+	if os.Getenv(ConfigCIFeatureFlag) == "true" {
+		cmd.AddCommand(NewConfigCICmd(
+			loaderSaver,
+			pathWriter,
+			currentBranch,
+			workingDir,
+			newClient,
+		))
 	}
 
 	return cmd

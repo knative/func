@@ -1,16 +1,15 @@
-package ci_test
+package github
 
 import (
 	"testing"
 
 	"gotest.tools/v3/assert"
-	"knative.dev/func/cmd/ci"
 )
 
 // TestBufferWriter_WriteAndExist exercises the in-memory BufferWriter test double:
 // Exist is false on an empty buffer and true after Write.
 func TestBufferWriter_WriteAndExist(t *testing.T) {
-	bw := ci.NewBufferWriter()
+	bw := NewBufferWriter()
 
 	assert.Assert(t, !bw.Exist("any/path"), "empty buffer should report Exist=false")
 
@@ -25,7 +24,7 @@ func TestBufferWriter_WriteAndExist(t *testing.T) {
 // TestBufferWriter_Write_StoresPath checks that Write records the path that was
 // passed to it.
 func TestBufferWriter_Write_StoresPath(t *testing.T) {
-	bw := ci.NewBufferWriter()
+	bw := NewBufferWriter()
 	path := ".github/workflows/func-deploy.yaml"
 
 	assert.NilError(t, bw.Write(path, []byte("data")))
@@ -35,7 +34,7 @@ func TestBufferWriter_Write_StoresPath(t *testing.T) {
 // TestBufferWriter_Write_ResetsBuffer ensures that consecutive Write calls do
 // not accumulate content — each call starts with a fresh buffer.
 func TestBufferWriter_Write_ResetsBuffer(t *testing.T) {
-	bw := ci.NewBufferWriter()
+	bw := NewBufferWriter()
 
 	assert.NilError(t, bw.Write("p", []byte("first")))
 	assert.NilError(t, bw.Write("p", []byte("second")))

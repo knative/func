@@ -11,8 +11,8 @@ import (
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 	fnCmd "knative.dev/func/cmd"
-	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
+	"knative.dev/func/pkg/ci/github"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -82,12 +82,12 @@ func TestNewConfigCICmd_WorkflowNameResolution(t *testing.T) {
 		{
 			name:                 "default workflow name when no flags",
 			args:                 nil,
-			expectedWorkflowName: ci.DefaultWorkflowName,
+			expectedWorkflowName: github.DefaultWorkflowName,
 		},
 		{
 			name:                 "remote build uses remote default workflow name",
 			args:                 []string{"--remote"},
-			expectedWorkflowName: ci.DefaultRemoteBuildWorkflowName,
+			expectedWorkflowName: github.DefaultRemoteBuildWorkflowName,
 		},
 		{
 			name:                 "custom name is preserved without remote",
@@ -101,8 +101,8 @@ func TestNewConfigCICmd_WorkflowNameResolution(t *testing.T) {
 		},
 		{
 			name:                 "custom name is preserved if its equal to default workflow name and remote is set",
-			args:                 []string{"--workflow-name=" + ci.DefaultWorkflowName, "--remote"},
-			expectedWorkflowName: ci.DefaultWorkflowName,
+			args:                 []string{"--workflow-name=" + github.DefaultWorkflowName, "--remote"},
+			expectedWorkflowName: github.DefaultWorkflowName,
 		},
 	}
 
@@ -335,12 +335,12 @@ func TestNewConfigCICmd_PlatformFlagErrors(t *testing.T) {
 		{
 			name:        "empty platform value",
 			platformArg: "--platform=",
-			expectedErr: fmt.Sprintf("platform must not be empty, supported: %s", ci.DefaultPlatform),
+			expectedErr: fmt.Sprintf("platform must not be empty, supported: %s", github.DefaultPlatform),
 		},
 		{
 			name:        "unsupported platform value",
 			platformArg: "--platform=unsupported",
-			expectedErr: fmt.Sprintf("unsupported support is not implemented, supported: %s", ci.DefaultPlatform),
+			expectedErr: fmt.Sprintf("unsupported support is not implemented, supported: %s", github.DefaultPlatform),
 		},
 	}
 
@@ -362,7 +362,7 @@ func TestNewConfigCICmd_PlatformFlagErrors(t *testing.T) {
 func TestNewConfigCICmd_ForceFlagOverwritesExistingWorkflow(t *testing.T) {
 	workflowName := "Func Deploy"
 	changedWorkflowName := "Sales Service Deployment"
-	sharedWriter := ci.NewBufferWriter()
+	sharedWriter := github.NewBufferWriter()
 
 	t.Run("initial workflow creation succeeds", func(t *testing.T) {
 		opts := defaultOpts()
@@ -382,7 +382,7 @@ func TestNewConfigCICmd_ForceFlagOverwritesExistingWorkflow(t *testing.T) {
 
 		result := runConfigCiCmd(t, opts)
 
-		assert.ErrorIs(t, result.executeErr, ci.ErrWorkflowExists)
+		assert.ErrorIs(t, result.executeErr, github.ErrWorkflowExists)
 		assert.Assert(t, yamlContains(result.gwYamlString, workflowName))
 		assert.Assert(t, !strings.Contains(result.gwYamlString, changedWorkflowName))
 		assert.Assert(t, !strings.Contains(result.stdOut, forceWarning))
@@ -406,9 +406,9 @@ func TestNewConfigCICmd_VerboseFlagPrintsWorkflowDetails(t *testing.T) {
 	t.Run("verbose flag prints default Github Workflow configuration", func(t *testing.T) {
 		opts := defaultOpts()
 		opts.args = append(opts.args, "--verbose")
-		expectedMessage := fmt.Sprintf(ci.MainLayoutPlainText,
+		expectedMessage := fmt.Sprintf(github.MainLayoutPlainText,
 			defaultOutputPath,
-			ci.DefaultWorkflowName,
+			github.DefaultWorkflowName,
 			issueBranch,
 			"host",
 			"disabled",
@@ -417,12 +417,12 @@ func TestNewConfigCICmd_VerboseFlagPrintsWorkflowDetails(t *testing.T) {
 			"enabled",
 			"disabled",
 			"disabled",
-		) + fmt.Sprintf(ci.RequireManyPlainText,
-			"secrets."+ci.DefaultKubeconfigSecretName,
-			"secrets."+ci.DefaultRegistryPassSecretName,
-			"vars."+ci.DefaultRegistryLoginUrlVariableName,
-			"vars."+ci.DefaultRegistryUserVariableName,
-			"vars."+ci.DefaultRegistryUrlVariableName,
+		) + fmt.Sprintf(github.RequireManyPlainText,
+			"secrets."+github.DefaultKubeconfigSecretName,
+			"secrets."+github.DefaultRegistryPassSecretName,
+			"vars."+github.DefaultRegistryLoginUrlVariableName,
+			"vars."+github.DefaultRegistryUserVariableName,
+			"vars."+github.DefaultRegistryUrlVariableName,
 		)
 
 		result := runConfigCiCmd(t, opts)
@@ -446,7 +446,7 @@ func TestNewConfigCICmd_VerboseFlagPrintsWorkflowDetails(t *testing.T) {
 			"--registry-user-variable-name=DEV_REGISTRY_USER",
 			"--registry-url-variable-name=DEV_REGISTRY_URL",
 		)
-		expectedMessage := fmt.Sprintf(ci.MainLayoutPlainText,
+		expectedMessage := fmt.Sprintf(github.MainLayoutPlainText,
 			defaultOutputPath,
 			customWorkflowName,
 			issueBranch,
@@ -457,7 +457,7 @@ func TestNewConfigCICmd_VerboseFlagPrintsWorkflowDetails(t *testing.T) {
 			"enabled",
 			"enabled",
 			"enabled",
-		) + fmt.Sprintf(ci.RequireManyPlainText,
+		) + fmt.Sprintf(github.RequireManyPlainText,
 			"secrets.DEV_CLUSTER_KUBECONFIG",
 			"secrets.DEV_REGISTRY_PASS",
 			"vars.DEV_REGISTRY_LOGIN_URL",
@@ -476,9 +476,9 @@ func TestNewConfigCICmd_VerboseFlagPrintsWorkflowDetails(t *testing.T) {
 			"--verbose",
 			"--registry-login=false",
 		)
-		expectedMessage := fmt.Sprintf(ci.MainLayoutPlainText,
+		expectedMessage := fmt.Sprintf(github.MainLayoutPlainText,
 			defaultOutputPath,
-			ci.DefaultWorkflowName,
+			github.DefaultWorkflowName,
 			issueBranch,
 			"host",
 			"disabled",
@@ -487,8 +487,8 @@ func TestNewConfigCICmd_VerboseFlagPrintsWorkflowDetails(t *testing.T) {
 			"disabled",
 			"disabled",
 			"disabled",
-		) + fmt.Sprintf(ci.RequireOnePlainText,
-			"secrets."+ci.DefaultKubeconfigSecretName,
+		) + fmt.Sprintf(github.RequireOnePlainText,
+			"secrets."+github.DefaultKubeconfigSecretName,
 		)
 
 		result := runConfigCiCmd(t, opts)
@@ -500,13 +500,13 @@ func TestNewConfigCICmd_VerboseFlagPrintsWorkflowDetails(t *testing.T) {
 func TestNewConfigCICmd_PostExportMessageShown(t *testing.T) {
 	t.Run("a message is shown with all secrets and variables for k8 and registry which needs creation", func(t *testing.T) {
 		opts := defaultOpts()
-		expectedMessage := fmt.Sprintf(ci.PostExportManyPlainText,
+		expectedMessage := fmt.Sprintf(github.PostExportManyPlainText,
 			defaultOutputPath,
-			"secrets."+ci.DefaultKubeconfigSecretName,
-			"secrets."+ci.DefaultRegistryPassSecretName,
-			"vars."+ci.DefaultRegistryLoginUrlVariableName,
-			"vars."+ci.DefaultRegistryUserVariableName,
-			"vars."+ci.DefaultRegistryUrlVariableName,
+			"secrets."+github.DefaultKubeconfigSecretName,
+			"secrets."+github.DefaultRegistryPassSecretName,
+			"vars."+github.DefaultRegistryLoginUrlVariableName,
+			"vars."+github.DefaultRegistryUserVariableName,
+			"vars."+github.DefaultRegistryUrlVariableName,
 		)
 
 		result := runConfigCiCmd(t, opts)
@@ -517,9 +517,9 @@ func TestNewConfigCICmd_PostExportMessageShown(t *testing.T) {
 	t.Run("a message is shown with a secret for k8 which needs creation", func(t *testing.T) {
 		opts := defaultOpts()
 		opts.args = append(opts.args, "--registry-login=false")
-		expectedMessage := fmt.Sprintf(ci.PostExportOnePlainText,
+		expectedMessage := fmt.Sprintf(github.PostExportOnePlainText,
 			defaultOutputPath,
-			"secrets."+ci.DefaultKubeconfigSecretName,
+			"secrets."+github.DefaultKubeconfigSecretName,
 		)
 
 		result := runConfigCiCmd(t, opts)
@@ -768,7 +768,7 @@ const (
 	runTestStepName    = "Run tests"
 )
 
-var defaultOutputPath = filepath.Join(ci.DefaultGitHubWorkflowDir, ci.DefaultGitHubWorkflowFilename)
+var defaultOutputPath = filepath.Join(github.DefaultGitHubWorkflowDir, github.DefaultGitHubWorkflowFilename)
 
 type opts struct {
 	enableFeature        bool
@@ -781,7 +781,7 @@ type opts struct {
 		dir string
 		err error
 	}
-	withWriter *ci.BufferWriter
+	withWriter *github.BufferWriter
 	args       []string
 }
 
@@ -829,7 +829,7 @@ func runConfigCiCmd(
 	// PRE-RUN PREP
 	// all options for "func config ci" command
 	if opts.enableFeature {
-		t.Setenv(ci.ConfigCIFeatureFlag, "true")
+		t.Setenv(fnCmd.ConfigCIFeatureFlag, "true")
 	}
 
 	loaderSaver := common.NewMockLoaderSaver()
@@ -839,7 +839,7 @@ func runConfigCiCmd(
 
 	writer := opts.withWriter
 	if writer == nil {
-		writer = ci.NewBufferWriter()
+		writer = github.NewBufferWriter()
 	}
 
 	currentBranch := common.CurrentBranchStub(

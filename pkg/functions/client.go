@@ -43,7 +43,7 @@ var (
 	// use of this set is left up to the discretion of the builders
 	// themselves.  In the event the builder receives build options which
 	// specify a set of platforms to use in leau of the default (see the
-	// BuildWithPlatforms functionl option), the builder should return
+	// BuildWithPlatforms function option), the builder should return
 	// an error if the request can not proceed.
 	DefaultPlatforms = []Platform{
 		{OS: "linux", Architecture: "amd64"},
@@ -83,6 +83,9 @@ type Client struct {
 	mcpServer         MCPServer         // MCP Server
 	startTimeout      time.Duration     // default start timeout for all runs
 	syncer            FunctionSyncer    // Syncs Function CR after deploy
+	ci                CI
+	stdout            io.Writer
+	pathWriter        PathWriter
 }
 
 // Scaffolder wraps a function with a service scaffolding (entrypoint)
@@ -230,6 +233,16 @@ type MCPServer interface {
 	Start(context.Context) error
 }
 
+type CI interface {
+	Generate(context.Context, any, PathWriter, io.Writer) error
+}
+
+// PathWriter defines the interface for writing files to a given path.
+type PathWriter interface {
+	Exist(path string) bool
+	Write(path string, raw []byte) error
+}
+
 // New client for function management.
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
@@ -246,6 +259,7 @@ func New(options ...Option) *Client {
 		mcpServer:         &noopMCPServer{},
 		transport:         http.DefaultTransport,
 		startTimeout:      DefaultStartTimeout,
+		ci:                &noopCI{},
 	}
 	c.runner = newDefaultRunner(c, os.Stdout, os.Stderr)
 	for _, o := range options {
@@ -352,7 +366,7 @@ func WithDescribers(describers ...Describer) Option {
 	}
 }
 
-// WithDNSProvider proivdes a DNS provider implementation for registering the
+// WithDNSProvider provides a DNS provider implementation for registering the
 // effective DNS name which is either explicitly set via WithName or is derived
 // from the root path.
 func WithDNSProvider(provider DNSProvider) Option {
@@ -371,7 +385,7 @@ func WithRepositoriesPath(path string) Option {
 }
 
 // WithRepository sets a specific URL to a Git repository from which to pull
-// templates.  This setting's existence precldes the use of either the inbuilt
+// templates.  This setting's existence precedes the use of either the inbuilt
 // templates or any repositories from the extensible repositories path.
 func WithRepository(uri string) Option {
 	return func(c *Client) {
@@ -441,6 +455,24 @@ func WithMCPServer(s MCPServer) Option {
 func WithStartTimeout(t time.Duration) Option {
 	return func(c *Client) {
 		c.startTimeout = t
+	}
+}
+
+func WithCI(ci CI) Option {
+	return func(c *Client) {
+		c.ci = ci
+	}
+}
+
+func WithPathWriter(pw PathWriter) Option {
+	return func(c *Client) {
+		c.pathWriter = pw
+	}
+}
+
+func WithStdout(out io.Writer) Option {
+	return func(c *Client) {
+		c.stdout = out
 	}
 }
 
@@ -582,7 +614,6 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 
 	// Push the produced function image
 	fmt.Fprintf(os.Stderr, "Pushing container image to registry\n")
-
 	if f, _, err = c.Push(ctx, f); err != nil {
 		return route, f, err
 	}
@@ -1270,6 +1301,10 @@ func (c *Client) StartMCPServer(ctx context.Context) error {
 	return c.mcpServer.Start(ctx)
 }
 
+func (c *Client) GenerateCIWorkflow(ctx context.Context, config any) error {
+	return c.ci.Generate(ctx, config, c.pathWriter, c.stdout)
+}
+
 // ensureRunDataDir creates a .func directory at the given path, and
 // registers it as ignored in a .gitignore file.
 func ensureRunDataDir(root string) error {
@@ -1636,3 +1671,7 @@ func (n *noopDNSProvider) Provide(_ Function) error { return nil }
 type noopMCPServer struct{}
 
 func (n *noopMCPServer) Start(_ context.Context) error { return nil }
+
+type noopCI struct{}
+
+func (n *noopCI) Generate(_ context.Context, _ any, _ PathWriter, _ io.Writer) error { return nil }

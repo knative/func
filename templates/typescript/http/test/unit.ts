@@ -3,7 +3,7 @@
 import test from 'tape';
 import { expectType } from 'tsd';
 import { Context, HTTPFunction } from 'faas-js-runtime';
-import { handle } from '../build/index.js';
+import { handle } from '../src';
 
 // Ensure that the function completes cleanly when passed a valid event.
 test('Unit: handles a valid request', async (t) => {
