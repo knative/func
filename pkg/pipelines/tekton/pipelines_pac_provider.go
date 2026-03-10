@@ -129,7 +129,7 @@ func (pp *PipelinesProvider) createLocalPACResources(ctx context.Context, f fn.F
 		return err
 	}
 
-	err = createPipelineRunTemplatePAC(f, labels)
+	err = createPipelineRunTemplatePAC(f, labels, pp.registryInsecure)
 	if err != nil {
 		return err
 	}
