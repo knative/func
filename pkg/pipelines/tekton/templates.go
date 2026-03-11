@@ -131,7 +131,7 @@ func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
 
 // createPipelineRunTemplatePAC creates a PipelineRun template used for PAC on-cluster build
 // it creates the resource in the project directory
-func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error {
+func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string, registryInsecure bool) error {
 	contextDir := f.Build.Git.ContextDir
 	if contextDir == "" && f.Build.Builder == builders.S2I {
 		// TODO(lkingland): could instead update S2I to interpret empty string
@@ -167,7 +167,7 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 
 	// Determine if TLS verification should be skipped
 	tlsVerify := "true"
-	if isInsecureRegistry(f.Registry) {
+	if registryInsecure || isInsecureRegistry(f.Registry) {
 		tlsVerify = "false"
 	}
 
@@ -330,7 +330,7 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 
 // createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build
 // all resources are created on the fly, if there's a PipelineRun defined in the project directory, it is used instead
-func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string) error {
+func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string, registryInsecure bool) error {
 	contextDir := f.Build.Git.ContextDir
 	if contextDir == "" && f.Build.Builder == builders.S2I {
 		// TODO(lkingland): could instead update S2I to interpret empty string
@@ -366,7 +366,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 
 	// Determine if TLS verification should be skipped
 	tlsVerify := "true"
-	if isInsecureRegistry(f.Registry) {
+	if registryInsecure || isInsecureRegistry(f.Registry) {
 		tlsVerify = "false"
 	}
 
