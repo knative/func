@@ -52,6 +52,7 @@ type pacURLCallback = func() (string, error)
 
 type PipelinesProvider struct {
 	verbose             bool
+	registryInsecure    bool
 	getPacURL           pacURLCallback
 	credentialsProvider oci.CredentialsProvider
 	decorator           PipelineDecorator
@@ -66,6 +67,12 @@ func WithCredentialsProvider(credentialsProvider oci.CredentialsProvider) Opt {
 func WithVerbose(verbose bool) Opt {
 	return func(pp *PipelinesProvider) {
 		pp.verbose = verbose
+	}
+}
+
+func WithRegistryInsecure(insecure bool) Opt {
+	return func(pp *PipelinesProvider) {
+		pp.registryInsecure = insecure
 	}
 }
 
@@ -203,7 +210,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, fmt.Errorf("problem in creating secret: %v", err)
 	}
 
-	err = createAndApplyPipelineRunTemplate(f, namespace, labels)
+	err = createAndApplyPipelineRunTemplate(f, namespace, labels, pp.registryInsecure)
 	if err != nil {
 		return "", f, fmt.Errorf("problem in creating pipeline run: %v", err)
 	}
