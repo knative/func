@@ -19,7 +19,6 @@ import { Context } from 'faas-js-runtime';
  * See: https://github.com/knative/func/blob/main/docs/guides/nodejs.md#the-context-object
  * @param {CloudEvent} cloudevent the CloudEvent
  */
-// eslint-disable-next-line prettier/prettier
 const handle = async (context: Context, cloudevent?: CloudEvent<unknown>): Promise<CloudEvent<{ message: string }>> => {
   // YOUR CODE HERE
   if (cloudevent) {
