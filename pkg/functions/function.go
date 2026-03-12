@@ -81,6 +81,10 @@ type Function struct {
 	// [registry]/[user].
 	Registry string `yaml:"registry,omitempty"`
 
+	// RegistryInsecure defines it the TLS verification of the registry
+	// should be skipped.
+	RegistryInsecure *bool `yaml:"registryInsecure,omitempty"`
+
 	// Image is the full OCI image tag in form:
 	//   [registry]/[namespace]/[name]:[tag]
 	// example:

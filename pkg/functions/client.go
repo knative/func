@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
 	"knative.dev/func/pkg/utils"
+	"knative.dev/pkg/ptr"
 )
 
 const (
@@ -74,6 +75,7 @@ type Client struct {
 	describers        []Describer       // Describes function instances
 	dnsProvider       DNSProvider       // Provider of DNS services
 	registry          string            // default registry for OCI image tags
+	registryInsecure  bool              // skip TLS verification on registry
 	repositories      *Repositories     // Repositories management
 	templates         *Templates        // Templates management
 	instances         *InstanceRefs     // Function Instances management
@@ -369,6 +371,14 @@ func WithRepository(uri string) Option {
 func WithRegistry(registry string) Option {
 	return func(c *Client) {
 		c.registry = registry
+	}
+}
+
+// WithRegistryInsecure sets if the TLS verification of the registry should
+// be skipped.
+func WithRegistryInsecure(insecure bool) Option {
+	return func(c *Client) {
+		c.registryInsecure = insecure
 	}
 }
 
@@ -690,6 +700,13 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 		f.Registry = c.registry
 	}
 
+	if f.RegistryInsecure == nil {
+		if c.registryInsecure {
+			// only set it if true, to not pollute the config file
+			f.RegistryInsecure = ptr.Bool(c.registryInsecure)
+		}
+	}
+
 	// If no image name has been specified by user (--image), calculate.
 	// Image name is stored on the function for later use by deploy, etc.
 	var err error
@@ -858,6 +875,13 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (string, Function,
 		f.Registry = c.registry
 	}
 
+	if f.RegistryInsecure == nil {
+		if c.registryInsecure {
+			// only set it if true, to not pollute the config file
+			f.RegistryInsecure = ptr.Bool(c.registryInsecure)
+		}
+	}
+
 	// Build and deploy function using Pipeline
 	return c.pipelinesProvider.Run(ctx, f)
 }
@@ -870,6 +894,13 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
 		f.Registry = c.registry
+	}
+
+	if f.RegistryInsecure == nil {
+		if c.registryInsecure {
+			// only set it if true, to not pollute the config file
+			f.RegistryInsecure = ptr.Bool(c.registryInsecure)
+		}
 	}
 
 	// If no image name has been yet defined (not yet built/deployed), calculate.
