@@ -147,7 +147,7 @@ func Test_createPipelineRunTemplatePAC(t *testing.T) {
 			f.Image = "docker.io/alice/" + f.Name
 			f.Registry = TestRegistry
 
-			err = createPipelineRunTemplatePAC(f, make(map[string]string), false)
+			err = createPipelineRunTemplatePAC(f, make(map[string]string))
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createPipelineRunTemplate() error = %v, wantErr %v", err, tt.wantErr)
@@ -316,7 +316,7 @@ func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 			f.Image = "docker.io/alice/" + f.Name
 			f.Registry = TestRegistry
 
-			if err := createAndApplyPipelineRunTemplate(f, tt.namespace, tt.labels, false); (err != nil) != tt.wantErr {
+			if err := createAndApplyPipelineRunTemplate(f, tt.namespace, tt.labels); (err != nil) != tt.wantErr {
 				t.Errorf("createAndApplyPipelineRunTemplate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
