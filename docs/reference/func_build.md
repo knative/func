@@ -70,7 +70,7 @@ func build
   -u, --push                       Attempt to push the function image to the configured registry after being successfully built
   -r, --registry string            Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
       --registry-authfile string   Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)
-      --registry-insecure          Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+      --registry-insecure          Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)
       --token string               Token to use when pushing to the registry. ($FUNC_TOKEN)
       --username string            Username to use when pushing to the registry. ($FUNC_USERNAME)
   -v, --verbose                    Print verbose logs ($FUNC_VERBOSE)
