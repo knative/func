@@ -377,7 +377,7 @@ func WithRegistry(registry string) Option {
 // be skipped.
 //
 // NOTE: Unlike WithRegistry and other Options, which act as a fallback (function's value
-// takes precedence when set), WithRegistryInsecure(true) WILL override the 
+// takes precedence when set), WithRegistryInsecure(true) WILL override the
 // function's value unconditionally -> bool has no "unset" (unlike string's ""),
 // so we cannot distinguish "not configured" from "explicitly set to false".
 // As a result:
@@ -387,7 +387,7 @@ func WithRegistry(registry string) Option {
 // NOTE-2: gauron99 - If we ever need to make this consistent with the rest of Options
 // RegistryInsecure needs to become *bool in Function's struct & global.Config struct
 // (nil == unset == empty value) and it would most likely require special use of
-// cmd.Flags.Changed() and viper.IsSet() (non-standard for rest of commands) 
+// cmd.Flags.Changed() and viper.IsSet() (non-standard for rest of commands)
 func WithRegistryInsecure(insecure bool) Option {
 	return func(c *Client) {
 		c.registryInsecure = insecure
@@ -713,10 +713,10 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 	}
 
 	if c.registryInsecure {
-        // Unlike other With* functions (like WithRegistry) this takes bool.
-        // Bool has no "empty value" (like "" for string) therefore we always
-        // override if client's value is true. 
-        // See WithRegistryInsecure definition comment for more info.
+		// Unlike other With* functions (like WithRegistry) this takes bool.
+		// Bool has no "empty value" (like "" for string) therefore we always
+		// override if client's value is true.
+		// See WithRegistryInsecure definition comment for more info.
 		f.RegistryInsecure = true
 	}
 
