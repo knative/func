@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -163,6 +164,10 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if !f.Initialized() {
 		return NewErrNotInitializedFromPath(f.Root, "build")
 	}
+
+	// Warn if registry changed but registryInsecure is still true
+	cfg.WarnRegistryInsecureChange(os.Stderr, f)
+
 	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 
 	// Client

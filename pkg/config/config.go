@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -67,6 +68,15 @@ func (c Global) RegistryDefault() string {
 		return k8s.GetDefaultOpenShiftRegistry()
 	default:
 		return ""
+	}
+}
+
+// WarnRegistryInsecureChange checks if the registry has changed but
+// registryInsecure is still set to true, and prints a warning if so.
+// This helps users avoid accidentally skipping TLS verification on a new registry.
+func (c Global) WarnRegistryInsecureChange(w io.Writer, f fn.Function) {
+	if f.Registry != "" && c.Registry != "" && f.Registry != c.Registry && f.RegistryInsecure {
+		_, _ = fmt.Fprintf(w, "Warning: Registry changed from '%s' to '%s', but registryInsecure is still true. Consider setting --registry-insecure=false if the new registry requires TLS verification.\n", f.Registry, c.Registry)
 	}
 }
 
