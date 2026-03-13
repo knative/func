@@ -21,7 +21,6 @@ import (
 	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/utils"
-	"knative.dev/pkg/ptr"
 )
 
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {
@@ -279,22 +278,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
-	}
-
-	// Update RegistryInsecure if the flag was explicitly changed
-	// This allows the value to be "remembered" from func.yaml when not passed,
-	// but overridden when explicitly set
-	if cmd.Flags().Changed("registry-insecure") {
-		if cfg.RegistryInsecure {
-			f.RegistryInsecure = ptr.Bool(true)
-		} else {
-			f.RegistryInsecure = nil
-		}
-	} else {
-		// Flag not changed, use value from func.yaml if present
-		if f.RegistryInsecure != nil {
-			cfg.RegistryInsecure = *f.RegistryInsecure
-		}
 	}
 
 	changingNamespace := func(f fn.Function) bool {

@@ -138,6 +138,8 @@ func (c Global) Apply(f fn.Function) Global {
 	if f.Registry != "" {
 		c.Registry = f.Registry
 	}
+	c.RegistryInsecure = f.RegistryInsecure
+
 	return c
 }
 
@@ -156,6 +158,8 @@ func (c Global) Configure(f fn.Function) fn.Function {
 	if c.Registry != "" {
 		f.Registry = c.Registry
 	}
+	f.RegistryInsecure = c.RegistryInsecure
+
 	return f
 }
 

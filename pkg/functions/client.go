@@ -20,7 +20,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
 	"knative.dev/func/pkg/utils"
-	"knative.dev/pkg/ptr"
 )
 
 const (
@@ -700,11 +699,9 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 		f.Registry = c.registry
 	}
 
-	if f.RegistryInsecure == nil {
-		if c.registryInsecure {
-			// only set it if true, to not pollute the config file
-			f.RegistryInsecure = ptr.Bool(c.registryInsecure)
-		}
+	if c.registryInsecure {
+		// only override it, when given via the client
+		f.RegistryInsecure = true
 	}
 
 	// If no image name has been specified by user (--image), calculate.
@@ -875,11 +872,9 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (string, Function,
 		f.Registry = c.registry
 	}
 
-	if f.RegistryInsecure == nil {
-		if c.registryInsecure {
-			// only set it if true, to not pollute the config file
-			f.RegistryInsecure = ptr.Bool(c.registryInsecure)
-		}
+	if c.registryInsecure {
+		// only override it, when given via the client
+		f.RegistryInsecure = true
 	}
 
 	// Build and deploy function using Pipeline
@@ -896,11 +891,9 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 		f.Registry = c.registry
 	}
 
-	if f.RegistryInsecure == nil {
-		if c.registryInsecure {
-			// only set it if true, to not pollute the config file
-			f.RegistryInsecure = ptr.Bool(c.registryInsecure)
-		}
+	if c.registryInsecure {
+		// only override it, when given via the client
+		f.RegistryInsecure = true
 	}
 
 	// If no image name has been yet defined (not yet built/deployed), calculate.

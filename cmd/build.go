@@ -15,7 +15,6 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/s2i"
-	"knative.dev/pkg/ptr"
 )
 
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
@@ -165,22 +164,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return NewErrNotInitializedFromPath(f.Root, "build")
 	}
 	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
-
-	// Update RegistryInsecure if the flag was explicitly changed
-	// This allows the value to be "remembered" from func.yaml when not passed,
-	// but overridden when explicitly set
-	if cmd.Flags().Changed("registry-insecure") {
-		if cfg.RegistryInsecure {
-			f.RegistryInsecure = ptr.Bool(true)
-		} else {
-			f.RegistryInsecure = nil
-		}
-	} else {
-		// Flag not changed, use value from func.yaml if present
-		if f.RegistryInsecure != nil {
-			cfg.RegistryInsecure = *f.RegistryInsecure
-		}
-	}
 
 	// Client
 	clientOptions, err := cfg.clientOptions()
