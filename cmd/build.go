@@ -101,7 +101,7 @@ EXAMPLES
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. ($FUNC_BUILDER)", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
-	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)")
+	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)")
 	cmd.Flags().String("registry-authfile", "", "Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)")
 
 	// Function-Context Flags:
