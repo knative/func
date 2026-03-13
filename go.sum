@@ -1882,8 +1882,8 @@ k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a/go.mod h1:jPW/WVKK9YHAvNhRxK0md/
 k8s.io/utils v0.0.0-20230209194617-a36077c30491/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 k8s.io/utils v0.0.0-20260108192941-914a6e750570 h1:JT4W8lsdrGENg9W+YwwdLJxklIuKWdRm+BC+xt33FOY=
 k8s.io/utils v0.0.0-20260108192941-914a6e750570/go.mod h1:xDxuJ0whA3d0I4mf/C4ppKHxXynQ+fxnkmQH0vTHnuk=
-knative.dev/client/pkg v0.0.0-20260312143121-f601c7f587aa h1:T0PmLnjzrh9iJJhupUhgO7ZFHYld73YQXFAyBjxRmUQ=
-knative.dev/client/pkg v0.0.0-20260312143121-f601c7f587aa/go.mod h1:svyChwKMRnLqWLeMk6jKHGh/LhhFdRahJq12H3yNcss=
+knative.dev/client/pkg v0.0.0-20260313142821-767a1d418d83 h1:sIS/nVv0Bq+67DIgxdE3pUS8GCYwm8DFCghRyNf7ggs=
+knative.dev/client/pkg v0.0.0-20260313142821-767a1d418d83/go.mod h1:pMG0avY0Xi6v7EdZ5d2vep49k/lYTZwdEbHp0Z4ZguY=
 knative.dev/eventing v0.48.1-0.20260313130622-3855280eccdb h1:s+JyOwI1OI7rvh90l8KNir2fXZRv6Q+pnJccDWDiwIE=
 knative.dev/eventing v0.48.1-0.20260313130622-3855280eccdb/go.mod h1:veiqrbGdkwuK5A1EGPbJiOojRJHdE4/LIkndxxKQOwY=
 knative.dev/hack v0.0.0-20260310014051-c448fdb867e2 h1:b35SGLEp03D8oGf8mE9HBt3yfNgYpAK0fw46hFXs9w4=
@@ -1892,8 +1892,8 @@ knative.dev/networking v0.0.0-20260313010219-0055e9277729 h1:sF6e1RnluIKCiZBPrz7
 knative.dev/networking v0.0.0-20260313010219-0055e9277729/go.mod h1:72PhQ+qnOAwz9FFK8y301eWuiQ6vD9qVUFnDBjNhju8=
 knative.dev/pkg v0.0.0-20260310013839-5504026dd1b6 h1:oVpQ0Y+FUmRQer8kdqJjQL20KveZa5sCfnBWeJi4nyQ=
 knative.dev/pkg v0.0.0-20260310013839-5504026dd1b6/go.mod h1:ziEj0TQOWvBw7t/VSkqaZlv++Qk8FfiuI72ZDmv23nI=
-knative.dev/serving v0.48.1-0.20260313112121-e43ad70838bf h1:UrPSCaBioMRPx7Zx6uv4vYVVQ4FbnqOr/dgkmmkTV4g=
-knative.dev/serving v0.48.1-0.20260313112121-e43ad70838bf/go.mod h1:YXhCh+8z9p1v3txp7U0LVPS73f4Pwrujqcpf/rHGhHY=
+knative.dev/serving v0.48.1-0.20260313135630-f698e61bf739 h1:4cJifaOgLRMKfwZhV0sfUtVur0Ks/mQS6k6pKHYhmZ4=
+knative.dev/serving v0.48.1-0.20260313135630-f698e61bf739/go.mod h1:YXhCh+8z9p1v3txp7U0LVPS73f4Pwrujqcpf/rHGhHY=
 pgregory.net/rapid v1.2.0 h1:keKAYRcjm+e1F0oAuU5F5+YPAWcyxNNRK2wud503Gnk=
 pgregory.net/rapid v1.2.0/go.mod h1:PY5XlDGj0+V1FCq0o192FdRhpKHGTRIWBgqjDBTrq04=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
