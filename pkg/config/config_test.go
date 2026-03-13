@@ -1,9 +1,11 @@
 package config_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"knative.dev/func/pkg/config"
@@ -389,4 +391,86 @@ func TestList(t *testing.T) {
 	// NOTE: due to the strictness of this test, a new slice member will need
 	// to be added for each new field added to global config.
 
+}
+
+// TestWarnRegistryInsecureChange ensures that the warning is printed when
+// the registry changes but registryInsecure is still true.
+func TestWarnRegistryInsecureChange(t *testing.T) {
+	tests := []struct {
+		name            string
+		cfgRegistry     string
+		funcRegistry    string
+		funcInsecure    bool
+		expectWarning   bool
+		expectedMessage string
+	}{
+		{
+			name:          "no warning - registry not changed",
+			cfgRegistry:   "example.com/alice",
+			funcRegistry:  "example.com/alice",
+			funcInsecure:  true,
+			expectWarning: false,
+		},
+		{
+			name:          "no warning - registryInsecure is false",
+			cfgRegistry:   "example.com/bob",
+			funcRegistry:  "example.com/alice",
+			funcInsecure:  false,
+			expectWarning: false,
+		},
+		{
+			name:          "no warning - func registry is empty",
+			cfgRegistry:   "example.com/bob",
+			funcRegistry:  "",
+			funcInsecure:  true,
+			expectWarning: false,
+		},
+		{
+			name:          "no warning - cfg registry is empty",
+			cfgRegistry:   "",
+			funcRegistry:  "example.com/alice",
+			funcInsecure:  true,
+			expectWarning: false,
+		},
+		{
+			name:            "warning - registry changed and insecure is true",
+			cfgRegistry:     "example.com/bob",
+			funcRegistry:    "example.com/alice",
+			funcInsecure:    true,
+			expectWarning:   true,
+			expectedMessage: "Warning: Registry changed from 'example.com/alice' to 'example.com/bob', but registryInsecure is still true.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.Global{
+				Registry: tt.cfgRegistry,
+			}
+
+			f := fn.Function{
+				Registry:         tt.funcRegistry,
+				RegistryInsecure: tt.funcInsecure,
+			}
+
+			// Capture output
+			var buf bytes.Buffer
+			cfg.WarnRegistryInsecureChange(&buf, f)
+
+			output := buf.String()
+
+			if tt.expectWarning {
+				if output == "" {
+					t.Fatal("expected warning but got none")
+				}
+				if tt.expectedMessage != "" && !strings.Contains(output, tt.expectedMessage) {
+					t.Fatalf("expected message to contain '%s', got '%s'", tt.expectedMessage, output)
+				}
+			} else {
+				if output != "" {
+					t.Fatalf("expected no warning but got: %s", output)
+				}
+			}
+		})
+	}
 }
