@@ -31,7 +31,7 @@ func TestBuild_RegistryInsecurePersists(t *testing.T) {
 	)
 
 	// Test 1: Initial state - registryInsecure should be false
-	t.Run("initial_state_is_false", func(t *testing.T) {
+	t.Run("initial state is false", func(t *testing.T) {
 		f, err := fn.NewFunction(root)
 		if err != nil {
 			t.Fatal(err)
@@ -43,7 +43,7 @@ func TestBuild_RegistryInsecurePersists(t *testing.T) {
 	})
 
 	// Test 2: Set registryInsecure to true with flag
-	t.Run("sets_to_true_when_flag_passed", func(t *testing.T) {
+	t.Run("sets to true when flag passed", func(t *testing.T) {
 		cmd := NewBuildCmd(NewTestClient(
 			fn.WithRegistry(TestRegistry),
 			fn.WithBuilder(builder),
@@ -69,7 +69,7 @@ func TestBuild_RegistryInsecurePersists(t *testing.T) {
 	// Test 3: Run build WITHOUT --registry-insecure flag
 	// Expected: registryInsecure should remain true (persisted value)
 	// This is the key test for issue #3489
-	t.Run("persists_true_when_flag_not_passed", func(t *testing.T) {
+	t.Run("persists true when flag not passed", func(t *testing.T) {
 		cmd := NewBuildCmd(NewTestClient(
 			fn.WithRegistry(TestRegistry),
 			fn.WithBuilder(builder),
@@ -94,7 +94,7 @@ func TestBuild_RegistryInsecurePersists(t *testing.T) {
 
 	// Test 4: Explicitly set --registry-insecure=false
 	// Expected: registryInsecure should be cleared (set to false)
-	t.Run("clears_when_flag_set_to_false", func(t *testing.T) {
+	t.Run("clears when flag set to false", func(t *testing.T) {
 		cmd := NewBuildCmd(NewTestClient(
 			fn.WithRegistry(TestRegistry),
 			fn.WithBuilder(builder),
@@ -119,7 +119,7 @@ func TestBuild_RegistryInsecurePersists(t *testing.T) {
 
 	// Test 5: Run build again WITHOUT flag after clearing
 	// Expected: registryInsecure should stay false
-	t.Run("stays_false_when_not_set", func(t *testing.T) {
+	t.Run("stays false when not set", func(t *testing.T) {
 		cmd := NewBuildCmd(NewTestClient(
 			fn.WithRegistry(TestRegistry),
 			fn.WithBuilder(builder),
@@ -143,7 +143,7 @@ func TestBuild_RegistryInsecurePersists(t *testing.T) {
 	})
 
 	// Test 6: Set back to true and verify multiple consecutive runs
-	t.Run("persists_across_multiple_consecutive_runs", func(t *testing.T) {
+	t.Run("persists across multiple consecutive runs", func(t *testing.T) {
 		// First set it to true
 		cmd := NewBuildCmd(NewTestClient(
 			fn.WithRegistry(TestRegistry),
