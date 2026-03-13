@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -166,7 +167,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	}
 
 	// Warn if registry changed but registryInsecure is still true
-	cfg.WarnRegistryInsecureChange(os.Stderr, f)
+	warnRegistryInsecureChange(os.Stderr, cfg.Registry, f)
 
 	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 
@@ -202,6 +203,15 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// Stamp is a performance optimization: treat the function as being built
 	// (cached) unless the fs changes.
 	return f.Stamp()
+}
+
+// warnRegistryInsecureChange checks if the registry has changed but
+// registryInsecure is still set to true, and prints a warning if so.
+// This helps users avoid accidentally skipping TLS verification on a new registry.
+func warnRegistryInsecureChange(w io.Writer, newRegistry string, f fn.Function) {
+	if f.Registry != "" && newRegistry != "" && f.Registry != newRegistry && f.RegistryInsecure {
+		fmt.Fprintf(w, "Warning: Registry changed from '%s' to '%s', but registryInsecure is still true. Consider setting --registry-insecure=false if the new registry requires TLS verification.\n", f.Registry, newRegistry)
+	}
 }
 
 type buildConfig struct {

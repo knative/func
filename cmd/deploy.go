@@ -278,7 +278,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 
 	// Warn if registry changed but registryInsecure is still true
-	cfg.WarnRegistryInsecureChange(cmd.OutOrStderr(), f)
+	warnRegistryInsecureChange(cmd.OutOrStderr(), cfg.Registry, f)
 
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
