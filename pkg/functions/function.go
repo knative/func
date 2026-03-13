@@ -81,7 +81,7 @@ type Function struct {
 	// [registry]/[user].
 	Registry string `yaml:"registry,omitempty"`
 
-	// RegistryInsecure defines it the TLS verification of the registry
+	// RegistryInsecure defines if the TLS verification of the registry
 	// should be skipped.
 	RegistryInsecure bool `yaml:"registryInsecure,omitempty"`
 
