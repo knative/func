@@ -170,6 +170,8 @@ func (c Global) Configure(f fn.Function) fn.Function {
 	if c.Registry != "" {
 		f.Registry = c.Registry
 	}
+    // Unconditional because bool has no "empty value". Works because
+    // viper resolves the correct precedence via our defaulting.
 	f.RegistryInsecure = c.RegistryInsecure
 
 	return f
