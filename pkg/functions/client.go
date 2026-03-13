@@ -713,7 +713,10 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 	}
 
 	if c.registryInsecure {
-		// only override it, when given via the client
+        // Unlike other With* functions (like WithRegistry) this takes bool.
+        // Bool has no "empty value" (like "" for string) therefore we always
+        // override if client's value is true. 
+        // See WithRegistryInsecure definition comment for more info.
 		f.RegistryInsecure = true
 	}
 
