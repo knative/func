@@ -148,6 +148,8 @@ func (c Global) Apply(f fn.Function) Global {
 	if f.Registry != "" {
 		c.Registry = f.Registry
 	}
+    // Unconditional because bool has no "empty value". Works because
+    // viper resolves the correct precedence via our defaulting.
 	c.RegistryInsecure = f.RegistryInsecure
 
 	return c
