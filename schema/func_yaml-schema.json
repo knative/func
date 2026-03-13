@@ -184,7 +184,7 @@
 				},
 				"registryInsecure": {
 					"type": "boolean",
-					"description": "RegistryInsecure defines it the TLS verification of the registry\nshould be skipped."
+					"description": "RegistryInsecure defines if the TLS verification of the registry\nshould be skipped."
 				},
 				"image": {
 					"type": "string",
