@@ -375,6 +375,19 @@ func WithRegistry(registry string) Option {
 
 // WithRegistryInsecure sets if the TLS verification of the registry should
 // be skipped.
+//
+// NOTE: Unlike WithRegistry and other Options, which act as a fallback (function's value
+// takes precedence when set), WithRegistryInsecure(true) WILL override the 
+// function's value unconditionally -> bool has no "unset" (unlike string's ""),
+// so we cannot distinguish "not configured" from "explicitly set to false".
+// As a result:
+// - WithRegistryInsecure(true)  → always sets f.RegistryInsecure = true
+// - WithRegistryInsecure(false) → preserves the function's existing value
+//
+// NOTE-2: gauron99 - If we ever need to make this consistent with the rest of Options
+// RegistryInsecure needs to become *bool in Function's struct & global.Config struct
+// (nil == unset == empty value) and it would most likely require special use of
+// cmd.Flags.Changed() and viper.IsSet() (non-standard for rest of commands) 
 func WithRegistryInsecure(insecure bool) Option {
 	return func(c *Client) {
 		c.registryInsecure = insecure
