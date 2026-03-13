@@ -2418,3 +2418,7 @@ func TestDeploy_ValidDomain(t *testing.T) {
 		})
 	}
 }
+
+func TestDeploy_RegistryInsecurePersists(t *testing.T) {
+	testRegistryInsecurePersists(NewDeployCmd, t)
+}
