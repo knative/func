@@ -62,7 +62,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 		t  = newTransport(cfg.InsecureSkipVerify)        // may provide a custom impl which proxies
 		c  = newCredentialsProvider(config.Dir(), t, "") // for accessing registries
 		d  = newKnativeDeployer(cfg.Verbose)             // default deployer (can be overridden via options)
-		pp = newTektonPipelinesProvider(c, cfg.Verbose, cfg.InsecureSkipVerify)
+		pp = newTektonPipelinesProvider(c, cfg.Verbose)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
 			fn.WithTransport(t),
@@ -143,11 +143,10 @@ func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath
 	return creds.NewCredentialsProvider(configPath, options...)
 }
 
-func newTektonPipelinesProvider(creds oci.CredentialsProvider, verbose bool, registryInsecure bool) *tekton.PipelinesProvider {
+func newTektonPipelinesProvider(creds oci.CredentialsProvider, verbose bool) *tekton.PipelinesProvider {
 	options := []tekton.Opt{
 		tekton.WithCredentialsProvider(creds),
 		tekton.WithVerbose(verbose),
-		tekton.WithRegistryInsecure(registryInsecure),
 		tekton.WithPipelineDecorator(deployDecorator{}),
 	}
 

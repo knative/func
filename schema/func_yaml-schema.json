@@ -182,6 +182,10 @@
 					"type": "string",
 					"description": "Registry at which to store interstitial containers, in the form\n[registry]/[user]."
 				},
+				"registryInsecure": {
+					"type": "boolean",
+					"description": "RegistryInsecure defines if the TLS verification of the registry\nshould be skipped."
+				},
 				"image": {
 					"type": "string",
 					"description": "Image is the full OCI image tag in form:\n  [registry]/[namespace]/[name]:[tag]\nexample:\n  quay.io/alice/my.function.name\nRegistry is optional and is defaulted to DefaultRegistry\nexample:\n  alice/my.function.name\nIf Image is provided, it overrides the default of concatenating\n\"Registry+Name:latest\" to derive the Image."
