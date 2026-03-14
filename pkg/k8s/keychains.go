@@ -48,9 +48,9 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 	return []creds.CredentialsCallback{} // TODO: Implement ECR credentials loader
 }
 
-func GetACRCredentialLoader() []creds.CredentialsCallback {
-	return []creds.CredentialsCallback{
-		func(registry string) (oci.Credentials, error) {
+func GetACRCredentialLoader() []creds.ContextCredentialsCallback {
+	return []creds.ContextCredentialsCallback{
+		func(ctx context.Context, registry string) (oci.Credentials, error) {
 			if !strings.HasSuffix(registry, ".azurecr.io") {
 				return oci.Credentials{}, creds.ErrCredentialsNotFound
 			}
@@ -60,7 +60,7 @@ func GetACRCredentialLoader() []creds.CredentialsCallback {
 				return oci.Credentials{}, fmt.Errorf("failed to create default azure credentials: %w", err)
 			}
 			scope := "https://containerregistry.azure.net/.default"
-			token, err := azCredentials.GetToken(context.Background(), policy.TokenRequestOptions{
+			token, err := azCredentials.GetToken(ctx, policy.TokenRequestOptions{
 				Scopes: []string{scope},
 			})
 			if err != nil {
