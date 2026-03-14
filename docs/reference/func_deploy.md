@@ -66,6 +66,15 @@ DESCRIPTION
 	  selectors. Note that the domain specified must be one of those configured
 	  or the flag will be ignored.
 
+	Authentication
+	  The 'deploy' command interacts with container registries to push the function image.
+	  Authentication can be configured using environment variables:
+	  - FUNC_USERNAME: Username for the registry
+	  - FUNC_PASSWORD: Password for the registry
+	  - FUNC_TOKEN: Token for the registry
+
+	  These variables are used to authenticate with the registry specified by --registry.
+
 EXAMPLES
 
 	o Deploy the function
