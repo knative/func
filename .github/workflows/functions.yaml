@@ -3,7 +3,7 @@ name: Functions
 # To run this workflow's tests locally, see ./hack/test-full.sh
 
 permissions:
-  id-token: write   # Required for signing
+  id-token: write # Required for signing
   contents: read
   packages: write
   attestations: write
@@ -18,10 +18,10 @@ on:
 
 # Global version definitions
 env:
-  PYTHON_VERSION: '3.10'
-  NODE_VERSION: '20'
-  JAVA_VERSION: '21'
-  JAVA_DISTRIBUTION: 'temurin'
+  PYTHON_VERSION: "3.10"
+  NODE_VERSION: "20"
+  JAVA_VERSION: "21"
+  JAVA_DISTRIBUTION: "temurin"
 
 jobs:
   # --------
@@ -53,10 +53,10 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - "ubuntu-latest"      # x86_64
-          - "ubuntu-24.04-arm"   # ARM64
-          - "macos-latest"       # Intel
-          - "macos-14"           # ARM
+          - "ubuntu-latest" # x86_64
+          - "ubuntu-24.04-arm" # ARM64
+          - "macos-latest" # Intel
+          - "macos-14" # ARM
           - "windows-latest"
     runs-on: ${{ matrix.os }}
     steps:
@@ -88,14 +88,14 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - "ubuntu-latest"      # x86_64
-          - "ubuntu-24.04-arm"   # ARM64
-          - "macos-latest"       # Intel
-          - "macos-14"           # ARM
+          - "ubuntu-latest" # x86_64
+          - "ubuntu-24.04-arm" # ARM64
+          - "macos-latest" # Intel
+          - "macos-14" # ARM
           - "windows-latest"
     runs-on: ${{ matrix.os }}
     steps:
-        # Setup
+      # Setup
       - name: Disable CRLF conversion (Windows)
         if: runner.os == 'Windows'
         run: git config --global core.autocrlf false
@@ -123,7 +123,6 @@ jobs:
         # Run
       - name: Templates Tests
         run: make test-templates
-
 
   # -----------------
   # INTEGRATION TESTS
@@ -175,7 +174,7 @@ jobs:
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      # Preserve Cluser Logs
+      # Preserve Cluster Logs
       - name: Dump Cluster Logs
         if: always()
         run: ./hack/dump-logs.sh cluster_log.txt
@@ -230,7 +229,7 @@ jobs:
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      # Preserve Cluser Logs
+      # Preserve Cluster Logs
       - name: Dump Cluster Logs
         if: always()
         run: ./hack/dump-logs.sh cluster_log.txt
@@ -252,8 +251,8 @@ jobs:
     strategy:
       matrix:
         os:
-          - "ubuntu-latest"      # x86_64
-          - "ubuntu-24.04-arm"   # ARM64
+          - "ubuntu-latest" # x86_64
+          - "ubuntu-24.04-arm" # ARM64
     env:
       FUNC_CLUSTER_RETRIES: 5
       FUNC_E2E_PODMAN: true
@@ -284,7 +283,7 @@ jobs:
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      # Preserve Cluser Logs
+      # Preserve Cluster Logs
       - name: Dump Cluster Logs
         if: always()
         run: ./hack/dump-logs.sh cluster_log.txt
@@ -295,7 +294,6 @@ jobs:
           name: cluster-logs-${{ matrix.os }}-podman
           path: ./cluster_log.txt
           retention-days: 7
-
 
   # -----------------
   # E2E RUNTIME TESTS
@@ -315,9 +313,9 @@ jobs:
           - "springboot"
     runs-on: ubuntu-latest
     env:
-      FUNC_CLUSTER_RETRIES: 5  # Cluster allocation retries
-      FUNC_E2E_CLEAN: false  # Skip deletes (cluster not reused)
-      FUNC_E2E_MATRIX: true  # Enables the language runtim matrix tests
+      FUNC_CLUSTER_RETRIES: 5 # Cluster allocation retries
+      FUNC_E2E_CLEAN: false # Skip deletes (cluster not reused)
+      FUNC_E2E_MATRIX: true # Enables the language runtime matrix tests
       FUNC_E2E_VERBOSE: true
       FUNC_E2E_MATRIX_RUNTIMES: ${{ matrix.runtime }}
     steps:
@@ -374,7 +372,7 @@ jobs:
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      # Preserve Cluser Logs
+      # Preserve Cluster Logs
       - name: Dump Cluster Logs
         if: always()
         run: ./hack/dump-logs.sh cluster_log.txt
@@ -383,6 +381,60 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cluster-logs-${{ matrix.runtime }}
+          path: ./cluster_log.txt
+          retention-days: 7
+
+  # -------------------
+  # E2E CONFIG CI TESTS
+  # -------------------
+  test-e2e-config-ci:
+    name: E2E - Config CI GitHub Workflows
+    needs: precheck
+    runs-on: ubuntu-latest
+    env:
+      FUNC_CLUSTER_RETRIES: 5
+      FUNC_E2E_CLEAN: false
+      FUNC_E2E_VERBOSE: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - uses: endersonmenezes/free-disk-space@v3
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_haskell: true
+          remove_swap: true
+          rm_cmd: "rmz"
+
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/cluster.sh
+      - name: Start Local Registry
+        run: ./hack/registry.sh
+      - name: Prepare Images
+        run: ./hack/images.sh
+
+      - name: Run Config CI E2E Tests
+        run: make test-e2e-config-ci
+
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          flags: e2e-config-ci
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Preserve Cluster Logs
+      - name: Dump Cluster Logs
+        if: always()
+        run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Archive Cluster Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs-e2e-config-ci
           path: ./cluster_log.txt
           retention-days: 7
 
@@ -396,6 +448,7 @@ jobs:
       - test-e2e
       - test-e2e-podman
       - test-e2e-runtimes
+      - test-e2e-config-ci
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:

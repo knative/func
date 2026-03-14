@@ -195,6 +195,11 @@ var (
 	// Set with FUNC_E2E_PODMAN
 	Podman bool = false
 
+	// ConfigCI enables Config CI tests which deploy functions via
+	// generated GitHub Actions workflows using nektos/act.
+	// Set with FUNC_E2E_CONFIG_CI
+	ConfigCI bool = false
+
 	// Verbose mode for all command runs.
 	// Set with FUNC_E2E_VERBOSE
 	Verbose bool
@@ -264,6 +269,7 @@ func init() {
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_PODMAN_HOST=%v\n", os.Getenv("FUNC_E2E_PODMAN_HOST"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_REGISTRY=%v\n", os.Getenv("FUNC_E2E_REGISTRY"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_PODMAN=%v\n", os.Getenv("FUNC_E2E_PODMAN"))
+	fmt.Fprintf(os.Stderr, "  FUNC_E2E_CONFIG_CI=%v\n", os.Getenv("FUNC_E2E_CONFIG_CI"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_TOOLS=%v\n", os.Getenv("FUNC_E2E_TOOLS"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_TESTDATA=%v\n", os.Getenv("FUNC_E2E_TESTDATA"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_VERBOSE=%v\n", os.Getenv("FUNC_E2E_VERBOSE"))
@@ -369,6 +375,9 @@ func readEnvs() {
 
 	// Podman - optionally enable Podman S2I and Builder test
 	Podman = getEnvBool("FUNC_E2E_PODMAN", "", false)
+
+	// ConfigCI - optionally enable Config CI tests
+	ConfigCI = getEnvBool("FUNC_E2E_CONFIG_CI", "", false)
 
 	// PodmanHost - the DOCKER_HOST to use specifically during Podman tests
 	// If FUNC_E2E_PODMAN is enabled but FUNC_E2E_PODMAN_HOST is not set,

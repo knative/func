@@ -26,7 +26,7 @@ func (fw *failWriter) Write(p []byte) (int, error) {
 func TestPrintConfigurationFail(t *testing.T) {
 	t.Run("main layout write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 1, err: errWrite}
-		conf := CIConfig{}
+		conf := CIConfig{fnRuntime: "go"}
 
 		err := PrintConfiguration(w, conf)
 
@@ -35,7 +35,7 @@ func TestPrintConfigurationFail(t *testing.T) {
 
 	t.Run("registry secrets write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 2, err: errWrite}
-		conf := CIConfig{registryLogin: true}
+		conf := CIConfig{registryLogin: true, fnRuntime: "go"}
 
 		err := PrintConfiguration(w, conf)
 
@@ -44,7 +44,7 @@ func TestPrintConfigurationFail(t *testing.T) {
 
 	t.Run("single secret write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 2, err: errWrite}
-		conf := CIConfig{registryLogin: false}
+		conf := CIConfig{registryLogin: false, fnRuntime: "go"}
 
 		err := PrintConfiguration(w, conf)
 

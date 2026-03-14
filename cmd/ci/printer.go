@@ -11,7 +11,8 @@ GitHub Workflow Configuration
   Workflow filepath:  %s
   Workflow name:      %s
   Branch:             %s
-  Build:              %s
+  Builder:            %s
+  Remote build:       %s
   Runner:             %s
   Test step:          %s
   Registry login:     %s
@@ -53,8 +54,9 @@ func PrintConfiguration(w io.Writer, conf CIConfig) error {
 		conf.OutputPath(),
 		conf.WorkflowName(),
 		conf.Branch(),
-		builder(conf),
-		runner(conf),
+		conf.FnBuilder(),
+		enabledOrDisabled(conf.RemoteBuild()),
+		determineRunner(conf.SelfHostedRunner()),
 		enabledOrDisabled(conf.TestStep()),
 		enabledOrDisabled(conf.RegistryLogin()),
 		enabledOrDisabled(conf.WorkflowDispatch()),
@@ -105,13 +107,6 @@ func PrintPostExportMessage(w io.Writer, conf CIConfig) error {
 		secretsPrefix(conf.KubeconfigSecret()),
 	)
 	return err
-}
-
-func builder(conf CIConfig) string {
-	if conf.RemoteBuild() {
-		return "remote"
-	}
-	return "host"
 }
 
 func enabledOrDisabled(value bool) string {

@@ -2,8 +2,8 @@ package ci
 
 import "fmt"
 
-func runner(conf CIConfig) string {
-	if conf.SelfHostedRunner() {
+func determineRunner(selfHosted bool) string {
+	if selfHosted {
 		return "self-hosted"
 	}
 	return "ubuntu-latest"

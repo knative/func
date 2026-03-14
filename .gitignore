@@ -36,6 +36,7 @@ __pycache__
 AGENTS.override.md
 .claude/*.local.*
 .claude/pr/*
+.claude/plans/*
 .roo/*
 .mcp*
 
