@@ -1,12 +1,12 @@
 package k8s
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"os"
-	"path"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 
@@ -48,38 +48,28 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 	return []creds.CredentialsCallback{} // TODO: Implement ECR credentials loader
 }
 
-func GetACRCredentialLoader() []creds.CredentialsCallback {
-	return []creds.CredentialsCallback{
-		func(registry string) (oci.Credentials, error) {
+func GetACRCredentialLoader() []creds.ContextCredentialsCallback {
+	return []creds.ContextCredentialsCallback{
+		func(ctx context.Context, registry string) (oci.Credentials, error) {
 			if !strings.HasSuffix(registry, ".azurecr.io") {
 				return oci.Credentials{}, creds.ErrCredentialsNotFound
 			}
-
-			f, err := os.Open(path.Join(os.Getenv("HOME"), ".azure", "accessTokens.json"))
+			// Use Azure SDK to get access token
+			azCredentials, err := azidentity.NewDefaultAzureCredential(nil)
 			if err != nil {
-				return oci.Credentials{}, fmt.Errorf("open Azure access tokens: %w", err)
+				return oci.Credentials{}, fmt.Errorf("failed to create default azure credentials: %w", err)
 			}
-			defer f.Close()
-
-			var tokens []struct {
-				AccessToken string `json:"accessToken"`
-				Resource    string `json:"resource"`
+			scope := "https://containerregistry.azure.net/.default"
+			token, err := azCredentials.GetToken(ctx, policy.TokenRequestOptions{
+				Scopes: []string{scope},
+			})
+			if err != nil {
+				return oci.Credentials{}, fmt.Errorf("failed to get azure access token: %w", err)
 			}
-
-			if err := json.NewDecoder(f).Decode(&tokens); err != nil {
-				return oci.Credentials{}, fmt.Errorf("decode Azure access tokens: %w", err)
-			}
-
-			target := "https://" + registry
-			for _, t := range tokens {
-				if t.Resource == target {
-					return oci.Credentials{
-						Username: "00000000-0000-0000-0000-000000000000",
-						Password: t.AccessToken,
-					}, nil
-				}
-			}
-			return oci.Credentials{}, creds.ErrCredentialsNotFound
+			return oci.Credentials{
+				Username: "00000000-0000-0000-0000-000000000000",
+				Password: token.Token,
+			}, nil
 		},
 	}
 }
