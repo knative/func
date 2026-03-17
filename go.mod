@@ -52,13 +52,13 @@ require (
 	github.com/tektoncd/cli v0.44.0
 	github.com/tektoncd/pipeline v1.10.0
 	gitlab.com/gitlab-org/api/client-go v0.150.0
-	golang.org/x/crypto v0.48.0
-	golang.org/x/mod v0.33.0
-	golang.org/x/net v0.51.0
+	golang.org/x/crypto v0.49.0
+	golang.org/x/mod v0.34.0
+	golang.org/x/net v0.52.0
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sync v0.20.0
-	golang.org/x/sys v0.41.0
-	golang.org/x/term v0.40.0
+	golang.org/x/sys v0.42.0
+	golang.org/x/term v0.41.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/v3 v3.5.2
@@ -67,11 +67,11 @@ require (
 	k8s.io/client-go v0.35.2
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20260108192941-914a6e750570
-	knative.dev/client/pkg v0.0.0-20260316024523-a3e535369a07
+	knative.dev/client/pkg v0.0.0-20260316143226-2e05393c4f67
 	knative.dev/eventing v0.48.1-0.20260316031422-ce3fe6b62f97
 	knative.dev/hack v0.0.0-20260310014051-c448fdb867e2
-	knative.dev/pkg v0.0.0-20260314220421-b3fe2e572de3
-	knative.dev/serving v0.48.1-0.20260316123724-07c6cde81b9e
+	knative.dev/pkg v0.0.0-20260316154451-5d1c12d99335
+	knative.dev/serving v0.48.1-0.20260316224151-10d950c3a0d7
 )
 
 require (
@@ -303,7 +303,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57 // indirect
@@ -318,7 +318,7 @@ require (
 	k8s.io/apiserver v0.35.2 // indirect
 	k8s.io/cli-runtime v0.34.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20251125145642-4e65d59e963e // indirect
-	knative.dev/networking v0.0.0-20260313010219-0055e9277729 // indirect
+	knative.dev/networking v0.0.0-20260316020026-a339c355a2b2 // indirect
 	sigs.k8s.io/controller-runtime v0.22.1 // indirect
 	sigs.k8s.io/gateway-api v1.4.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
