@@ -26,7 +26,7 @@ jobs:
             fedora:42 \
             bash -c '
               dnf -y copr enable rhcontainerbot/podman-next
-              dnf -y install podman
+              dnf -y install podman socat
               mkdir -p /etc/containers
               cat > /etc/containers/registries.conf <<INNEREOF
           unqualified-search-registries = ["docker.io", "quay.io", "registry.fedoraproject.org", "registry.access.redhat.com"]
@@ -36,6 +36,7 @@ jobs:
           location="localhost:50000"
           insecure=true
           INNEREOF
+              socat -t300 "UNIX-LISTEN:/var/run/docker.sock,fork,reuseaddr" "TCP-CONNECT:localhost:2375" &
               podman system service tcp://0.0.0.0:2375 --time=0
             '
       - name: Set Environment Variables
