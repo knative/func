@@ -17,41 +17,33 @@ jobs:
           sudo rm -rf /usr/share/dotnet || true
           sudo rm -rf /usr/local/lib/android || true
           sudo rm -rf /opt/ghc || true
-      - name: Install Podman Next (Nightly Build)
-        env:
-          FEDORA_RELEASE: 42
-          BASE_ARCH: x86_64
+      - name: Start Podman Next Container
         run: |
-          sudo apt update
-          sudo mkdir -p /etc/yum.repos.d
-          sudo apt install dnf -y
-          sudo apt install dnf-plugins-core -y
-          sudo apt install alien -y
-          sudo touch /etc/yum.repos.d/fedora.repo
-          sudo chmod 666 /etc/yum.repos.d/fedora.repo
-          cat << EOF >> /etc/yum.repos.d/fedora.repo
-          [fedora]
-          name=Fedora $FEDORA_RELEASE
-          metalink=https://mirrors.fedoraproject.org/metalink?repo=fedora-$FEDORA_RELEASE&arch=$BASE_ARCH
-          enabled=1
-          countme=1
-          metadata_expire=7d
-          repo_gpgcheck=0
-          type=rpm
-          gpgcheck=0
-          EOF
-          sudo chmod 644 /etc/yum.repos.d/fedora.repo
-          sudo dnf copr enable rhcontainerbot/podman-next fedora-$FEDORA_RELEASE-$BASE_ARCH --releasever=$FEDORA_RELEASE -y
-          sudo dnf download crun conmon podman --releasever=$FEDORA_RELEASE -y
-          sudo alien --to-deb $(ls -1 crun*.rpm) --install
-          sudo alien --to-deb $(ls -1 conmon*.rpm) --install
-          sudo alien --to-deb $(ls -1 podman*.rpm) --install
-          podman info
+          docker run -d \
+            --name podman-next \
+            --privileged \
+            --network=host \
+            fedora:42 \
+            bash -c '
+              dnf -y copr enable rhcontainerbot/podman-next
+              dnf -y install podman
+              mkdir -p /etc/containers
+              cat > /etc/containers/registries.conf <<INNEREOF
+          unqualified-search-registries = ["docker.io", "quay.io", "registry.fedoraproject.org", "registry.access.redhat.com"]
+          short-name-mode="permissive"
+
+          [[registry]]
+          location="localhost:50000"
+          insecure=true
+          INNEREOF
+              podman system service tcp://0.0.0.0:2375 --time=0
+            '
       - name: Set Environment Variables
         run: |
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
           echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
           echo "FUNC_ALLOCATE_RETRIES=5" >> "$GITHUB_ENV"
+          echo "PODMAN_NEXT_TCP=tcp://localhost:2375" >> "$GITHUB_ENV"
       - name: Disable CLRF conversion
         run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
@@ -64,11 +56,33 @@ jobs:
         run: ./hack/registry.sh
       - name: Setup testing images
         run: ./hack/images.sh
+      - name: Wait for Podman API
+        run: |
+          echo "Waiting for Podman API to become available..."
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:2375/_ping | grep -q 200; then
+              echo "Podman API is ready."
+              exit 0
+            fi
+            echo "Attempt $i/60: Podman API not ready yet, retrying in 2s..."
+            sleep 2
+          done
+          echo "Podman API did not become ready in time."
+          echo "::group::Podman Next Container Logs"
+          docker logs podman-next
+          echo "::endgroup::"
+          exit 1
       - name: Integration Test Podman
         run: ./hack/test-integration-podman.sh
       - name: Dump Cluster Logs
         if: always()
         run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Dump Podman Next Logs
+        if: always()
+        run: |
+          echo "::group::Podman Next Container Logs"
+          docker logs podman-next 2>&1 || true
+          echo "::endgroup::"
       - name: Archive Cluster Logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -76,3 +90,6 @@ jobs:
           name: cluster-logs-podman-next
           path: ./cluster_log.txt
           retention-days: 7
+      - name: Stop Podman Next Container
+        if: always()
+        run: docker rm -f podman-next || true

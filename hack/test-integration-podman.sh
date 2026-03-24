@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# TCP mode: podman is running remotely (e.g. in a Fedora container).
+# Just point DOCKER_HOST at it and run tests.
+if [ -n "$PODMAN_NEXT_TCP" ]; then
+  export DOCKER_HOST="$PODMAN_NEXT_TCP"
+  make test-integration
+  exit $?
+fi
+
+# Local mode: start a local podman service and configure registries.
 cat <<EOF > registries.conf
 unqualified-search-registries = ["docker.io", "quay.io", "registry.fedoraproject.org", "registry.access.redhat.com"]
 short-name-mode="permissive"
