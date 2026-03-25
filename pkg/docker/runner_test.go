@@ -1,7 +1,6 @@
 package docker_test
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -34,7 +33,7 @@ func TestDockerRun(t *testing.T) {
 	// NOTE: test requires that the image be built already.
 
 	runner := docker.NewRunner(true, os.Stdout, os.Stdout)
-	if _, err = runner.Run(context.Background(), f, "", fn.DefaultStartTimeout); err != nil {
+	if _, err = runner.Run(t.Context(), f, "", fn.DefaultStartTimeout); err != nil {
 		t.Fatal(err)
 	}
 	/* TODO
@@ -48,7 +47,7 @@ func TestDockerRunImagelessError(t *testing.T) {
 	runner := docker.NewRunner(true, os.Stdout, os.Stderr)
 	f := fn.NewFunctionWith(fn.Function{})
 
-	_, err := runner.Run(context.Background(), f, "", fn.DefaultStartTimeout)
+	_, err := runner.Run(t.Context(), f, "", fn.DefaultStartTimeout)
 	var noImageErr docker.ErrNoImage
 	if !errors.As(err, &noImageErr) {
 		t.Fatalf("expected ErrNoImage, got %v", err)

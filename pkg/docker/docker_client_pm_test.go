@@ -27,7 +27,7 @@ func TestNewDockerClientWithPodmanMachine(t *testing.T) {
 
 	publicKey, privateKeyPath := prepareKeys(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*1)
 	defer cancel()
 
 	sshConf := startSSH(t, publicKey)

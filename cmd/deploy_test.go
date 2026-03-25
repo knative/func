@@ -1911,7 +1911,7 @@ func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
 		Registry:  TestRegistry,
 		Namespace: "default",
 	}
-	_, f, err := fn.New(fn.WithDeployer(mock.NewDeployer())).New(context.Background(), f)
+	_, f, err := fn.New(fn.WithDeployer(mock.NewDeployer())).New(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}

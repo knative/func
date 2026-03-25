@@ -3,7 +3,6 @@ package oci
 import (
 	"archive/tar"
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -162,11 +161,11 @@ func TestBuilder_Files(t *testing.T) {
 	}
 
 	// Scaffold first to copy certs and scaffolding files
-	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
+	if err := NewScaffolder(true).Scaffold(t.Context(), f, ""); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := NewBuilder("", true).Build(context.Background(), f, TestPlatforms); err != nil {
+	if err := NewBuilder("", true).Build(t.Context(), f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
 
@@ -344,11 +343,11 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 	}
 
 	// Scaffold first to copy certs and scaffolding files
-	if err := NewScaffolder(true).Scaffold(context.Background(), f, ""); err != nil {
+	if err := NewScaffolder(true).Scaffold(t.Context(), f, ""); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := NewBuilder("", true).Build(context.Background(), f, TestPlatforms); err != nil {
+	if err := NewBuilder("", true).Build(t.Context(), f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
 

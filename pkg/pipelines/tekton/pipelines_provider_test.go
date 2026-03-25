@@ -92,7 +92,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 		{
 			name: "returns error if pvc creation failed",
 			args: args{
-				ctx:       context.Background(),
+				ctx:       t.Context(),
 				f:         fn.Function{},
 				namespace: "test-ns",
 				labels:    nil,
@@ -106,7 +106,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 		{
 			name: "returns nil if pvc already exists",
 			args: args{
-				ctx:       context.Background(),
+				ctx:       t.Context(),
 				f:         fn.Function{},
 				namespace: "test-ns",
 				labels:    nil,
@@ -120,7 +120,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 		{
 			name: "returns err if namespace not defined and default returns an err",
 			args: args{
-				ctx:       context.Background(),
+				ctx:       t.Context(),
 				f:         fn.Function{},
 				namespace: "",
 				labels:    nil,

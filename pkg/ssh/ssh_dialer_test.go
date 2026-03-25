@@ -789,7 +789,7 @@ func withSSHAgent(t *testing.T, ag agent.Agent) {
 
 	os.Setenv("SSH_AUTH_SOCK", agentSocketPath)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	errChan := make(chan error, 1)
 	var wg sync.WaitGroup
 

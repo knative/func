@@ -1,7 +1,6 @@
 package functions_test
 
 import (
-	"context"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -32,7 +31,7 @@ func TestClient_Build_RegistryInsecureFromClient(t *testing.T) {
 	}
 
 	// Build the function
-	f, err = client.Build(context.Background(), f)
+	f, err = client.Build(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +96,7 @@ func TestClient_Build_RegistryInsecurePreservesExisting(t *testing.T) {
 	}
 
 	// Build with the new client
-	f, err = client2.Build(context.Background(), f)
+	f, err = client2.Build(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +132,7 @@ func TestClient_RunPipeline_RegistryInsecureFromClient(t *testing.T) {
 	}
 
 	// Run pipeline
-	_, f, err = client.RunPipeline(context.Background(), f)
+	_, f, err = client.RunPipeline(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +167,7 @@ func TestClient_ConfigurePAC_RegistryInsecureFromClient(t *testing.T) {
 	}
 
 	// Configure PAC
-	if err = client.ConfigurePAC(context.Background(), f, nil); err != nil {
+	if err = client.ConfigurePAC(t.Context(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -206,7 +205,7 @@ func TestClient_Build_RegistryInsecureDefaultFalse(t *testing.T) {
 	}
 
 	// Build the function
-	f, err = client.Build(context.Background(), f)
+	f, err = client.Build(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,7 +263,7 @@ func TestClient_Build_RegistryInsecureToggle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err = client.Build(context.Background(), f)
+	f, err = client.Build(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +284,7 @@ func TestClient_Build_RegistryInsecureToggle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err = client.Build(context.Background(), f)
+	f, err = client.Build(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,7 +305,7 @@ func TestClient_Build_RegistryInsecureToggle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err = client.Build(context.Background(), f)
+	f, err = client.Build(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}

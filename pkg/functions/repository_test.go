@@ -1,7 +1,6 @@
 package functions_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -58,7 +57,7 @@ func TestRepository_Inheritance(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = tA.Write(context.Background(), &fA)
+	err = tA.Write(t.Context(), &fA)
 	if err != nil {
 		t.Error(err)
 	}
@@ -73,7 +72,7 @@ func TestRepository_Inheritance(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = tB.Write(context.Background(), &fB)
+	err = tB.Write(t.Context(), &fB)
 	if err != nil {
 		t.Error(err)
 	}
@@ -88,7 +87,7 @@ func TestRepository_Inheritance(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = tC.Write(context.Background(), &fC)
+	err = tC.Write(t.Context(), &fC)
 	if err != nil {
 		t.Error(err)
 	}

@@ -1,7 +1,6 @@
 package buildpacks
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +26,7 @@ func TestScaffoldPython_LocalBuild(t *testing.T) {
 	f := fn.Function{Root: root, Runtime: "python", Invoke: "http"}
 
 	// Empty path = local build → writes to .func/build/
-	if err := s.Scaffold(context.Background(), f, ""); err != nil {
+	if err := s.Scaffold(t.Context(), f, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -61,7 +60,7 @@ func TestScaffoldPython_ScaffoldingContent(t *testing.T) {
 	s := NewScaffolder(false)
 	f := fn.Function{Root: root, Runtime: "python", Invoke: "http"}
 	outDir := filepath.Join(root, "out")
-	if err := s.Scaffold(context.Background(), f, outDir); err != nil {
+	if err := s.Scaffold(t.Context(), f, outDir); err != nil {
 		t.Fatal(err)
 	}
 
@@ -112,7 +111,7 @@ func TestScaffoldGo_WritesToSubdir(t *testing.T) {
 	}
 
 	s := NewScaffolder(false)
-	if err := s.Scaffold(context.Background(), f, ""); err != nil {
+	if err := s.Scaffold(t.Context(), f, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -139,7 +138,7 @@ func TestScaffold_UnsupportedRuntime(t *testing.T) {
 	s := NewScaffolder(false)
 	f := fn.Function{Root: root, Runtime: "rust"}
 
-	if err := s.Scaffold(context.Background(), f, ""); err != nil {
+	if err := s.Scaffold(t.Context(), f, ""); err != nil {
 		t.Fatalf("unsupported runtime should not error, got: %v", err)
 	}
 }
@@ -184,7 +183,7 @@ func TestScaffoldPython_InvalidInvoke(t *testing.T) {
 
 	s := NewScaffolder(false)
 	f := fn.Function{Root: root, Runtime: "python", Invoke: "invalid-type"}
-	if err := s.Scaffold(context.Background(), f, filepath.Join(root, "out")); err == nil {
+	if err := s.Scaffold(t.Context(), f, filepath.Join(root, "out")); err == nil {
 		t.Fatal("expected error for invalid invoke type")
 	}
 }

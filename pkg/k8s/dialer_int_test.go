@@ -5,7 +5,6 @@ package k8s_test
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,7 +32,7 @@ import (
 // as a TCP proxy/tunnel via kubectl exec.
 func TestInt_DialInClusterService(t *testing.T) {
 	var err error
-	var ctx = context.Background()
+	var ctx = t.Context()
 
 	// Initialize client configuration from kubeconfig or in-cluster config
 	clientConfig := k8s.GetClientConfig()
@@ -221,7 +220,7 @@ func TestInt_DialInClusterService(t *testing.T) {
 }
 
 func TestInt_DialUnreachable(t *testing.T) {
-	var ctx = context.Background()
+	var ctx = t.Context()
 
 	dialer, err := k8s.NewInClusterDialer(ctx, k8s.GetClientConfig())
 	if err != nil {

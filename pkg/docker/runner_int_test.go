@@ -28,7 +28,7 @@ func TestInt_Run(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*10)
 	t.Cleanup(cancel)
 	image := displayEventImg
 	prePullTestImages(t, image)
@@ -104,7 +104,7 @@ func prePullTestImages(t *testing.T, img string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp, err := c.ImagePull(context.Background(), img, image.PullOptions{})
+	resp, err := c.ImagePull(t.Context(), img, image.PullOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,7 +4,6 @@
 package functions_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -94,13 +93,13 @@ func TestInt_New(t *testing.T) {
 	client := newClient(verbose)
 
 	// Act
-	if _, _, err := client.New(context.Background(), fn.Function{Name: name, Namespace: DefaultIntTestNamespace, Root: root, Runtime: "go"}); err != nil {
+	if _, _, err := client.New(t.Context(), fn.Function{Name: name, Namespace: DefaultIntTestNamespace, Root: root, Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, name, DefaultIntTestNamespace)
 
 	// Assert
-	list, err := client.List(context.Background(), DefaultIntTestNamespace)
+	list, err := client.List(t.Context(), DefaultIntTestNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,13 +124,13 @@ func TestInt_Deploy_Defaults(t *testing.T) {
 	if f, err = client.Init(f); err != nil {
 		t.Fatal(err)
 	}
-	if err = client.Scaffold(context.Background(), f, ""); err != nil {
+	if err = client.Scaffold(t.Context(), f, ""); err != nil {
 		t.Fatal(err)
 	}
-	if f, err = client.Build(context.Background(), f); err != nil {
+	if f, err = client.Build(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
-	if f, _, err = client.Push(context.Background(), f); err != nil {
+	if f, _, err = client.Push(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -140,7 +139,7 @@ func TestInt_Deploy_Defaults(t *testing.T) {
 	// of push -- this has to be here because of a workaround
 	f.Deploy.Image = f.Build.Image
 
-	if f, err = client.Deploy(context.Background(), f); err != nil {
+	if f, err = client.Deploy(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -177,7 +176,7 @@ func TestInt_Deploy_WithOptions(t *testing.T) {
 	}
 
 	client := newClient(verbose)
-	if _, _, err := client.New(context.Background(), f); err != nil {
+	if _, _, err := client.New(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "test-deploy-with-options", DefaultIntTestNamespace)
@@ -203,7 +202,7 @@ func TestInt_Deploy_WithTriggers(t *testing.T) {
 	}
 
 	client := newClient(verbose)
-	if _, _, err := client.New(context.Background(), f); err != nil {
+	if _, _, err := client.New(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "test-deploy-with-triggers", DefaultIntTestNamespace)
@@ -225,7 +224,7 @@ func TestInt_Update_WithAnnotationsAndLabels(t *testing.T) {
 	client := newClient(verbose)
 	f := fn.Function{Name: functionName, Runtime: "go", Namespace: DefaultIntTestNamespace}
 
-	if _, f, err = client.New(context.Background(), f); err != nil {
+	if _, f, err = client.New(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, functionName, DefaultIntTestNamespace)
@@ -241,11 +240,11 @@ func TestInt_Update_WithAnnotationsAndLabels(t *testing.T) {
 	f.Deploy.Annotations = annotations
 	f.Deploy.Labels = labels
 
-	if f, err = client.Deploy(context.Background(), f, fn.WithDeploySkipBuildCheck(true)); err != nil {
+	if f, err = client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true)); err != nil {
 		t.Fatal(err)
 	}
 
-	ksvc, err := servingClient.GetService(context.Background(), functionName)
+	ksvc, err := servingClient.GetService(t.Context(), functionName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,11 +276,11 @@ func TestInt_Update_WithAnnotationsAndLabels(t *testing.T) {
 	f.Deploy.Annotations = annotations
 	f.Deploy.Labels = labels
 
-	if f, err = client.Deploy(context.Background(), f, fn.WithDeploySkipBuildCheck(true)); err != nil {
+	if f, err = client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true)); err != nil {
 		t.Fatal(err)
 	}
 
-	ksvc, err = servingClient.GetService(context.Background(), functionName)
+	ksvc, err = servingClient.GetService(t.Context(), functionName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,13 +316,13 @@ func TestInt_Remove(t *testing.T) {
 	client := newClient(verbose)
 	f := fn.Function{Name: name, Namespace: DefaultIntTestNamespace, Runtime: "go"}
 	var err error
-	if _, _, err = client.New(context.Background(), f); err != nil {
+	if _, _, err = client.New(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
 
 	del(t, client, "remove", DefaultIntTestNamespace)
 
-	list, err := client.List(context.Background(), DefaultIntTestNamespace)
+	list, err := client.List(t.Context(), DefaultIntTestNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -394,7 +393,7 @@ func TestInt_Invoke_ClientToService(t *testing.T) {
 	defer cleanup()
 	var (
 		verbose = true
-		ctx     = context.Background()
+		ctx     = t.Context()
 		client  = newClient(verbose)
 		route   string
 		err     error
@@ -464,7 +463,7 @@ func TestInt_Invoke_ServiceToService(t *testing.T) {
 	resetEnv()
 	var (
 		verbose = true
-		ctx     = context.Background()
+		ctx     = t.Context()
 		client  = newClient(verbose)
 		err     error
 		source  string
@@ -597,7 +596,7 @@ func TestInt_DeployWithoutHome(t *testing.T) {
 	client := newClientWithS2i(verbose)
 
 	// expect to succeed
-	_, _, err := client.New(context.Background(), f)
+	_, _, err := client.New(t.Context(), f)
 	if err != nil {
 		t.Fatalf("expected no errors but got %v", err)
 	}
@@ -712,7 +711,7 @@ func del(t *testing.T, c *fn.Client, name, namespace string) {
 	t.Helper()
 	waitFor(t, c, name, namespace)
 	f := fn.Function{Name: name, Deploy: fn.DeploySpec{Namespace: DefaultIntTestNamespace}}
-	if err := c.Remove(context.Background(), "", "", f, false); err != nil {
+	if err := c.Remove(t.Context(), "", "", f, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -738,13 +737,13 @@ func del(t *testing.T, c *fn.Client, name, namespace string) {
 			filters.Arg("name", fmt.Sprintf("pack-cache-func_%s_*", name)),
 		),
 	}
-	resp, err := cli.VolumeList(context.Background(), opts)
+	resp, err := cli.VolumeList(t.Context(), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, vol := range resp.Volumes {
 		t.Log("deleting volume:", vol.Name)
-		err = cli.VolumeRemove(context.Background(), vol.Name, true)
+		err = cli.VolumeRemove(t.Context(), vol.Name, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -760,7 +759,7 @@ func waitFor(t *testing.T, c *fn.Client, name, namespace string) {
 	var pollInterval = 2 * time.Second
 
 	for { // ever (i.e. defer to global test timeout)
-		nn, err := c.List(context.Background(), namespace)
+		nn, err := c.List(t.Context(), namespace)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -19,7 +19,7 @@ func TestNewClientWinPipe(t *testing.T) {
 	startMockDaemonWinPipe(t, testNPipe)
 	t.Setenv("DOCKER_HOST", fmt.Sprintf("npipe:////./pipe/%s", testNPipe))
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*1)
 	defer cancel()
 
 	dockerClient, dockerHostToMount, err := docker.NewClient(client.DefaultDockerHost)

@@ -730,7 +730,7 @@ func waitForEvent(t *testing.T, functionName, eventId string) <-chan string {
 
 	eventReceived := make(chan string, 10)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	pr, pw := io.Pipe()

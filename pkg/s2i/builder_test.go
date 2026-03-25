@@ -117,7 +117,7 @@ func Test_BuilderImageDefault(t *testing.T) {
 
 	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
-	if err := builder.Build(context.Background(), f, nil); err != nil {
+	if err := builder.Build(t.Context(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -152,7 +152,7 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 
 	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
-	if err := b.Build(context.Background(), f, nil); err != nil {
+	if err := b.Build(t.Context(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -170,7 +170,7 @@ func Test_BuilderVerbose(t *testing.T) {
 				return &api.Result{Messages: []string{"message"}}, nil
 			}}
 		if err := s2i.NewBuilder(s2i.WithVerbose(verbose), s2i.WithImpl(i), s2i.WithDockerClient(c)).
-			Build(context.Background(), fn.Function{Runtime: "node"}, nil); err != nil {
+			Build(t.Context(), fn.Function{Runtime: "node"}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -207,7 +207,7 @@ func Test_BuildEnvs(t *testing.T) {
 		t.Fatal("build envs not added to builder impl config")
 		return
 	}
-	if err := b.Build(context.Background(), f, nil); err != nil {
+	if err := b.Build(t.Context(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -250,7 +250,7 @@ func Test_MiddlewareLabel(t *testing.T) {
 		return nil, nil
 	}
 
-	if err := b.Build(context.Background(), f, nil); err != nil {
+	if err := b.Build(t.Context(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -262,7 +262,7 @@ func TestBuildFail(t *testing.T) {
 		},
 	}
 	b := s2i.NewBuilder(s2i.WithDockerClient(cli))
-	err := b.Build(context.Background(), fn.Function{Runtime: "node"}, nil)
+	err := b.Build(t.Context(), fn.Function{Runtime: "node"}, nil)
 	if err == nil {
 		t.Error("didn't get expected error")
 	}
@@ -384,7 +384,7 @@ func Test_ScaffoldWritesToFuncBuild(t *testing.T) {
 			}
 
 			// Call Scaffold
-			if err := scaffolder.Scaffold(context.Background(), f, ""); err != nil {
+			if err := scaffolder.Scaffold(t.Context(), f, ""); err != nil {
 				t.Fatal(err)
 			}
 

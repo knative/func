@@ -5,7 +5,6 @@ package e2e
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -401,7 +400,7 @@ func TestCore_Delete(t *testing.T) {
 
 	// Check it appears in the list
 	client := fn.New(fn.WithListers(knative.NewLister(false)))
-	list, err := client.List(context.Background(), Namespace)
+	list, err := client.List(t.Context(), Namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -416,7 +415,7 @@ func TestCore_Delete(t *testing.T) {
 		t.Logf("Error deleting function. %v", err)
 	}
 
-	list, err = client.List(context.Background(), Namespace)
+	list, err = client.List(t.Context(), Namespace)
 	if err != nil {
 		t.Fatal(err)
 	}

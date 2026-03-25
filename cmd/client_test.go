@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -28,11 +27,11 @@ func Test_NewTestClient(t *testing.T) {
 
 	// Trigger an invocation of the mocks by running the associated client
 	// methods which depend on them
-	err := client.Remove(context.Background(), "myfunc", "myns", fn.Function{}, true)
+	err := client.Remove(t.Context(), "myfunc", "myns", fn.Function{}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Describe(context.Background(), "myfunc", "myns", fn.Function{})
+	_, err = client.Describe(t.Context(), "myfunc", "myns", fn.Function{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -71,15 +71,15 @@ func TestPusher_Push(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = client.Scaffold(context.Background(), f, ""); err != nil {
+	if err = client.Scaffold(t.Context(), f, ""); err != nil {
 		t.Fatal(err)
 	}
 
-	if f, err = client.Build(context.Background(), f); err != nil {
+	if f, err = client.Build(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, _, err = client.Push(context.Background(), f); err != nil {
+	if _, _, err = client.Push(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -156,14 +156,14 @@ func TestPusher_BasicAuth(t *testing.T) {
 	if f, err = client.Init(f); err != nil {
 		t.Fatal(err)
 	}
-	if err = client.Scaffold(context.Background(), f, ""); err != nil {
+	if err = client.Scaffold(t.Context(), f, ""); err != nil {
 		t.Fatal(err)
 	}
-	if f, err = client.Build(context.Background(), f); err != nil {
+	if f, err = client.Build(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, _, err = client.Push(context.Background(), f); err != nil {
+	if _, _, err = client.Push(t.Context(), f); err != nil {
 		t.Fatal(err)
 	}
 

@@ -50,7 +50,7 @@ func TestInt_MiddlewareLabels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := initFunction(t, "test-"+tt.name+"-labels")
-			ctx, cancel := context.WithTimeout(context.Background(), tt.timeout)
+			ctx, cancel := context.WithTimeout(t.Context(), tt.timeout)
 			defer cancel()
 
 			if err := tt.scaffolder.Scaffold(ctx, f, ""); err != nil {

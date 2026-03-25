@@ -11,7 +11,6 @@ package e2e
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -859,7 +858,7 @@ func isAbnormalExit(t *testing.T, err error) bool {
 // setSecret creates or replaces a secret.
 func setSecret(t *testing.T, name, ns string, data map[string][]byte) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := t.Context()
 	config, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
 		t.Fatal(err)
@@ -882,7 +881,7 @@ func setSecret(t *testing.T, name, ns string, data map[string][]byte) {
 // setConfigMap creates or replaces a configMap
 func setConfigMap(t *testing.T, name, ns string, data map[string]string) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := t.Context()
 	config, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
 		t.Fatal(err)

@@ -119,7 +119,7 @@ func TestInt_Remote_Default(t *testing.T) {
 		err         error
 		url         string
 		verbose     = false
-		ctx, cancel = signal.NotifyContext(context.Background(), os.Interrupt)
+		ctx, cancel = signal.NotifyContext(t.Context(), os.Interrupt)
 		client      = newRemoteTestClient(verbose,
 			fn.WithRepository("https://github.com/functions-dev/templates"))
 	)
@@ -163,7 +163,7 @@ func setupNS(t *testing.T) string {
 			Name: name,
 		},
 	}
-	_, err = cliSet.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().Namespaces().Create(t.Context(), ns, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func setupNS(t *testing.T) string {
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
-	_, err = cliSet.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
+	_, err = cliSet.RbacV1().ClusterRoleBindings().Create(t.Context(), crb, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

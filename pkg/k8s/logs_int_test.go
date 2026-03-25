@@ -17,7 +17,7 @@ import (
 
 func TestInt_GetPodLogs(t *testing.T) {
 	var err error
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*5)
 	t.Cleanup(cancel)
 	cliSet, err := k8s.NewKubernetesClientset()
 	if err != nil {

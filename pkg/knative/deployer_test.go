@@ -150,7 +150,7 @@ func TestCheckPullPermissions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = checkPullPermissions(context.Background(), tt.core, trans, tt.image, "default")
+			err = checkPullPermissions(t.Context(), tt.core, trans, tt.image, "default")
 			p := tt.errPred
 			if p == nil {
 				p = func(err error) bool {

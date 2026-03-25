@@ -24,7 +24,7 @@ func TestResource_FunctionState(t *testing.T) {
 	}
 
 	// Test case 1: Error when no Function exists in working directory
-	result, err := client.ReadResource(context.Background(), &mcp.ReadResourceParams{
+	result, err := client.ReadResource(t.Context(), &mcp.ReadResourceParams{
 		URI: "func://function",
 	})
 	if err != nil {
@@ -54,7 +54,7 @@ func TestResource_FunctionState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err = client.ReadResource(context.Background(), &mcp.ReadResourceParams{
+	result, err = client.ReadResource(t.Context(), &mcp.ReadResourceParams{
 		URI: "func://function",
 	})
 	if err != nil {
@@ -135,7 +135,7 @@ etc          etc
 				t.Fatal(err)
 			}
 
-			result, err := client.ReadResource(context.Background(), &mcp.ReadResourceParams{
+			result, err := client.ReadResource(t.Context(), &mcp.ReadResourceParams{
 				URI: tc.uri,
 			})
 			if err != nil {
