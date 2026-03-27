@@ -24,8 +24,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/pkg/ptr"
 )
 
@@ -288,6 +290,59 @@ func setupRegistry(t *testing.T) http.RoundTripper {
 	}
 
 	return trans
+}
+
+// TestGenerateNewService_Envs ensures that environment variables defined on the
+// function are correctly included in the generated Knative Service container spec.
+// This is a regression test for issue #3514.
+func TestGenerateNewService_Envs(t *testing.T) {
+	ptr := func(s string) *string { return &s }
+
+	f := fn.Function{
+		Name: "test-func",
+		Deploy: fn.DeploySpec{
+			Image: "example.com/test:latest",
+		},
+		Run: fn.RunSpec{
+			Envs: fn.Envs{
+				{Name: ptr("MYVAR"), Value: ptr("myvalue")},
+				{Name: ptr("OTHER"), Value: ptr("othervalue")},
+			},
+		},
+	}
+
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVCs := sets.New[string]()
+
+	service, err := generateNewService(f, nil, false, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	containers := service.Spec.Template.Spec.Containers
+	if len(containers) != 1 {
+		t.Fatalf("expected 1 container, got %d", len(containers))
+	}
+
+	envVars := containers[0].Env
+	// ProcessEnvs adds ADDRESS=0.0.0.0 and BUILT=<timestamp> automatically
+	foundMyVar := false
+	foundOther := false
+	for _, env := range envVars {
+		if env.Name == "MYVAR" && env.Value == "myvalue" {
+			foundMyVar = true
+		}
+		if env.Name == "OTHER" && env.Value == "othervalue" {
+			foundOther = true
+		}
+	}
+	if !foundMyVar {
+		t.Errorf("expected MYVAR=myvalue in container env, got: %v", envVars)
+	}
+	if !foundOther {
+		t.Errorf("expected OTHER=othervalue in container env, got: %v", envVars)
+	}
 }
 
 func assertAuth(uname, pwd string, w http.ResponseWriter, r *http.Request) bool {

@@ -209,7 +209,7 @@ consider setting up the pull secrets and linking it to the default service accou
 			referencedConfigMaps := sets.New[string]()
 			referencedPVCs := sets.New[string]()
 
-			service, err := generateNewService(f, d.decorator, daprInstalled)
+			service, err := generateNewService(f, d.decorator, daprInstalled, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -411,7 +411,7 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 	return nil
 }
 
-func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprInstalled bool) (*servingv1.Service, error) {
+func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprInstalled bool, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string]) (*servingv1.Service, error) {
 	container := corev1.Container{
 		Image: f.Deploy.Image,
 	}
@@ -419,18 +419,14 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 	k8s.SetSecurityContext(&container)
 	k8s.SetHealthEndpoints(f, &container)
 
-	referencedSecrets := sets.New[string]()
-	referencedConfigMaps := sets.New[string]()
-	referencedPVC := sets.New[string]()
-
-	newEnv, newEnvFrom, err := k8s.ProcessEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
+	newEnv, newEnvFrom, err := k8s.ProcessEnvs(f.Run.Envs, referencedSecrets, referencedConfigMaps)
 	if err != nil {
 		return nil, err
 	}
 	container.Env = newEnv
 	container.EnvFrom = newEnvFrom
 
-	newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVC)
+	newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)
 	if err != nil {
 		return nil, err
 	}

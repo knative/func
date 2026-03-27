@@ -465,6 +465,49 @@ func TestDeploy_Envs(t *testing.T) {
 
 }
 
+// TestDeploy_EnvsPassedToDeployer ensures that environment variables provided
+// via the -e flag are included in the function passed to the deployer.
+// This is a regression test for issue #3514 where env vars were persisted to
+// func.yaml but not included in the deployed service spec.
+func TestDeploy_EnvsPassedToDeployer(t *testing.T) {
+	root := FromTempDirectory(t)
+	ptr := func(s string) *string { return &s }
+
+	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deployer := mock.NewDeployer()
+	var deployedEnvs fn.Envs
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (fn.DeploymentResult, error) {
+		deployedEnvs = f.Run.Envs
+		return fn.DeploymentResult{
+			Status:    fn.Deployed,
+			URL:       "http://example.com",
+			Namespace: "default",
+		}, nil
+	}
+
+	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+	cmd.SetArgs([]string{"--env=MYVAR=myvalue", "--env=OTHER=othervalue"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !deployer.DeployInvoked {
+		t.Fatal("deployer was not invoked")
+	}
+
+	expected := fn.Envs([]fn.Env{
+		{Name: ptr("MYVAR"), Value: ptr("myvalue")},
+		{Name: ptr("OTHER"), Value: ptr("othervalue")},
+	})
+	if !reflect.DeepEqual(deployedEnvs, expected) {
+		t.Fatalf("Expected deployer to receive envs '%v', got '%v'", expected, deployedEnvs)
+	}
+}
+
 // TestDeploy_FunctionContext ensures that the function contextually relevant
 // to the current command is loaded and used for flag defaults by spot-checking
 // the builder setting.
