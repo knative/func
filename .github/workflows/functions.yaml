@@ -16,6 +16,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Global version definitions
 env:
   PYTHON_VERSION: "3.10"
