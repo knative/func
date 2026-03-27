@@ -1,5 +1,8 @@
 name: Func Podman Next Test
 
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: '0 2 * * *'
