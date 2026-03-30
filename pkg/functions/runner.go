@@ -11,11 +11,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
 const (
-	defaultRunHost    = "127.0.0.1" // TODO allow to be altered via a runOpt
+	defaultRunHost    = "127.0.0.1"
 	defaultRunPort    = "8080"
 	readinessEndpoint = "/health/readiness"
 )
@@ -169,13 +170,23 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	// cmd.Cancel = stop // TODO: use when we upgrade to go 1.20
+	cmd.Cancel = func() error {
+		if runtime.GOOS == "windows" {
+			// Interrupt is not implemented on windows apparently
+			return cmd.Process.Kill()
+		}
+		return cmd.Process.Signal(os.Interrupt)
+	}
+	// force kill after delay if Interrupt signal did not work to not hang indefinitely
+	cmd.WaitDelay = 5 * time.Second
 
-	// See the 1.19 [release notes](https://tip.golang.org/doc/go1.19) which state:
-	//   A Cmd with a non-empty Dir field and nil Env now implicitly sets the PWD environment variable for the subprocess to match Dir.
-	//   The new method Cmd.Environ reports the environment that would be used to run the command, including the implicitly set PWD variable.
-	// cmd.Env = append(cmd.Environ(), "PORT="+job.Port) // requires go 1.19
-	cmd.Env = append(cmd.Env, "LISTEN_ADDRESS="+net.JoinHostPort(job.Host, job.Port), "PWD="+cmd.Dir)
+	cmd.Env, err = buildRunnerEnv(job, map[string]string{
+		"LISTEN_ADDRESS": net.JoinHostPort(job.Host, job.Port),
+		"PWD":            cmd.Dir,
+	})
+	if err != nil {
+		return fmt.Errorf("error building runner environment: %w", err)
+	}
 
 	// Running asynchronously allows for the client Run method to return
 	// metadata about the running function such as its chosen port.
@@ -244,12 +255,22 @@ func runPython(ctx context.Context, job *Job) (err error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	// See 1.19 [release notes](https://tip.golang.org/doc/go1.19) which state:
-	//   A Cmd with a non-empty Dir field and nil Env now implicitly sets the
-	//   PWD environment variable for the subprocess to match Dir.
-	//   The new method Cmd.Environ reports the environment that would be used
-	//   to run the command, including the implicitly set PWD variable.
-	cmd.Env = append(cmd.Env, "PORT="+job.Port, "LISTEN_ADDRESS="+listenAddress, "PWD="+cmd.Dir)
+	cmd.Cancel = func() error {
+		if runtime.GOOS == "windows" {
+			return cmd.Process.Kill()
+		}
+		return cmd.Process.Signal(os.Interrupt)
+	}
+	cmd.WaitDelay = 5 * time.Second
+
+	cmd.Env, err = buildRunnerEnv(job, map[string]string{
+		"PORT":           job.Port,
+		"LISTEN_ADDRESS": listenAddress,
+		"PWD":            cmd.Dir,
+	})
+	if err != nil {
+		return fmt.Errorf("error building runner environment: %w", err)
+	}
 
 	// Running asynchronously allows for the client Run method to return
 	// metadata about the running function such as its chosen port.
@@ -264,6 +285,29 @@ func runPython(ctx context.Context, job *Job) (err error) {
 	// creating a racing condition.
 
 	return
+}
+
+// buildRunnerEnv constructs the environment for a host-run subprocess.
+// It starts with the parent process environment (os.Environ), layers on the
+// provided extras (e.g. PORT, LISTEN_ADDRESS, PWD), and then applies any
+// environment variables defined in func.yaml or passed via -e flags.
+func buildRunnerEnv(job *Job, extras map[string]string) ([]string, error) {
+	env := os.Environ()
+
+	for k, v := range extras {
+		env = append(env, k+"="+v)
+	}
+
+	// Interpolate and append env vars from func.yaml / -e flags.
+	funcEnvs, err := Interpolate(job.Function.Run.Envs)
+	if err != nil {
+		return nil, fmt.Errorf("error interpolating environment variables: %w", err)
+	}
+	for k, v := range funcEnvs {
+		env = append(env, k+"="+v)
+	}
+
+	return env, nil
 }
 
 func waitFor(ctx context.Context, job *Job, timeout time.Duration) error {
