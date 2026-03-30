@@ -3,7 +3,10 @@ package wasm
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"strings"
+	"time"
 
 	wasmv1alpha1 "github.com/cardil/knative-serving-wasm/pkg/apis/wasm/v1alpha1"
 	wasmclientset "github.com/cardil/knative-serving-wasm/pkg/client/clientset/versioned"
@@ -11,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
@@ -25,6 +29,13 @@ type Deployer struct {
 
 	// clientsetProvider is injectable for testing.
 	clientsetProvider ClientsetProvider
+
+	// waitTimeout is how long to poll for WasmModule readiness after
+	// create/update. Set to 0 to skip polling (useful in unit tests).
+	waitTimeout time.Duration
+
+	// pollInterval is how often to check the WasmModule status.
+	pollInterval time.Duration
 }
 
 // DeployerOpt is a functional option for Deployer.
@@ -51,10 +62,21 @@ func WithDeployerClientsetProvider(p ClientsetProvider) DeployerOpt {
 	}
 }
 
+// WithDeployerWaitTimeout sets the readiness polling timeout.
+// Use 0 to skip polling entirely (useful in unit tests where the fake
+// clientset never updates WasmModule status).
+func WithDeployerWaitTimeout(t time.Duration) DeployerOpt {
+	return func(d *Deployer) {
+		d.waitTimeout = t
+	}
+}
+
 // NewDeployer creates a new WASM deployer with the given options.
 func NewDeployer(opts ...DeployerOpt) *Deployer {
 	d := &Deployer{
 		clientsetProvider: defaultClientsetProvider,
+		waitTimeout:       k8s.DefaultWaitingTimeout,
+		pollInterval:      DefaultPollInterval,
 	}
 	for _, o := range opts {
 		o(d)
@@ -129,14 +151,245 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		}
 	}
 
-	// Retrieve URL from status (may be empty on first deploy until controller reconciles).
-	url := moduleURL(cs, ctx, namespace, f.Name)
+	// Wait for WasmModule to become ready and extract URL.
+	url, waitErr := d.waitForReady(ctx, cs, namespace, f.Name)
+	if waitErr != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("WasmModule %q failed to become ready: %w", f.Name, waitErr)
+	}
 
 	return fn.DeploymentResult{
 		Status:    status,
 		URL:       url,
 		Namespace: namespace,
 	}, nil
+}
+
+// waitForReady polls the WasmModule until it becomes Ready=True or the
+// timeout expires.  It mirrors the pattern used by the Knative deployer:
+// three goroutines run in parallel — log streaming, runner image-pull check,
+// and WasmModule status polling — and a select loop picks the first result.
+//
+// If waitTimeout == 0 the method returns immediately with a best-effort URL
+// from a single GET (backward-compatible with unit tests that use fake
+// clientsets which never update status).
+//
+// The log streaming and image-pull-check goroutines are guarded by the ksvc
+// label selector ("serving.knative.dev/service={name}").  When the
+// knative-serving-wasm controller migrates to a shared runner architecture
+// (no per-module ksvc), those goroutines will find no pods and silently
+// no-op, while the WasmModule status-polling goroutine continues to work
+// because the controller always sets Ready=True/False regardless of
+// architecture.
+func (d *Deployer) waitForReady(
+	ctx context.Context,
+	cs wasmclientset.Interface,
+	namespace, name string,
+) (string, error) {
+	// Skip polling — return best-effort URL (unit-test path).
+	if d.waitTimeout == 0 {
+		wm, err := cs.WasmV1alpha1().WasmModules(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", nil //nolint:nilerr // best-effort
+		}
+		if wm.Status.Address != nil && wm.Status.Address.URL != nil {
+			return wm.Status.Address.URL.String(), nil
+		}
+		return "", nil
+	}
+
+	// Create a deadline context for the entire wait.
+	waitCtx, cancel := context.WithTimeout(ctx, d.waitTimeout)
+	defer cancel()
+
+	// Log buffer — always collect logs; print to stderr on failure.
+	var logBuf k8s.SynchronizedBuffer
+	var logOut io.Writer = &logBuf
+	if d.verbose {
+		logOut = os.Stderr
+	}
+
+	// Channel types for goroutine results.
+	type statusResult struct {
+		url string
+		err error
+	}
+
+	chStatus := make(chan statusResult, 1)
+	chPodErr := make(chan string, 1) // carries a human-readable reason
+
+	// Goroutine 1: stream logs from runner pods.
+	// Uses the ksvc label selector set by the current 1:1 controller
+	// architecture.  In the shared-runner model there will be no
+	// per-module ksvc, so this goroutine silently produces no output.
+	logSelector := "serving.knative.dev/service=" + name
+	go func() {
+		_ = k8s.GetPodLogsBySelector(waitCtx, namespace, logSelector, "user-container", "", nil, logOut)
+	}()
+
+	// Goroutine 2: watch runner pods for fatal container states.
+	//
+	// Failure policy (mirrors Knative deployer behaviour):
+	//   ImagePullBackOff  → fail immediately; registry unreachable from cluster
+	//   CrashLoopBackOff  → fail immediately; recurrent crash confirmed by k8s
+	//   Terminated (exit≠0, first run) → record logs + reason; don't signal yet
+	//   Terminated (exit≠0, restart > 0) → fail; second consecutive crash
+	//
+	// A single first-run crash is tolerated because the ksvc may restart the
+	// pod once during initialisation. Signalling on the second crash (or when
+	// k8s itself reports CrashLoopBackOff) avoids false-positive failures on
+	// transient starts while still detecting reliably-broken modules.
+	go func() {
+		k8sClient, err := k8s.NewKubernetesClientset()
+		if err != nil {
+			return
+		}
+		var firstFailureReason string
+		for {
+			select {
+			case <-waitCtx.Done():
+				return
+			case <-time.After(d.pollInterval):
+			}
+			pods, err := k8sClient.CoreV1().Pods(namespace).List(waitCtx, metav1.ListOptions{
+				LabelSelector: logSelector,
+			})
+			if err != nil || len(pods.Items) == 0 {
+				continue
+			}
+			for _, pod := range pods.Items {
+				for _, cs := range pod.Status.ContainerStatuses {
+					if cs.Name != "user-container" {
+						continue
+					}
+					var reason string
+					var failNow bool
+					switch {
+					case cs.State.Waiting != nil && cs.State.Waiting.Reason == "ImagePullBackOff":
+						reason = "runner image cannot be pulled from inside the cluster (ImagePullBackOff)"
+						failNow = true
+					case cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff":
+						reason = firstFailureReason
+						if reason == "" {
+							reason = fmt.Sprintf("runner is crash-looping (CrashLoopBackOff) after %d restart(s)", cs.RestartCount)
+						}
+						failNow = true
+					case cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0:
+						r := fmt.Sprintf("runner exited with code %d", cs.State.Terminated.ExitCode)
+						if cs.RestartCount > 0 {
+							// Second (or later) consecutive crash — fail now.
+							if firstFailureReason != "" {
+								reason = firstFailureReason
+							} else {
+								reason = r
+							}
+							failNow = true
+						} else if firstFailureReason == "" {
+							// First crash — collect logs and remember the reason.
+							firstFailureReason = r
+							if logBytes, lerr := k8sClient.CoreV1().Pods(namespace).
+								GetLogs(pod.Name, &corev1.PodLogOptions{
+									Container: "user-container",
+								}).DoRaw(waitCtx); lerr == nil && len(logBytes) > 0 {
+								fmt.Fprintf(logOut, "\nRunner output:\n%s\n", strings.TrimSpace(string(logBytes)))
+							}
+						}
+					}
+					if reason != "" && failNow {
+						select {
+						case chPodErr <- reason:
+						default:
+						}
+						return
+					}
+				}
+			}
+		}
+	}()
+
+	// Goroutine 3: poll WasmModule status.
+	// This is the primary signal in both current (1:1 ksvc) and future
+	// (shared runner) architectures: the controller always sets Ready.
+	go func() {
+		ticker := time.NewTicker(d.pollInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-waitCtx.Done():
+				chStatus <- statusResult{err: waitCtx.Err()}
+				return
+			case <-ticker.C:
+				wm, err := cs.WasmV1alpha1().WasmModules(namespace).Get(waitCtx, name, metav1.GetOptions{})
+				if err != nil {
+					// Transient API error — keep trying.
+					continue
+				}
+				cond := wm.Status.GetCondition(apis.ConditionReady)
+				if cond == nil {
+					// Not yet reconciled.
+					continue
+				}
+				switch cond.Status {
+				case corev1.ConditionTrue:
+					url := ""
+					if wm.Status.Address != nil && wm.Status.Address.URL != nil {
+						url = wm.Status.Address.URL.String()
+					}
+					chStatus <- statusResult{url: url}
+					return
+				case corev1.ConditionFalse:
+					// "ServiceUnavailable" is a transient condition set by the
+					// controller while it waits for the backing ksvc to become
+					// ready. Continue polling — the controller will re-reconcile
+					// and transition to Ready=True once the ksvc is up.
+					// Any other reason is treated as a terminal failure.
+					if cond.Reason == "ServiceUnavailable" {
+						continue
+					}
+					chStatus <- statusResult{
+						err: fmt.Errorf("reason=%s: %s", cond.Reason, cond.Message),
+					}
+					return
+				default:
+					// Unknown — still reconciling.
+				}
+			}
+		}
+	}()
+
+	// Select loop: pick the first result.
+	select {
+	case reason := <-chPodErr:
+		dumpLogs(&logBuf)
+		return "", fmt.Errorf("deploy error: %s", reason)
+
+	case res := <-chStatus:
+		if res.err != nil {
+			dumpLogs(&logBuf)
+			if isDeadlineExceeded(res.err) {
+				return "", fmt.Errorf(
+					"timed out waiting for WasmModule %q to become ready after %v; "+
+						"run: kubectl describe wasmmodule/%s -n %s",
+					name, d.waitTimeout, name, namespace)
+			}
+			return "", res.err
+		}
+		return res.url, nil
+	}
+}
+
+// dumpLogs writes the buffered runner logs to stderr (called on failure when
+// not already streaming verbosely).
+func dumpLogs(buf *k8s.SynchronizedBuffer) {
+	logs := buf.String()
+	if logs != "" {
+		fmt.Fprintln(os.Stderr, "\nRunner output:")
+		fmt.Fprintln(os.Stderr, logs)
+	}
+}
+
+// isDeadlineExceeded returns true for context deadline exceeded errors.
+func isDeadlineExceeded(err error) bool {
+	return err == context.DeadlineExceeded || strings.Contains(err.Error(), "context deadline exceeded")
 }
 
 // buildWasmModule converts a fn.Function to a WasmModule CR.
@@ -259,18 +512,6 @@ func BuildNetworkSpec(n *fn.NetworkSpec) *wasmv1alpha1.NetworkSpec {
 	}
 
 	return ns
-}
-
-// moduleURL retrieves the URL from the WasmModule status (best-effort).
-func moduleURL(cs wasmclientset.Interface, ctx context.Context, namespace, name string) string {
-	wm, err := cs.WasmV1alpha1().WasmModules(namespace).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		return ""
-	}
-	if wm.Status.Address != nil && wm.Status.Address.URL != nil {
-		return wm.Status.Address.URL.String()
-	}
-	return ""
 }
 
 // isCRDNotFoundError returns true when the error indicates the WasmModule CRD

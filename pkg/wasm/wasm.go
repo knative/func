@@ -2,7 +2,10 @@
 // function support in the func CLI.
 package wasm
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 const (
 	// BuilderName is the short name of the WASM builder subsystem.
@@ -17,6 +20,10 @@ const (
 
 	// WasiSuffix is the suffix used to identify WASI runtimes
 	WasiSuffix = "-wasi"
+
+	// DefaultPollInterval is the default interval between WasmModule status
+	// checks during readiness polling in the deployer.
+	DefaultPollInterval = 500 * time.Millisecond
 )
 
 // ErrNotImplemented is returned when a WASI runtime is recognized but its

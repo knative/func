@@ -123,17 +123,29 @@ nodes:
     - containerPort: 30022
       hostPort: 30022
       listenAddress: "127.0.0.1"
+    - containerPort: 30500
+      hostPort: 50000
+      listenAddress: "127.0.0.1"
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:50000"]
-    endpoint = ["http://func-registry:5000"]
+    endpoint = ["http://localhost:30500"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.default.svc.cluster.local:5000"]
-    endpoint = ["http://func-registry:5000"]
+    endpoint = ["http://localhost:30500"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."ghcr.io"]
-    endpoint = ["http://func-registry:5000"]
+    endpoint = ["http://localhost:30500"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
-    endpoint = ["http://func-registry:5000"]
+    endpoint = ["http://localhost:30500"]
 EOF
+
+  # Podman's default pids-limit (2048) is too low for Knative + WASM workloads.
+  # Wasmtime uses rayon for parallel WASM compilation which spawns num_cpus threads,
+  # easily exceeding the limit when Knative infrastructure already consumes ~1950 PIDs.
+  if [[ "$CONTAINER_ENGINE" == *"podman"* ]]; then
+    echo "${blue}Raising PID limit for Kind node (podman default is too low)${reset}"
+    $CONTAINER_ENGINE update --pids-limit 8192 func-control-plane
+  fi
+
   sleep 10
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
   echo "${green}✅ Kubernetes${reset}"
@@ -320,15 +332,67 @@ EOF
 }
 
 registry() {
-  # see https://kind.sigs.k8s.io/docs/user/local-registry/
+  # Deploy an in-cluster registry:2 accessible via:
+  #   - host:         localhost:50000  (via Kind extraPortMapping host:50000 → node:30500)
+  #   - containerd:   http://localhost:30500  (NodePort, no external container needed)
+  #   - WASM runners: http://registry.default.svc.cluster.local:5000  (ClusterIP, plain HTTP)
+  #
+  # This replaces the previous approach of running an external func-registry container,
+  # which required Docker network DNS resolution (broken on Podman pasta networking) and
+  # did not support HTTP access from within the cluster for WASM runner pods.
 
-  echo "${blue}Creating Registry${reset}"
-  if [ "$CONTAINER_ENGINE" == "docker" ]; then
-    $CONTAINER_ENGINE run -d --restart=always -p "127.0.0.1:50000:5000" --name "func-registry" registry:2
-    $CONTAINER_ENGINE network connect "kind" "func-registry"
-  elif [ "$CONTAINER_ENGINE" == "podman" ]; then
-    $CONTAINER_ENGINE run -d --restart=always -p "127.0.0.1:50000:5000" --net=kind --name "func-registry" registry:2
-  fi
+  echo "${blue}Creating In-Cluster Registry${reset}"
+
+  $KUBECTL apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry
+  namespace: default
+  labels:
+    app: registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry
+  template:
+    metadata:
+      labels:
+        app: registry
+    spec:
+      containers:
+      - name: registry
+        image: registry:2
+        ports:
+        - containerPort: 5000
+        env:
+        - name: REGISTRY_STORAGE_DELETE_ENABLED
+          value: "true"
+        readinessProbe:
+          httpGet:
+            path: /v2/
+            port: 5000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry
+  namespace: default
+spec:
+  selector:
+    app: registry
+  ports:
+  - name: registry
+    port: 5000
+    targetPort: 5000
+    nodePort: 30500
+  type: NodePort
+EOF
+
+  $KUBECTL wait deployment/registry -n default --for=condition=Available --timeout=3m
 
   $KUBECTL apply -f - <<EOF
 apiVersion: v1
@@ -342,19 +406,7 @@ data:
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
 
-  # Make the registry available in cluster under registry.default.svc.cluster.local:5000.
-  # This is useful since for "*.local" registries HTTP (not HTTPS) is used by default by some applications.
-  $KUBECTL apply -f - <<EOF
-apiVersion: v1
-kind: Service
-metadata:
-  name: registry
-  namespace: default
-spec:
-  type: ExternalName
-  externalName: func-registry
-EOF
-  echo "${green}✅ Registry${reset}"
+  echo "${green}✅ Registry (in-cluster)${reset}"
 }
 
 namespace() {

@@ -6,12 +6,13 @@
 source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 
 delete_resources() {
-  echo "${blue}Deleting Cluster and Registry${reset}"
+  echo "${blue}Deleting Cluster${reset}"
 
+  # The in-cluster registry (registry:2 Deployment + NodePort Service) is
+  # deleted automatically together with the Kind cluster below.
   $KIND delete cluster --name=func --kubeconfig="${KUBECONFIG}"
-  docker stop func-registry && docker rm func-registry
   echo "${red}NOTE:${reset}  The following changes have not been undone:"
-  echo " - Config setting registry localhost:50000 (func-registry) as insecure"
+  echo " - Config setting registry localhost:50000 as insecure (Docker/Podman)"
   echo " - Downloaded container images were not removed"
   echo "${green}DONE${reset}"
 }

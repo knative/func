@@ -18,7 +18,7 @@ require (
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 	github.com/blang/semver/v4 v4.0.0
 	github.com/buildpacks/pack v0.38.2
-	github.com/cardil/knative-serving-wasm v0.0.0-20260305151950-3e351a316baf
+	github.com/cardil/knative-serving-wasm v0.2.0
 	github.com/chainguard-dev/git-urls v1.0.2
 	github.com/cloudevents/sdk-go/v2 v2.16.1
 	github.com/containerd/errdefs v1.0.0

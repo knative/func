@@ -3,13 +3,18 @@ package wasm_test
 import (
 	"context"
 	"errors"
+	"net/url"
 	"testing"
+	"time"
 
 	wasmv1alpha1 "github.com/cardil/knative-serving-wasm/pkg/apis/wasm/v1alpha1"
 	wasmclientset "github.com/cardil/knative-serving-wasm/pkg/client/clientset/versioned"
 	fakewasm "github.com/cardil/knative-serving-wasm/pkg/client/clientset/versioned/fake"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	knapis "knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
@@ -47,7 +52,10 @@ func minimalFunction(name, namespace, image string) fn.Function {
 func TestDeploy_Create(t *testing.T) {
 	t.Parallel()
 	cs := newFakeClientset()
-	d := wasm.NewDeployer(wasm.WithDeployerClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDeployer(
+		wasm.WithDeployerClientsetProvider(fakeProvider(cs)),
+		wasm.WithDeployerWaitTimeout(0), // skip polling in unit tests
+	)
 
 	f := minimalFunction("my-func", "default", "registry.example.com/my-func:latest")
 	result, err := d.Deploy(context.Background(), f)
@@ -90,7 +98,10 @@ func TestDeploy_Update(t *testing.T) {
 		},
 	}
 	cs := newFakeClientset(existing)
-	d := wasm.NewDeployer(wasm.WithDeployerClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDeployer(
+		wasm.WithDeployerClientsetProvider(fakeProvider(cs)),
+		wasm.WithDeployerWaitTimeout(0), // skip polling in unit tests
+	)
 
 	f := minimalFunction("my-func", "default", "registry.example.com/my-func:v2")
 	result, err := d.Deploy(context.Background(), f)
@@ -114,7 +125,10 @@ func TestDeploy_Update(t *testing.T) {
 func TestDeploy_ErrNamespaceRequired(t *testing.T) {
 	t.Parallel()
 	cs := newFakeClientset()
-	d := wasm.NewDeployer(wasm.WithDeployerClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDeployer(
+		wasm.WithDeployerClientsetProvider(fakeProvider(cs)),
+		wasm.WithDeployerWaitTimeout(0), // skip polling in unit tests
+	)
 
 	f := fn.Function{Name: "my-func", Runtime: wasm.RuntimeRustWasi}
 	f.Deploy.Image = "registry.example.com/my-func:latest"
@@ -129,7 +143,10 @@ func TestDeploy_ErrNamespaceRequired(t *testing.T) {
 func TestDeploy_ErrNoImageRef(t *testing.T) {
 	t.Parallel()
 	cs := newFakeClientset()
-	d := wasm.NewDeployer(wasm.WithDeployerClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDeployer(
+		wasm.WithDeployerClientsetProvider(fakeProvider(cs)),
+		wasm.WithDeployerWaitTimeout(0), // skip polling in unit tests
+	)
 
 	f := fn.Function{Name: "my-func", Runtime: wasm.RuntimeRustWasi}
 	f.Deploy.Namespace = "default"
@@ -145,7 +162,10 @@ func TestDeploy_ErrNoImageRef(t *testing.T) {
 func TestDeploy_Network(t *testing.T) {
 	t.Parallel()
 	cs := newFakeClientset()
-	d := wasm.NewDeployer(wasm.WithDeployerClientsetProvider(fakeProvider(cs)))
+	d := wasm.NewDeployer(
+		wasm.WithDeployerClientsetProvider(fakeProvider(cs)),
+		wasm.WithDeployerWaitTimeout(0), // skip polling in unit tests
+	)
 
 	allowDNS := true
 	f := minimalFunction("net-func", "default", "registry.example.com/net-func:latest")
@@ -177,6 +197,116 @@ func TestDeploy_Network(t *testing.T) {
 	if wm.Spec.Network.TCP.Connect[0] != "*:443" {
 		t.Errorf("unexpected TCP connect: %v", wm.Spec.Network.TCP.Connect)
 	}
+}
+
+// TestDeploy_WaitForReady verifies that Deploy() returns the URL when the
+// WasmModule becomes Ready=True.
+func TestDeploy_WaitForReady(t *testing.T) {
+	t.Parallel()
+	cs := newFakeClientset()
+	d := wasm.NewDeployer(
+		wasm.WithDeployerClientsetProvider(fakeProvider(cs)),
+		wasm.WithDeployerWaitTimeout(5*time.Second),
+	)
+
+	f := minimalFunction("ready-func", "default", "registry.example.com/ready-func:latest")
+
+	// In a goroutine, wait for the WasmModule to be created then set Ready=True
+	// with a URL.
+	go func() {
+		wantURL := "http://ready-func.default.localtest.me"
+		u, _ := url.Parse(wantURL)
+		// Poll until the WasmModule exists.
+		for {
+			time.Sleep(10 * time.Millisecond)
+			wm, err := cs.WasmV1alpha1().WasmModules("default").Get(context.Background(), "ready-func", metav1.GetOptions{})
+			if err != nil {
+				continue
+			}
+			// Set Ready=True with address.
+			wm.Status.Address = &duckv1.Addressable{URL: (*knapis.URL)(u)}
+			wm.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knapis.ConditionReady,
+					Status: corev1.ConditionTrue,
+				},
+			}
+			_, _ = cs.WasmV1alpha1().WasmModules("default").UpdateStatus(
+				context.Background(), wm, metav1.UpdateOptions{})
+			return
+		}
+	}()
+
+	result, err := d.Deploy(context.Background(), f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.URL == "" {
+		t.Error("expected URL to be populated after ready")
+	}
+	if result.Status != fn.Deployed {
+		t.Errorf("expected Deployed, got %v", result.Status)
+	}
+}
+
+// TestDeploy_WaitForReady_Failure verifies that Deploy() returns an error when
+// the WasmModule becomes Ready=False.
+func TestDeploy_WaitForReady_Failure(t *testing.T) {
+	t.Parallel()
+	cs := newFakeClientset()
+	d := wasm.NewDeployer(
+		wasm.WithDeployerClientsetProvider(fakeProvider(cs)),
+		wasm.WithDeployerWaitTimeout(5*time.Second),
+	)
+
+	f := minimalFunction("fail-func", "default", "registry.example.com/fail-func:latest")
+
+	// In a goroutine, wait for the WasmModule to be created then set Ready=False
+	// with a terminal (non-transient) reason. "ServiceUnavailable" is transient
+	// and causes the deployer to keep polling; use "ContainerCrashed" instead.
+	go func() {
+		for {
+			time.Sleep(10 * time.Millisecond)
+			wm, err := cs.WasmV1alpha1().WasmModules("default").Get(context.Background(), "fail-func", metav1.GetOptions{})
+			if err != nil {
+				continue
+			}
+			// Set Ready=False with a terminal reason (not ServiceUnavailable).
+			wm.Status.Conditions = duckv1.Conditions{
+				{
+					Type:    knapis.ConditionReady,
+					Status:  corev1.ConditionFalse,
+					Reason:  "ContainerCrashed",
+					Message: `no exported instance named "wasi:http/incoming-handler@0.2.3"`,
+				},
+			}
+			_, _ = cs.WasmV1alpha1().WasmModules("default").UpdateStatus(
+				context.Background(), wm, metav1.UpdateOptions{})
+			return
+		}
+	}()
+
+	_, err := d.Deploy(context.Background(), f)
+	if err == nil {
+		t.Fatal("expected error when WasmModule is Ready=False, got nil")
+	}
+	if !containsString(err.Error(), "ContainerCrashed") {
+		t.Errorf("expected error to mention ContainerCrashed, got: %v", err)
+	}
+}
+
+// containsString is a helper for error message assertions.
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr ||
+		len(s) > 0 && len(substr) > 0 &&
+			func() bool {
+				for i := 0; i <= len(s)-len(substr); i++ {
+					if s[i:i+len(substr)] == substr {
+						return true
+					}
+				}
+				return false
+			}())
 }
 
 // TestLister_List verifies that WasmModules managed by this deployer are listed.
