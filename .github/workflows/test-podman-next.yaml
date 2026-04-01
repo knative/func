@@ -11,6 +11,7 @@ jobs:
   test:
     name: Podman Next Test
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Remove Unnecessary Software
         run: |
