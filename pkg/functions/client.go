@@ -74,6 +74,7 @@ type Client struct {
 	describers        []Describer       // Describes function instances
 	dnsProvider       DNSProvider       // Provider of DNS services
 	registry          string            // default registry for OCI image tags
+	registryInsecure  bool              // skip TLS verification on registry
 	repositories      *Repositories     // Repositories management
 	templates         *Templates        // Templates management
 	instances         *InstanceRefs     // Function Instances management
@@ -369,6 +370,27 @@ func WithRepository(uri string) Option {
 func WithRegistry(registry string) Option {
 	return func(c *Client) {
 		c.registry = registry
+	}
+}
+
+// WithRegistryInsecure sets if the TLS verification of the registry should
+// be skipped.
+//
+// NOTE: Unlike WithRegistry and other Options, which act as a fallback (function's value
+// takes precedence when set), WithRegistryInsecure(true) WILL override the
+// function's value unconditionally -> bool has no "unset" (unlike string's ""),
+// so we cannot distinguish "not configured" from "explicitly set to false".
+// As a result:
+// - WithRegistryInsecure(true)  → always sets f.RegistryInsecure = true
+// - WithRegistryInsecure(false) → preserves the function's existing value
+//
+// NOTE-2: gauron99 - If we ever need to make this consistent with the rest of Options
+// RegistryInsecure needs to become *bool in Function's struct & global.Config struct
+// (nil == unset == empty value) and it would most likely require special use of
+// cmd.Flags.Changed() and viper.IsSet() (non-standard for rest of commands)
+func WithRegistryInsecure(insecure bool) Option {
+	return func(c *Client) {
+		c.registryInsecure = insecure
 	}
 }
 
@@ -690,6 +712,14 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 		f.Registry = c.registry
 	}
 
+	if c.registryInsecure {
+		// Unlike other With* functions (like WithRegistry) this takes bool.
+		// Bool has no "empty value" (like "" for string) therefore we always
+		// override if client's value is true.
+		// See WithRegistryInsecure definition comment for more info.
+		f.RegistryInsecure = true
+	}
+
 	// If no image name has been specified by user (--image), calculate.
 	// Image name is stored on the function for later use by deploy, etc.
 	var err error
@@ -858,6 +888,11 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (string, Function,
 		f.Registry = c.registry
 	}
 
+	if c.registryInsecure {
+		// only override it, when given via the client
+		f.RegistryInsecure = true
+	}
+
 	// Build and deploy function using Pipeline
 	return c.pipelinesProvider.Run(ctx, f)
 }
@@ -870,6 +905,11 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
 		f.Registry = c.registry
+	}
+
+	if c.registryInsecure {
+		// only override it, when given via the client
+		f.RegistryInsecure = true
 	}
 
 	// If no image name has been yet defined (not yet built/deployed), calculate.

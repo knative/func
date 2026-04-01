@@ -1,7 +1,6 @@
 package functions_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -48,7 +47,7 @@ func TestJob_New(t *testing.T) {
 	// Assert that the client recognizes a job is running for the given function
 	// NOTE: the Instances API will be updated to return []Instance to reflect
 	// that the system supports multiple instances running simultaneously.
-	_, err = client.Instances().Local(context.Background(), f)
+	_, err = client.Instances().Local(t.Context(), f)
 	if err != nil {
 		if errors.Is(err, fn.ErrNotRunning) {
 			t.Fatalf("client does not recognize job as running. %s", err)
@@ -80,7 +79,7 @@ func TestJob_Stop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creating job failed. %s", err)
 	}
-	_, err = client.Instances().Local(context.Background(), f)
+	_, err = client.Instances().Local(t.Context(), f)
 	if err != nil {
 		if errors.Is(err, fn.ErrNotRunning) {
 			t.Fatalf("client does not recognize job as running. %s", err)

@@ -226,7 +226,7 @@ func TestApply(t *testing.T) {
 	}
 }
 
-// TestConfigyre ensures that configuring a function results in every member
+// TestConfigure ensures that configuring a function results in every member
 // of the function in the intersection of the two sets, global config and function
 // members, to be set to the values of the config.
 // (See the associated cfg.Apply)
@@ -253,7 +253,7 @@ func TestConfigure(t *testing.T) {
 		t.Error("configure missing map for f.Registry")
 	}
 
-	// empty values in the global config shoul not zero out function values
+	// empty values in the global config should not zero out function values
 	// when configuring.
 	f = config.Global{}.Configure(f)
 	if f.Build.Builder == "" {
@@ -268,7 +268,6 @@ func TestConfigure(t *testing.T) {
 	if f.Registry == "" {
 		t.Error("empty cfg.Registry should not mutate f")
 	}
-
 }
 
 // TestGet_Invalid ensures that attempting to get the value of a nonexistent

@@ -167,11 +167,21 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		// https://github.com/openshift/source-to-image/issues/1141
 		ForceCopy: true,
 		// Excludes
-		// Do not include .git, .env, .func or any language-specific cache directories
+		// Do not include .git, .env or any language-specific cache directories
 		// (node_modules, etc) in the tar file sent to the builder, as this both
-		// bloats the build process and can cause unexpected errors in the resultant
-		// function.
-		ExcludeRegExp: "(^|/)\\.git|\\.env|\\.func|node_modules(/|$)",
+		// bloats the build process and can cause unexpected errors in the
+		// resultant function.
+		// Note: .func/build is allowed through (scaffolding for go/python), but
+		// other .func subdirs (blob-cache, built-hash, etc.) are excluded to
+		// avoid bloating the tar and leaking local metadata.
+		ExcludeRegExp: "(^|/)\\.git|\\.env|\\.func/(blob-cache|built-hash|built-image|built\\.log|local\\.yaml)|node_modules(/|$)",
+	}
+
+	// Tell S2I where to find the assemble script written by Scaffolder.
+	// Use forward slashes (not filepath.Join) because this is a file:// URL,
+	// and filepath.Join would use OS-specific separators.
+	if f.HasScaffolding() {
+		cfg.ScriptsURL = "file://" + f.Root + "/" + fn.RunDataDir + "/" + fn.BuildDir + "/bin"
 	}
 
 	// Set middleware version label

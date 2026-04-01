@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -98,7 +100,7 @@ EXAMPLES
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. ($FUNC_BUILDER)", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
-	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)")
+	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)")
 	cmd.Flags().String("registry-authfile", "", "Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)")
 
 	// Function-Context Flags:
@@ -165,6 +167,10 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// with the static default from config.
 	originalBuilder := f.Build.Builder // value from func.yaml before Configure()
 	cfg.BuilderExplicit = cmd.Flags().Changed("builder") || f.Build.Builder != ""
+
+	// Warn if registry changed but registryInsecure is still true
+	warnRegistryInsecureChange(os.Stderr, cfg.Registry, f)
+
 	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 
 	// Client
@@ -207,6 +213,15 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// Stamp is a performance optimization: treat the function as being built
 	// (cached) unless the fs changes.
 	return f.Stamp()
+}
+
+// warnRegistryInsecureChange checks if the registry has changed but
+// registryInsecure is still set to true, and prints a warning if so.
+// This helps users avoid accidentally skipping TLS verification on a new registry.
+func warnRegistryInsecureChange(w io.Writer, newRegistry string, f fn.Function) {
+	if f.Registry != "" && newRegistry != "" && f.Registry != newRegistry && f.RegistryInsecure {
+		fmt.Fprintf(w, "Warning: Registry changed from '%s' to '%s', but registryInsecure is still true. Consider setting --registry-insecure=false if the new registry requires TLS verification.\n", f.Registry, newRegistry)
+	}
 }
 
 type buildConfig struct {
@@ -429,7 +444,10 @@ func (c buildConfig) Validate(cmd *cobra.Command) (err error) {
 // runtime is the function's runtime string (e.g. "go", "rust-wasi") used to
 // infer the builder when the user has not explicitly specified one via --builder.
 func (c buildConfig) clientOptions(runtime string) ([]fn.Option, error) {
-	o := []fn.Option{fn.WithRegistry(c.Registry)}
+	o := []fn.Option{
+		fn.WithRegistry(c.Registry),
+		fn.WithRegistryInsecure(c.RegistryInsecure),
+	}
 
 	t := newTransport(c.RegistryInsecure)
 	credsProvider := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile)

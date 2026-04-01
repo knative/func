@@ -300,23 +300,29 @@ test-e2e: func-instrumented-bin ## Basic E2E tests (includes core, metadata and 
 	go test -tags e2e -timeout 60m ./e2e -v -run "TestCore_|TestMetadata_|TestRemote_"
 	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
 
-
 .PHONY: test-e2e-podman
 test-e2e-podman: func-instrumented-bin ## Run E2E Podman-specific tests
 	# see e2e_test.go for available options
 	FUNC_E2E_PODMAN=true go test -tags e2e -timeout 60m ./e2e -v -run TestPodman_
 	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
 
+.PHONY: test-e2e-matrix
 test-e2e-matrix: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
 	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
 	FUNC_E2E_MATRIX=true go test -tags e2e -timeout 120m ./e2e -v -run TestMatrix_
 	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
 
+.PHONY: test-e2e-config-ci
+test-e2e-config-ci: func-instrumented-bin ## CI tests for generated GitHub Workflows
+	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
+	FUNC_E2E_CONFIG_CI=true go test -tags e2e -timeout 120m ./e2e -v -run TestConfigCI_
+	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
 
 .PHONY: test-full
 test-full: func-instrumented-bin ## Run full test suite with all checks enabled
 	./hack/test-full.sh
 
+.PHONY: test-full-logged
 test-full-logged: func-instrumented-bin ## Run full test and log with timestamps (requires python)
 	./hack/test-full.sh 2>&1 | python -u -c "import sys; from datetime import datetime; [print(f'[{datetime.now().strftime(\"%H:%M:%S\")}] {line}', end='', flush=True) for line in sys.stdin]" | tee ./test-full.log
 	@echo '🎉 Full Test Complete.  Log stored in test-full.log'

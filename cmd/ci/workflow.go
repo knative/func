@@ -36,53 +36,32 @@ type job struct {
 
 type step struct {
 	Name string            `yaml:"name,omitempty"`
+	Env  map[string]string `yaml:"env,omitempty"`
 	Uses string            `yaml:"uses,omitempty"`
 	Run  string            `yaml:"run,omitempty"`
 	With map[string]string `yaml:"with,omitempty"`
 }
 
-func NewGitHubWorkflow(conf CIConfig) *githubWorkflow {
-	name := conf.WorkflowName()
-	runsOn := createRunsOn(conf)
-	pushTrigger := createPushTrigger(conf)
-
+func NewGitHubWorkflow(conf CIConfig, messageWriter io.Writer) *githubWorkflow {
 	var steps []step
 	steps = createCheckoutStep(steps)
+	steps = createRuntimeTestStep(conf, messageWriter, steps)
 	steps = createK8ContextStep(conf, steps)
 	steps = createRegistryLoginStep(conf, steps)
 	steps = createFuncCLIInstallStep(steps)
+
 	steps = createFuncDeployStep(conf, steps)
 
 	return &githubWorkflow{
-		Name: name,
-		On:   pushTrigger,
+		Name: conf.WorkflowName(),
+		On:   createPushTrigger(conf),
 		Jobs: map[string]job{
 			"deploy": {
-				RunsOn: runsOn,
+				RunsOn: determineRunner(conf.SelfHostedRunner()),
 				Steps:  steps,
 			},
 		},
 	}
-}
-
-func createRunsOn(conf CIConfig) string {
-	runsOn := "ubuntu-latest"
-	if conf.UseSelfHostedRunner() {
-		runsOn = "self-hosted"
-	}
-	return runsOn
-}
-
-func createPushTrigger(conf CIConfig) workflowTriggers {
-	result := workflowTriggers{
-		Push: &pushTrigger{Branches: []string{conf.Branch()}},
-	}
-
-	if conf.UseWorkflowDispatch() {
-		result.WorkflowDispatch = &struct{}{}
-	}
-
-	return result
 }
 
 func createCheckoutStep(steps []step) []step {
@@ -90,6 +69,31 @@ func createCheckoutStep(steps []step) []step {
 		withUses("actions/checkout@v4")
 
 	return append(steps, *checkoutCode)
+}
+
+func createRuntimeTestStep(conf CIConfig, messageWriter io.Writer, steps []step) []step {
+	if !conf.TestStep() {
+		return steps
+	}
+
+	testStep := newStep("Run tests")
+
+	switch conf.FnRuntime() {
+	case "go":
+		testStep.withRun("go test ./...")
+	case "node", "typescript":
+		testStep.withRun("npm ci && npm test")
+	case "python":
+		testStep.withRun("pip install . && python -m pytest")
+	case "quarkus":
+		testStep.withRun("./mvnw test")
+	default:
+		// best-effort user message; errors are non-critical
+		_, _ = fmt.Fprintf(messageWriter, "WARNING: test step not supported for runtime %s\n", conf.FnRuntime())
+		return steps
+	}
+
+	return append(steps, *testStep)
 }
 
 func createK8ContextStep(conf CIConfig, steps []step) []step {
@@ -102,7 +106,7 @@ func createK8ContextStep(conf CIConfig, steps []step) []step {
 }
 
 func createRegistryLoginStep(conf CIConfig, steps []step) []step {
-	if !conf.UseRegistryLogin() {
+	if !conf.RegistryLogin() {
 		return steps
 	}
 
@@ -125,19 +129,34 @@ func createFuncCLIInstallStep(steps []step) []step {
 }
 
 func createFuncDeployStep(conf CIConfig, steps []step) []step {
-	runFuncDeploy := "func deploy"
-	if conf.UseRemoteBuild() {
-		runFuncDeploy += " --remote"
+	deployFuncStep := newStep("Deploy function").
+		withEnv("FUNC_VERBOSE", "true").
+		withEnv("FUNC_BUILDER", conf.FnBuilder())
+
+	if conf.RemoteBuild() {
+		deployFuncStep.withEnv("FUNC_REMOTE", "true")
 	}
 
 	registryUrl := newVariable(conf.RegistryUrlVar())
-	if conf.UseRegistryLogin() {
+	if conf.RegistryLogin() {
 		registryUrl = newVariable(conf.RegistryLoginUrlVar()) + "/" + newVariable(conf.RegistryUserVar())
 	}
-	deployFunc := newStep("Deploy function").
-		withRun(runFuncDeploy + " --registry=" + registryUrl + " -v")
+	deployFuncStep.withEnv("FUNC_REGISTRY", registryUrl).
+		withRun("func deploy")
 
-	return append(steps, *deployFunc)
+	return append(steps, *deployFuncStep)
+}
+
+func createPushTrigger(conf CIConfig) workflowTriggers {
+	result := workflowTriggers{
+		Push: &pushTrigger{Branches: []string{conf.Branch()}},
+	}
+
+	if conf.WorkflowDispatch() {
+		result.WorkflowDispatch = &struct{}{}
+	}
+
+	return result
 }
 
 func newStep(name string) *step {
@@ -164,12 +183,14 @@ func (s *step) withActionConfig(key, value string) *step {
 	return s
 }
 
-func newSecret(key string) string {
-	return fmt.Sprintf("${{ secrets.%s }}", key)
-}
+func (s *step) withEnv(key, value string) *step {
+	if s.Env == nil {
+		s.Env = make(map[string]string)
+	}
 
-func newVariable(key string) string {
-	return fmt.Sprintf("${{ vars.%s }}", key)
+	s.Env[key] = value
+
+	return s
 }
 
 func (gw *githubWorkflow) Export(path string, w WorkflowWriter, force bool, m io.Writer) error {

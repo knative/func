@@ -136,7 +136,7 @@ func TestCheckAuth(t *testing.T) {
 		{
 			name: "correct credentials localhost no-TLS",
 			args: args{
-				ctx:      context.Background(),
+				ctx:      t.Context(),
 				username: uname,
 				password: pwd,
 				registry: localhost,
@@ -146,7 +146,7 @@ func TestCheckAuth(t *testing.T) {
 		{
 			name: "correct credentials localhost",
 			args: args{
-				ctx:      context.Background(),
+				ctx:      t.Context(),
 				username: uname,
 				password: pwd,
 				registry: localhostTLS,
@@ -156,7 +156,7 @@ func TestCheckAuth(t *testing.T) {
 		{
 			name: "correct credentials non-localhost",
 			args: args{
-				ctx:      context.Background(),
+				ctx:      t.Context(),
 				username: uname,
 				password: pwd,
 				registry: nonLocalhostTLS,
@@ -166,7 +166,7 @@ func TestCheckAuth(t *testing.T) {
 		{
 			name: "incorrect credentials localhost no-TLS",
 			args: args{
-				ctx:      context.Background(),
+				ctx:      t.Context(),
 				username: uname,
 				password: incorrectPwd,
 				registry: localhost,
@@ -176,7 +176,7 @@ func TestCheckAuth(t *testing.T) {
 		{
 			name: "incorrect credentials localhost",
 			args: args{
-				ctx:      context.Background(),
+				ctx:      t.Context(),
 				username: uname,
 				password: incorrectPwd,
 				registry: localhostTLS,
@@ -223,7 +223,7 @@ func TestCheckAuth(t *testing.T) {
 func TestCheckAuthEmptyCreds(t *testing.T) {
 
 	localhost, _, _ := startServer(t, "", "")
-	err := creds.CheckAuth(context.Background(), localhost+"/someorg/someimage:sometag", oci.Credentials{}, http.DefaultTransport)
+	err := creds.CheckAuth(t.Context(), localhost+"/someorg/someimage:sometag", oci.Credentials{}, http.DefaultTransport)
 	if err != nil {
 		t.Error(err)
 	}
@@ -469,7 +469,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 				creds.WithPromptForCredentials(tt.args.promptUser),
 				creds.WithVerifyCredentials(tt.args.verifyCredentials),
 				creds.WithAdditionalCredentialLoaders(tt.args.additionalLoaders...))
-			got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
+			got, err := credentialsProvider(t.Context(), tt.args.registry+"/someorg/someimage:sometag")
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
@@ -491,7 +491,7 @@ func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
 		t.Fatal("unreachable")
 		return nil
 	}))
-	c, err := credentialsProvider(context.Background(), "localhost:5555/someorg/someimage:sometag")
+	c, err := credentialsProvider(t.Context(), "localhost:5555/someorg/someimage:sometag")
 	if err != nil {
 		t.Error(err)
 	}
@@ -534,7 +534,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		creds.WithPromptForCredentials(pwdCbk),
 		creds.WithVerifyCredentials(correctVerifyCbk),
 		creds.WithPromptForCredentialStore(chooseNoStore))
-	_, err := credentialsProvider(context.Background(), "docker.io/someorg/someimage:sometag")
+	_, err := credentialsProvider(t.Context(), "docker.io/someorg/someimage:sometag")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		return
@@ -554,7 +554,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		creds.WithPromptForCredentials(pwdCbk),
 		creds.WithVerifyCredentials(correctVerifyCbk),
 		creds.WithPromptForCredentialStore(chooseMockStore))
-	_, err = credentialsProvider(context.Background(), "docker.io/someorg/someimage:sometag")
+	_, err = credentialsProvider(t.Context(), "docker.io/someorg/someimage:sometag")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		return
@@ -577,7 +577,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		creds.WithPromptForCredentials(pwdCbkThatShallNotBeCalled(t)),
 		creds.WithVerifyCredentials(correctVerifyCbk),
 		creds.WithPromptForCredentialStore(shallNotBeInvoked))
-	_, err = credentialsProvider(context.Background(), "docker.io/someorg/someimage:sometag")
+	_, err = credentialsProvider(t.Context(), "docker.io/someorg/someimage:sometag")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		return
@@ -641,7 +641,7 @@ func TestCredentialsWithoutHome(t *testing.T) {
 				creds.WithVerifyCredentials(tt.args.verifyCredentials),
 			)
 
-			got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
+			got, err := credentialsProvider(t.Context(), tt.args.registry+"/someorg/someimage:sometag")
 			// ASSERT
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -799,7 +799,7 @@ func TestCredentialsHomePermissions(t *testing.T) {
 					creds.WithVerifyCredentials(tt.args.verifyCredentials),
 				)
 
-				got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
+				got, err := credentialsProvider(t.Context(), tt.args.registry+"/someorg/someimage:sometag")
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
@@ -876,7 +876,7 @@ func TestCredentialsFromAuthfile(t *testing.T) {
 				creds.WithAuthFilePath(authFile),
 			)
 
-			got, err := credentialsProvider(context.Background(), tt.image)
+			got, err := credentialsProvider(t.Context(), tt.image)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

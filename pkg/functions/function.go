@@ -28,6 +28,10 @@ const (
 	RunDataDir       = ".func"
 	RunDataLocalFile = "local.yaml"
 
+	// BuildDir is the subdirectory within RunDataDir for build scaffolding
+	// and artifacts (e.g. ".func/build").
+	BuildDir = "build"
+
 	// BuiltHash is a name of a file that holds hash of built Function in runtime
 	// metadata dir (RunDataDir)
 	BuiltHash = "built-hash"
@@ -52,7 +56,8 @@ type Function struct {
 	// For details see the .Migrated() and .Migrate() methods.
 	SpecVersion string `yaml:"specVersion"` // semver format
 
-	// Root on disk at which to find/create source and config files.
+	// Root is the absolute path on disk at which to find/create source and
+	// config files.
 	Root string `yaml:"-"`
 
 	// Name of the function.
@@ -66,7 +71,7 @@ type Function struct {
 	// validated by the client.
 	Domain string `yaml:"domain,omitempty"`
 
-	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
+	// Runtime is the language plus context.  node|go|quarkus|rust etc.
 	Runtime string `yaml:"runtime,omitempty"`
 
 	// Template for the function.
@@ -75,6 +80,10 @@ type Function struct {
 	// Registry at which to store interstitial containers, in the form
 	// [registry]/[user].
 	Registry string `yaml:"registry,omitempty"`
+
+	// RegistryInsecure defines if the TLS verification of the registry
+	// should be skipped.
+	RegistryInsecure bool `yaml:"registryInsecure,omitempty"`
 
 	// Image is the full OCI image tag in form:
 	//   [registry]/[namespace]/[name]:[tag]
@@ -325,6 +334,9 @@ func NewFunction(root string) (f Function, err error) {
 		if root, err = os.Getwd(); err != nil {
 			return
 		}
+	}
+	if root, err = filepath.Abs(root); err != nil {
+		return
 	}
 	f.Root = root // path is not persisted, as this is the purview of the FS
 
@@ -640,6 +652,12 @@ func timestamp(s string) string {
 // Any errors are considered failure (invalid or inaccessible root, config file, etc).
 func (f Function) Initialized() bool {
 	return !f.Created.IsZero()
+}
+
+// HasScaffolding returns true if the function runtime supports scaffolding.
+// Scaffoldable runtimes (go, python) require a generated main wrapper to build.
+func (f Function) HasScaffolding() bool {
+	return f.Runtime == "go" || f.Runtime == "python"
 }
 
 // LabelsMap combines default labels with the labels slice provided.

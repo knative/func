@@ -1,7 +1,6 @@
 package functions_test
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -47,7 +46,7 @@ func TestInstances_LocalErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := fn.InstanceRefs{}
-			_, err := i.Local(context.Background(), tt.f)
+			_, err := i.Local(t.Context(), tt.f)
 			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
 				t.Errorf("Local() error = %v, want %#v", err, tt.wantIs)
 			}
@@ -106,7 +105,7 @@ func TestInstance_RemoteErrors(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.test, func(t *testing.T) {
 			i := fn.InstanceRefs{}
-			_, err := i.Remote(context.Background(), test.name, test.namespace)
+			_, err := i.Remote(t.Context(), test.name, test.namespace)
 			if err == nil {
 				t.Fatal("did not receive expected error")
 			}

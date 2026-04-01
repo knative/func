@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"os"
 	"strings"
 	"testing"
@@ -22,7 +21,7 @@ func TestDelete_Default(t *testing.T) {
 		name      = "myfunc"
 		namespace = "testns"
 		remover   = mock.NewRemover()
-		ctx       = context.Background()
+		ctx       = t.Context()
 	)
 
 	// Remover which confirms the name and namespace received are those
@@ -172,7 +171,7 @@ func TestDelete_NamespaceFlagPriority(t *testing.T) {
 		Namespace: namespace,
 	}
 	client := fn.New()
-	_, _, err = client.New(context.Background(), f)
+	_, _, err = client.New(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}

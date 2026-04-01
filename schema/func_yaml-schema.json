@@ -181,11 +181,15 @@
 				},
 				"runtime": {
 					"type": "string",
-					"description": "Runtime is the language plus context.  nodejs|go|quarkus|rust etc."
+					"description": "Runtime is the language plus context.  node|go|quarkus|rust etc."
 				},
 				"registry": {
 					"type": "string",
 					"description": "Registry at which to store interstitial containers, in the form\n[registry]/[user]."
+				},
+				"registryInsecure": {
+					"type": "boolean",
+					"description": "RegistryInsecure defines if the TLS verification of the registry\nshould be skipped."
 				},
 				"image": {
 					"type": "string",

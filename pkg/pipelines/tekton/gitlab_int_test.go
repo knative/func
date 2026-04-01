@@ -54,7 +54,7 @@ func TestInt_Gitlab(t *testing.T) {
 	}
 
 	var err error
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := signal.NotifyContext(t.Context(), os.Interrupt)
 	defer cancel()
 
 	gitlabHostname, gitlabRootPassword, pacCtrHostname, err := parseEnv(t)
@@ -127,7 +127,7 @@ func TestInt_Gitlab(t *testing.T) {
 		ConfigureClusterResources: true,
 		ConfigureRemoteResources:  true,
 	}
-	err = pp.ConfigurePAC(context.Background(), f, metadata)
+	err = pp.ConfigurePAC(t.Context(), f, metadata)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -621,7 +621,7 @@ func usingNamespace(t *testing.T) string {
 		},
 	}
 	createOpts := metav1.CreateOptions{}
-	_, err = k8sClient.CoreV1().Namespaces().Create(context.Background(), ns, createOpts)
+	_, err = k8sClient.CoreV1().Namespaces().Create(t.Context(), ns, createOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -651,7 +651,7 @@ func usingNamespace(t *testing.T) string {
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
-	_, err = k8sClient.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
+	_, err = k8sClient.RbacV1().ClusterRoleBindings().Create(t.Context(), crb, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -674,7 +674,7 @@ func awaitBuildCompletion(t *testing.T, name, ns string) <-chan struct{} {
 		LabelSelector: fmt.Sprintf("tekton.dev/pipelineTask=build,function.knative.dev/name=%s", name),
 		Watch:         true,
 	}
-	w, err := clis.Tekton.TektonV1().TaskRuns(ns).Watch(context.Background(), listOpts)
+	w, err := clis.Tekton.TektonV1().TaskRuns(ns).Watch(t.Context(), listOpts)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -159,7 +159,7 @@ EXAMPLES
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
-	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)")
+	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)")
 	cmd.Flags().String("registry-authfile", "", "Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)")
 
 	// Function-Context Flags:
@@ -281,6 +281,10 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	originalDeployer := f.Deploy.Deployer // value from func.yaml before Configure()
 	cfg.BuilderExplicit = cmd.Flags().Changed("builder") || f.Build.Builder != ""
 	cfg.DeployerExplicit = cmd.Flags().Changed("deployer") || f.Deploy.Deployer != ""
+
+	// Warn if registry changed but registryInsecure is still true
+	warnRegistryInsecureChange(cmd.OutOrStderr(), cfg.Registry, f)
+
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
 	}
@@ -296,9 +300,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// also update the registry because there is a registry per namespace,
 	// and their name includes the namespace.
 	// This saves needing a manual flag ``--registry={destination namespace registry}``
-	if changingNamespace(f) && k8s.IsOpenShift() {
-		// TODO(lkingland): this appears to force use of the openshift
-		// internal registry.
+	if changingNamespace(f) && k8s.IsOpenShift() && k8s.IsOpenShiftInternalRegistry(f.Registry) {
 		f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Namespace
 		if cfg.Verbose {
 			fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)

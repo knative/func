@@ -857,13 +857,13 @@ func newBuildJob(ctx context.Context, f fn.Function, pp []fn.Platform, verbose b
 // some convenience accessors
 
 func (j buildJob) buildDir() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "build")
+	return filepath.Join(j.function.Root, fn.RunDataDir, fn.BuildDir)
 }
 func (j buildJob) ociDir() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "build", "oci")
+	return filepath.Join(j.function.Root, fn.RunDataDir, fn.BuildDir, "oci")
 }
 func (j buildJob) blobsDir() string {
-	return filepath.Join(j.function.Root, fn.RunDataDir, "build", "oci", "blobs", "sha256")
+	return filepath.Join(j.function.Root, fn.RunDataDir, fn.BuildDir, "oci", "blobs", "sha256")
 }
 func (j buildJob) cacheDir() string {
 	return filepath.Join(j.function.Root, fn.RunDataDir, "blob-cache")

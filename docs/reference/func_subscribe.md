@@ -35,6 +35,7 @@ func subscribe --filter type=com.example --filter extension=my-extension-value -
   -h, --help                 help for subscribe
   -p, --path string          Path to the function.  Default is current directory ($FUNC_PATH)
   -s, --source string        The source, like a Knative Broker (default "default")
+  -v, --verbose              Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
@@ -28,7 +29,9 @@ const (
 	// S2I related properties
 	defaultS2iImageScriptsUrl = "image:///usr/libexec/s2i"
 	quarkusS2iImageScriptsUrl = "image:///usr/local/s2i"
-
+	// Note: function calls (like path.Join()) can't be used in const declaration
+	// therefore this URL is built via concatenation.
+	scaffoldedS2iImageScriptsUrl = "file://" + fn.RunDataDir + "/" + fn.BuildDir + "/bin"
 	// The branch or tag we are targeting with Pipelines (ie: main, refs/tags/*)
 	defaultPipelinesTargetBranch = "main"
 )
@@ -153,6 +156,8 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 	s2iImageScriptsUrl := defaultS2iImageScriptsUrl
 	if f.Runtime == "quarkus" {
 		s2iImageScriptsUrl = quarkusS2iImageScriptsUrl
+	} else if f.HasScaffolding() {
+		s2iImageScriptsUrl = scaffoldedS2iImageScriptsUrl
 	}
 
 	image := f.Deploy.Image
@@ -162,7 +167,7 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 
 	// Determine if TLS verification should be skipped
 	tlsVerify := "true"
-	if isInsecureRegistry(f.Registry) {
+	if f.RegistryInsecure || isInsecureRegistry(f.Registry) {
 		tlsVerify = "false"
 	}
 
@@ -349,17 +354,19 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 
 	// add BP_GO_WORKDIR for go-build buildpack
 	if f.Runtime == "go" {
-		buildEnvs = append(buildEnvs, "BP_GO_WORKDIR=.func/build")
+		buildEnvs = append(buildEnvs, "BP_GO_WORKDIR="+filepath.Join(fn.RunDataDir, fn.BuildDir))
 	}
 
 	s2iImageScriptsUrl := defaultS2iImageScriptsUrl
 	if f.Runtime == "quarkus" {
 		s2iImageScriptsUrl = quarkusS2iImageScriptsUrl
+	} else if f.HasScaffolding() {
+		s2iImageScriptsUrl = scaffoldedS2iImageScriptsUrl
 	}
 
 	// Determine if TLS verification should be skipped
 	tlsVerify := "true"
-	if isInsecureRegistry(f.Registry) {
+	if f.RegistryInsecure || isInsecureRegistry(f.Registry) {
 		tlsVerify = "false"
 	}
 

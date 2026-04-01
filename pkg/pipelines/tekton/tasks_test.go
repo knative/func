@@ -1,7 +1,6 @@
 package tekton
 
 import (
-	"context"
 	"testing"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
@@ -56,7 +55,7 @@ func TestGetTasks(t *testing.T) {
 			cfg := &config.Config{
 				FeatureFlags: flags,
 			}
-			ctx := config.ToContext(context.Background(), cfg)
+			ctx := config.ToContext(t.Context(), cfg)
 			task.SetDefaults(ctx)
 			apiErr := task.Validate(ctx)
 			if apiErr != nil {

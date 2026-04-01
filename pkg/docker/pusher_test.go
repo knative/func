@@ -97,7 +97,7 @@ func TestPush(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+			ctx, cancel := context.WithTimeout(t.Context(), time.Minute*5)
 			defer cancel()
 
 			// in memory network emulation

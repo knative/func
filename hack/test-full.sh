@@ -48,6 +48,7 @@ export FUNC_CLUSTER_RETRIES="${FUNC_CLUSTER_RETRIES:-5}"
 export FUNC_E2E_MATRIX="${FUNC_E2E_MATRIX:-true}"
 export FUNC_E2E_VERBOSE="${FUNC_E2E_VERBOSE:-true}"
 export FUNC_E2E_PODMAN="${FUNC_E2E_PODMAN:-true}"
+export FUNC_E2E_CONFIG_CI="${FUNC_E2E_CONFIG_CI:-true}"
 export FUNC_INT_TEKTON_ENABLED="${FUNC_INT_TEKTON_ENABLED:-1}"
 export FUNC_INT_GITLAB_ENABLED="${FUNC_INT_GITLAB_ENABLED:-1}"
 export FUNC_INT_GITLAB_HOSTNAME="${FUNC_INT_GITLAB_HOSTNAME:-gitlab.localtest.me}"
@@ -65,6 +66,9 @@ main() {
     test-e2e
     test-e2e-podman
     test-e2e-runtimes
+    test-e2e-config-ci
+
+    completed
 }
 
 # -----
@@ -107,7 +111,7 @@ preconditions() {
         exit 1
     fi
     MISSING_BINS=""
-    for bin in kubectl kind jq stern dapr helm kn; do
+    for bin in kubectl kind jq stern dapr helm kn act; do
         # Check with and without .exe for Windows compatibility
         if [ ! -f "${PROJECT_ROOT}/hack/bin/${bin}" ] && [ ! -f "${PROJECT_ROOT}/hack/bin/${bin}.exe" ]; then
             MISSING_BINS="${MISSING_BINS} ${bin}"
@@ -251,7 +255,22 @@ test-e2e-runtimes() {
     echo "${blue}E2E - Runtimes${reset}"
     make test-e2e-matrix
     echo "${green}✓ E2E Runtime tests passed${reset}"
+}
 
+# -------------------
+# E2E CONFIG CI TESTS
+# -------------------
+# Mimics "test-e2e-config-ci" Workflow Job
+# which sets:
+#   FUNC_E2E_CONFIG_CI
+test-e2e-config-ci() {
+    echo ""
+    echo "${blue}E2E - Config CI${reset}"
+    make test-e2e-config-ci
+    echo "${green}✓ E2E Config CI tests passed${reset}"
+}
+
+completed() {
     echo ""
     echo "${green}✅ Full test completed successfully${reset}"
 }

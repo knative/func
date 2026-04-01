@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"context"
 	"errors"
 	"testing"
 )
@@ -28,7 +27,7 @@ func TestGetRunFuncErrors(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Runtime, func(t *testing.T) {
 
-			ctx := context.Background()
+			ctx := t.Context()
 			job := Job{Function: Function{Runtime: test.Runtime}}
 			_, err := getRunFunc(ctx, &job)
 

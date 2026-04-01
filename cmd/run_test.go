@@ -145,7 +145,7 @@ func TestRun_Run(t *testing.T) {
 				}
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			runErrCh := make(chan error, 1)
 			go func() {
 				t0 := tt // capture tt into closure
@@ -252,7 +252,7 @@ func TestRun_Images(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			runErrCh := make(chan error, 1)
 			go func() {
 				t0 := tt // capture tt into closure
@@ -362,7 +362,7 @@ func TestRun_CorrectImage(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			runErrCh := make(chan error, 1)
 			go func() {
 				t0 := tt // capture tt into closure
@@ -450,7 +450,7 @@ func TestRun_DirectOverride(t *testing.T) {
 	cmd.SetArgs([]string{fmt.Sprintf("--image=%s", overrideImage)})
 
 	// run function with above argument
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	runErrCh := make(chan error, 1)
 	go func() {
 		_, err := cmd.ExecuteContextC(ctx)
@@ -501,7 +501,7 @@ func TestRun_Address(t *testing.T) {
 	))
 	cmd.SetArgs([]string{"--address", testAddr})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	runErrCh := make(chan error, 1)
 	go func() {
 		_, err := cmd.ExecuteContextC(ctx)
@@ -574,7 +574,7 @@ func TestRun_BaseImage(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			runErrCh := make(chan error, 1)
 			go func() {
 				t0 := tt // capture tt into closure

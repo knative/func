@@ -22,7 +22,7 @@ import (
 
 func TestInt_UploadToVolume(t *testing.T) {
 	var err error
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*5)
 	t.Cleanup(cancel)
 
 	cliSet, testingNS, err := k8s.NewClientAndResolvedNamespace("")
@@ -139,7 +139,7 @@ func TestInt_UploadToVolume(t *testing.T) {
 
 func TestInt_ListPersistentVolumeClaimsNamesIfConnectedWrongKubeconfig(t *testing.T) {
 	t.Setenv("KUBECONFIG", "/tmp/non-existent.config")
-	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(context.Background(), "")
+	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(t.Context(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestInt_ListPersistentVolumeClaimsNamesIfConnectedWrongKubeconfig(t *testin
 
 func TestInt_ListPersistentVolumeClaimsNamesIfConnectedWrongKubernentesMaster(t *testing.T) {
 	t.Setenv("KUBERNETES_MASTER", "/tmp/non-existent.config")
-	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(context.Background(), "")
+	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(t.Context(), "")
 	if err != nil {
 		t.Fatal(err)
 	}

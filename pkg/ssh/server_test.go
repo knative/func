@@ -81,7 +81,7 @@ const dockerTCPSocket = "localhost:1234"
 // We need to set up SSH server against which we will run the tests.
 // This will return SSHServer structure representing the state of the testing server.
 func prepareSSHServer(t *testing.T, authorizedKeys ...any) (sshServer *SSHServer, err error) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer func() {
 		if err != nil {
 			cancel()

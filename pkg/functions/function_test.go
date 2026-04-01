@@ -1,7 +1,6 @@
 package functions_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -231,7 +230,7 @@ func TestFunction_MigrationError(t *testing.T) {
 // This includes modifying timestamps, removing or adding files.
 func TestFunction_Built(t *testing.T) {
 	var (
-		ctx      = context.Background()
+		ctx      = t.Context()
 		builder  = mock.NewBuilder()
 		client   = fn.New(fn.WithBuilder(builder), fn.WithRegistry(TestRegistry))
 		testfile = "example.go"
@@ -338,7 +337,7 @@ func TestFunction_Stamp(t *testing.T) {
 	}
 
 	// Built functions should have a stamp
-	f, err = client.Build(context.Background(), f)
+	f, err = client.Build(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}

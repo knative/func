@@ -23,7 +23,7 @@ func TestNewClient(t *testing.T) {
 		t.Skip("TODO fix this test on Windows CI") // TODO fix this
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*1)
 	defer cancel()
 
 	tmpDir := t.TempDir()

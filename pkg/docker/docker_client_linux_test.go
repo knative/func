@@ -14,7 +14,7 @@ import (
 // if docker daemon is not present.
 func TestNewDockerClientWithAutomaticPodmanSuccess(t *testing.T) {
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*1)
 	defer cancel()
 
 	WithExecutable(t, "podman", mockPodmanSrc)

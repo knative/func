@@ -69,7 +69,7 @@ func TestInt_PrivateGitRepository(t *testing.T) {
 		t.Skip("Skipping TestPrivateGitRepository on non-Linux systems due to cluster networking limitations")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	sigs := make(chan os.Signal, 1)

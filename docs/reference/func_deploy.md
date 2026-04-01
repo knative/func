@@ -116,7 +116,7 @@ func deploy
       --base-image string             Override the base image for your function (host builder only)
       --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
       --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
-  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "wasm", "pack" and "s2i". (default "pack")
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "wasm", "pack", "s2i" and "host". (default "pack")
       --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
       --deployer string               Type of deployment to use (one of: [knative raw keda wasm]). Inferred from runtime when not set. Default is 'knative'. ($FUNC_DEPLOY_TYPE)
@@ -135,7 +135,7 @@ func deploy
       --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
   -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
       --registry-authfile string      Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)
-      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)
+      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)
   -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
       --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
       --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)

@@ -28,7 +28,7 @@ import (
 func TestNewDockerClientWithSSH(t *testing.T) {
 	withCleanHome(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*1)
 	defer cancel()
 
 	sshConf := startSSH(t)
@@ -64,7 +64,7 @@ type sshConfig struct {
 func startSSH(t *testing.T, authorizedKeys ...ssh.PublicKey) (settings sshConfig) {
 	var err error
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	httpServerErrChan := make(chan error, 1)
 	pollingLoopErr := make(chan error, 1)
 

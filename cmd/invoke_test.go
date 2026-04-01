@@ -60,7 +60,7 @@ func TestInvoke(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := fn.New(fn.WithRunner(runner))
-	job, err := client.Run(context.Background(), f)
+	job, err := client.Run(t.Context(), f)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -74,7 +74,6 @@ func TestNewConfigCICmd_WorkflowYAMLHasCustomValues(t *testing.T) {
 }
 
 func TestNewConfigCICmd_WorkflowNameResolution(t *testing.T) {
-	customWorkflowName := "Deploy Checkout Service"
 	testCases := []struct {
 		name                 string
 		args                 []string
@@ -123,10 +122,25 @@ func TestNewConfigCICmd_WorkflowNameResolution(t *testing.T) {
 	}
 }
 
+func TestNewConfigCICmd_WorkflowNameFromEnvVarPreserveWithRemote(t *testing.T) {
+	// Regression test: env var FUNC_WORKFLOW_NAME was ignored when --remote was set,
+	// because only cmd.Flags().Changed() was checked (not viper.IsSet())
+	opts := defaultOpts()
+	opts.args = append(opts.args, "--remote")
+	t.Setenv("FUNC_WORKFLOW_NAME", customWorkflowName)
+
+	// WHEN
+	result := runConfigCiCmd(t, opts)
+
+	// THEN
+	assert.NilError(t, result.executeErr)
+	assert.Assert(t, yamlContains(result.gwYamlString, "name: "+customWorkflowName))
+}
+
 func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 	// GIVEN
 	opts := defaultOpts()
-	opts.args = append(opts.args, "--use-registry-login=false")
+	opts.args = append(opts.args, "--registry-login=false")
 
 	// WHEN
 	result := runConfigCiCmd(t, opts)
@@ -135,7 +149,7 @@ func TestNewConfigCICmd_WorkflowHasNoRegistryLogin(t *testing.T) {
 	assert.NilError(t, result.executeErr)
 	assert.Assert(t, !strings.Contains(result.gwYamlString, "docker/login-action@v3"))
 	assert.Assert(t, !strings.Contains(result.gwYamlString, "Login to container registry"))
-	assert.Assert(t, yamlContains(result.gwYamlString, "--registry=${{ vars.REGISTRY_URL }}"))
+	assert.Assert(t, yamlContains(result.gwYamlString, "FUNC_REGISTRY: ${{ vars.REGISTRY_URL }}"))
 }
 
 func TestNewConfigCICmd_RemoteBuildAndDeployWorkflow(t *testing.T) {
@@ -149,7 +163,7 @@ func TestNewConfigCICmd_RemoteBuildAndDeployWorkflow(t *testing.T) {
 	// THEN
 	assert.NilError(t, result.executeErr)
 	assert.Assert(t, yamlContains(result.gwYamlString, "Remote Func Deploy"))
-	assert.Assert(t, yamlContains(result.gwYamlString, "func deploy --remote"))
+	assert.Assert(t, yamlContains(result.gwYamlString, `FUNC_REMOTE: "true"`))
 }
 
 func TestNewConfigCICmd_HasWorkflowDispatch(t *testing.T) {
@@ -312,18 +326,37 @@ func TestNewConfigCICmd_GithubPlatformFlagSupported(t *testing.T) {
 	}
 }
 
-func TestNewConfigCICmd_UnsupportedPlatformError(t *testing.T) {
-	// GIVEN
-	platform := "unsupported"
-	expectedErr := fmt.Errorf("%s support is not implemented", platform)
-	opts := defaultOpts()
-	opts.args = append(opts.args, "--platform="+platform)
+func TestNewConfigCICmd_PlatformFlagErrors(t *testing.T) {
+	testCases := []struct {
+		name        string
+		platformArg string
+		expectedErr string
+	}{
+		{
+			name:        "empty platform value",
+			platformArg: "--platform=",
+			expectedErr: fmt.Sprintf("platform must not be empty, supported: %s", ci.DefaultPlatform),
+		},
+		{
+			name:        "unsupported platform value",
+			platformArg: "--platform=unsupported",
+			expectedErr: fmt.Sprintf("unsupported support is not implemented, supported: %s", ci.DefaultPlatform),
+		},
+	}
 
-	// WHEN
-	result := runConfigCiCmd(t, opts)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// GIVEN
+			opts := defaultOpts()
+			opts.args = append(opts.args, tc.platformArg)
 
-	// THEN
-	assert.Error(t, result.executeErr, expectedErr.Error())
+			// WHEN
+			result := runConfigCiCmd(t, opts)
+
+			// THEN
+			assert.Error(t, result.executeErr, tc.expectedErr)
+		})
+	}
 }
 
 func TestNewConfigCICmd_ForceFlagOverwritesExistingWorkflow(t *testing.T) {
@@ -369,20 +402,377 @@ func TestNewConfigCICmd_ForceFlagOverwritesExistingWorkflow(t *testing.T) {
 	})
 }
 
+func TestNewConfigCICmd_VerboseFlagPrintsWorkflowDetails(t *testing.T) {
+	t.Run("verbose flag prints default Github Workflow configuration", func(t *testing.T) {
+		opts := defaultOpts()
+		opts.args = append(opts.args, "--verbose")
+		expectedMessage := fmt.Sprintf(ci.MainLayoutPlainText,
+			defaultOutputPath,
+			ci.DefaultWorkflowName,
+			issueBranch,
+			"host",
+			"disabled",
+			"ubuntu-latest",
+			"enabled",
+			"enabled",
+			"disabled",
+			"disabled",
+		) + fmt.Sprintf(ci.RequireManyPlainText,
+			"secrets."+ci.DefaultKubeconfigSecretName,
+			"secrets."+ci.DefaultRegistryPassSecretName,
+			"vars."+ci.DefaultRegistryLoginUrlVariableName,
+			"vars."+ci.DefaultRegistryUserVariableName,
+			"vars."+ci.DefaultRegistryUrlVariableName,
+		)
+
+		result := runConfigCiCmd(t, opts)
+
+		assertMessage(t, result, expectedMessage)
+	})
+
+	t.Run("verbose flag prints custom Github Workflow configuration", func(t *testing.T) {
+		opts := defaultOpts()
+		opts.args = append(opts.args,
+			"--verbose",
+			"--self-hosted-runner",
+			"--workflow-name=Deploy Checkout Service",
+			"--remote",
+			"--test-step=false",
+			"--workflow-dispatch",
+			"--force",
+			"--kubeconfig-secret-name=DEV_CLUSTER_KUBECONFIG",
+			"--registry-pass-secret-name=DEV_REGISTRY_PASS",
+			"--registry-login-url-variable-name=DEV_REGISTRY_LOGIN_URL",
+			"--registry-user-variable-name=DEV_REGISTRY_USER",
+			"--registry-url-variable-name=DEV_REGISTRY_URL",
+		)
+		expectedMessage := fmt.Sprintf(ci.MainLayoutPlainText,
+			defaultOutputPath,
+			customWorkflowName,
+			issueBranch,
+			"pack",
+			"enabled",
+			"self-hosted",
+			"disabled",
+			"enabled",
+			"enabled",
+			"enabled",
+		) + fmt.Sprintf(ci.RequireManyPlainText,
+			"secrets.DEV_CLUSTER_KUBECONFIG",
+			"secrets.DEV_REGISTRY_PASS",
+			"vars.DEV_REGISTRY_LOGIN_URL",
+			"vars.DEV_REGISTRY_USER",
+			"vars.DEV_REGISTRY_URL",
+		)
+
+		result := runConfigCiCmd(t, opts)
+
+		assertMessage(t, result, expectedMessage)
+	})
+
+	t.Run("verbose flag prints custom Github Workflow configuration without registry login", func(t *testing.T) {
+		opts := defaultOpts()
+		opts.args = append(opts.args,
+			"--verbose",
+			"--registry-login=false",
+		)
+		expectedMessage := fmt.Sprintf(ci.MainLayoutPlainText,
+			defaultOutputPath,
+			ci.DefaultWorkflowName,
+			issueBranch,
+			"host",
+			"disabled",
+			"ubuntu-latest",
+			"enabled",
+			"disabled",
+			"disabled",
+			"disabled",
+		) + fmt.Sprintf(ci.RequireOnePlainText,
+			"secrets."+ci.DefaultKubeconfigSecretName,
+		)
+
+		result := runConfigCiCmd(t, opts)
+
+		assertMessage(t, result, expectedMessage)
+	})
+}
+
+func TestNewConfigCICmd_PostExportMessageShown(t *testing.T) {
+	t.Run("a message is shown with all secrets and variables for k8 and registry which needs creation", func(t *testing.T) {
+		opts := defaultOpts()
+		expectedMessage := fmt.Sprintf(ci.PostExportManyPlainText,
+			defaultOutputPath,
+			"secrets."+ci.DefaultKubeconfigSecretName,
+			"secrets."+ci.DefaultRegistryPassSecretName,
+			"vars."+ci.DefaultRegistryLoginUrlVariableName,
+			"vars."+ci.DefaultRegistryUserVariableName,
+			"vars."+ci.DefaultRegistryUrlVariableName,
+		)
+
+		result := runConfigCiCmd(t, opts)
+
+		assertMessage(t, result, expectedMessage)
+	})
+
+	t.Run("a message is shown with a secret for k8 which needs creation", func(t *testing.T) {
+		opts := defaultOpts()
+		opts.args = append(opts.args, "--registry-login=false")
+		expectedMessage := fmt.Sprintf(ci.PostExportOnePlainText,
+			defaultOutputPath,
+			"secrets."+ci.DefaultKubeconfigSecretName,
+		)
+
+		result := runConfigCiCmd(t, opts)
+
+		assertMessage(t, result, expectedMessage)
+	})
+}
+
+func TestNewConfigCICmd_VerboseAndPostExportMessageAreMutuallyExclusive(t *testing.T) {
+	t.Run("verbose flag shows configuration, not post-export message", func(t *testing.T) {
+		opts := defaultOpts()
+		opts.args = append(opts.args, "--verbose")
+
+		result := runConfigCiCmd(t, opts)
+
+		assert.NilError(t, result.executeErr)
+		assert.Assert(t, strings.Contains(result.stdOut, "GitHub Workflow Configuration"))
+		assert.Assert(t, !strings.Contains(result.stdOut, "GitHub Workflow created at:"))
+	})
+
+	t.Run("without verbose flag shows post-export message, not configuration", func(t *testing.T) {
+		opts := defaultOpts()
+
+		result := runConfigCiCmd(t, opts)
+
+		assert.NilError(t, result.executeErr)
+		assert.Assert(t, strings.Contains(result.stdOut, "GitHub Workflow created at:"))
+		assert.Assert(t, !strings.Contains(result.stdOut, "GitHub Workflow Configuration"))
+	})
+}
+
+func TestNewConfigCICmd_TestStepPerRuntime(t *testing.T) {
+	testCases := []struct {
+		name        string
+		runtime     string
+		expectedRun string
+	}{
+		{
+			name:        "go runtime adds go test step",
+			runtime:     "go",
+			expectedRun: "go test ./...",
+		},
+		{
+			name:        "nodejs runtime adds npm test step",
+			runtime:     "node",
+			expectedRun: "npm ci && npm test",
+		},
+		{
+			name:        "typescript runtime adds npm test step",
+			runtime:     "typescript",
+			expectedRun: "npm ci && npm test",
+		},
+		{
+			name:        "python runtime adds python -m pytest step",
+			runtime:     "python",
+			expectedRun: "pip install . && python -m pytest",
+		},
+		{
+			name:        "quarkus runtime adds mvnw test step",
+			runtime:     "quarkus",
+			expectedRun: "./mvnw test",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// GIVEN
+			opts := defaultOpts()
+			opts.runtime = tc.runtime
+
+			// WHEN
+			result := runConfigCiCmd(t, opts)
+
+			// THEN
+			assert.NilError(t, result.executeErr)
+			assert.Assert(t, yamlContains(result.gwYamlString, runTestStepName))
+			assert.Assert(t, yamlContains(result.gwYamlString, tc.expectedRun))
+		})
+	}
+}
+
+func TestNewConfigCICmd_TestStepSkipped(t *testing.T) {
+	t.Run("unsupported runtime skips test step and prints warning", func(t *testing.T) {
+		// GIVEN
+		opts := defaultOpts()
+		opts.runtime = "rust"
+
+		// WHEN
+		result := runConfigCiCmd(t, opts)
+
+		// THEN
+		assert.NilError(t, result.executeErr)
+		assert.Assert(t, !strings.Contains(result.gwYamlString, runTestStepName))
+		assert.Assert(t, strings.Contains(result.stdOut, "WARNING: test step not supported for runtime rust"))
+	})
+
+	t.Run("test step disabled via flag", func(t *testing.T) {
+		// GIVEN
+		opts := defaultOpts()
+		opts.args = append(opts.args, "--test-step=false")
+
+		// WHEN
+		result := runConfigCiCmd(t, opts)
+
+		// THEN
+		assert.NilError(t, result.executeErr)
+		assert.Assert(t, !strings.Contains(result.gwYamlString, runTestStepName))
+		assert.Assert(t, strings.Count(result.gwYamlString, "- name:") == 5)
+	})
+}
+
+func TestNewConfigCICmd_BuilderForRuntime(t *testing.T) {
+	testCases := []struct {
+		name,
+		runtime,
+		builder,
+		args string
+	}{
+		{
+			name:    "go function and local build",
+			args:    "",
+			runtime: "go",
+			builder: "host",
+		},
+		{
+			name:    "go function and remote build",
+			args:    "--remote",
+			runtime: "go",
+			builder: "pack",
+		},
+		{
+			name:    "python function and local build",
+			args:    "",
+			runtime: "python",
+			builder: "host",
+		},
+		{
+			name:    "python function and remote build",
+			args:    "--remote",
+			runtime: "python",
+			builder: "s2i",
+		},
+		{
+			name:    "node function and local build",
+			args:    "",
+			runtime: "node",
+			builder: "pack",
+		},
+		{
+			name:    "node function and remote build",
+			args:    "--remote",
+			runtime: "node",
+			builder: "pack",
+		},
+		{
+			name:    "typescript function and local build",
+			args:    "",
+			runtime: "typescript",
+			builder: "pack",
+		},
+		{
+			name:    "typescript function and remote build",
+			args:    "--remote",
+			runtime: "typescript",
+			builder: "pack",
+		},
+		{
+			name:    "rust function and local build",
+			args:    "",
+			runtime: "rust",
+			builder: "pack",
+		},
+		{
+			name:    "rust function and remote build",
+			args:    "--remote",
+			runtime: "rust",
+			builder: "pack",
+		},
+		{
+			name:    "quarkus function and local build",
+			args:    "",
+			runtime: "quarkus",
+			builder: "pack",
+		},
+		{
+			name:    "quarkus function and remote build",
+			args:    "--remote",
+			runtime: "quarkus",
+			builder: "pack",
+		},
+		{
+			name:    "springboot function and local build",
+			args:    "",
+			runtime: "springboot",
+			builder: "pack",
+		},
+		{
+			name:    "springboot function and remote build",
+			args:    "--remote",
+			runtime: "springboot",
+			builder: "pack",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// GIVEN
+			opts := defaultOpts()
+			opts.runtime = tc.runtime
+			opts.args = append(opts.args, tc.args)
+
+			// WHEN
+			result := runConfigCiCmd(t, opts)
+
+			// THEN
+			assert.NilError(t, result.executeErr)
+			assert.Assert(t, strings.Contains(result.gwYamlString, "FUNC_BUILDER: "+tc.builder))
+		})
+	}
+}
+
+func TestNewConfigCICmd_BuilderForRuntimeError(t *testing.T) {
+	// GIVEN
+	opts := defaultOpts()
+	opts.runtime = "zig"
+	expectedErr := fmt.Errorf("no builder support for runtime: %s", opts.runtime)
+
+	// WHEN
+	result := runConfigCiCmd(t, opts)
+
+	// THEN
+	assert.Error(t, result.executeErr, expectedErr.Error())
+}
+
 // ---------------------
 // END: Broad Unit Tests
 
 // START: Testing Framework
 // ------------------------
 const (
-	mainBranch   = "main"
-	issueBranch  = "issue-778-current-branch"
-	fnName       = "github-ci-func"
-	forceWarning = "WARNING: --force flag is set, overwriting existing GitHub Workflow file"
+	mainBranch         = "main"
+	issueBranch        = "issue-778-current-branch"
+	fnName             = "github-ci-func"
+	forceWarning       = "WARNING: --force flag is set, overwriting existing GitHub Workflow file"
+	customWorkflowName = "Deploy Checkout Service"
+	runTestStepName    = "Run tests"
 )
+
+var defaultOutputPath = filepath.Join(ci.DefaultGitHubWorkflowDir, ci.DefaultGitHubWorkflowFilename)
 
 type opts struct {
 	enableFeature        bool
+	runtime              string
 	withFakeGitCliReturn struct {
 		output string
 		err    error
@@ -403,6 +793,7 @@ type opts struct {
 func defaultOpts() opts {
 	return opts{
 		enableFeature: true,
+		runtime:       "go",
 		withFakeGitCliReturn: struct {
 			output string
 			err    error
@@ -443,7 +834,7 @@ func runConfigCiCmd(
 
 	loaderSaver := common.NewMockLoaderSaver()
 	loaderSaver.LoadFn = func(path string) (fn.Function, error) {
-		return fn.Function{Root: path}, nil
+		return fn.Function{Root: path, Runtime: opts.runtime}, nil
 	}
 
 	writer := opts.withWriter
@@ -509,10 +900,13 @@ func assertDefaultWorkflowWithBranch(t *testing.T, actualGw, branch string) {
 
 	assert.Assert(t, yamlContains(actualGw, "ubuntu-latest"))
 
-	assert.Assert(t, strings.Count(actualGw, "- name:") == 5)
+	assert.Assert(t, strings.Count(actualGw, "- name:") == 6)
 
 	assert.Assert(t, yamlContains(actualGw, "Checkout code"))
 	assert.Assert(t, yamlContains(actualGw, "actions/checkout@v4"))
+
+	assert.Assert(t, yamlContains(actualGw, "Run tests"))
+	assert.Assert(t, yamlContains(actualGw, "go test ./..."))
 
 	assert.Assert(t, yamlContains(actualGw, "Setup Kubernetes context"))
 	assert.Assert(t, yamlContains(actualGw, "azure/k8s-set-context@v4"))
@@ -531,7 +925,9 @@ func assertDefaultWorkflowWithBranch(t *testing.T, actualGw, branch string) {
 	assert.Assert(t, yamlContains(actualGw, "name: func"))
 
 	assert.Assert(t, yamlContains(actualGw, "Deploy function"))
-	assert.Assert(t, yamlContains(actualGw, "func deploy --registry=${{ vars.REGISTRY_LOGIN_URL }}/${{ vars.REGISTRY_USERNAME }} -v"))
+	assert.Assert(t, yamlContains(actualGw, `FUNC_VERBOSE: "true"`))
+	assert.Assert(t, yamlContains(actualGw, "FUNC_REGISTRY: ${{ vars.REGISTRY_LOGIN_URL }}/${{ vars.REGISTRY_USERNAME }}"))
+	assert.Assert(t, yamlContains(actualGw, "func deploy"))
 }
 
 func yamlContains(yaml, substr string) cmp.Comparison {
@@ -546,11 +942,21 @@ func yamlContains(yaml, substr string) cmp.Comparison {
 }
 
 func assertCustomWorkflow(t *testing.T, actualGw string) {
+	t.Helper()
+
 	assert.Assert(t, yamlContains(actualGw, "self-hosted"))
 	assert.Assert(t, yamlContains(actualGw, "DEV_CLUSTER_KUBECONFIG"))
 	assert.Assert(t, yamlContains(actualGw, "DEV_REGISTRY_LOGIN_URL"))
 	assert.Assert(t, yamlContains(actualGw, "DEV_REGISTRY_USER"))
 	assert.Assert(t, yamlContains(actualGw, "DEV_REGISTRY_PASS"))
+}
+
+func assertMessage(t *testing.T, res result, expectedMessage string) {
+	t.Helper()
+
+	assert.NilError(t, res.executeErr)
+	assert.Assert(t, strings.Contains(res.stdOut, expectedMessage),
+		"\nexpected:\n%s\n\ngot:\n%s", expectedMessage, res.stdOut)
 }
 
 // ----------------------

@@ -154,6 +154,34 @@ spec:
         echo "--> Saving 'func.yaml'"
         cp $func_file /emptyDir/func.yaml
 
+        # Python only: replicate the inline pre-buildpack logic.
+        # Lifecycle doesn't support inline buildpacks (only pack does),
+        # so the rearrangement must happen here for remote builds.
+        src_path="$(workspaces.source.path)"
+        if [ "$(params.SOURCE_SUBPATH)" != "" ]; then
+          src_path="$(workspaces.source.path)/$(params.SOURCE_SUBPATH)"
+        fi
+        if [ -f "$src_path/.func/build/service/main.py" ]; then
+          echo "--> Python function detected, applying scaffolding"
+          cd "$src_path"
+
+          shopt -s dotglob
+          mkdir -p fn
+          for item in *; do
+            case "$item" in
+              fn|.func|.git|.gitignore|func.yaml) continue ;;
+            esac
+            mv "$item" fn/
+          done
+          shopt -u dotglob
+
+          mv .func/build/* .
+          rm -rf .func
+          ln -snf fn f
+
+          echo "===> Python scaffolding complete"
+        fi
+
         ############################################
       volumeMounts:
         - name: layers-dir

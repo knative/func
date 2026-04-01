@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -115,7 +117,7 @@ func Test_BuilderImageDefault(t *testing.T) {
 
 	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
-	if err := builder.Build(context.Background(), f, nil); err != nil {
+	if err := builder.Build(t.Context(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -150,7 +152,7 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 
 	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
-	if err := b.Build(context.Background(), f, nil); err != nil {
+	if err := b.Build(t.Context(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -168,7 +170,7 @@ func Test_BuilderVerbose(t *testing.T) {
 				return &api.Result{Messages: []string{"message"}}, nil
 			}}
 		if err := s2i.NewBuilder(s2i.WithVerbose(verbose), s2i.WithImpl(i), s2i.WithDockerClient(c)).
-			Build(context.Background(), fn.Function{Runtime: "node"}, nil); err != nil {
+			Build(t.Context(), fn.Function{Runtime: "node"}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -205,7 +207,7 @@ func Test_BuildEnvs(t *testing.T) {
 		t.Fatal("build envs not added to builder impl config")
 		return
 	}
-	if err := b.Build(context.Background(), f, nil); err != nil {
+	if err := b.Build(t.Context(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -248,7 +250,7 @@ func Test_MiddlewareLabel(t *testing.T) {
 		return nil, nil
 	}
 
-	if err := b.Build(context.Background(), f, nil); err != nil {
+	if err := b.Build(t.Context(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -260,7 +262,7 @@ func TestBuildFail(t *testing.T) {
 		},
 	}
 	b := s2i.NewBuilder(s2i.WithDockerClient(cli))
-	err := b.Build(context.Background(), fn.Function{Runtime: "node"}, nil)
+	err := b.Build(t.Context(), fn.Function{Runtime: "node"}, nil)
 	if err == nil {
 		t.Error("didn't get expected error")
 	}
@@ -356,3 +358,53 @@ func (n notFoundErr) NotFound() {
 
 // Just a type assert in case docker decides to change NotFoundError interface again
 var _ errdefs.ErrNotFound = notFoundErr{}
+
+// Test_ScaffoldWritesToFuncBuild ensures that scaffolding for Go/Python
+// runtimes is written to .func/build/ instead of .s2i/build/
+func Test_ScaffoldWritesToFuncBuild(t *testing.T) {
+	runtimes := []string{"go", "python"}
+	for _, rt := range runtimes {
+		t.Run(rt, func(t *testing.T) {
+			var (
+				root, done = Mktemp(t)
+				f          = fn.Function{
+					Name:     "test",
+					Root:     root,
+					Runtime:  rt,
+					Registry: "example.com/alice",
+				}
+				scaffolder = s2i.NewScaffolder(false)
+				err        error
+			)
+			defer done()
+
+			// Initialize the test function
+			if f, err = fn.New().Init(f); err != nil {
+				t.Fatal(err)
+			}
+
+			// Call Scaffold
+			if err := scaffolder.Scaffold(t.Context(), f, ""); err != nil {
+				t.Fatal(err)
+			}
+
+			// Assert: scaffolding should be in .func/build/
+			expectedPath := filepath.Join(root, fn.RunDataDir, fn.BuildDir)
+			if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+				t.Errorf("expected scaffolding at %s, but directory does not exist", expectedPath)
+			}
+
+			// Assert: S2I scripts should be at .func/build/bin/
+			scriptsPath := filepath.Join(root, fn.RunDataDir, fn.BuildDir, "bin", "assemble")
+			if _, err := os.Stat(scriptsPath); os.IsNotExist(err) {
+				t.Errorf("expected assemble script at %s, but file does not exist", scriptsPath)
+			}
+
+			// Assert: .s2i directory should NOT exist at root level
+			s2iPath := filepath.Join(root, ".s2i")
+			if _, err := os.Stat(s2iPath); err == nil {
+				t.Errorf(".s2i directory should not exist at root level, but found at %s", s2iPath)
+			}
+		})
+	}
+}

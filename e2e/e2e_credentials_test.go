@@ -13,16 +13,16 @@ import (
 // Test that FUNC_USERNAME/FUNC_PASSWORD are picked up by all pushers
 // by asserting the pusher's log message includes the provided username.
 // This test runs for host, pack, and s2i builders automatically.
-func TestCredentials_DockerPusher_EnvUsed(t *testing.T) {
+func TestCore_CredentialsDockerPusher(t *testing.T) {
 	const user = "e2euser"
 	const pass = "e2epass"
-	t.Setenv("FUNC_USERNAME", user)
-	t.Setenv("FUNC_PASSWORD", pass)
 
 	for _, builder := range []string{"host", "pack", "s2i"} {
 		t.Run(builder, func(t *testing.T) {
 			name := fmt.Sprintf("func-e2e-creds-docker-%s", builder)
 			_ = fromCleanEnv(t, name)
+			t.Setenv("FUNC_USERNAME", user)
+			t.Setenv("FUNC_PASSWORD", pass)
 
 			// Init a simple function
 			if err := newCmd(t, "init", "-l=go").Run(); err != nil {

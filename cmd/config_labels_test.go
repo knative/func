@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"context"
 	"os"
 	"reflect"
 	"sync"
@@ -42,7 +41,7 @@ func assertLabelEq(t *testing.T, actual []fn.Label, want []fn.Label) {
 func createRunFunc(cmd *cobra.Command, t *testing.T) func(subcmd string, input ...string) {
 	return func(subcmd string, input ...string) {
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		ptm, pts, err := pty.Open()
 		if err != nil {
@@ -154,7 +153,7 @@ func TestListLabels(t *testing.T) {
 	cmd := NewConfigLabelsCmd(&loaderSaver)
 	cmd.SetArgs([]string{})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	c, err := expect.NewConsole()
 	if err != nil {
 		t.Fatal(err)
