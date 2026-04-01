@@ -1,6 +1,7 @@
 package wasm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,6 +24,22 @@ const (
 	// witVersionsFile is the marker file recording the last-provisioned
 	// builderImages state. Written after successful WIT provisioning.
 	witVersionsFile = ".versions"
+
+	// WITProviderModeKey is a special builderImages key that controls how
+	// conflicting transitive WIT deps are handled. Not an OCI reference —
+	// it is consumed and removed before provisioning begins.
+	//
+	// Values:
+	//   "strict"    (default) — any byte-level discrepancy between transitive
+	//                           deps from different artifacts is a fatal error.
+	//   "forgiving" — same-size files are assumed identical (wasm-tools may
+	//                 reorder interfaces); when sizes differ, the larger file
+	//                 wins (it likely contains a superset of interfaces).
+	//                 Both cases emit a warning to stderr.
+	WITProviderModeKey = "__WASI_WIT_PROVIDER_MODE"
+
+	witProviderModeStrict    = "strict"
+	witProviderModeForgiving = "forgiving"
 )
 
 // ProvisionWIT downloads WIT dependencies declared in builderImages into
@@ -50,6 +67,9 @@ const (
 // ProvisionWIT does NOT touch wit/world.wit — that file is owned by the user
 // (part of the template). Each provisioned package dir receives a .gitignore
 // with "*" to prevent accidental commits.
+//
+// The special key __WASI_WIT_PROVIDER_MODE controls transitive dep conflict
+// resolution. See WITProviderModeKey for details.
 func ProvisionWIT(
 	ctx context.Context,
 	root string,
@@ -57,6 +77,30 @@ func ProvisionWIT(
 	verbose bool,
 ) error {
 	if len(builderImages) == 0 {
+		return nil
+	}
+
+	// Extract the provider mode before processing OCI refs.
+	providerMode := witProviderModeStrict
+	if mode, ok := builderImages[WITProviderModeKey]; ok {
+		switch mode {
+		case witProviderModeStrict, witProviderModeForgiving:
+			providerMode = mode
+		default:
+			return fmt.Errorf("invalid %s value %q (expected %q or %q)",
+				WITProviderModeKey, mode, witProviderModeStrict, witProviderModeForgiving)
+		}
+	}
+
+	// Build a working copy without the mode key — only OCI refs remain.
+	ociRefs := make(map[string]string, len(builderImages))
+	for k, v := range builderImages {
+		if k != WITProviderModeKey {
+			ociRefs[k] = v
+		}
+	}
+
+	if len(ociRefs) == 0 {
 		return nil
 	}
 
@@ -69,7 +113,7 @@ func ProvisionWIT(
 	}
 
 	// Determine which keys need provisioning.
-	toProvision := diffVersions(current, builderImages)
+	toProvision := diffVersions(current, ociRefs)
 	if len(toProvision) == 0 {
 		if verbose {
 			fmt.Fprintf(os.Stderr, "WIT deps up-to-date, skipping download\n")
@@ -89,7 +133,26 @@ func ProvisionWIT(
 		return fmt.Errorf("creating wit/deps directory: %w", err)
 	}
 
-	for key, ociRef := range toProvision {
+	// Sort keys for deterministic processing order. This prevents
+	// non-deterministic map iteration from causing flaky builds when
+	// transitive deps from different packages provide different subsets
+	// of a WIT package's interfaces.
+	sortedKeys := make([]string, 0, len(toProvision))
+	for k := range toProvision {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	// Track which package dirs were provisioned as direct (main) deps.
+	// Direct deps are authoritative — transitive deps never override them.
+	directDeps := make(map[string]bool)
+
+	if verbose {
+		fmt.Fprintf(os.Stderr, "WIT provider mode: %s\n", providerMode)
+	}
+
+	for _, key := range sortedKeys {
+		ociRef := toProvision[key]
 		if verbose {
 			fmt.Fprintf(os.Stderr, "Downloading WIT dep %q from %s\n", key, ociRef)
 		}
@@ -109,9 +172,9 @@ func ProvisionWIT(
 		}
 
 		// Restructure: flatten main + transitive deps into wit/deps/<pkg>/.
-		// Only the specific package dirs produced are replaced — user-vendored
-		// deps are preserved.
-		provisioned, err := restructureWITDeps(tmpDir, depsDir, verbose)
+		// Direct deps always overwrite. Transitive deps are merged according
+		// to the provider mode.
+		provisioned, err := restructureWITDeps(tmpDir, depsDir, directDeps, providerMode, verbose)
 		os.RemoveAll(tmpDir)
 		if err != nil {
 			return fmt.Errorf("restructuring WIT dep %q: %w", key, err)
@@ -155,15 +218,20 @@ func ProvisionWIT(
 //	<dstDir>/<main>/<main>.wit
 //	<dstDir>/<dep>/<dep>.wit
 //
-// Main packages (from srcDir root) always overwrite existing dirs.
-// Transitive deps (from srcDir/deps/) are written only if the target dir
-// does NOT already exist — this prevents a smaller transitive stub from
-// clobbering a richer package that was already provisioned from its own
-// builderImages entry (e.g., HTTP's transitive cli.wit overwriting the
-// full CLI package).
+// Main (direct) packages always overwrite existing dirs and are tracked in
+// directDeps so transitive deps from later artifacts never override them.
+//
+// Transitive deps use a merge strategy controlled by providerMode:
+//   - If target dir was provisioned as a direct dep → skip (direct is authoritative)
+//   - If target dir is user-vendored (no auto-fetch .gitignore) → skip
+//   - If target dir is auto-fetched and file exists:
+//   - strict: byte-identical → ok; any difference → fatal error
+//   - forgiving: same size → skip with warning (wasm-tools may reorder
+//     interfaces); different size → larger file wins with warning
+//   - If target dir doesn't exist → create + write
 //
 // Returns the list of destination directories that were created/updated.
-func restructureWITDeps(srcDir, dstDir string, verbose bool) ([]string, error) {
+func restructureWITDeps(srcDir, dstDir string, directDeps map[string]bool, providerMode string, verbose bool) ([]string, error) {
 	// --- Main packages: always overwrite ---
 	mainWits, err := filepath.Glob(filepath.Join(srcDir, "*.wit"))
 	if err != nil {
@@ -188,9 +256,10 @@ func restructureWITDeps(srcDir, dstDir string, verbose bool) ([]string, error) {
 			fmt.Fprintf(os.Stderr, "  wit/deps/%s/%s\n", pkgName, baseName)
 		}
 		provisioned = append(provisioned, pkgDir)
+		directDeps[pkgName] = true
 	}
 
-	// --- Transitive deps: only fill gaps (don't overwrite) ---
+	// --- Transitive deps: merge according to providerMode ---
 	depsSubDir := filepath.Join(srcDir, "deps")
 	if info, statErr := os.Stat(depsSubDir); statErr == nil && info.IsDir() {
 		depWits, err := filepath.Glob(filepath.Join(depsSubDir, "*.wit"))
@@ -202,15 +271,50 @@ func restructureWITDeps(srcDir, dstDir string, verbose bool) ([]string, error) {
 			pkgName := strings.TrimSuffix(baseName, ".wit")
 			pkgDir := filepath.Join(dstDir, pkgName)
 
-			// Skip if this package already exists (provisioned by another
-			// builderImages entry or a previous main package).
-			if _, statErr := os.Stat(pkgDir); statErr == nil {
+			// Skip if this package was provisioned as a direct dep — the
+			// direct (main) package is authoritative.
+			if directDeps[pkgName] {
 				if verbose {
-					fmt.Fprintf(os.Stderr, "  wit/deps/%s/%s (skipped, already exists)\n", pkgName, baseName)
+					fmt.Fprintf(os.Stderr, "  wit/deps/%s/%s (skipped, direct dep)\n", pkgName, baseName)
 				}
 				continue
 			}
 
+			// Check if target dir exists.
+			if _, statErr := os.Stat(pkgDir); statErr == nil {
+				// Dir exists. Check if it's auto-fetched (has .gitignore "*").
+				if !isAutoFetched(pkgDir) {
+					if verbose {
+						fmt.Fprintf(os.Stderr, "  wit/deps/%s/%s (skipped, user-vendored)\n", pkgName, baseName)
+					}
+					continue
+				}
+
+				// Auto-fetched dir: merge file-by-file.
+				dstFile := filepath.Join(pkgDir, baseName)
+				if _, fErr := os.Stat(dstFile); fErr == nil {
+					// File exists — resolve conflict based on provider mode.
+					replaced, err := resolveTransitiveConflict(witFile, dstFile, pkgName, providerMode, verbose)
+					if err != nil {
+						return nil, err
+					}
+					if replaced {
+						provisioned = append(provisioned, pkgDir)
+					}
+				} else {
+					// New file in existing dir — add it.
+					if err := copyFile(witFile, dstFile); err != nil {
+						return nil, fmt.Errorf("merging dep %s: %w", baseName, err)
+					}
+					if verbose {
+						fmt.Fprintf(os.Stderr, "  wit/deps/%s/%s (merged)\n", pkgName, baseName)
+					}
+					provisioned = append(provisioned, pkgDir)
+				}
+				continue
+			}
+
+			// Dir doesn't exist — create and write.
 			if err := os.MkdirAll(pkgDir, 0755); err != nil {
 				return nil, fmt.Errorf("creating dep dir %q: %w", pkgName, err)
 			}
@@ -225,6 +329,85 @@ func restructureWITDeps(srcDir, dstDir string, verbose bool) ([]string, error) {
 	}
 
 	return provisioned, nil
+}
+
+// resolveTransitiveConflict handles the case when a transitive dep file
+// already exists in the target dir. The resolution strategy depends on the
+// provider mode.
+//
+// Returns (replaced bool, err error) where replaced indicates whether the
+// existing file was overwritten.
+func resolveTransitiveConflict(srcFile, dstFile, pkgName, providerMode string, verbose bool) (bool, error) {
+	srcData, err := os.ReadFile(srcFile)
+	if err != nil {
+		return false, fmt.Errorf("reading transitive dep source %q: %w", srcFile, err)
+	}
+	dstData, err := os.ReadFile(dstFile)
+	if err != nil {
+		return false, fmt.Errorf("reading existing dep %q: %w", dstFile, err)
+	}
+
+	baseName := filepath.Base(dstFile)
+
+	// Identical content — no conflict regardless of mode.
+	if bytes.Equal(srcData, dstData) {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "  wit/deps/%s/%s (verified, identical)\n", pkgName, baseName)
+		}
+		return false, nil
+	}
+
+	// Content differs — handle based on mode.
+	switch providerMode {
+	case witProviderModeForgiving:
+		if len(srcData) == len(dstData) {
+			// Same size but different bytes — wasm-tools likely reordered
+			// interfaces. Keep existing, warn user.
+			fmt.Fprintf(os.Stderr, "Warning: wit/deps/%s/%s differs between transitive deps "+
+				"(same size %d bytes, likely reordered interfaces) — keeping existing\n",
+				pkgName, baseName, len(dstData))
+			return false, nil
+		}
+		// Different size — larger file likely has more interfaces.
+		if len(srcData) > len(dstData) {
+			fmt.Fprintf(os.Stderr, "Warning: wit/deps/%s/%s replaced with larger transitive dep "+
+				"(%d bytes → %d bytes, likely more complete)\n",
+				pkgName, baseName, len(dstData), len(srcData))
+			if err := os.WriteFile(dstFile, srcData, 0644); err != nil {
+				return false, fmt.Errorf("replacing dep %s: %w", baseName, err)
+			}
+			return true, nil
+		}
+		// Existing is larger — keep it.
+		fmt.Fprintf(os.Stderr, "Warning: wit/deps/%s/%s kept over smaller transitive dep "+
+			"(%d bytes vs incoming %d bytes)\n",
+			pkgName, baseName, len(dstData), len(srcData))
+		return false, nil
+
+	default: // strict
+		return false, fmt.Errorf("WIT transitive dep conflict for %q: "+
+			"file %q differs between transitive deps "+
+			"(existing %d bytes vs incoming %d bytes); "+
+			"set %s to %q in builderImages or add %q as a direct builderImages entry to resolve",
+			pkgName, baseName, len(dstData), len(srcData),
+			WITProviderModeKey, witProviderModeForgiving, pkgName)
+	}
+}
+
+// isAutoFetched returns true if the given directory was auto-fetched by
+// WIT provisioning (contains a .gitignore with "*" content).
+func isAutoFetched(dir string) bool {
+	data, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 // copyFile copies a single file from src to dst, preserving permissions.

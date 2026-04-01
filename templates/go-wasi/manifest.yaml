@@ -3,6 +3,12 @@
 #
 # builderImages declares WIT OCI artifact references. Each key maps to a
 # wit/<key>/ subdirectory where WIT files are extracted at build time.
+#
+# __WASI_WIT_PROVIDER_MODE controls how conflicting transitive WIT deps
+# are handled. "forgiving" mode tolerates wasm-tools interface reordering
+# (same-size files assumed identical) and picks the larger file when sizes
+# differ (it likely contains a superset of interfaces).
 builderImages:
+  __WASI_WIT_PROVIDER_MODE: forgiving
   cli: ghcr.io/webassembly/wasi/cli:0.2.3
   http: ghcr.io/webassembly/wasi/http:0.2.3
