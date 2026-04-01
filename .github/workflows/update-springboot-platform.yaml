@@ -24,7 +24,7 @@ jobs:
           java-version: 21
           distribution: 'temurin'
       - name: Install NPM deps.
-        run: npm install xml2js octokit@3.2.1 yaml semver
+        run: npm install xml2js@0.6.2 octokit@3.2.1 yaml@2.4.5 semver@7.6.3
       - name: Create PR
         env:
           GITHUB_TOKEN: ${{ github.token }}
