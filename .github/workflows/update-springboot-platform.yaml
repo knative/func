@@ -8,6 +8,10 @@ on:
   schedule:
     - cron: '0 */4 * * *'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   update:
     name: Update Spring Boot Platform

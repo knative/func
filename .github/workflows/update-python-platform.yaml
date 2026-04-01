@@ -9,6 +9,10 @@ on:
     - cron: "0 6 * * *" # Daily at 06:00.
   workflow_dispatch: # Manual workflow trigger
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   update:
     name: Update func-python version
