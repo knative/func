@@ -116,10 +116,10 @@ func deploy
       --base-image string             Override the base image for your function (host builder only)
       --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
       --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
-  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "s2i", "host", "wasm" and "pack". (default "pack")
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack", "s2i" and "wasm". (default "pack")
       --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
-      --deployer string               Type of deployment to use (one of: [keda wasm knative raw]). Inferred from runtime when not set. Default is 'knative'. ($FUNC_DEPLOY_TYPE)
+      --deployer string               Type of deployment to use (one of: [keda knative raw wasm]). Inferred from runtime when not set. Default is 'knative'. ($FUNC_DEPLOY_TYPE)
       --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
   -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
   -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)

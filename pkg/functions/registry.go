@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"sync"
 )
 
@@ -216,7 +217,7 @@ func (r *Registry) GetDeployer(name string) (*DeployerRegistration, bool) {
 	return reg, true
 }
 
-// ListBuilders returns all registered builder names.
+// ListBuilders returns all registered builder names in sorted order.
 func (r *Registry) ListBuilders() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -224,10 +225,11 @@ func (r *Registry) ListBuilders() []string {
 	for name := range r.builders {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }
 
-// ListDeployers returns all registered deployer names.
+// ListDeployers returns all registered deployer names in sorted order.
 func (r *Registry) ListDeployers() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -235,6 +237,7 @@ func (r *Registry) ListDeployers() []string {
 	for name := range r.deployers {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }
 
