@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 )
 
@@ -112,14 +113,11 @@ func hasGoGenerateDirective(ctx context.Context, root string) (bool, error) {
 
 	// found is set to 1 atomically by the first goroutine that finds a directive.
 	var found atomic.Int32
-	// errCh collects the first walk/read error (capacity 1 to avoid blocking).
-	errCh := make(chan error, 1)
+	// wg tracks all launched goroutines so we can wait for them to finish.
+	var wg sync.WaitGroup
 	// sem limits concurrency to avoid overwhelming the OS with open file handles.
 	const maxConcurrent = 32
 	sem := make(chan struct{}, maxConcurrent)
-	// done counts goroutines so we can wait for all of them.
-	done := make(chan struct{})
-	var pending atomic.Int32
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -129,27 +127,24 @@ func hasGoGenerateDirective(ctx context.Context, root string) (bool, error) {
 		if found.Load() == 1 {
 			return filepath.SkipAll
 		}
-		// Skip non-.go files and test files (they can contain generate directives too;
-		// keep them in scope to match the standard go generate semantics).
+		// Skip non-.go files (test files CAN contain generate directives;
+		// keep them in scope to match standard go generate semantics).
 		if d.IsDir() || !strings.HasSuffix(d.Name(), ".go") {
 			return nil
 		}
 		filePath := path
 
-		pending.Add(1)
+		wg.Add(1)
 		go func() {
-			defer func() {
-				<-sem
-				if pending.Add(-1) == 0 {
-					close(done)
-				}
-			}()
+			defer wg.Done()
 
+			// Acquire semaphore slot, respecting cancellation.
 			select {
 			case <-ctx.Done():
 				return
 			case sem <- struct{}{}:
 			}
+			defer func() { <-sem }()
 
 			if found.Load() == 1 {
 				return
@@ -163,21 +158,12 @@ func hasGoGenerateDirective(ctx context.Context, root string) (bool, error) {
 		return nil
 	})
 
-	// Wait for all launched goroutines to finish.
-	// pending may already be 0 if WalkDir visited no .go files.
-	if pending.Load() > 0 {
-		<-done
-	}
+	wg.Wait()
 
 	if err != nil {
 		// filepath.SkipAll causes WalkDir to return nil, so a non-nil err here
 		// is a genuine I/O error from the walk itself.
 		return false, err
-	}
-	select {
-	case walkErr := <-errCh:
-		return false, walkErr
-	default:
 	}
 
 	return found.Load() == 1, nil
