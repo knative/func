@@ -2,7 +2,7 @@ name: Update builder-jammy-full image
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 */4 * * *'
   workflow_dispatch:
 
 jobs:
