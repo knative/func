@@ -174,6 +174,10 @@ type RunSpec struct {
 	// Env variables to be set
 	Envs Envs `yaml:"envs,omitempty"`
 
+	// Args are command-line arguments passed to the function at runtime.
+	// +optional
+	Args []string `yaml:"args,omitempty"`
+
 	// StartTimeout specifies that this function should have a custom timeout
 	// when starting. This setting is currently respected by the host runner,
 	// with containerized docker runner and deployed Knative service integration

@@ -176,6 +176,17 @@ The source code template tailored for the invocation event that triggers
 your function. For example `http` for plain HTTP requests, `event` for
 CloudEvent triggered functions.
 
+### `args`
+
+The `args` field allows you to pass command-line arguments to the function at runtime.
+
+```yaml
+run:
+  args:
+  - "--verbose"
+  - "--port=8080"
+```
+
 ### `volumes`
 Kubernetes Secrets or ConfigMaps can be mounted to the function as a Kubernetes Volume accessible under specified path. Below you can see an example how to mount the Secret `mysecret` to the path `/workspace/secret` and the ConfigMap `myconfigmap` to the path `/workspace/configmap`. This Secret/ConfigMap needs to be created before it is referenced in a function.
 

@@ -455,6 +455,64 @@ func TestDescriber_Describe_ErrNotHandled(t *testing.T) {
 	}
 }
 
+// TestDeploy_Args verifies that run.args is mapped to WasmModule spec.args.
+func TestDeploy_Args(t *testing.T) {
+	t.Parallel()
+	cs := newFakeClientset()
+	d := wasm.NewDeployer(
+		wasm.WithDeployerClientsetProvider(fakeProvider(cs)),
+		wasm.WithDeployerWaitTimeout(0), // skip polling in unit tests
+	)
+
+	f := minimalFunction("args-func", "default", "registry.example.com/args-func:latest")
+	f.Run.Args = []string{"--verbose", "--port=8080"}
+
+	_, err := d.Deploy(context.Background(), f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wm, err := cs.WasmV1alpha1().WasmModules("default").Get(context.Background(), "args-func", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("WasmModule not found: %v", err)
+	}
+	if len(wm.Spec.Args) != 2 {
+		t.Fatalf("expected 2 args, got %d: %v", len(wm.Spec.Args), wm.Spec.Args)
+	}
+	if wm.Spec.Args[0] != "--verbose" {
+		t.Errorf("unexpected first arg: %q", wm.Spec.Args[0])
+	}
+	if wm.Spec.Args[1] != "--port=8080" {
+		t.Errorf("unexpected second arg: %q", wm.Spec.Args[1])
+	}
+}
+
+// TestDeploy_Args_Empty verifies that absent run.args produces nil spec.args.
+func TestDeploy_Args_Empty(t *testing.T) {
+	t.Parallel()
+	cs := newFakeClientset()
+	d := wasm.NewDeployer(
+		wasm.WithDeployerClientsetProvider(fakeProvider(cs)),
+		wasm.WithDeployerWaitTimeout(0), // skip polling in unit tests
+	)
+
+	f := minimalFunction("noargs-func", "default", "registry.example.com/noargs-func:latest")
+	// No run.args set.
+
+	_, err := d.Deploy(context.Background(), f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wm, err := cs.WasmV1alpha1().WasmModules("default").Get(context.Background(), "noargs-func", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("WasmModule not found: %v", err)
+	}
+	if len(wm.Spec.Args) != 0 {
+		t.Errorf("expected no args, got %v", wm.Spec.Args)
+	}
+}
+
 // TestBuildNetworkSpec verifies the helper that converts fn.NetworkSpec → wasmv1alpha1.NetworkSpec.
 func TestBuildNetworkSpec(t *testing.T) {
 	t.Parallel()

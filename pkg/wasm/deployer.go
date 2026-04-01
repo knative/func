@@ -423,6 +423,9 @@ func buildWasmModuleSpec(f fn.Function) (wasmv1alpha1.WasmModuleSpec, error) {
 		Image: f.Deploy.Image,
 	}
 
+	// Command-line arguments from run.args.
+	spec.Args = f.Run.Args
+
 	// Environment variables from run.envs.
 	envVars, _, err := k8s.ProcessEnvs(f.Run.Envs, nil, nil)
 	if err != nil {
