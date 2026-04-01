@@ -1,0 +1,5 @@
+package boson:function;
+
+world boson {
+  include wasi:http/proxy@0.2.3;
+}

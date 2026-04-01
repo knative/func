@@ -98,6 +98,14 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, _ []fn.Platform) err
 		}
 	}
 
+	// Provision WIT dependencies from OCI for WASM runtimes that declare
+	// builderImages entries as WIT OCI artifact references (e.g. go-wasi).
+	if len(f.Build.BuilderImages) > 0 {
+		if err := ProvisionWIT(ctx, f.Root, f.Build.BuilderImages, b.verbose); err != nil {
+			return fmt.Errorf("%w: %v", ErrWITProvisionFailed, err)
+		}
+	}
+
 	// Compile the source to a .wasm binary.
 	wasmPath, err := compiler.Build(ctx, f.Root)
 	if err != nil {

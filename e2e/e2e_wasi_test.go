@@ -337,10 +337,9 @@ func TestWasm_RustDeploy(t *testing.T) {
 }
 
 // TestWasm_GoDeploy verifies the full build→push→deploy cycle for a go-wasi
-// function.  The go-wasi template currently produces a broken WASM module
-// (Issue 1: no exported `wasi:http/incoming-handler@0.2.3` instance), so this
-// test asserts that the deploy fails.  When Issue 1 is resolved this test
-// should be updated to expect success and add an HTTP liveness check.
+// function.  The go-wasi template exports wasi:http/incoming-handler@0.2.3
+// via WIT bindings generated from the bundled wit/world.wit definition and
+// WIT dependencies downloaded from OCI at build time.
 //
 // Prerequisites (skipped automatically when absent):
 //   - tinygo + wasm-opt + wasm-tools must be on PATH
@@ -356,15 +355,19 @@ func TestWasm_GoDeploy(t *testing.T) {
 		t.Fatalf("func init failed: %v", err)
 	}
 
-	// Issue 1: go-wasi template produces a broken WASM module; deploy must fail.
-	err := deployWasm(t)
-	if err == nil {
-		// If deploy unexpectedly succeeded, clean up before failing the test.
-		defer clean(t, name, Namespace)
-		t.Fatal("expected go-wasi deploy to fail (Issue 1: no exported wasi:http/incoming-handler@0.2.3 instance); " +
-			"if this template has been fixed, update this test to expect success and add an HTTP liveness check")
+	if err := deployWasm(t); err != nil {
+		t.Fatalf("func deploy failed for go-wasi: %v", err)
 	}
-	t.Logf("go-wasi deploy failed as expected (reproducing Issue 1): %v", err)
+	defer func() { clean(t, name, Namespace) }()
+
+	if !containsInstance(t, wasmList(t, Namespace), name, Namespace) {
+		t.Fatal("go-wasi function not found in list after deploy")
+	}
+
+	url := wasmModuleUrl(t, name, Namespace)
+	if !waitFor(t, url, withContentMatch("Hello from WASI!")) {
+		t.Fatal("go-wasi function did not become reachable")
+	}
 }
 
 // TestWasm_RustDescribe verifies that "func describe" returns meaningful output

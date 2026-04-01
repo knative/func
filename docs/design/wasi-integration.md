@@ -74,7 +74,31 @@ This document covers:
 │                  Build Pipeline                  │
 ├──────────────────────────────────────────────────┤
 │                                                  │
-│  Source Code                                     │
+│  Source Code + wit/world.wit                     │
+│       │                                          │
+│       ▼                                          │
+│  ┌─────────────────────────────────────┐         │
+│  │ WIT Provisioning (go-wasi only)     │         │
+│  │                                     │         │
+│  │  Read build.builderImages from      │         │
+│  │  func.yaml (e.g. http: OCI ref)    │         │
+│  │                                     │         │
+│  │  Compare wit/.versions to current   │         │
+│  │  builderImages → skip if matching   │         │
+│  │                                     │         │
+│  │  Pull OCI artifact per key, extract │         │
+│  │  WIT via wasm-tools into wit/<key>/ │         │
+│  │  Write wit/<key>/.gitignore (*).    │         │
+│  │  Update wit/.versions marker.       │         │
+│  └─────────────────────────────────────┘         │
+│       │                                          │
+│       ▼                                          │
+│  ┌─────────────────────────────────────┐         │
+│  │ go generate (if //go:generate found)│         │
+│  │                                     │         │
+│  │  wit-bindgen-go generates Go        │         │
+│  │  bindings in gen/ from wit/         │         │
+│  └─────────────────────────────────────┘         │
 │       │                                          │
 │       ▼                                          │
 │  ┌─────────────────────────────────────┐         │
@@ -85,12 +109,15 @@ This document covers:
 │  │                                     │         │
 │  │  go-wasi: tinygo build              │         │
 │  │      -target=wasip2                 │         │
+│  │      -wit-package wit/              │         │
+│  │      -wit-world boson               │         │
+│  │      (flags added when wit/ exists) │         │
 │  │                                     │         │
 │  │  ... more lang-specific builds ...  │         │
 │  └─────────────────────────────────────┘         │
 │       │                                          │
 │       ▼                                          │
-│  module.wasm                                     │
+│  module.wasm (exports wasi:http/incoming-handler)│
 │       │                                          │
 │       ▼                                          │
 │  Push directly to OCI Registry                   │
@@ -100,6 +127,34 @@ This document covers:
 ```
 
 Modern OCI registries support WASM modules natively — no container image wrapping needed. The runner fetches the WASM module directly from the registry.
+
+#### Go-WASI WIT Dependency Configuration
+
+The go-wasi template uses `build.builderImages` in `func.yaml` to declare WIT
+dependencies as OCI artifact references. Each key maps to a download subdirectory
+inside `wit/`:
+
+```yaml
+build:
+  builderImages:
+    http: ghcr.io/webassembly/wasi/http:0.2.3
+```
+
+This downloads the `wasi:http` WIT package into `wit/http/` at build time.
+The `wit/world.wit` source file (git-tracked, owned by the user) defines the
+component world that imports from these downloaded packages:
+
+```wit
+package boson:function;
+
+world boson {
+  include wasi:http/proxy@0.2.3;
+}
+```
+
+Downloaded subdirs receive a `.gitignore` with `*` to prevent accidental commits.
+The `wit/.versions` JSON marker records the last-provisioned `builderImages` state
+so unchanged entries are skipped on subsequent builds.
 
 ## WasmModule CRD
 

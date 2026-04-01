@@ -53,6 +53,15 @@ var ErrCRDNotFound = errors.New("WasmModule CRD not found; install knative-servi
 // .wasm binary can be located in the expected output directory.
 var ErrNoBinaryProduced = errors.New("no WASM binary produced")
 
+// ErrWITProvisionFailed is returned when WIT dependency provisioning fails.
+// Wraps the underlying cause; use errors.Is(err, ErrWITProvisionFailed) to
+// detect this class of error.
+var ErrWITProvisionFailed = errors.New("WIT provisioning failed")
+
+// ErrOCIPullFailed is returned when an OCI artifact pull fails during WIT
+// dependency provisioning.
+var ErrOCIPullFailed = errors.New("OCI pull failed")
+
 // WASI runtime identifiers for supported languages
 const (
 	RuntimeRustWasi   = "rust-wasi"
