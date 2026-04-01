@@ -12,11 +12,13 @@ jobs:
     name: Podman Next Test
     runs-on: ubuntu-latest
     steps:
-      - name: Remove Unnecessary Software
-        run: |
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /usr/local/lib/android || true
-          sudo rm -rf /opt/ghc || true
+      - uses: endersonmenezes/free-disk-space@v3
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_haskell: true
+          remove_swap: true
+          rm_cmd: "rmz" # Faster than rm
       - name: Set Environment Variables
         run: |
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
