@@ -1,2 +1,8 @@
 # Go WASI runtime manifest.
 # The wasm builder infers the build target (wasip2) from the runtime name.
+#
+# builderImages declares WIT OCI artifact references. Each key maps to a
+# wit/<key>/ subdirectory where WIT files are extracted at build time.
+builderImages:
+  cli: ghcr.io/webassembly/wasi/cli:0.2.3
+  http: ghcr.io/webassembly/wasi/http:0.2.3

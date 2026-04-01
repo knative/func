@@ -12,11 +12,13 @@
 //
 //	func build
 
-//go:generate go run go.bytecodealliance.org/cmd/wit-bindgen-go generate --world boson ./wit
+//go:generate go run go.bytecodealliance.org/cmd/wit-bindgen-go generate --world boson --out gen --package-root function/gen ./wit
 
 package main
 
 import (
+	"go.bytecodealliance.org/cm"
+
 	incominghandler "function/gen/wasi/http/incoming-handler"
 	"function/gen/wasi/http/types"
 )
@@ -32,19 +34,22 @@ func handle(
 	request types.IncomingRequest,
 	responseOut types.ResponseOutparam,
 ) {
-	path := greet(request.PathWithQuery().Unwrap())
+	path := greet(request.PathWithQuery().Value())
 
 	headers := types.NewFields()
 	resp := types.NewOutgoingResponse(headers)
 	resp.SetStatusCode(200)
-	body := resp.Body()
-	stream := body.Write()
 
-	stream.BlockingWriteAndFlush([]byte(path))
+	bodyResult := resp.Body()
+	body := *bodyResult.OK()
+	streamResult := body.Write()
+	stream := *streamResult.OK()
 
-	stream.Drop()
-	types.OutgoingBodyFinish(body, types.None[types.Trailers]())
-	types.ResponseOutparamSet(responseOut, types.Ok[types.OutgoingResponse, types.ErrorCode](resp))
+	stream.BlockingWriteAndFlush(cm.ToList([]byte(path)))
+
+	stream.ResourceDrop()
+	types.OutgoingBodyFinish(body, cm.None[types.Trailers]())
+	types.ResponseOutparamSet(responseOut, cm.OK[cm.Result[types.ErrorCodeShape, types.OutgoingResponse, types.ErrorCode]](resp))
 }
 
 // greet returns a greeting string for the given URL path.

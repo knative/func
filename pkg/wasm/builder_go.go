@@ -53,6 +53,12 @@ func (b goBuilder) Build(ctx context.Context, root string) (wasmPath string, err
 		return "", fmt.Errorf("scanning for //go:generate directives: %w", err)
 	}
 	if hasGenerate {
+		// Ensure go.sum is up-to-date before running go generate. Templates
+		// ship go.mod with tool directives but no go.sum — go generate would
+		// fail trying to run tools without resolved dependencies.
+		if err = runGoModTidy(ctx, root, b.verbose); err != nil {
+			return "", err
+		}
 		if err = runGoGenerate(ctx, root, b.verbose); err != nil {
 			return "", err
 		}
@@ -76,7 +82,7 @@ func (b goBuilder) Build(ctx context.Context, root string) (wasmPath string, err
 		}
 	}
 
-	args = append(args, "-o", wasmPath, ".")
+	args = append(args, "-o", "module.wasm", ".")
 
 	cmd := exec.CommandContext(ctx, tinygoPath, args...)
 	cmd.Dir = root
@@ -186,6 +192,30 @@ func fileHasGoGenerate(path string) bool {
 		}
 	}
 	return false
+}
+
+// runGoModTidy runs "go mod tidy" in root, ensuring go.sum is up-to-date.
+// Templates ship go.mod with tool directives but no go.sum — without this
+// step, go generate would fail trying to resolve tool dependencies.
+func runGoModTidy(ctx context.Context, root string, verbose bool) error {
+	goPath, err := exec.LookPath("go")
+	if err != nil {
+		return fmt.Errorf("go not found on PATH: %w", ErrToolchainNotFound)
+	}
+
+	args := []string{"mod", "tidy"}
+	cmd := exec.CommandContext(ctx, goPath, args...)
+	cmd.Dir = root
+	cmd.Stderr = os.Stderr
+	if verbose {
+		fmt.Fprintf(os.Stderr, "cd %s && go %s\n", root, strings.Join(args, " "))
+		cmd.Stdout = os.Stderr
+	}
+
+	if err = cmd.Run(); err != nil {
+		return fmt.Errorf("go mod tidy failed: %w", err)
+	}
+	return nil
 }
 
 // runGoGenerate runs "go generate ./..." in root, streaming output to stderr

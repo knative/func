@@ -116,7 +116,7 @@ func deploy
       --base-image string             Override the base image for your function (host builder only)
       --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
       --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
-  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "wasm", "pack" and "s2i". (default "pack")
+  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "pack", "s2i", "host" and "wasm". (default "pack")
       --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
       --deployer string               Type of deployment to use (one of: [knative raw keda wasm]). Inferred from runtime when not set. Default is 'knative'. ($FUNC_DEPLOY_TYPE)

@@ -10,7 +10,9 @@ import (
 
 func TestHasGoGenerateDirective_NotFound(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	found, err := hasGoGenerateDirective(context.Background(), dir)
 	if err != nil {
@@ -23,7 +25,9 @@ func TestHasGoGenerateDirective_NotFound(t *testing.T) {
 
 func TestHasGoGenerateDirective_Found(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "main.go"), []byte("//go:generate echo hello\npackage main\n"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("//go:generate echo hello\npackage main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	found, err := hasGoGenerateDirective(context.Background(), dir)
 	if err != nil {
@@ -37,9 +41,15 @@ func TestHasGoGenerateDirective_Found(t *testing.T) {
 func TestHasGoGenerateDirective_NestedSubdir(t *testing.T) {
 	dir := t.TempDir()
 	sub := filepath.Join(dir, "sub", "deep")
-	os.MkdirAll(sub, 0755)
-	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
-	os.WriteFile(filepath.Join(sub, "gen.go"), []byte("//go:generate echo nested\npackage deep\n"), 0644)
+	if err := os.MkdirAll(sub, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "gen.go"), []byte("//go:generate echo nested\npackage deep\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	found, err := hasGoGenerateDirective(context.Background(), dir)
 	if err != nil {
@@ -64,8 +74,12 @@ func TestHasGoGenerateDirective_EmptyDir(t *testing.T) {
 
 func TestHasGoGenerateDirective_SkipsNonGoFiles(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "Makefile"), []byte("//go:generate echo trick\n"), 0644)
-	os.WriteFile(filepath.Join(dir, "main.txt"), []byte("//go:generate echo trick\n"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "Makefile"), []byte("//go:generate echo trick\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.txt"), []byte("//go:generate echo trick\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	found, err := hasGoGenerateDirective(context.Background(), dir)
 	if err != nil {
@@ -85,7 +99,9 @@ func TestHasGoGenerateDirective_StressNoCrash(t *testing.T) {
 	// Create 200 files without the directive.
 	for i := 0; i < 200; i++ {
 		p := filepath.Join(dir, fmt.Sprintf("file%d.go", i))
-		os.WriteFile(p, []byte("package main\n"), 0644)
+		if err := os.WriteFile(p, []byte("package main\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	for i := 0; i < 50; i++ {
@@ -110,7 +126,9 @@ func TestHasGoGenerateDirective_StressWithDirective(t *testing.T) {
 		if i == 100 {
 			content = "//go:generate echo found\npackage main\n"
 		}
-		os.WriteFile(p, []byte(content), 0644)
+		if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	for i := 0; i < 50; i++ {
@@ -143,7 +161,9 @@ func TestFileHasGoGenerate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			f.WriteString(tt.content)
+			if _, err := f.WriteString(tt.content); err != nil {
+				t.Fatal(err)
+			}
 			f.Close()
 
 			got := fileHasGoGenerate(f.Name())

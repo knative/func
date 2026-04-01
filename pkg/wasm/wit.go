@@ -26,17 +26,30 @@ const (
 )
 
 // ProvisionWIT downloads WIT dependencies declared in builderImages into
-// wit/<key>/ subdirectories within the function root. Each OCI artifact is
-// pulled via go-containerregistry, saved to a temp file, and extracted via
-// `wasm-tools component wit --out-dir wit/<key>/`.
+// wit/deps/<pkg>/ subdirectories within the function root. Each OCI artifact
+// is pulled via go-containerregistry, saved to a temp file, extracted via
+// `wasm-tools component wit --out-dir <tmpDir>`, and then restructured into
+// the standard WIT package layout expected by WIT resolvers:
+//
+//	wit/
+//	  world.wit          ← user-owned root (template file)
+//	  deps/
+//	    <pkg>/           ← one dir per WIT package
+//	      <pkg>.wit
+//	  .versions          ← version marker
+//
+// wasm-tools extracts a nested layout (main .wit + deps/ subdir containing
+// transitive dependencies). We flatten ALL of them (the main package AND its
+// transitive deps) as siblings into wit/deps/, each in its own directory.
+// Only the specific package dirs produced by extraction are replaced — any
+// user-vendored deps in wit/deps/ are preserved.
 //
 // The function skips work entirely when wit/.versions matches the current
-// builderImages map. Only changed entries are re-provisioned (stale subdirs
-// are removed before re-downloading).
+// builderImages map. Only changed entries are re-provisioned.
 //
 // ProvisionWIT does NOT touch wit/world.wit — that file is owned by the user
-// (part of the template). Each downloaded subdir receives a .gitignore with
-// "*" to prevent accidental commits.
+// (part of the template). Each provisioned package dir receives a .gitignore
+// with "*" to prevent accidental commits.
 func ProvisionWIT(
 	ctx context.Context,
 	root string,
@@ -70,39 +83,49 @@ func ProvisionWIT(
 		return fmt.Errorf("%w: wasm-tools not found on PATH (install from https://github.com/bytecodealliance/wasm-tools)", ErrToolchainNotFound)
 	}
 
-	// Ensure the wit/ directory exists.
-	if err := os.MkdirAll(witPath, 0755); err != nil {
-		return fmt.Errorf("creating wit directory: %w", err)
+	// Ensure the wit/deps/ directory exists.
+	depsDir := filepath.Join(witPath, "deps")
+	if err := os.MkdirAll(depsDir, 0755); err != nil {
+		return fmt.Errorf("creating wit/deps directory: %w", err)
 	}
 
 	for key, ociRef := range toProvision {
-		subDir := filepath.Join(witPath, key)
-
-		// Remove stale subdir if it exists (version changed).
-		if _, statErr := os.Stat(subDir); statErr == nil {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "Removing stale WIT dep %s\n", key)
-			}
-			if err := os.RemoveAll(subDir); err != nil {
-				return fmt.Errorf("removing stale WIT dep %q: %w", key, err)
-			}
-		}
-
 		if verbose {
 			fmt.Fprintf(os.Stderr, "Downloading WIT dep %q from %s\n", key, ociRef)
 		}
 
-		if err := downloadAndExtractWIT(ctx, wasmToolsPath, ociRef, subDir, verbose); err != nil {
+		// Extract to a temp dir first — wasm-tools produces:
+		//   <tmpDir>/<pkg>.wit       (main package file)
+		//   <tmpDir>/deps/*.wit      (transitive dependencies)
+		// We flatten ALL of them into wit/deps/<name>/<name>.wit.
+		tmpDir, mkErr := os.MkdirTemp("", "wit-extract-*")
+		if mkErr != nil {
+			return fmt.Errorf("creating temp dir for WIT extraction: %w", mkErr)
+		}
+
+		if err := downloadAndExtractWIT(ctx, wasmToolsPath, ociRef, tmpDir, verbose); err != nil {
+			os.RemoveAll(tmpDir)
 			return fmt.Errorf("%w: dep %q from %s: %v", ErrWITProvisionFailed, key, ociRef, err)
 		}
 
-		// Write .gitignore to prevent accidental commits of downloaded artifacts.
-		if err := writeGitignore(subDir); err != nil {
-			return fmt.Errorf("writing .gitignore for WIT dep %q: %w", key, err)
+		// Restructure: flatten main + transitive deps into wit/deps/<pkg>/.
+		// Only the specific package dirs produced are replaced — user-vendored
+		// deps are preserved.
+		provisioned, err := restructureWITDeps(tmpDir, depsDir, verbose)
+		os.RemoveAll(tmpDir)
+		if err != nil {
+			return fmt.Errorf("restructuring WIT dep %q: %w", key, err)
+		}
+
+		// Write .gitignore in each provisioned dir.
+		for _, pkgDir := range provisioned {
+			if wErr := writeGitignore(pkgDir); wErr != nil {
+				return fmt.Errorf("writing .gitignore for WIT dep %q: %w", filepath.Base(pkgDir), wErr)
+			}
 		}
 
 		if verbose {
-			fmt.Fprintf(os.Stderr, "WIT dep %q provisioned at %s\n", key, subDir)
+			fmt.Fprintf(os.Stderr, "WIT dep %q provisioned into %s\n", key, depsDir)
 		}
 	}
 
@@ -117,6 +140,114 @@ func ProvisionWIT(
 	}
 
 	return nil
+}
+
+// restructureWITDeps takes the wasm-tools extraction output (in srcDir) and
+// flattens .wit files into dstDir/<name>/<name>.wit.
+//
+// wasm-tools produces:
+//
+//	<srcDir>/<main>.wit          ← the requested package
+//	<srcDir>/deps/<dep>.wit      ← each transitive dependency
+//
+// The WIT resolver expects all packages as flat siblings:
+//
+//	<dstDir>/<main>/<main>.wit
+//	<dstDir>/<dep>/<dep>.wit
+//
+// Main packages (from srcDir root) always overwrite existing dirs.
+// Transitive deps (from srcDir/deps/) are written only if the target dir
+// does NOT already exist — this prevents a smaller transitive stub from
+// clobbering a richer package that was already provisioned from its own
+// builderImages entry (e.g., HTTP's transitive cli.wit overwriting the
+// full CLI package).
+//
+// Returns the list of destination directories that were created/updated.
+func restructureWITDeps(srcDir, dstDir string, verbose bool) ([]string, error) {
+	// --- Main packages: always overwrite ---
+	mainWits, err := filepath.Glob(filepath.Join(srcDir, "*.wit"))
+	if err != nil {
+		return nil, fmt.Errorf("listing main WIT files: %w", err)
+	}
+	provisioned := make([]string, 0, len(mainWits))
+	for _, witFile := range mainWits {
+		baseName := filepath.Base(witFile)
+		pkgName := strings.TrimSuffix(baseName, ".wit")
+		pkgDir := filepath.Join(dstDir, pkgName)
+
+		if err := os.RemoveAll(pkgDir); err != nil {
+			return nil, fmt.Errorf("removing stale pkg dir %q: %w", pkgName, err)
+		}
+		if err := os.MkdirAll(pkgDir, 0755); err != nil {
+			return nil, fmt.Errorf("creating pkg dir %q: %w", pkgName, err)
+		}
+		if err := copyFile(witFile, filepath.Join(pkgDir, baseName)); err != nil {
+			return nil, fmt.Errorf("copying %s: %w", baseName, err)
+		}
+		if verbose {
+			fmt.Fprintf(os.Stderr, "  wit/deps/%s/%s\n", pkgName, baseName)
+		}
+		provisioned = append(provisioned, pkgDir)
+	}
+
+	// --- Transitive deps: only fill gaps (don't overwrite) ---
+	depsSubDir := filepath.Join(srcDir, "deps")
+	if info, statErr := os.Stat(depsSubDir); statErr == nil && info.IsDir() {
+		depWits, err := filepath.Glob(filepath.Join(depsSubDir, "*.wit"))
+		if err != nil {
+			return nil, fmt.Errorf("listing dep WIT files: %w", err)
+		}
+		for _, witFile := range depWits {
+			baseName := filepath.Base(witFile)
+			pkgName := strings.TrimSuffix(baseName, ".wit")
+			pkgDir := filepath.Join(dstDir, pkgName)
+
+			// Skip if this package already exists (provisioned by another
+			// builderImages entry or a previous main package).
+			if _, statErr := os.Stat(pkgDir); statErr == nil {
+				if verbose {
+					fmt.Fprintf(os.Stderr, "  wit/deps/%s/%s (skipped, already exists)\n", pkgName, baseName)
+				}
+				continue
+			}
+
+			if err := os.MkdirAll(pkgDir, 0755); err != nil {
+				return nil, fmt.Errorf("creating dep dir %q: %w", pkgName, err)
+			}
+			if err := copyFile(witFile, filepath.Join(pkgDir, baseName)); err != nil {
+				return nil, fmt.Errorf("copying dep %s: %w", baseName, err)
+			}
+			if verbose {
+				fmt.Fprintf(os.Stderr, "  wit/deps/%s/%s\n", pkgName, baseName)
+			}
+			provisioned = append(provisioned, pkgDir)
+		}
+	}
+
+	return provisioned, nil
+}
+
+// copyFile copies a single file from src to dst, preserving permissions.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
 }
 
 // downloadAndExtractWIT pulls a WIT OCI artifact and extracts its WIT files
