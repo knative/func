@@ -143,7 +143,7 @@ func TestWasmDeployerAcceptsOnlyWasi(t *testing.T) {
 // be resolved for a WASI runtime.
 func TestPostProcessors_TraditionalBuilderRejectsWasi(t *testing.T) {
 	t.Parallel()
-	// Add a dummy "pack" builder with no constraints (accepts everything).
+	// Add a placeholder "pack" builder with no constraints (accepts everything).
 	r := fn.NewRegistry()
 	r.RegisterBuilder("pack", func(_ fn.BuilderConfig) []fn.Option { return nil })
 	wasm.Register(r) // installs post-processors
