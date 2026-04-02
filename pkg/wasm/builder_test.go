@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -215,15 +216,24 @@ func TestBuilder_CompilerError(t *testing.T) {
 func TestFindWasmBinary_NoWasm(t *testing.T) {
 	fakeDir := t.TempDir()
 
-	fakeCargoPath := filepath.Join(fakeDir, "cargo")
-	if err := os.WriteFile(fakeCargoPath, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	fakeRustupPath := filepath.Join(fakeDir, "rustup")
-	if err := os.WriteFile(fakeRustupPath, []byte("#!/bin/sh\necho wasm32-wasip2\n"), 0755); err != nil {
-		t.Fatal(err)
+	if runtime.GOOS == "windows" {
+		// On Windows, create .bat files so they shadow any real cargo/rustup.
+		if err := os.WriteFile(filepath.Join(fakeDir, "cargo.bat"), []byte("@exit /b 0\r\n"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(fakeDir, "rustup.bat"), []byte("@echo wasm32-wasip2\r\n"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		if err := os.WriteFile(filepath.Join(fakeDir, "cargo"), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(fakeDir, "rustup"), []byte("#!/bin/sh\necho wasm32-wasip2\n"), 0755); err != nil {
+			t.Fatal(err)
+		}
 	}
 
+	// Put the fake dir first so it shadows any real installations.
 	t.Setenv("PATH", fakeDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	root := t.TempDir()
