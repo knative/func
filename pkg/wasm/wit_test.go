@@ -1,6 +1,7 @@
 package wasm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -153,19 +154,35 @@ func TestSaveVersions_SortedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Unmarshal preserving order via json.RawMessage trick: just check the raw
-	// bytes contain keys in sorted order.
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		t.Fatalf("output is not valid JSON: %v\n%s", err, data)
+	// Verify key order directly from the raw JSON bytes, because Go map
+	// iteration is non-deterministic and would not detect ordering.
+	dec := json.NewDecoder(bytes.NewReader(data))
+	tok, err := dec.Token() // opening '{'
+	if err != nil || tok != json.Delim('{') {
+		t.Fatalf("expected '{', got %v (err: %v)", tok, err)
+	}
+	var keys []string
+	for dec.More() {
+		tok, err := dec.Token() // key
+		if err != nil {
+			t.Fatalf("reading key: %v", err)
+		}
+		key, ok := tok.(string)
+		if !ok {
+			t.Fatalf("expected string key, got %T", tok)
+		}
+		keys = append(keys, key)
+		// Skip the value.
+		var discard json.RawMessage
+		if err := dec.Decode(&discard); err != nil {
+			t.Fatalf("skipping value for key %q: %v", key, err)
+		}
 	}
 
-	prevKey := ""
-	for k := range raw {
-		if k < prevKey {
-			t.Errorf("keys not sorted: %q came after %q in JSON output:\n%s", k, prevKey, data)
+	for i := 1; i < len(keys); i++ {
+		if keys[i] < keys[i-1] {
+			t.Errorf("keys not sorted: %q came after %q in JSON output:\n%s", keys[i], keys[i-1], data)
 		}
-		prevKey = k
 	}
 }
 
