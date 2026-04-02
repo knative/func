@@ -337,12 +337,15 @@ func (d *Deployer) waitForReady(
 					chStatus <- statusResult{url: url}
 					return
 				case corev1.ConditionFalse:
-					// "ServiceUnavailable" is a transient condition set by the
-					// controller while it waits for the backing ksvc to become
-					// ready. Continue polling — the controller will re-reconcile
+					// Transient conditions that resolve on their own:
+					//   "ServiceUnavailable" — controller waits for backing ksvc
+					//   "RevisionMissing"    — Knative Configuration hasn't
+					//                          created its first Revision yet
+					//                          (cold-start / cluster warm-up)
+					// Continue polling — the controller will re-reconcile
 					// and transition to Ready=True once the ksvc is up.
 					// Any other reason is treated as a terminal failure.
-					if cond.Reason == "ServiceUnavailable" {
+					if cond.Reason == "ServiceUnavailable" || cond.Reason == "RevisionMissing" {
 						continue
 					}
 					chStatus <- statusResult{
