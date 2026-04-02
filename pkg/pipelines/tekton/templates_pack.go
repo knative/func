@@ -40,6 +40,10 @@ spec:
     - description: Environment variables to set during build time
       name: buildEnvs
       type: array
+    - description: Verify TLS when pushing to registry
+      name: tlsVerify
+      type: string
+      default: 'true'
   tasks:
     - name: build
       params:
@@ -58,6 +62,8 @@ spec:
         - name: ENV_VARS
           value:
             - '$(params.buildEnvs[*])'
+        - name: TLSVERIFY
+          value: $(params.tlsVerify)
       {{.FuncBuildpacksTaskRef}}
       workspaces:
         - name: source
@@ -111,6 +117,8 @@ spec:
         {{range .BuildEnvs -}}
            - {{.}}
         {{end}}
+    - name: tlsVerify
+      value: {{.TlsVerify}}
   pipelineRef:
    name: {{.PipelineName}}
   workspaces:
@@ -171,6 +179,8 @@ spec:
         {{range .BuildEnvs -}}
            - {{.}}
         {{end}}
+    - name: tlsVerify
+      value: {{.TlsVerify}}
   pipelineRef:
    name: {{.PipelineName}}
   workspaces:
