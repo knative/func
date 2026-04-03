@@ -221,8 +221,10 @@ func TestVerbose(t *testing.T) {
 			t.Fatal(err)
 		}
 		output := out.String()
-		// Fields with empty values in the Version struct should be omitted
-		for _, absent := range []string{"Knative:", "Commit:", "BuildDate:"} {
+		// Fields with empty values in the Version struct should be omitted.
+		// BuildDate is excluded: when tests run with ldflags injected by the
+		// Makefile, pkgversion.BuildDate is populated and runVersion fills it in.
+		for _, absent := range []string{"Knative:", "Commit:"} {
 			if strings.Contains(output, absent) {
 				t.Errorf("expected output to omit %q but got:\n%s", absent, output)
 			}
