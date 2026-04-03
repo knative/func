@@ -467,8 +467,9 @@ func TestDeploy_Envs(t *testing.T) {
 
 // TestDeploy_EnvsPassedToDeployer ensures that environment variables provided
 // via the -e flag are included in the function passed to the deployer.
-// This is a regression test for issue #3514 where env vars were persisted to
-// func.yaml but not included in the deployed service spec.
+// It verifies that --env flags are forwarded through the deploy command
+// to the deployer implementation (characterisation test; not a regression
+// test for a specific issue).
 func TestDeploy_EnvsPassedToDeployer(t *testing.T) {
 	root := FromTempDirectory(t)
 	ptr := func(s string) *string { return &s }

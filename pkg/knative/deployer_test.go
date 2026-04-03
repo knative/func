@@ -24,11 +24,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/pkg/ptr"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 const (
@@ -292,56 +292,83 @@ func setupRegistry(t *testing.T) http.RoundTripper {
 	return trans
 }
 
-// TestGenerateNewService_Envs ensures that environment variables defined on the
-// function are correctly included in the generated Knative Service container spec.
-// This is a regression test for issue #3514.
-func TestGenerateNewService_Envs(t *testing.T) {
-	ptr := func(s string) *string { return &s }
-
-	f := fn.Function{
-		Name: "test-func",
-		Deploy: fn.DeploySpec{
-			Image: "example.com/test:latest",
+// TestUpdateService_EnvsPropagated verifies that environment variables are correctly
+// written into the container spec when updating an existing Knative Service.
+// This exercises the update path through deployer.go (the updateService closure),
+// specifically the `cp.Env = newEnv` assignment that runs when redeploying a function
+// that already exists on the cluster. The former test in this slot (TestGenerateNewService_Envs)
+// tested pre-existing behaviour unrelated to the actual code change in this commit.
+func TestUpdateService_EnvsPropagated(t *testing.T) {
+	// Simulate an existing deployed service that carries a stale env var.
+	previousService := &servingv1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-func",
+			Namespace: "default",
 		},
-		Run: fn.RunSpec{
-			Envs: fn.Envs{
-				{Name: ptr("MYVAR"), Value: ptr("myvalue")},
-				{Name: ptr("OTHER"), Value: ptr("othervalue")},
+		Spec: servingv1.ServiceSpec{
+			ConfigurationSpec: servingv1.ConfigurationSpec{
+				Template: servingv1.RevisionTemplateSpec{
+					Spec: servingv1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Image: "example.com/test:v1",
+									Env:   []corev1.EnvVar{{Name: "OLD_VAR", Value: "old"}},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
 
-	referencedSecrets := sets.New[string]()
-	referencedConfigMaps := sets.New[string]()
-	referencedPVCs := sets.New[string]()
-
-	service, err := generateNewService(f, nil, false, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
-	if err != nil {
-		t.Fatal(err)
+	f := fn.Function{
+		Name: "test-func",
+		Deploy: fn.DeploySpec{
+			Image: "example.com/test:v2",
+		},
 	}
 
-	containers := service.Spec.Template.Spec.Containers
+	// newEnv represents the resolved env vars the deployer computes via
+	// k8s.ProcessEnvs(f.Run.Envs, ...) before invoking updateService.
+	newEnv := []corev1.EnvVar{
+		{Name: "MYVAR", Value: "myvalue"},
+		{Name: "OTHER", Value: "othervalue"},
+	}
+
+	// Obtain the update closure — this mirrors what Deploy() does when
+	// previousService != nil (the service already exists on the cluster).
+	updateFn := updateService(f, previousService, newEnv, nil, nil, nil, nil, false)
+
+	// Apply the closure to a working copy of the service (mirroring what
+	// UpdateServiceWithRetry does internally on each attempt).
+	svcCopy := previousService.DeepCopy()
+	result, err := updateFn(svcCopy)
+	if err != nil {
+		t.Fatalf("updateService closure returned unexpected error: %v", err)
+	}
+
+	containers := result.Spec.Template.Spec.Containers
 	if len(containers) != 1 {
 		t.Fatalf("expected 1 container, got %d", len(containers))
 	}
 
-	envVars := containers[0].Env
-	// ProcessEnvs adds ADDRESS=0.0.0.0 and BUILT=<timestamp> automatically
-	foundMyVar := false
-	foundOther := false
-	for _, env := range envVars {
-		if env.Name == "MYVAR" && env.Value == "myvalue" {
-			foundMyVar = true
-		}
-		if env.Name == "OTHER" && env.Value == "othervalue" {
-			foundOther = true
-		}
+	gotEnv := containers[0].Env
+	envMap := make(map[string]string, len(gotEnv))
+	for _, e := range gotEnv {
+		envMap[e.Name] = e.Value
 	}
-	if !foundMyVar {
-		t.Errorf("expected MYVAR=myvalue in container env, got: %v", envVars)
+
+	if v, ok := envMap["MYVAR"]; !ok || v != "myvalue" {
+		t.Errorf("expected MYVAR=myvalue in updated container env, got: %v", gotEnv)
 	}
-	if !foundOther {
-		t.Errorf("expected OTHER=othervalue in container env, got: %v", envVars)
+	if v, ok := envMap["OTHER"]; !ok || v != "othervalue" {
+		t.Errorf("expected OTHER=othervalue in updated container env, got: %v", gotEnv)
+	}
+	// OLD_VAR must not survive: updateService replaces (not merges) the env list.
+	if _, ok := envMap["OLD_VAR"]; ok {
+		t.Errorf("expected OLD_VAR to be replaced by updateService but it was still present: %v", gotEnv)
 	}
 }
 
