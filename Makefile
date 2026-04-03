@@ -31,7 +31,7 @@ BIN_GOIMPORTS     ?= "$(PWD)/bin/goimports"
 # If the current commit does not have a semver tag, 'tip' is used, unless there
 # is a TAG environment variable. Precedence is git tag, environment variable, 'tip'
 HASH         := $(shell git rev-parse --short HEAD 2>/dev/null)
-DATE         := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+DATE         := $(shell git log -1 --format=%cI HEAD 2>/dev/null)
 VTAG         := $(shell git tag --points-at HEAD | head -1)
 VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS         ?= $(shell git describe --tags --match 'v*')

@@ -256,16 +256,25 @@ func TestVerbose(t *testing.T) {
 		viper.Reset()
 		var out bytes.Buffer
 		cmd := NewRootCmd(RootCommandConfig{
-			Name:    "func",
-			Version: Version{Vers: "v0.42.0"},
+			Name: "func",
+			Version: Version{
+				Vers:      "v0.42.0",
+				BuildDate: "2024-01-01T00:00:00Z",
+			},
 		})
 		cmd.SetArgs([]string{"version", "--output", "json"})
 		cmd.SetOut(&out)
 		if err := cmd.Execute(); err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(out.String(), `"version": "v0.42.0"`) {
-			t.Errorf("expected JSON to contain version field, got:\n%s", out.String())
+		output := out.String()
+		for _, want := range []string{
+			`"version": "v0.42.0"`,
+			`"buildDate": "2024-01-01T00:00:00Z"`,
+		} {
+			if !strings.Contains(output, want) {
+				t.Errorf("expected JSON to contain %q, got:\n%s", want, output)
+			}
 		}
 	})
 
@@ -291,6 +300,28 @@ func TestVerbose(t *testing.T) {
 		var buf bytes.Buffer
 		if err := v.URL(&buf); err == nil {
 			t.Error("expected URL format to return an error, got nil")
+		}
+	})
+
+	// exact output guards against extra blank lines or whitespace being
+	// reintroduced between populated fields.
+	t.Run("verbose exact output", func(t *testing.T) {
+		v := Version{
+			Vers:       "v0.42.0",
+			Kver:       "knative-v1.10.0",
+			Hash:       "cafe",
+			BuildDate:  "2024-01-01T00:00:00Z",
+			SocatImage: "ghcr.io/knative/func-utils:v2",
+			TarImage:   "ghcr.io/knative/func-utils:v2",
+		}
+		want := "Version: v0.42.0\n" +
+			"Knative: v1.10.0\n" +
+			"Commit: cafe\n" +
+			"BuildDate: 2024-01-01T00:00:00Z\n" +
+			"SocatImage: ghcr.io/knative/func-utils:v2\n" +
+			"TarImage: ghcr.io/knative/func-utils:v2\n"
+		if got := v.StringVerbose(); got != want {
+			t.Errorf("unexpected verbose output:\nwant:\n%s\ngot:\n%s", want, got)
 		}
 	})
 
