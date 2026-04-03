@@ -13,7 +13,6 @@ import (
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	pkgversion "knative.dev/func/pkg/version"
 )
 
 func NewVersionCmd(version Version) *cobra.Command {
@@ -84,12 +83,8 @@ func runVersion(cmd *cobra.Command, v Version) error {
 		v.Vers = DefaultVersion
 	}
 
-	// Kver, Hash are already set from build via ldflags.
-	// Populate BuildDate from the package-level var only if not already set
-	// (allows tests to inject their own value via the Version struct).
-	if v.BuildDate == "" {
-		v.BuildDate = pkgversion.BuildDate
-	}
+	// Kver, Hash, BuildDate are already set from build via ldflags,
+	// injected into the Version struct at startup (see pkg/app/app.go).
 	// Populate image fields from k8s package constants
 	v.SocatImage = k8s.SocatImage
 	v.TarImage = k8s.TarImage
@@ -145,11 +140,7 @@ func (v Version) StringVerbose() string {
 	var sb strings.Builder
 	sb.WriteString("Version: " + v.Vers + "\n")
 	if v.Kver != "" {
-		kver := v.Kver
-		if strings.HasPrefix(kver, "knative-") {
-			kver = strings.Split(kver, "-")[1]
-		}
-		sb.WriteString("Knative: " + kver + "\n")
+		sb.WriteString("Knative: " + strings.TrimPrefix(v.Kver, "knative-") + "\n")
 	}
 	if v.Hash != "" {
 		sb.WriteString("Commit: " + v.Hash + "\n")
@@ -164,7 +155,7 @@ func (v Version) StringVerbose() string {
 		sb.WriteString("TarImage: " + v.TarImage + "\n")
 	}
 	if mw := v.MiddlewareVersions.String(); mw != "" {
-		sb.WriteString("Middleware Versions: \n" + mw)
+		sb.WriteString("Middleware Versions:\n" + mw)
 	}
 	return sb.String()
 }

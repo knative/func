@@ -212,7 +212,8 @@ func TestVerbose(t *testing.T) {
 		viper.Reset()
 		var out bytes.Buffer
 		cmd := NewRootCmd(RootCommandConfig{
-			Name:    "func",
+			Name: "func",
+			// All fields except Vers are intentionally left empty.
 			Version: Version{Vers: "v0.42.0"},
 		})
 		cmd.SetArgs([]string{"version", "-v"})
@@ -221,16 +222,77 @@ func TestVerbose(t *testing.T) {
 			t.Fatal(err)
 		}
 		output := out.String()
-		// Fields with empty values in the Version struct should be omitted.
-		// BuildDate is excluded: when tests run with ldflags injected by the
-		// Makefile, pkgversion.BuildDate is populated and runVersion fills it in.
-		for _, absent := range []string{"Knative:", "Commit:"} {
+		for _, absent := range []string{"Knative:", "Commit:", "BuildDate:"} {
 			if strings.Contains(output, absent) {
 				t.Errorf("expected output to omit %q but got:\n%s", absent, output)
 			}
 		}
 		if !strings.HasPrefix(output, "Version: v0.42.0\n") {
 			t.Errorf("expected output to start with %q but got:\n%s", "Version: v0.42.0\n", output)
+		}
+	})
+
+	// TestVersion_KverPrefixStripped verifies that a Knative version tag with the
+	// "knative-" prefix is stripped correctly, including commit-distance suffixes
+	// (e.g. knative-v1.10.0-5-gabcdef1 → v1.10.0-5-gabcdef1).
+	t.Run("kver prefix stripped", func(t *testing.T) {
+		v := Version{Vers: "v0.42.0", Kver: "knative-v1.10.0-5-gabcdef1"}
+		output := v.StringVerbose()
+		if !strings.Contains(output, "Knative: v1.10.0-5-gabcdef1") {
+			t.Errorf("expected 'knative-' prefix stripped, got:\n%s", output)
+		}
+	})
+
+	t.Run("output json", func(t *testing.T) {
+		viper.Reset()
+		var out bytes.Buffer
+		cmd := NewRootCmd(RootCommandConfig{
+			Name:    "func",
+			Version: Version{Vers: "v0.42.0"},
+		})
+		cmd.SetArgs([]string{"version", "--output", "json"})
+		cmd.SetOut(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), `"version": "v0.42.0"`) {
+			t.Errorf("expected JSON to contain version field, got:\n%s", out.String())
+		}
+	})
+
+	t.Run("output yaml", func(t *testing.T) {
+		viper.Reset()
+		var out bytes.Buffer
+		cmd := NewRootCmd(RootCommandConfig{
+			Name:    "func",
+			Version: Version{Vers: "v0.42.0"},
+		})
+		cmd.SetArgs([]string{"version", "--output", "yaml"})
+		cmd.SetOut(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), "version: v0.42.0") {
+			t.Errorf("expected YAML to contain version field, got:\n%s", out.String())
+		}
+	})
+
+	t.Run("url unsupported", func(t *testing.T) {
+		v := Version{Vers: "v0.42.0"}
+		var buf bytes.Buffer
+		if err := v.URL(&buf); err == nil {
+			t.Error("expected URL format to return an error, got nil")
+		}
+	})
+
+	t.Run("middleware versions omitted when empty", func(t *testing.T) {
+		v := Version{
+			Vers:               "v0.42.0",
+			MiddlewareVersions: MiddlewareVersions{},
+		}
+		output := v.StringVerbose()
+		if strings.Contains(output, "Middleware Versions:") {
+			t.Errorf("expected empty MiddlewareVersions to be omitted, got:\n%s", output)
 		}
 	})
 }
