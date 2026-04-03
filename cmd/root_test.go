@@ -295,6 +295,33 @@ func TestVerbose(t *testing.T) {
 			t.Errorf("expected empty MiddlewareVersions to be omitted, got:\n%s", output)
 		}
 	})
+
+	t.Run("socat and tar images omitted when empty", func(t *testing.T) {
+		v := Version{Vers: "v0.42.0"}
+		output := v.StringVerbose()
+		for _, absent := range []string{"SocatImage:", "TarImage:"} {
+			if strings.Contains(output, absent) {
+				t.Errorf("expected %q to be omitted when empty, got:\n%s", absent, output)
+			}
+		}
+	})
+
+	t.Run("socat and tar images present when populated", func(t *testing.T) {
+		v := Version{
+			Vers:       "v0.42.0",
+			SocatImage: "ghcr.io/knative/func-utils:v2",
+			TarImage:   "ghcr.io/knative/func-utils:v2",
+		}
+		output := v.StringVerbose()
+		for _, want := range []string{
+			"SocatImage: ghcr.io/knative/func-utils:v2",
+			"TarImage: ghcr.io/knative/func-utils:v2",
+		} {
+			if !strings.Contains(output, want) {
+				t.Errorf("expected output to contain %q, got:\n%s", want, output)
+			}
+		}
+	})
 }
 
 // TestRoot_effectivePath ensures that the path method returns the effective path
