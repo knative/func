@@ -13,7 +13,7 @@ import (
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/version"
+	pkgversion "knative.dev/func/pkg/version"
 )
 
 func NewVersionCmd(version Version) *cobra.Command {
@@ -88,7 +88,7 @@ func runVersion(cmd *cobra.Command, v Version) error {
 	// Populate BuildDate from the package-level var only if not already set
 	// (allows tests to inject their own value via the Version struct).
 	if v.BuildDate == "" {
-		v.BuildDate = version.BuildDate
+		v.BuildDate = pkgversion.BuildDate
 	}
 	// Populate image fields from k8s package constants
 	v.SocatImage = k8s.SocatImage
