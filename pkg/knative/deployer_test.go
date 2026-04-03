@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	fn "knative.dev/func/pkg/functions"
@@ -292,12 +293,10 @@ func setupRegistry(t *testing.T) http.RoundTripper {
 	return trans
 }
 
-// TestUpdateService_EnvsPropagated verifies that environment variables are correctly
-// written into the container spec when updating an existing Knative Service.
-// This exercises the update path through deployer.go (the updateService closure),
-// specifically the `cp.Env = newEnv` assignment that runs when redeploying a function
-// that already exists on the cluster. The former test in this slot (TestGenerateNewService_Envs)
-// tested pre-existing behaviour unrelated to the actual code change in this commit.
+// TestUpdateService_EnvsPropagated checks that the updateService closure replaces
+// (not merges) the container env list with the supplied newEnv slice.
+// It calls updateService directly — it does not exercise Deploy, ProcessEnvs, or
+// UpdateServiceWithRetry.
 func TestUpdateService_EnvsPropagated(t *testing.T) {
 	// Simulate an existing deployed service that carries a stale env var.
 	previousService := &servingv1.Service{
@@ -369,6 +368,42 @@ func TestUpdateService_EnvsPropagated(t *testing.T) {
 	// OLD_VAR must not survive: updateService replaces (not merges) the env list.
 	if _, ok := envMap["OLD_VAR"]; ok {
 		t.Errorf("expected OLD_VAR to be replaced by updateService but it was still present: %v", gotEnv)
+	}
+}
+
+// TestGenerateNewService_ResourceSetsPopulated is a regression test for the
+// create (first-deploy) path. It proves that generateNewService populates the
+// caller-supplied referencedSecrets and referencedConfigMaps sets so that the
+// subsequent CheckResourcesArePresent call in Deploy() actually validates them.
+// Before the fix, generateNewService allocated its own internal sets and the
+// caller's sets remained empty, causing validation to be silently skipped.
+func TestGenerateNewService_ResourceSetsPopulated(t *testing.T) {
+	secretName := "my-secret"
+	configMapName := "my-configmap"
+
+	f := fn.Function{
+		Name: "test-func",
+		Deploy: fn.DeploySpec{
+			Image: "example.com/test:v1",
+		},
+	}
+	f.Run.Envs.Add("FROM_SECRET", "{{ secret:"+secretName+":key }}")
+	f.Run.Envs.Add("FROM_CM", "{{ configMap:"+configMapName+":key }}")
+
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVCs := sets.New[string]()
+
+	_, err := generateNewService(f, nil, false, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	if err != nil {
+		t.Fatalf("generateNewService returned unexpected error: %v", err)
+	}
+
+	if !referencedSecrets.Has(secretName) {
+		t.Errorf("expected referencedSecrets to contain %q after generateNewService, got: %v", secretName, referencedSecrets)
+	}
+	if !referencedConfigMaps.Has(configMapName) {
+		t.Errorf("expected referencedConfigMaps to contain %q after generateNewService, got: %v", configMapName, referencedConfigMaps)
 	}
 }
 
