@@ -232,14 +232,23 @@ func TestVerbose(t *testing.T) {
 		}
 	})
 
-	// TestVersion_KverPrefixStripped verifies that a Knative version tag with the
-	// "knative-" prefix is stripped correctly, including commit-distance suffixes
+	// kver prefix stripped verifies that a Knative version tag with the
+	// "knative-" prefix is stripped correctly for an exact release tag.
+	t.Run("kver prefix stripped exact tag", func(t *testing.T) {
+		v := Version{Vers: "v0.42.0", Kver: "knative-v1.10.0"}
+		output := v.StringVerbose()
+		if !strings.Contains(output, "Knative: v1.10.0") {
+			t.Errorf("expected 'knative-' prefix stripped for exact tag, got:\n%s", output)
+		}
+	})
+
+	// kver prefix stripped also verifies commit-distance suffixes are preserved
 	// (e.g. knative-v1.10.0-5-gabcdef1 → v1.10.0-5-gabcdef1).
-	t.Run("kver prefix stripped", func(t *testing.T) {
+	t.Run("kver prefix stripped with commit distance", func(t *testing.T) {
 		v := Version{Vers: "v0.42.0", Kver: "knative-v1.10.0-5-gabcdef1"}
 		output := v.StringVerbose()
 		if !strings.Contains(output, "Knative: v1.10.0-5-gabcdef1") {
-			t.Errorf("expected 'knative-' prefix stripped, got:\n%s", output)
+			t.Errorf("expected 'knative-' prefix stripped with commit distance preserved, got:\n%s", output)
 		}
 	})
 
