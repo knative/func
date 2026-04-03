@@ -161,54 +161,76 @@ func TestRoot_CommandNameParameterized(t *testing.T) {
 }
 
 func TestVerbose(t *testing.T) {
-	tests := []struct {
-		name   string
-		args   []string
-		want   string
-		wantLF int
-	}{
-		{
-			name:   "verbose as version's flag",
-			args:   []string{"version", "-v"},
-			want:   "Version: v0.42.0",
-			wantLF: 24,
-		},
-		{
-			name:   "no verbose",
-			args:   []string{"version"},
-			want:   "v0.42.0",
-			wantLF: 1,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			viper.Reset()
-
-			var out bytes.Buffer
-
-			cmd := NewRootCmd(RootCommandConfig{
-				Name: "func",
-				Version: Version{
-					Vers: "v0.42.0",
-					Hash: "cafe",
-					Kver: "v1.10.0",
-				}})
-
-			cmd.SetArgs(tt.args)
-			cmd.SetOut(&out)
-			if err := cmd.Execute(); err != nil {
-				t.Fatal(err)
-			}
-
-			outLines := strings.Split(out.String(), "\n")
-			if len(outLines)-1 != tt.wantLF {
-				t.Errorf("expected output with %v line breaks but got %v:", tt.wantLF, len(outLines)-1)
-			}
-			if outLines[0] != tt.want {
-				t.Errorf("expected output: %q but got: %q", tt.want, outLines[0])
-			}
+	t.Run("no verbose", func(t *testing.T) {
+		viper.Reset()
+		var out bytes.Buffer
+		cmd := NewRootCmd(RootCommandConfig{
+			Name:    "func",
+			Version: Version{Vers: "v0.42.0"},
 		})
-	}
+		cmd.SetArgs([]string{"version"})
+		cmd.SetOut(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.TrimRight(out.String(), "\n"); got != "v0.42.0" {
+			t.Errorf("expected %q but got %q", "v0.42.0", got)
+		}
+	})
+
+	t.Run("verbose includes populated fields", func(t *testing.T) {
+		viper.Reset()
+		var out bytes.Buffer
+		cmd := NewRootCmd(RootCommandConfig{
+			Name: "func",
+			Version: Version{
+				Vers:      "v0.42.0",
+				Hash:      "cafe",
+				Kver:      "v1.10.0",
+				BuildDate: "2024-01-01T00:00:00Z",
+			},
+		})
+		cmd.SetArgs([]string{"version", "-v"})
+		cmd.SetOut(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		output := out.String()
+		for _, want := range []string{
+			"Version: v0.42.0",
+			"Knative: v1.10.0",
+			"Commit: cafe",
+			"BuildDate: 2024-01-01T00:00:00Z",
+		} {
+			if !strings.Contains(output, want) {
+				t.Errorf("expected output to contain %q but got:\n%s", want, output)
+			}
+		}
+	})
+
+	t.Run("verbose omits empty fields", func(t *testing.T) {
+		viper.Reset()
+		var out bytes.Buffer
+		cmd := NewRootCmd(RootCommandConfig{
+			Name:    "func",
+			Version: Version{Vers: "v0.42.0"},
+		})
+		cmd.SetArgs([]string{"version", "-v"})
+		cmd.SetOut(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		output := out.String()
+		// Fields with empty values in the Version struct should be omitted
+		for _, absent := range []string{"Knative:", "Commit:", "BuildDate:"} {
+			if strings.Contains(output, absent) {
+				t.Errorf("expected output to omit %q but got:\n%s", absent, output)
+			}
+		}
+		if !strings.HasPrefix(output, "Version: v0.42.0\n") {
+			t.Errorf("expected output to start with %q but got:\n%s", "Version: v0.42.0\n", output)
+		}
+	})
 }
 
 // TestRoot_effectivePath ensures that the path method returns the effective path
