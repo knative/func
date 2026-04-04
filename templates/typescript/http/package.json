@@ -34,7 +34,7 @@
     "typescript-eslint": "^8.0.0"
   },
   "dependencies": {
-    "@types/node": "^20.14.9",
-    "faas-js-runtime": "^2.4.0"
+    "@types/node": "^22.0.0",
+    "faas-js-runtime": "^3.0.2"
   }
 }

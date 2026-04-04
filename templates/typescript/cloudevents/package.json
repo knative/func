@@ -34,9 +34,9 @@
     "typescript-eslint": "^8.0.0"
   },
   "dependencies": {
-    "@types/node": "^20.14.9",
-    "cloudevents": "^8.0.2",
-    "faas-js-runtime": "2.4.0",
+    "@types/node": "^22.0.0",
+    "cloudevents": "^10.0.0",
+    "faas-js-runtime": "^3.0.2",
     "optionator": "^0.9.4",
     "read-pkg": "^9.0.1",
     "semver": "^7.6.2"
