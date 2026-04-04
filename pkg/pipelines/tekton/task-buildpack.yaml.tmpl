@@ -87,6 +87,8 @@ spec:
           value: "$(params.GIT_REPOSITORY)"
         - name: "revision"
           value: "$(params.GIT_REVISION)"
+        - name: "deleteExisting"
+          value: "true"
     - name: func-scaffold
       image: '{{.ScaffoldImage}}'
       workingDir: $(workspaces.source.path)

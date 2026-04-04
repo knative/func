@@ -79,6 +79,14 @@ func UploadToVolume(ctx context.Context, content io.Reader, claimName, namespace
 	return runWithVolumeMounted(ctx, TarImage, []string{"sh", "-c", "umask 0000 && exec tar -xmf -"}, content, claimName, namespace)
 }
 
+// CleanAndUploadToVolume removes the "source" directory from the volume root,
+// then extracts the provided tar stream into the volume.  The "cache"
+// subdirectory is intentionally left intact so that build-layer caches
+// accumulated by previous runs are preserved.
+func CleanAndUploadToVolume(ctx context.Context, content io.Reader, claimName, namespace string) error {
+	return runWithVolumeMounted(ctx, TarImage, []string{"sh", "-c", "umask 0000 && rm -rf source && exec tar -xmf -"}, content, claimName, namespace)
+}
+
 // Runs a pod with given image, command and stdin
 // while having the volume mounted and working directory set to it.
 func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []string, podInput io.Reader, claimName, namespace string) error {

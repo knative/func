@@ -160,7 +160,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		// Use direct upload to PVC if Git is not set up.
 		content := sourcesAsTarStream(f)
 		defer content.Close()
-		err = k8s.UploadToVolume(ctx, content, getPipelinePvcName(f), namespace)
+		err = k8s.CleanAndUploadToVolume(ctx, content, getPipelinePvcName(f), namespace)
 		if err != nil {
 			return "", f, fmt.Errorf("cannot upload sources to the PVC: %w", err)
 		}
