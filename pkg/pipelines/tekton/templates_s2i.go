@@ -132,6 +132,7 @@ spec:
     - name: source-workspace
       persistentVolumeClaim:
         claimName: {{.PvcName}}
+      subPath: source
     - name: cache-workspace
       persistentVolumeClaim:
         claimName: {{.CachePvcName}}
@@ -198,6 +199,9 @@ spec:
       volumeClaimTemplate:
         spec:
           accessModes: ["ReadWriteOnce"]
+          {{- if .StorageClassName}}
+          storageClassName: {{.StorageClassName}}
+          {{- end}}
           resources:
             requests:
               storage: {{.PvcSize}}

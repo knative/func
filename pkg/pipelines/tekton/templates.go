@@ -72,6 +72,7 @@ type templateData struct {
 	PvcName         string
 	CachePvcName    string
 	PvcSize         string
+	StorageClassName string
 	SecretName      string
 
 	// The branch or tag we are targeting with Pipelines (ie: main, refs/tags/*)
@@ -183,12 +184,13 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 		BuilderImage:  getBuilderImage(f),
 		BuildEnvs:     buildEnvs,
 
-		PipelineName:    getPipelineName(f),
-		PipelineRunName: fmt.Sprintf("%s-run", getPipelineName(f)),
-		PvcName:         getPipelinePvcName(f),
-		CachePvcName:    getPipelineCachePvcName(f),
-		PvcSize:         pipelinePvcSize(f),
-		SecretName:      getPipelineSecretName(f),
+		PipelineName:     getPipelineName(f),
+		PipelineRunName:  fmt.Sprintf("%s-run", getPipelineName(f)),
+		PvcName:          getPipelinePvcName(f),
+		CachePvcName:     getPipelineCachePvcName(f),
+		PvcSize:          pipelinePvcSize(f),
+		StorageClassName: f.Build.RemoteStorageClass,
+		SecretName:       getPipelineSecretName(f),
 
 		PipelinesTargetBranch: pipelinesTargetBranch,
 
