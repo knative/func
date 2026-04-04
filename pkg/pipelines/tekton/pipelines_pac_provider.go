@@ -197,6 +197,12 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 	}
 	fmt.Printf(" ✅ Persistent Volume is present on the cluster with name %q\n", getPipelinePvcName(f))
 
+	err = createPipelineCachePersistentVolumeClaim(ctx, f, namespace, labels)
+	if err != nil {
+		return err
+	}
+	fmt.Printf(" ✅ Cache Persistent Volume is present on the cluster with name %q\n", getPipelineCachePvcName(f))
+
 	err = ensurePACSecretExists(ctx, f, namespace, metadata, labels)
 	if err != nil {
 		return err

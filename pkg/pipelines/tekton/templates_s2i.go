@@ -132,11 +132,9 @@ spec:
     - name: source-workspace
       persistentVolumeClaim:
         claimName: {{.PvcName}}
-      subPath: source
     - name: cache-workspace
       persistentVolumeClaim:
-        claimName: {{.PvcName}}
-      subPath: cache
+        claimName: {{.CachePvcName}}
     - name: dockerconfig-workspace
       secret:
         secretName: {{.SecretName}}
@@ -197,13 +195,15 @@ spec:
    name: {{.PipelineName}}
   workspaces:
     - name: source-workspace
-      persistentVolumeClaim:
-        claimName: {{.PvcName}}
-      subPath: source
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: {{.PvcSize}}
     - name: cache-workspace
       persistentVolumeClaim:
-        claimName: {{.PvcName}}
-      subPath: cache
+        claimName: {{.CachePvcName}}
     - name: dockerconfig-workspace
       secret:
         secretName: {{.SecretName}}

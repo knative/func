@@ -151,8 +151,15 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	err = createPipelinePersistentVolumeClaim(ctx, f, namespace, labels)
-	if err != nil {
+	// Delete any existing source PVC so each build starts with a clean workspace.
+	// The cache PVC is kept across builds so the buildpack layer cache is preserved.
+	if err = k8s.DeletePersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace); err != nil {
+		return "", f, fmt.Errorf("cannot clean source PVC: %w", err)
+	}
+	if err = createPipelinePersistentVolumeClaim(ctx, f, namespace, labels); err != nil {
+		return "", f, err
+	}
+	if err = createPipelineCachePersistentVolumeClaim(ctx, f, namespace, labels); err != nil {
 		return "", f, err
 	}
 
@@ -570,6 +577,23 @@ func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, nam
 	err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("problem creating persistent volume claim: %v", err)
+	}
+	return nil
+}
+
+// createPipelineCachePersistentVolumeClaim creates the dedicated cache PVC that
+// persists across builds so the buildpack layer cache is not lost.
+func createPipelineCachePersistentVolumeClaim(ctx context.Context, f fn.Function, namespace string, labels map[string]string) error {
+	var err error
+	pvcs := DefaultPersistentVolumeClaimSize
+	if f.Build.PVCSize != "" {
+		if pvcs, err = resource.ParseQuantity(f.Build.PVCSize); err != nil {
+			return fmt.Errorf("cache PVC size value could not be parsed. %w", err)
+		}
+	}
+	err = createPersistentVolumeClaim(ctx, getPipelineCachePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return fmt.Errorf("problem creating cache persistent volume claim: %v", err)
 	}
 	return nil
 }

@@ -70,6 +70,8 @@ type templateData struct {
 	PipelineName    string
 	PipelineRunName string
 	PvcName         string
+	CachePvcName    string
+	PvcSize         string
 	SecretName      string
 
 	// The branch or tag we are targeting with Pipelines (ie: main, refs/tags/*)
@@ -184,6 +186,8 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 		PipelineName:    getPipelineName(f),
 		PipelineRunName: fmt.Sprintf("%s-run", getPipelineName(f)),
 		PvcName:         getPipelinePvcName(f),
+		CachePvcName:    getPipelineCachePvcName(f),
+		PvcSize:         pipelinePvcSize(f),
 		SecretName:      getPipelineSecretName(f),
 
 		PipelinesTargetBranch: pipelinesTargetBranch,
@@ -383,6 +387,8 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		PipelineName:    getPipelineName(f),
 		PipelineRunName: getPipelineRunGenerateName(f),
 		PvcName:         getPipelinePvcName(f),
+		CachePvcName:    getPipelineCachePvcName(f),
+		PvcSize:         pipelinePvcSize(f),
 		SecretName:      getPipelineSecretName(f),
 
 		S2iImageScriptsUrl: s2iImageScriptsUrl,
@@ -468,4 +474,13 @@ func createAndApplyResource(projectRoot, fileName, fileTemplate, kind, resourceN
 	}
 
 	return m.Apply()
+}
+
+// pipelinePvcSize returns the PVC size string for use in templates.
+// It returns the user-configured value or the default (256Mi).
+func pipelinePvcSize(f fn.Function) string {
+	if f.Build.PVCSize != "" {
+		return f.Build.PVCSize
+	}
+	return DefaultPersistentVolumeClaimSize.String()
 }

@@ -72,6 +72,20 @@ func DeletePersistentVolumeClaims(ctx context.Context, namespaceOverride string,
 	return client.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
+// DeletePersistentVolumeClaim deletes a single PVC by name.  It returns nil if
+// the PVC does not exist.
+func DeletePersistentVolumeClaim(ctx context.Context, name, namespaceOverride string) error {
+	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+	if err != nil {
+		return err
+	}
+	err = client.CoreV1().PersistentVolumeClaims(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
 var TarImage = "ghcr.io/knative/func-utils:v2"
 
 // UploadToVolume uploads files (passed in form of tar stream) into volume.
