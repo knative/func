@@ -1,11 +1,13 @@
 package s2i_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -265,6 +267,96 @@ func TestBuildFail(t *testing.T) {
 	err := b.Build(t.Context(), fn.Function{Runtime: "node"}, nil)
 	if err == nil {
 		t.Error("didn't get expected error")
+	}
+}
+
+// Test_LegacyS2IAssembleWarning ensures that a warning is printed to stderr
+// when the func-generated legacy .s2i/bin/assemble file is detected at the
+// function root for a scaffolded runtime (go/python).
+func Test_LegacyS2IAssembleWarning(t *testing.T) {
+	tests := []struct {
+		name        string
+		runtime     string
+		createFile  bool
+		wantWarning bool
+	}{
+		{
+			name:        "scaffolded runtime with legacy assemble warns",
+			runtime:     "go",
+			createFile:  true,
+			wantWarning: true,
+		},
+		{
+			name:        "non-scaffolded runtime with .s2i/bin/assemble does not warn",
+			runtime:     "node",
+			createFile:  true,
+			wantWarning: false,
+		},
+		{
+			name:        "scaffolded runtime without legacy assemble does not warn",
+			runtime:     "go",
+			createFile:  false,
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root, done := Mktemp(t)
+			defer done()
+
+			// Initialize the function so middleware version detection succeeds
+			// (required for scaffolded runtimes like go/python).
+			f, err := fn.New().Init(fn.Function{
+				Name:     "test",
+				Root:     root,
+				Runtime:  tt.runtime,
+				Registry: "example.com/alice",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if tt.createFile {
+				binDir := filepath.Join(root, ".s2i", "bin")
+				if err := os.MkdirAll(binDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(binDir, "assemble"), []byte("#!/bin/bash"), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			oldStderr := os.Stderr
+			r, w, err := os.Pipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			os.Stderr = w
+
+			i := &mockImpl{BuildFn: func(cfg *api.Config) (*api.Result, error) { return nil, nil }}
+			b := s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(mockDocker{}))
+			buildErr := b.Build(t.Context(), f, nil)
+
+			w.Close()
+			os.Stderr = oldStderr
+
+			var buf bytes.Buffer
+			if _, err := io.Copy(&buf, r); err != nil {
+				t.Fatal(err)
+			}
+
+			if buildErr != nil {
+				t.Fatal(buildErr)
+			}
+			warned := strings.Contains(buf.String(), ".s2i/bin/assemble")
+			if tt.wantWarning && !warned {
+				t.Fatalf("expected a warning about .s2i/bin/assemble, got: %q", buf.String())
+			}
+			if !tt.wantWarning && warned {
+				t.Fatalf("unexpected warning about .s2i/bin/assemble: %q", buf.String())
+			}
+		})
 	}
 }
 

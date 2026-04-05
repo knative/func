@@ -131,6 +131,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		client = c
 	}
 
+	WarnIfLegacyS2IScaffolding(f, os.Stderr)
+
 	// Link .s2iignore -> .funcignore
 	funcignorePath := filepath.Join(f.Root, ".funcignore")
 	s2iignorePath := filepath.Join(f.Root, ".s2iignore")
