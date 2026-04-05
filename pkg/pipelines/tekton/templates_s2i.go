@@ -206,8 +206,15 @@ spec:
             requests:
               storage: {{.PvcSize}}
     - name: cache-workspace
-      persistentVolumeClaim:
-        claimName: {{.CachePvcName}}
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          {{- if .StorageClassName}}
+          storageClassName: {{.StorageClassName}}
+          {{- end}}
+          resources:
+            requests:
+              storage: {{.PvcSize}}
     - name: dockerconfig-workspace
       secret:
         secretName: {{.SecretName}}

@@ -151,10 +151,18 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	// Delete any existing source PVC so each build starts with a clean workspace.
-	// The cache PVC is kept across builds so the buildpack layer cache is preserved.
-	if err = k8s.DeletePersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace); err != nil {
-		return "", f, fmt.Errorf("cannot clean source PVC: %w", err)
+	// Rotate both PVCs before every build so neither source nor cache can
+	// accumulate data across runs.  Deletion is asynchronous in Kubernetes —
+	// we wait for each PVC to fully terminate before recreating it, otherwise
+	// the subsequent Create receives AlreadyExists (PVC still terminating) and
+	// silently reuses the old, unusable object.
+	for _, pvcName := range []string{getPipelinePvcName(f), getPipelineCachePvcName(f)} {
+		if err = k8s.DeletePersistentVolumeClaim(ctx, pvcName, namespace); err != nil {
+			return "", f, fmt.Errorf("cannot delete PVC %q: %w", pvcName, err)
+		}
+		if err = k8s.WaitForPVCDeletion(ctx, pvcName, namespace); err != nil {
+			return "", f, fmt.Errorf("PVC %q did not finish terminating: %w", pvcName, err)
+		}
 	}
 	if err = createPipelinePersistentVolumeClaim(ctx, f, namespace, labels); err != nil {
 		return "", f, err

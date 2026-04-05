@@ -86,6 +86,33 @@ func DeletePersistentVolumeClaim(ctx context.Context, name, namespaceOverride st
 	return err
 }
 
+// WaitForPVCDeletion polls until the named PVC no longer exists or the context
+// is cancelled.  PVC deletion in Kubernetes is asynchronous — the object enters
+// a Terminating phase before it disappears.  Callers that need to recreate a
+// PVC with the same name must wait for the old one to fully terminate first;
+// otherwise the Create call receives AlreadyExists and silently reuses the
+// terminating object.
+func WaitForPVCDeletion(ctx context.Context, name, namespaceOverride string) error {
+	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+	if err != nil {
+		return err
+	}
+	for {
+		_, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for PVC %q to terminate: %w", name, ctx.Err())
+		case <-time.After(2 * time.Second):
+		}
+	}
+}
+
 var TarImage = "ghcr.io/knative/func-utils:v2"
 
 // UploadToVolume uploads files (passed in form of tar stream) into volume.
