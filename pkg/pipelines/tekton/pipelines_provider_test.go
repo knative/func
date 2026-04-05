@@ -104,7 +104,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "returns nil if pvc already exists",
+			name: "returns error if pvc already exists",
 			args: args{
 				ctx:       t.Context(),
 				f:         fn.Function{},
@@ -115,7 +115,9 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
 				return &apiErrors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonAlreadyExists}}
 			},
-			wantErr: false,
+			// After delete+WaitForPVCDeletion, AlreadyExists on Create means a
+			// concurrent deploy snuck in — must not be silently swallowed.
+			wantErr: true,
 		},
 		{
 			name: "returns err if namespace not defined and default returns an err",

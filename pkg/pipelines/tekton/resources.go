@@ -78,7 +78,3 @@ func getPipelineSecretName(f fn.Function) string {
 func getPipelinePvcName(f fn.Function) string {
 	return fmt.Sprintf("%s-pvc", getPipelineName(f))
 }
-
-func getPipelineCachePvcName(f fn.Function) string {
-	return fmt.Sprintf("%s-cache-pvc", getPipelineName(f))
-}

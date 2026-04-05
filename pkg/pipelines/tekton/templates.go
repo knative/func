@@ -67,13 +67,12 @@ type templateData struct {
 	BuilderImage  string
 	BuildEnvs     []string
 
-	PipelineName    string
-	PipelineRunName string
-	PvcName         string
-	CachePvcName    string
-	PvcSize         string
+	PipelineName     string
+	PipelineRunName  string
+	PvcName          string
+	PvcSize          string
 	StorageClassName string
-	SecretName      string
+	SecretName       string
 
 	// The branch or tag we are targeting with Pipelines (ie: main, refs/tags/*)
 	PipelinesTargetBranch string
@@ -187,7 +186,6 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 		PipelineName:     getPipelineName(f),
 		PipelineRunName:  fmt.Sprintf("%s-run", getPipelineName(f)),
 		PvcName:          getPipelinePvcName(f),
-		CachePvcName:     getPipelineCachePvcName(f),
 		PvcSize:          pipelinePvcSize(f),
 		StorageClassName: f.Build.RemoteStorageClass,
 		SecretName:       getPipelineSecretName(f),
@@ -386,12 +384,12 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		BuilderImage:  getBuilderImage(f),
 		BuildEnvs:     buildEnvs,
 
-		PipelineName:    getPipelineName(f),
-		PipelineRunName: getPipelineRunGenerateName(f),
-		PvcName:         getPipelinePvcName(f),
-		CachePvcName:    getPipelineCachePvcName(f),
-		PvcSize:         pipelinePvcSize(f),
-		SecretName:      getPipelineSecretName(f),
+		PipelineName:     getPipelineName(f),
+		PipelineRunName:  getPipelineRunGenerateName(f),
+		PvcName:          getPipelinePvcName(f),
+		PvcSize:          pipelinePvcSize(f),
+		StorageClassName: f.Build.RemoteStorageClass,
+		SecretName:       getPipelineSecretName(f),
 
 		S2iImageScriptsUrl: s2iImageScriptsUrl,
 		TlsVerify:          tlsVerify,

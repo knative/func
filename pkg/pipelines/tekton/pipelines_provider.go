@@ -151,23 +151,19 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	// Rotate both PVCs before every build so neither source nor cache can
-	// accumulate data across runs.  Deletion is asynchronous in Kubernetes —
-	// we wait for each PVC to fully terminate before recreating it, otherwise
-	// the subsequent Create receives AlreadyExists (PVC still terminating) and
-	// silently reuses the old, unusable object.
-	for _, pvcName := range []string{getPipelinePvcName(f), getPipelineCachePvcName(f)} {
-		if err = k8s.DeletePersistentVolumeClaim(ctx, pvcName, namespace); err != nil {
-			return "", f, fmt.Errorf("cannot delete PVC %q: %w", pvcName, err)
-		}
-		if err = k8s.WaitForPVCDeletion(ctx, pvcName, namespace); err != nil {
-			return "", f, fmt.Errorf("PVC %q did not finish terminating: %w", pvcName, err)
-		}
+	// Rotate the source PVC before every build so the workspace is clean.
+	// Cache uses volumeClaimTemplate in the PipelineRun so Tekton provisions
+	// and destroys an ephemeral cache PVC per run — no rotation needed here.
+	// Deletion is asynchronous: wait for the object to reach NotFound before
+	// recreating so that Create does not receive AlreadyExists on a still-
+	// terminating PVC and silently reuse it.
+	if err = k8s.DeletePersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace); err != nil {
+		return "", f, fmt.Errorf("cannot delete source PVC: %w", err)
+	}
+	if err = k8s.WaitForPVCDeletion(ctx, getPipelinePvcName(f), namespace); err != nil {
+		return "", f, fmt.Errorf("source PVC did not finish terminating: %w", err)
 	}
 	if err = createPipelinePersistentVolumeClaim(ctx, f, namespace, labels); err != nil {
-		return "", f, err
-	}
-	if err = createPipelineCachePersistentVolumeClaim(ctx, f, namespace, labels); err != nil {
 		return "", f, err
 	}
 
@@ -582,26 +578,8 @@ func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, nam
 			return fmt.Errorf("PVC size value could not be parsed. %w", err)
 		}
 	}
-	err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	if err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass); err != nil {
 		return fmt.Errorf("problem creating persistent volume claim: %v", err)
-	}
-	return nil
-}
-
-// createPipelineCachePersistentVolumeClaim creates the dedicated cache PVC that
-// persists across builds so the buildpack layer cache is not lost.
-func createPipelineCachePersistentVolumeClaim(ctx context.Context, f fn.Function, namespace string, labels map[string]string) error {
-	var err error
-	pvcs := DefaultPersistentVolumeClaimSize
-	if f.Build.PVCSize != "" {
-		if pvcs, err = resource.ParseQuantity(f.Build.PVCSize); err != nil {
-			return fmt.Errorf("cache PVC size value could not be parsed. %w", err)
-		}
-	}
-	err = createPersistentVolumeClaim(ctx, getPipelineCachePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return fmt.Errorf("problem creating cache persistent volume claim: %v", err)
 	}
 	return nil
 }
