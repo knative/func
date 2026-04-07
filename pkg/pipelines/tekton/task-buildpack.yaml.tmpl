@@ -61,9 +61,9 @@ spec:
     - name: PLATFORM_DIR
       description: The name of the platform directory.
       default: empty-dir
-    - name: TLSVERIFY
-      description: Verify the TLS on the registry endpoint (for push/pull to a non-TLS registry)
-      default: "true"
+    - name: INSECURE_REGISTRIES
+      description: Registries to access without TLS verification
+      default: ""
   stepTemplate:
     env:
       - name: CNB_PLATFORM_API
@@ -198,30 +198,25 @@ spec:
     - name: create
       image: $(params.BUILDER_IMAGE)
       imagePullPolicy: Always
+      command: ["/cnb/lifecycle/creator"]
       env:
         - name: DOCKER_CONFIG
           value: $(workspaces.dockerconfig.path)
-      script: |
-        #!/usr/bin/env bash
-        set -e
-
-        if [ "$(params.TLSVERIFY)" = "false" ]; then
-          export CNB_INSECURE_REGISTRIES="$(params.REGISTRY)"
-        fi
-
-        /cnb/lifecycle/creator \
-          -app=$(workspaces.source.path)/$(params.SOURCE_SUBPATH) \
-          -cache-dir=$(workspaces.cache.path) \
-          -cache-image=$(params.CACHE_IMAGE) \
-          -uid=$(params.USER_ID) \
-          -gid=$(params.GROUP_ID) \
-          -layers=/layers \
-          -platform=/platform \
-          -report=/layers/report.toml \
-          -skip-restore=$(params.SKIP_RESTORE) \
-          -previous-image=$(params.APP_IMAGE) \
-          -run-image=$(params.RUN_IMAGE) \
-          $(params.APP_IMAGE)
+        - name: CNB_INSECURE_REGISTRIES
+          value: $(params.INSECURE_REGISTRIES)
+      args:
+        - "-app=$(workspaces.source.path)/$(params.SOURCE_SUBPATH)"
+        - "-cache-dir=$(workspaces.cache.path)"
+        - "-cache-image=$(params.CACHE_IMAGE)"
+        - "-uid=$(params.USER_ID)"
+        - "-gid=$(params.GROUP_ID)"
+        - "-layers=/layers"
+        - "-platform=/platform"
+        - "-report=/layers/report.toml"
+        - "-skip-restore=$(params.SKIP_RESTORE)"
+        - "-previous-image=$(params.APP_IMAGE)"
+        - "-run-image=$(params.RUN_IMAGE)"
+        - "$(params.APP_IMAGE)"
       volumeMounts:
         - name: layers-dir
           mountPath: /layers
