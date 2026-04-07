@@ -13,6 +13,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -68,6 +69,11 @@ func TestInt_PrivateGitRepository(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Skipping TestPrivateGitRepository on non-Linux systems due to cluster networking limitations")
 	}
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:443", 2*time.Second)
+	if err != nil {
+		t.Skip("Skipping: HTTPS ingress port 443 is not reachable on localhost (requires privileged port binding)")
+	}
+	conn.Close()
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()

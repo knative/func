@@ -62,7 +62,11 @@ func TestInt_Gitlab(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	glabEnv := setupGitlabEnv(ctx, t, "http://"+gitlabHostname, "root", gitlabRootPassword)
+	httpPort := os.Getenv("FUNC_E2E_HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "8080"
+	}
+	glabEnv := setupGitlabEnv(ctx, t, "http://"+gitlabHostname+":"+httpPort, "root", gitlabRootPassword)
 
 	tempHome := t.TempDir()
 	projDir := filepath.Join(t.TempDir(), "fn")
@@ -118,7 +122,7 @@ func TestInt_Gitlab(t *testing.T) {
 	pp := tekton.NewPipelinesProvider(
 		tekton.WithCredentialsProvider(credentialsProvider),
 		tekton.WithPacURLCallback(func() (string, error) {
-			return "http://" + pacCtrHostname, nil
+			return "http://" + pacCtrHostname + ":" + httpPort, nil
 		}))
 
 	metadata := pipelines.PacMetadata{

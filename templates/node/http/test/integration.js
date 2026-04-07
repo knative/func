@@ -12,7 +12,7 @@ const errHandler = t => err => {
 };
 
 test('Integration: handles an HTTP GET', t => {
-  start(func).then(server => {
+  start(func, { port: 0 }).then(server => {
     t.plan(2);
     request(server)
       .get('/?name=tiger')
@@ -27,7 +27,7 @@ test('Integration: handles an HTTP GET', t => {
 });
 
 test('Integration: handles an HTTP POST', t => {
-  start(func).then(server => {
+  start(func, { port: 0 }).then(server => {
     t.plan(2);
     request(server)
       .post('/')

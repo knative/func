@@ -141,6 +141,7 @@ jobs:
     timeout-minutes: 120
     env:
       FUNC_CLUSTER_RETRIES: 5
+      FUNC_E2E_HTTP_PORT: "8080"
       FUNC_INT_TEKTON_ENABLED: true
       FUNC_INT_GITLAB_ENABLED: true
       FUNC_INT_GITLAB_HOSTNAME: gitlab.localtest.me

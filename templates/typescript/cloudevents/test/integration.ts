@@ -31,7 +31,7 @@ const errHandler = (t: Test) => (err: Error) => {
 };
 
 test('Integration: handles a valid event', (t) => {
-  start(func.handle, {} as InvokerOptions).then((server) => {
+  start(func.handle, { port: 0 } as InvokerOptions).then((server) => {
     t.plan(5);
     request(server)
       .post('/')
