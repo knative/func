@@ -159,7 +159,7 @@ EXAMPLES
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
-	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry ($FUNC_REGISTRY_INSECURE)")
+	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
@@ -310,6 +310,10 @@ For more options, run 'func deploy --help'`, err)
 		}
 		return
 	}
+
+	// Warn if registry changed but registryInsecure is still true
+	warnRegistryInsecureChange(cmd.OutOrStderr(), cfg.Registry, f)
+
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
 	}

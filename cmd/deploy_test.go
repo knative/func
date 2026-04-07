@@ -2190,3 +2190,7 @@ func testBaseImage(cmdFn commandConstructor, t *testing.T) {
 		})
 	}
 }
+
+func TestDeploy_RegistryInsecurePersists(t *testing.T) {
+	testRegistryInsecurePersists(NewDeployCmd, t)
+}
