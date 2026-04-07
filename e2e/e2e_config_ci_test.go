@@ -78,6 +78,9 @@ func runGitHubWorkflow(t *testing.T, dir string) {
 		"-W", ".github/workflows/func-deploy.yaml",
 		"-s", "KUBECONFIG="+readFile(t, Kubeconfig),
 		"--var", "REGISTRY_URL="+Registry,
+		// Use a non-standard port for function test servers to avoid
+		// conflicting with Kind's hostPort mapping (8080 → container:80).
+		"--env", "PORT=8082",
 	)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout

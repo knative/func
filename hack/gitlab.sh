@@ -183,14 +183,15 @@ EOF
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n gitlab --timeout=5m
 
   echo '::group::Waiting for Gitlab'
-  if ! curl --retry 120 -f --retry-all-errors --retry-delay 5 "${gitlab_host}"; then
+  local -r gitlab_port="${FUNC_E2E_HTTP_PORT:-8080}"
+  if ! curl --retry 120 -f --retry-all-errors --retry-delay 5 "http://${gitlab_host}:${gitlab_port}"; then
     $KUBECTL logs pod/gitlab -n gitlab
     echo '::endgroup::'
     return 1
   fi
   echo
   echo '::endgroup::'
-  echo "the GitLab server is available at: http://${gitlab_host}"
+  echo "the GitLab server is available at: http://${gitlab_host}:${gitlab_port}"
   echo "${green}✅ GitLab${reset}"
 }
 
