@@ -162,7 +162,7 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 
 	// Determine if TLS verification should be skipped
 	tlsVerify := "true"
-	if isInsecureRegistry(f.Registry) {
+	if f.RegistryInsecure || isInsecureRegistry(f.Registry) {
 		tlsVerify = "false"
 	}
 
@@ -359,7 +359,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 
 	// Determine if TLS verification should be skipped
 	tlsVerify := "true"
-	if isInsecureRegistry(f.Registry) {
+	if f.RegistryInsecure || isInsecureRegistry(f.Registry) {
 		tlsVerify = "false"
 	}
 
