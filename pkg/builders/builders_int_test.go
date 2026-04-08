@@ -101,7 +101,7 @@ func TestInt_PrivateGitRepository(t *testing.T) {
 	}
 
 	gitCredsDir := t.TempDir()
-	err := os.WriteFile(filepath.Join(gitCredsDir, "type"), []byte(`git-credentials`), 0644)
+	err = os.WriteFile(filepath.Join(gitCredsDir, "type"), []byte(`git-credentials`), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
