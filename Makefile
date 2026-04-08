@@ -219,8 +219,8 @@ check-rust: ## Check Rust templates' source
 
 .PHONY: check-typescript
 check-typescript: ## Check TypeScript templates' source
-	export npm_config_cache=/tmp/.npm-cache && cd templates/typescript/cloudevents && npm ci && npx eslint --ext .ts . && rm -rf node_modules build
-	export npm_config_cache=/tmp/.npm-cache && cd templates/typescript/http && npm ci && npx eslint --ext .ts . && rm -rf node_modules build
+	export npm_config_cache=/tmp/.npm-cache && cd templates/typescript/cloudevents && npm ci && npx eslint . && rm -rf node_modules build
+	export npm_config_cache=/tmp/.npm-cache && cd templates/typescript/http && npm ci && npx eslint . && rm -rf node_modules build
 
 .PHONY: test-templates
 test-templates: test-go test-node test-python test-quarkus test-springboot test-rust test-typescript ## Run all template tests
