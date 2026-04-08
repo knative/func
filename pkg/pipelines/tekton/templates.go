@@ -92,11 +92,19 @@ type templateData struct {
 // createPipelineTemplatePAC creates a Pipeline template used for PAC on-cluster build
 // it creates the resource in the project directory
 func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
+	// Determine if TLS verification should be skipped
+	tlsVerify := "true"
+	if f.RegistryInsecure || isInsecureRegistry(f.Registry) {
+		tlsVerify = "false"
+	}
+
 	data := templateData{
 		FunctionName: f.Name,
 		Annotations:  f.Deploy.Annotations,
 		Labels:       labels,
 		PipelineName: getPipelineName(f),
+		TlsVerify:    tlsVerify,
+		Registry:     f.Registry,
 	}
 
 	for _, val := range []struct {
@@ -289,11 +297,19 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	// If Git is set up create fetch task and reference it from build task,
 	// otherwise sources have been already uploaded to workspace PVC.
 
+	// Determine if TLS verification should be skipped
+	tlsVerify := "true"
+	if f.RegistryInsecure || isInsecureRegistry(f.Registry) {
+		tlsVerify = "false"
+	}
+
 	data := templateData{
 		FunctionName: f.Name,
 		Annotations:  f.Deploy.Annotations,
 		Labels:       labels,
 		PipelineName: getPipelineName(f),
+		Registry:     f.Registry,
+		TlsVerify:    tlsVerify,
 	}
 
 	for _, val := range []struct {
