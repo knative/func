@@ -1,11 +1,11 @@
 {
 	"Contour": {
-		"version": "v1.21.1",
+		"version": "v1.20.0",
 		"owner": "knative-extensions",
 		"repo": "net-contour"
 	},
 	"Eventing": {
-		"version": "v1.21.2",
+		"version": "v1.20.0",
 		"owner": "knative",
 		"repo": "eventing"
 	},
@@ -16,7 +16,7 @@
 		"version": "v0.35.2"
 	},
 	"Serving": {
-		"version": "v1.21.2",
+		"version": "v1.20.0",
 		"owner": "knative",
 		"repo": "serving"
 	},
