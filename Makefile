@@ -69,11 +69,11 @@ help:
 build: $(BIN) ## (default) Build binary for current OS
 
 .PHONY: $(BIN)
-$(BIN): generate/zz_filesystem_generated.go
+$(BIN): generate/templates.zip
 	env CGO_ENABLED=0 go build ./cmd/$(BIN)
 
 .PHONY: test
-test: generate/zz_filesystem_generated.go ## Run core unit tests
+test: generate/templates.zip ## Run core unit tests
 	go test -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
@@ -143,8 +143,8 @@ $(BIN_GOIMPORTS):
 	@echo "Installing goimports..."
 	@GOBIN=$(PWD)/bin go install golang.org/x/tools/cmd/goimports@latest
 
-.PHONY: generate/zz_filesystem_generated.go
-generate/zz_filesystem_generated.go: clean_templates
+.PHONY: generate/templates.zip
+generate/templates.zip: clean_templates
 	go generate pkg/functions/templates_embedded.go
 
 .PHONY: clean_templates
@@ -178,6 +178,7 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 	rm -f $(BIN_GOLANGCI_LINT)
 	rm -f schema/func_yaml-schema.json
 	rm -f coverage.txt
+	rm -f generate/templates.zip
 
 .PHONY: docs
 docs:

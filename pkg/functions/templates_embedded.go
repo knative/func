@@ -8,7 +8,7 @@ import (
 	"knative.dev/func/pkg/filesystem"
 )
 
-//go:generate go run ../../generate/templates/main.go
+//go:generate go run ../../generate/templates
 
 func newEmbeddedTemplatesFS() filesystem.Filesystem {
 	archive, err := zip.NewReader(bytes.NewReader(generate.TemplatesZip), int64(len(generate.TemplatesZip)))

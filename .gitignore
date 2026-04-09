@@ -16,6 +16,7 @@
 /pkg/functions/testdata/default_home/go
 /pkg/functions/testdata/default_home/.config
 /pkg/functions/testdata/default_home/.cache
+/generate/templates.zip
 /pkg/functions/testdata/migrations/*/.gitignore
 /pkg/functions/testdata/default_home/Library
 
