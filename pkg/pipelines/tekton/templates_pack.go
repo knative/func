@@ -64,6 +64,10 @@ spec:
         - name: ENV_VARS
           value:
             - '$(params.buildEnvs[*])'
+        {{- if eq .TlsVerify "false"}}
+        - name: INSECURE_REGISTRIES
+          value: $(params.registry)
+        {{- end}}
       runAfter:
         - scaffold
       {{.FuncBuildpacksTaskRef}}

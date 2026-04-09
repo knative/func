@@ -89,6 +89,9 @@ spec:
     - name: PLATFORM_DIR
       description: The name of the platform directory.
       default: empty-dir
+    - name: INSECURE_REGISTRIES
+      description: Registries to access without TLS verification
+      default: ""
 
   results:
     - name: IMAGE_DIGEST
@@ -182,6 +185,8 @@ spec:
       env:
         - name: DOCKER_CONFIG
           value: $(workspaces.dockerconfig.path)
+        - name: CNB_INSECURE_REGISTRIES
+          value: $(params.INSECURE_REGISTRIES)
       args:
         - "-app=$(workspaces.source.path)/$(params.SOURCE_SUBPATH)"
         - "-cache-dir=$(workspaces.cache.path)"
