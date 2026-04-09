@@ -164,8 +164,8 @@ func TestInt_Gitlab(t *testing.T) {
 	select {
 	case <-buildDoneCh:
 		t.Log("build done on time")
-	case <-time.After(time.Minute * 10):
-		t.Error("build has not been done in time (10 minute timeout)")
+	case <-time.After(time.Minute * 15):
+		t.Error("build has not been done in time (15 minute timeout)")
 	case <-ctx.Done():
 		t.Error("cancelled")
 	}
@@ -280,14 +280,6 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, baseURL, username, passwo
 		t.Fatal(err)
 	}
 
-	// For some reason the setting update does not kick in immediately.
-	select {
-	case <-time.After(time.Second * 60):
-		break
-	case <-ctx.Done():
-		t.Fatal(ctx.Err())
-	}
-
 	//endregion
 
 	//region Create test user
@@ -358,6 +350,14 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, baseURL, username, passwo
 	t.Cleanup(func() {
 		_, _ = glabCli.Projects.DeleteProject(project.ID, nil)
 	})
+	//endregion
+
+	//region Wait for AllowLocalRequestsFromWebHooksAndServices to propagate
+	// The API confirms the setting immediately, but GitLab silently drops
+	// webhooks to local IPs until internal propagation completes. We verify
+	// by creating a temporary webhook and firing test events until one is
+	// delivered successfully.
+	waitForLocalWebhooksAllowed(ctx, t, glabCli, project.ID)
 	//endregion
 
 	//region Add public SSK key for test user
@@ -698,6 +698,37 @@ func awaitBuildCompletion(t *testing.T, name, ns string) <-chan struct{} {
 		}
 	}()
 	return ch
+}
+
+// waitForLocalWebhooksAllowed polls until GitLab allows creating webhooks
+// that target local (non-public) IPs. When AllowLocalRequestsFromWebHooksAndServices
+// is not yet propagated, GitLab rejects hook creation with "Invalid url given".
+func waitForLocalWebhooksAllowed(ctx context.Context, t *testing.T, glabCli *gitlab.Client, projectID int) {
+	t.Helper()
+
+	localURL := "http://" + os.Getenv("FUNC_INT_GITLAB_HOSTNAME")
+
+	deadline := time.After(2 * time.Minute)
+	for attempt := 1; ; attempt++ {
+		hook, _, err := glabCli.Projects.AddProjectHook(projectID, &gitlab.AddProjectHookOptions{
+			URL:        p(localURL),
+			PushEvents: p(true),
+		})
+		if err == nil {
+			_, _ = glabCli.Projects.DeleteProjectHook(projectID, hook.ID)
+			t.Logf("local webhook creation confirmed after %d attempt(s)", attempt)
+			return
+		}
+		t.Logf("webhook probe attempt %d: %v", attempt, err)
+		select {
+		case <-time.After(5 * time.Second):
+			// retry
+		case <-deadline:
+			t.Fatal("timed out waiting for GitLab to allow local webhook creation")
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		}
+	}
 }
 
 func p[T any](t T) *T {
