@@ -1,0 +1,10 @@
+package boson:function;
+
+world boson {
+  include wasi:http/proxy@0.2.3;
+
+  // TinyGo's wasip2 runtime requires the full CLI world imports
+  // (environment, filesystem, sockets, etc.) beyond what
+  // wasi:http/proxy provides.
+  include wasi:cli/imports@0.2.3;
+}

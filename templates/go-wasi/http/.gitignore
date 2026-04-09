@@ -1,0 +1,5 @@
+# Generated Go bindings (produced by go generate — do not commit)
+gen/
+
+# Build output
+module.wasm

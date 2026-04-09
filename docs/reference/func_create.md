@@ -31,6 +31,7 @@ DESCRIPTION
 	  --------     --------
 	  go           cloudevents
 	  go           http
+	  go-wasi      http
 	  node         cloudevents
 	  node         http
 	  python       cloudevents
@@ -39,6 +40,7 @@ DESCRIPTION
 	  quarkus      http
 	  rust         cloudevents
 	  rust         http
+	  rust-wasi    http
 	  springboot   cloudevents
 	  springboot   http
 	  typescript   cloudevents

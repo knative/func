@@ -16,6 +16,7 @@ const (
 	Host    = "host"
 	Pack    = "pack"
 	S2I     = "s2i"
+	Wasm    = "wasm"
 	Default = Pack
 )
 
@@ -23,7 +24,7 @@ const (
 type Known []string
 
 func All() Known {
-	return Known([]string{Host, Pack, S2I})
+	return Known([]string{Host, Pack, S2I, Wasm})
 }
 
 func (k Known) String() string {

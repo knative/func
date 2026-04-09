@@ -181,7 +181,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 
 	// Client
-	clientOptions, err := cfg.clientOptions()
+	clientOptions, err := cfg.clientOptions(f.Runtime)
 	if err != nil {
 		return
 	}

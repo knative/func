@@ -80,6 +80,12 @@ const (
 	// must be properly configured in the cluster's DNS and Knative serving.
 	DefaultDomain = "localtest.me"
 
+	// DefaultHTTPPort is the host port where the cluster's ingress listens for
+	// HTTP traffic. The cluster.sh script maps containerPort 80 to hostPort 8080
+	// to avoid requiring CAP_NET_BIND_SERVICE / privileged port access.
+	// Override with FUNC_E2E_HTTP_PORT.
+	DefaultHTTPPort = "8080"
+
 	// DefaultRegistry to use when running the e2e tests.  This is the URL
 	// of the registry created by default when using the cluster.sh script
 	// to set up a local testing cluster, but can be customized with
@@ -128,6 +134,11 @@ var (
 	// config-domain. The pattern is: http://{function}.{namespace}.{domain}
 	// Can be set with FUNC_E2E_DOMAIN
 	Domain string
+
+	// HTTPPort is the host port where the cluster ingress serves HTTP traffic.
+	// The cluster.sh default maps containerPort 80 → hostPort 8080.
+	// Can be set with FUNC_E2E_HTTP_PORT.
+	HTTPPort string
 
 	// Gocoverdir is the path to the directory which will be used for Go's
 	// coverage reporting, provided to the test binary as GOCOVERDIR.  By
@@ -336,6 +347,9 @@ func readEnvs() {
 
 	// Domain - the DNS domain suffix for function URLs
 	Domain = getEnv("FUNC_E2E_DOMAIN", "", DefaultDomain)
+
+	// HTTPPort - the host port for HTTP ingress
+	HTTPPort = getEnv("FUNC_E2E_HTTP_PORT", "", DefaultHTTPPort)
 
 	// Gocoverdir - the coverage directory to use while testing the go binary.
 	Gocoverdir = getEnvPath("FUNC_E2E_GOCOVERDIR", "", DefaultGocoverdir)
@@ -1242,5 +1256,10 @@ func ksvcUrl(name string) string {
 	if err != nil {
 		panic(err)
 	}
-	return ksvcDefaultExternalScheme + `://` + buf.String()
+	host := buf.String()
+	// Include port explicitly when it differs from the default HTTP port (80).
+	if HTTPPort != "" && HTTPPort != "80" {
+		host = host + ":" + HTTPPort
+	}
+	return ksvcDefaultExternalScheme + `://` + host
 }

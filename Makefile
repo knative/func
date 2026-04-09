@@ -312,6 +312,11 @@ test-e2e-matrix: func-instrumented-bin ## Basic E2E tests (includes core, metada
 	FUNC_E2E_MATRIX=true go test -tags e2e -timeout 120m ./e2e -v -run TestMatrix_
 	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
 
+.PHONY: test-e2e-wasi
+test-e2e-wasi: func-instrumented-bin ## WASI E2E tests (rust-wasi, go-wasi runtimes)
+	go test -tags e2e -timeout 120m ./e2e -v -run TestWasm_
+	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
+
 .PHONY: test-e2e-config-ci
 test-e2e-config-ci: func-instrumented-bin ## CI tests for generated GitHub Workflows
 	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go

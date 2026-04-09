@@ -3,6 +3,7 @@ package functions
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -372,8 +373,8 @@ func loadRepoConfig(fs filesystem.Filesystem, repoCfg repoConfig) (repoConfig, e
 	}
 	defer file.Close()
 
-	if err = yaml.NewDecoder(file).Decode(&repoCfg); err != nil {
-		return repoCfg, err
+	if err = yaml.NewDecoder(file).Decode(&repoCfg); err != nil && !errors.Is(err, io.EOF) {
+		return repoCfg, err // empty or comment-only manifest.yaml is valid (io.EOF)
 	}
 
 	// Default TemplatesPath to CWD
@@ -401,7 +402,9 @@ func loadRuntimeConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtime str
 		return // errors other than "Not found" are legitimate
 	}
 	defer file.Close()
-	err = yaml.NewDecoder(file).Decode(&runtimeCfg)
+	if err = yaml.NewDecoder(file).Decode(&runtimeCfg); errors.Is(err, io.EOF) {
+		err = nil // empty or comment-only manifest.yaml is valid
+	}
 	return
 }
 
@@ -422,7 +425,9 @@ func loadTemplateConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtimeCfg
 		return
 	}
 	defer file.Close()
-	err = yaml.NewDecoder(file).Decode(&tplCfg)
+	if err = yaml.NewDecoder(file).Decode(&tplCfg); errors.Is(err, io.EOF) {
+		err = nil // empty or comment-only manifest.yaml is valid
+	}
 	return
 }
 

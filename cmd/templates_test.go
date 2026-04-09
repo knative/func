@@ -24,6 +24,7 @@ func TestTemplates_Default(t *testing.T) {
 	expected := `LANGUAGE     TEMPLATE
 go           cloudevents
 go           http
+go-wasi      http
 node         cloudevents
 node         http
 python       cloudevents
@@ -32,6 +33,7 @@ quarkus      cloudevents
 quarkus      http
 rust         cloudevents
 rust         http
+rust-wasi    http
 springboot   cloudevents
 springboot   http
 typescript   cloudevents
@@ -59,6 +61,9 @@ func TestTemplates_JSON(t *testing.T) {
     "cloudevents",
     "http"
   ],
+  "go-wasi": [
+    "http"
+  ],
   "node": [
     "cloudevents",
     "http"
@@ -73,6 +78,9 @@ func TestTemplates_JSON(t *testing.T) {
   ],
   "rust": [
     "cloudevents",
+    "http"
+  ],
+  "rust-wasi": [
     "http"
   ],
   "springboot": [

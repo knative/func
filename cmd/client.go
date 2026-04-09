@@ -19,6 +19,7 @@ import (
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/pipelines/tekton"
+	"knative.dev/func/pkg/wasm"
 )
 
 // ClientConfig settings for use with NewClient
@@ -69,9 +70,9 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithScaffolder(buildpacks.NewScaffolder(cfg.Verbose)),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
-			fn.WithRemovers(knative.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose), keda.NewRemover(cfg.Verbose)),
-			fn.WithDescribers(knative.NewDescriber(cfg.Verbose), k8s.NewDescriber(cfg.Verbose), keda.NewDescriber(cfg.Verbose)),
-			fn.WithListers(knative.NewLister(cfg.Verbose), k8s.NewLister(cfg.Verbose), keda.NewLister(cfg.Verbose)),
+			fn.WithRemovers(knative.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose), keda.NewRemover(cfg.Verbose), wasm.NewRemover(wasm.WithRemoverVerbose(cfg.Verbose))),
+			fn.WithDescribers(knative.NewDescriber(cfg.Verbose), k8s.NewDescriber(cfg.Verbose), keda.NewDescriber(cfg.Verbose), wasm.NewDescriber(wasm.WithDescriberVerbose(cfg.Verbose))),
+			fn.WithListers(knative.NewLister(cfg.Verbose), k8s.NewLister(cfg.Verbose), keda.NewLister(cfg.Verbose), wasm.NewLister(wasm.WithListerVerbose(cfg.Verbose))),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(
@@ -160,24 +161,6 @@ func newKnativeDeployer(verbose bool) fn.Deployer {
 	}
 
 	return knative.NewDeployer(options...)
-}
-
-func newK8sDeployer(verbose bool) fn.Deployer {
-	options := []k8s.DeployerOpt{
-		k8s.WithDeployerVerbose(verbose),
-		k8s.WithDeployerDecorator(deployDecorator{}),
-	}
-
-	return k8s.NewDeployer(options...)
-}
-
-func newKedaDeployer(verbose bool) fn.Deployer {
-	options := []keda.DeployerOpt{
-		keda.WithDeployerVerbose(verbose),
-		keda.WithDeployerDecorator(deployDecorator{}),
-	}
-
-	return keda.NewDeployer(options...)
 }
 
 type deployDecorator struct {

@@ -20,10 +20,12 @@ func TestLanguages_Default(t *testing.T) {
 	}
 
 	expected := `go
+go-wasi
 node
 python
 quarkus
 rust
+rust-wasi
 springboot
 typescript`
 	output := buf()
@@ -46,10 +48,12 @@ func TestLanguages_JSON(t *testing.T) {
 
 	expected := `[
   "go",
+  "go-wasi",
   "node",
   "python",
   "quarkus",
   "rust",
+  "rust-wasi",
   "springboot",
   "typescript"
 ]`

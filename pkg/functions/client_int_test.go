@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,6 +70,19 @@ var (
 	Home, _    = filepath.Abs(DefaultIntTestHome)
 	//Registry = // see testing package (it's shared)
 )
+
+func withIngressPort(rawURL string) string {
+	port := os.Getenv("FUNC_E2E_HTTP_PORT")
+	if port == "" || port == "80" {
+		return rawURL
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	u.Host = u.Hostname() + ":" + port
+	return u.String()
+}
 
 // containsInstance checks if the list includes the given instance.
 func containsInstance(list []fn.ListItem, name, namespace string) bool {
@@ -431,7 +445,7 @@ func (f *Function) Handle(res http.ResponseWriter, req *http.Request) {
 	}
 	defer del(t, client, "f", DefaultIntTestNamespace)
 
-	// Invoke via the route
+	route = withIngressPort(route)
 	resp, err := http.Get(route)
 	if err != nil {
 		t.Fatal(err)
@@ -564,6 +578,7 @@ func (f *Function) Handle(w http.ResponseWriter, req *http.Request) {
 	}
 	defer func() { _ = client2.Remove(ctx, "", "", f, true) }()
 
+	route = withIngressPort(route)
 	resp, err := http.Get(route)
 	if err != nil {
 		t.Fatal(err)

@@ -141,6 +141,7 @@ jobs:
     timeout-minutes: 120
     env:
       FUNC_CLUSTER_RETRIES: 5
+      FUNC_E2E_HTTP_PORT: "8080"
       FUNC_INT_TEKTON_ENABLED: true
       FUNC_INT_GITLAB_ENABLED: true
       FUNC_INT_GITLAB_HOSTNAME: gitlab.localtest.me
@@ -450,6 +451,73 @@ jobs:
           path: ./cluster_log.txt
           retention-days: 7
 
+  # ---------------
+  # E2E WASI TESTS
+  # ---------------
+  test-e2e-wasi:
+    name: E2E - WASI (rust-wasi, go-wasi)
+    needs: precheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      FUNC_CLUSTER_RETRIES: 5
+      FUNC_E2E_CLEAN: false
+      FUNC_E2E_VERBOSE: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - uses: endersonmenezes/free-disk-space@v3
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_haskell: true
+          remove_swap: true
+          rm_cmd: "rmz"
+
+      - name: Setup Rust with wasm32-wasip2 target
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-wasip2
+
+      - name: Setup TinyGo
+        run: |
+          TINYGO_VERSION=0.36.0
+          wget -q "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/tinygo_${TINYGO_VERSION}_amd64.deb"
+          sudo dpkg -i "tinygo_${TINYGO_VERSION}_amd64.deb"
+          tinygo version
+
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/cluster.sh
+      - name: Start Local Registry
+        run: ./hack/registry.sh
+      - name: Prepare Images
+        run: ./hack/images.sh
+
+      - name: Run WASI E2E Tests
+        run: make test-e2e-wasi
+
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          flags: e2e-wasi
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      # Preserve Cluster Logs
+      - name: Dump Cluster Logs
+        if: always()
+        run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Archive Cluster Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs-e2e-wasi
+          path: ./cluster_log.txt
+          retention-days: 7
+
   # Build and Publish
   build:
     name: Build Release
@@ -461,6 +529,7 @@ jobs:
       - test-e2e-podman
       - test-e2e-runtimes
       - test-e2e-config-ci
+      - test-e2e-wasi
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30

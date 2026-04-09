@@ -122,6 +122,11 @@
 						"$ref": "#/definitions/KnativeSubscription"
 					},
 					"type": "array"
+				},
+				"network": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/NetworkSpec",
+					"description": "Network specifies WASI network permissions for WASM functions.\nOnly used when the deployer is \"wasm\".\n+optional"
 				}
 			},
 			"additionalProperties": false,
@@ -312,6 +317,31 @@
 			"additionalProperties": false,
 			"type": "object"
 		},
+		"NetworkSpec": {
+			"properties": {
+				"inherit": {
+					"type": "boolean",
+					"description": "Inherit indicates whether to inherit the host's full network stack.\nWhen true, all network operations are allowed.\nDefaults to false.\n+optional"
+				},
+				"allowIpNameLookup": {
+					"type": "boolean",
+					"description": "AllowIpNameLookup enables DNS resolution.\nDefaults to true when Network is specified.\n+optional"
+				},
+				"tcp": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/TcpNetworkSpec",
+					"description": "Tcp specifies TCP socket permissions.\n+optional"
+				},
+				"udp": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/UdpNetworkSpec",
+					"description": "Udp specifies UDP socket permissions.\n+optional"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object",
+			"description": "NetworkSpec specifies WASI network permissions for a WASM function."
+		},
 		"Options": {
 			"properties": {
 				"scale": {
@@ -403,6 +433,13 @@
 					"type": "array",
 					"description": "Env variables to be set"
 				},
+				"args": {
+					"items": {
+						"type": "string"
+					},
+					"type": "array",
+					"description": "Args are command-line arguments passed to the function at runtime.\n+optional"
+				},
 				"startTimeout": {
 					"type": "integer",
 					"description": "StartTimeout specifies that this function should have a custom timeout\nwhen starting. This setting is currently respected by the host runner,\nwith containerized docker runner and deployed Knative service integration\nin development."
@@ -441,6 +478,55 @@
 			},
 			"additionalProperties": false,
 			"type": "object"
+		},
+		"TcpNetworkSpec": {
+			"properties": {
+				"bind": {
+					"items": {
+						"type": "string"
+					},
+					"type": "array",
+					"description": "Bind is a list of address patterns allowed for TCP bind.\n+optional"
+				},
+				"connect": {
+					"items": {
+						"type": "string"
+					},
+					"type": "array",
+					"description": "Connect is a list of address patterns allowed for outbound TCP connections.\nFormat: \"host:port\", wildcards: \"*:443\", \"host:*\", \"*:*\"\n+optional"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object",
+			"description": "TcpNetworkSpec specifies TCP socket permissions for WASI."
+		},
+		"UdpNetworkSpec": {
+			"properties": {
+				"bind": {
+					"items": {
+						"type": "string"
+					},
+					"type": "array",
+					"description": "Bind is a list of address patterns allowed for UDP bind.\n+optional"
+				},
+				"connect": {
+					"items": {
+						"type": "string"
+					},
+					"type": "array",
+					"description": "Connect is a list of address patterns allowed for outbound UDP.\n+optional"
+				},
+				"outgoing": {
+					"items": {
+						"type": "string"
+					},
+					"type": "array",
+					"description": "Outgoing is a list of address patterns allowed for outgoing UDP datagrams.\n+optional"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object",
+			"description": "UdpNetworkSpec specifies UDP socket permissions for WASI."
 		},
 		"Volume": {
 			"properties": {

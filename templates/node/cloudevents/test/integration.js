@@ -23,7 +23,7 @@ const message = HTTP.binary(new CloudEvent({
 }));
 
 test('Integration: handles a valid event', t => {
-  start(func).then(server => {
+  start(func, { port: 0 }).then(server => {
     t.plan(5);
     request(server)
       .post('/')

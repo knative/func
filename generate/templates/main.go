@@ -9,12 +9,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
+
+	ignore "github.com/sabhiram/go-gitignore"
 )
 
 const templatesPath = "../../templates"
 
 // This program generates zz_filesystem_generated.go file containing byte array variable named TemplatesZip.
-// The variable contains zip of "./templates" directory.
+// The variable contains zip of "./templates" directory, respecting .gitignore files.
 func main() {
 	f, err := os.OpenFile("../../generate/zz_filesystem_generated.go", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -32,6 +35,10 @@ func main() {
 
 	zipWriter := zip.NewWriter(newGoByteArrayWriter(srcOut))
 	buff := make([]byte, 4*1024)
+
+	// gitignoreCache caches compiled gitignore rules keyed by the directory containing .gitignore.
+	gitignoreCache := map[string]*ignore.GitIgnore{}
+
 	err = filepath.Walk(templatesPath, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -45,6 +52,28 @@ func main() {
 			return nil
 		}
 		name = filepath.ToSlash(name)
+
+		// Check if this path should be ignored by any .gitignore along the path.
+		if shouldIgnore(path, name, info.IsDir(), templatesPath, gitignoreCache) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Load .gitignore from the current directory if it exists and not yet cached.
+		if info.IsDir() {
+			gitignorePath := filepath.Join(path, ".gitignore")
+			if _, statErr := os.Stat(gitignorePath); statErr == nil {
+				if _, cached := gitignoreCache[path]; !cached {
+					compiled, compileErr := ignore.CompileIgnoreFile(gitignorePath)
+					if compileErr == nil {
+						gitignoreCache[path] = compiled
+					}
+				}
+			}
+		}
+
 		if info.IsDir() {
 			name = name + "/"
 		}
@@ -104,6 +133,44 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+// shouldIgnore returns true if the given path matches any .gitignore rule from
+// any parent directory up to (and including) the templates root.
+// isDir controls whether a trailing slash is appended when matching, which is
+// required for gitignore patterns like "target/" that only match directories.
+func shouldIgnore(absPath, relFromTemplates string, isDir bool, templatesRoot string, cache map[string]*ignore.GitIgnore) bool {
+	// Walk up from the file's parent directory to the templates root,
+	// checking each directory's .gitignore rules.
+	dir := filepath.Dir(absPath)
+	for {
+		if gi, ok := cache[dir]; ok {
+			// Compute the path relative to the directory containing .gitignore.
+			rel, err := filepath.Rel(dir, absPath)
+			if err == nil {
+				rel = filepath.ToSlash(rel)
+				// Append trailing slash for directories so that patterns like
+				// "target/" (directory-only) are matched correctly.
+				if isDir {
+					rel = rel + "/"
+				}
+				if gi.MatchesPath(rel) {
+					return true
+				}
+			}
+		}
+
+		// Stop after processing the templates root directory.
+		if dir == templatesRoot || !strings.HasPrefix(dir, templatesRoot) {
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return false
 }
 
 // goByteArrayWriter dumps bytes as a Go integer hex literals separated by commas into underlying Writer.

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,12 +12,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"knative.dev/func/pkg/builders"
-	"knative.dev/func/pkg/buildpacks"
 	"knative.dev/func/pkg/config"
-	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/oci"
-	"knative.dev/func/pkg/s2i"
 )
 
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
@@ -165,6 +162,11 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if !f.Initialized() {
 		return NewErrNotInitializedFromPath(f.Root, "build")
 	}
+	// Track if builder was explicitly set via --builder flag or already persisted
+	// in func.yaml. Must be checked before Configure() overwrites f.Build.Builder
+	// with the static default from config.
+	originalBuilder := f.Build.Builder // value from func.yaml before Configure()
+	cfg.BuilderExplicit = cmd.Flags().Changed("builder") || f.Build.Builder != ""
 
 	// Warn if registry changed but registryInsecure is still true
 	warnRegistryInsecureChange(os.Stderr, cfg.Registry, f)
@@ -172,7 +174,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 
 	// Client
-	clientOptions, err := cfg.clientOptions()
+	clientOptions, err := cfg.clientOptions(f.Runtime)
 	if err != nil {
 		return
 	}
@@ -197,6 +199,14 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 			return
 		}
 	}
+	// If builder was inferred (not set via --builder or func.yaml), do not persist
+	// the inferred value. On the next build inference will be repeated, and the
+	// static default (e.g. "pack") won't accidentally lock a WASI function.
+	if !cfg.BuilderExplicit {
+		if inferred := newRegistry().InferBuilder(f.Runtime); inferred != "" {
+			f.Build.Builder = originalBuilder // restore pre-Configure value (empty → omitempty)
+		}
+	}
 	if err = f.Write(); err != nil {
 		return
 	}
@@ -217,6 +227,11 @@ func warnRegistryInsecureChange(w io.Writer, newRegistry string, f fn.Function) 
 type buildConfig struct {
 	// Globals (builder, confirm, registry, verbose)
 	config.Global
+
+	// BuilderExplicit is true when the builder was set via --builder flag
+	// or was already persisted in func.yaml. When false, runtime-based
+	// inference is used (e.g. WASI runtimes → "wasm" builder).
+	BuilderExplicit bool
 
 	// BuilderImage is the image (name or mapping) to use for building.  Usually
 	// set automatically.
@@ -304,7 +319,7 @@ func (c buildConfig) Configure(f fn.Function) fn.Function {
 func (c buildConfig) Prompt() (buildConfig, error) {
 	// If there is no registry nor explicit image name defined, the
 	// Registry prompt is shown whether or not we are in confirm mode.
-	// Otherwise, it is only showin if in confirm mode
+	// Otherwise, it is only shown if in confirm mode
 	// NOTE: the default in this latter situation will ignore the current function
 	// value and will always use the value from the config (flag or env variable).
 	// This is not strictly correct and will be fixed when Global Config: Function
@@ -342,10 +357,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	}
 
 	// Remainder of prompts are optional and only shown if in --confirm mode
-	// Image Name Override
-	// Calculate a better image name message which shows the value of the final
-	// image name as it will be calculated if an explicit image name is not used.
-
+	r := newRegistry()
 	qs := []*survey.Question{
 		{
 			Name: "image",
@@ -364,7 +376,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 			Name: "builder",
 			Prompt: &survey.Select{
 				Message: "Select builder:",
-				Options: []string{"pack", "s2i", "host"},
+				Options: r.ListBuilders(),
 				Default: c.Builder,
 			},
 		},
@@ -403,7 +415,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 
 // Validate the config passes an initial consistency check
 func (c buildConfig) Validate(cmd *cobra.Command) (err error) {
-	// Builder value must refer to a known builder short name
+	// Builder value must refer to a registered builder
 	if err = ValidateBuilder(c.Builder); err != nil {
 		return
 	}
@@ -429,62 +441,58 @@ func (c buildConfig) Validate(cmd *cobra.Command) (err error) {
 
 // clientOptions returns options suitable for instantiating a client based on
 // the current state of the build config object.
-// This will be unnecessary and refactored away when the host-based OCI
-// builder and pusher are the default implementations and the Pack and S2I
-// constructors simplified.
-//
-// TODO: Platform is currently only used by the S2I builder.  This should be
-// a multi-valued argument which passes through to the "host" builder (which
-// supports multi-arch/platform images), and throw an error if either trying
-// to specify a platform for buildpacks, or trying to specify more than one
-// for S2I.
-//
-// TODO: As a further optimization, it might be ideal to only build the
-// image necessary for the target cluster, since the end product of a function
-// deployment is not the container, but rather the running service.
-func (c buildConfig) clientOptions() ([]fn.Option, error) {
+// runtime is the function's runtime string (e.g. "go", "rust-wasi") used to
+// infer the builder when the user has not explicitly specified one via --builder.
+func (c buildConfig) clientOptions(runtime string) ([]fn.Option, error) {
 	o := []fn.Option{
 		fn.WithRegistry(c.Registry),
 		fn.WithRegistryInsecure(c.RegistryInsecure),
 	}
 
 	t := newTransport(c.RegistryInsecure)
-	creds := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile)
+	credsProvider := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile)
 
-	switch c.Builder {
-	case builders.Host:
-		o = append(o,
-			fn.WithScaffolder(oci.NewScaffolder(c.Verbose)),
-			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
-			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose,
-				oci.WithTransport(newTransport(c.RegistryInsecure)),
-				oci.WithCredentialsProvider(creds),
-				oci.WithVerbose(c.Verbose))),
-		)
-	case builders.Pack:
-		o = append(o,
-			fn.WithScaffolder(buildpacks.NewScaffolder(c.Verbose)),
-			fn.WithBuilder(buildpacks.NewBuilder(
-				buildpacks.WithName(builders.Pack),
-				buildpacks.WithTimestamp(c.WithTimestamp),
-				buildpacks.WithVerbose(c.Verbose))),
-			fn.WithPusher(docker.NewPusher(
-				docker.WithCredentialsProvider(creds),
-				docker.WithTransport(t),
-				docker.WithVerbose(c.Verbose))))
-	case builders.S2I:
-		o = append(o,
-			fn.WithScaffolder(s2i.NewScaffolder(c.Verbose)),
-			fn.WithBuilder(s2i.NewBuilder(
-				s2i.WithName(builders.S2I),
-				s2i.WithVerbose(c.Verbose))),
-			fn.WithPusher(docker.NewPusher(
-				docker.WithCredentialsProvider(creds),
-				docker.WithTransport(t),
-				docker.WithVerbose(c.Verbose))))
-	default:
-		return o, builders.ErrUnknownBuilder{Name: c.Builder, Known: KnownBuilders()}
+	// Convert oci.CredentialsProvider to fn.CredentialsCallback so BuilderConfig
+	// remains stdlib-only (no import of pkg/oci).
+	credsCB := func(ctx context.Context, image string) (string, string, error) {
+		creds, err := credsProvider(ctx, image)
+		return creds.Username, creds.Password, err
 	}
+
+	// Resolve the builder name:
+	//   explicit (--builder flag or func.yaml) > inferred from runtime > static default
+	r := newRegistry()
+	builderName := c.Builder
+	if !c.BuilderExplicit {
+		// No explicit choice — try runtime-based inference.
+		// For traditional runtimes InferBuilder returns "" (keeps static default).
+		// For WASI runtimes it returns "wasm".
+		if inferred := r.InferBuilder(runtime); inferred != "" {
+			builderName = inferred
+		}
+	}
+
+	reg, ok := r.GetBuilder(builderName)
+	if !ok {
+		return o, fmt.Errorf("unknown builder %q; registered builders: %v", builderName, r.ListBuilders())
+	}
+
+	// Validate that the resolved builder supports the function's runtime.
+	// This guards against e.g. --builder=pack used with a wasi runtime.
+	if runtime != "" {
+		if err := r.ValidateBuilderCompatibility(runtime, builderName); err != nil {
+			return o, err
+		}
+	}
+
+	builderOpts := reg.Factory(fn.BuilderConfig{
+		Verbose:          c.Verbose,
+		Transport:        t,
+		RegistryInsecure: c.RegistryInsecure,
+		Credentials:      credsCB,
+		WithTimestamp:    c.WithTimestamp,
+	})
+	o = append(o, builderOpts...)
 	return o, nil
 }
 
@@ -496,15 +504,35 @@ func (c buildConfig) buildOptions() (oo []fn.BuildOption, err error) {
 	//
 	// TODO: upgrade --platform to a multi-value field.  The individual builder
 	// implementations are responsible for bubbling an error if they do
-	// not support this.  Pack  supports none, S2I supports one, host builder
+	// not support this.  Pack supports none, S2I supports one, host builder
 	// supports multi.
 	if c.Platform != "" {
 		parts := strings.Split(c.Platform, "/")
 		if len(parts) != 2 {
-			return oo, fmt.Errorf("the value for --patform must be in the form [OS]/[Architecture].  eg \"linux/amd64\"")
+			return oo, fmt.Errorf("the value for --platform must be in the form [OS]/[Architecture].  eg \"linux/amd64\"")
 		}
 		oo = append(oo, fn.BuildWithPlatforms([]fn.Platform{{OS: parts[0], Architecture: parts[1]}}))
 	}
 
 	return
+}
+
+// ValidateBuilder ensures that the given builder name is registered.
+func ValidateBuilder(name string) error {
+	r := newRegistry()
+	if _, ok := r.GetBuilder(name); ok {
+		return nil
+	}
+	return builders.ErrUnknownBuilder{Name: name, Known: builders.Known(r.ListBuilders())}
+}
+
+// KnownBuilders returns all registered builder names as a builders.Known slice
+// (for use in flag help text).
+func KnownBuilders() builders.Known {
+	return builders.Known(newRegistry().ListBuilders())
+}
+
+// KnownDeployers returns all registered deployer names as a slice.
+func KnownDeployers() []string {
+	return newRegistry().ListDeployers()
 }

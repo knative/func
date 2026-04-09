@@ -58,6 +58,7 @@ set_versions() {
 	pac_version="{{.Pac.Version}}"
 	keda_version="{{.Keda.Version}}"
 	keda_http_addon_version="{{.KedaHTTPAddOn.Version}}"
+	knative_serving_wasm_version="{{.KnativeServingWasm.Version}}"
 }
 `
 )

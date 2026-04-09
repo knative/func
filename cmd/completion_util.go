@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 )
 
@@ -168,21 +167,15 @@ func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (ma
 }
 
 func CompleteDeployerList(cmd *cobra.Command, args []string, complete string) (matches []string, d cobra.ShellCompDirective) {
-	deployers := []string{
-		knative.KnativeDeployerName,
-		k8s.KubernetesDeployerName,
-		keda.KedaDeployerName,
-	}
-
 	d = cobra.ShellCompDirectiveNoFileComp
 	matches = []string{}
 
 	if len(complete) == 0 {
-		matches = deployers
+		matches = KnownDeployers()
 		return
 	}
 
-	for _, b := range deployers {
+	for _, b := range KnownDeployers() {
 		if strings.HasPrefix(b, complete) {
 			matches = append(matches, b)
 		}

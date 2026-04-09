@@ -14,6 +14,7 @@ require (
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 	github.com/blang/semver/v4 v4.0.0
 	github.com/buildpacks/pack v0.38.2
+	github.com/cardil/knative-serving-wasm v0.2.0
 	github.com/chainguard-dev/git-urls v1.0.2
 	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/containerd/errdefs v1.0.0
@@ -66,7 +67,7 @@ require (
 	k8s.io/apimachinery v0.35.3
 	k8s.io/client-go v0.35.3
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/utils v0.0.0-20260108192941-914a6e750570
+	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	knative.dev/client/pkg v0.0.0-20260408023626-7500e29e0483
 	knative.dev/eventing v0.48.1-0.20260407031326-e88c518ea768
 	knative.dev/hack v0.0.0-20260318014029-7eede7fdcbad
@@ -317,7 +318,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.35.3 // indirect
 	k8s.io/apiserver v0.35.3 // indirect
 	k8s.io/cli-runtime v0.34.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20251125145642-4e65d59e963e // indirect
+	k8s.io/kube-openapi v0.0.0-20260304202019-5b3e3fdb0acf // indirect
 	knative.dev/networking v0.0.0-20260407015926-cc2f0572b3c2 // indirect
 	sigs.k8s.io/controller-runtime v0.22.1 // indirect
 	sigs.k8s.io/gateway-api v1.4.1 // indirect
@@ -325,6 +326,6 @@ require (
 	sigs.k8s.io/kustomize/api v0.21.0 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.1 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
