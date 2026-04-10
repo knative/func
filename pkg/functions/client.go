@@ -188,6 +188,7 @@ type Instance struct {
 	Subscriptions []Subscription    `json:"subscriptions" yaml:"subscriptions"`
 	Labels        map[string]string `json:"labels" yaml:"labels" xml:"-"`
 	Middleware    Middleware        `json:"middleware,omitempty" yaml:"middleware,omitempty"`
+	Generation    int64             `json:"generation,omitempty" yaml:"generation,omitempty"`
 }
 
 // Subscriptions currently active to event sources

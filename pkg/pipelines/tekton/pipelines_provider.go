@@ -31,6 +31,7 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	fnlabels "knative.dev/func/pkg/k8s/labels"
+	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	"knative.dev/pkg/apis"
@@ -236,27 +237,33 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, fmt.Errorf("function pipeline run has failed with message: \n\n%s", message)
 	}
 
-	kClient, err := knative.NewServingClient(namespace)
+	var describer fn.Describer
+	switch f.Deploy.Deployer {
+	case k8s.KubernetesDeployerName:
+		describer = k8s.NewDescriber(false)
+	case keda.KedaDeployerName:
+		describer = keda.NewDescriber(false)
+	default:
+		// default to knative
+		describer = knative.NewDescriber(false)
+	}
+
+	obj, err := describer.Describe(ctx, f.Name, f.Namespace)
 	if err != nil {
 		return "", f, fmt.Errorf("problem in retrieving status of deployed function: %v", err)
 	}
 
-	ksvc, err := kClient.GetService(ctx, f.Name)
-	if err != nil {
-		return "", f, fmt.Errorf("problem in retrieving status of deployed function: %v", err)
-	}
-
-	if ksvc.Generation == 1 {
-		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %s\n", ksvc.Namespace, ksvc.Status.URL.String())
+	if obj.Generation == 1 {
+		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %s\n", obj.Namespace, obj.Route)
 	} else {
-		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %s\n", ksvc.Namespace, ksvc.Status.URL.String())
+		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %s\n", obj.Namespace, obj.Route)
 	}
 
-	if ksvc.Namespace != namespace {
-		fmt.Fprintf(os.Stderr, "Warning: Final ksvc namespace %q does not match expected %q", ksvc.Namespace, namespace)
+	if obj.Namespace != namespace {
+		fmt.Fprintf(os.Stderr, "Warning: Final function namespace %q does not match expected %q", obj.Namespace, namespace)
 	}
 
-	return ksvc.Status.URL.String(), f, nil
+	return obj.Route, f, nil
 }
 
 // Creates tar stream with the function sources as they were in "./source" directory.

@@ -104,6 +104,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Middleware: fn.Middleware{
 			Version: middlewareVersion,
 		},
+		Generation: deployment.Generation,
 	}
 
 	return description, nil
