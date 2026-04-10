@@ -49,7 +49,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 			continue
 		}
 
-		item, err := l.get(ctx, httpScaledObjectClientset, service.Name, namespace)
+		item, err := l.get(ctx, httpScaledObjectClientset, service.Name, service.Namespace)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get details about function: %v", err)
 		}
