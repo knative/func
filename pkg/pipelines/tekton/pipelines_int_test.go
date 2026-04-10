@@ -69,11 +69,10 @@ func newRemoteTestClient(verbose bool, deployer string, opts ...fn.Option) *fn.C
 
 // assertFunctionEchoes returns without error when the function of the given
 // name echoes a parameter sent via a Get request.
-func assertFunctionEchoes(url string) (err error) {
+func assertFunctionEchoes(httpClient *http.Client, url string) (err error) {
 	token := time.Now().Format("20060102150405.000000000")
 
-	// res, err := http.Get("http://testremote-default.default.localtest.me?token=" + token)
-	res, err := http.Get(url + "?token=" + token)
+	res, err := httpClient.Get(url + "?token=" + token)
 	if err != nil {
 		return
 	}
@@ -90,6 +89,28 @@ func assertFunctionEchoes(url string) (err error) {
 		_, _ = httputil.DumpResponse(res, true)
 	}
 	return
+}
+
+// httpClientForDeployer returns an HTTP client appropriate for the deployer type.
+// Raw and keda deployers expose cluster-internal services, so an in-cluster
+// dialer is needed. Knative services are externally accessible via ingress.
+func httpClientForDeployer(t *testing.T, ctx context.Context, deployer string) *http.Client {
+	switch deployer {
+	case k8s.KubernetesDeployerName, keda.KedaDeployerName:
+		dialer, err := k8s.NewInClusterDialer(ctx, k8s.GetClientConfig())
+		if err != nil {
+			t.Fatalf("failed to create in-cluster dialer: %v", err)
+		}
+		t.Cleanup(func() { _ = dialer.Close() })
+		return &http.Client{
+			Transport: &http.Transport{
+				DialContext: dialer.DialContext,
+			},
+			Timeout: time.Minute,
+		}
+	default:
+		return http.DefaultClient
+	}
 }
 
 func tektonTestsEnabled(t *testing.T) (enabled bool) {
@@ -163,7 +184,9 @@ func TestInt_Remote_Default(t *testing.T) {
 				_ = client.Remove(ctx, "", "", f, true)
 			}()
 
-			if err := assertFunctionEchoes(url); err != nil {
+			httpClient := httpClientForDeployer(t, ctx, d)
+
+			if err := assertFunctionEchoes(httpClient, url); err != nil {
 				t.Fatal(err)
 			}
 		})
