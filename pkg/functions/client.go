@@ -691,6 +691,13 @@ func BuildWithPlatforms(pp []Platform) BuildOption {
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) (Function, error) {
 	fmt.Fprintf(os.Stderr, "Building function image\n")
+
+	// Warn if a func-generated legacy .s2i/bin/assemble file is left at the
+	// function root.  This runs on every build (and therefore every deploy,
+	// which uses build under the hood) so users see the warning regardless
+	// of which builder they switched to.
+	WarnIfLegacyS2IScaffolding(f, os.Stderr)
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

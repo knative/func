@@ -33,7 +33,6 @@ import (
 	fnlabels "knative.dev/func/pkg/k8s/labels"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
-	"knative.dev/func/pkg/s2i"
 	"knative.dev/pkg/apis"
 )
 
@@ -116,7 +115,8 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 
 	// Warn if the func-generated legacy .s2i/bin/assemble exists; it will be
 	// uploaded to the PVC and can interfere with the in-cluster build.
-	s2i.WarnIfLegacyS2IScaffolding(f, os.Stderr)
+	// Remote deploy doesn't go through Client.Build, so we re-check here.
+	fn.WarnIfLegacyS2IScaffolding(f, os.Stderr)
 
 	// Namespace is either a new namespace, specified as f.Namespace, or
 	// the currently deployed namespace, recorded on f.Deploy.Namespace.
