@@ -123,7 +123,7 @@ EXAMPLES
 	cmd.Flags().BoolP("push", "u", false,
 		"Attempt to push the function image to the configured registry after being successfully built")
 	cmd.Flags().StringP("platform", "", "",
-		"Optionally specify a target platform, for example \"linux/amd64\" when using the s2i build strategy")
+		"Optionally specify a target platform, for example \"linux/amd64\" when using the s2i or pack build strategy")
 	cmd.Flags().StringP("username", "", "",
 		"Username to use when pushing to the registry. ($FUNC_USERNAME)")
 	cmd.Flags().StringP("password", "", "",
@@ -234,7 +234,7 @@ type buildConfig struct {
 	// working directory of the process.
 	Path string
 
-	// Platform ofr resultant image (s2i builder only)
+	// Platform for resultant image (s2i and pack builders)
 	Platform string
 
 	// Push the resulting image to the registry after building.
@@ -414,8 +414,8 @@ func (c buildConfig) Validate(cmd *cobra.Command) (err error) {
 		return fn.ErrConflictingImageAndRegistry
 	}
 
-	// Platform is only supported with the S2I builder at this time
-	if c.Platform != "" && c.Builder != builders.S2I {
+	// Platform is only supported with the S2I and Pack builders
+	if c.Platform != "" && c.Builder != builders.S2I && c.Builder != builders.Pack {
 		err = fn.ErrPlatformNotSupported
 		return
 	}
@@ -433,11 +433,10 @@ func (c buildConfig) Validate(cmd *cobra.Command) (err error) {
 // builder and pusher are the default implementations and the Pack and S2I
 // constructors simplified.
 //
-// TODO: Platform is currently only used by the S2I builder.  This should be
-// a multi-valued argument which passes through to the "host" builder (which
-// supports multi-arch/platform images), and throw an error if either trying
-// to specify a platform for buildpacks, or trying to specify more than one
-// for S2I.
+// TODO: Platform is currently only used by the S2I and Pack builders (single
+// platform each).  This should be a multi-valued argument which passes through
+// to the "host" builder (which supports multi-arch/platform images), and throw
+// an error if trying to specify more than one for S2I or Pack.
 //
 // TODO: As a further optimization, it might be ideal to only build the
 // image necessary for the target cluster, since the end product of a function
@@ -496,7 +495,7 @@ func (c buildConfig) buildOptions() (oo []fn.BuildOption, err error) {
 	//
 	// TODO: upgrade --platform to a multi-value field.  The individual builder
 	// implementations are responsible for bubbling an error if they do
-	// not support this.  Pack  supports none, S2I supports one, host builder
+	// not support this.  Pack supports one, S2I supports one, host builder
 	// supports multi.
 	if c.Platform != "" {
 		parts := strings.Split(c.Platform, "/")

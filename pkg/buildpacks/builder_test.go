@@ -304,6 +304,78 @@ func TestBuild_Errors(t *testing.T) {
 	}
 }
 
+// TestBuild_PlatformSingle ensures that when a single platform is specified,
+// opts.Platform is set correctly on the pack BuildOptions.
+func TestBuild_PlatformSingle(t *testing.T) {
+	var (
+		i = &mockImpl{}
+		b = NewBuilder(WithImpl(i))
+		f = fn.Function{Runtime: "node"}
+	)
+
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		expected := "linux/amd64"
+		if opts.Platform != expected {
+			t.Fatalf("expected platform '%v', got '%v'", expected, opts.Platform)
+		}
+		return nil
+	}
+
+	platforms := []fn.Platform{{OS: "linux", Architecture: "amd64"}}
+	if err := b.Build(t.Context(), f, platforms); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestBuild_PlatformMultiple ensures that specifying more than one platform
+// returns an error.
+func TestBuild_PlatformMultiple(t *testing.T) {
+	var (
+		i = &mockImpl{}
+		b = NewBuilder(WithImpl(i))
+		f = fn.Function{Runtime: "node"}
+	)
+
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		t.Fatal("build should not have been invoked")
+		return nil
+	}
+
+	platforms := []fn.Platform{
+		{OS: "linux", Architecture: "amd64"},
+		{OS: "linux", Architecture: "arm64"},
+	}
+	err := b.Build(t.Context(), f, platforms)
+	if err == nil {
+		t.Fatal("expected an error but got nil")
+	}
+	expected := "the pack builder currently only supports specifying a single target platform"
+	if err.Error() != expected {
+		t.Fatalf("expected error %q, got %q", expected, err.Error())
+	}
+}
+
+// TestBuild_PlatformNone ensures that passing no platforms still works
+// and opts.Platform is empty.
+func TestBuild_PlatformNone(t *testing.T) {
+	var (
+		i = &mockImpl{}
+		b = NewBuilder(WithImpl(i))
+		f = fn.Function{Runtime: "node"}
+	)
+
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		if opts.Platform != "" {
+			t.Fatalf("expected empty platform, got '%v'", opts.Platform)
+		}
+		return nil
+	}
+
+	if err := b.Build(t.Context(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type mockImpl struct {
 	BuildFn func(context.Context, pack.BuildOptions) error
 }
