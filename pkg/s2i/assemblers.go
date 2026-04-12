@@ -12,7 +12,7 @@ Assemble Scripts Patched for Functions Support
 These are minimally patched assemblers taken from the S2I builders.   For
 example the Python assemble script can be extracted with:
 
-docker run --rm registry.access.redhat.com/ubi8/python-39 \
+docker run --rm registry.access.redhat.com/ubi8/python-311 \
   cat /usr/libexec/s2i/assemble > bin/assemble
 
 The scripts are modified slightly to support Functions as explained by

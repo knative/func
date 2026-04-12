@@ -1,6 +1,6 @@
 # Function
 import logging
-from cloudevents.http import CloudEvent
+from cloudevents.core.v1.event import CloudEvent
 
 
 def new():
@@ -33,16 +33,16 @@ class Function:
         request = scope["event"]
 
         # 2) Create a new CloudEvent as response with "OK" as data
-        response = CloudEvent({
-            "type": "function.response",
-            "source": "function",
-            "id": f"response-{request.get('id', 'unknown')}"
-        })
+        response = CloudEvent(
+            attributes={
+                "type": "function.response",
+                "source": "function",
+                "id": f"response-{request.get_id() or 'unknown'}"
+            },
+            data={"message": "OK"}
+        )
 
-        # 3) Set the response's data field to {"message": "OK"}
-        response.data = {"message": "OK"}
-
-        # 4) Send the response CloudEvent
+        # 3) Send the response CloudEvent
         # The 'send' method is already decorated with CloudEvent middleware
         await send(response)
 
