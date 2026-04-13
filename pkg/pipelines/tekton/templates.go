@@ -26,9 +26,6 @@ const (
 	pipelineFileNamePAC    = "pipeline-pac.yaml"
 	pipelineRunFilenamePAC = "pipeline-run-pac.yaml"
 
-	// Tasks references for PAC PipelineRun that are defined in the annotations
-	taskGitCloneRef = "git-clone"
-
 	// Following part holds a reference to Git Clone Task to be used in Pipeline template,
 	// the usage depends whether we use direct code upload or Git reference for a standard (non PAC) on-cluster build
 	taskGitClonePACTaskRef = `- name: fetch-sources
@@ -40,8 +37,14 @@ const (
         - name: gitInitImage
           value: ghcr.io/tektoncd/github.com/tektoncd/pipeline/cmd/git-init:v0.21.0
       taskRef:
-        kind: Task
-        name: git-clone
+        resolver: bundles
+        params:
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/tasks/git-clone:0.4
+          - name: name
+            value: git-clone
+          - name: kind
+            value: task
       workspaces:
         - name: output
           workspace: source-workspace`
@@ -235,8 +238,6 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 		SecretName:      getPipelineSecretName(f),
 
 		PipelinesTargetBranch: pipelinesTargetBranch,
-
-		GitCloneTaskRef: taskGitCloneRef,
 
 		PipelineYamlURL: fmt.Sprintf("%s/%s", resourcesDirectory, pipelineFileNamePAC),
 
