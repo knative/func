@@ -95,7 +95,7 @@ func TestGitlab(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.WriteFile(filepath.Join(projDir, "main.go"), []byte(mainGo), 0644)
+	err = os.WriteFile(filepath.Join(projDir, "Procfile"), []byte("web: non-existent-app\n"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,28 +163,9 @@ func TestGitlab(t *testing.T) {
 
 }
 
-const mainGo = `package main
-
-import "net/http"
-
-func main() {
-	s := http.Server{
-		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			writer.WriteHeader(200)
-			_, _ = writer.Write([]byte("OK"))
-		}),
-		Addr: ":8080",
-	}
-	err := s.ListenAndServe()
-	if err != nil {
-		panic(err)
-	}
-}
-`
-
 func parseEnv(t *testing.T) (gitlabHostname string, gitlabRootPassword string, pacCtrHostname string, err error) {
 	if enabled, _ := strconv.ParseBool(os.Getenv("GITLAB_TESTS_ENABLED")); !enabled {
-		//t.Skip("GitLab tests are disabled")
+		t.Skip("GitLab tests are disabled")
 	}
 	envs := map[string]*string{
 		"GITLAB_HOSTNAME":         &gitlabHostname,
