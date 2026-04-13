@@ -45,7 +45,6 @@ const (
       workspaces:
         - name: output
           workspace: source-workspace`
-	// TODO fix Tekton Hub reference
 	taskGitCloneTaskRef = `- name: fetch-sources
       params:
         - name: url
@@ -55,14 +54,14 @@ const (
         - name: gitInitImage
           value: ghcr.io/tektoncd/github.com/tektoncd/pipeline/cmd/git-init:v0.21.0
       taskRef:
-        resolver: hub
+        resolver: bundles
         params:
-          - name: kind
-            value: task
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/tasks/git-clone:0.4
           - name: name
             value: git-clone
-          - name: version
-            value: "0.4"
+          - name: kind
+            value: task
       workspaces:
         - name: output
           workspace: source-workspace`
