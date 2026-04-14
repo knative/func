@@ -4,11 +4,13 @@
 #
 # ##
 
-# Use bash with pipefail so targets whose recipes pipe through tee/python
-# (e.g. test-full-logged) surface non-zero exits from the upstream command
-# instead of being masked by tee's success.
+# Use bash with errexit + pipefail so recipes halt on first failure and
+# surface non-zero exits from any stage of a pipeline (e.g. tee/python in
+# test-full-logged, or hack/vcs.sh ls-sources upstream of a checker). Errexit
+# is suppressed inside && / || / loops, so existing `cmd && ... || true`
+# patterns in check-* targets continue to work as intended.
 SHELL       := bash
-.SHELLFLAGS := -o pipefail -c
+.SHELLFLAGS := -eo pipefail -c
 
 # Binaries
 BIN               := func
@@ -31,10 +33,10 @@ BIN_GOIMPORTS     ?= "$(PWD)/bin/goimports"
 # If the current commit does not have a semver tag, 'tip' is used, unless there
 # is a TAG environment variable. Precedence is git tag, environment variable, 'tip'
 HASH         := $(shell git rev-parse --short HEAD 2>/dev/null)
-VTAG         := $(shell git tag --points-at HEAD | head -1)
+VTAG         := $(shell git tag --points-at HEAD 2>/dev/null | head -1)
 VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
-VERS         ?= $(shell git describe --tags --match 'v*')
-KVER         ?= $(shell git describe --tags --match 'knative-*')
+VERS         ?= $(shell git describe --tags --match 'v*' 2>/dev/null)
+KVER         ?= $(shell git describe --tags --match 'knative-*' 2>/dev/null)
 
 LDFLAGS      := -X knative.dev/func/pkg/version.Vers=$(VERS) -X knative.dev/func/pkg/version.Kver=$(KVER) -X knative.dev/func/pkg/version.Hash=$(HASH)
 
