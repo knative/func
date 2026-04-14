@@ -685,15 +685,14 @@ func (f Function) ImageName() (image string, err error) {
 func formatUnmarshalError(err error) error {
 	var (
 		e      = err.Error()
-		rxp    = regexp.MustCompile("not found in type .*")
+		rxp    = regexp.MustCompile(`field (\S+) not found in type .*`)
 		header = fmt.Sprintf("'%v' is not valid:\n", FunctionFile)
 	)
 
+	e = rxp.ReplaceAllString(e, `unknown field "$1"`)
 	if strings.HasPrefix(e, "yaml: unmarshal errors:") {
-		e = rxp.ReplaceAllString(e, "is not valid")
 		e = strings.Replace(e, "yaml: unmarshal errors:\n", header, 1)
 	} else if strings.HasPrefix(e, "yaml:") {
-		e = rxp.ReplaceAllString(e, "is not valid")
 		e = strings.Replace(e, "yaml: ", header+"  ", 1)
 	}
 

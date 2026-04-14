@@ -5,19 +5,34 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/coreos/go-semver/semver"
 	"gopkg.in/yaml.v2"
 )
 
+var unknownFieldsOnce sync.Once
+
 // Migrate applies any necessary migrations, returning a new migrated
 // version of the function.  It is the caller's responsibility to
-// .Write() the function to persist to disk.
+// .Write() the function to persist to disk. Additionally it will warn on
+// up-to-date spec but wrong func.yaml (eg. extraneous fields)
 func (f Function) Migrate() (migrated Function, err error) {
 	// Return immediately if the function indicates it has already been
 	// migrated.
 	if f.Migrated() {
+		// Already at the latest spec — check for unknown fields
+		if f.Root != "" {
+			if bb, readErr := os.ReadFile(filepath.Join(f.Root, FunctionFile)); readErr == nil {
+				unknownFieldsOnce.Do(func() {
+					var strict Function
+					if strictErr := yaml.UnmarshalStrict(bb, &strict); strictErr != nil {
+						fmt.Fprintf(os.Stderr, "Warning (unknown fields will be ignored):\n %v\n.\n", formatUnmarshalError(strictErr))
+					}
+				})
+			}
+		}
 		return f, nil
 	}
 
