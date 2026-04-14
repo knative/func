@@ -302,7 +302,7 @@ func expectedDefaultLabels(f fn.Function) map[string]string {
 // TestWarnIfLegacyS2IScaffolding ensures the warning is emitted only when a
 // func-generated legacy .s2i/bin/assemble file is present at the function root
 // for a scaffolded runtime (go/python).
-func TestWarnIfLegacyS2IScaffolding(t *testing.T) {
+func Test_WarnIfLegacyS2IScaffolding(t *testing.T) {
 	tests := []struct {
 		name        string
 		runtime     string
