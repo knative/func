@@ -22,5 +22,14 @@ source "$(go run knative.dev/hack/cmd/script library.sh)"
 
 go_update_deps "$@"
 
-# Update hack components
-make hack-generate-components
+echo ">> args='$@'"
+# This is a guard for running only when its running via bot to update deps and
+# potentially create a PR.
+# When this is running in 'verify deps' workflow it runs with no arguments.
+# We dont want these changes to break the GH Action for all PRs therefore we
+# limit this only for dependency bumps.
+if [[ $# -gt 0 ]]; then
+    echo ">> Running make hack-generate-components"
+    # Update hack components
+    make hack-generate-components
+fi

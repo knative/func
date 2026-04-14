@@ -7,7 +7,7 @@ readme = "README.md"
 license = "MIT"
 dependencies = [
   "httpx",
-  "cloudevents",
+  "cloudevents>=1.11,<2",
   "pytest",
   "pytest-asyncio"
 ]
