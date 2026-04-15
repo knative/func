@@ -10,8 +10,6 @@ from func_python.http import serve
 
 logging.basicConfig(level=logging.INFO)
 
-_configure_ulimit()
-
 try:
     from function import new as handler  # type: ignore[import]
 except ImportError:
@@ -22,5 +20,6 @@ except ImportError:
         raise
 
 if __name__ == "__main__":
+    _configure_ulimit()
     logging.info("Functions middleware invoking user function")
     serve(handler)

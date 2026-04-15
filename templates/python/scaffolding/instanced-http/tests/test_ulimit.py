@@ -18,9 +18,9 @@ def test_raises_soft_limit_to_hard():
     mock_resource = MagicMock()
     mock_resource.getrlimit.return_value = (1024, 65536)
     mock_resource.RLIMIT_NOFILE = 7  # canonical Linux value
+    mock_resource.RLIM_INFINITY = 9223372036854775807  # Linux RLIM_INFINITY
 
     with patch.dict(sys.modules, {"resource": mock_resource}):
-        # Re-import to pick up the patched module inside the function.
         importlib.reload(sys.modules["service._ulimit"])
         from service._ulimit import configure as _configure
         _configure()
@@ -35,6 +35,7 @@ def test_no_change_when_soft_equals_hard():
     mock_resource = MagicMock()
     mock_resource.getrlimit.return_value = (65536, 65536)
     mock_resource.RLIMIT_NOFILE = 7
+    mock_resource.RLIM_INFINITY = 9223372036854775807  # Linux RLIM_INFINITY
 
     with patch.dict(sys.modules, {"resource": mock_resource}):
         importlib.reload(sys.modules["service._ulimit"])
@@ -42,6 +43,24 @@ def test_no_change_when_soft_equals_hard():
         _configure()
 
     mock_resource.setrlimit.assert_not_called()
+
+
+def test_rlim_infinity_capped_at_max():
+    """configure() should cap the target at _MAX_NOFILE when hard == RLIM_INFINITY."""
+    mock_resource = MagicMock()
+    mock_resource.RLIMIT_NOFILE = 7
+    mock_resource.RLIM_INFINITY = 9223372036854775807  # Linux RLIM_INFINITY
+    # Soft is below the safe max; hard is unlimited.
+    mock_resource.getrlimit.return_value = (1024, mock_resource.RLIM_INFINITY)
+
+    with patch.dict(sys.modules, {"resource": mock_resource}):
+        importlib.reload(sys.modules["service._ulimit"])
+        from service._ulimit import configure as _configure
+        _configure()
+
+    mock_resource.setrlimit.assert_called_once_with(
+        mock_resource.RLIMIT_NOFILE, (65536, mock_resource.RLIM_INFINITY)
+    )
 
 
 def test_import_error_is_silently_skipped():
@@ -58,6 +77,7 @@ def test_os_error_logs_warning(caplog):
     mock_resource = MagicMock()
     mock_resource.getrlimit.return_value = (1024, 65536)
     mock_resource.RLIMIT_NOFILE = 7
+    mock_resource.RLIM_INFINITY = 9223372036854775807  # Linux RLIM_INFINITY
     mock_resource.setrlimit.side_effect = OSError("operation not permitted")
 
     with patch.dict(sys.modules, {"resource": mock_resource}):
@@ -74,6 +94,7 @@ def test_value_error_logs_warning(caplog):
     mock_resource = MagicMock()
     mock_resource.getrlimit.return_value = (1024, 65536)
     mock_resource.RLIMIT_NOFILE = 7
+    mock_resource.RLIM_INFINITY = 9223372036854775807  # Linux RLIM_INFINITY
     mock_resource.setrlimit.side_effect = ValueError("invalid argument")
 
     with patch.dict(sys.modules, {"resource": mock_resource}):
