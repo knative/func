@@ -68,7 +68,7 @@ rm -rf .venv
 
 echo "✓ Python CloudEvents template tests passed"
 
-# Test HTTP scaffolding ulimit ulimit helper
+# Test HTTP scaffolding ulimit helper
 cd "${PROJECT_ROOT}/templates/python/scaffolding/instanced-http"
 
 python3 -m venv .venv || python -m venv .venv
@@ -78,7 +78,7 @@ PYTHON_PATH=$(get_python_path)
 "${PYTHON_PATH}" -m pip install -q pytest
 "${PYTHON_PATH}" -m pytest tests/test_ulimit.py -v
 
-rm -rf .venv
+rm -rf .venv .pytest_cache service/__pycache__ tests/__pycache__
 
 echo "✓ Python HTTP scaffolding tests passed"
 
@@ -92,6 +92,6 @@ PYTHON_PATH=$(get_python_path)
 "${PYTHON_PATH}" -m pip install -q pytest
 "${PYTHON_PATH}" -m pytest tests/test_ulimit.py -v
 
-rm -rf .venv
+rm -rf .venv .pytest_cache service/__pycache__ tests/__pycache__
 
 echo "✓ All Python template tests completed successfully"
