@@ -353,7 +353,7 @@ func (f Function) Validate() error {
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("'%v' contains errors:", FunctionFile))
+	fmt.Fprintf(&b, "'%v' contains errors:", FunctionFile)
 
 	for _, ee := range errs {
 		if len(ee) > 0 {
