@@ -617,7 +617,7 @@ func WarnIfLegacyS2IScaffolding(f Function, w io.Writer) {
 		fmt.Fprint(w, "Warning: a '.s2i/bin/assemble' file was detected at the function root. "+
 			"This appears to be leftover func-generated scaffolding from older cli builds. "+
 			"It may interfere with newer builds. "+
-			"Please consider generating a new function with this binary or manually removing '.s2i/'.\n")
+			"Please remove the '.s2i/' directory from your function root.\n")
 	}
 }
 
