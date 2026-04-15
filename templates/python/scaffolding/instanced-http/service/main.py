@@ -5,22 +5,12 @@ Function is being built, deployed or run.  This will be included in the
 final container.
 """
 import logging
-import resource
+from service._ulimit import configure as _configure_ulimit
 from func_python.http import serve
 
 logging.basicConfig(level=logging.INFO)
 
-# Raise the soft limit for open files to match the hard limit.
-# Platforms such as some container runtimes default the soft limit to 1024,
-# which causes failures under load.  Go and Java runtimes do this
-# automatically; we replicate the behaviour here.
-try:
-    _soft, _hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-    if _soft < _hard:
-        resource.setrlimit(resource.RLIMIT_NOFILE, (_hard, _hard))
-        logging.info("Raised open-file limit from %d to %d", _soft, _hard)
-except Exception as e:
-    logging.warning("Could not raise open-file limit: %s", e)
+_configure_ulimit()
 
 try:
     from function import new as handler  # type: ignore[import]

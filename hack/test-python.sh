@@ -66,4 +66,32 @@ PYTHON_PATH=$(get_python_path)
 # Cleanup
 rm -rf .venv
 
+echo "✓ Python CloudEvents template tests passed"
+
+# Test HTTP scaffolding ulimit ulimit helper
+cd "${PROJECT_ROOT}/templates/python/scaffolding/instanced-http"
+
+python3 -m venv .venv || python -m venv .venv
+PYTHON_PATH=$(get_python_path)
+
+"${PYTHON_PATH}" -m pip install -q --upgrade pip
+"${PYTHON_PATH}" -m pip install -q pytest
+"${PYTHON_PATH}" -m pytest tests/test_ulimit.py -v
+
+rm -rf .venv
+
+echo "✓ Python HTTP scaffolding tests passed"
+
+# Test CloudEvents scaffolding ulimit helper
+cd "${PROJECT_ROOT}/templates/python/scaffolding/instanced-cloudevents"
+
+python3 -m venv .venv || python -m venv .venv
+PYTHON_PATH=$(get_python_path)
+
+"${PYTHON_PATH}" -m pip install -q --upgrade pip
+"${PYTHON_PATH}" -m pip install -q pytest
+"${PYTHON_PATH}" -m pytest tests/test_ulimit.py -v
+
+rm -rf .venv
+
 echo "✓ All Python template tests completed successfully"
