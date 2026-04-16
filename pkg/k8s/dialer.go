@@ -290,7 +290,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 					Stdin:           true,
 					StdinOnce:       true,
 					Command:         []string{"socat", "-u", "-", "OPEN:/dev/null"},
-					SecurityContext: defaultSecurityContext(client),
+					SecurityContext: defaultSecurityContext(),
 				},
 			},
 			DNSPolicy:     coreV1.DNSClusterFirst,
