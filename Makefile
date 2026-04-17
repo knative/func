@@ -210,11 +210,19 @@ check-permissions: ## Verify templates/.permissions is up to date
 check-templates: check-go check-rust check-typescript ## Run template source code checks
 
 .PHONY: check-go
-check-go: ## Check Go templates' source
-	cd templates/go/scaffolding/instanced-http && go vet -tags embd ./... &&  $(BIN_GOLANGCI_LINT) run --build-tags embd
-	cd templates/go/scaffolding/instanced-cloudevents && go vet -tags embd && $(BIN_GOLANGCI_LINT) run --build-tags embd
-	cd templates/go/scaffolding/static-http && go vet -tags embd ./... && $(BIN_GOLANGCI_LINT) run --build-tags embd
-	cd templates/go/scaffolding/static-cloudevents && go vet -tags embd ./... && $(BIN_GOLANGCI_LINT) run --build-tags embd
+check-go: $(BIN_GOLANGCI_LINT) ## Check Go templates' source
+	go run ./hack/cmd/embd unembd templates/go/scaffolding/instanced-http
+	cd templates/go/scaffolding/instanced-http && go vet ./... && $(BIN_GOLANGCI_LINT) run
+	go run ./hack/cmd/embd embd templates/go/scaffolding/instanced-http
+	go run ./hack/cmd/embd unembd templates/go/scaffolding/instanced-cloudevents
+	cd templates/go/scaffolding/instanced-cloudevents && go vet ./... && $(BIN_GOLANGCI_LINT) run
+	go run ./hack/cmd/embd embd templates/go/scaffolding/instanced-cloudevents
+	go run ./hack/cmd/embd unembd templates/go/scaffolding/static-http
+	cd templates/go/scaffolding/static-http && go vet ./... && $(BIN_GOLANGCI_LINT) run
+	go run ./hack/cmd/embd embd templates/go/scaffolding/static-http
+	go run ./hack/cmd/embd unembd templates/go/scaffolding/static-cloudevents
+	cd templates/go/scaffolding/static-cloudevents && go vet ./... && $(BIN_GOLANGCI_LINT) run
+	go run ./hack/cmd/embd embd templates/go/scaffolding/static-cloudevents
 
 .PHONY: check-rust
 check-rust: ## Check Rust templates' source

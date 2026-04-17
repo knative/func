@@ -60,8 +60,7 @@ const prepareBranch = async (branchName, prTitle) => {
     const script = `git config user.email "automation@knative.team" && \\
   git config user.name "Knative Automation" && \\
   git checkout -b "${branchName}" && \\
-  make generate/zz_filesystem_generated.go && \\
-  git add "${cePomPath}" "${httpPomPath}" generate/zz_filesystem_generated.go && \\
+  git add "${cePomPath}" "${httpPomPath}" && \\
   git commit -m "${prTitle}" && \\
   git push --set-upstream origin "${branchName}"
 `

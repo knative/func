@@ -26,8 +26,8 @@ jobs:
       - name: Run update script
         run: go run ./hack/cmd/update-python-platform/main.go
 
-      - name: Run make generate
-        run: make generate/zz_filesystem_generated.go
+      - name: Regenerate permissions manifest
+        run: make generate-permissions
 
       - uses: actions/setup-python@v5
         with:
