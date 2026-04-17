@@ -557,7 +557,7 @@ func (f Function) Stamp(oo ...stampOption) (err error) {
 		return
 	}
 
-	// Cacluate the hash and a logfile of what comprised it
+	// Calculate the hash and a logfile of what comprised it
 	var hash, log string
 	if hash, log, err = Fingerprint(f.Root); err != nil {
 		return

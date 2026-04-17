@@ -82,7 +82,7 @@ func (d goDetector) hasFunctionDeclaration(filename, function string) bool {
 	}
 	for _, decl := range astFile.Decls {
 		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
-			// Name matches and it has no reciver.  I.e. a package level function
+			// Name matches and it has no receiver.  I.e. a package level function
 			if funcDecl.Name.Name == function && funcDecl.Recv == nil {
 				return true
 			}

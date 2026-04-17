@@ -63,7 +63,7 @@ type languageBuilder interface {
 	// each requested to be built.
 	Base(customBase string) string
 
-	// WriteShared layers (not platform-specific) which need to be genearted
+	// WriteShared layers (not platform-specific) which need to be generated
 	// on demand per language, such as shared dependencies.
 	WriteShared(buildJob) ([]imageLayer, error)
 

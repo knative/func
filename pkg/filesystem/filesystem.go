@@ -305,7 +305,7 @@ func CopyFromFS(root, dest string, fsys Filesystem) (err error) {
 			_, err = io.Copy(destFile, srcFile)
 			return err
 		default:
-			return fmt.Errorf("unsuported file type: %s", de.Type().String())
+			return fmt.Errorf("unsupported file type: %s", de.Type().String())
 		}
 	})
 

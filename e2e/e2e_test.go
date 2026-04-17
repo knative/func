@@ -110,7 +110,7 @@ var (
 	Bin string
 
 	// Clean instructs the system to remove resources created during testing.
-	// Defaults to tru.  Can be disabled with FUNC_E2E_CLEAN to speed up tests,
+	// Defaults to true.  Can be disabled with FUNC_E2E_CLEAN to speed up tests,
 	// if the cluster is expected to be removed upon completion (such as in CI)
 	Clean bool
 
@@ -1155,7 +1155,7 @@ func toCSV(ss []string) string {
 }
 
 // chooseOpenAddress for use with things like running local functions.
-// Always uses the looback interface; OS-chosen port.
+// Always uses the loopback interface; OS-chosen port.
 func chooseOpenAddress(t *testing.T) (address string, err error) {
 	t.Helper()
 	var l net.Listener

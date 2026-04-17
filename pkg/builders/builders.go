@@ -1,6 +1,6 @@
 /*
 Package builders provides constants for builder implementation short names,
-shared error types and convienience functions.
+shared error types and convenience functions.
 */
 package builders
 

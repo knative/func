@@ -48,7 +48,7 @@ func (f *MyFunction) Handle(res http.ResponseWriter, req *http.Request) {
 // This may happen for reasons such as being rescheduled onto a different node,
 // being updated with a newer version, or if the number of function instances
 // is being scaled down due to low load.  This is a good place to cleanup and
-// realease any resources which expect to be manually released.
+// release any resources which expect to be manually released.
 //
 // func (f *MyFunction) Stop(ctx context.Context) error { return nil }
 

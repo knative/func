@@ -24,7 +24,7 @@ func TestList_Namespace(t *testing.T) {
 		err       bool   // expected error
 	}{
 		{
-			name:      "default (none specififed)",
+			name:      "default (none specified)",
 			namespace: "",
 			all:       false,
 			allShort:  false,

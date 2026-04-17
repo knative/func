@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	// DefaultHost is the standard ipv4 looback
+	// DefaultHost is the standard ipv4 loopback
 	DefaultHost = "127.0.0.1"
 
 	// DefaultPort is used as the preferred port, and in the unlikly event of an
@@ -228,7 +228,7 @@ func dial(host, port string, dialTimeout time.Duration) (err error) {
 }
 
 // choosePort returns an unused port
-// Note this is not fool-proof becase of a race with any other processes
+// Note this is not fool-proof because of a race with any other processes
 // looking for a port at the same time.
 // Note that TCP is presumed.
 func choosePort(host, preferredPort string, dialTimeout time.Duration) string {

@@ -452,7 +452,7 @@ func ValidateBuilder(name string) (err error) {
 // for use in flags and help text.
 func KnownBuilders() builders.Known {
 	// The set of builders supported by this CLI will likely always equate to
-	// the set of builders enumerated in the builders pacakage.
+	// the set of builders enumerated in the builders package.
 	// However, future third-party integrations may support less than, or more
 	// builders, and certain environmental considerations may alter this list.
 

@@ -21,7 +21,7 @@ func TestRepository_List(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Assert the output matches expectd (whitespace trimmed)
+	// Assert the output matches expected (whitespace trimmed)
 	expect := "default"
 	output := stdout()
 	if output != expect {

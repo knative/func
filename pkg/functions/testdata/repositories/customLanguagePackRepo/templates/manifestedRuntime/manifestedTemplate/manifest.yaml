@@ -16,5 +16,5 @@ buildEnvs:
 # execution of a running Function instance for testing and development.
   # The default invocation format is 'http': a basic HTTP POST of form values.
   # Formats not understood by the system fall back to this such that there
-  # is graceful degredation of service when new formats are added.
+  # is graceful degradation of service when new formats are added.
 invoke: "format"

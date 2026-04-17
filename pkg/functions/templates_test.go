@@ -159,7 +159,7 @@ func TestTemplates_Custom(t *testing.T) {
 }
 
 // TestTemplates_Remote ensures that a Git template repository provided via URI
-// can be specificed on creation of client, with subsequent calls to Create
+// can be specified on creation of client, with subsequent calls to Create
 // using this remote by default.
 func TestTemplates_Remote(t *testing.T) {
 	skipIfNoGit(t) // see docs
@@ -358,7 +358,7 @@ func TestTemplates_ModeRemote(t *testing.T) {
 	}
 	mask := os.ModeDir | 0755
 	if file.Mode()&mask != mask {
-		t.Fatalf("The remote repositry directory mode should be 0755 but was %#o", file.Mode())
+		t.Fatalf("The remote repository directory mode should be 0755 but was %#o", file.Mode())
 	}
 
 	// Verify remote executable file mode was preserved.

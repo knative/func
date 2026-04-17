@@ -22,7 +22,7 @@ const (
 	// Repositories is the default directory for repositoires.
 	Repositories = "repositories"
 
-	// DefaultLanguage is intentionaly undefined.
+	// DefaultLanguage is intentionally undefined.
 	DefaultLanguage = ""
 
 	// DefaultBuilder is statically defined by the builders package.
@@ -118,7 +118,7 @@ func (c Global) Write(path string) (err error) {
 // The resulting config is global settings overridden by a given function.
 func (c Global) Apply(f fn.Function) Global {
 	// With no way to automate this mapping easily (even with reflection) because
-	// the function now has a complex structure consiting of XSpec sub-structs,
+	// the function now has a complex structure consisting of XSpec sub-structs,
 	// and in some cases has differing member names (language).  While this is
 	// yes a bit tedious, manually mapping each member (if defined) is simple,
 	// easy to understand and support; with both mapping direction (Apply and

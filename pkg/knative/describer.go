@@ -24,7 +24,7 @@ func NewDescriber(verbose bool) *Describer {
 
 // Describe a function by name. Note that the consuming API uses domain style
 // notation, whereas Kubernetes restricts to label-syntax, which is thus
-// escaped. Therefore as a knative (kube) implementation detal proper full
+// escaped. Therefore as a knative (kube) implementation detail proper full
 // names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
 func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.Instance, error) {

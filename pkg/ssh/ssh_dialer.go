@@ -420,7 +420,7 @@ func createHostKeyCallback(hostKeyCallback HostKeyCallback) func(hostPort string
 
 				if (h == host || h == hashhost) && port == p {
 					if pubKey.Type() != _key.Type() {
-						errs = append(errs, fmt.Errorf("missmatch in type of a key"))
+						errs = append(errs, fmt.Errorf("mismatch in type of a key"))
 						continue
 					}
 					if bytes.Equal(_key.Marshal(), pubKey.Marshal()) {

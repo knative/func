@@ -120,7 +120,7 @@ func TestFunction_NameDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Initialized() {
-		t.Fatal("a function about an empty, but valid path, shold not be initialized")
+		t.Fatal("a function about an empty, but valid path, should not be initialized")
 	}
 
 	// Create the function at the path
@@ -149,7 +149,7 @@ func TestFunction_NameDefault(t *testing.T) {
 // TODO: Perhaps referring to a nonexistent local env var should be treated
 // as a "leave as is" (do not set) rather than "required" resulting in error?
 // TODO: What use case does a nil pointer in the Env struct serve?  Add it
-// explicitly here ore get rid of the nils.
+// explicitly here or get rid of the nils.
 func Test_Interpolate(t *testing.T) {
 	t.Setenv("INTERPOLATE", "interpolated")
 	cases := []struct {

@@ -208,7 +208,7 @@ func (d deployDecorator) UpdateLabels(function fn.Function, labels map[string]st
 
 func sh(ctx context.Context) error {
 	if !slices.Equal(os.Args[1:], []string{"-c", "umask 0000 && exec tar -xmf -"}) {
-		return fmt.Errorf("this is a fake sh (only for backward compatiblility purposes)")
+		return fmt.Errorf("this is a fake sh (only for backward compatibility purposes)")
 	}
 
 	wd, err := os.Getwd()

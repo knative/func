@@ -96,7 +96,7 @@ find_executable() {
     echo "$path" & return 0
   fi
 
-  # Finally fallback to anything matchin in the current PATH
+  # Finally fallback to anything matching in the current PATH
   path=$(command -v "$name")
   if [[ -x "$path" ]]; then
     echo "$path" & return 0

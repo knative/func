@@ -75,7 +75,7 @@ func TestRemote_Source(t *testing.T) {
 }
 
 // TestRemote_Ref ensures a remote build can be triggered which pulls
-// sourece from a specific reference (branch/tag) of a remote repository.
+// source from a specific reference (branch/tag) of a remote repository.
 func TestRemote_Ref(t *testing.T) {
 	name := "func-e2e-test-remote-ref"
 	_ = fromCleanEnv(t, name)

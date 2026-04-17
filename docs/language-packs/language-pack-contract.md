@@ -6,7 +6,7 @@ A Language Pack is the basis for what is written to the filesystem when a Functi
 
 ## Purpose
 
-Knative Function Language Packs are meant to drastically reduce the code required for developers to be productive on Knative, and in concert with the `func` CLI make deploying event driven, container-based Knative Services simple and straightfoward. Language Packs and the `func` CLI streamline a Knative developer's experience by eliminating or reducing developer tasks that are not directly related to solving their business problems.
+Knative Function Language Packs are meant to drastically reduce the code required for developers to be productive on Knative, and in concert with the `func` CLI make deploying event driven, container-based Knative Services simple and straightforward. Language Packs and the `func` CLI streamline a Knative developer's experience by eliminating or reducing developer tasks that are not directly related to solving their business problems.
 
 All of the built-in templates used by `func create` are considered together to be the `default` Language Pack. Vendors, development shops and even individuals may also provide "external" Language Packs of their own in order to augment and extend the `func` CLI.
 
@@ -47,7 +47,7 @@ A Knative Function Language Pack provides runtime and invocation capabilities fo
 
 - A Language Pack must be accessible as a git repository or a path to a location on disk.
 - A Language Pack must provide one or more code templates generated via `func create`.
-- A Language Pack must expose an invokable function interface for function developers in the code template.
+- A Language Pack must expose an invocable function interface for function developers in the code template.
 - A Language Pack project must be buildable in the form of an OCI container image via `func build`.
 - A Language Pack OCI container image must be runnable via `func run`.
 - A Language Pack may provide create, build, runtime and invocation metadata with a `manifest.yaml` file.
@@ -174,7 +174,7 @@ runtimes:
 - `build` The Function project is converted into a runnable OCI container image using the `func build` command with metadata provided by the Language Pack's `manifest.yaml` if provided. Any dependencies declared by the Function are installed onto the image filesystem, and the Function invocation code is applied.
 - `run` Using the `func run` command to start the image, a controlling process loads the function project into memory and listens on port 8080 for incoming HTTP requests. The process is determined by the Language Pack. For example, a Node.js Language Pack may use `npm start` as the controlling process, while a Go Language Pack may invoke a binary compiled during the `build` phase.
 - `invoke` When an incoming HTTP request is received by the controlling process, the CloudEvent, if sent, is unmarshalled and the Function invoked with the payload.
-- `response` After a Function has been invoked by the invocation framework, the return value is sent to the caller. If the Function returns a CloudEvent, the invocation framework should respond to the caller with the CloudEvent unchanged. If the Function returns any other data, it is sent to the caller. Function invocation frameworks may each provide their own APIs and specifications to augment a Function developer's experience. For example, the Function developer may be able to return a structure containing a numeric HTTP response code, HTTP headers, and response data. These APIs and specifications are typically unique to the runtime environment and language, and as such are left to Language Pack implementors to provide and document. API capabilities for built-in `default` Language Pack runtimes are documented in the Function templates themselves.
+- `response` After a Function has been invoked by the invocation framework, the return value is sent to the caller. If the Function returns a CloudEvent, the invocation framework should respond to the caller with the CloudEvent unchanged. If the Function returns any other data, it is sent to the caller. Function invocation frameworks may each provide their own APIs and specifications to augment a Function developer's experience. For example, the Function developer may be able to return a structure containing a numeric HTTP response code, HTTP headers, and response data. These APIs and specifications are typically unique to the runtime environment and language, and as such are left to Language Pack implementers to provide and document. API capabilities for built-in `default` Language Pack runtimes are documented in the Function templates themselves.
 
 ## Execution Scope
 

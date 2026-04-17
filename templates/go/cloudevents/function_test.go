@@ -20,7 +20,7 @@ func TestHandle(t *testing.T) {
 
 	// Assert
 	if err != nil {
-		t.Errorf("didnt expect err, got: %v", err)
+		t.Errorf("didn't expect err, got: %v", err)
 	}
 	if data == nil {
 		t.Errorf("received nil event") // fail on nil

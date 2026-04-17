@@ -14,9 +14,9 @@ import (
 //
 // This is ver much a unit test mostly confirming implementation details, the
 // more complete test is the integration test which invokes "run".  Presuming
-// this works for both containerized and noncontainerized funcitions, the
+// this works for both containerized and noncontainerized functions, the
 // correctness of the Job implementation is inferred (with the possible
-// exception of not cleaning up after itself, which is an implementatoin best
+// exception of not cleaning up after itself, which is an implementation best
 // left to unit tests here).
 func TestJob_New(t *testing.T) {
 	root, rm := Mktemp(t)

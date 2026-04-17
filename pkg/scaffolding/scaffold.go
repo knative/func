@@ -41,7 +41,7 @@ func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err erro
 
 	// Filesystem Required
 	// This is a defensive check used to allow for simple tests which can
-	// omit providing a fileystem by just expecting this error.
+	// omit providing a filesystem by just expecting this error.
 	if fs == nil {
 		return ErrFilesystemRequired
 	}

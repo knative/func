@@ -344,7 +344,7 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 	// Create a client instance which utilizes the given repositories path.
 	// Note that this MAY not be in the config structure if the environment
 	// variable to override said path was provided explicitly.
-	// TODO: rectify this inconsitency:  the config default path structure will
+	// TODO: rectify this inconsistency:  the config default path structure will
 	// be created in XDG_CONFIG_HOME/func even if the repo path environment
 	// was set to some other location on disk.
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
@@ -514,7 +514,7 @@ func runRepositoryRemove(_ *cobra.Command, args []string, newClient ClientFactor
 		params.Name = args[0]
 	}
 	// "Are you sure" confirmation flag
-	// (not using name 'Confirm' to avoid confustion with cfg.Confirm)
+	// (not using name 'Confirm' to avoid confusion with cfg.Confirm)
 	// defaults to Yes.  This is debatable, but I don't want to choose the repo
 	// to remove and then have to see a prompt and then have to hit 'y'.  Just
 	// prompting once to make sure, which requires another press of enter, seems
@@ -587,7 +587,7 @@ func runRepositoryRemove(_ *cobra.Command, args []string, newClient ClientFactor
 // Installed repositories
 // All repositories which have been installed (does not include builtin)
 func installedRepositories(client *fn.Client) ([]string, error) {
-	// Client API contract stipulates the list always lists the defeault builtin
+	// Client API contract stipulates the list always lists the default builtin
 	// repo, and always lists it at index 0
 	repositories, err := client.Repositories().List()
 	if err != nil {
@@ -635,7 +635,7 @@ func newRepositoryConfig() (cfg repositoryConfig, err error) {
 	return
 }
 
-// prompt returns a config with values populated from interactivly prompting
+// prompt returns a config with values populated from interactively prompting
 // the user.
 func (c repositoryConfig) prompt() (repositoryConfig, error) {
 	// These prompts are overly verbose, as the user calling --confirm likely

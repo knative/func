@@ -187,7 +187,7 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 	//
 	// If this were to provide more complexity or unreasonable maintainability
 	// in the future, we can move to ValidateFunctionName() function which will
-	// print effectively "Note: func names cant start with '-\..." on errors
+	// print effectively "Note: func names can't start with '-\..." on errors
 	if err := detectPrefixHyphen(cmd); err != nil {
 		return cfg, err
 	}
@@ -310,7 +310,7 @@ func (c createConfig) Validate(client *fn.Client) (err error) {
 	// Validate Runtime and Template Name
 	//
 	// Perhaps additional validation would be of use here in the CLI, but
-	// the client libray itself is ultimately responsible for validating all input
+	// the client library itself is ultimately responsible for validating all input
 	// prior to exeuting any requests.
 	// Client validates both language runtime and template exist, with language runtime
 	// being a mandatory flag while defaulting template if not present to 'http'.

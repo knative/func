@@ -53,7 +53,7 @@ func WithDeployerVerbose(verbose bool) DeployerOpt {
 }
 
 func WithDeployerDecorator(decorator deployer.DeployDecorator) DeployerOpt {
-	// use the custom keda decorator, which wrapps the given decorator,
+	// use the custom keda decorator, which wraps the given decorator,
 	// but with the keda specific annotations
 	kedaDecorator := &kedaDeployerDecorator{
 		wrapper: decorator,

@@ -360,7 +360,7 @@ func cwd() (cwd string) {
 // Summary:
 //
 // This protects against an incorrectly initialized survey.Select when the user
-// has provided a nonexistant option (validation is handled elsewhere) or
+// has provided a nonexistent option (validation is handled elsewhere) or
 // when a value is required but there exists no defaults (no default value on
 // the associated flag).
 //
