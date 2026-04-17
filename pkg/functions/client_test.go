@@ -2153,6 +2153,267 @@ func TestClient_BuildCleanFingerprint(t *testing.T) {
 	}
 }
 
+// TestFingerprint_FuncIgnore ensures that adding a pattern to .funcignore
+// changes the fingerprint (because tracked files change), and that
+// subsequent fingerprints remain stable.
+func TestFingerprint_FuncIgnore(t *testing.T) {
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	client := fn.New()
+	f := fn.Function{Root: root, Runtime: TestRuntime, Registry: TestRegistry}
+
+	if _, err := client.Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a file that will later be ignored
+	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("design notes"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// State 1: fingerprint includes notes.txt
+	hash1, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add notes.txt to .funcignore
+	if err := os.WriteFile(filepath.Join(root, ".funcignore"), []byte("notes.txt\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// State 2: fingerprint should change because notes.txt is now excluded
+	hash2, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash1 == hash2 {
+		t.Fatal("adding pattern to .funcignore did not change the fingerprint")
+	}
+
+	// State 3: fingerprinting again should be stable
+	hash3, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash2 != hash3 {
+		t.Fatal("fingerprint not stable after .funcignore change")
+	}
+}
+
+// TestFingerprint_FuncIgnoreRootRelative ensures that root-relative
+// patterns (e.g. /docs) exclude only at the root, not nested matches.
+func TestFingerprint_FuncIgnoreRootRelative(t *testing.T) {
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	client := fn.New()
+	f := fn.Function{Root: root, Runtime: TestRuntime, Registry: TestRegistry}
+
+	if _, err := client.Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a root-level dir and a nested dir with the same name
+	if err := os.MkdirAll(filepath.Join(root, "docs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "docs", "design.md"), []byte("root docs"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "src", "docs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "src", "docs", "api.md"), []byte("nested docs"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fingerprint with both docs dirs
+	hashBoth, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add /docs (root-relative) to .funcignore — should only exclude root docs/
+	if err := os.WriteFile(filepath.Join(root, ".funcignore"), []byte("/docs\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hashRootIgnored, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashBoth == hashRootIgnored {
+		t.Fatal("root-relative /docs pattern did not change the fingerprint")
+	}
+
+	// src/docs/api.md should still be tracked — verify by removing it
+	if err := os.Remove(filepath.Join(root, "src", "docs", "api.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	hashNestedRemoved, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashRootIgnored == hashNestedRemoved {
+		t.Fatal("nested src/docs was incorrectly ignored by root-relative /docs pattern")
+	}
+}
+
+// TestFingerprint_FuncIgnoreGlob ensures glob patterns exclude matching
+// files at any depth.
+func TestFingerprint_FuncIgnoreGlob(t *testing.T) {
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	if _, err := fn.New().Init(fn.Function{Root: root, Runtime: TestRuntime, Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create files matching *.tmp at root and in a subdir
+	if err := os.WriteFile(filepath.Join(root, "cache.tmp"), []byte("cache"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "subdir"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "subdir", "build.tmp"), []byte("build"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hash1, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Ignore *.tmp — both root and subdir files should be excluded
+	if err := os.WriteFile(filepath.Join(root, ".funcignore"), []byte("*.tmp\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hash2, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash1 == hash2 {
+		t.Fatal("*.tmp pattern did not change the fingerprint")
+	}
+
+	// Modifying ignored files should not change the fingerprint
+	if err := os.WriteFile(filepath.Join(root, "cache.tmp"), []byte("changed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "subdir", "build.tmp"), []byte("changed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hash3, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash2 != hash3 {
+		t.Fatal("modifying *.tmp files changed the fingerprint — they should be ignored")
+	}
+}
+
+// TestFingerprint_FuncIgnoreTrailingSlash ensures trailing slash patterns
+// work identically to basename patterns.
+func TestFingerprint_FuncIgnoreTrailingSlash(t *testing.T) {
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	if _, err := fn.New().Init(fn.Function{Root: root, Runtime: TestRuntime, Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(root, "dist"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "dist", "output.bin"), []byte("binary"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hash1, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, ".funcignore"), []byte("dist/\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hash2, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash1 == hash2 {
+		t.Fatal("dist/ pattern did not change the fingerprint")
+	}
+
+	// Changes inside dist/ should not affect fingerprint
+	if err := os.WriteFile(filepath.Join(root, "dist", "output.bin"), []byte("changed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hash3, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash2 != hash3 {
+		t.Fatal("modifying dist/ files changed the fingerprint — they should be ignored")
+	}
+}
+
+// TestFingerprint_FuncIgnoreComments ensures comment lines are not treated
+// as patterns — a commented-out pattern still tracks the file.
+func TestFingerprint_FuncIgnoreComments(t *testing.T) {
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	if _, err := fn.New().Init(fn.Function{Root: root, Runtime: TestRuntime, Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("notes"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ignore notes.txt — fingerprint should change
+	if err := os.WriteFile(filepath.Join(root, ".funcignore"), []byte("notes.txt\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashIgnored, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Now comment it out — notes.txt is tracked again
+	if err := os.WriteFile(filepath.Join(root, ".funcignore"), []byte("# notes.txt\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashCommented, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashIgnored == hashCommented {
+		t.Fatal("commenting out a pattern did not restore the file to the fingerprint")
+	}
+
+	// Modifying notes.txt should now change the fingerprint (it is tracked again)
+	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("changed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashModified, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashCommented == hashModified {
+		t.Fatal("comment line was treated as pattern — notes.txt should be tracked")
+	}
+}
+
 // TestClient_DeployRemoves ensures that the Remover is invoked when a
 // function is moved to a new namespace.
 // specifically: deploy to 'nsone' -> simulate change of namespace with change to

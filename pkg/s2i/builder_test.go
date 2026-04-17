@@ -339,6 +339,117 @@ func (m mockDocker) ServerVersion(ctx context.Context, options client.ServerVers
 	panic("implement me")
 }
 
+// Test_FuncIgnoreSymlinked verifies that .s2iignore is symlinked to
+// .funcignore during the build and removed after.
+func Test_FuncIgnoreSymlinked(t *testing.T) {
+	root, done := Mktemp(t)
+	defer done()
+
+	f := fn.Function{
+		Name:     "test",
+		Root:     root,
+		Runtime:  "go",
+		Registry: "example.com/alice",
+	}
+	var err error
+	if f, err = fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write patterns including all supported forms
+	content := "# comment\nnotes.txt\n*.tmp\n/docs\ndist/\n"
+	if err = os.WriteFile(filepath.Join(root, ".funcignore"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	i := &mockImpl{}
+	c := mockDocker{}
+	b := s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c))
+
+	s2iignorePath := filepath.Join(root, ".s2iignore")
+
+	i.BuildFn = func(cfg *api.Config) (*api.Result, error) {
+		// During build: .s2iignore should exist and be a symlink to .funcignore
+		info, err := os.Lstat(s2iignorePath)
+		if err != nil {
+			t.Fatalf(".s2iignore not found during build: %v", err)
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			t.Fatal(".s2iignore should be a symlink")
+		}
+		target, err := os.Readlink(s2iignorePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if filepath.Clean(target) != filepath.Clean("./.funcignore") {
+			t.Fatalf(".s2iignore should point to ./.funcignore, got %q", target)
+		}
+
+		// Verify .s2iignore content matches .funcignore (comments included — S2I strips them)
+		data, err := os.ReadFile(s2iignorePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		funcignoreData, err := os.ReadFile(filepath.Join(root, ".funcignore"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(data) != string(funcignoreData) {
+			t.Fatal(".s2iignore content does not match .funcignore")
+		}
+		return nil, nil
+	}
+
+	if err := b.Build(t.Context(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// After build: .s2iignore should be removed
+	if _, err := os.Lstat(s2iignorePath); !os.IsNotExist(err) {
+		t.Fatal(".s2iignore should be removed after build")
+	}
+}
+
+// Test_FuncIgnorePreexistingS2iIgnore verifies that a pre-existing
+// .s2iignore is not overwritten and takes precedence.
+func Test_FuncIgnorePreexistingS2iIgnore(t *testing.T) {
+	root, done := Mktemp(t)
+	defer done()
+
+	f := fn.Function{Name: "test", Root: root, Runtime: "go", Registry: "example.com/alice"}
+	var err error
+	if f, err = fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = os.WriteFile(filepath.Join(root, ".funcignore"), []byte("notes.txt\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(root, ".s2iignore"), []byte("other.txt\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	i := &mockImpl{}
+	c := mockDocker{}
+	b := s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c))
+
+	i.BuildFn = func(cfg *api.Config) (*api.Result, error) {
+		// .s2iignore should still contain the original content (not overwritten)
+		data, err := os.ReadFile(filepath.Join(root, ".s2iignore"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(data) != "other.txt\n" {
+			t.Fatalf("pre-existing .s2iignore was overwritten, got: %q", string(data))
+		}
+		return nil, nil
+	}
+
+	if err := b.Build(t.Context(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Test_ScaffoldWritesToFuncBuild ensures that scaffolding for Go/Python
 // runtimes is written to .func/build/ instead of .s2i/build/
 func Test_ScaffoldWritesToFuncBuild(t *testing.T) {

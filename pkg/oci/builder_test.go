@@ -469,39 +469,6 @@ func (l *TestLanguageBuilder) Configure(job buildJob, p v1.Platform, c v1.Config
 	return l.ConfigureFn(job, p, c)
 }
 
-// Test_readFuncIgnore ensures that the .funcignore file is parsed correctly,
-// skipping comments and blank lines.
-func Test_readFuncIgnore(t *testing.T) {
-	root := t.TempDir()
-
-	content := `
-# Comment
-/design
-/archive
-.jj
-`
-	if err := os.WriteFile(filepath.Join(root, ".funcignore"), []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	patterns := readFuncIgnore(root)
-	expected := []string{"/design", "/archive", ".jj"}
-
-	if diff := cmp.Diff(expected, patterns); diff != "" {
-		t.Error("patterns differ (-want, +got):", diff)
-	}
-}
-
-// Test_readFuncIgnore_missing ensures that a missing .funcignore returns nil.
-func Test_readFuncIgnore_missing(t *testing.T) {
-	root := t.TempDir()
-
-	patterns := readFuncIgnore(root)
-	if patterns != nil {
-		t.Fatalf("expected nil, got %v", patterns)
-	}
-}
-
 // Test_newDataTarball_funcIgnore ensures that directories listed in
 // .funcignore are excluded from the data tarball, even if they contain
 // absolute symlinks that would otherwise cause an error.
@@ -528,14 +495,13 @@ func Test_newDataTarball_funcIgnore(t *testing.T) {
 
 	// Without funcignore, the build should fail due to absolute symlink
 	target := filepath.Join(root, "test-fail.tar.gz")
-	err := newDataTarball(root, target, defaultIgnored, false)
+	err := newDataTarball(root, target, nil, false)
 	if err == nil {
 		t.Fatal("expected error for absolute symlink without funcignore")
 	}
 
 	// With /.jj in the ignored list (as read from .funcignore), it should succeed
-	ignored := append([]string{}, defaultIgnored...)
-	ignored = append(ignored, "/.jj")
+	ignored := []string{"/.jj"}
 
 	target = filepath.Join(root, "test-pass.tar.gz")
 	if err := newDataTarball(root, target, ignored, false); err != nil {
@@ -574,6 +540,132 @@ func Test_newDataTarball_funcIgnore(t *testing.T) {
 	}
 	if !foundA {
 		t.Fatal("a.txt not found in tarball")
+	}
+}
+
+// tarbállContains returns the set of paths found in the gzipped tarball.
+func tarballContents(t *testing.T, path string) map[string]bool {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	gr, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gr.Close()
+	entries := map[string]bool{}
+	tr := tar.NewReader(gr)
+	for {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		entries[hdr.Name] = true
+	}
+	return entries
+}
+
+// Test_newDataTarball_funcIgnorePatterns verifies that all supported
+// .funcignore pattern forms correctly exclude files from the OCI tarball.
+func Test_newDataTarball_funcIgnorePatterns(t *testing.T) {
+	root := t.TempDir()
+
+	// basename pattern
+	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("notes"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// glob pattern — at root and in subdir
+	if err := os.WriteFile(filepath.Join(root, "cache.tmp"), []byte("tmp"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "subdir"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "subdir", "build.tmp"), []byte("tmp"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// trailing slash pattern
+	if err := os.MkdirAll(filepath.Join(root, "dist"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "dist", "output.bin"), []byte("bin"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// root-relative pattern
+	if err := os.MkdirAll(filepath.Join(root, "docs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "docs", "design.md"), []byte("docs"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// tracked file that must remain
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	patterns := []string{
+		"notes.txt", // basename
+		"*.tmp",     // glob
+		"dist/",     // trailing slash
+		"/docs",     // root-relative
+	}
+
+	target := filepath.Join(t.TempDir(), "test.tar.gz")
+	if err := newDataTarball(root, target, patterns, false); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := tarballContents(t, target)
+
+	// Should be present
+	if !entries["/func/main.go"] {
+		t.Error("main.go should be in tarball")
+	}
+	if !entries["/func/subdir"] {
+		t.Error("subdir/ should be in tarball")
+	}
+
+	// Should be excluded
+	for _, excluded := range []string{
+		"/func/notes.txt",
+		"/func/cache.tmp",
+		"/func/subdir/build.tmp",
+		"/func/dist/output.bin",
+		"/func/docs/design.md",
+	} {
+		if entries[excluded] {
+			t.Errorf("%v should be excluded from tarball", excluded)
+		}
+	}
+}
+
+// Test_newDataTarball_funcIgnoreComments verifies comment lines in
+// .funcignore are not treated as patterns by the OCI builder.
+func Test_newDataTarball_funcIgnoreComments(t *testing.T) {
+	root := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("notes"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Comment line — notes.txt should remain in tarball
+	_ = os.WriteFile(filepath.Join(root, ".funcignore"), []byte("# notes.txt\n"), 0644)
+	patterns := fn.ParseFuncIgnore(root)
+
+	target := filepath.Join(t.TempDir(), "test.tar.gz")
+	if err := newDataTarball(root, target, patterns, false); err != nil {
+		t.Fatal(err)
+	}
+
+	entries := tarballContents(t, target)
+	if !entries["/func/notes.txt"] {
+		t.Error("notes.txt should be in tarball — comment line should not be treated as pattern")
 	}
 }
 
