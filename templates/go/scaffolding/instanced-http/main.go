@@ -1,3 +1,5 @@
+//go:build embd
+
 package main
 
 import (

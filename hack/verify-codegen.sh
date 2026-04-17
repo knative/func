@@ -34,12 +34,8 @@ cp -aR "${REPO_ROOT_DIR}/docs/"  "${TMP_DIFFROOT}"
 
 ret=0
 
-echo "Checking generated FS"
-# Yes, this must be called before regenerating templates
-go test -run "^\QTestFileSystems\E$/^\Qembedded\E$" ./pkg/filesystem || ret=1
-
-echo "Checking generate/templates.zip"
-go run "${REPO_ROOT_DIR}/generate/templates" check || ret=1
+echo "Checking templates/.permissions"
+go run "${REPO_ROOT_DIR}/hack/cmd/permissiongen" check || ret=1
 
 echo "Checking generated docs"
 POD_NAMESPACE=default KUBECONFIG="$(mktemp)" go run "${REPO_ROOT_DIR}/docs/generator/main.go"

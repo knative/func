@@ -1,3 +1,5 @@
+//go:build embd
+
 // package function is an example of a Function implementation.
 //
 // This package name can be changed when using the "host" builder

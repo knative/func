@@ -20,7 +20,7 @@ set -o pipefail
 
 source "$(go run knative.dev/hack/cmd/script library.sh)"
 
-go generate "pkg/functions/templates_embedded.go"
+go run "${REPO_ROOT_DIR}/hack/cmd/permissiongen"
 
 POD_NAMESPACE=default KUBECONFIG="$(mktemp)" go run ${REPO_ROOT_DIR}/docs/generator/main.go
 
