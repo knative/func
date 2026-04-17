@@ -87,7 +87,7 @@ func patchPyprojectForPack(pyprojectPath string) error {
 		return fmt.Errorf("cannot read pyproject.toml for patching: %w", err)
 	}
 	content := strings.Replace(string(data), "{root:uri}/f", "./f", 1)
-	content += "[tool.poetry.dependencies]\npython = \">=3.9,<4.0\"\nfunction = { path = \"f\", develop = true }\n"
+	content += "[tool.poetry.dependencies]\npython = \">=3.10,<4.0\"\nfunction = { path = \"f\", develop = true }\n"
 	if err = os.WriteFile(pyprojectPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("cannot write patched pyproject.toml: %w", err)
 	}

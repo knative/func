@@ -188,6 +188,7 @@ type Instance struct {
 	Subscriptions []Subscription    `json:"subscriptions" yaml:"subscriptions"`
 	Labels        map[string]string `json:"labels" yaml:"labels" xml:"-"`
 	Middleware    Middleware        `json:"middleware,omitempty" yaml:"middleware,omitempty"`
+	Generation    int64             `json:"generation,omitempty" yaml:"generation,omitempty"`
 }
 
 // Subscriptions currently active to event sources
@@ -691,6 +692,11 @@ func BuildWithPlatforms(pp []Platform) BuildOption {
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) (Function, error) {
 	fmt.Fprintf(os.Stderr, "Building function image\n")
+
+	// Warn if a func-generated legacy .s2i/bin/assemble file is left at the
+	// function root (pre-1.21.2)
+	WarnIfLegacyS2IScaffolding(f, os.Stderr)
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

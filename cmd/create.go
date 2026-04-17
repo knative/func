@@ -280,7 +280,7 @@ func singleCommand(cmd *cobra.Command, args []string, cfg createConfig) string {
 		b.WriteString(" -r " + cfg.Repository)
 	}
 	if cmd.Flags().Lookup("verbose").Changed {
-		b.WriteString(fmt.Sprintf(" -v %v", cfg.Verbose))
+		fmt.Fprintf(&b, " -v %v", cfg.Verbose)
 	}
 	if len(args) > 0 {
 		b.WriteString(" " + cfg.Path) // optional trailing <path> argument

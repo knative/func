@@ -10,7 +10,7 @@ poetry run python -m unittest discover
 import json
 import asyncio
 import pytest
-from cloudevents.http import CloudEvent
+from cloudevents.core.v1.event import CloudEvent
 from function import new
 
 
@@ -25,7 +25,7 @@ async def test_func():
         "source": "https://example.com/event-producer",
     }
     data = {"message": "test message"}
-    event = CloudEvent(attributes, data)
+    event = CloudEvent(attributes=attributes, data=data)
 
     invoked = False  # Flag indicating send method was invoked
 
@@ -40,7 +40,7 @@ async def test_func():
 
         # Ensure it returns {"message": "OK"} as data
         expected = {"message": "OK"}
-        assert e.data == expected, f"Expected data {expected}, got {e.data}"
+        assert e.get_data() == expected, f"Expected data {expected}, got {e.get_data()}"
 
     # Invoke the Function
     scope = {"event": event}  # Add the CloudEvent to the scope

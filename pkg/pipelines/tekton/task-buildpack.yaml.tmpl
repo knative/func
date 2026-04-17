@@ -146,6 +146,16 @@ spec:
             fi
         done
 
+        # Add middleware version as image label
+        middleware_version_file="$(workspaces.source.path)/middleware-version"
+        if [ -f "$middleware_version_file" ]; then
+          middleware_version="$(cat "$middleware_version_file")"
+          echo "--> Adding middleware version label: $middleware_version"
+          echo -n "middleware-version=$middleware_version" >> "${ENV_DIR}/BP_IMAGE_LABELS"
+        else
+          echo "No middleware-version file ($middleware_version_file) found"
+        fi
+
         ############################################
         ##### Added part for Knative Functions #####
         ############################################

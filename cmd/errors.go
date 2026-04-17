@@ -83,15 +83,16 @@ func NewErrPlatformNotSupported(err error, cmd string) error {
 func (e *ErrPlatformNotSupported) Error() string {
 	return fmt.Sprintf(`%v
 
-The --platform flag is only supported with the S2I builder.
+The --platform flag is only supported with the S2I and Pack builders.
 
 Try this:
   func %s --registry <registry> --builder=s2i --platform linux/amd64
+  func %s --registry <registry> --builder=pack --platform linux/amd64
 
 Or remove the --platform flag:
   func %s --registry <registry>
 
-For more options, run 'func %s --help'`, e.Err, e.Cmd, e.Cmd, e.Cmd)
+For more options, run 'func %s --help'`, e.Err, e.Cmd, e.Cmd, e.Cmd, e.Cmd)
 }
 
 func (e *ErrPlatformNotSupported) Unwrap() error {

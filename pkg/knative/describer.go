@@ -82,12 +82,13 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	}
 
 	description := fn.Instance{
-		Name:      name,
-		Namespace: namespace,
-		Deployer:  KnativeDeployerName,
-		Route:     primaryRouteURL,
-		Routes:    routeURLs,
-		Labels:    service.Labels,
+		Name:       name,
+		Namespace:  namespace,
+		Deployer:   KnativeDeployerName,
+		Route:      primaryRouteURL,
+		Routes:     routeURLs,
+		Labels:     service.Labels,
+		Generation: service.Generation,
 	}
 
 	// get used image (including the sha)

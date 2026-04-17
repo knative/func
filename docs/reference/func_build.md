@@ -66,7 +66,7 @@ func build
   -i, --image string               Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)
       --password string            Password to use when pushing to the registry. ($FUNC_PASSWORD)
   -p, --path string                Path to the function.  Default is current directory ($FUNC_PATH)
-      --platform string            Optionally specify a target platform, for example "linux/amd64" when using the s2i build strategy
+      --platform string            Optionally specify a target platform, for example "linux/amd64" when using the s2i or pack build strategy
   -u, --push                       Attempt to push the function image to the configured registry after being successfully built
   -r, --registry string            Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
       --registry-authfile string   Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)

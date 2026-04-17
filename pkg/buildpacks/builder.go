@@ -121,14 +121,20 @@ var DefaultLifecycleImage = "docker.io/buildpacksio/lifecycle:553c041"
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {
-	if len(platforms) != 0 {
-		return errors.New("the pack builder does not support specifying target platforms directly")
-	}
-
 	// Builder image from the function if defined, default otherwise.
 	image, err := BuilderImage(f, b.name)
 	if err != nil {
 		return
+	}
+
+	// Validate Platforms
+	if len(platforms) == 1 {
+		platform := strings.ToLower(platforms[0].OS + "/" + platforms[0].Architecture)
+		if image, err = docker.GetPlatformImage(image, platform); err != nil {
+			return fmt.Errorf("cannot get platform image reference for %q: %w", platform, err)
+		}
+	} else if len(platforms) > 1 {
+		return errors.New("the pack builder currently only supports specifying a single target platform")
 	}
 
 	buildpacks := f.Build.Buildpacks
@@ -171,6 +177,9 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 			Network string
 			Volumes []string
 		}{Network: "", Volumes: nil},
+	}
+	if len(platforms) == 1 {
+		opts.Platform = strings.ToLower(platforms[0].OS + "/" + platforms[0].Architecture)
 	}
 	if b.withTimestamp {
 		now := time.Now()

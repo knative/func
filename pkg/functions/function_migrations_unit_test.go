@@ -1,10 +1,14 @@
 package functions
 
 import (
+	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/coreos/go-semver/semver"
+	"gopkg.in/yaml.v2"
 )
 
 // TestMigrated ensures that the .Migrated() method returns whether or not the
@@ -196,4 +200,119 @@ func TestMigrateFromInvokeStructure(t *testing.T) {
 	if f1.Invoke != expectedInvoke {
 		t.Fatalf("migrated Function expected Invoke '%v', got '%v'", expectedInvoke, f0.Invoke)
 	}
+}
+
+// TestUnknownFieldsWarning verifies that loading a func.yaml at the latest
+// spec version with unknown fields prints a warning to stderr.
+// Note we have to do this 'dynamically' because we need the latest spec,
+// whatever it is.
+func TestUnknownFieldsWarning(t *testing.T) {
+	unknownFieldsOnce = sync.Once{}
+
+	root := t.TempDir()
+	if err := writeFunc(Function{
+		SpecVersion: LastSpecVersion(),
+		Name:        "test-func",
+		Runtime:     "go",
+	}, root); err != nil {
+		t.Fatal(err)
+	}
+	funcYaml, _ := os.OpenFile(root+"/func.yaml", os.O_APPEND|os.O_WRONLY, 0644)
+	if _, err := funcYaml.WriteString("junkField: bad\n"); err != nil {
+		t.Fatal(err)
+	}
+	funcYaml.Close()
+
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	_, err := NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w.Close()
+	os.Stderr = old
+
+	var buf [4096]byte
+	n, _ := r.Read(buf[:])
+	output := string(buf[:n])
+
+	if !strings.Contains(output, "Warning") {
+		t.Errorf("expected warning in stderr, got: %q", output)
+	}
+	if !strings.Contains(output, `unknown field "junkField"`) {
+		t.Errorf("expected junkField in warning, got: %q", output)
+	}
+}
+
+// TestUnknownFieldsNoWarningOnClean verifies that a valid func.yaml
+// produces no warning.
+func TestUnknownFieldsNoWarningOnClean(t *testing.T) {
+	unknownFieldsOnce = sync.Once{}
+
+	root := t.TempDir()
+	f := Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	f.SpecVersion = LastSpecVersion()
+	f.Name = "clean-func"
+	f.Created = f.Created.Add(1)
+	if err := writeFunc(f, root); err != nil {
+		t.Fatal(err)
+	}
+
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	_, err := NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w.Close()
+	os.Stderr = old
+
+	var buf [4096]byte
+	n, _ := r.Read(buf[:])
+	output := string(buf[:n])
+
+	if strings.Contains(output, "Warning") {
+		t.Errorf("expected no warning for clean func.yaml, got: %q", output)
+	}
+}
+
+// TestUnknownFieldsNoWarningPreMigration verifies that old func.yaml files
+// (not yet at the latest spec) do NOT trigger the unknown fields warning,
+// since they may contain old keys that migration handles.
+func TestUnknownFieldsNoWarningPreMigration(t *testing.T) {
+	unknownFieldsOnce = sync.Once{}
+
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	_, _ = NewFunction("testdata/migrations/v0.34.0")
+
+	w.Close()
+	os.Stderr = old
+
+	var buf [4096]byte
+	n, _ := r.Read(buf[:])
+	output := string(buf[:n])
+
+	if strings.Contains(output, "Warning") {
+		t.Errorf("expected no warning for pre-migration func.yaml, got: %q", output)
+	}
+}
+
+func writeFunc(f Function, root string) error {
+	bb, err := yaml.Marshal(&f)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(root+"/func.yaml", bb, 0644)
 }

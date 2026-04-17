@@ -101,10 +101,6 @@ func scaffold(ctx context.Context) error {
 		middlewareVersion = "<unknown>"
 	}
 
-	if err := os.WriteFile("/tekton/results/middlewareVersion", []byte(middlewareVersion), 0644); err != nil {
-		return fmt.Errorf("cannot write middleware version as a result: %w", err)
-	}
-
 	if err := os.WriteFile(middlewareFileName, []byte(middlewareVersion), 0644); err != nil {
 		return fmt.Errorf("cannot write middleware version as a file: %w", err)
 	}

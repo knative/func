@@ -25,6 +25,7 @@ import (
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/pipelines/tekton"
@@ -44,26 +45,34 @@ const (
 	TestNamespace = "default"
 )
 
-func newRemoteTestClient(verbose bool, opts ...fn.Option) *fn.Client {
+func newRemoteTestClient(verbose bool, deployer string, opts ...fn.Option) *fn.Client {
 	baseOpts := []fn.Option{
 		fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithCredentialsProvider(testCP))),
-		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
-		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
-		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
-		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
+		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose), keda.NewDescriber(verbose)),
+		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose), keda.NewLister(verbose)),
+		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose), keda.NewRemover(verbose)),
 		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose))),
 	}
+
+	switch deployer {
+	case k8s.KubernetesDeployerName:
+		baseOpts = append(baseOpts, fn.WithDeployer(k8s.NewDeployer(k8s.WithDeployerVerbose(verbose))))
+	case keda.KedaDeployerName:
+		baseOpts = append(baseOpts, fn.WithDeployer(keda.NewDeployer(keda.WithDeployerVerbose(verbose))))
+	case knative.KnativeDeployerName:
+		baseOpts = append(baseOpts, fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))))
+	}
+
 	return fn.New(append(baseOpts, opts...)...)
 }
 
 // assertFunctionEchoes returns without error when the function of the given
 // name echoes a parameter sent via a Get request.
-func assertFunctionEchoes(url string) (err error) {
+func assertFunctionEchoes(httpClient *http.Client, url string) (err error) {
 	token := time.Now().Format("20060102150405.000000000")
 
-	// res, err := http.Get("http://testremote-default.default.localtest.me?token=" + token)
-	res, err := http.Get(url + "?token=" + token)
+	res, err := httpClient.Get(url + "?token=" + token)
 	if err != nil {
 		return
 	}
@@ -80,6 +89,28 @@ func assertFunctionEchoes(url string) (err error) {
 		_, _ = httputil.DumpResponse(res, true)
 	}
 	return
+}
+
+// httpClientForDeployer returns an HTTP client appropriate for the deployer type.
+// Raw and keda deployers expose cluster-internal services, so an in-cluster
+// dialer is needed. Knative services are externally accessible via ingress.
+func httpClientForDeployer(t *testing.T, ctx context.Context, deployer string) *http.Client {
+	switch deployer {
+	case k8s.KubernetesDeployerName, keda.KedaDeployerName:
+		dialer, err := k8s.NewInClusterDialer(ctx, k8s.GetClientConfig())
+		if err != nil {
+			t.Fatalf("failed to create in-cluster dialer: %v", err)
+		}
+		t.Cleanup(func() { _ = dialer.Close() })
+		return &http.Client{
+			Transport: &http.Transport{
+				DialContext: dialer.DialContext,
+			},
+			Timeout: time.Minute,
+		}
+	default:
+		return http.DefaultClient
+	}
 }
 
 func tektonTestsEnabled(t *testing.T) (enabled bool) {
@@ -114,41 +145,51 @@ func TestInt_Remote_Default(t *testing.T) {
 		t.Skip()
 	}
 	skipOnUnsupportedArch(t)
-	_ = fromCleanEnvironment(t)
-	var (
-		err         error
-		url         string
-		verbose     = false
-		ctx, cancel = signal.NotifyContext(t.Context(), os.Interrupt)
-		client      = newRemoteTestClient(verbose,
-			fn.WithRepository("https://github.com/functions-dev/templates"))
-	)
-	defer cancel()
 
-	f := fn.Function{
-		Name:      "testremote-default",
-		Runtime:   "go",
-		Template:  "echo",
-		Registry:  TestRegistry,
-		Namespace: TestNamespace,
-		Build: fn.BuildSpec{
-			Builder: "pack", // TODO: test "s2i".  Currently it causes a 'no space left on device' error in GH actions.
-		},
-	}
+	for _, d := range []string{knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName} {
+		t.Run(d, func(t *testing.T) {
+			_ = fromCleanEnvironment(t)
+			var (
+				err         error
+				url         string
+				verbose     = false
+				ctx, cancel = signal.NotifyContext(t.Context(), os.Interrupt)
+				client      = newRemoteTestClient(verbose, d,
+					fn.WithRepository("https://github.com/functions-dev/templates"))
+			)
+			defer cancel()
 
-	if f, err = client.Init(f); err != nil {
-		t.Fatal(err)
-	}
+			f := fn.Function{
+				Name:      "testremote-default",
+				Runtime:   "go",
+				Template:  "echo",
+				Registry:  TestRegistry,
+				Namespace: TestNamespace,
+				Build: fn.BuildSpec{
+					Builder: "pack", // TODO: test "s2i".  Currently it causes a 'no space left on device' error in GH actions.
+				},
+				Deploy: fn.DeploySpec{
+					Deployer: d,
+				},
+			}
 
-	if url, f, err = client.RunPipeline(ctx, f); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		_ = client.Remove(ctx, "", "", f, true)
-	}()
+			if f, err = client.Init(f); err != nil {
+				t.Fatal(err)
+			}
 
-	if err := assertFunctionEchoes(url); err != nil {
-		t.Fatal(err)
+			if url, f, err = client.RunPipeline(ctx, f); err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				_ = client.Remove(ctx, "", "", f, true)
+			}()
+
+			httpClient := httpClientForDeployer(t, ctx, d)
+
+			if err := assertFunctionEchoes(httpClient, url); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

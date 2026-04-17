@@ -29,7 +29,7 @@ const DefaultName = builders.S2I
 
 var DefaultNodeBuilder = "registry.access.redhat.com/ubi8/nodejs-20-minimal"
 var DefaultQuarkusBuilder = "registry.access.redhat.com/ubi8/openjdk-21"
-var DefaultPythonBuilder = "registry.access.redhat.com/ubi8/python-39"
+var DefaultPythonBuilder = "registry.access.redhat.com/ubi8/python-311"
 var DefaultGoBuilder = "registry.access.redhat.com/ubi8/go-toolset"
 
 // DefaultBuilderImages for s2i builders indexed by Runtime Language

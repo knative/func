@@ -529,7 +529,12 @@ tekton() {
   $KUBECTL wait pod --for=condition=Ready --timeout=180s -n tekton-pipelines -l "app=tekton-pipelines-webhook"
   sleep 10
 
+  # Grant permissions for Knative resources (services, routes, etc.)
   $KUBECTL create clusterrolebinding "${namespace}:knative-serving-namespaced-admin" --clusterrole=knative-serving-namespaced-admin --serviceaccount="${namespace}:default"
+  # Grant permissions for standard Kubernetes resources (deployments, services, etc.) needed by k8s deployer
+  $KUBECTL create clusterrolebinding "${namespace}:admin" --clusterrole=admin --serviceaccount="${namespace}:default"
+  # Grant permissions for HTTPScaledObject Keda resources needed by keda deployer
+  $KUBECTL create clusterrolebinding "${namespace}:keda-add-ons-http-operator" --clusterrole=keda-add-ons-http-operator --serviceaccount="${namespace}:default"
 
   echo "${green}✅ Tekton${reset}"
 }

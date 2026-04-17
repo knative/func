@@ -1,9 +1,11 @@
 package functions_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v2"
@@ -294,5 +296,65 @@ func expectedDefaultLabels(f fn.Function) map[string]string {
 	return map[string]string{
 		fnlabels.FunctionNameKey:    f.Name,
 		fnlabels.FunctionRuntimeKey: f.Runtime,
+	}
+}
+
+// TestWarnIfLegacyS2IScaffolding ensures the warning is emitted only when a
+// func-generated legacy .s2i/bin/assemble file is present at the function root
+// for a scaffolded runtime (go/python).
+func Test_WarnIfLegacyS2IScaffolding(t *testing.T) {
+	tests := []struct {
+		name        string
+		runtime     string
+		createFile  bool
+		wantWarning bool
+	}{
+		{
+			name:        "scaffolded runtime with legacy assemble warns",
+			runtime:     "go",
+			createFile:  true,
+			wantWarning: true,
+		},
+		{
+			name:        "non-scaffolded runtime with .s2i/bin/assemble does not warn",
+			runtime:     "node",
+			createFile:  true,
+			wantWarning: false,
+		},
+		{
+			name:        "scaffolded runtime without legacy assemble does not warn",
+			runtime:     "go",
+			createFile:  false,
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root, cleanup := Mktemp(t)
+			t.Cleanup(cleanup)
+
+			if tt.createFile {
+				binDir := filepath.Join(root, ".s2i", "bin")
+				if err := os.MkdirAll(binDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(binDir, "assemble"), []byte("#!/bin/bash"), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			f := fn.Function{Root: root, Runtime: tt.runtime}
+			var buf bytes.Buffer
+			fn.WarnIfLegacyS2IScaffolding(f, &buf)
+
+			warned := strings.Contains(buf.String(), ".s2i/bin/assemble")
+			if tt.wantWarning && !warned {
+				t.Fatalf("expected a warning about .s2i/bin/assemble, got: %q", buf.String())
+			}
+			if !tt.wantWarning && warned {
+				t.Fatalf("unexpected warning about .s2i/bin/assemble: %q", buf.String())
+			}
+		})
 	}
 }
