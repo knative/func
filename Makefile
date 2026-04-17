@@ -211,18 +211,12 @@ check-templates: check-go check-rust check-typescript ## Run template source cod
 
 .PHONY: check-go
 check-go: $(BIN_GOLANGCI_LINT) ## Check Go templates' source
-	go run ./hack/cmd/embd unembd templates/go/scaffolding/instanced-http
+	go run ./hack/cmd/embd unembd templates/go
 	cd templates/go/scaffolding/instanced-http && go vet ./... && $(BIN_GOLANGCI_LINT) run
-	go run ./hack/cmd/embd embd templates/go/scaffolding/instanced-http
-	go run ./hack/cmd/embd unembd templates/go/scaffolding/instanced-cloudevents
 	cd templates/go/scaffolding/instanced-cloudevents && go vet ./... && $(BIN_GOLANGCI_LINT) run
-	go run ./hack/cmd/embd embd templates/go/scaffolding/instanced-cloudevents
-	go run ./hack/cmd/embd unembd templates/go/scaffolding/static-http
 	cd templates/go/scaffolding/static-http && go vet ./... && $(BIN_GOLANGCI_LINT) run
-	go run ./hack/cmd/embd embd templates/go/scaffolding/static-http
-	go run ./hack/cmd/embd unembd templates/go/scaffolding/static-cloudevents
 	cd templates/go/scaffolding/static-cloudevents && go vet ./... && $(BIN_GOLANGCI_LINT) run
-	go run ./hack/cmd/embd embd templates/go/scaffolding/static-cloudevents
+	go run ./hack/cmd/embd embd templates/go
 
 .PHONY: check-rust
 check-rust: ## Check Rust templates' source
@@ -286,18 +280,12 @@ update-runtimes: update-runtime-go ## Update Scaffolding Runtimes
 .PHONY: update-runtime-go
 update-runtime-go:
 	@echo "Updating Go runtime..."
-	go run ./hack/cmd/embd unembd templates/go/scaffolding/instanced-http
+	go run ./hack/cmd/embd unembd templates/go
 	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http && go mod tidy
-	go run ./hack/cmd/embd embd templates/go/scaffolding/instanced-http
-	go run ./hack/cmd/embd unembd templates/go/scaffolding/static-http
 	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http && go mod tidy
-	go run ./hack/cmd/embd embd templates/go/scaffolding/static-http
-	go run ./hack/cmd/embd unembd templates/go/scaffolding/instanced-cloudevents
 	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents && go mod tidy
-	go run ./hack/cmd/embd embd templates/go/scaffolding/instanced-cloudevents
-	go run ./hack/cmd/embd unembd templates/go/scaffolding/static-cloudevents
 	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents && go mod tidy
-	go run ./hack/cmd/embd embd templates/go/scaffolding/static-cloudevents
+	go run ./hack/cmd/embd embd templates/go
 
 
 .PHONY: certs
