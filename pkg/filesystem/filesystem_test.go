@@ -344,6 +344,11 @@ func initGitFS(t *testing.T) filesystem.Filesystem {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Windows: file:// clone returns nil
+	// (see TODO in TestFileSystems)
+	if result == nil {
+		return nil
+	}
 	return filesystem.NewManglingFilesystem(result)
 }
 
