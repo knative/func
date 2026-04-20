@@ -753,7 +753,7 @@ func del(t *testing.T, c *fn.Client, name, namespace string) {
 // waitFor the named function to become available in List output.
 // TODO: the API should be synchronous, but that depends first on
 // Create returning the derived name such that we can bake polling in.
-// Ideally the provider's Create would be made syncrhonous.
+// Ideally the provider's Create would be made synchronous.
 func waitFor(t *testing.T, c *fn.Client, name, namespace string) {
 	t.Helper()
 	var pollInterval = 2 * time.Second

@@ -9,7 +9,7 @@ import (
 
 // Test_NewTestClient ensures that the convenience method for
 // constructing a mocked client for testing properly considers options:
-// options provided to the factory constructor are considered exaustive,
+// options provided to the factory constructor are considered exhaustive,
 // such that the test can force the user of the factory to use specific mocks.
 // In other words, options provided when invoking the factory (such as by
 // a command implementation) are ignored.

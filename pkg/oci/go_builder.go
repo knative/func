@@ -24,7 +24,7 @@ func (b goBuilder) Base(customImage string) string {
 }
 
 func (b goBuilder) Configure(_ buildJob, _ v1.Platform, cf v1.ConfigFile) (v1.ConfigFile, error) {
-	// : Using Cmd rather than Entrypoint due to it being overrideable.
+	// : Using Cmd rather than Entrypoint due to it being overridable.
 	cf.Config.Cmd = []string{"/func/f"}
 	cf.Config.Env = append(cf.Config.Env, "LISTEN_ADDRESS=[::]:8080")
 	return cf, nil
@@ -74,7 +74,7 @@ func (b goBuilder) WritePlatform(cfg buildJob, p v1.Platform) (layers []imageLay
 		return nil, fmt.Errorf("cannot rename blob: %w", err)
 	}
 
-	// NOTE: base is intentionally blank indiciating it is to be built without
+	// NOTE: base is intentionally blank indicating it is to be built without
 	// a base layer.
 	return []imageLayer{{Descriptor: desc, Layer: layer}}, nil
 }

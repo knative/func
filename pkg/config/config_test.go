@@ -13,7 +13,7 @@ import (
 )
 
 // TestNewDefaults ensures that the default Config
-// constructor yelds a struct prepopulated with static
+// constructor yields a struct prepopulated with static
 // defaults.
 func TestNewDefaults(t *testing.T) {
 	cfg := config.New()

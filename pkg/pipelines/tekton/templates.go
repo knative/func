@@ -479,7 +479,7 @@ func createAndApplyResource(projectRoot, fileName, fileTemplate, kind, resourceN
 
 	m, err = m.Transform(manifestival.InjectNamespace(namespace))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error procesing template: %v", err)
+		fmt.Fprintf(os.Stderr, "error processing template: %v", err)
 		return err
 	}
 

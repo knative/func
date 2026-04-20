@@ -80,7 +80,7 @@ func TestPlatform(t *testing.T) {
 
 	ref, err = docker.GetPlatformImage(nonMultiArchBuilder, "linux/ppc64le")
 	if err != nil {
-		t.Errorf("unexpeced error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 	if ref != nonMultiArchBuilder {
 		t.Error("incorrect reference")
@@ -88,7 +88,7 @@ func TestPlatform(t *testing.T) {
 
 	ref, err = docker.GetPlatformImage(multiArchBuilder, "linux/ppc64le")
 	if err != nil {
-		t.Errorf("unexpeced error: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
 
 	imgDigest, err := img.Digest()

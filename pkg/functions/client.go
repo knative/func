@@ -958,7 +958,7 @@ func (c *Client) RemovePAC(ctx context.Context, f Function, metadata any) error 
 // Note that local instances of the Function created by the .Run
 // method are not considered here.  This method is intended to specifically
 // apply to the logical group of function instances actually available as
-// network sevices; this excludes local testing instances.
+// network services; this excludes local testing instances.
 //
 // For access to these local test function instances routes, use the instances
 // manager directly ( see .Instances().Get() ).
@@ -968,7 +968,7 @@ func (c *Client) Route(ctx context.Context, f Function) (string, Function, error
 	// NOTE:
 	// DNS and TLS are provisioned by Knative Serving + cert-manager,
 	// but DNS subdomain CNAME to the Kourier Load Balancer is
-	// still manual, and the initial cluster config to suppot the TLD
+	// still manual, and the initial cluster config to support the TLD
 	// is still manual.
 	if err := c.dnsProvider.Provide(f); err != nil {
 		return "", f, err
@@ -1054,7 +1054,7 @@ func (c *Client) Describe(ctx context.Context, name, namespace string, f Functio
 		return c.describeByMatchingDescriber(ctx, name, namespace)
 	}
 
-	// Desribe Current Function
+	// Describe Current Function
 	// ------------------------
 	if !f.Initialized() {
 		return d, NewErrNotInitialized(f.Root)
@@ -1116,7 +1116,7 @@ func (c *Client) List(ctx context.Context, namespace string) ([]ListItem, error)
 // function defined at root is used if it exists. If calling this directly
 // namespace must be provided in .Deploy.Namespace field except when using mocks
 // in which case empty namespace is accepted because its existence is checked
-// in the sub functions remover.Remove and pipilines.Remove
+// in the sub functions remover.Remove and pipelines.Remove
 func (c *Client) Remove(ctx context.Context, name, namespace string, f Function, all bool) error {
 	// Default to name/namespace, fallback to passed Function
 	if name == "" {
@@ -1244,7 +1244,7 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, bool, error) {
 }
 
 // StartMCPServer is currently a passthrough to the configured MCP Server
-// intance.
+// instance.
 func (c *Client) StartMCPServer(ctx context.Context, writeEnabled bool) error {
 	return c.mcpServer.Start(ctx, writeEnabled)
 }
@@ -1270,7 +1270,7 @@ func ensureRunDataDir(root string) error {
 		return err
 	}
 	defer roFile.Close()
-	if !os.IsNotExist(err) { // if no error openeing it
+	if !os.IsNotExist(err) { // if no error opening it
 		s := bufio.NewScanner(roFile) // create a scanner
 		for s.Scan() {                // scan each line
 			if strings.HasPrefix(s.Text(), "# /"+RunDataDir) { // if it was commented
@@ -1378,7 +1378,7 @@ func Fingerprint(root string) (hash, log string, err error) {
 // assertEmptyRoot ensures that the directory is empty enough to be used for
 // initializing a new function.
 func assertEmptyRoot(path string) (err error) {
-	// If there exists contentious files (congig files for instance), this function may have already been initialized.
+	// If there exists contentious files (config files for instance), this function may have already been initialized.
 	files, err := contentiousFilesIn(path)
 	if err != nil {
 		return

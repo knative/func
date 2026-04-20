@@ -117,7 +117,7 @@ func TestFunction_ImageWithDigest(t *testing.T) {
 		},
 	}
 	//TODO: gauron99 - this is gonna need to be changed (probably) because:
-	// 1: imageDigest now doesnt have a dedicated structure member (resolved?)
+	// 1: imageDigest now doesn't have a dedicated structure member (resolved?)
 	// 2: is still fetched after pushing the Function (which is a temporary fix -- it really should be during build)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

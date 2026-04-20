@@ -329,8 +329,8 @@ in your functions. Usage for these types is described in the previous
 sections.
 
 ```typescript
-// Invokable is the expected Function signature for user functions
-export interface Invokable {
+// Invocable is the expected Function signature for user functions
+export interface Invocable {
     (context: Context, cloudevent?: CloudEvent): any
 }
 

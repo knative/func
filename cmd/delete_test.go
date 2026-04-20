@@ -115,7 +115,7 @@ func TestDelete_ByName(t *testing.T) {
 	}
 }
 
-// TestDelete_Namespace ensures that remover is envoked when --namespace flag is
+// TestDelete_Namespace ensures that remover is invoked when --namespace flag is
 // given --> func delete myfunc --namespace myns
 func TestDelete_Namespace(t *testing.T) {
 	var (

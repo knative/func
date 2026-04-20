@@ -126,7 +126,7 @@ func TestClient_New_RunDataDir(t *testing.T) {
 		}
 	}
 	if !containsUserDirective {
-		t.Fatal("extant .gitignore did not retain user direcives after creation")
+		t.Fatal("extant .gitignore did not retain user directives after creation")
 	}
 	if !containsFuncDirective {
 		t.Fatal("extant .gitignore was not modified with func data ignore directive")
@@ -161,7 +161,7 @@ func TestClient_New_RunDataDir(t *testing.T) {
 		}
 	}
 	if !containsUserDirective {
-		t.Fatal("The user's directive to disable modifing .gitignore was removed")
+		t.Fatal("The user's directive to disable modifying .gitignore was removed")
 	}
 	if containsFuncDirective {
 		t.Fatal("The user's directive to explicitly allow .func in source control was not respected")
@@ -757,7 +757,7 @@ func TestClient_Run_DataDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Assert that .gitignore was also created and includes an ignore directove
+	// Assert that .gitignore was also created and includes an ignore directive
 	// for the .func directory
 	if _, err := os.Stat(filepath.Join(root, ".gitignore")); os.IsNotExist(err) {
 		t.Fatal(err)
@@ -871,7 +871,7 @@ func TestClient_Update(t *testing.T) {
 	// Create the root function directory
 	defer Using(t, root)()
 
-	// A client with mocks whose implementaton will validate input.
+	// A client with mocks whose implementation will validate input.
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
 		fn.WithBuilder(builder),
@@ -902,7 +902,7 @@ func TestClient_Update(t *testing.T) {
 		if f.Build.Image != expectedImage {
 			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Build.Image)
 		}
-		// image of given name wouold be pushed to the configured registry.
+		// image of given name would be pushed to the configured registry.
 		return "", nil
 	}
 
@@ -1250,7 +1250,7 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 
 	// remover fails if invoked
 	remover.RemoveFn = func(name, _ string) error {
-		return fmt.Errorf("remove invoked for unitialized function %v", name)
+		return fmt.Errorf("remove invoked for uninitialized function %v", name)
 	}
 
 	// Instantiate the client with the failing remover.
@@ -1663,10 +1663,10 @@ func TestClient_Runtimes(t *testing.T) {
 	// requirement seems to outweigh the complexity of calculating the list for
 	// testing, which effectively just recreates the logic within the client.
 	// Additionally, this list has the benefit of creating a more understandable
-	// test (a primary goal of course being human communication of libray intent).
+	// test (a primary goal of course being human communication of library intent).
 	// If this is an incorrect assumption, we would need to calculate this
 	// slice from the contents of ./templates & ./testdata/repositories, taking
-	// into acount future repository manifests.
+	// into account future repository manifests.
 	expected := []string{
 		"customRuntime",
 		"go",

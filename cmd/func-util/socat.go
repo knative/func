@@ -135,7 +135,7 @@ func tryCloseWriteSide(c connection) {
 	if wc, ok := c.(writeCloser); ok {
 		err := wc.CloseWrite()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "waring: cannot close write side: %+v\n", err)
+			fmt.Fprintf(os.Stderr, "warning: cannot close write side: %+v\n", err)
 		}
 	}
 }

@@ -75,7 +75,7 @@ func TestRun_Run(t *testing.T) {
 		},
 		{
 			name:         "run and build on auto",
-			desc:         "Should run and buil when build flag set to auto",
+			desc:         "Should run and build when build flag set to auto",
 			args:         []string{"--build=auto"}, // can be any truthy value: 0, 'false' etc.
 			buildInvoked: true,
 			runInvoked:   true,
@@ -84,7 +84,7 @@ func TestRun_Run(t *testing.T) {
 			name: "image existence builds",
 			desc: "Should build when image tag exists",
 			// The existence of an image tag value does not mean the function
-			// is built; that is the purvew of the buld stamp staleness check.
+			// is built; that is the purview of the build stamp staleness check.
 			setup: func(f fn.Function, t *testing.T) error {
 				f.Image = "exampleimage"
 				return f.Write()
@@ -184,7 +184,7 @@ func TestRun_Run(t *testing.T) {
 	}
 }
 
-// TestRun_Images ensures that runnning 'func run' with --image
+// TestRun_Images ensures that running 'func run' with --image
 // (and additional flags) works as intended
 func TestRun_Images(t *testing.T) {
 	tests := []struct {

@@ -38,7 +38,7 @@ typescript   cloudevents
 typescript   http`
 
 	if d := cmp.Diff(expected, buf()); d != "" {
-		t.Error("output missmatch (-want, +got):", d)
+		t.Error("output mismatch (-want, +got):", d)
 	}
 }
 
@@ -86,7 +86,7 @@ func TestTemplates_JSON(t *testing.T) {
 }`
 
 	if d := cmp.Diff(expected, buf()); d != "" {
-		t.Error("output missmatch (-want, +got):", d)
+		t.Error("output mismatch (-want, +got):", d)
 	}
 }
 

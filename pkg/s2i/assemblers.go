@@ -121,7 +121,7 @@ function install_tool() {
   # First, try to install the tool without --isolated which means that if you
   # have your own PyPI mirror, it will take it from there. If this try fails, try it
   # again with --isolated which ignores external pip settings (env vars, config file)
-  # and installs the tool from PyPI (needs internet connetion)
+  # and installs the tool from PyPI (needs internet connection)
   # $1$2 combines package name with [extras] or version specifier if is defined as $2
   if ! $VENV_DIR/bin/pip install -U $1$2; then
     echo "WARNING: Installation of $1 failed, trying again from official PyPI with pip --isolated install"

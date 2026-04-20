@@ -21,7 +21,7 @@ func main() {
 }
 
 // generateFuncYamlSchema generates json schema for function configuration file - func.yaml.
-// Genereated schema is written into schema/func_yaml-schema.json file
+// Generated schema is written into schema/func_yaml-schema.json file
 func generateFuncYamlSchema() error {
 	// generate json schema for function struct
 	r := &jsonschema.Reflector{}

@@ -304,7 +304,7 @@ func (c buildConfig) Configure(f fn.Function) fn.Function {
 func (c buildConfig) Prompt() (buildConfig, error) {
 	// If there is no registry nor explicit image name defined, the
 	// Registry prompt is shown whether or not we are in confirm mode.
-	// Otherwise, it is only showin if in confirm mode
+	// Otherwise, it is only shown if in confirm mode
 	// NOTE: the default in this latter situation will ignore the current function
 	// value and will always use the value from the config (flag or env variable).
 	// This is not strictly correct and will be fixed when Global Config: Function

@@ -399,7 +399,7 @@ func TestDeploy_Envs(t *testing.T) {
 		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
 	}
 
-	// Deploy the function with an additinal environment variable.
+	// Deploy the function with an additional environment variable.
 	cmd = NewDeployCmd(NewTestClient())
 	cmd.SetArgs([]string{"--env=ENV3=VAL3"})
 	if err = cmd.Execute(); err != nil {
@@ -851,7 +851,7 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 // just be deployed as is (since it already has digest)
 func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
 	root := FromTempDirectory(t)
-	// image with digest (well almost, atleast in length and syntax)
+	// image with digest (well almost, at least in length and syntax)
 	const img = "example.com/username@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	// Create a new Function in the temp directory
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
@@ -1101,7 +1101,7 @@ func TestDeploy_NamespaceDefaultsToK8sContext(t *testing.T) {
 		// NOTE: The below logic is expected of all deployers at this time,
 		// but is not necessary for this test.
 		// Deployer implementations should have integration tests which confirm
-		// this minimim namespace resolution logic is respected:
+		// this minimum namespace resolution logic is respected:
 		/*
 			if f.Namespace != "" {
 				// We deployed to the requested namespace
@@ -1580,7 +1580,7 @@ func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 // are properly respected for all permutations, including empty.
 func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 	// Valid flag permutations (empty indicates flag should be omitted)
-	// and a functon which will convert a permutation into flags for use
+	// and a function which will convert a permutation into flags for use
 	// by the subtests.
 	// The empty string indicates the case in which the flag is not provided.
 	var (
@@ -1957,7 +1957,7 @@ func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 		// if it received an apiErrors.IsNotFound(err) and if so returns
 		// a fn.ErrFunctionNotFound.  This test implementation is dependent
 		// on that.  This is a change from the original implementation which
-		// directly returned a knative erorr with:
+		// directly returned a knative error with:
 		//   return apiErrors.NewNotFound(schema.GroupResource{Group: "", Resource: "Namespace"}, nsOne)
 		if ns == nsOne {
 			// Fabricate a not-found error.  For example if the function

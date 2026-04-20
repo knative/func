@@ -278,7 +278,7 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 		return fmt.Errorf("cannot parse image index ref: %w", err)
 	}
 
-	// Write preffered image to be pulled (v2 as successor to 'latest'
+	// Write preferred image to be pulled (v2 as successor to 'latest'
 	// when incompatible changes were made). This is unfortunate but keeping
 	// latest would break building any go function with pack builder with func
 	// binary which does not contain the right scaffolding change.

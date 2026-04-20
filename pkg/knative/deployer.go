@@ -107,7 +107,7 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 }
 
 func onClusterFix(f fn.Function) fn.Function {
-	// This only exists because of a bootstapping problem with On-Cluster
+	// This only exists because of a bootstrapping problem with On-Cluster
 	// builds:  It appears that, when sending a function to be built on-cluster
 	// the target namespace is not being transmitted in the pipeline
 	// configuration.  We should figure out how to transmit this information
@@ -126,7 +126,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	// This is minimal logic currently required of all deployer impls.
 	// If f.Namespace is defined, this is the (possibly new) target
 	// namespace.  Otherwise use the last deployed namespace.  Error if
-	// neither are set.  The logic which arbitrates between curret k8s context,
+	// neither are set.  The logic which arbitrates between current k8s context,
 	// flags, environment variables and global defaults to determine the
 	// effective namespace is not logic for the deployer implementation, which
 	// should have a minimum of logic.  In this case limited to "new ns or

@@ -6,7 +6,7 @@ Contains test templates and directory targets for domain and subdomain-level tes
 
 The repositories included herein are lightly modified bare repositories used
 by tests which involve "adding" them (cloning).  As such they can not be
-directly modifed because they have no working branch.  To modify, first check
+directly modified because they have no working branch.  To modify, first check
 out the repository, make changes, and then remove the clone.  For example:
 ```
 $ git clone repository.git

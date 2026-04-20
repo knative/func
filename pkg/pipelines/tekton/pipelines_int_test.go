@@ -129,7 +129,7 @@ func skipOnUnsupportedArch(t *testing.T) {
 }
 
 // fromCleanEnvironment of everything except KUBECONFIG. Create a temp directory.
-// Change to that temp directory.  Return the curent path as a convenience.
+// Change to that temp directory.  Return the current path as a convenience.
 func fromCleanEnvironment(t *testing.T) (root string) {
 	// FromTempDirectory clears envs, but sets KUBECONFIG to ./tempdata, so
 	// we have to preserve that one value.

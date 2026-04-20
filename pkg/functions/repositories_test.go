@@ -44,7 +44,7 @@ func TestRepositories_GetInvalid(t *testing.T) {
 	// invalid should error
 	_, err := client.Repositories().Get("invalid")
 	if err == nil {
-		t.Fatal("did not receive expected error getting inavlid repository")
+		t.Fatal("did not receive expected error getting invalid repository")
 	}
 }
 
@@ -66,7 +66,7 @@ func TestRepositories_Get(t *testing.T) {
 }
 
 // TestRepositories_All ensures repos are returned from
-// .All accessor.  Tests both builtin and buitlin+extensible cases.
+// .All accessor.  Tests both builtin and builtin+extensible cases.
 func TestRepositories_All(t *testing.T) {
 	skipIfNoGit(t) // see docs
 	uri := ServeRepo(RepositoriesTestRepo, t)
@@ -174,7 +174,7 @@ func TestRepositories_AddDeafultName(t *testing.T) {
 }
 
 // TestRepositories_AddWithManifest ensures that a repository with
-// a manfest wherein a default name is specified, is used as the name for the
+// a manifest wherein a default name is specified, is used as the name for the
 // added repository when a name is not explicitly specified.
 func TestRepositories_AddWithManifest(t *testing.T) {
 	skipIfNoGit(t) // see docs

@@ -116,7 +116,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 			return fmt.Errorf("cannot get platform image reference for %q: %w", platform, err)
 		}
 	} else if len(platforms) > 1 {
-		// Only a single requestd platform supported.
+		// Only a single requested platform supported.
 		return errors.New("the S2I builder currently only supports specifying a single target platform")
 	}
 

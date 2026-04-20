@@ -325,7 +325,7 @@ func templates(fs filesystem.Filesystem, repoCfg repoConfig, runtimeCfg runtimeC
 			fs:         filesystem.NewSubFS(path.Join(runtimePath, fi.Name()), fs),
 		}
 
-		// update repoCfg with template's manifest.yaml valuse
+		// update repoCfg with template's manifest.yaml values
 		t.config, err = loadTemplateConfig(fs, repoCfg, runtimeCfg, runtimeName, t.name)
 		if err != nil {
 			return

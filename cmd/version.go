@@ -77,7 +77,7 @@ func runVersion(cmd *cobra.Command, v Version) error {
 	v.Verbose = verbose
 
 	// Initialize the default value to the zero semver with a descriptive
-	// metadta tag indicating this must have been built from source if
+	// metadata tag indicating this must have been built from source if
 	// undefined:
 	if v.Vers == "" {
 		v.Vers = DefaultVersion

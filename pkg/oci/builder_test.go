@@ -355,7 +355,7 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 	// Check if the OCI container defines at least one of the static
 	// variables on each of the constituent containers.
 	// ---
-	// Get the images list (manifest descripors) from the index
+	// Get the images list (manifest descriptors) from the index
 	ociPath := filepath.Join(f.Root, fn.RunDataDir, fn.BuildDir, "oci")
 	data, err := os.ReadFile(filepath.Join(ociPath, "index.json"))
 	if err != nil {

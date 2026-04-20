@@ -20,7 +20,7 @@ func TestDetector_Go(t *testing.T) {
 	// of the source code, not whether or not it actually does:  that's the job
 	// of the compiler later.  This detection is used to determine which
 	// scaffolding code needs to be written to get the user to a proper
-	// complile attempt.
+	// compile attempt.
 	tests := []struct {
 		Name string    // Name of the test
 		Sig  Signature // Signature Expected

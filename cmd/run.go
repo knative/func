@@ -347,7 +347,7 @@ func newRunConfig(cmd *cobra.Command) (c runConfig) {
 }
 
 // Configure the given function.  Updates a function struct with all
-// configurable values.  Note that the config alrady includes function's
+// configurable values.  Note that the config already includes function's
 // current state, as they were passed through via flag defaults.
 func (c runConfig) Configure(f fn.Function) (fn.Function, error) {
 	var err error

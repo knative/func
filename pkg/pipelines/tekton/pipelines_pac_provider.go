@@ -18,7 +18,7 @@ import (
 	"knative.dev/func/pkg/random"
 )
 
-// ConfigurePAC cofigures Pipelines as Code resources based on the input:
+// ConfigurePAC configures Pipelines as Code resources based on the input:
 // - locally (create .tekton directory)
 // - on cluster (create Repository, Secret, PVC...)
 // - on remote git repo (webhook)
