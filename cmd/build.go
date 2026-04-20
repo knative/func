@@ -264,6 +264,7 @@ func newBuildConfig() buildConfig {
 	return buildConfig{
 		Global: config.Global{
 			Builder:          viper.GetString("builder"),
+			Cluster:          viper.GetString("cluster"),
 			Confirm:          viper.GetBool("confirm"),
 			Registry:         registry(), // deferred defaulting
 			Verbose:          viper.GetBool("verbose"),

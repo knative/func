@@ -33,7 +33,7 @@ No local files are deleted.
 		SuggestFor:        []string{"remove", "del"},
 		Aliases:           []string{"rm"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("path", "confirm", "all", "namespace", "verbose"),
+		PreRunE:           bindEnv("cluster", "cluster-token", "path", "confirm", "all", "namespace", "verbose"),
 		SilenceUsage:      true, // no usage dump on error
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
@@ -47,7 +47,15 @@ No local files are deleted.
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
+	// Function Context
+	f, _ := fn.NewFunction(effectivePath())
+	if f.Initialized() {
+		cfg = cfg.Apply(f)
+	}
+
 	// Flags
+	cmd.Flags().String("cluster", cfg.Cluster, "Specify a cluster api url for your function deployment. ($FUNC_CLUSTER)")
+	cmd.Flags().String("cluster-token", "", "Bearer token for cluster authentication. ($FUNC_CLUSTER_TOKEN)")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace when deleting by name. ($FUNC_NAMESPACE)")
 	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. ($FUNC_ALL) (allowed values: \"true\", \"false\")")
 	addConfirmFlag(cmd, cfg.Confirm)
@@ -78,26 +86,49 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return
 	}
 
+	if cfg.Name != "" { // Delete by name if provided
+		// don't use local.yaml auth because we are not concerned about func at path
+		if cfg.Cluster != "" {
+			cleanup, overrideErr := setupClusterOverride(cfg.Cluster, cfg.ClusterToken, cfg.Namespace, fn.Local{}, cmd.OutOrStderr())
+			if overrideErr != nil {
+				return overrideErr
+			}
+			defer cleanup()
+		}
+
+		client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+		defer done()
+		return client.Remove(cmd.Context(), cfg.Name, cfg.Namespace, fn.Function{}, cfg.All)
+	}
+
+	// Delete by path — set cluster override if available
+	f, err := fn.NewFunction(cfg.Path)
+	if err != nil {
+		return err
+	}
+
+	// use local auth - function was **most likely** created locally
+	if cfg.Cluster != "" {
+		cleanup, overrideErr := setupClusterOverride(cfg.Cluster, cfg.ClusterToken, cfg.Namespace, f.Local, cmd.OutOrStderr())
+		if overrideErr != nil {
+			return overrideErr
+		}
+		defer cleanup()
+	}
+
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
-
-	if cfg.Name != "" { // Delete by name if provided
-		return client.Remove(cmd.Context(), cfg.Name, cfg.Namespace, fn.Function{}, cfg.All)
-	} else { // Otherwise; delete the function at path (cwd by default)
-		f, err := fn.NewFunction(cfg.Path)
-		if err != nil {
-			return err
-		}
-		return client.Remove(cmd.Context(), "", "", f, cfg.All)
-	}
+	return client.Remove(cmd.Context(), "", "", f, cfg.All)
 }
 
 type deleteConfig struct {
-	Name      string
-	Namespace string
-	Path      string
-	All       bool
-	Verbose   bool
+	Cluster      string
+	ClusterToken string
+	Name         string
+	Namespace    string
+	Path         string
+	All          bool
+	Verbose      bool
 }
 
 // newDeleteConfig returns a config populated from the current execution context
@@ -108,11 +139,13 @@ func newDeleteConfig(cmd *cobra.Command, args []string) (cfg deleteConfig, err e
 		name = args[0]
 	}
 	cfg = deleteConfig{
-		All:       viper.GetBool("all"),
-		Name:      name, // args[0] or derived
-		Namespace: viper.GetString("namespace"),
-		Path:      viper.GetString("path"),
-		Verbose:   viper.GetBool("verbose"), // defined on root
+		All:          viper.GetBool("all"),
+		Cluster:      viper.GetString("cluster"),
+		ClusterToken: viper.GetString("cluster-token"),
+		Name:         name, // args[0] or derived
+		Namespace:    viper.GetString("namespace"),
+		Path:         viper.GetString("path"),
+		Verbose:      viper.GetBool("verbose"), // defined on root
 	}
 	if cfg.Name == "" && cmd.Flags().Changed("namespace") {
 		// logicially inconsistent to supply only a namespace.

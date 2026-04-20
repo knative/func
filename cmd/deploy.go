@@ -130,7 +130,7 @@ EXAMPLES
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
-			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
+			"base-image", "cluster", "cluster-token", "confirm", "domain", "env", "git-branch", "git-dir",
 			"git-url", "image", "image-pull-secret", "management-disabled", "namespace", "path", "platform", "push", "pvc-size",
 			"service-account", "deployer", "registry", "registry-insecure",
 			"registry-authfile", "remote", "username", "password", "token", "verbose",
@@ -159,6 +159,8 @@ EXAMPLES
 	// contextually relevant function; but sets are flattened via cfg.Apply(f)
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
+	cmd.Flags().String("cluster", cfg.Cluster, "Specify a cluster api url for your function deployment. ($FUNC_CLUSTER)")
+	cmd.Flags().String("cluster-token", "", "Bearer token for cluster authentication. Persisted to .func/local.yaml on successful deploy. ($FUNC_CLUSTER_TOKEN)")
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)")
@@ -281,6 +283,9 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return wrapValidateError(err, "deploy")
 	}
 
+	// warn when changing cluster for
+	warnClusterChange(cmd.OutOrStderr(), cfg.Cluster, f.Deploy.Cluster)
+
 	// Warn if registry changed but registryInsecure is still true
 	warnRegistryInsecureChange(cmd.OutOrStderr(), cfg.Registry, f)
 
@@ -288,6 +293,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 
+	if cfg.Cluster != "" {
+		cleanup, overrideErr := setupClusterOverride(cfg.Cluster, cfg.ClusterToken, cfg.Namespace, f.Local, cmd.OutOrStderr())
+		if overrideErr != nil {
+			return overrideErr
+		}
+		defer cleanup()
+	}
 	changingNamespace := func(f fn.Function) bool {
 		// We're changing namespace if:
 		return f.Deploy.Namespace != "" && // it's already deployed
@@ -391,6 +403,28 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 	}
 
+	// After kubeconfig-based deploy, capture credentials for future kubeconfig-free deploys.
+	// Note: explicitly providing flag '--cluster=' overrides the f.Deploy.Cluster
+	// intentionally to "refresh" cluster+auth from kubeconfig active context.
+	if f.Deploy.Cluster == "" {
+		if url, tls, user, extractErr := k8s.ExtractClusterAuth(); extractErr == nil {
+			f.Deploy.Cluster = url
+			f.Local.SetAuth(url, tls, user)
+		}
+	}
+
+	// Persist token from --cluster-token
+	if f.Deploy.Cluster != "" && cfg.ClusterToken != "" {
+		clusterTLS := fn.ClusterVerify{}
+		user := fn.UserAuth{}
+		if entry := f.Local.FindAuth(f.Deploy.Cluster); entry != nil {
+			clusterTLS = entry.Cluster
+			user = entry.User
+		}
+		user.Token = cfg.ClusterToken
+		f.Local.SetAuth(f.Deploy.Cluster, clusterTLS, user)
+	}
+
 	// Write
 	if err = f.Write(); err != nil {
 		return
@@ -472,6 +506,10 @@ func KnownBuilders() builders.Known {
 
 type deployConfig struct {
 	buildConfig // further embeds config.Global
+
+	// ClusterToken is a bearer token for authenticating to the deployment
+	// cluster.  When set, it takes precedence over stored credentials.
+	ClusterToken string
 
 	// Perform build using the settings from the embedded buildConfig struct.
 	// Acceptable values are the keyword 'auto', or a truthy value such as
@@ -567,6 +605,7 @@ type deployConfig struct {
 func newDeployConfig(cmd *cobra.Command) deployConfig {
 	cfg := deployConfig{
 		buildConfig:        newBuildConfig(),
+		ClusterToken:       viper.GetString("cluster-token"),
 		Build:              viper.GetString("build"),
 		Env:                viper.GetStringSlice("env"),
 		Domain:             viper.GetString("domain"),
@@ -903,4 +942,12 @@ func isDigested(v string) (validDigest bool, err error) {
 	}
 	_, ok := ref.(name.Digest)
 	return ok, nil
+}
+
+// warnClusterChange determines if the cluster is being changed deliberately and
+// if so, warn the user that creds might need to be added
+func warnClusterChange(w io.Writer, newCluster string, old string) {
+	if newCluster != "" && old != "" && newCluster != old {
+		fmt.Fprintf(w, "Warning: changing cluster from '%s' to '%s'. Ensure your credentials are valid for the new cluster.\n", old, newCluster)
+	}
 }

@@ -31,17 +31,18 @@ const (
 
 // Global configuration settings.
 type Global struct {
-	Builder   string `yaml:"builder,omitempty"`
-	Confirm   bool   `yaml:"confirm,omitempty"`
-	Language  string `yaml:"language,omitempty"`
-	Namespace string `yaml:"namespace,omitempty"`
-	Registry  string `yaml:"registry,omitempty"`
-	Verbose   bool   `yaml:"verbose,omitempty"`
+	Builder          string `yaml:"builder,omitempty"`
+	Confirm          bool   `yaml:"confirm,omitempty"`
+	Language         string `yaml:"language,omitempty"`
+	Namespace        string `yaml:"namespace,omitempty"`
+	Registry         string `yaml:"registry,omitempty"`
+	Verbose          bool   `yaml:"verbose,omitempty"`
+	RegistryInsecure bool   `yaml:"registryInsecure,omitempty"`
+	Cluster          string `yaml:"cluster,omitempty"`
+
 	// NOTE: all members must include their yaml serialized names, even when
 	// this is the default, because these tag values are used for the static
 	// getter/setter accessors to match requests.
-
-	RegistryInsecure bool `yaml:"registryInsecure,omitempty"`
 }
 
 // New Config struct with all members set to static defaults.  See NewDefaults
@@ -141,6 +142,9 @@ func (c Global) Apply(f fn.Function) Global {
 	// Unconditional because bool has no "empty value". Works because
 	// viper resolves the correct precedence via our defaulting.
 	c.RegistryInsecure = f.RegistryInsecure
+	if f.Deploy.Cluster != "" {
+		c.Cluster = f.Deploy.Cluster
+	}
 
 	return c
 }
@@ -163,6 +167,9 @@ func (c Global) Configure(f fn.Function) fn.Function {
 	// Unconditional because bool has no "empty value". Works because
 	// viper resolves the correct precedence via our defaulting.
 	f.RegistryInsecure = c.RegistryInsecure
+
+	// Unconditional to allow --cluster= (empty value) to use kubeconfig context
+	f.Deploy.Cluster = c.Cluster
 
 	return f
 }

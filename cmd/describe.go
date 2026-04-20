@@ -34,7 +34,7 @@ the current directory or from the directory specified with --path.
 
 		ValidArgsFunction: CompleteFunctionList,
 		Aliases:           []string{"info", "desc"},
-		PreRunE:           bindEnv("output", "path", "namespace", "verbose"),
+		PreRunE:           bindEnv("cluster", "cluster-token", "output", "path", "namespace", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDescribe(cmd, args, newClient)
 		},
@@ -46,7 +46,15 @@ the current directory or from the directory specified with --path.
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
+	// Function Context
+	f, _ := fn.NewFunction(effectivePath())
+	if f.Initialized() {
+		cfg = cfg.Apply(f)
+	}
+
 	// Flags
+	cmd.Flags().String("cluster", cfg.Cluster, "Specify a cluster api url for your function deployment. ($FUNC_CLUSTER)")
+	cmd.Flags().String("cluster-token", "", "Bearer token for cluster authentication. ($FUNC_CLUSTER_TOKEN)")
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|yaml|url) ($FUNC_OUTPUT)")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace in which to look for the named function. ($FUNC_NAMESPACE)")
 	addPathFlag(cmd)
@@ -66,11 +74,19 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 	}
 	// TODO cfg.Prompt()
 
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
-	defer done()
-
 	var details fn.Instance
 	if cfg.Name != "" { // Describe by name if provided
+		// don't use local.yaml auth because we are not concerned about func at path
+		if cfg.Cluster != "" {
+			cleanup, overrideErr := setupClusterOverride(cfg.Cluster, cfg.ClusterToken, cfg.Namespace, fn.Local{}, cmd.OutOrStderr())
+			if overrideErr != nil {
+				return overrideErr
+			}
+			defer cleanup()
+		}
+
+		client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+		defer done()
 		details, err = client.Describe(cmd.Context(), cfg.Name, cfg.Namespace, fn.Function{})
 		if err != nil {
 			return err
@@ -83,6 +99,18 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 		if !f.Initialized() {
 			return NewErrNotInitializedFromPath(f.Root, "describe")
 		}
+
+		// use local auth - function was **most likely** created locally
+		if cfg.Cluster != "" {
+			cleanup, overrideErr := setupClusterOverride(cfg.Cluster, cfg.ClusterToken, cfg.Namespace, f.Local, cmd.OutOrStderr())
+			if overrideErr != nil {
+				return overrideErr
+			}
+			defer cleanup()
+		}
+
+		client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+		defer done()
 		details, err = client.Describe(cmd.Context(), "", "", f)
 		if err != nil {
 			return err
@@ -97,11 +125,13 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 // ------------------------------
 
 type describeConfig struct {
-	Name      string
-	Namespace string
-	Output    string
-	Path      string
-	Verbose   bool
+	Cluster      string
+	ClusterToken string
+	Name         string
+	Namespace    string
+	Output       string
+	Path         string
+	Verbose      bool
 }
 
 func newDescribeConfig(cmd *cobra.Command, args []string) (cfg describeConfig, err error) {
@@ -110,11 +140,13 @@ func newDescribeConfig(cmd *cobra.Command, args []string) (cfg describeConfig, e
 		name = args[0]
 	}
 	cfg = describeConfig{
-		Name:      name,
-		Namespace: viper.GetString("namespace"),
-		Output:    viper.GetString("output"),
-		Path:      viper.GetString("path"),
-		Verbose:   viper.GetBool("verbose"),
+		Cluster:      viper.GetString("cluster"),
+		ClusterToken: viper.GetString("cluster-token"),
+		Name:         name,
+		Namespace:    viper.GetString("namespace"),
+		Output:       viper.GetString("output"),
+		Path:         viper.GetString("path"),
+		Verbose:      viper.GetBool("verbose"),
 	}
 	if cfg.Name == "" && cmd.Flags().Changed("namespace") {
 		// logically inconsistent to supply only a namespace.

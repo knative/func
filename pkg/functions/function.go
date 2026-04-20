@@ -48,6 +48,74 @@ type Local struct {
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
 	Remote bool `yaml:"remote,omitempty"`
+
+	// Auth holds per-cluster authentication entries
+	Auth []AuthEntry `yaml:"auth,omitempty"`
+}
+
+// Note: the following cluster auth yaml tags are in kebab-case because they
+// intend to mirror kubeconfig's naming convention even though it breaks the
+// consistency of the rest of this codebase which uses camelCase.
+
+// AuthEntry holds cluster TLS and user auth for a single cluster URL.
+type AuthEntry struct {
+	ClusterURL string        `yaml:"cluster-url"`
+	Cluster    ClusterVerify `yaml:"cluster,omitempty"`
+	User       UserAuth      `yaml:"user,omitempty"`
+}
+
+// ClusterVerify holds server identity verification settings for a cluster.
+type ClusterVerify struct {
+	CertificateAuthorityData string `yaml:"certificate-authority-data,omitempty"`
+	InsecureSkipTLSVerify    bool   `yaml:"insecure-skip-tls-verify,omitempty"`
+}
+
+// UserAuth holds user credentials for authenticating to a cluster.
+type UserAuth struct {
+	ClientCertificateData string    `yaml:"client-certificate-data,omitempty"`
+	ClientKeyData         string    `yaml:"client-key-data,omitempty"`
+	Token                 string    `yaml:"token,omitempty"`
+	Exec                  *ExecAuth `yaml:"exec,omitempty"`
+}
+
+type ExecAuth struct {
+	Command    string    `yaml:"command"`
+	Args       []string  `yaml:"args,omitempty"`
+	Env        []ExecEnv `yaml:"env,omitempty"`
+	APIVersion string    `yaml:"apiVersion,omitempty"`
+}
+
+type ExecEnv struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
+// FindAuth returns the AuthEntry matching the given cluster URL, or nil if
+// no entry matches.
+func (l Local) FindAuth(clusterURL string) *AuthEntry {
+	for i := range l.Auth {
+		if l.Auth[i].ClusterURL == clusterURL {
+			return &l.Auth[i]
+		}
+	}
+	return nil
+}
+
+// SetAuth upserts an auth entry for the given cluster URL. If an entry with the
+// same URL already exists it is updated; otherwise a new entry is appended.
+func (l *Local) SetAuth(clusterURL string, cluster ClusterVerify, user UserAuth) {
+	for i := range l.Auth {
+		if l.Auth[i].ClusterURL == clusterURL {
+			l.Auth[i].Cluster = cluster
+			l.Auth[i].User = user
+			return
+		}
+	}
+	l.Auth = append(l.Auth, AuthEntry{
+		ClusterURL: clusterURL,
+		Cluster:    cluster,
+		User:       user,
+	})
 }
 
 // Function
@@ -195,6 +263,9 @@ type RunSpec struct {
 type DeploySpec struct {
 	// Namespace into which the function was deployed on supported platforms.
 	Namespace string `yaml:"namespace,omitempty"`
+
+	// Cluster is the cluster api url where the function is deployed
+	Cluster string `yaml:"cluster,omitempty"`
 
 	// Image is the deployed image including sha256
 	Image string `yaml:"image,omitempty"`

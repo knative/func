@@ -267,10 +267,11 @@ func (e *ErrClusterNotAccessible) Error() string {
 Cannot connect to Kubernetes cluster. No valid cluster configuration found.
 
 Try this:
-  minikube start                             Start Minikube cluster
-  kind create cluster                        Start Kind cluster
-  kubectl cluster-info                       Verify cluster is running
-  kubectl config get-contexts                List available contexts
+  func deploy --cluster <url> --cluster-token <token>   Connect directly without kubeconfig
+  minikube start                                        Start Minikube cluster
+  kind create cluster                                   Start Kind cluster
+  kubectl cluster-info                                  Verify cluster is running
+  kubectl config get-contexts                           List available contexts
 
 For more options, run 'func deploy --help'`, e.Err)
 	} // end if

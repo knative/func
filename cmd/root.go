@@ -402,6 +402,6 @@ func surveySelectDefault(value string, options []string) string {
 		return options[0] // Sync with the option which will be shown by the UX
 	}
 	// Either the value is not an option or there are no options.  Either of
-	// which should fail proper validation
+	// which should fail proper validation
 	return ""
 }

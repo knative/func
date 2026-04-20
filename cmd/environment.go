@@ -39,7 +39,7 @@ DESCRIPTION
 	the version of func, the version of the function spec, the default builder,
 	available runtimes, and available templates.
 `,
-		PreRunE: bindEnv("verbose", "format", "path"),
+		PreRunE: bindEnv("verbose", "format", "path", "cluster-token"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runEnvironment(cmd, newClient, version)
 		},
@@ -146,7 +146,7 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		Defaults:             defaults,
 	}
 
-	function, instance := describeFuncInformation(cmd.Context(), newClient, cfg)
+	function, instance := describeFuncInformation(cmd.Context(), cmd, newClient, cfg)
 	if function != nil {
 		environment.Function = function
 	}
@@ -191,10 +191,19 @@ func getTemplates(client *functions.Client, runtimes []string) (map[string][]str
 	return templateMap, nil
 }
 
-func describeFuncInformation(context context.Context, newClient ClientFactory, cfg environmentConfig) (*functions.Function, *functions.Instance) {
+func describeFuncInformation(context context.Context, cmd *cobra.Command, newClient ClientFactory, cfg environmentConfig) (*functions.Function, *functions.Instance) {
 	function, err := functions.NewFunction(cfg.Path)
 	if err != nil || !function.Initialized() {
 		return nil, nil
+	}
+
+	// use local auth - function was **most likely** created locally
+	if function.Deploy.Cluster != "" {
+		cleanup, overrideErr := setupClusterOverride(function.Deploy.Cluster, viper.GetString("cluster-token"), function.Deploy.Namespace, function.Local, cmd.OutOrStderr())
+		if overrideErr != nil {
+			return &function, nil
+		}
+		defer cleanup()
 	}
 
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
