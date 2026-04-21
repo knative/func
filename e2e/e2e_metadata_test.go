@@ -571,15 +571,19 @@ func TestMetadata_Subscriptions(t *testing.T) {
 
 	uniqueEventID := fmt.Sprintf("e2e-test-%d", time.Now().UnixNano())
 
-	subscriberName := "func-e2e-test-subscriber-knative"
-	eventReceived := waitForEvent(t, subscriberName, uniqueEventID)
+	rec := deployRecorder(t, "func-e2e-test-recorder-knative")
 
+	subscriberName := "func-e2e-test-subscriber-knative"
 	subscriberRoot := fromCleanEnv(t, subscriberName)
 	if err := newCmd(t, "init", "-l=go", "-t=cloudevents").Run(); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(subscriberRoot, "function.go"),
-		[]byte(subscriberCode()), 0644); err != nil {
+		[]byte(subscriberSource), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := newCmd(t, "config", "envs", "add",
+		"--name=RECORDER_URL", "--value="+rec.internalURL).Run(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -602,10 +606,9 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	}
 	defer clean(t, subscriberName, Namespace)
 
-	subscriberURL := ksvcUrl(subscriberName)
-	if !waitFor(t, subscriberURL, withTemplate("cloudevents")) {
-		t.Fatal("subscriber not ready")
-	}
+	// Trigger readiness implies the subscriber is ready — no separate
+	// probe on subscriberURL, which would require the function to return
+	// a reply CloudEvent just to satisfy waitForCloudevent.
 	waitForTriggerKnative(t, Namespace, subscriberName)
 
 	transport := fnhttp.NewRoundTripper()
@@ -633,12 +636,12 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	}
 	t.Logf("Broker accepted event %s", uniqueEventID)
 
-	select {
-	case receivedID := <-eventReceived:
-		t.Logf("Event flow verified (received: %s)", receivedID)
-	case <-time.After(60 * time.Second):
-		t.Fatal("Timeout: No callback from subscriber")
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer cancel()
+	if !rec.awaitReceived(ctx, t, uniqueEventID) {
+		t.Fatal("Timeout: recorder did not observe event from subscriber")
 	}
+	t.Logf("Event flow verified (id=%s)", uniqueEventID)
 }
 
 func TestMetadata_Subscriptions_Raw(t *testing.T) {
@@ -648,15 +651,23 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 
 	uniqueEventID := fmt.Sprintf("e2e-test-%d", time.Now().UnixNano())
 
-	subscriberName := "func-e2e-test-subscriber-raw"
-	eventReceived := waitForEvent(t, subscriberName, uniqueEventID)
+	// The recorder is deployed via Knative (public URL) regardless of the
+	// subscriber's deployer — the test runner reaches the recorder over its
+	// external URL while the raw-deployed subscriber reaches it over its
+	// cluster-internal URL.
+	rec := deployRecorder(t, "func-e2e-test-recorder-raw")
 
+	subscriberName := "func-e2e-test-subscriber-raw"
 	subscriberRoot := fromCleanEnv(t, subscriberName)
 	if err := newCmd(t, "init", "-l=go", "-t=cloudevents").Run(); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(subscriberRoot, "function.go"),
-		[]byte(subscriberCode()), 0644); err != nil {
+		[]byte(subscriberSource), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := newCmd(t, "config", "envs", "add",
+		"--name=RECORDER_URL", "--value="+rec.internalURL).Run(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -680,9 +691,8 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 	}
 	defer clean(t, subscriberName, Namespace)
 
-	// Note: Raw deployer creates cluster-internal services without external routes,
-	// so we can't use waitFor with domain-based URLs. Instead, we verify the
-	// deployment is ready and then test event delivery directly.
+	// Raw deployer creates cluster-internal services without external
+	// routes; wait on the Deployment instead of the ksvc URL.
 	t.Log("Waiting for deployment to be ready...")
 	waitForDeployment(t, Namespace, subscriberName)
 
@@ -714,70 +724,12 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 	}
 	t.Logf("Broker accepted event %s", uniqueEventID)
 
-	select {
-	case receivedID := <-eventReceived:
-		t.Logf("Event flow verified (received: %s)", receivedID)
-	case <-time.After(60 * time.Second):
-		t.Fatal("Timeout: No callback from subscriber")
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer cancel()
+	if !rec.awaitReceived(ctx, t, uniqueEventID) {
+		t.Fatal("Timeout: recorder did not observe event from subscriber")
 	}
-}
-
-func waitForEvent(t *testing.T, functionName, eventId string) <-chan string {
-	t.Helper()
-
-	eventReceived := make(chan string, 1)
-
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
-
-	go func() {
-		pattern := `EVENT_RECEIVED: id=` + eventId
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-			cmd := exec.CommandContext(ctx, "kubectl", "logs",
-				"-l", "function.knative.dev/name="+functionName,
-				"-n", Namespace, "--all-containers=true")
-			cmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
-			out, _ := cmd.Output()
-			if strings.Contains(string(out), pattern) {
-				eventReceived <- "OK"
-				cancel()
-				return
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(2 * time.Second):
-			}
-		}
-	}()
-
-	return eventReceived
-}
-
-// CloudEvents handler that logs events
-func subscriberCode() string {
-	return `package function
-
-import (
-	"fmt"
-	"github.com/cloudevents/sdk-go/v2/event"
-)
-
-type Function struct{}
-func New() *Function { return &Function{} }
-func (f *Function) Handle(e event.Event) (*event.Event, error) {
-	fmt.Printf("EVENT_RECEIVED: id=%s type=%s source=%s\n", e.ID(), e.Type(), e.Source())
-	r := event.New()
-	r.SetID("response-" + e.ID())
-	r.SetSource("subscriber")
-	r.SetType("test.response")
-	r.SetData("application/json", map[string]string{"status": "received"})
-	return &r, nil
-}
-`
+	t.Logf("Event flow verified (id=%s)", uniqueEventID)
 }
 
 // createBrokerWithCheck creates a Knative Broker
