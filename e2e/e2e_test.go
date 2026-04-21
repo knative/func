@@ -1,5 +1,4 @@
 //go:build e2e
-// +build e2e
 
 /*
 Package e2e provides an end-to-end test suite for the Functions CLI "func".
