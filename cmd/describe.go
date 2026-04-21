@@ -152,6 +152,8 @@ func (i info) Human(w io.Writer) error {
 		fmt.Fprintf(w, "  %v\n", route)
 	}
 
+	fmt.Fprintln(w, "Function is ready:")
+	fmt.Fprintf(w, "  %v\n", i.Ready)
 	fmt.Fprintln(w, "Deployer:")
 	fmt.Fprintf(w, "  %v\n", i.Deployer)
 
@@ -180,6 +182,7 @@ func (i info) Plain(w io.Writer) error {
 		fmt.Fprintf(w, "Route %v\n", route)
 	}
 
+	fmt.Fprintf(w, "Ready %v\n", i.Ready)
 	fmt.Fprintf(w, "Deployer %v\n", i.Deployer)
 
 	if len(i.Subscriptions) > 0 {

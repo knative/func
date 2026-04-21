@@ -3,13 +3,16 @@ package knative
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/pkg/apis"
 )
 
 type Describer struct {
@@ -66,6 +69,14 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	// We're responsible, for this function --> proceed...
 
+	ready := corev1.ConditionUnknown
+	for _, con := range service.Status.Conditions {
+		if con.Type == apis.ConditionReady {
+			ready = con.Status
+			break
+		}
+	}
+
 	routes, err := servingClient.ListRoutes(ctx, clientservingv1.WithService(name))
 	if err != nil {
 		return fn.Instance{}, err
@@ -89,6 +100,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Routes:     routeURLs,
 		Labels:     service.Labels,
 		Generation: service.Generation,
+		Ready:      strings.ToLower(string(ready)),
 	}
 
 	// get used image (including the sha)
