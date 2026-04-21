@@ -1,10 +1,8 @@
 //go:build e2e
-// +build e2e
 
 package e2e
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -14,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -728,32 +725,33 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 func waitForEvent(t *testing.T, functionName, eventId string) <-chan string {
 	t.Helper()
 
-	eventReceived := make(chan string, 10)
+	eventReceived := make(chan string, 1)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
-	pr, pw := io.Pipe()
-	cmd := exec.CommandContext(ctx, "stern", functionName+"-.*", "-n", Namespace)
-	cmd.Stderr = io.Discard
-	cmd.Stdout = pw
-	cmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
-	err := cmd.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
 	go func() {
-		r := bufio.NewReader(pr)
-		m, e := regexp.MatchReader(`EVENT_RECEIVED: id=`+eventId, r)
-		if e != nil {
-			panic(e)
+		pattern := `EVENT_RECEIVED: id=` + eventId
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			cmd := exec.CommandContext(ctx, "kubectl", "logs",
+				"-l", "function.knative.dev/name="+functionName,
+				"-n", Namespace, "--all-containers=true")
+			cmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
+			out, _ := cmd.Output()
+			if strings.Contains(string(out), pattern) {
+				eventReceived <- "OK"
+				cancel()
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(2 * time.Second):
+			}
 		}
-		if m {
-			eventReceived <- "OK"
-			close(eventReceived)
-			cancel()
-		}
-		_, _ = io.Copy(io.Discard, r)
 	}()
 
 	return eventReceived

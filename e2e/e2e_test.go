@@ -1,5 +1,4 @@
 //go:build e2e
-// +build e2e
 
 /*
 Package e2e provides an end-to-end test suite for the Functions CLI "func".
@@ -314,7 +313,7 @@ func init() {
 	// Version
 	fmt.Fprintln(os.Stderr, "---------------------")
 	fmt.Fprintln(os.Stderr, "Func Version:")
-	printVersion() // TODO: `version` outputs a superfluous linebreak
+	printVersion()
 	fmt.Fprintln(os.Stderr, "--- init complete ---")
 }
 

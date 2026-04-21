@@ -3,7 +3,10 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fn "knative.dev/func/pkg/functions"
@@ -55,6 +58,14 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		return fn.Instance{}, fmt.Errorf("unable to get deployment %q: %v", name, err)
 	}
 
+	ready := corev1.ConditionUnknown
+	for _, con := range deployment.Status.Conditions {
+		if con.Type == v1.DeploymentAvailable {
+			ready = con.Status
+			break
+		}
+	}
+
 	primaryRouteURL := fmt.Sprintf("http://%s.%s.svc", name, namespace) // TODO: get correct scheme?
 
 	// get image
@@ -86,6 +97,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 			Version: middlewareVersion,
 		},
 		Generation: deployment.Generation,
+		Ready:      strings.ToLower(string(ready)),
 	}
 
 	return description, nil

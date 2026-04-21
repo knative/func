@@ -3,8 +3,12 @@ package keda
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -60,6 +64,13 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		return fn.Instance{}, fmt.Errorf("unable to get HTTPScaledObject: %w", err)
 	}
 
+	ready := v1.ConditionUnknown
+	if meta.IsStatusConditionTrue(httpScaledObject.Status.Conditions, v1alpha1.ConditionTypeReady) {
+		ready = v1.ConditionTrue
+	} else if meta.IsStatusConditionFalse(httpScaledObject.Status.Conditions, v1alpha1.ConditionTypeReady) {
+		ready = v1.ConditionFalse
+	}
+
 	if len(httpScaledObject.Spec.Hosts) == 0 {
 		return fn.Instance{}, fmt.Errorf("HTTPScaledObject %q does not have any hosts", name)
 	}
@@ -105,6 +116,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 			Version: middlewareVersion,
 		},
 		Generation: deployment.Generation,
+		Ready:      strings.ToLower(string(ready)),
 	}
 
 	return description, nil

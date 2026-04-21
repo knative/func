@@ -4,6 +4,12 @@
 #
 # ##
 
+# Use bash with pipefail so targets whose recipes pipe through tee/python
+# (e.g. test-full-logged) surface non-zero exits from the upstream command
+# instead of being masked by tee's success.
+SHELL       := bash
+.SHELLFLAGS := -o pipefail -c
+
 # Binaries
 BIN               := func
 BIN_DARWIN_AMD64  ?= $(BIN)_darwin_amd64

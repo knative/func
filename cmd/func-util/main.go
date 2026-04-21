@@ -1,5 +1,4 @@
 //go:build exclude_graphdriver_btrfs || !cgo
-// +build exclude_graphdriver_btrfs !cgo
 
 package main
 

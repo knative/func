@@ -19,9 +19,17 @@ import (
 )
 
 func TestSourcesAsTarStream(t *testing.T) {
-	root := filepath.Join("testdata", "fn-src")
-
-	if err := os.Mkdir(filepath.Join(root, ".git"), 0755); err != nil && !errors.Is(err, os.ErrExist) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("**/a.out"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "hello.txt"), []byte("Hello World!\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("hello.txt", filepath.Join(root, "hello.txt.lnk")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(root, ".git", "a.txt"), []byte("hello"), 0644); err != nil {

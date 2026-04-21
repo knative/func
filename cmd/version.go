@@ -141,7 +141,11 @@ func (v Version) StringVerbose() string {
 	if strings.HasPrefix(kver, "knative-") {
 		kver = strings.Split(kver, "-")[1]
 	}
-	return fmt.Sprintf(
+	// Trim trailing newlines: String methods should return bare content; the
+	// caller is responsible for adding output termination. MiddlewareVersions
+	// appends a "\n" after each line, so the formatted result would otherwise
+	// end with one, producing a double newline when a caller adds its own.
+	return strings.TrimRight(fmt.Sprintf(
 		"Version: %s\n"+
 			"Knative: %s\n"+
 			"Commit: %s\n"+
@@ -153,13 +157,13 @@ func (v Version) StringVerbose() string {
 		hash,
 		v.SocatImage,
 		v.TarImage,
-		v.MiddlewareVersions)
+		v.MiddlewareVersions), "\n")
 }
 
 // Human prints version information in human-readable format.
 func (v Version) Human(w io.Writer) error {
 	if v.Verbose {
-		_, err := fmt.Fprint(w, v.StringVerbose())
+		_, err := fmt.Fprintln(w, v.StringVerbose())
 		return err
 	}
 	_, err := fmt.Fprintf(w, "%s\n", v.Vers)
