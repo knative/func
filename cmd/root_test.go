@@ -307,7 +307,7 @@ func TestVerbose(t *testing.T) {
 			"Knative: v1.10.0\n" +
 			"Commit: cafe\n" +
 			"SocatImage: ghcr.io/knative/func-utils:v2\n" +
-			"TarImage: ghcr.io/knative/func-utils:v2\n"
+			"TarImage: ghcr.io/knative/func-utils:v2"
 		if got := v.StringVerbose(); got != want {
 			t.Errorf("unexpected verbose output:\nwant:\n%s\ngot:\n%s", want, got)
 		}
