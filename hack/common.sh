@@ -44,7 +44,25 @@ populate_environment() {
   else
     export ARCH="$ARCH"
   fi
-  export CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
+  # Resolve the actual container engine:
+  #  1. Honour explicit CONTAINER_ENGINE if already set.
+  #  2. Default to docker.
+  #  3. If docker is actually podman (podman-docker package), switch to podman.
+  #  4. If docker is absent but podman is present, use podman.
+  if [[ -z "${CONTAINER_ENGINE:-}" ]]; then
+    if command -v docker &>/dev/null; then
+      CONTAINER_ENGINE=docker
+      # Detect podman-docker: /usr/bin/docker is a wrapper that exec's podman.
+      if docker --version 2>/dev/null | grep -qi podman; then
+        CONTAINER_ENGINE=podman
+      fi
+    elif command -v podman &>/dev/null; then
+      CONTAINER_ENGINE=podman
+    else
+      CONTAINER_ENGINE=docker
+    fi
+  fi
+  export CONTAINER_ENGINE
   export TERM="${TERM:-dumb}"
 
   echo "KUBECONFIG=${KUBECONFIG}"
