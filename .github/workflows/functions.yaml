@@ -14,16 +14,18 @@ on:
       - main
     paths-ignore:
       - 'docs/**'
-      - '**/*.md'
-      - 'CODEOWNERS'
+      - '*.md'
+      - 'OWNERS'
+      - 'OWNERS_ALIASES'
       - 'LICENSE'
   pull_request:
     branches:
       - main
     paths-ignore:
       - 'docs/**'
-      - '**/*.md'
-      - 'CODEOWNERS'
+      - '*.md'
+      - 'OWNERS'
+      - 'OWNERS_ALIASES'
       - 'LICENSE'
   workflow_dispatch:
 
