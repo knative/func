@@ -40,6 +40,10 @@ spec:
     - description: Environment variables to set during build time
       name: buildEnvs
       type: array
+    - description: Git commit SHA of the function source
+      name: commit
+      default: ''
+      type: string
   tasks:
     - name: build
       params:
@@ -58,6 +62,8 @@ spec:
         - name: ENV_VARS
           value:
             - '$(params.buildEnvs[*])'
+        - name: COMMIT
+          value: $(params.commit)
         {{- if eq .TlsVerify "false"}}
         - name: INSECURE_REGISTRIES
           value: $(params.registry)
@@ -115,6 +121,8 @@ spec:
         {{range .BuildEnvs -}}
            - {{.}}
         {{end}}
+    - name: commit
+      value: "{{.Commit}}"
   pipelineRef:
    name: {{.PipelineName}}
   workspaces:

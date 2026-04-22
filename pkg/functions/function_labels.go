@@ -10,6 +10,7 @@ import (
 
 const (
 	MiddlewareVersionLabelKey = "middleware-version"
+	CommitLabelKey            = "commit"
 )
 
 type Label struct {

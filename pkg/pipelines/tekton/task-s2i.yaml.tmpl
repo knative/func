@@ -42,6 +42,9 @@ spec:
     - name: S2I_IMAGE_SCRIPTS_URL
       description: The URL containing the default assemble and run scripts for the builder image.
       default: "image:///usr/libexec/s2i"
+    - name: COMMIT
+      description: Git commit SHA of the function source
+      default: ""
   workspaces:
     - name: source
     - name: cache
@@ -96,6 +99,8 @@ spec:
         - $(params.S2I_IMAGE_SCRIPTS_URL)
         - "--log-level"
         - $(params.LOGLEVEL)
+        - "--commit"
+        - $(params.COMMIT)
         - $(params.ENV_VARS[*])
       volumeMounts:
         - mountPath: /gen-source

@@ -90,6 +90,9 @@ type templateData struct {
 
 	// TLS verification for registry operations
 	TlsVerify string
+
+	// Git commit SHA of the function source
+	Commit string
 }
 
 // createPipelineTemplatePAC creates a Pipeline template used for PAC on-cluster build
@@ -386,6 +389,8 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		tlsVerify = "false"
 	}
 
+	commit, _ := fn.GitCommit(f.Root)
+
 	data := templateData{
 		FunctionName:  f.Name,
 		Annotations:   f.Deploy.Annotations,
@@ -403,6 +408,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 
 		S2iImageScriptsUrl: s2iImageScriptsUrl,
 		TlsVerify:          tlsVerify,
+		Commit:             commit,
 
 		RepoUrl:  f.Build.Git.URL,
 		Revision: pipelinesTargetBranch,

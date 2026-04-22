@@ -36,6 +36,7 @@ type genConfig struct {
 	imageScriptUrl    string
 	logLevel          string
 	middlewareVersion string
+	commit            string
 	envVars           []string
 }
 
@@ -64,6 +65,7 @@ func newS2IGenerateCmd() *cobra.Command {
 	genCmd.Flags().StringVar(&config.imageScriptUrl, "image-script-url", "image:///usr/libexec/s2i", "")
 	genCmd.Flags().StringVar(&config.logLevel, "log-level", "0", "")
 	genCmd.Flags().StringVar(&config.middlewareVersion, "middleware-version", "", "")
+	genCmd.Flags().StringVar(&config.commit, "commit", "", "")
 
 	return genCmd
 }
@@ -140,6 +142,10 @@ func runS2IGenerate(ctx context.Context, c genConfig) error {
 		Labels: map[string]string{
 			fn.MiddlewareVersionLabelKey: c.middlewareVersion,
 		},
+	}
+
+	if c.commit != "" {
+		s2iConfig.Labels[fn.CommitLabelKey] = c.commit
 	}
 
 	builder, _, err := strategies.Strategy(nil, &s2iConfig, build.Overrides{})

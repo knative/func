@@ -64,6 +64,9 @@ spec:
     - name: INSECURE_REGISTRIES
       description: Registries to access without TLS verification
       default: ""
+    - name: COMMIT
+      description: Git commit SHA of the function source
+      default: ""
   stepTemplate:
     env:
       - name: CNB_PLATFORM_API
@@ -154,6 +157,13 @@ spec:
           echo -n "middleware-version=$middleware_version" >> "${ENV_DIR}/BP_IMAGE_LABELS"
         else
           echo "No middleware-version file ($middleware_version_file) found"
+        fi
+
+        # Add commit label
+        commit="$(params.COMMIT)"
+        if [ -n "$commit" ]; then
+          echo "--> Adding commit label: $commit"
+          echo -n " commit=$commit" >> "${ENV_DIR}/BP_IMAGE_LABELS"
         fi
 
         ############################################

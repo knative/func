@@ -201,13 +201,27 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		opts.Env["BP_GO_WORKDIR"] = filepath.Join(fn.RunDataDir, fn.BuildDir)
 	}
 
-	// Get middleware version and set as image label via BP_IMAGE_LABELS
+	// Set image labels via BP_IMAGE_LABELS
+	var imageLabels []string
+
 	middlewareVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, fn.EmbeddedTemplatesFS)
 	if err != nil {
 		return fmt.Errorf("cannot get middleware version: %w", err)
 	}
 	if middlewareVersion != "" {
-		opts.Env["BP_IMAGE_LABELS"] = fmt.Sprintf("%s=%s", fn.MiddlewareVersionLabelKey, middlewareVersion)
+		imageLabels = append(imageLabels, fmt.Sprintf("%s=%s", fn.MiddlewareVersionLabelKey, middlewareVersion))
+	}
+
+	commit, err := fn.GitCommit(f.Root)
+	if err != nil {
+		return fmt.Errorf("cannot get git commit: %w", err)
+	}
+	if commit != "" {
+		imageLabels = append(imageLabels, fmt.Sprintf("%s=%s", fn.CommitLabelKey, commit))
+	}
+
+	if len(imageLabels) > 0 {
+		opts.Env["BP_IMAGE_LABELS"] = strings.Join(imageLabels, " ")
 	}
 
 	var bindings = make([]string, 0, len(f.Build.Mounts))

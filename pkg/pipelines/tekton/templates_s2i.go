@@ -48,6 +48,10 @@ spec:
       name: tlsVerify
       type: string
       default: 'true'
+    - description: Git commit SHA of the function source
+      name: commit
+      default: ''
+      type: string
   tasks:
     - name: build
       params:
@@ -70,6 +74,8 @@ spec:
           value: $(params.s2iImageScriptsUrl)
         - name: TLSVERIFY
           value: $(params.tlsVerify)
+        - name: COMMIT
+          value: $(params.commit)
       {{.FuncS2iTaskRef}}
       workspaces:
         - name: source
@@ -126,6 +132,8 @@ spec:
       value: {{.S2iImageScriptsUrl}}
     - name: tlsVerify
       value: {{.TlsVerify}}
+    - name: commit
+      value: "{{.Commit}}"
   pipelineRef:
    name: {{.PipelineName}}
   workspaces:
