@@ -130,10 +130,13 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	if description.Image != "" {
 		v, err := fn.MiddlewareVersion(description.Image)
 		if err == nil {
-			// don't fail on errors
 			description.Middleware = fn.Middleware{
 				Version: v,
 			}
+		}
+		c, err := fn.ImageCommit(description.Image)
+		if err == nil {
+			description.Commit = c
 		}
 	}
 

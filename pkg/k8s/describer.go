@@ -77,11 +77,15 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	}
 
 	middlewareVersion := ""
+	commit := ""
 	if image != "" {
 		v, err := fn.MiddlewareVersion(image)
 		if err == nil {
-			// don't fail on errors
 			middlewareVersion = v
+		}
+		c, err := fn.ImageCommit(image)
+		if err == nil {
+			commit = c
 		}
 	}
 
@@ -96,6 +100,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Middleware: fn.Middleware{
 			Version: middlewareVersion,
 		},
+		Commit:     commit,
 		Generation: deployment.Generation,
 		Ready:      strings.ToLower(string(ready)),
 	}
