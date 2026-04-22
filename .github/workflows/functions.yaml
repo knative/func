@@ -12,9 +12,19 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'CODEOWNERS'
+      - 'LICENSE'
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'CODEOWNERS'
+      - 'LICENSE'
   workflow_dispatch:
 
 concurrency:
