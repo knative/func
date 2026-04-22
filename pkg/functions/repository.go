@@ -12,6 +12,8 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"gopkg.in/yaml.v2"
 
@@ -189,11 +191,14 @@ func isNonBareGitRepo(uri string) bool {
 // FilesystemFromRepo attempts to fetch a filesystem from a git repository
 // indicated by the given URI.  Returns nil if there is not a repo at the URI.
 func FilesystemFromRepo(uri string) (filesystem.Filesystem, error) {
-	clone, err := git.Clone(
-		memory.NewStorage(),
-		memfs.New(),
-		getGitCloneOptions(uri),
-	)
+	opts := getGitCloneOptions(uri)
+	clone, err := git.Clone(memory.NewStorage(), memfs.New(), opts)
+	if isAuthError(err) {
+		if auth := credentialsForURL(opts.URL); auth != nil {
+			opts.Auth = auth
+			clone, err = git.Clone(memory.NewStorage(), memfs.New(), opts)
+		}
+	}
 	if err != nil {
 		if isRepoNotFoundError(err) {
 			return nil, nil
@@ -438,6 +443,145 @@ func checkDir(fs filesystem.Filesystem, path string) error {
 	return err
 }
 
+// credentialsForURL returns HTTP basic-auth credentials for the given URL by
+// consulting, in order:
+//  1. ~/.git-credentials  (written by git's "store" credential helper)
+//  2. ~/.netrc
+//
+// Returns nil when the URL is not HTTP(S) or no matching entry is found.
+// No subprocesses are spawned; both files are read with pure Go.
+func credentialsForURL(rawURL string) transport.AuthMethod {
+	u, err := url.Parse(rawURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return nil
+	}
+	if auth := credentialsFromGitStore(u); auth != nil {
+		return auth
+	}
+	return credentialsFromNetRC(u)
+}
+
+// credentialsFromGitStore reads ~/.git-credentials (the git credential store
+// format). Each non-blank line is a URL with embedded user info:
+//
+//	https://user:password@host
+//
+// The first line whose scheme and hostname match u wins.
+func credentialsFromGitStore(u *url.URL) transport.AuthMethod {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".git-credentials"))
+	if err != nil {
+		return nil
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		entry, err := url.Parse(line)
+		if err != nil || entry.Scheme != u.Scheme || entry.Hostname() != u.Hostname() {
+			continue
+		}
+		if entry.User == nil {
+			continue
+		}
+		username := entry.User.Username()
+		password, hasPass := entry.User.Password()
+		if !hasPass && username == "" {
+			continue
+		}
+		return &githttp.BasicAuth{Username: username, Password: password}
+	}
+	return nil
+}
+
+// credentialsFromNetRC reads ~/.netrc and returns credentials for the host in u.
+func credentialsFromNetRC(u *url.URL) transport.AuthMethod {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".netrc"))
+	if err != nil {
+		return nil
+	}
+	login, password := scanNetRC(string(data), u.Hostname())
+	if login == "" && password == "" {
+		return nil
+	}
+	return &githttp.BasicAuth{Username: login, Password: password}
+}
+
+// scanNetRC is a minimal netrc(5) token scanner. It returns the login and
+// password for the first "machine" stanza whose name matches host. Falls back
+// to the "default" stanza when no exact match is found.
+func scanNetRC(content, host string) (login, password string) {
+	type entry struct{ login, password string }
+	var matched, def *entry
+	var cur *entry
+	inMacdef := false
+
+	tokens := strings.Fields(content)
+	for i := 0; i < len(tokens); i++ {
+		switch tokens[i] {
+		case "machine":
+			inMacdef = false
+			if i+1 >= len(tokens) {
+				continue
+			}
+			i++
+			if tokens[i] == host {
+				matched = &entry{}
+				cur = matched
+			} else {
+				cur = nil
+			}
+		case "default":
+			inMacdef = false
+			if def == nil {
+				def = &entry{}
+			}
+			cur = def
+		case "macdef":
+			inMacdef = true
+			cur = nil
+			i++ // skip macro name
+		case "login":
+			if inMacdef || i+1 >= len(tokens) {
+				continue
+			}
+			i++
+			if cur != nil {
+				cur.login = tokens[i]
+			}
+		case "password":
+			if inMacdef || i+1 >= len(tokens) {
+				continue
+			}
+			i++
+			if cur != nil {
+				cur.password = tokens[i]
+			}
+		}
+	}
+	if matched != nil {
+		return matched.login, matched.password
+	}
+	if def != nil {
+		return def.login, def.password
+	}
+	return "", ""
+}
+
+// isAuthError reports whether err indicates that the remote requires
+// authentication (server returned HTTP 401 with no or invalid credentials).
+func isAuthError(err error) bool {
+	return err != nil && errors.Is(err, transport.ErrAuthenticationRequired)
+}
+
 func getGitCloneOptions(uri string) *git.CloneOptions {
 	branch := ""
 	splitUri := strings.Split(uri, "#")
@@ -446,8 +590,12 @@ func getGitCloneOptions(uri string) *git.CloneOptions {
 		branch = splitUri[1]
 	}
 
-	opt := &git.CloneOptions{URL: uri, Depth: 1, Tags: git.NoTags,
-		RecurseSubmodules: git.NoRecurseSubmodules}
+	opt := &git.CloneOptions{
+		URL:               uri,
+		Depth:             1,
+		Tags:              git.NoTags,
+		RecurseSubmodules: git.NoRecurseSubmodules,
+	}
 	if branch != "" {
 		opt.ReferenceName = plumbing.NewBranchReferenceName(branch)
 	}
@@ -519,8 +667,15 @@ func (r *Repository) Write(dest string) (err error) {
 		if tempDir, err = os.MkdirTemp("", "func"); err != nil {
 			return
 		}
-		if clone, err = git.PlainClone(tempDir, false, // not bare
-			getGitCloneOptions(r.uri)); err != nil {
+		cloneOpts := getGitCloneOptions(r.uri)
+		clone, err = git.PlainClone(tempDir, false, cloneOpts) // not bare
+		if isAuthError(err) {
+			if auth := credentialsForURL(cloneOpts.URL); auth != nil {
+				cloneOpts.Auth = auth
+				clone, err = git.PlainClone(tempDir, false, cloneOpts)
+			}
+		}
+		if err != nil {
 			return fmt.Errorf("failed to plain clone repository: %w", err)
 		}
 		if wt, err = clone.Worktree(); err != nil {
