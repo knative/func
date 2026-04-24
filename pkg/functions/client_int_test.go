@@ -674,7 +674,7 @@ func newClient(verbose bool) *fn.Client {
 		fn.WithBuilder(oci.NewBuilder("", verbose)),
 		fn.WithPusher(oci.NewPusher(true, true, verbose)),
 		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
-		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
+		fn.WithDescribers(knative.NewDescriber(verbose, nil), k8s.NewDescriber(verbose, nil)),
 		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
 		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
 		fn.WithVerbose(verbose),
@@ -690,7 +690,7 @@ func newClientWithS2i(verbose bool) *fn.Client {
 		fn.WithBuilder(s2i.NewBuilder(s2i.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithVerbose(verbose))),
 		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
-		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
+		fn.WithDescribers(knative.NewDescriber(verbose, nil), k8s.NewDescriber(verbose, nil)),
 		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
 		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
 	)
