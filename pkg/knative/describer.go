@@ -16,12 +16,14 @@ import (
 )
 
 type Describer struct {
-	verbose bool
+	verbose        bool
+	imageInspector *fn.ImageInspector
 }
 
-func NewDescriber(verbose bool) *Describer {
+func NewDescriber(verbose bool, imageInspector *fn.ImageInspector) *Describer {
 	return &Describer{
-		verbose: verbose,
+		verbose:        verbose,
+		imageInspector: imageInspector,
 	}
 }
 
@@ -127,14 +129,14 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		}
 	}
 
-	if description.Image != "" {
-		v, err := fn.MiddlewareVersion(description.Image)
+	if description.Image != "" && d.imageInspector != nil {
+		v, err := d.imageInspector.MiddlewareVersion(description.Image)
 		if err == nil {
 			description.Middleware = fn.Middleware{
 				Version: v,
 			}
 		}
-		c, err := fn.ImageCommit(description.Image)
+		c, err := d.imageInspector.Commit(description.Image)
 		if err == nil {
 			description.Commit = c
 		}

@@ -13,12 +13,14 @@ import (
 )
 
 type Describer struct {
-	verbose bool
+	verbose        bool
+	imageInspector *fn.ImageInspector
 }
 
-func NewDescriber(verbose bool) *Describer {
+func NewDescriber(verbose bool, imageInspector *fn.ImageInspector) *Describer {
 	return &Describer{
-		verbose: verbose,
+		verbose:        verbose,
+		imageInspector: imageInspector,
 	}
 }
 
@@ -78,12 +80,12 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	middlewareVersion := ""
 	commit := ""
-	if image != "" {
-		v, err := fn.MiddlewareVersion(image)
+	if image != "" && d.imageInspector != nil {
+		v, err := d.imageInspector.MiddlewareVersion(image)
 		if err == nil {
 			middlewareVersion = v
 		}
-		c, err := fn.ImageCommit(image)
+		c, err := d.imageInspector.Commit(image)
 		if err == nil {
 			commit = c
 		}

@@ -56,6 +56,7 @@ type PipelinesProvider struct {
 	getPacURL           pacURLCallback
 	credentialsProvider oci.CredentialsProvider
 	decorator           PipelineDecorator
+	imageInspector      *fn.ImageInspector
 }
 
 func WithCredentialsProvider(credentialsProvider oci.CredentialsProvider) Opt {
@@ -73,6 +74,12 @@ func WithVerbose(verbose bool) Opt {
 func WithPipelineDecorator(decorator PipelineDecorator) Opt {
 	return func(pp *PipelinesProvider) {
 		pp.decorator = decorator
+	}
+}
+
+func WithImageInspector(ii *fn.ImageInspector) Opt {
+	return func(pp *PipelinesProvider) {
+		pp.imageInspector = ii
 	}
 }
 
@@ -245,12 +252,12 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 	var describer fn.Describer
 	switch f.Deploy.Deployer {
 	case k8s.KubernetesDeployerName:
-		describer = k8s.NewDescriber(false)
+		describer = k8s.NewDescriber(false, pp.imageInspector)
 	case keda.KedaDeployerName:
-		describer = keda.NewDescriber(false)
+		describer = keda.NewDescriber(false, pp.imageInspector)
 	default:
 		// default to knative
-		describer = knative.NewDescriber(false)
+		describer = knative.NewDescriber(false, pp.imageInspector)
 	}
 
 	obj, err := describer.Describe(ctx, f.Name, f.Namespace)
