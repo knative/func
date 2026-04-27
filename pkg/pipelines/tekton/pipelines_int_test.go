@@ -48,7 +48,7 @@ func newRemoteTestClient(verbose bool, deployer string, opts ...fn.Option) *fn.C
 	baseOpts := []fn.Option{
 		fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithCredentialsProvider(testCP))),
-		fn.WithDescribers(knative.NewDescriber(verbose, nil), k8s.NewDescriber(verbose, nil), keda.NewDescriber(verbose, nil)),
+		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose), keda.NewDescriber(verbose)),
 		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose), keda.NewLister(verbose)),
 		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose), keda.NewRemover(verbose)),
 		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose))),

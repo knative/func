@@ -13,7 +13,7 @@ func TestInt_List(t *testing.T) {
 	listertesting.TestInt_List(t,
 		k8s.NewLister(true),
 		k8s.NewDeployer(k8s.WithDeployerVerbose(true)),
-		k8s.NewDescriber(true, nil),
+		k8s.NewDescriber(true),
 		k8s.NewRemover(true),
 		k8s.KubernetesDeployerName)
 }

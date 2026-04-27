@@ -13,7 +13,7 @@ func TestInt_Remove(t *testing.T) {
 	removertesting.TestInt_Remove(t,
 		keda.NewRemover(true),
 		keda.NewDeployer(keda.WithDeployerVerbose(true)),
-		keda.NewDescriber(true, nil),
+		keda.NewDescriber(true),
 		keda.NewLister(true),
 		keda.KedaDeployerName)
 }

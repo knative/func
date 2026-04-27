@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	v1 "k8s.io/api/apps/v1"
@@ -13,15 +14,24 @@ import (
 )
 
 type Describer struct {
-	verbose        bool
-	imageInspector *fn.ImageInspector
+	verbose   bool
+	transport http.RoundTripper
 }
 
-func NewDescriber(verbose bool, imageInspector *fn.ImageInspector) *Describer {
-	return &Describer{
-		verbose:        verbose,
-		imageInspector: imageInspector,
+type DescriberOpt func(*Describer)
+
+func WithDescriberTransport(transport http.RoundTripper) DescriberOpt {
+	return func(d *Describer) {
+		d.transport = transport
 	}
+}
+
+func NewDescriber(verbose bool, opts ...DescriberOpt) *Describer {
+	d := &Describer{verbose: verbose}
+	for _, o := range opts {
+		o(d)
+	}
+	return d
 }
 
 // Describe a function by name.
@@ -80,14 +90,11 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	middlewareVersion := ""
 	commit := ""
-	if image != "" && d.imageInspector != nil {
-		v, err := d.imageInspector.MiddlewareVersion(image)
+	if image != "" && d.transport != nil {
+		labels, err := fn.ImageLabels(image, d.transport)
 		if err == nil {
-			middlewareVersion = v
-		}
-		c, err := d.imageInspector.Commit(image)
-		if err == nil {
-			commit = c
+			middlewareVersion = labels[fn.MiddlewareVersionLabelKey]
+			commit = labels[fn.CommitLabelKey]
 		}
 	}
 

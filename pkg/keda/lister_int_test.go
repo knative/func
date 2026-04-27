@@ -13,7 +13,7 @@ func TestInt_List(t *testing.T) {
 	listertesting.TestInt_List(t,
 		keda.NewLister(true),
 		keda.NewDeployer(keda.WithDeployerVerbose(true)),
-		keda.NewDescriber(true, nil),
+		keda.NewDescriber(true),
 		keda.NewRemover(true),
 		keda.KedaDeployerName)
 }

@@ -11,7 +11,7 @@ import (
 
 func TestInt_Describe(t *testing.T) {
 	describertesting.TestInt_Describe(t,
-		knative.NewDescriber(true, nil),
+		knative.NewDescriber(true),
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewRemover(true),
 		knative.KnativeDeployerName)

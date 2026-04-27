@@ -11,7 +11,7 @@ import (
 
 func TestInt_Describe(t *testing.T) {
 	describertesting.TestInt_Describe(t,
-		keda.NewDescriber(true, nil),
+		keda.NewDescriber(true),
 		keda.NewDeployer(keda.WithDeployerVerbose(true)),
 		keda.NewRemover(true),
 		keda.KedaDeployerName)

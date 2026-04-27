@@ -13,7 +13,7 @@ func TestInt_List(t *testing.T) {
 	listertesting.TestInt_List(t,
 		knative.NewLister(true),
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewDescriber(true, nil),
+		knative.NewDescriber(true),
 		knative.NewRemover(true),
 		knative.KnativeDeployerName)
 }

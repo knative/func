@@ -3,6 +3,7 @@ package knative
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -16,15 +17,24 @@ import (
 )
 
 type Describer struct {
-	verbose        bool
-	imageInspector *fn.ImageInspector
+	verbose   bool
+	transport http.RoundTripper
 }
 
-func NewDescriber(verbose bool, imageInspector *fn.ImageInspector) *Describer {
-	return &Describer{
-		verbose:        verbose,
-		imageInspector: imageInspector,
+type DescriberOpt func(*Describer)
+
+func WithDescriberTransport(transport http.RoundTripper) DescriberOpt {
+	return func(d *Describer) {
+		d.transport = transport
 	}
+}
+
+func NewDescriber(verbose bool, opts ...DescriberOpt) *Describer {
+	d := &Describer{verbose: verbose}
+	for _, o := range opts {
+		o(d)
+	}
+	return d
 }
 
 // Describe a function by name. Note that the consuming API uses domain style
@@ -129,16 +139,13 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		}
 	}
 
-	if description.Image != "" && d.imageInspector != nil {
-		v, err := d.imageInspector.MiddlewareVersion(description.Image)
+	if description.Image != "" && d.transport != nil {
+		labels, err := fn.ImageLabels(description.Image, d.transport)
 		if err == nil {
 			description.Middleware = fn.Middleware{
-				Version: v,
+				Version: labels[fn.MiddlewareVersionLabelKey],
 			}
-		}
-		c, err := d.imageInspector.Commit(description.Image)
-		if err == nil {
-			description.Commit = c
+			description.Commit = labels[fn.CommitLabelKey]
 		}
 	}
 

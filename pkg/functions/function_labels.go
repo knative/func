@@ -2,9 +2,12 @@ package functions
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"knative.dev/func/pkg/utils"
 )
 
@@ -77,4 +80,28 @@ func ValidateLabels(labels []Label) (errors []string) {
 	}
 
 	return
+}
+
+func ImageLabels(image string, transport http.RoundTripper) (map[string]string, error) {
+	ref, err := name.ParseReference(image)
+	if err != nil {
+		return nil, err
+	}
+
+	desc, err := remote.Get(ref, remote.WithTransport(transport))
+	if err != nil {
+		return nil, err
+	}
+
+	img, err := desc.Image()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg, err := img.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg.Config.Labels, nil
 }

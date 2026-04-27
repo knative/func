@@ -13,7 +13,7 @@ func TestInt_Remove(t *testing.T) {
 	removertesting.TestInt_Remove(t,
 		knative.NewRemover(true),
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewDescriber(true, nil),
+		knative.NewDescriber(true),
 		knative.NewLister(true),
 		knative.KnativeDeployerName)
 }

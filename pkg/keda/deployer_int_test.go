@@ -14,7 +14,7 @@ func TestInt_FullPath(t *testing.T) {
 		keda.NewDeployer(keda.WithDeployerVerbose(false)),
 		keda.NewRemover(false),
 		keda.NewLister(false),
-		keda.NewDescriber(false, nil),
+		keda.NewDescriber(false),
 		keda.KedaDeployerName)
 }
 
@@ -22,7 +22,7 @@ func TestInt_Deploy(t *testing.T) {
 	deployertesting.TestInt_Deploy(t,
 		keda.NewDeployer(keda.WithDeployerVerbose(false)),
 		keda.NewRemover(false),
-		keda.NewDescriber(false, nil),
+		keda.NewDescriber(false),
 		keda.KedaDeployerName)
 }
 
@@ -30,7 +30,7 @@ func TestInt_Metadata(t *testing.T) {
 	deployertesting.TestInt_Metadata(t,
 		keda.NewDeployer(keda.WithDeployerVerbose(false)),
 		keda.NewRemover(false),
-		keda.NewDescriber(false, nil),
+		keda.NewDescriber(false),
 		keda.KedaDeployerName)
 }
 
@@ -40,7 +40,7 @@ func TestInt_Events(t *testing.T) {
 	deployertesting.TestInt_Events(t,
 		keda.NewDeployer(keda.WithDeployerVerbose(false)),
 		keda.NewRemover(false),
-		keda.NewDescriber(false, nil),
+		keda.NewDescriber(false),
 		keda.KedaDeployerName)
 }
 
@@ -48,7 +48,7 @@ func TestInt_Scale(t *testing.T) {
 	deployertesting.TestInt_Scale(t,
 		keda.NewDeployer(keda.WithDeployerVerbose(false)),
 		keda.NewRemover(false),
-		keda.NewDescriber(false, nil),
+		keda.NewDescriber(false),
 		keda.KedaDeployerName)
 }
 
@@ -56,6 +56,6 @@ func TestInt_EnvsUpdate(t *testing.T) {
 	deployertesting.TestInt_EnvsUpdate(t,
 		keda.NewDeployer(keda.WithDeployerVerbose(false)),
 		keda.NewRemover(false),
-		keda.NewDescriber(false, nil),
+		keda.NewDescriber(false),
 		keda.KedaDeployerName)
 }

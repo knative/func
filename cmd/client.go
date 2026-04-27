@@ -62,8 +62,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 		t  = newTransport(cfg.InsecureSkipVerify)        // may provide a custom impl which proxies
 		c  = newCredentialsProvider(config.Dir(), t, "") // for accessing registries
 		d  = newKnativeDeployer(cfg.Verbose)             // default deployer (can be overridden via options)
-		ii = fn.NewImageInspector(t)
-		pp = newTektonPipelinesProvider(c, cfg.Verbose, ii)
+		pp = newTektonPipelinesProvider(c, cfg.Verbose, t)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
 			fn.WithTransport(t),
@@ -71,7 +70,11 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithScaffolder(buildpacks.NewScaffolder(cfg.Verbose)),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
 			fn.WithRemovers(knative.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose), keda.NewRemover(cfg.Verbose)),
-			fn.WithDescribers(knative.NewDescriber(cfg.Verbose, ii), k8s.NewDescriber(cfg.Verbose, ii), keda.NewDescriber(cfg.Verbose, ii)),
+			fn.WithDescribers(
+				knative.NewDescriber(cfg.Verbose, knative.WithDescriberTransport(t)),
+				k8s.NewDescriber(cfg.Verbose, k8s.WithDescriberTransport(t)),
+				keda.NewDescriber(cfg.Verbose, keda.WithDescriberTransport(t)),
+			),
 			fn.WithListers(knative.NewLister(cfg.Verbose), k8s.NewLister(cfg.Verbose), keda.NewLister(cfg.Verbose)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
@@ -144,12 +147,12 @@ func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath
 	return creds.NewCredentialsProvider(configPath, options...)
 }
 
-func newTektonPipelinesProvider(creds oci.CredentialsProvider, verbose bool, ii *fn.ImageInspector) *tekton.PipelinesProvider {
+func newTektonPipelinesProvider(creds oci.CredentialsProvider, verbose bool, transport http.RoundTripper) *tekton.PipelinesProvider {
 	options := []tekton.Opt{
 		tekton.WithCredentialsProvider(creds),
 		tekton.WithVerbose(verbose),
 		tekton.WithPipelineDecorator(deployDecorator{}),
-		tekton.WithImageInspector(ii),
+		tekton.WithTransport(transport),
 	}
 
 	return tekton.NewPipelinesProvider(options...)
