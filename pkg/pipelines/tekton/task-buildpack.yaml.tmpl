@@ -159,11 +159,11 @@ spec:
           echo "No middleware-version file ($middleware_version_file) found"
         fi
 
-        # Add commit label
+        # Add revision label
         commit="$(params.COMMIT)"
         if [ -n "$commit" ]; then
-          echo "--> Adding commit label: $commit"
-          echo -n " commit=$commit" >> "${ENV_DIR}/BP_IMAGE_LABELS"
+          echo "--> Adding revision label: $commit"
+          echo -n " org.opencontainers.image.revision=$commit" >> "${ENV_DIR}/BP_IMAGE_LABELS"
         fi
 
         ############################################

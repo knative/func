@@ -13,7 +13,7 @@ import (
 
 const (
 	MiddlewareVersionLabelKey = "middleware-version"
-	CommitLabelKey            = "commit"
+	CommitLabelKey            = "org.opencontainers.image.revision"
 )
 
 type Label struct {
