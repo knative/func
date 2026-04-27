@@ -128,7 +128,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Middleware: fn.Middleware{
 			Version: middlewareVersion,
 		},
-		Commit:     commit,
+		Revision:   commit,
 		Generation: deployment.Generation,
 		Ready:      strings.ToLower(string(ready)),
 	}

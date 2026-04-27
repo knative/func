@@ -145,7 +145,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 			description.Middleware = fn.Middleware{
 				Version: labels[fn.MiddlewareVersionLabelKey],
 			}
-			description.Commit = labels[fn.CommitLabelKey]
+			description.Revision = labels[fn.CommitLabelKey]
 		}
 	}
 
