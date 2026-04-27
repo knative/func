@@ -114,6 +114,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (e
 		return
 	}
 
+	if err = fetchCommitLabel(&job); err != nil {
+		return
+	}
+
 	if err = containerize(job); err != nil { // write image to .func/build
 		return
 	}
@@ -197,6 +201,21 @@ func fetchMiddlewareLabels(job *buildJob) (err error) {
 	}
 	job.labels[fn.MiddlewareVersionLabelKey] = middlewareVersion
 
+	return nil
+}
+
+// fetchCommitLabel retrieves git commit SHA for image labels
+func fetchCommitLabel(job *buildJob) error {
+	commit, err := fn.GitCommit(job.function.Root)
+	if err != nil {
+		return fmt.Errorf("unable to get git commit: %w", err)
+	}
+	if commit != "" {
+		if job.labels == nil {
+			job.labels = make(map[string]string)
+		}
+		job.labels[fn.CommitLabelKey] = commit
+	}
 	return nil
 }
 

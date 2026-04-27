@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	v1 "k8s.io/api/apps/v1"
@@ -13,13 +14,24 @@ import (
 )
 
 type Describer struct {
-	verbose bool
+	verbose   bool
+	transport http.RoundTripper
 }
 
-func NewDescriber(verbose bool) *Describer {
-	return &Describer{
-		verbose: verbose,
+type DescriberOpt func(*Describer)
+
+func WithDescriberTransport(transport http.RoundTripper) DescriberOpt {
+	return func(d *Describer) {
+		d.transport = transport
 	}
+}
+
+func NewDescriber(verbose bool, opts ...DescriberOpt) *Describer {
+	d := &Describer{verbose: verbose}
+	for _, o := range opts {
+		o(d)
+	}
+	return d
 }
 
 // Describe a function by name.
@@ -77,11 +89,12 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	}
 
 	middlewareVersion := ""
-	if image != "" {
-		v, err := fn.MiddlewareVersion(image)
+	commit := ""
+	if image != "" && d.transport != nil {
+		labels, err := fn.ImageLabels(image, d.transport)
 		if err == nil {
-			// don't fail on errors
-			middlewareVersion = v
+			middlewareVersion = labels[fn.MiddlewareVersionLabelKey]
+			commit = labels[fn.CommitLabelKey]
 		}
 	}
 
@@ -96,6 +109,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Middleware: fn.Middleware{
 			Version: middlewareVersion,
 		},
+		Revision:   commit,
 		Generation: deployment.Generation,
 		Ready:      strings.ToLower(string(ready)),
 	}

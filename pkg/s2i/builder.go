@@ -184,13 +184,23 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		cfg.ScriptsURL = "file://" + f.Root + "/" + fn.RunDataDir + "/" + fn.BuildDir + "/bin"
 	}
 
-	// Set middleware version label
+	// Set image labels
+	cfg.Labels = make(map[string]string)
+
 	middlewareVersion, err := scaffolding.MiddlewareVersion(f.Root, f.Runtime, f.Invoke, fn.EmbeddedTemplatesFS)
 	if err != nil {
 		return fmt.Errorf("cannot get middleware version: %w", err)
 	}
 	if middlewareVersion != "" {
-		cfg.Labels = map[string]string{fn.MiddlewareVersionLabelKey: middlewareVersion}
+		cfg.Labels[fn.MiddlewareVersionLabelKey] = middlewareVersion
+	}
+
+	commit, err := fn.GitCommit(f.Root)
+	if err != nil {
+		return fmt.Errorf("cannot get git commit: %w", err)
+	}
+	if commit != "" {
+		cfg.Labels[fn.CommitLabelKey] = commit
 	}
 
 	// Environment variables

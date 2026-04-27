@@ -782,7 +782,7 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 
 	// Override the pipelines provider to use custom credentials
 	// This is needed for remote builds (deploy --remote)
-	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(creds, c.Verbose)))
+	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(creds, c.Verbose, t)))
 
 	// Add the appropriate deployer based on deploy type
 	deployer := c.Deployer
