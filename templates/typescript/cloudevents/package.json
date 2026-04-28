@@ -10,8 +10,8 @@
   "scripts": {
     "build": "tsc",
     "pretest": "npm run lint && npm run build",
-    "test:unit": "tsx node_modules/tape/bin/tape test/unit.ts",
-    "test:integration": "tsx node_modules/tape/bin/tape test/integration.ts",
+    "test:unit": "node --require tsx/cjs node_modules/tape/bin/tape test/unit.ts",
+    "test:integration": "node --require tsx/cjs node_modules/tape/bin/tape test/integration.ts",
     "test": "npm run test:unit && npm run test:integration",
     "start": "FUNC_LOG_LEVEL=info faas-js-runtime ./build/index.js",
     "lint": "eslint src test --quiet",
