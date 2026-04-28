@@ -31,22 +31,18 @@ trap "cleanup" EXIT SIGINT
 # Save working tree state
 cp -aR "${REPO_ROOT_DIR}/go.sum" "${TMP_DIFFROOT}"
 cp -aR "${REPO_ROOT_DIR}/docs/"  "${TMP_DIFFROOT}"
-mkdir "${TMP_DIFFROOT}/generate/"
-cp "generate/zz_filesystem_generated.go" "${TMP_DIFFROOT}/generate/"
 
 ret=0
-echo "Checking generated FS"
-# Yes, this must be called before hack/update-codegen.sh
-go test -run "^\QTestFileSystems\E$/^\Qembedded\E$" ./pkg/filesystem || ret=1
 
-"${REPO_ROOT_DIR}/hack/update-codegen.sh"
-echo "Diffing ${REPO_ROOT_DIR} against freshly generated codegen"
-diff -Nupr --no-dereference "${REPO_ROOT_DIR}/go.sum" "${TMP_DIFFROOT}/go.sum" || ret=1
+echo "Checking templates/.permissions"
+go run "${REPO_ROOT_DIR}/hack/cmd/permissiongen" check || ret=1
+
+echo "Checking generated docs"
+POD_NAMESPACE=default KUBECONFIG="$(mktemp)" go run "${REPO_ROOT_DIR}/docs/generator/main.go"
 diff -Nupr --no-dereference "${REPO_ROOT_DIR}/docs/" "${TMP_DIFFROOT}/docs/" || ret=1
 
 # Restore working tree state
-rm -fr "${REPO_ROOT_DIR}/go.sum"
-cp -aR "${TMP_DIFFROOT}"/* "${REPO_ROOT_DIR}"
+cp -aR "${TMP_DIFFROOT}/docs" "${REPO_ROOT_DIR}/"
 
 if [[ $ret -eq 0 ]]
 then

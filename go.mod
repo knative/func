@@ -69,6 +69,7 @@ require (
 	k8s.io/utils v0.0.0-20260108192941-914a6e750570
 	knative.dev/client/pkg v0.0.0-20260414023335-1977a50c04df
 	knative.dev/eventing v0.48.1-0.20260414191034-3b3ea1d037e6
+	knative.dev/func-go v0.21.3
 	knative.dev/hack v0.0.0-20260318014029-7eede7fdcbad
 	knative.dev/pkg v0.0.0-20260414003832-e65cbe95a718
 	knative.dev/serving v0.48.1-0.20260414185134-ed8b5055a09c
@@ -257,6 +258,7 @@ require (
 	github.com/rivo/tview v0.0.0-20220307222120-9994674d60a8 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
+	github.com/rs/zerolog v1.32.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect

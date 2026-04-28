@@ -75,11 +75,11 @@ help:
 build: $(BIN) ## (default) Build binary for current OS
 
 .PHONY: $(BIN)
-$(BIN): generate/zz_filesystem_generated.go
+$(BIN):
 	env CGO_ENABLED=0 go build ./cmd/$(BIN)
 
 .PHONY: test
-test: generate/zz_filesystem_generated.go ## Run core unit tests
+test: ## Run core unit tests
 	go test -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
@@ -149,10 +149,6 @@ $(BIN_GOIMPORTS):
 	@echo "Installing goimports..."
 	@GOBIN=$(PWD)/bin go install golang.org/x/tools/cmd/goimports@latest
 
-.PHONY: generate/zz_filesystem_generated.go
-generate/zz_filesystem_generated.go: clean_templates
-	go generate pkg/functions/templates_embedded.go
-
 .PHONY: clean_templates
 clean_templates:
 	# Removing temporary template files
@@ -207,16 +203,26 @@ presubmit-unit-tests: ## Run prow presubmit unit tests locally
 check-embedded-fs: ## Check the embedded templates FS
 	go test -run "^\QTestFileSystems\E$$/^\Qembedded\E$$" ./pkg/filesystem
 
+.PHONY: generate-permissions
+generate-permissions: ## Generate templates/.permissions from on-disk file modes
+	go run ./hack/cmd/permissiongen
+
+.PHONY: check-permissions
+check-permissions: ## Verify templates/.permissions is up to date
+	go run ./hack/cmd/permissiongen check
+
 # TODO: add linters for other templates
 .PHONY: check-templates
 check-templates: check-go check-rust check-typescript ## Run template source code checks
 
 .PHONY: check-go
-check-go: ## Check Go templates' source
-	cd templates/go/scaffolding/instanced-http && go vet ./... &&  $(BIN_GOLANGCI_LINT) run
-	cd templates/go/scaffolding/instanced-cloudevents && go vet && $(BIN_GOLANGCI_LINT) run
+check-go: $(BIN_GOLANGCI_LINT) ## Check Go templates' source
+	go run ./hack/cmd/embd unembd templates/go
+	cd templates/go/scaffolding/instanced-http && go vet ./... && $(BIN_GOLANGCI_LINT) run
+	cd templates/go/scaffolding/instanced-cloudevents && go vet ./... && $(BIN_GOLANGCI_LINT) run
 	cd templates/go/scaffolding/static-http && go vet ./... && $(BIN_GOLANGCI_LINT) run
 	cd templates/go/scaffolding/static-cloudevents && go vet ./... && $(BIN_GOLANGCI_LINT) run
+	go run ./hack/cmd/embd embd templates/go
 
 .PHONY: check-rust
 check-rust: ## Check Rust templates' source
@@ -233,8 +239,12 @@ test-templates: test-go test-node test-python test-quarkus test-springboot test-
 
 .PHONY: test-go
 test-go: ## Test Go templates
+	go run ./hack/cmd/embd unembd templates/go/cloudevents
 	cd templates/go/cloudevents && go mod tidy && go test
+	go run ./hack/cmd/embd embd templates/go/cloudevents
+	go run ./hack/cmd/embd unembd templates/go/http
 	cd templates/go/http && go mod tidy && go test
+	go run ./hack/cmd/embd embd templates/go/http
 
 .PHONY: test-node
 test-node: ## Test Node templates
@@ -271,15 +281,17 @@ test-typescript: ## Test Typescript templates
 
 # Pulls runtimes then rebuilds the embedded filesystem
 .PHONY: update-runtimes
-update-runtimes:  update-runtime-go generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
+update-runtimes: update-runtime-go ## Update Scaffolding Runtimes
 
 .PHONY: update-runtime-go
 update-runtime-go:
 	@echo "Updating Go runtime..."
-	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http
-	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
-	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
-	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
+	go run ./hack/cmd/embd unembd templates/go
+	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http && go mod tidy
+	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http && go mod tidy
+	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents && go mod tidy
+	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents && go mod tidy
+	go run ./hack/cmd/embd embd templates/go
 
 
 .PHONY: certs
@@ -348,43 +360,43 @@ cross-platform: darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 linux-ppc64le 
 .PHONY: darwin-arm64
 darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1
 
-$(BIN_DARWIN_ARM64): generate/zz_filesystem_generated.go
+$(BIN_DARWIN_ARM64):
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: darwn-amd64
 darwin-amd64: $(BIN_DARWIN_AMD64) ## Build for Darwin (macOS)
 
-$(BIN_DARWIN_AMD64): generate/zz_filesystem_generated.go
+$(BIN_DARWIN_AMD64):
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: linux-amd64
 linux-amd64: $(BIN_LINUX_AMD64) ## Build for Linux amd64
 
-$(BIN_LINUX_AMD64): generate/zz_filesystem_generated.go
+$(BIN_LINUX_AMD64):
 	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_LINUX_AMD64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: linux-arm64
 linux-arm64: $(BIN_LINUX_ARM64) ## Build for Linux arm64
 
-$(BIN_LINUX_ARM64): generate/zz_filesystem_generated.go
+$(BIN_LINUX_ARM64):
 	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BIN_LINUX_ARM64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: linux-ppc64le
 linux-ppc64le: $(BIN_LINUX_PPC64LE) ## Build for Linux ppc64le
 
-$(BIN_LINUX_PPC64LE): generate/zz_filesystem_generated.go
+$(BIN_LINUX_PPC64LE):
 	env CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -o $(BIN_LINUX_PPC64LE) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: linux-s390x
 linux-s390x: $(BIN_LINUX_S390X) ## Build for Linux s390x
 
-$(BIN_LINUX_S390X): generate/zz_filesystem_generated.go
+$(BIN_LINUX_S390X):
 	env CGO_ENABLED=0 GOOS=linux GOARCH=s390x go build -o $(BIN_LINUX_S390X) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: windows
 windows: $(BIN_WINDOWS) ## Build for Windows
 
-$(BIN_WINDOWS): generate/zz_filesystem_generated.go
+$(BIN_WINDOWS):
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_WINDOWS) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 ######################

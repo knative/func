@@ -23,6 +23,9 @@ import (
 
 	"knative.dev/func/pkg/filesystem"
 	fn "knative.dev/func/pkg/functions"
+
+	// Ensure embed directive in templates package is compiled
+	_ "knative.dev/func/templates"
 )
 
 const templatesPath = "../../templates"
@@ -81,7 +84,7 @@ func TestFileSystems(t *testing.T) {
 			sort.Slice(localFiles, compare(localFiles))
 
 			if diff := cmp.Diff(localFiles, embeddedFiles); diff != "" {
-				t.Error("filesystem content mismatch (-want, +got) zz_filesystem_generated.go may need to be regenerated (run make):", diff)
+				t.Error("filesystem content mismatch (-want, +got):", diff)
 			}
 		})
 	}
@@ -96,18 +99,22 @@ func loadFS(fileSys filesystem.Filesystem) ([]FileInfo, error) {
 		permMask = 0
 	}
 
-	err = fs.WalkDir(fileSys, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(fileSys, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		fi, err := fileSys.Stat(path)
+		// Skip embed.go — infrastructure file, not a template.
+		if p == "embed.go" {
+			return nil
+		}
+		fi, err := fileSys.Stat(p)
 		if err != nil {
 			return err
 		}
 		var bs []byte
 		switch fi.Mode() & fs.ModeType {
 		case 0:
-			f, err := fileSys.Open(path)
+			f, err := fileSys.Open(p)
 			if err != nil {
 				return err
 			}
@@ -117,13 +124,16 @@ func loadFS(fileSys filesystem.Filesystem) ([]FileInfo, error) {
 				return err
 			}
 		case fs.ModeSymlink:
-			t, _ := fileSys.Readlink(path)
+			t, _ := fileSys.Readlink(p)
 			bs = []byte(t)
 		}
+		// Symlinks are never executable; only regular files can be.
+		executable := fi.Mode()&fs.ModeType == 0 &&
+			fi.Mode()&permMask == permMask
 		files = append(files, FileInfo{
-			Path:       path,
+			Path:       p,
 			Typ:        fi.Mode().Type(),
-			Executable: fi.Mode()&permMask == permMask && !fi.IsDir(),
+			Executable: executable,
 			Content:    bs,
 		})
 		return nil
@@ -132,6 +142,12 @@ func loadFS(fileSys filesystem.Filesystem) ([]FileInfo, error) {
 	return files, err
 }
 
+// loadLocalFiles reads the templates directory on disk and reverses on-disk
+// name mangling to produce the same view that manglingFS presents at runtime:
+//   - foo.embd   → foo  (regular file)
+//   - foo.symlink → foo  (symlink, content = target)
+//   - embed.go is skipped (infrastructure, not a template)
+//   - //go:build embd lines are stripped from .go file content
 func loadLocalFiles(root string) ([]FileInfo, error) {
 	var files []FileInfo
 	var err error
@@ -141,33 +157,76 @@ func loadLocalFiles(root string) ([]FileInfo, error) {
 		permMask = 0
 	}
 
-	err = filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
+	err = filepath.Walk(root, func(p string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		fi, err := os.Lstat(path)
+		fi, err := os.Lstat(p)
 		if err != nil {
 			return err
 		}
-		var bs []byte
-		switch fi.Mode() & fs.ModeType {
-		case 0:
-			bs, err = os.ReadFile(path)
+
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+
+		// Skip embed.go — it is infrastructure, not a template file.
+		if rel == "embed.go" {
+			return nil
+		}
+
+		var (
+			bs      []byte
+			mode    fs.FileMode
+			relPath = rel
+		)
+
+		// Reverse on-disk name mangling:
+		//   foo.embd    → foo  (regular file, strip suffix)
+		//   foo.symlink → foo  (present as symlink, content = target)
+		switch {
+		case strings.HasSuffix(rel, ".embd"):
+			relPath = strings.TrimSuffix(rel, ".embd")
+			mode = 0 // regular file
+			bs, err = os.ReadFile(p)
 			if err != nil {
 				return err
 			}
-		case fs.ModeSymlink:
-			t, _ := os.Readlink(path)
-			bs = []byte(filepath.ToSlash(t))
+		case strings.HasSuffix(rel, ".symlink"):
+			relPath = strings.TrimSuffix(rel, ".symlink")
+			mode = fs.ModeSymlink
+			raw, err2 := os.ReadFile(p)
+			if err2 != nil {
+				return err2
+			}
+			// Trim trailing newline (added for EOF-newline linting compliance).
+			bs = []byte(strings.TrimRight(string(raw), "\n\r"))
+		default:
+			mode = fi.Mode().Type()
+			switch fi.Mode() & fs.ModeType {
+			case 0: // regular file
+				bs, err = os.ReadFile(p)
+				if err != nil {
+					return err
+				}
+				// Strip //go:build embd from .go template files
+				if strings.HasSuffix(p, ".go") {
+					bs = stripEmbdBuildTag(bs)
+				}
+			case fs.ModeSymlink:
+				t, _ := os.Readlink(p)
+				bs = []byte(filepath.ToSlash(t))
+			}
 		}
-		path, err = filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
+
+		// Symlinks are never executable; only regular files can be.
+		executable := mode == 0 && fi.Mode()&permMask == permMask
 		files = append(files, FileInfo{
-			Path:       filepath.ToSlash(path),
-			Typ:        fi.Mode().Type(),
-			Executable: fi.Mode()&permMask == permMask && !fi.IsDir(),
+			Path:       relPath,
+			Typ:        mode,
+			Executable: executable,
 			Content:    bs,
 		})
 		return nil
@@ -176,12 +235,34 @@ func loadLocalFiles(root string) ([]FileInfo, error) {
 	return files, err
 }
 
+// stripEmbdBuildTag removes "//go:build embd" and its trailing blank line.
+func stripEmbdBuildTag(src []byte) []byte {
+	const tag = "//go:build embd"
+	lines := bytes.SplitAfter(src, []byte("\n"))
+	out := make([]byte, 0, len(src))
+	skipNext := false
+	for _, line := range lines {
+		trimmed := strings.TrimRight(string(line), "\r\n")
+		if skipNext && trimmed == "" {
+			skipNext = false
+			continue
+		}
+		skipNext = false
+		if trimmed == tag {
+			skipNext = true
+			continue
+		}
+		out = append(out, line...)
+	}
+	return out
+}
+
 func initOSFS(t *testing.T) filesystem.Filesystem {
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return filesystem.NewOsFilesystem(filepath.Join(wd, templatesPath))
+	return filesystem.NewManglingFilesystem(filesystem.NewOsFilesystem(filepath.Join(wd, templatesPath)))
 }
 
 func initGitFS(t *testing.T) filesystem.Filesystem {
@@ -207,6 +288,7 @@ func initGitFS(t *testing.T) filesystem.Filesystem {
 				return err
 			}
 		case fi.Mode()&fs.ModeSymlink != 0:
+			// Real symlinks (should not exist in the mangled tree, but handle gracefully)
 			symlinkTarget, err := os.Readlink(path)
 			if err != nil {
 				t.Fatal(err)
@@ -215,7 +297,7 @@ func initGitFS(t *testing.T) filesystem.Filesystem {
 			if err != nil {
 				t.Fatal(err)
 			}
-		case fi.Mode()&fs.ModeType == 0: // regular file
+		case fi.Mode()&fs.ModeType == 0: // regular file (includes .symlink marker files)
 			data, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -262,7 +344,12 @@ func initGitFS(t *testing.T) filesystem.Filesystem {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return result
+	// Windows: file:// clone returns nil
+	// (see TODO in TestFileSystems)
+	if result == nil {
+		return nil
+	}
+	return filesystem.NewManglingFilesystem(result)
 }
 
 func TestCopy(t *testing.T) {
