@@ -13,7 +13,7 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'docs/**'
+      - 'docs/**/*.md'
       - '*.md'
       - 'OWNERS'
       - 'OWNERS_ALIASES'
@@ -22,7 +22,7 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'docs/**'
+      - 'docs/**/*.md'
       - '*.md'
       - 'OWNERS'
       - 'OWNERS_ALIASES'

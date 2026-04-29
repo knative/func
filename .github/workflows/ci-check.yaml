@@ -1,0 +1,31 @@
+name: Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  precheck:
+    name: Precheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+
+      - name: Check and Lint
+        run: make check
+      - name: Check Generated Schema File
+        run: make check-schema
+      - name: Check Templates
+        run: make check-templates
+      - name: Check Embedded FS
+        run: make check-embedded-fs
