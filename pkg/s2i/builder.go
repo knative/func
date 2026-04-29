@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	dockerClient "github.com/docker/docker/client"
+	dockerClient "github.com/moby/moby/client"
 	"github.com/openshift/source-to-image/pkg/api"
 	"github.com/openshift/source-to-image/pkg/api/validation"
 	"github.com/openshift/source-to-image/pkg/build"

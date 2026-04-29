@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 )
 
 // creates a docker client that has its own podman service associated with it
@@ -40,7 +40,7 @@ func newClientWithPodmanService() (dockerClient client.APIClient, dockerHost str
 	waitErrCh := make(chan error)
 	go func() { waitErrCh <- cmd.Wait() }()
 
-	dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithHost(dockerHost), client.WithAPIVersionNegotiation())
+	dockerClient, err = client.New(client.FromEnv, client.WithHost(dockerHost))
 	stopPodmanService := func() {
 		_ = cmd.Process.Signal(syscall.SIGTERM)
 		_ = os.RemoveAll(tmpDir)
@@ -63,7 +63,7 @@ func newClientWithPodmanService() (dockerClient client.APIClient, dockerHost str
 	go func() {
 		// give a time to podman to start
 		for i := 0; i < 40; i++ {
-			if _, e := dockerClient.Ping(context.Background()); e == nil {
+			if _, e := dockerClient.Ping(context.Background(), client.PingOptions{}); e == nil {
 				svcUpCh <- struct{}{}
 			}
 			time.Sleep(time.Millisecond * 250)

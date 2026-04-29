@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/moby/moby/client"
+
 	"knative.dev/func/pkg/docker"
 	. "knative.dev/func/pkg/testing"
 )
@@ -29,7 +31,7 @@ func TestNewDockerClientWithAutomaticPodmanSuccess(t *testing.T) {
 		t.Error("got bad socket to mount")
 	}
 
-	_, err = dockerClient.Ping(ctx)
+	_, err = dockerClient.Ping(ctx, client.PingOptions{})
 	if err != nil {
 		t.Error(err)
 	}

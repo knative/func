@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/docker/cli/cli/config"
-	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/tlsconfig"
+	"github.com/moby/moby/client"
 	"golang.org/x/crypto/ssh"
 
 	fnssh "knative.dev/func/pkg/ssh"
@@ -57,7 +57,6 @@ func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInR
 			if runtime.GOOS == "linux" {
 				// on Linux: spawn temporary podman service
 				dockerClient, dockerHostInRemote, err = newClientWithPodmanService()
-				dockerClient = &closeGuardingClient{pimpl: dockerClient}
 				return
 			} else {
 				// on non-Linux: try to use connection to podman machine
@@ -98,14 +97,13 @@ func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInR
 	}
 
 	if !isSSH {
-		opts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
+		opts := []client.Opt{client.FromEnv}
 		if isTCP {
 			if httpClient := newHttpClient(); httpClient != nil {
 				opts = append(opts, client.WithHTTPClient(httpClient))
 			}
 		}
-		dockerClient, err = client.NewClientWithOpts(opts...)
-		dockerClient = &closeGuardingClient{pimpl: dockerClient}
+		dockerClient, err = client.New(opts...)
 		return
 	}
 
@@ -129,8 +127,7 @@ func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInR
 		},
 	}
 
-	dockerClient, err = client.NewClientWithOpts(
-		client.WithAPIVersionNegotiation(),
+	dockerClient, err = client.New(
 		client.WithHTTPClient(httpClient))
 
 	if closer, ok := contextDialer.(io.Closer); ok {
@@ -142,7 +139,6 @@ func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInR
 		}
 	}
 
-	dockerClient = &closeGuardingClient{pimpl: dockerClient}
 	return dockerClient, dockerHostInRemote, err
 }
 

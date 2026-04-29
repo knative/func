@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 	"golang.org/x/crypto/ssh"
 
 	"knative.dev/func/pkg/docker"
@@ -47,7 +47,7 @@ func TestNewDockerClientWithSSH(t *testing.T) {
 		t.Errorf("bad remote DOCKER_HOST: expected %q but got %q", `unix://`+sshDockerSocket, dockerHostInRemote)
 	}
 
-	_, err = dockerClient.Ping(ctx)
+	_, err = dockerClient.Ping(ctx, client.PingOptions{})
 	if err != nil {
 		t.Error(err)
 	}

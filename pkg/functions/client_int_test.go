@@ -13,9 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/volume"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -731,18 +729,16 @@ func del(t *testing.T, c *fn.Client, name, namespace string) {
 		t.Fatal(err)
 	}
 	defer cli.Close()
-	opts := volume.ListOptions{
-		Filters: filters.NewArgs(
-			filters.Arg("name", fmt.Sprintf("pack-cache-func_%s_*", name)),
-		),
+	opts := client.VolumeListOptions{
+		Filters: client.Filters{}.Add("name", fmt.Sprintf("pack-cache-func_%s_*", name)),
 	}
 	resp, err := cli.VolumeList(t.Context(), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, vol := range resp.Volumes {
+	for _, vol := range resp.Items {
 		t.Log("deleting volume:", vol.Name)
-		err = cli.VolumeRemove(t.Context(), vol.Name, true)
+		_, err = cli.VolumeRemove(t.Context(), vol.Name, client.VolumeRemoveOptions{Force: true})
 		if err != nil {
 			t.Fatal(err)
 		}

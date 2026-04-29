@@ -17,7 +17,7 @@ import (
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/buildpacks/pack/pkg/project/types"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 	"github.com/heroku/color"
 
 	"knative.dev/func/pkg/builders"
@@ -297,7 +297,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 }
 
 func isPodmanV43(ctx context.Context, cli client.APIClient) (b bool, err error) {
-	version, err := cli.ServerVersion(ctx)
+	version, err := cli.ServerVersion(ctx, client.ServerVersionOptions{})
 	if err != nil {
 		return
 	}

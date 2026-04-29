@@ -24,8 +24,7 @@ import (
 	"github.com/buildpacks/pack/pkg/dist"
 	bpimage "github.com/buildpacks/pack/pkg/image"
 	"github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types/image"
-	docker "github.com/docker/docker/client"
+	docker "github.com/moby/moby/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	ghAuth "github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -108,7 +107,7 @@ func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlP
 	addRustBuildpack(&builderConfig)
 
 	var dockerClient docker.APIClient
-	dockerClient, err = docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+	dockerClient, err = docker.New(docker.FromEnv)
 	if err != nil {
 		return "", fmt.Errorf("cannot create docker client")
 	}
@@ -685,7 +684,7 @@ type hackDockerClient struct {
 	docker.APIClient
 }
 
-func (c hackDockerClient) ImagePull(ctx context.Context, ref string, options image.PullOptions) (io.ReadCloser, error) {
+func (c hackDockerClient) ImagePull(ctx context.Context, ref string, options docker.ImagePullOptions) (docker.ImagePullResponse, error) {
 	if strings.HasPrefix(ref, "ghcr.io/knative/buildpacks/") {
 		return nil, fmt.Errorf("this image is supposed to exist only in daemon: %w", errdefs.ErrNotFound)
 	}

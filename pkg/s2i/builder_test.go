@@ -8,13 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/build"
-	"github.com/docker/docker/api/types/container"
-	typesImage "github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/errdefs"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/moby/moby/client"
 
 	"github.com/openshift/source-to-image/pkg/api"
 
@@ -257,8 +251,8 @@ func Test_MiddlewareLabel(t *testing.T) {
 
 func TestBuildFail(t *testing.T) {
 	cli := mockDocker{
-		inspect: func(ctx context.Context, image string) (typesImage.InspectResponse, []byte, error) {
-			return typesImage.InspectResponse{}, nil, errors.New("this is expected")
+		inspect: func(ctx context.Context, image string) (client.ImageInspectResult, error) {
+			return client.ImageInspectResult{}, errors.New("this is expected")
 		},
 	}
 	b := s2i.NewBuilder(s2i.WithDockerClient(cli))
@@ -278,70 +272,70 @@ func (i *mockImpl) Build(cfg *api.Config) (*api.Result, error) {
 }
 
 type mockDocker struct {
-	inspect func(ctx context.Context, image string) (typesImage.InspectResponse, []byte, error)
+	inspect func(ctx context.Context, image string) (client.ImageInspectResult, error)
 }
 
-func (m mockDocker) ImageInspectWithRaw(ctx context.Context, image string) (typesImage.InspectResponse, []byte, error) {
+func (m mockDocker) ImageInspect(ctx context.Context, image string, _ ...client.ImageInspectOption) (client.ImageInspectResult, error) {
 	if m.inspect != nil {
 		return m.inspect(ctx, image)
 	}
 
-	return typesImage.InspectResponse{}, nil, nil
+	return client.ImageInspectResult{}, nil
 }
 
-func (m mockDocker) ImageBuild(ctx context.Context, context io.Reader, options build.ImageBuildOptions) (build.ImageBuildResponse, error) {
+func (m mockDocker) ImageBuild(ctx context.Context, context io.Reader, options client.ImageBuildOptions) (client.ImageBuildResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ContainerAttach(ctx context.Context, container string, options container.AttachOptions) (types.HijackedResponse, error) {
+func (m mockDocker) ContainerAttach(ctx context.Context, container string, options client.ContainerAttachOptions) (client.ContainerAttachResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ContainerCommit(ctx context.Context, container string, options container.CommitOptions) (container.CommitResponse, error) {
+func (m mockDocker) ContainerCommit(ctx context.Context, container string, options client.ContainerCommitOptions) (client.ContainerCommitResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *ocispec.Platform, containerName string) (container.CreateResponse, error) {
+func (m mockDocker) ContainerCreate(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ContainerInspect(ctx context.Context, container string) (container.InspectResponse, error) {
+func (m mockDocker) ContainerInspect(ctx context.Context, container string, options client.ContainerInspectOptions) (client.ContainerInspectResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ContainerRemove(ctx context.Context, container string, options container.RemoveOptions) error {
+func (m mockDocker) ContainerRemove(ctx context.Context, container string, options client.ContainerRemoveOptions) (client.ContainerRemoveResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ContainerStart(ctx context.Context, container string, options container.StartOptions) error {
+func (m mockDocker) ContainerStart(ctx context.Context, container string, options client.ContainerStartOptions) (client.ContainerStartResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ContainerKill(ctx context.Context, container, signal string) error {
+func (m mockDocker) ContainerKill(ctx context.Context, container string, options client.ContainerKillOptions) (client.ContainerKillResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ContainerWait(ctx context.Context, container string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
+func (m mockDocker) ContainerWait(ctx context.Context, container string, options client.ContainerWaitOptions) client.ContainerWaitResult {
 	panic("implement me")
 }
 
-func (m mockDocker) CopyToContainer(ctx context.Context, container, path string, content io.Reader, opts container.CopyToContainerOptions) error {
+func (m mockDocker) CopyToContainer(ctx context.Context, container string, options client.CopyToContainerOptions) (client.CopyToContainerResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) CopyFromContainer(ctx context.Context, container, srcPath string) (io.ReadCloser, container.PathStat, error) {
+func (m mockDocker) CopyFromContainer(ctx context.Context, container string, options client.CopyFromContainerOptions) (client.CopyFromContainerResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ImagePull(ctx context.Context, ref string, options typesImage.PullOptions) (io.ReadCloser, error) {
+func (m mockDocker) ImagePull(ctx context.Context, ref string, options client.ImagePullOptions) (client.ImagePullResponse, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ImageRemove(ctx context.Context, image string, options typesImage.RemoveOptions) ([]typesImage.DeleteResponse, error) {
+func (m mockDocker) ImageRemove(ctx context.Context, image string, options client.ImageRemoveOptions) (client.ImageRemoveResult, error) {
 	panic("implement me")
 }
 
-func (m mockDocker) ServerVersion(ctx context.Context) (types.Version, error) {
+func (m mockDocker) ServerVersion(ctx context.Context, options client.ServerVersionOptions) (client.ServerVersionResult, error) {
 	panic("implement me")
 }
 
@@ -355,9 +349,6 @@ func (n notFoundErr) Error() string {
 func (n notFoundErr) NotFound() {
 	panic("just a marker interface")
 }
-
-// Just a type assert in case docker decides to change NotFoundError interface again
-var _ errdefs.ErrNotFound = notFoundErr{}
 
 // Test_ScaffoldWritesToFuncBuild ensures that scaffolding for Go/Python
 // runtimes is written to .func/build/ instead of .s2i/build/
