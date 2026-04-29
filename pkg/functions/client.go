@@ -82,6 +82,7 @@ type Client struct {
 	pipelinesProvider PipelinesProvider // CI/CD pipelines management
 	mcpServer         MCPServer         // MCP Server
 	startTimeout      time.Duration     // default start timeout for all runs
+	postDeploy        func(context.Context, Function) error
 }
 
 // Scaffolder wraps a function with a service scaffolding (entrypoint)
@@ -308,6 +309,13 @@ func WithPusher(d Pusher) Option {
 func WithDeployer(d Deployer) Option {
 	return func(c *Client) {
 		c.deployer = d
+	}
+}
+
+// WithPostDeploy sets a handler that is called after a successful deploy.
+func WithPostDeploy(handler func(context.Context, Function) error) Option {
+	return func(c *Client) {
+		c.postDeploy = handler
 	}
 }
 
@@ -882,6 +890,12 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	case Updated:
 		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
 	default:
+	}
+
+	if c.postDeploy != nil {
+		if err := c.postDeploy(ctx, f); err != nil {
+			return f, fmt.Errorf("post-deploy: %w", err)
+		}
 	}
 
 	return f, nil

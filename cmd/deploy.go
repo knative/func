@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -17,9 +19,11 @@ import (
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	funcgit "knative.dev/func/pkg/git"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/operator"
 	"knative.dev/func/pkg/utils"
 )
 
@@ -131,10 +135,10 @@ EXAMPLES
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
 			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
-			"git-url", "image", "image-pull-secret", "namespace", "path", "platform",
-			"push", "pvc-size", "service-account", "deployer", "registry",
-			"registry-insecure", "registry-authfile", "remote", "username", "password",
-			"token", "verbose", "remote-storage-class"),
+			"git-url", "image", "image-pull-secret", "manage", "namespace", "path", "platform", "push", "pvc-size",
+			"service-account", "deployer", "registry", "registry-insecure",
+			"registry-authfile", "remote", "username", "password", "token", "verbose",
+			"remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -216,6 +220,8 @@ EXAMPLES
 	cmd.Flags().StringP("token", "", "",
 		"Token to use when pushing to the registry. ($FUNC_TOKEN)")
 	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
+	cmd.Flags().Bool("manage", true,
+		"Create/update a Function CR for operator management if the func-operator is installed ($FUNC_MANAGE)")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(f, false),
 		"Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE)")
 
@@ -555,6 +561,10 @@ type deployConfig struct {
 	// Timestamp the built container with the current date and time.
 	// This is currently only supported by the Pack builder.
 	Timestamp bool
+
+	// Manage indicates whether to create/update a Function CR for the
+	// func-operator after deployment.
+	Manage bool
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
@@ -576,6 +586,7 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		ServiceAccountName: viper.GetString("service-account"),
 		ImagePullSecret:    viper.GetString("image-pull-secret"),
 		Deployer:           viper.GetString("deployer"),
+		Manage:             viper.GetBool("manage"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
@@ -814,6 +825,15 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s, %s)", deployer, knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName)
 	}
 
+	if c.Manage {
+		o = append(o, fn.WithPostDeploy(func(ctx context.Context, f fn.Function) error {
+			if err := syncFunctionCR(ctx, f, c); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to sync Function CR: %v\n", err)
+			}
+			return nil
+		}))
+	}
+
 	return o, nil
 }
 
@@ -896,4 +916,39 @@ func isDigested(v string) (validDigest bool, err error) {
 	}
 	_, ok := ref.(name.Digest)
 	return ok, nil
+}
+
+func syncFunctionCR(ctx context.Context, f fn.Function, cfg deployConfig) error {
+	repoURL := cfg.GitURL
+	repoBranch := cfg.GitBranch
+	repoPath := cfg.GitDir
+
+	if repoURL == "" {
+		var err error
+		repoURL, err = funcgit.ResolveRemoteURL(f.Root)
+		if err != nil {
+			return err
+		}
+	}
+
+	if repoBranch == "" {
+		repoBranch = funcgit.ResolveBranch(f.Root)
+	}
+
+	if repoPath == "" {
+		repoPath = "."
+	}
+
+	namespace := f.Deploy.Namespace
+	if namespace == "" {
+		namespace = f.Namespace
+	}
+
+	return operator.SyncFunctionCR(ctx, operator.SyncConfig{
+		FunctionName: f.Name,
+		Namespace:    namespace,
+		RepoURL:      repoURL,
+		RepoBranch:   repoBranch,
+		RepoPath:     repoPath,
+	})
 }
