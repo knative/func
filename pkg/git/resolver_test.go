@@ -141,6 +141,54 @@ func TestResolveRemoteURL_SSHPassThrough(t *testing.T) {
 	}
 }
 
+func TestResolveRemoteURL_StripsUsername(t *testing.T) {
+	dir := t.TempDir()
+	repo, err := gogit.PlainInit(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = repo.CreateRemote(&gogitconfig.RemoteConfig{
+		Name: "origin",
+		URLs: []string{"http://admin@172.18.0.2:30000/admin/my-func"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	url, err := ResolveRemoteURL(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if url != "http://172.18.0.2:30000/admin/my-func" {
+		t.Fatalf("expected userinfo stripped, got %q", url)
+	}
+}
+
+func TestResolveRemoteURL_StripsUsernameAndPassword(t *testing.T) {
+	dir := t.TempDir()
+	repo, err := gogit.PlainInit(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = repo.CreateRemote(&gogitconfig.RemoteConfig{
+		Name: "origin",
+		URLs: []string{"https://user:token@github.com/alice/my-func.git"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	url, err := ResolveRemoteURL(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if url != "https://github.com/alice/my-func.git" {
+		t.Fatalf("expected credentials stripped, got %q", url)
+	}
+}
+
 func TestResolveBranch_CurrentBranch(t *testing.T) {
 	dir := t.TempDir()
 	repo, err := gogit.PlainInit(dir, false)

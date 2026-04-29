@@ -1,6 +1,9 @@
 package git
 
 import (
+	"net/url"
+	"strings"
+
 	gogit "github.com/go-git/go-git/v5"
 )
 
@@ -30,7 +33,20 @@ func ResolveRemoteURL(repoPath string) (string, error) {
 	if len(urls) == 0 {
 		return "", nil
 	}
-	return urls[0], nil
+	return stripUserinfo(urls[0]), nil
+}
+
+func stripUserinfo(rawURL string) string {
+	if strings.Contains(rawURL, "@") && !strings.Contains(rawURL, "://") {
+		// SSH-style URL (git@host:path) — no userinfo to strip
+		return rawURL
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	u.User = nil
+	return u.String()
 }
 
 func trackingRemoteName(repo *gogit.Repository) string {
