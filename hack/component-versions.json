@@ -22,7 +22,7 @@
 		"version": "v0.35.2"
 	},
 	"Serving": {
-		"version": "v1.21.2",
+		"version": "v1.22.0",
 		"owner": "knative",
 		"repo": "serving"
 	},
