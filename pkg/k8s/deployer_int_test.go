@@ -67,3 +67,11 @@ func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
 		k8s.NewDescriber(false),
 		k8s.KubernetesDeployerName)
 }
+
+func TestInt_OperatorSync(t *testing.T) {
+	deployertesting.TestInt_OperatorSync(t,
+		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
+		k8s.NewRemover(false),
+		k8s.NewDescriber(false),
+		k8s.KubernetesDeployerName)
+}
