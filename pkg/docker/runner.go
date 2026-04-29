@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 	"github.com/pkg/errors"
 
 	fn "knative.dev/func/pkg/functions"
@@ -66,9 +66,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 		conn net.Conn         // Connection to container's stdio
 
 		// Channels for gathering runtime errors from the container instance
-		copyErrCh  = make(chan error, 10)
-		contBodyCh <-chan container.WaitResponse
-		contErrCh  <-chan error
+		copyErrCh = make(chan error, 10)
 
 		// Combined runtime error channel for sending all errors to caller
 		runtimeErrCh = make(chan error, 10)
@@ -100,13 +98,15 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 	}
 
 	// Wait for errors premature exits
-	contBodyCh, contErrCh = c.ContainerWait(ctx, id, container.WaitConditionNextExit)
+	contWaitResult := c.ContainerWait(ctx, id, client.ContainerWaitOptions{
+		Condition: container.WaitConditionNextExit,
+	})
 	go func() {
 		for {
 			select {
 			case err = <-copyErrCh:
 				runtimeErrCh <- err
-			case body := <-contBodyCh:
+			case body := <-contWaitResult.Result:
 				// NOTE: currently an exit is not expected and thus a return, for any
 				// reason, is considered an error even when the exit code is 0.
 				// Functions are expected to be long-running processes that do not exit
@@ -114,13 +114,13 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 				// change in the future, this channel-based wait may need to be
 				// expanded to accept the case of a voluntary, successful exit.
 				runtimeErrCh <- fmt.Errorf("exited code %v", body.StatusCode)
-			case err = <-contErrCh:
+			case err = <-contWaitResult.Error:
 				runtimeErrCh <- err
 			}
 		}
 	}()
 
-	if err = c.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
+	if _, err = c.ContainerStart(ctx, id, client.ContainerStartOptions{}); err != nil {
 		return job, errors.Wrap(err, "runner unable to start container")
 	}
 
@@ -156,13 +156,13 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 			ctx     = context.Background()
 		)
 		timeoutSecs := int(timeout.Seconds())
-		ctrStopOpts := container.StopOptions{
+		ctrStopOpts := client.ContainerStopOptions{
 			Timeout: &timeoutSecs,
 		}
-		if err = c.ContainerStop(ctx, id, ctrStopOpts); err != nil {
+		if _, err = c.ContainerStop(ctx, id, ctrStopOpts); err != nil {
 			return fmt.Errorf("error stopping container %v: %v", id, err)
 		}
-		if err = c.ContainerRemove(ctx, id, container.RemoveOptions{}); err != nil {
+		if _, err = c.ContainerRemove(ctx, id, client.ContainerRemoveOptions{}); err != nil {
 			return fmt.Errorf("error removing container %v: %v", id, err)
 		}
 		if err = conn.Close(); err != nil {
@@ -265,7 +265,10 @@ func newContainer(ctx context.Context, c client.APIClient, f fn.Function, host, 
 	if hostCfg, err = newHostConfig(host, port); err != nil {
 		return
 	}
-	t, err := c.ContainerCreate(ctx, &containerCfg, &hostCfg, nil, nil, "")
+	t, err := c.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config:     &containerCfg,
+		HostConfig: &hostCfg,
+	})
 	if err != nil {
 		return
 	}
@@ -273,15 +276,14 @@ func newContainer(ctx context.Context, c client.APIClient, f fn.Function, host, 
 }
 
 func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Config, err error) {
-	// httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
-	httpPort := nat.Port("8080/tcp")
+	httpPort := network.MustParsePort("8080/tcp")
 	c = container.Config{
 		Image:        f.Build.Image,
 		Tty:          false,
 		AttachStderr: true,
 		AttachStdout: true,
 		AttachStdin:  false,
-		ExposedPorts: map[nat.Port]struct{}{httpPort: {}},
+		ExposedPorts: network.PortSet{httpPort: {}},
 	}
 
 	// Environment Variables
@@ -302,13 +304,16 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 }
 
 func newHostConfig(host, port string) (c container.HostConfig, err error) {
-	// httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
-	httpPort := nat.Port("8080/tcp")
-	ports := map[nat.Port][]nat.PortBinding{
+	httpPort := network.MustParsePort("8080/tcp")
+	hostIP, err := netip.ParseAddr(host)
+	if err != nil {
+		return c, fmt.Errorf("invalid host IP %q: %w", host, err)
+	}
+	ports := network.PortMap{
 		httpPort: {
-			nat.PortBinding{
+			{
 				HostPort: port,
-				HostIP:   host,
+				HostIP:   hostIP,
 			},
 		},
 	}
@@ -318,16 +323,13 @@ func newHostConfig(host, port string) (c container.HostConfig, err error) {
 // copy stdin and stdout from the container of the given ID.  Errors encountered
 // during copy are communicated via a provided errs channel.
 func copyStdio(ctx context.Context, c client.APIClient, id string, errs chan error, out, errOut io.Writer) (conn net.Conn, err error) {
-	var (
-		res types.HijackedResponse
-		opt = container.AttachOptions{
-			Stdout: true,
-			Stderr: true,
-			Stdin:  false,
-			Stream: true,
-		}
-	)
-	if res, err = c.ContainerAttach(ctx, id, opt); err != nil {
+	res, err := c.ContainerAttach(ctx, id, client.ContainerAttachOptions{
+		Stdout: true,
+		Stderr: true,
+		Stdin:  false,
+		Stream: true,
+	})
+	if err != nil {
 		return conn, errors.Wrap(err, "runner unable to attach to container's stdio")
 	}
 	go func() {

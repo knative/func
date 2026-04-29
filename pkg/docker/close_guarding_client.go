@@ -3,7 +3,7 @@ package docker
 import (
 	"sync"
 
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 )
 
 // Client that panics when used after Close()

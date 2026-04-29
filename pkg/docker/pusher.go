@@ -16,9 +16,6 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -29,6 +26,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	types2 "github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/moby/moby/client"
 	"golang.org/x/term"
 )
 
@@ -37,7 +35,7 @@ type Opt func(*Pusher)
 // PusherDockerClient is sub-interface of client.APIClient required by pusher.
 type PusherDockerClient interface {
 	daemon.Client
-	ImagePush(ctx context.Context, ref string, options image.PushOptions) (io.ReadCloser, error)
+	ImagePush(ctx context.Context, ref string, options client.ImagePushOptions) (client.ImagePushResponse, error)
 	Close() error
 }
 
@@ -209,7 +207,10 @@ func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials oci.
 	}
 	defer cli.Close()
 
-	authConfig := registry.AuthConfig{
+	authConfig := struct {
+		Username string `json:"username,omitempty"`
+		Password string `json:"password,omitempty"`
+	}{
 		Username: credentials.Username,
 		Password: credentials.Password,
 	}
@@ -219,7 +220,7 @@ func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials oci.
 		return "", err
 	}
 
-	opts := image.PushOptions{RegistryAuth: base64.StdEncoding.EncodeToString(b)}
+	opts := client.ImagePushOptions{RegistryAuth: base64.StdEncoding.EncodeToString(b)}
 
 	r, err := cli.ImagePush(ctx, f.Build.Image, opts)
 	if err != nil {

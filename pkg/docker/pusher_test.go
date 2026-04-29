@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"log"
 	"math/big"
 	"net"
@@ -26,20 +27,39 @@ import (
 	"testing"
 	"time"
 
-	api "github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	regTypes "github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/moby/moby/api/types/image"
+	"github.com/moby/moby/api/types/jsonstream"
+	"github.com/moby/moby/client"
 	"gotest.tools/v3/assert"
 
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 )
+
+// mockImagePushResponse implements client.ImagePushResponse for testing.
+type mockImagePushResponse struct {
+	io.ReadCloser
+}
+
+func (m mockImagePushResponse) JSONMessages(_ context.Context) iter.Seq2[jsonstream.Message, error] {
+	return func(yield func(jsonstream.Message, error) bool) {}
+}
+
+func (m mockImagePushResponse) Wait(_ context.Context) error {
+	return nil
+}
+
+// mockImageSaveResult implements client.ImageSaveResult for testing.
+type mockImageSaveResult struct {
+	io.ReadCloser
+}
 
 func TestGetRegistry(t *testing.T) {
 	tests := []struct {
@@ -113,7 +133,7 @@ func TestPush(t *testing.T) {
 
 			dockerClient := newMockPusherDockerClient()
 
-			pushReachable := func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
+			pushReachable := func(ctx context.Context, ref string, options client.ImagePushOptions) (client.ImagePushResponse, error) {
 				if ref != functionImageRemote {
 					return nil, fmt.Errorf("unexpected ref")
 				}
@@ -160,14 +180,14 @@ func TestPush(t *testing.T) {
 				if err != nil {
 					return nil, err
 				}
-				return io.NopCloser(strings.NewReader(`{
+				return mockImagePushResponse{io.NopCloser(strings.NewReader(`{
     "status":  "latest: digest: ` + imageRepoDigest + ` size: ` + strconv.FormatInt(is, 10) + `"
 }
-`)), nil
+`))}, nil
 			}
 
-			pushUnreachable := func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
-				return io.NopCloser(strings.NewReader(`{"errorDetail": {"message": "...no such host..."}}`)), nil
+			pushUnreachable := func(ctx context.Context, ref string, options client.ImagePushOptions) (client.ImagePushResponse, error) {
+				return mockImagePushResponse{io.NopCloser(strings.NewReader(`{"errorDetail": {"message": "...no such host..."}}`))}, nil
 			}
 
 			if tt.DaemonPush {
@@ -176,17 +196,17 @@ func TestPush(t *testing.T) {
 				dockerClient.imagePush = pushUnreachable
 			}
 
-			dockerClient.imageInspect = func(ctx context.Context, s string) (api.InspectResponse, []byte, error) {
-				return api.InspectResponse{ID: imageID}, []byte{}, nil
+			dockerClient.imageInspect = func(ctx context.Context, s string) (client.ImageInspectResult, error) {
+				return client.ImageInspectResult{InspectResponse: image.InspectResponse{ID: imageID}}, nil
 			}
 
-			dockerClient.imageSave = func(ctx context.Context, tags []string) (io.ReadCloser, error) {
+			dockerClient.imageSave = func(ctx context.Context, tags []string) (client.ImageSaveResult, error) {
 				if slices.Equal(tags, []string{functionImageRemote}) {
 					f, err := os.Open(imageTarball)
 					if err != nil {
 						return nil, err
 					}
-					return f, nil
+					return mockImageSaveResult{f}, nil
 				}
 				return nil, fmt.Errorf("unexpected tags")
 			}
@@ -268,54 +288,52 @@ func TestPush(t *testing.T) {
 
 func newMockPusherDockerClient() *mockPusherDockerClient {
 	return &mockPusherDockerClient{
-		imagePush: func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
+		imagePush: func(ctx context.Context, ref string, options client.ImagePushOptions) (client.ImagePushResponse, error) {
 			return nil, fmt.Errorf(" imagePush not implemented")
 		},
-		imageSave: func(ctx context.Context, strings []string) (io.ReadCloser, error) {
+		imageSave: func(ctx context.Context, tags []string) (client.ImageSaveResult, error) {
 			return nil, fmt.Errorf("imageSave not implemented")
 		},
-		imageInspect: func(ctx context.Context, s string) (api.InspectResponse, []byte, error) {
-			return api.InspectResponse{}, nil, fmt.Errorf("imageInspect not implemented")
+		imageInspect: func(ctx context.Context, s string) (client.ImageInspectResult, error) {
+			return client.ImageInspectResult{}, fmt.Errorf("imageInspect not implemented")
 		},
-		negotiateAPIVersion: func(ctx context.Context) {},
-		close:               func() error { return nil },
+		close: func() error { return nil },
 	}
 }
 
 type mockPusherDockerClient struct {
-	negotiateAPIVersion func(ctx context.Context)
-	imagePush           func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error)
-	imageSave           func(ctx context.Context, strings []string) (io.ReadCloser, error)
-	imageInspect        func(ctx context.Context, s string) (api.InspectResponse, []byte, error)
-	close               func() error
+	imagePush    func(ctx context.Context, ref string, options client.ImagePushOptions) (client.ImagePushResponse, error)
+	imageSave    func(ctx context.Context, tags []string) (client.ImageSaveResult, error)
+	imageInspect func(ctx context.Context, s string) (client.ImageInspectResult, error)
+	close        func() error
 }
 
-func (m *mockPusherDockerClient) NegotiateAPIVersion(ctx context.Context) {
-	m.negotiateAPIVersion(ctx)
+func (m *mockPusherDockerClient) Ping(ctx context.Context, options client.PingOptions) (client.PingResult, error) {
+	return client.PingResult{}, nil
 }
 
-func (m *mockPusherDockerClient) ImageSave(ctx context.Context, strings []string, _ ...client.ImageSaveOption) (io.ReadCloser, error) {
-	return m.imageSave(ctx, strings)
+func (m *mockPusherDockerClient) ImageSave(ctx context.Context, images []string, _ ...client.ImageSaveOption) (client.ImageSaveResult, error) {
+	return m.imageSave(ctx, images)
 }
 
-func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader, _ ...client.ImageLoadOption) (api.LoadResponse, error) {
+func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader, _ ...client.ImageLoadOption) (client.ImageLoadResult, error) {
 	panic("implement me")
 }
 
-func (m *mockPusherDockerClient) ImageTag(ctx context.Context, s string, s2 string) error {
+func (m *mockPusherDockerClient) ImageTag(ctx context.Context, options client.ImageTagOptions) (client.ImageTagResult, error) {
 	panic("implement me")
 }
 
-func (m *mockPusherDockerClient) ImageInspectWithRaw(ctx context.Context, s string) (api.InspectResponse, []byte, error) {
-	return m.imageInspect(ctx, s)
+func (m *mockPusherDockerClient) ImageInspect(ctx context.Context, image string, _ ...client.ImageInspectOption) (client.ImageInspectResult, error) {
+	return m.imageInspect(ctx, image)
 }
 
-func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
+func (m *mockPusherDockerClient) ImageHistory(ctx context.Context, image string, _ ...client.ImageHistoryOption) (client.ImageHistoryResult, error) {
+	return client.ImageHistoryResult{}, errors.New("the ImageHistory() function is not implemented")
+}
+
+func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options client.ImagePushOptions) (client.ImagePushResponse, error) {
 	return m.imagePush(ctx, ref, options)
-}
-
-func (m *mockPusherDockerClient) ImageHistory(context.Context, string, ...client.ImageHistoryOption) ([]api.HistoryResponseItem, error) {
-	return nil, errors.New("the ImageHistory() function is not implemented")
 }
 
 func (m *mockPusherDockerClient) Close() error {

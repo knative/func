@@ -14,14 +14,14 @@ import (
 	"runtime"
 	"strings"
 
-	dockerConfig "github.com/containers/image/v5/pkg/docker/config"
-	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker-credential-helpers/client"
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	dockerConfig "go.podman.io/image/v5/pkg/docker/config"
+	containersTypes "go.podman.io/image/v5/types"
 
 	"knative.dev/func/pkg/oci"
 )

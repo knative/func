@@ -23,10 +23,8 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/moby/moby/client"
 	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -298,7 +296,7 @@ COPY 85c05568.0 /etc/ssl/certs/
 // Builds an image with specified tag from specified dockerfile.
 // This function also injects self-signed as "85c05568.0" into the build context.
 func buildPatchedBuilder(ctx context.Context, t *testing.T, tag, dockerfile, certDir string) string {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.New(client.FromEnv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +339,7 @@ func buildPatchedBuilder(ctx context.Context, t *testing.T, tag, dockerfile, cer
 		t.Fatal(err)
 	}
 
-	ibo := types.ImageBuildOptions{
+	ibo := client.ImageBuildOptions{
 		Tags: []string{tag},
 	}
 	ibr, err := cli.ImageBuild(ctx, &buff, ibo)
@@ -357,7 +355,7 @@ func buildPatchedBuilder(ctx context.Context, t *testing.T, tag, dockerfile, cer
 		t.Fatal(err)
 	}
 
-	rc, err := cli.ImagePush(ctx, tag, image.PushOptions{RegistryAuth: "e30="})
+	rc, err := cli.ImagePush(ctx, tag, client.ImagePushOptions{RegistryAuth: "e30="})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	winio "github.com/Microsoft/go-winio"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 
 	"knative.dev/func/pkg/docker"
 )
@@ -32,7 +32,7 @@ func TestNewClientWinPipe(t *testing.T) {
 		t.Error("dockerHostToMount should be empty for npipe")
 	}
 
-	_, err = dockerClient.Ping(ctx)
+	_, err = dockerClient.Ping(ctx, client.PingOptions{})
 	if err != nil {
 		t.Error(err)
 	}
