@@ -18,7 +18,6 @@ require (
 	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/containerd/errdefs v1.0.0
 	github.com/containerd/platforms v1.0.0-rc.2
-	github.com/containers/image/v5 v5.35.0
 	github.com/coreos/go-semver v0.3.1
 	github.com/creack/pty v1.1.24
 	github.com/docker/cli v29.4.0+incompatible
@@ -53,6 +52,7 @@ require (
 	github.com/tektoncd/cli v0.44.0
 	github.com/tektoncd/pipeline v1.10.0
 	gitlab.com/gitlab-org/api/client-go v0.150.0
+	go.podman.io/image/v5 v5.39.2-0.20260306124909-d48bc74146d6
 	golang.org/x/crypto v0.50.0
 	golang.org/x/mod v0.35.0
 	golang.org/x/net v0.53.0
@@ -134,7 +134,6 @@ require (
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
 	github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01 // indirect
 	github.com/containers/ocicrypt v1.2.1 // indirect
-	github.com/containers/storage v1.58.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -295,7 +294,6 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
-	go.podman.io/image/v5 v5.39.2-0.20260306124909-d48bc74146d6 // indirect
 	go.podman.io/storage v1.62.1-0.20260310180906-9819c3739308 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
