@@ -11,7 +11,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -20,20 +19,21 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	api "github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
+	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	regTypes "github.com/google/go-containerregistry/pkg/v1/types"
+	mobyimage "github.com/moby/moby/api/types/image"
+	mobyclient "github.com/moby/moby/client"
 	"gotest.tools/v3/assert"
 
 	"knative.dev/func/pkg/docker"
@@ -176,21 +176,6 @@ func TestPush(t *testing.T) {
 				dockerClient.imagePush = pushUnreachable
 			}
 
-			dockerClient.imageInspect = func(ctx context.Context, s string) (api.InspectResponse, []byte, error) {
-				return api.InspectResponse{ID: imageID}, []byte{}, nil
-			}
-
-			dockerClient.imageSave = func(ctx context.Context, tags []string) (io.ReadCloser, error) {
-				if slices.Equal(tags, []string{functionImageRemote}) {
-					f, err := os.Open(imageTarball)
-					if err != nil {
-						return nil, err
-					}
-					return f, nil
-				}
-				return nil, fmt.Errorf("unexpected tags")
-			}
-
 			var closeCalledOnMock bool
 			dockerClient.close = func() error {
 				closeCalledOnMock = true
@@ -201,10 +186,15 @@ func TestPush(t *testing.T) {
 				return dockerClient, nil
 			}
 
+			daemonClientFactory := func() (daemon.Client, error) {
+				return newMockDaemonClient(imageTarball, imageID), nil
+			}
+
 			pusher := docker.NewPusher(
 				docker.WithTransport(transport),
 				docker.WithCredentialsProvider(testCredProvider),
 				docker.WithPusherDockerClientFactory(dockerClientFactory),
+				docker.WithDaemonClientFactory(daemonClientFactory),
 			)
 
 			f := fn.Function{
@@ -269,57 +259,62 @@ func TestPush(t *testing.T) {
 func newMockPusherDockerClient() *mockPusherDockerClient {
 	return &mockPusherDockerClient{
 		imagePush: func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
-			return nil, fmt.Errorf(" imagePush not implemented")
+			return nil, fmt.Errorf("imagePush not implemented")
 		},
-		imageSave: func(ctx context.Context, strings []string) (io.ReadCloser, error) {
-			return nil, fmt.Errorf("imageSave not implemented")
-		},
-		imageInspect: func(ctx context.Context, s string) (api.InspectResponse, []byte, error) {
-			return api.InspectResponse{}, nil, fmt.Errorf("imageInspect not implemented")
-		},
-		negotiateAPIVersion: func(ctx context.Context) {},
-		close:               func() error { return nil },
+		close: func() error { return nil },
 	}
 }
 
 type mockPusherDockerClient struct {
-	negotiateAPIVersion func(ctx context.Context)
-	imagePush           func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error)
-	imageSave           func(ctx context.Context, strings []string) (io.ReadCloser, error)
-	imageInspect        func(ctx context.Context, s string) (api.InspectResponse, []byte, error)
-	close               func() error
-}
-
-func (m *mockPusherDockerClient) NegotiateAPIVersion(ctx context.Context) {
-	m.negotiateAPIVersion(ctx)
-}
-
-func (m *mockPusherDockerClient) ImageSave(ctx context.Context, strings []string, _ ...client.ImageSaveOption) (io.ReadCloser, error) {
-	return m.imageSave(ctx, strings)
-}
-
-func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader, _ ...client.ImageLoadOption) (api.LoadResponse, error) {
-	panic("implement me")
-}
-
-func (m *mockPusherDockerClient) ImageTag(ctx context.Context, s string, s2 string) error {
-	panic("implement me")
-}
-
-func (m *mockPusherDockerClient) ImageInspectWithRaw(ctx context.Context, s string) (api.InspectResponse, []byte, error) {
-	return m.imageInspect(ctx, s)
+	imagePush func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error)
+	close     func() error
 }
 
 func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
 	return m.imagePush(ctx, ref, options)
 }
 
-func (m *mockPusherDockerClient) ImageHistory(context.Context, string, ...client.ImageHistoryOption) ([]api.HistoryResponseItem, error) {
-	return nil, errors.New("the ImageHistory() function is not implemented")
-}
-
 func (m *mockPusherDockerClient) Close() error {
 	return m.close()
+}
+
+func newMockDaemonClient(tarballPath, id string) *mockDaemonClient {
+	return &mockDaemonClient{tarballPath: tarballPath, imageID: id}
+}
+
+type mockDaemonClient struct {
+	tarballPath string
+	imageID     string
+}
+
+func (m *mockDaemonClient) Ping(_ context.Context, _ mobyclient.PingOptions) (mobyclient.PingResult, error) {
+	return mobyclient.PingResult{}, nil
+}
+
+func (m *mockDaemonClient) ImageSave(_ context.Context, images []string, _ ...mobyclient.ImageSaveOption) (mobyclient.ImageSaveResult, error) {
+	f, err := os.Open(m.tarballPath)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func (m *mockDaemonClient) ImageLoad(_ context.Context, _ io.Reader, _ ...mobyclient.ImageLoadOption) (mobyclient.ImageLoadResult, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *mockDaemonClient) ImageTag(_ context.Context, _ mobyclient.ImageTagOptions) (mobyclient.ImageTagResult, error) {
+	return mobyclient.ImageTagResult{}, nil
+}
+
+func (m *mockDaemonClient) ImageInspect(_ context.Context, _ string, _ ...mobyclient.ImageInspectOption) (mobyclient.ImageInspectResult, error) {
+	return mobyclient.ImageInspectResult{
+		InspectResponse: mobyimage.InspectResponse{ID: m.imageID},
+	}, nil
+}
+
+func (m *mockDaemonClient) ImageHistory(_ context.Context, _ string, _ ...mobyclient.ImageHistoryOption) (mobyclient.ImageHistoryResult, error) {
+	return mobyclient.ImageHistoryResult{}, nil
 }
 
 func serveRegistry(t *testing.T, l net.Listener) {

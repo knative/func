@@ -29,6 +29,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	types2 "github.com/google/go-containerregistry/pkg/v1/types"
+	mobyclient "github.com/moby/moby/client"
 	"golang.org/x/term"
 )
 
@@ -36,12 +37,15 @@ type Opt func(*Pusher)
 
 // PusherDockerClient is sub-interface of client.APIClient required by pusher.
 type PusherDockerClient interface {
-	daemon.Client
 	ImagePush(ctx context.Context, ref string, options image.PushOptions) (io.ReadCloser, error)
 	Close() error
 }
 
 type PusherDockerClientFactory func() (PusherDockerClient, error)
+
+// DaemonClientFactory creates a client that satisfies go-containerregistry's
+// daemon.Client interface for loading images from the local docker daemon.
+type DaemonClientFactory func() (daemon.Client, error)
 
 // Pusher of images from local to remote registry.
 type Pusher struct {
@@ -49,6 +53,7 @@ type Pusher struct {
 	credentialsProvider oci.CredentialsProvider
 	transport           http.RoundTripper
 	dockerClientFactory PusherDockerClientFactory
+	daemonClientFactory DaemonClientFactory
 }
 
 func WithCredentialsProvider(cp oci.CredentialsProvider) Opt {
@@ -69,6 +74,12 @@ func WithPusherDockerClientFactory(dockerClientFactory PusherDockerClientFactory
 	}
 }
 
+func WithDaemonClientFactory(daemonClientFactory DaemonClientFactory) Opt {
+	return func(pusher *Pusher) {
+		pusher.daemonClientFactory = daemonClientFactory
+	}
+}
+
 func WithVerbose(verbose bool) Opt {
 	return func(pusher *Pusher) {
 		pusher.verbose = verbose
@@ -83,6 +94,9 @@ func NewPusher(opts ...Opt) *Pusher {
 		dockerClientFactory: func() (PusherDockerClient, error) {
 			c, _, err := NewClient(client.DefaultDockerHost)
 			return c, err
+		},
+		daemonClientFactory: func() (daemon.Client, error) {
+			return newDaemonClient()
 		},
 	}
 	for _, opt := range opts {
@@ -99,6 +113,10 @@ func GetRegistry(img string) (string, error) {
 	}
 	registry := ref.Context().RegistryStr()
 	return registry, nil
+}
+
+func newDaemonClient() (daemon.Client, error) {
+	return mobyclient.New(mobyclient.FromEnv)
 }
 
 // Push the image index of the function.
@@ -269,15 +287,14 @@ func (n *Pusher) push(ctx context.Context, f fn.Function, credentials oci.Creden
 		return "", err
 	}
 
-	dockerClient, err := n.dockerClientFactory()
+	daemonClient, err := n.daemonClientFactory()
 	if err != nil {
-		return "", fmt.Errorf("failed to create docker api client: %w", err)
+		return "", fmt.Errorf("failed to create daemon client: %w", err)
 	}
-	defer dockerClient.Close()
 
 	img, err := daemon.Image(ref,
 		daemon.WithContext(ctx),
-		daemon.WithClient(dockerClient))
+		daemon.WithClient(daemonClient))
 	if err != nil {
 		return "", err
 	}
