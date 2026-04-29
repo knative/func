@@ -82,6 +82,7 @@ allocate_cluster() {
   echo "dpr:  Dapr Runtime"
   echo "tkt:  Tekton Pipelines"
   echo "keda: Keda"
+  echo "fop:  Func Operator"
   echo ""
 
   ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
@@ -90,6 +91,7 @@ allocate_cluster() {
   ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
   ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
   ( set -o pipefail; (keda && keda_http_addon) 2>&1 | sed  -e 's/^/keda /')&
+  ( set -o pipefail; func_operator 2>&1 | sed  -e 's/^/fop /')&
 
   local job
   for job in $(jobs -p); do
@@ -759,6 +761,18 @@ keda_http_addon() {
 
   $KUBECTL get pod -n keda
   echo "${green}✅ Keda HTTP add-on${reset}"
+}
+
+func_operator() {
+  echo "${blue}Installing Func Operator${reset}"
+  echo "Version: ${func_operator_version}"
+
+  $KUBECTL apply --server-side -f "https://github.com/functions-dev/func-operator/releases/download/${func_operator_version}/func-operator.yaml"
+  sleep 5
+  $KUBECTL wait deployment --all --timeout=5m --for=condition=Available --namespace func-operator-system
+
+  $KUBECTL get pod -n func-operator-system
+  echo "${green}✅ Func Operator${reset}"
 }
 
 next_steps() {

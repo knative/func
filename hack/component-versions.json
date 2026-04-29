@@ -9,6 +9,9 @@
 		"owner": "knative",
 		"repo": "eventing"
 	},
+	"FuncOperator": {
+		"version": "v0.2.1"
+	},
 	"Keda": {
 		"version": "v2.17.0"
 	},
