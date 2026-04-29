@@ -1,0 +1,21 @@
+package docker
+
+import (
+	"sync"
+
+	"github.com/moby/moby/client"
+)
+
+// Client that panics when used after Close()
+type closeGuardingClient struct {
+	pimpl  client.APIClient
+	m      sync.RWMutex
+	closed bool
+}
+
+func (c *closeGuardingClient) Close() error {
+	c.m.Lock()
+	defer c.m.Unlock()
+	c.closed = true
+	return c.pimpl.Close()
+}

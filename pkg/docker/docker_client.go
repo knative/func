@@ -36,6 +36,12 @@ var ErrNoDocker = errors.New("docker/podman API not available")
 //     one should not be use client.DefaultDockerHost in this situation). This is
 //     needed beaus of TCP+tls connections.
 func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInRemote string, err error) {
+	defer func() {
+		if dockerClient != nil && err == nil {
+			dockerClient = &closeGuardingClient{pimpl: dockerClient}
+		}
+	}()
+
 	var _url *url.URL
 
 	dockerHost := os.Getenv("DOCKER_HOST")
