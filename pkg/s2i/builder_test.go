@@ -339,17 +339,6 @@ func (m mockDocker) ServerVersion(ctx context.Context, options client.ServerVers
 	panic("implement me")
 }
 
-type notFoundErr struct {
-}
-
-func (n notFoundErr) Error() string {
-	return "not found"
-}
-
-func (n notFoundErr) NotFound() {
-	panic("just a marker interface")
-}
-
 // Test_ScaffoldWritesToFuncBuild ensures that scaffolding for Go/Python
 // runtimes is written to .func/build/ instead of .s2i/build/
 func Test_ScaffoldWritesToFuncBuild(t *testing.T) {

@@ -24,7 +24,6 @@ import (
 	"github.com/buildpacks/pack/pkg/dist"
 	bpimage "github.com/buildpacks/pack/pkg/image"
 	"github.com/containerd/errdefs"
-	docker "github.com/moby/moby/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	ghAuth "github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -36,6 +35,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/go-github/v68/github"
+	docker "github.com/moby/moby/client"
 	"github.com/paketo-buildpacks/libpak/carton"
 	"github.com/pelletier/go-toml"
 )

@@ -17,8 +17,8 @@ import (
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/buildpacks/pack/pkg/project/types"
-	"github.com/moby/moby/client"
 	"github.com/heroku/color"
+	"github.com/moby/moby/client"
 
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/docker"

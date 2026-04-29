@@ -4,9 +4,10 @@ package docker
 
 import (
 	"context"
-	"github.com/moby/moby/client"
 	"io"
 	"net"
+
+	"github.com/moby/moby/client"
 )
 
 func (c *closeGuardingClient) BuildCachePrune(arg0 context.Context, arg1 client.BuildCachePruneOptions) (client.BuildCachePruneResult, error) {
@@ -1016,4 +1017,3 @@ func (c *closeGuardingClient) VolumeUpdate(arg0 context.Context, arg1 string, ar
 	}
 	return c.pimpl.VolumeUpdate(arg0, arg1, arg2)
 }
-
