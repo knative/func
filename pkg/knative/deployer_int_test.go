@@ -58,3 +58,11 @@ func TestInt_EnvsUpdate(t *testing.T) {
 		knative.NewDescriber(false),
 		knative.KnativeDeployerName)
 }
+
+func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
+	deployertesting.TestInt_ResourceValidationOnFirstDeploy(t,
+		knative.NewDeployer(knative.WithDeployerVerbose(true)),
+		knative.NewRemover(false),
+		knative.NewDescriber(false),
+		knative.KnativeDeployerName)
+}
