@@ -18,11 +18,13 @@ import (
 	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	funcgit "knative.dev/func/pkg/git"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/operator"
 	"knative.dev/func/pkg/utils"
 )
@@ -827,7 +829,7 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 
 	if c.Manage {
 		o = append(o, fn.WithPostDeploy(func(ctx context.Context, f fn.Function) error {
-			if err := syncFunctionCR(ctx, f, c); err != nil {
+			if err := syncFunctionCR(ctx, f, c, creds); err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: failed to sync Function CR: %v\n", err)
 			}
 			return nil
@@ -918,7 +920,7 @@ func isDigested(v string) (validDigest bool, err error) {
 	return ok, nil
 }
 
-func syncFunctionCR(ctx context.Context, f fn.Function, cfg deployConfig) error {
+func syncFunctionCR(ctx context.Context, f fn.Function, cfg deployConfig, credentialsProvider oci.CredentialsProvider) error {
 	repoURL := cfg.GitURL
 	repoBranch := cfg.GitBranch
 	repoPath := cfg.GitDir
@@ -944,11 +946,27 @@ func syncFunctionCR(ctx context.Context, f fn.Function, cfg deployConfig) error 
 		namespace = f.Namespace
 	}
 
+	var registryCredentials *operator.RegistryCredentials
+	if credentialsProvider != nil && f.Deploy.Image != "" {
+		registry, err := docker.GetRegistry(f.Deploy.Image)
+		if err == nil {
+			creds, err := credentialsProvider(ctx, f.Deploy.Image)
+			if err == nil && creds.Username != "" {
+				registryCredentials = &operator.RegistryCredentials{
+					Username: creds.Username,
+					Password: creds.Password,
+					Server:   registry,
+				}
+			}
+		}
+	}
+
 	return operator.SyncFunctionCR(ctx, operator.SyncConfig{
-		FunctionName: f.Name,
-		Namespace:    namespace,
-		RepoURL:      repoURL,
-		RepoBranch:   repoBranch,
-		RepoPath:     repoPath,
+		FunctionName:        f.Name,
+		Namespace:           namespace,
+		RepoURL:             repoURL,
+		RepoBranch:          repoBranch,
+		RepoPath:            repoPath,
+		RegistryCredentials: registryCredentials,
 	})
 }

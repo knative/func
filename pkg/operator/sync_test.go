@@ -122,8 +122,11 @@ func TestSyncFunctionCR_UpdateExistingByMetadataName(t *testing.T) {
 	if _, err := time.Parse(time.RFC3339, ts); err != nil {
 		t.Fatalf("expected valid RFC3339 timestamp, got %q: %v", ts, err)
 	}
-	if fn.Spec.Repository.URL != "https://github.com/old/repo.git" {
-		t.Fatalf("expected spec to remain unchanged, but URL was %q", fn.Spec.Repository.URL)
+	if fn.Spec.Repository.URL != "https://github.com/alice/my-func.git" {
+		t.Fatalf("expected spec to be updated, but URL was %q", fn.Spec.Repository.URL)
+	}
+	if fn.Spec.Repository.Branch != "main" {
+		t.Fatalf("expected branch to be updated, but got %q", fn.Spec.Repository.Branch)
 	}
 }
 
@@ -196,6 +199,45 @@ func TestSyncFunctionCR_NoCRD_SkipSilently(t *testing.T) {
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
 	if err != nil {
 		t.Fatalf("expected no error when CRD missing, got: %v", err)
+	}
+}
+
+func TestSyncFunctionCR_WithRegistryCredentials(t *testing.T) {
+	scheme := newScheme()
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	disc := fakeDiscoveryWithCRD()
+
+	cfg := SyncConfig{
+		FunctionName: "my-func",
+		Namespace:    "default",
+		RepoURL:      "https://github.com/alice/my-func.git",
+		RepoBranch:   "main",
+		RepoPath:     ".",
+		RegistryCredentials: &RegistryCredentials{
+			Username: "admin",
+			Password: "secret",
+			Server:   "ghcr.io",
+		},
+	}
+
+	err := syncFunctionCR(context.Background(), cl, disc, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var fn v1alpha1.Function
+	err = cl.Get(context.Background(), ctrlclient.ObjectKey{
+		Name:      "my-func",
+		Namespace: "default",
+	}, &fn)
+	if err != nil {
+		t.Fatalf("expected Function CR to be created: %v", err)
+	}
+	if fn.Spec.Registry.AuthSecretRef == nil {
+		t.Fatal("expected registry authSecretRef to be set")
+	}
+	if fn.Spec.Registry.AuthSecretRef.Name != "my-func-registry-auth" {
+		t.Fatalf("expected secret name 'my-func-registry-auth', got %q", fn.Spec.Registry.AuthSecretRef.Name)
 	}
 }
 
