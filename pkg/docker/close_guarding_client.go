@@ -2,13 +2,12 @@ package docker
 
 import (
 	"sync"
-
-	"github.com/moby/moby/client"
 )
 
-// Client that panics when used after Close()
+// closeGuardingClient wraps a DockerClient and panics if any method
+// is called after Close().
 type closeGuardingClient struct {
-	pimpl  client.APIClient
+	pimpl  DockerClient
 	m      sync.RWMutex
 	closed bool
 }

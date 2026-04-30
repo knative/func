@@ -5,109 +5,9 @@ package docker
 import (
 	"context"
 	"io"
-	"net"
 
 	"github.com/moby/moby/client"
 )
-
-func (c *closeGuardingClient) BuildCachePrune(arg0 context.Context, arg1 client.BuildCachePruneOptions) (client.BuildCachePruneResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.BuildCachePrune(arg0, arg1)
-}
-
-func (c *closeGuardingClient) BuildCancel(arg0 context.Context, arg1 string, arg2 client.BuildCancelOptions) (client.BuildCancelResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.BuildCancel(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) CheckpointCreate(arg0 context.Context, arg1 string, arg2 client.CheckpointCreateOptions) (client.CheckpointCreateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.CheckpointCreate(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) CheckpointList(arg0 context.Context, arg1 string, arg2 client.CheckpointListOptions) (client.CheckpointListResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.CheckpointList(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) CheckpointRemove(arg0 context.Context, arg1 string, arg2 client.CheckpointRemoveOptions) (client.CheckpointRemoveResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.CheckpointRemove(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ClientVersion() string {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ClientVersion()
-}
-
-func (c *closeGuardingClient) ConfigCreate(arg0 context.Context, arg1 client.ConfigCreateOptions) (client.ConfigCreateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ConfigCreate(arg0, arg1)
-}
-
-func (c *closeGuardingClient) ConfigInspect(arg0 context.Context, arg1 string, arg2 client.ConfigInspectOptions) (client.ConfigInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ConfigInspect(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ConfigList(arg0 context.Context, arg1 client.ConfigListOptions) (client.ConfigListResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ConfigList(arg0, arg1)
-}
-
-func (c *closeGuardingClient) ConfigRemove(arg0 context.Context, arg1 string, arg2 client.ConfigRemoveOptions) (client.ConfigRemoveResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ConfigRemove(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ConfigUpdate(arg0 context.Context, arg1 string, arg2 client.ConfigUpdateOptions) (client.ConfigUpdateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ConfigUpdate(arg0, arg1, arg2)
-}
 
 func (c *closeGuardingClient) ContainerAttach(arg0 context.Context, arg1 string, arg2 client.ContainerAttachOptions) (client.ContainerAttachResult, error) {
 	c.m.RLock()
@@ -136,24 +36,6 @@ func (c *closeGuardingClient) ContainerCreate(arg0 context.Context, arg1 client.
 	return c.pimpl.ContainerCreate(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ContainerDiff(arg0 context.Context, arg1 string, arg2 client.ContainerDiffOptions) (client.ContainerDiffResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerDiff(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ContainerExport(arg0 context.Context, arg1 string, arg2 client.ContainerExportOptions) (client.ContainerExportResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerExport(arg0, arg1, arg2)
-}
-
 func (c *closeGuardingClient) ContainerInspect(arg0 context.Context, arg1 string, arg2 client.ContainerInspectOptions) (client.ContainerInspectResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -172,42 +54,6 @@ func (c *closeGuardingClient) ContainerKill(arg0 context.Context, arg1 string, a
 	return c.pimpl.ContainerKill(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ContainerList(arg0 context.Context, arg1 client.ContainerListOptions) (client.ContainerListResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerList(arg0, arg1)
-}
-
-func (c *closeGuardingClient) ContainerLogs(arg0 context.Context, arg1 string, arg2 client.ContainerLogsOptions) (client.ContainerLogsResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerLogs(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ContainerPause(arg0 context.Context, arg1 string, arg2 client.ContainerPauseOptions) (client.ContainerPauseResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerPause(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ContainerPrune(arg0 context.Context, arg1 client.ContainerPruneOptions) (client.ContainerPruneResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerPrune(arg0, arg1)
-}
-
 func (c *closeGuardingClient) ContainerRemove(arg0 context.Context, arg1 string, arg2 client.ContainerRemoveOptions) (client.ContainerRemoveResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -215,33 +61,6 @@ func (c *closeGuardingClient) ContainerRemove(arg0 context.Context, arg1 string,
 		panic("use of closed client")
 	}
 	return c.pimpl.ContainerRemove(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ContainerRename(arg0 context.Context, arg1 string, arg2 client.ContainerRenameOptions) (client.ContainerRenameResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerRename(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ContainerResize(arg0 context.Context, arg1 string, arg2 client.ContainerResizeOptions) (client.ContainerResizeResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerResize(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ContainerRestart(arg0 context.Context, arg1 string, arg2 client.ContainerRestartOptions) (client.ContainerRestartResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerRestart(arg0, arg1, arg2)
 }
 
 func (c *closeGuardingClient) ContainerStart(arg0 context.Context, arg1 string, arg2 client.ContainerStartOptions) (client.ContainerStartResult, error) {
@@ -253,24 +72,6 @@ func (c *closeGuardingClient) ContainerStart(arg0 context.Context, arg1 string, 
 	return c.pimpl.ContainerStart(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ContainerStatPath(arg0 context.Context, arg1 string, arg2 client.ContainerStatPathOptions) (client.ContainerStatPathResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerStatPath(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ContainerStats(arg0 context.Context, arg1 string, arg2 client.ContainerStatsOptions) (client.ContainerStatsResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerStats(arg0, arg1, arg2)
-}
-
 func (c *closeGuardingClient) ContainerStop(arg0 context.Context, arg1 string, arg2 client.ContainerStopOptions) (client.ContainerStopResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -278,33 +79,6 @@ func (c *closeGuardingClient) ContainerStop(arg0 context.Context, arg1 string, a
 		panic("use of closed client")
 	}
 	return c.pimpl.ContainerStop(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ContainerTop(arg0 context.Context, arg1 string, arg2 client.ContainerTopOptions) (client.ContainerTopResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerTop(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ContainerUnpause(arg0 context.Context, arg1 string, arg2 client.ContainerUnpauseOptions) (client.ContainerUnpauseResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerUnpause(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ContainerUpdate(arg0 context.Context, arg1 string, arg2 client.ContainerUpdateOptions) (client.ContainerUpdateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ContainerUpdate(arg0, arg1, arg2)
 }
 
 func (c *closeGuardingClient) ContainerWait(arg0 context.Context, arg1 string, arg2 client.ContainerWaitOptions) client.ContainerWaitResult {
@@ -334,105 +108,6 @@ func (c *closeGuardingClient) CopyToContainer(arg0 context.Context, arg1 string,
 	return c.pimpl.CopyToContainer(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) DaemonHost() string {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.DaemonHost()
-}
-
-func (c *closeGuardingClient) DialHijack(arg0 context.Context, arg1 string, arg2 string, arg3 map[string][]string) (net.Conn, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.DialHijack(arg0, arg1, arg2, arg3)
-}
-
-func (c *closeGuardingClient) Dialer() func(context.Context) (net.Conn, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.Dialer()
-}
-
-func (c *closeGuardingClient) DiskUsage(arg0 context.Context, arg1 client.DiskUsageOptions) (client.DiskUsageResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.DiskUsage(arg0, arg1)
-}
-
-func (c *closeGuardingClient) DistributionInspect(arg0 context.Context, arg1 string, arg2 client.DistributionInspectOptions) (client.DistributionInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.DistributionInspect(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) Events(arg0 context.Context, arg1 client.EventsListOptions) client.EventsResult {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.Events(arg0, arg1)
-}
-
-func (c *closeGuardingClient) ExecAttach(arg0 context.Context, arg1 string, arg2 client.ExecAttachOptions) (client.ExecAttachResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ExecAttach(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ExecCreate(arg0 context.Context, arg1 string, arg2 client.ExecCreateOptions) (client.ExecCreateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ExecCreate(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ExecInspect(arg0 context.Context, arg1 string, arg2 client.ExecInspectOptions) (client.ExecInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ExecInspect(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ExecResize(arg0 context.Context, arg1 string, arg2 client.ExecResizeOptions) (client.ExecResizeResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ExecResize(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ExecStart(arg0 context.Context, arg1 string, arg2 client.ExecStartOptions) (client.ExecStartResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ExecStart(arg0, arg1, arg2)
-}
-
 func (c *closeGuardingClient) ImageBuild(arg0 context.Context, arg1 io.Reader, arg2 client.ImageBuildOptions) (client.ImageBuildResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -451,15 +126,6 @@ func (c *closeGuardingClient) ImageHistory(arg0 context.Context, arg1 string, ar
 	return c.pimpl.ImageHistory(arg0, arg1, arg2...)
 }
 
-func (c *closeGuardingClient) ImageImport(arg0 context.Context, arg1 client.ImageImportSource, arg2 string, arg3 client.ImageImportOptions) (client.ImageImportResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ImageImport(arg0, arg1, arg2, arg3)
-}
-
 func (c *closeGuardingClient) ImageInspect(arg0 context.Context, arg1 string, arg2 ...client.ImageInspectOption) (client.ImageInspectResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -469,15 +135,6 @@ func (c *closeGuardingClient) ImageInspect(arg0 context.Context, arg1 string, ar
 	return c.pimpl.ImageInspect(arg0, arg1, arg2...)
 }
 
-func (c *closeGuardingClient) ImageList(arg0 context.Context, arg1 client.ImageListOptions) (client.ImageListResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ImageList(arg0, arg1)
-}
-
 func (c *closeGuardingClient) ImageLoad(arg0 context.Context, arg1 io.Reader, arg2 ...client.ImageLoadOption) (client.ImageLoadResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -485,15 +142,6 @@ func (c *closeGuardingClient) ImageLoad(arg0 context.Context, arg1 io.Reader, ar
 		panic("use of closed client")
 	}
 	return c.pimpl.ImageLoad(arg0, arg1, arg2...)
-}
-
-func (c *closeGuardingClient) ImagePrune(arg0 context.Context, arg1 client.ImagePruneOptions) (client.ImagePruneResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ImagePrune(arg0, arg1)
 }
 
 func (c *closeGuardingClient) ImagePull(arg0 context.Context, arg1 string, arg2 client.ImagePullOptions) (client.ImagePullResponse, error) {
@@ -532,15 +180,6 @@ func (c *closeGuardingClient) ImageSave(arg0 context.Context, arg1 []string, arg
 	return c.pimpl.ImageSave(arg0, arg1, arg2...)
 }
 
-func (c *closeGuardingClient) ImageSearch(arg0 context.Context, arg1 string, arg2 client.ImageSearchOptions) (client.ImageSearchResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ImageSearch(arg0, arg1, arg2)
-}
-
 func (c *closeGuardingClient) ImageTag(arg0 context.Context, arg1 client.ImageTagOptions) (client.ImageTagResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -559,15 +198,6 @@ func (c *closeGuardingClient) Info(arg0 context.Context, arg1 client.InfoOptions
 	return c.pimpl.Info(arg0, arg1)
 }
 
-func (c *closeGuardingClient) NetworkConnect(arg0 context.Context, arg1 string, arg2 client.NetworkConnectOptions) (client.NetworkConnectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.NetworkConnect(arg0, arg1, arg2)
-}
-
 func (c *closeGuardingClient) NetworkCreate(arg0 context.Context, arg1 string, arg2 client.NetworkCreateOptions) (client.NetworkCreateResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -575,42 +205,6 @@ func (c *closeGuardingClient) NetworkCreate(arg0 context.Context, arg1 string, a
 		panic("use of closed client")
 	}
 	return c.pimpl.NetworkCreate(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) NetworkDisconnect(arg0 context.Context, arg1 string, arg2 client.NetworkDisconnectOptions) (client.NetworkDisconnectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.NetworkDisconnect(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) NetworkInspect(arg0 context.Context, arg1 string, arg2 client.NetworkInspectOptions) (client.NetworkInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.NetworkInspect(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) NetworkList(arg0 context.Context, arg1 client.NetworkListOptions) (client.NetworkListResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.NetworkList(arg0, arg1)
-}
-
-func (c *closeGuardingClient) NetworkPrune(arg0 context.Context, arg1 client.NetworkPruneOptions) (client.NetworkPruneResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.NetworkPrune(arg0, arg1)
 }
 
 func (c *closeGuardingClient) NetworkRemove(arg0 context.Context, arg1 string, arg2 client.NetworkRemoveOptions) (client.NetworkRemoveResult, error) {
@@ -622,42 +216,6 @@ func (c *closeGuardingClient) NetworkRemove(arg0 context.Context, arg1 string, a
 	return c.pimpl.NetworkRemove(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) NodeInspect(arg0 context.Context, arg1 string, arg2 client.NodeInspectOptions) (client.NodeInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.NodeInspect(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) NodeList(arg0 context.Context, arg1 client.NodeListOptions) (client.NodeListResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.NodeList(arg0, arg1)
-}
-
-func (c *closeGuardingClient) NodeRemove(arg0 context.Context, arg1 string, arg2 client.NodeRemoveOptions) (client.NodeRemoveResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.NodeRemove(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) NodeUpdate(arg0 context.Context, arg1 string, arg2 client.NodeUpdateOptions) (client.NodeUpdateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.NodeUpdate(arg0, arg1, arg2)
-}
-
 func (c *closeGuardingClient) Ping(arg0 context.Context, arg1 client.PingOptions) (client.PingResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -665,150 +223,6 @@ func (c *closeGuardingClient) Ping(arg0 context.Context, arg1 client.PingOptions
 		panic("use of closed client")
 	}
 	return c.pimpl.Ping(arg0, arg1)
-}
-
-func (c *closeGuardingClient) PluginCreate(arg0 context.Context, arg1 io.Reader, arg2 client.PluginCreateOptions) (client.PluginCreateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.PluginCreate(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) PluginDisable(arg0 context.Context, arg1 string, arg2 client.PluginDisableOptions) (client.PluginDisableResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.PluginDisable(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) PluginEnable(arg0 context.Context, arg1 string, arg2 client.PluginEnableOptions) (client.PluginEnableResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.PluginEnable(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) PluginInspect(arg0 context.Context, arg1 string, arg2 client.PluginInspectOptions) (client.PluginInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.PluginInspect(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) PluginInstall(arg0 context.Context, arg1 string, arg2 client.PluginInstallOptions) (client.PluginInstallResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.PluginInstall(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) PluginList(arg0 context.Context, arg1 client.PluginListOptions) (client.PluginListResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.PluginList(arg0, arg1)
-}
-
-func (c *closeGuardingClient) PluginPush(arg0 context.Context, arg1 string, arg2 client.PluginPushOptions) (client.PluginPushResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.PluginPush(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) PluginRemove(arg0 context.Context, arg1 string, arg2 client.PluginRemoveOptions) (client.PluginRemoveResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.PluginRemove(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) PluginSet(arg0 context.Context, arg1 string, arg2 client.PluginSetOptions) (client.PluginSetResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.PluginSet(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) PluginUpgrade(arg0 context.Context, arg1 string, arg2 client.PluginUpgradeOptions) (client.PluginUpgradeResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.PluginUpgrade(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) RegistryLogin(arg0 context.Context, arg1 client.RegistryLoginOptions) (client.RegistryLoginResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.RegistryLogin(arg0, arg1)
-}
-
-func (c *closeGuardingClient) SecretCreate(arg0 context.Context, arg1 client.SecretCreateOptions) (client.SecretCreateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SecretCreate(arg0, arg1)
-}
-
-func (c *closeGuardingClient) SecretInspect(arg0 context.Context, arg1 string, arg2 client.SecretInspectOptions) (client.SecretInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SecretInspect(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) SecretList(arg0 context.Context, arg1 client.SecretListOptions) (client.SecretListResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SecretList(arg0, arg1)
-}
-
-func (c *closeGuardingClient) SecretRemove(arg0 context.Context, arg1 string, arg2 client.SecretRemoveOptions) (client.SecretRemoveResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SecretRemove(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) SecretUpdate(arg0 context.Context, arg1 string, arg2 client.SecretUpdateOptions) (client.SecretUpdateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SecretUpdate(arg0, arg1, arg2)
 }
 
 func (c *closeGuardingClient) ServerVersion(arg0 context.Context, arg1 client.ServerVersionOptions) (client.ServerVersionResult, error) {
@@ -820,168 +234,6 @@ func (c *closeGuardingClient) ServerVersion(arg0 context.Context, arg1 client.Se
 	return c.pimpl.ServerVersion(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ServiceCreate(arg0 context.Context, arg1 client.ServiceCreateOptions) (client.ServiceCreateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ServiceCreate(arg0, arg1)
-}
-
-func (c *closeGuardingClient) ServiceInspect(arg0 context.Context, arg1 string, arg2 client.ServiceInspectOptions) (client.ServiceInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ServiceInspect(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ServiceList(arg0 context.Context, arg1 client.ServiceListOptions) (client.ServiceListResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ServiceList(arg0, arg1)
-}
-
-func (c *closeGuardingClient) ServiceLogs(arg0 context.Context, arg1 string, arg2 client.ServiceLogsOptions) (client.ServiceLogsResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ServiceLogs(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ServiceRemove(arg0 context.Context, arg1 string, arg2 client.ServiceRemoveOptions) (client.ServiceRemoveResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ServiceRemove(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) ServiceUpdate(arg0 context.Context, arg1 string, arg2 client.ServiceUpdateOptions) (client.ServiceUpdateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.ServiceUpdate(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) SwarmGetUnlockKey(arg0 context.Context) (client.SwarmGetUnlockKeyResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SwarmGetUnlockKey(arg0)
-}
-
-func (c *closeGuardingClient) SwarmInit(arg0 context.Context, arg1 client.SwarmInitOptions) (client.SwarmInitResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SwarmInit(arg0, arg1)
-}
-
-func (c *closeGuardingClient) SwarmInspect(arg0 context.Context, arg1 client.SwarmInspectOptions) (client.SwarmInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SwarmInspect(arg0, arg1)
-}
-
-func (c *closeGuardingClient) SwarmJoin(arg0 context.Context, arg1 client.SwarmJoinOptions) (client.SwarmJoinResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SwarmJoin(arg0, arg1)
-}
-
-func (c *closeGuardingClient) SwarmLeave(arg0 context.Context, arg1 client.SwarmLeaveOptions) (client.SwarmLeaveResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SwarmLeave(arg0, arg1)
-}
-
-func (c *closeGuardingClient) SwarmUnlock(arg0 context.Context, arg1 client.SwarmUnlockOptions) (client.SwarmUnlockResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SwarmUnlock(arg0, arg1)
-}
-
-func (c *closeGuardingClient) SwarmUpdate(arg0 context.Context, arg1 client.SwarmUpdateOptions) (client.SwarmUpdateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.SwarmUpdate(arg0, arg1)
-}
-
-func (c *closeGuardingClient) TaskInspect(arg0 context.Context, arg1 string, arg2 client.TaskInspectOptions) (client.TaskInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.TaskInspect(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) TaskList(arg0 context.Context, arg1 client.TaskListOptions) (client.TaskListResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.TaskList(arg0, arg1)
-}
-
-func (c *closeGuardingClient) TaskLogs(arg0 context.Context, arg1 string, arg2 client.TaskLogsOptions) (client.TaskLogsResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.TaskLogs(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) VolumeCreate(arg0 context.Context, arg1 client.VolumeCreateOptions) (client.VolumeCreateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.VolumeCreate(arg0, arg1)
-}
-
-func (c *closeGuardingClient) VolumeInspect(arg0 context.Context, arg1 string, arg2 client.VolumeInspectOptions) (client.VolumeInspectResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.VolumeInspect(arg0, arg1, arg2)
-}
-
 func (c *closeGuardingClient) VolumeList(arg0 context.Context, arg1 client.VolumeListOptions) (client.VolumeListResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -991,15 +243,6 @@ func (c *closeGuardingClient) VolumeList(arg0 context.Context, arg1 client.Volum
 	return c.pimpl.VolumeList(arg0, arg1)
 }
 
-func (c *closeGuardingClient) VolumePrune(arg0 context.Context, arg1 client.VolumePruneOptions) (client.VolumePruneResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.VolumePrune(arg0, arg1)
-}
-
 func (c *closeGuardingClient) VolumeRemove(arg0 context.Context, arg1 string, arg2 client.VolumeRemoveOptions) (client.VolumeRemoveResult, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
@@ -1007,13 +250,4 @@ func (c *closeGuardingClient) VolumeRemove(arg0 context.Context, arg1 string, ar
 		panic("use of closed client")
 	}
 	return c.pimpl.VolumeRemove(arg0, arg1, arg2)
-}
-
-func (c *closeGuardingClient) VolumeUpdate(arg0 context.Context, arg1 string, arg2 client.VolumeUpdateOptions) (client.VolumeUpdateResult, error) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.closed {
-		panic("use of closed client")
-	}
-	return c.pimpl.VolumeUpdate(arg0, arg1, arg2)
 }
