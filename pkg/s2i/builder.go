@@ -122,7 +122,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 	var client = b.cli
 	if client == nil {
-		var c dockerClient.APIClient
+		var c docker.DockerClient
 		c, _, err = docker.NewClient(dockerClient.DefaultDockerHost)
 		if err != nil {
 			return fmt.Errorf("cannot create docker client: %w", err)
