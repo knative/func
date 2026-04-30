@@ -32,10 +32,9 @@ func Main() {
 	cfg := cmd.RootCommandConfig{
 		Name: "func",
 		Version: cmd.Version{
-			Vers:      version.Vers,
-			Kver:      version.Kver,
-			Hash:      version.Hash,
-			BuildDate: version.BuildDate,
+			Vers: version.Vers,
+			Kver: version.Kver,
+			Hash: version.Hash,
 		}}
 
 	if err := cmd.NewRootCmd(cfg).ExecuteContext(ctx); err != nil {

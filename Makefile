@@ -31,13 +31,12 @@ BIN_GOIMPORTS     ?= "$(PWD)/bin/goimports"
 # If the current commit does not have a semver tag, 'tip' is used, unless there
 # is a TAG environment variable. Precedence is git tag, environment variable, 'tip'
 HASH         := $(shell git rev-parse --short HEAD 2>/dev/null)
-DATE         := $(shell git log -1 --format=%cI HEAD 2>/dev/null)
 VTAG         := $(shell git tag --points-at HEAD | head -1)
 VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS         ?= $(shell git describe --tags --match 'v*')
 KVER         ?= $(shell git describe --tags --match 'knative-*')
 
-LDFLAGS      := -X knative.dev/func/pkg/version.Vers=$(VERS) -X knative.dev/func/pkg/version.Kver=$(KVER) -X knative.dev/func/pkg/version.Hash=$(HASH) -X knative.dev/func/pkg/version.BuildDate=$(DATE)
+LDFLAGS      := -X knative.dev/func/pkg/version.Vers=$(VERS) -X knative.dev/func/pkg/version.Kver=$(KVER) -X knative.dev/func/pkg/version.Hash=$(HASH)
 
 FUNC_UTILS_IMG ?= ghcr.io/knative/func-utils:v2
 LDFLAGS += -X knative.dev/func/pkg/k8s.SocatImage=$(FUNC_UTILS_IMG)

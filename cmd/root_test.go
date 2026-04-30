@@ -184,10 +184,9 @@ func TestVerbose(t *testing.T) {
 		cmd := NewRootCmd(RootCommandConfig{
 			Name: "func",
 			Version: Version{
-				Vers:      "v0.42.0",
-				Hash:      "cafe",
-				Kver:      "v1.10.0",
-				BuildDate: "2024-01-01T00:00:00Z",
+				Vers: "v0.42.0",
+				Hash: "cafe",
+				Kver: "v1.10.0",
 			},
 		})
 		cmd.SetArgs([]string{"version", "-v"})
@@ -200,7 +199,6 @@ func TestVerbose(t *testing.T) {
 			"Version: v0.42.0",
 			"Knative: v1.10.0",
 			"Commit: cafe",
-			"BuildDate: 2024-01-01T00:00:00Z",
 		} {
 			if !strings.Contains(output, want) {
 				t.Errorf("expected output to contain %q but got:\n%s", want, output)
@@ -222,7 +220,7 @@ func TestVerbose(t *testing.T) {
 			t.Fatal(err)
 		}
 		output := out.String()
-		for _, absent := range []string{"Knative:", "Commit:", "BuildDate:"} {
+		for _, absent := range []string{"Knative:", "Commit:"} {
 			if strings.Contains(output, absent) {
 				t.Errorf("expected output to omit %q but got:\n%s", absent, output)
 			}
@@ -256,11 +254,8 @@ func TestVerbose(t *testing.T) {
 		viper.Reset()
 		var out bytes.Buffer
 		cmd := NewRootCmd(RootCommandConfig{
-			Name: "func",
-			Version: Version{
-				Vers:      "v0.42.0",
-				BuildDate: "2024-01-01T00:00:00Z",
-			},
+			Name:    "func",
+			Version: Version{Vers: "v0.42.0"},
 		})
 		cmd.SetArgs([]string{"version", "--output", "json"})
 		cmd.SetOut(&out)
@@ -268,13 +263,8 @@ func TestVerbose(t *testing.T) {
 			t.Fatal(err)
 		}
 		output := out.String()
-		for _, want := range []string{
-			`"version": "v0.42.0"`,
-			`"buildDate": "2024-01-01T00:00:00Z"`,
-		} {
-			if !strings.Contains(output, want) {
-				t.Errorf("expected JSON to contain %q, got:\n%s", want, output)
-			}
+		if !strings.Contains(output, `"version": "v0.42.0"`) {
+			t.Errorf("expected JSON to contain version field, got:\n%s", output)
 		}
 	})
 
@@ -310,14 +300,12 @@ func TestVerbose(t *testing.T) {
 			Vers:       "v0.42.0",
 			Kver:       "knative-v1.10.0",
 			Hash:       "cafe",
-			BuildDate:  "2024-01-01T00:00:00Z",
 			SocatImage: "ghcr.io/knative/func-utils:v2",
 			TarImage:   "ghcr.io/knative/func-utils:v2",
 		}
 		want := "Version: v0.42.0\n" +
 			"Knative: v1.10.0\n" +
 			"Commit: cafe\n" +
-			"BuildDate: 2024-01-01T00:00:00Z\n" +
 			"SocatImage: ghcr.io/knative/func-utils:v2\n" +
 			"TarImage: ghcr.io/knative/func-utils:v2\n"
 		if got := v.StringVerbose(); got != want {

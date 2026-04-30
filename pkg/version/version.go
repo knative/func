@@ -1,3 +1,3 @@
 package version
 
-var Vers, Kver, Hash, BuildDate string
+var Vers, Kver, Hash string

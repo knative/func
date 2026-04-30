@@ -83,7 +83,7 @@ func runVersion(cmd *cobra.Command, v Version) error {
 		v.Vers = DefaultVersion
 	}
 
-	// Kver, Hash, BuildDate are already set from build via ldflags,
+	// Kver and Hash are already set from build via ldflags,
 	// injected into the Version struct at startup (see pkg/app/app.go).
 	// Populate image fields from k8s package constants
 	v.SocatImage = k8s.SocatImage
@@ -111,8 +111,6 @@ type Version struct {
 	Kver string `json:"knative,omitempty" yaml:"knative,omitempty"`
 	// Hash of the currently active git commit on build.
 	Hash string `json:"commit,omitempty" yaml:"commit,omitempty"`
-	// BuildDate is the UTC timestamp at which the binary was built.
-	BuildDate string `json:"buildDate,omitempty" yaml:"buildDate,omitempty"`
 	// SocatImage is the socat image used by the function.
 	SocatImage string `json:"socatImage,omitempty" yaml:"socatImage,omitempty"`
 	// TarImage is the tar image used by the function.
@@ -144,9 +142,6 @@ func (v Version) StringVerbose() string {
 	}
 	if v.Hash != "" {
 		sb.WriteString("Commit: " + v.Hash + "\n")
-	}
-	if v.BuildDate != "" {
-		sb.WriteString("BuildDate: " + v.BuildDate + "\n")
 	}
 	if v.SocatImage != "" {
 		sb.WriteString("SocatImage: " + v.SocatImage + "\n")
