@@ -161,54 +161,195 @@ func TestRoot_CommandNameParameterized(t *testing.T) {
 }
 
 func TestVerbose(t *testing.T) {
-	tests := []struct {
-		name   string
-		args   []string
-		want   string
-		wantLF int
-	}{
-		{
-			name:   "verbose as version's flag",
-			args:   []string{"version", "-v"},
-			want:   "Version: v0.42.0",
-			wantLF: 24,
-		},
-		{
-			name:   "no verbose",
-			args:   []string{"version"},
-			want:   "v0.42.0",
-			wantLF: 1,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			viper.Reset()
-
-			var out bytes.Buffer
-
-			cmd := NewRootCmd(RootCommandConfig{
-				Name: "func",
-				Version: Version{
-					Vers: "v0.42.0",
-					Hash: "cafe",
-					Kver: "v1.10.0",
-				}})
-
-			cmd.SetArgs(tt.args)
-			cmd.SetOut(&out)
-			if err := cmd.Execute(); err != nil {
-				t.Fatal(err)
-			}
-
-			outLines := strings.Split(out.String(), "\n")
-			if len(outLines)-1 != tt.wantLF {
-				t.Errorf("expected output with %v line breaks but got %v:", tt.wantLF, len(outLines)-1)
-			}
-			if outLines[0] != tt.want {
-				t.Errorf("expected output: %q but got: %q", tt.want, outLines[0])
-			}
+	t.Run("no verbose", func(t *testing.T) {
+		viper.Reset()
+		var out bytes.Buffer
+		cmd := NewRootCmd(RootCommandConfig{
+			Name:    "func",
+			Version: Version{Vers: "v0.42.0"},
 		})
-	}
+		cmd.SetArgs([]string{"version"})
+		cmd.SetOut(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.TrimRight(out.String(), "\n"); got != "v0.42.0" {
+			t.Errorf("expected %q but got %q", "v0.42.0", got)
+		}
+	})
+
+	t.Run("verbose includes populated fields", func(t *testing.T) {
+		viper.Reset()
+		var out bytes.Buffer
+		cmd := NewRootCmd(RootCommandConfig{
+			Name: "func",
+			Version: Version{
+				Vers: "v0.42.0",
+				Hash: "cafe",
+				Kver: "v1.10.0",
+			},
+		})
+		cmd.SetArgs([]string{"version", "-v"})
+		cmd.SetOut(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		output := out.String()
+		for _, want := range []string{
+			"Version: v0.42.0",
+			"Knative: v1.10.0",
+			"Commit: cafe",
+		} {
+			if !strings.Contains(output, want) {
+				t.Errorf("expected output to contain %q but got:\n%s", want, output)
+			}
+		}
+	})
+
+	t.Run("verbose omits empty fields", func(t *testing.T) {
+		viper.Reset()
+		var out bytes.Buffer
+		cmd := NewRootCmd(RootCommandConfig{
+			Name: "func",
+			// All fields except Vers are intentionally left empty.
+			Version: Version{Vers: "v0.42.0"},
+		})
+		cmd.SetArgs([]string{"version", "-v"})
+		cmd.SetOut(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		output := out.String()
+		for _, absent := range []string{"Knative:", "Commit:"} {
+			if strings.Contains(output, absent) {
+				t.Errorf("expected output to omit %q but got:\n%s", absent, output)
+			}
+		}
+		if !strings.HasPrefix(output, "Version: v0.42.0\n") {
+			t.Errorf("expected output to start with %q but got:\n%s", "Version: v0.42.0\n", output)
+		}
+	})
+
+	// kver prefix stripped verifies that a Knative version tag with the
+	// "knative-" prefix is stripped correctly for an exact release tag.
+	t.Run("kver prefix stripped exact tag", func(t *testing.T) {
+		v := Version{Vers: "v0.42.0", Kver: "knative-v1.10.0"}
+		output := v.StringVerbose()
+		if !strings.Contains(output, "Knative: v1.10.0") {
+			t.Errorf("expected 'knative-' prefix stripped for exact tag, got:\n%s", output)
+		}
+	})
+
+	// kver prefix stripped also verifies commit-distance suffixes are preserved
+	// (e.g. knative-v1.10.0-5-gabcdef1 → v1.10.0-5-gabcdef1).
+	t.Run("kver prefix stripped with commit distance", func(t *testing.T) {
+		v := Version{Vers: "v0.42.0", Kver: "knative-v1.10.0-5-gabcdef1"}
+		output := v.StringVerbose()
+		if !strings.Contains(output, "Knative: v1.10.0-5-gabcdef1") {
+			t.Errorf("expected 'knative-' prefix stripped with commit distance preserved, got:\n%s", output)
+		}
+	})
+
+	t.Run("output json", func(t *testing.T) {
+		viper.Reset()
+		var out bytes.Buffer
+		cmd := NewRootCmd(RootCommandConfig{
+			Name:    "func",
+			Version: Version{Vers: "v0.42.0"},
+		})
+		cmd.SetArgs([]string{"version", "--output", "json"})
+		cmd.SetOut(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		output := out.String()
+		if !strings.Contains(output, `"version": "v0.42.0"`) {
+			t.Errorf("expected JSON to contain version field, got:\n%s", output)
+		}
+	})
+
+	t.Run("output yaml", func(t *testing.T) {
+		viper.Reset()
+		var out bytes.Buffer
+		cmd := NewRootCmd(RootCommandConfig{
+			Name:    "func",
+			Version: Version{Vers: "v0.42.0"},
+		})
+		cmd.SetArgs([]string{"version", "--output", "yaml"})
+		cmd.SetOut(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), "version: v0.42.0") {
+			t.Errorf("expected YAML to contain version field, got:\n%s", out.String())
+		}
+	})
+
+	t.Run("url unsupported", func(t *testing.T) {
+		v := Version{Vers: "v0.42.0"}
+		var buf bytes.Buffer
+		if err := v.URL(&buf); err == nil {
+			t.Error("expected URL format to return an error, got nil")
+		}
+	})
+
+	// exact output guards against extra blank lines or whitespace being
+	// reintroduced between populated fields.
+	t.Run("verbose exact output", func(t *testing.T) {
+		v := Version{
+			Vers:       "v0.42.0",
+			Kver:       "knative-v1.10.0",
+			Hash:       "cafe",
+			SocatImage: "ghcr.io/knative/func-utils:v2",
+			TarImage:   "ghcr.io/knative/func-utils:v2",
+		}
+		want := "Version: v0.42.0\n" +
+			"Knative: v1.10.0\n" +
+			"Commit: cafe\n" +
+			"SocatImage: ghcr.io/knative/func-utils:v2\n" +
+			"TarImage: ghcr.io/knative/func-utils:v2\n"
+		if got := v.StringVerbose(); got != want {
+			t.Errorf("unexpected verbose output:\nwant:\n%s\ngot:\n%s", want, got)
+		}
+	})
+
+	t.Run("middleware versions omitted when empty", func(t *testing.T) {
+		v := Version{
+			Vers:               "v0.42.0",
+			MiddlewareVersions: MiddlewareVersions{},
+		}
+		output := v.StringVerbose()
+		if strings.Contains(output, "Middleware Versions:") {
+			t.Errorf("expected empty MiddlewareVersions to be omitted, got:\n%s", output)
+		}
+	})
+
+	t.Run("socat and tar images omitted when empty", func(t *testing.T) {
+		v := Version{Vers: "v0.42.0"}
+		output := v.StringVerbose()
+		for _, absent := range []string{"SocatImage:", "TarImage:"} {
+			if strings.Contains(output, absent) {
+				t.Errorf("expected %q to be omitted when empty, got:\n%s", absent, output)
+			}
+		}
+	})
+
+	t.Run("socat and tar images present when populated", func(t *testing.T) {
+		v := Version{
+			Vers:       "v0.42.0",
+			SocatImage: "ghcr.io/knative/func-utils:v2",
+			TarImage:   "ghcr.io/knative/func-utils:v2",
+		}
+		output := v.StringVerbose()
+		for _, want := range []string{
+			"SocatImage: ghcr.io/knative/func-utils:v2",
+			"TarImage: ghcr.io/knative/func-utils:v2",
+		} {
+			if !strings.Contains(output, want) {
+				t.Errorf("expected output to contain %q, got:\n%s", want, output)
+			}
+		}
+	})
 }
 
 // TestRoot_effectivePath ensures that the path method returns the effective path

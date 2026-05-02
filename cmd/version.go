@@ -83,7 +83,8 @@ func runVersion(cmd *cobra.Command, v Version) error {
 		v.Vers = DefaultVersion
 	}
 
-	// Kver, Hash are already set from build
+	// Kver and Hash are already set from build via ldflags,
+	// injected into the Version struct at startup (see pkg/app/app.go).
 	// Populate image fields from k8s package constants
 	v.SocatImage = k8s.SocatImage
 	v.TarImage = k8s.TarImage
@@ -132,38 +133,32 @@ func (v Version) String() string {
 }
 
 // StringVerbose returns the version along with extended version metadata.
+// Fields with empty values are omitted.
 func (v Version) StringVerbose() string {
-	var (
-		vers = v.Vers
-		kver = v.Kver
-		hash = v.Hash
-	)
-	if strings.HasPrefix(kver, "knative-") {
-		kver = strings.Split(kver, "-")[1]
+	var sb strings.Builder
+	sb.WriteString("Version: " + v.Vers + "\n")
+	if v.Kver != "" {
+		sb.WriteString("Knative: " + strings.TrimPrefix(v.Kver, "knative-") + "\n")
 	}
-	// Trim trailing newlines: String methods should return bare content; the
-	// caller is responsible for adding output termination. MiddlewareVersions
-	// appends a "\n" after each line, so the formatted result would otherwise
-	// end with one, producing a double newline when a caller adds its own.
-	return strings.TrimRight(fmt.Sprintf(
-		"Version: %s\n"+
-			"Knative: %s\n"+
-			"Commit: %s\n"+
-			"SocatImage: %s\n"+
-			"TarImage: %s\n"+
-			"Middleware Versions: \n%s",
-		vers,
-		kver,
-		hash,
-		v.SocatImage,
-		v.TarImage,
-		v.MiddlewareVersions), "\n")
+	if v.Hash != "" {
+		sb.WriteString("Commit: " + v.Hash + "\n")
+	}
+	if v.SocatImage != "" {
+		sb.WriteString("SocatImage: " + v.SocatImage + "\n")
+	}
+	if v.TarImage != "" {
+		sb.WriteString("TarImage: " + v.TarImage + "\n")
+	}
+	if mw := v.MiddlewareVersions.String(); mw != "" {
+		sb.WriteString("Middleware Versions:\n" + mw)
+	}
+	return sb.String()
 }
 
 // Human prints version information in human-readable format.
 func (v Version) Human(w io.Writer) error {
 	if v.Verbose {
-		_, err := fmt.Fprintln(w, v.StringVerbose())
+		_, err := fmt.Fprint(w, v.StringVerbose())
 		return err
 	}
 	_, err := fmt.Fprintf(w, "%s\n", v.Vers)
