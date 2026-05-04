@@ -3,6 +3,7 @@ package knative
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
@@ -60,9 +61,18 @@ func validateKubeconfigFile() error {
 		return nil
 	}
 
-	if _, err := os.Stat(kubeconfigPath); os.IsNotExist(err) {
-		return fmt.Errorf("%w: kubeconfig file does not exist at path: %s", fn.ErrInvalidKubeconfig, kubeconfigPath)
+	for _, path := range filepath.SplitList(kubeconfigPath) {
+		if path == "" {
+			continue
+		}
+		_, statErr := os.Stat(path)
+		if statErr == nil {
+			return nil
+		}
+		if !os.IsNotExist(statErr) {
+			return fmt.Errorf("%w: kubeconfig file is not accessible at path: %s", fn.ErrInvalidKubeconfig, path)
+		}
 	}
 
-	return nil
+	return fmt.Errorf("%w: kubeconfig file does not exist at path: %s", fn.ErrInvalidKubeconfig, kubeconfigPath)
 }
