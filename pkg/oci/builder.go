@@ -41,6 +41,25 @@ var defaultIgnored = []string{
 	".gitignore",
 }
 
+// readFuncIgnore reads the .funcignore file from the given root directory
+// and returns its patterns with blank lines and '#' comments removed. A
+// missing or unreadable file returns nil; .funcignore is optional.
+func readFuncIgnore(root string) []string {
+	data, err := os.ReadFile(filepath.Join(root, ".funcignore"))
+	if err != nil {
+		return nil
+	}
+	var patterns []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+	return patterns
+}
+
 var builders = map[string]languageBuilder{
 	"go":     goBuilder{},
 	"python": pythonBuilder{},
@@ -318,7 +337,10 @@ func writeDataLayer(job buildJob) (layer imageLayer, err error) {
 	source := job.function.Root // The source is the function's entire filesystem
 	target := filepath.Join(job.buildDir(), "datalayer.tar.gz")
 
-	if err = newDataTarball(source, target, defaultIgnored, job.verbose); err != nil {
+	ignored := append([]string{}, defaultIgnored...)
+	ignored = append(ignored, readFuncIgnore(source)...)
+
+	if err = newDataTarball(source, target, ignored, job.verbose); err != nil {
 		return
 	}
 
@@ -359,9 +381,26 @@ func newDataTarball(root, target string, ignored []string, verbose bool) error {
 			return err
 		}
 
-		// Skip files explicitly ignored
+		relPath, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+
+		// Skip files explicitly ignored. Two pattern forms are supported:
+		//   "/foo/bar" — root-relative; matches that exact path and
+		//                everything beneath it.
+		//   "foo"     — base-name; matches any entry named "foo" at any
+		//                depth (the historical default).
 		for _, v := range ignored {
-			if info.Name() == v {
+			match := false
+			if strings.HasPrefix(v, "/") {
+				p := v[1:]
+				r := filepath.ToSlash(relPath)
+				match = r == p || strings.HasPrefix(r, p+"/")
+			} else {
+				match = info.Name() == v
+			}
+			if match {
 				if info.IsDir() {
 					return filepath.SkipDir
 				}
@@ -381,10 +420,6 @@ func newDataTarball(root, target string, ignored []string, verbose bool) error {
 			return err
 		}
 
-		relPath, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
 		header.Name = slashpath.Join("/func", filepath.ToSlash(relPath))
 		header.Uid = DefaultUid
 		header.Gid = DefaultGid

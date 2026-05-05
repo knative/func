@@ -469,6 +469,114 @@ func (l *TestLanguageBuilder) Configure(job buildJob, p v1.Platform, c v1.Config
 	return l.ConfigureFn(job, p, c)
 }
 
+// Test_readFuncIgnore ensures that the .funcignore file is parsed correctly,
+// skipping comments and blank lines.
+func Test_readFuncIgnore(t *testing.T) {
+	root := t.TempDir()
+
+	content := `
+# Comment
+/design
+/archive
+.jj
+`
+	if err := os.WriteFile(filepath.Join(root, ".funcignore"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	patterns := readFuncIgnore(root)
+	expected := []string{"/design", "/archive", ".jj"}
+
+	if diff := cmp.Diff(expected, patterns); diff != "" {
+		t.Error("patterns differ (-want, +got):", diff)
+	}
+}
+
+// Test_readFuncIgnore_missing ensures that a missing .funcignore returns nil.
+func Test_readFuncIgnore_missing(t *testing.T) {
+	root := t.TempDir()
+
+	patterns := readFuncIgnore(root)
+	if patterns != nil {
+		t.Fatalf("expected nil, got %v", patterns)
+	}
+}
+
+// Test_newDataTarball_funcIgnore ensures that directories listed in
+// .funcignore are excluded from the data tarball, even if they contain
+// absolute symlinks that would otherwise cause an error.
+func Test_newDataTarball_funcIgnore(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink tests not supported on windows")
+	}
+
+	root := t.TempDir()
+
+	// Create a normal file
+	if err := os.WriteFile(filepath.Join(root, "a.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a directory with an absolute symlink (like .jj would have)
+	jjDir := filepath.Join(root, ".jj")
+	if err := os.MkdirAll(filepath.Join(jjDir, "repo"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/var/absolute/target", filepath.Join(jjDir, "repo", "config-id")); err != nil {
+		t.Fatal(err)
+	}
+
+	// Without funcignore, the build should fail due to absolute symlink
+	target := filepath.Join(root, "test-fail.tar.gz")
+	err := newDataTarball(root, target, defaultIgnored, false)
+	if err == nil {
+		t.Fatal("expected error for absolute symlink without funcignore")
+	}
+
+	// With /.jj in the ignored list (as read from .funcignore), it should succeed
+	ignored := append([]string{}, defaultIgnored...)
+	ignored = append(ignored, "/.jj")
+
+	target = filepath.Join(root, "test-pass.tar.gz")
+	if err := newDataTarball(root, target, ignored, false); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify a.txt is in the tarball but .jj is not
+	f, err := os.Open(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	gr, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gr.Close()
+
+	tr := tar.NewReader(gr)
+	foundA := false
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			t.Fatal(err)
+		}
+		if hdr.Name == "/func/a.txt" {
+			foundA = true
+		}
+		if strings.Contains(hdr.Name, ".jj") {
+			t.Fatalf(".jj should be excluded but found: %v", hdr.Name)
+		}
+	}
+	if !foundA {
+		t.Fatal("a.txt not found in tarball")
+	}
+}
+
 // Test_validatedLinkTarget ensures that the function disallows
 // links which are absolute or refer to targets outside the given root, in
 // addition to the basic job of returning the value of reading the link.
