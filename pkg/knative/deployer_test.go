@@ -150,7 +150,7 @@ func TestCheckPullPermissions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = checkPullPermissions(t.Context(), tt.core, trans, tt.image, "default")
+			err = checkPullPermissions(t.Context(), tt.core, trans, tt.image, "default", "")
 			p := tt.errPred
 			if p == nil {
 				p = func(err error) bool {
@@ -163,6 +163,50 @@ func TestCheckPullPermissions(t *testing.T) {
 		})
 	}
 
+}
+
+func TestCheckPullPermissions_FunctionImagePullSecret(t *testing.T) {
+	secretA := createSecret(securedRegistry,
+		username, password,
+		corev1.SecretTypeDockerConfigJson,
+	)
+
+	trans := setupRegistry(t)
+
+	t.Run("function-level secret with correct credentials", func(t *testing.T) {
+		// The secret is registered in the cluster but NOT on the ServiceAccount.
+		// It's provided as a function-level image pull secret.
+		sa := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "default"},
+		}
+		coreClient := fake.NewClientset(sa, secretA).CoreV1()
+
+		err := checkPullPermissions(t.Context(), coreClient, trans, securedImage, "default", secretA.Name)
+		if err != nil {
+			t.Errorf("expected no error with valid function-level pull secret, got: %v", err)
+		}
+	})
+
+	t.Run("function-level secret with incorrect credentials", func(t *testing.T) {
+		badSecret := createSecret(securedRegistry, username, "wrong-password", corev1.SecretTypeDockerConfigJson)
+		sa := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "default"},
+		}
+		coreClient := fake.NewClientset(sa, badSecret).CoreV1()
+
+		err := checkPullPermissions(t.Context(), coreClient, trans, securedImage, "default", badSecret.Name)
+		if !errors.Is(err, errOnlyIncorrectPullSecretFound) {
+			t.Errorf("expected errOnlyIncorrectPullSecretFound, got: %v", err)
+		}
+	})
+
+	t.Run("no function-level secret falls back to SA", func(t *testing.T) {
+		coreClient := core(secretA)
+		err := checkPullPermissions(t.Context(), coreClient, trans, securedImage, "default", "")
+		if err != nil {
+			t.Errorf("expected no error when SA has valid pull secret, got: %v", err)
+		}
+	})
 }
 
 var secretCounter int32

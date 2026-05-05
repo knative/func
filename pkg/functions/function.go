@@ -218,6 +218,11 @@ type DeploySpec struct {
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	ServiceAccountName string `yaml:"serviceAccountName,omitempty"`
 
+	// ImagePullSecret is the name of a Secret in the same namespace used
+	// for pulling the function's container image from a private registry.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+	ImagePullSecret string `yaml:"imagePullSecret,omitempty"`
+
 	// Deployer specifies the type of deployment to use: "knative", "raw" or "keda"
 	// Defaults to "knative" for backwards compatibility
 	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw,enum=keda"`

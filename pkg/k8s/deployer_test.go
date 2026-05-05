@@ -90,6 +90,64 @@ func Test_processValue(t *testing.T) {
 	}
 }
 
+func Test_ImagePullSecrets(t *testing.T) {
+	t.Run("empty secret returns nil", func(t *testing.T) {
+		refs := ImagePullSecrets("")
+		if refs != nil {
+			t.Errorf("expected nil, got %v", refs)
+		}
+	})
+
+	t.Run("non-empty secret returns single reference", func(t *testing.T) {
+		refs := ImagePullSecrets("my-secret")
+		if len(refs) != 1 {
+			t.Fatalf("expected 1 reference, got %d", len(refs))
+		}
+		if refs[0].Name != "my-secret" {
+			t.Errorf("expected name 'my-secret', got '%s'", refs[0].Name)
+		}
+	})
+}
+
+func Test_generateDeployment_ImagePullSecret(t *testing.T) {
+	d := &Deployer{}
+
+	t.Run("with image pull secret", func(t *testing.T) {
+		f := fn.Function{
+			Name: "test-func",
+			Deploy: fn.DeploySpec{
+				Image:           "registry.example.com/test:latest",
+				ImagePullSecret: "my-registry-secret",
+			},
+		}
+		deployment, err := d.generateDeployment(f, "default", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		secrets := deployment.Spec.Template.Spec.ImagePullSecrets
+		if len(secrets) != 1 || secrets[0].Name != "my-registry-secret" {
+			t.Errorf("expected ImagePullSecrets [{my-registry-secret}], got %v", secrets)
+		}
+	})
+
+	t.Run("without image pull secret", func(t *testing.T) {
+		f := fn.Function{
+			Name: "test-func",
+			Deploy: fn.DeploySpec{
+				Image: "registry.example.com/test:latest",
+			},
+		}
+		deployment, err := d.generateDeployment(f, "default", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		secrets := deployment.Spec.Template.Spec.ImagePullSecrets
+		if secrets != nil {
+			t.Errorf("expected no ImagePullSecrets, got %v", secrets)
+		}
+	})
+}
+
 // Tests for generateTriggerName
 
 func TestGenerateTriggerName_Deterministic(t *testing.T) {

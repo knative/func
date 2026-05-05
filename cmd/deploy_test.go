@@ -1831,6 +1831,87 @@ func TestDeploy_UnsetFlag(t *testing.T) {
 	}
 }
 
+// TestDeploy_ImagePullSecret ensures that the --image-pull-secret flag
+// persists to func.yaml and can be cleared with an empty value.
+func TestDeploy_ImagePullSecret(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy with an image pull secret
+	cmd := NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--image-pull-secret=my-registry-secret"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.ImagePullSecret != "my-registry-secret" {
+		t.Fatalf("expected imagePullSecret 'my-registry-secret', got '%v'", f.Deploy.ImagePullSecret)
+	}
+
+	// Deploy again without the flag — value should be retained
+	cmd = NewDeployCmd(NewTestClient())
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.ImagePullSecret != "my-registry-secret" {
+		t.Fatalf("expected imagePullSecret to be retained, got '%v'", f.Deploy.ImagePullSecret)
+	}
+
+	// Deploy with empty value to clear it
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--image-pull-secret="})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.ImagePullSecret != "" {
+		t.Fatalf("expected imagePullSecret to be cleared, got '%v'", f.Deploy.ImagePullSecret)
+	}
+}
+
+// TestDeploy_ImagePullSecretFromEnv ensures FUNC_IMAGE_PULL_SECRET is respected.
+func TestDeploy_ImagePullSecretFromEnv(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("FUNC_IMAGE_PULL_SECRET", "env-secret")
+	cmd := NewDeployCmd(NewTestClient())
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.ImagePullSecret != "env-secret" {
+		t.Fatalf("expected imagePullSecret 'env-secret' from env, got '%v'", f.Deploy.ImagePullSecret)
+	}
+}
+
 // Test_ValidateBuilder tests that the builder validation accepts the
 // set of known builders, and spot-checks an error is thrown for unknown.
 func Test_ValidateBuilder(t *testing.T) {
