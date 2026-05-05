@@ -35,6 +35,10 @@ type SyncConfig struct {
 	RegistryCredentials *RegistryCredentials
 }
 
+// ensureRegistrySecret creates or updates a docker-registry Secret.
+// Defaults to k8s.EnsureDockerRegistrySecretExist; overridden in tests.
+var ensureRegistrySecret = k8s.EnsureDockerRegistrySecretExist
+
 // SyncFunctionCR creates or updates a Function CR for the given function.
 // It sets up Kubernetes clients, checks if the Function CRD exists on the
 // cluster, and creates or updates the CR accordingly.
@@ -50,7 +54,9 @@ func SyncFunctionCR(ctx context.Context, cfg SyncConfig) error {
 	}
 
 	scheme := runtime.NewScheme()
-	v1alpha1.AddToScheme(scheme)
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("registering Function scheme: %w", err)
+	}
 
 	cl, err := ctrlclient.New(restCfg, ctrlclient.Options{Scheme: scheme})
 	if err != nil {
@@ -78,7 +84,7 @@ func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.Di
 	var registrySecretRef *v1.LocalObjectReference
 	if cfg.RegistryCredentials != nil {
 		secretName := cfg.FunctionName + "-registry-auth"
-		if err := k8s.EnsureDockerRegistrySecretExist(ctx, secretName, cfg.Namespace, nil, nil,
+		if err := ensureRegistrySecret(ctx, secretName, cfg.Namespace, nil, nil,
 			cfg.RegistryCredentials.Username, cfg.RegistryCredentials.Password, cfg.RegistryCredentials.Server); err != nil {
 			return fmt.Errorf("creating registry secret: %w", err)
 		}

@@ -3,10 +3,12 @@ package git
 import (
 	"os"
 	"testing"
+	"time"
 
 	gogit "github.com/go-git/go-git/v5"
 	gogitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 func TestResolveRemoteURL_OriginRemote(t *testing.T) {
@@ -67,7 +69,9 @@ func TestResolveRemoteURL_TrackingRemote(t *testing.T) {
 	if _, err = wt.Add("README.md"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = wt.Commit("initial", &gogit.CommitOptions{}); err != nil {
+	if _, err = wt.Commit("initial", &gogit.CommitOptions{
+		Author: &object.Signature{Name: "test", Email: "test@test.com", When: time.Now()},
+	}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -208,7 +212,9 @@ func TestResolveBranch_CurrentBranch(t *testing.T) {
 	if _, err = wt.Add("README.md"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = wt.Commit("initial", &gogit.CommitOptions{}); err != nil {
+	if _, err = wt.Commit("initial", &gogit.CommitOptions{
+		Author: &object.Signature{Name: "test", Email: "test@test.com", When: time.Now()},
+	}); err != nil {
 		t.Fatal(err)
 	}
 

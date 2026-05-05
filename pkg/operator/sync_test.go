@@ -203,6 +203,12 @@ func TestSyncFunctionCR_NoCRD_SkipSilently(t *testing.T) {
 }
 
 func TestSyncFunctionCR_WithRegistryCredentials(t *testing.T) {
+	original := ensureRegistrySecret
+	ensureRegistrySecret = func(_ context.Context, _, _ string, _, _ map[string]string, _, _, _ string) error {
+		return nil
+	}
+	t.Cleanup(func() { ensureRegistrySecret = original })
+
 	scheme := newScheme()
 	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 	disc := fakeDiscoveryWithCRD()
