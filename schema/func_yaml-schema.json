@@ -107,6 +107,10 @@
 					"type": "string",
 					"description": "ServiceAccountName is the name of the service account used for the\nfunction pod. The service account must exist in the namespace to\nsucceed.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/"
 				},
+				"imagePullSecret": {
+					"type": "string",
+					"description": "ImagePullSecret is the name of a Secret in the same namespace used\nfor pulling the function's container image from a private registry.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/"
+				},
 				"deployer": {
 					"enum": [
 						"knative",

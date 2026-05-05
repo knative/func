@@ -432,6 +432,7 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInsta
 				Spec: corev1.PodSpec{
 					Containers:         []corev1.Container{container},
 					ServiceAccountName: f.Deploy.ServiceAccountName,
+					ImagePullSecrets:   ImagePullSecrets(f.Deploy.ImagePullSecret),
 					Volumes:            volumes,
 				},
 			},
@@ -478,7 +479,7 @@ func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalle
 
 // CheckResourcesArePresent returns error if Secrets or ConfigMaps
 // referenced in input sets are not deployed on the cluster in the specified namespace
-func CheckResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount string) error {
+func CheckResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount, imagePullSecret string) error {
 	errMsg := ""
 	for s := range *referencedSecrets {
 		_, err := GetSecret(ctx, s, namespace)
@@ -513,11 +514,27 @@ func CheckResourcesArePresent(ctx context.Context, namespace string, referencedS
 		}
 	}
 
+	if imagePullSecret != "" {
+		_, err := GetSecret(ctx, imagePullSecret, namespace)
+		if err != nil {
+			errMsg += fmt.Sprintf("  referenced image pull Secret \"%s\" is not present in namespace \"%s\"\n", imagePullSecret, namespace)
+		}
+	}
+
 	if errMsg != "" {
 		return fmt.Errorf("error(s) while validating resources:\n%s", errMsg)
 	}
 
 	return nil
+}
+
+// ImagePullSecrets converts a secret name to a slice of LocalObjectReference
+// suitable for use in a PodSpec. Returns nil if the name is empty.
+func ImagePullSecrets(secret string) []corev1.LocalObjectReference {
+	if secret == "" {
+		return nil
+	}
+	return []corev1.LocalObjectReference{{Name: secret}}
 }
 
 // SetHealthEndpoints configures health probes for a container

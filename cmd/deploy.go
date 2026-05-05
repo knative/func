@@ -131,10 +131,10 @@ EXAMPLES
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
 			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
-			"git-url", "image", "namespace", "path", "platform", "push", "pvc-size",
-			"service-account", "deployer", "registry", "registry-insecure",
-			"registry-authfile", "remote", "username", "password", "token", "verbose",
-			"remote-storage-class"),
+			"git-url", "image", "image-pull-secret", "namespace", "path", "platform",
+			"push", "pvc-size", "service-account", "deployer", "registry",
+			"registry-insecure", "registry-authfile", "remote", "username", "password",
+			"token", "verbose", "remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -195,6 +195,8 @@ EXAMPLES
 		"When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)")
 	cmd.Flags().String("service-account", f.Deploy.ServiceAccountName,
 		"Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)")
+	cmd.Flags().String("image-pull-secret", f.Deploy.ImagePullSecret,
+		"Image pull secret to use when the function's image is in a private registry ($FUNC_IMAGE_PULL_SECRET)")
 	cmd.Flags().String("deployer", f.Deploy.Deployer,
 		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service (default), '%s' for Kubernetes Deployment or '%s' for Deployment with a Keda HTTP scaler ($FUNC_DEPLOY_TYPE)", knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName))
 	// Static Flags:
@@ -527,6 +529,9 @@ type deployConfig struct {
 	//Service account to be used in deployed function
 	ServiceAccountName string
 
+	// ImagePullSecret is the name of a secret for pulling the function image
+	ImagePullSecret string
+
 	// Deployer specifies the type of deployment: "knative" or "raw"
 	Deployer string
 
@@ -563,6 +568,7 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		PVCSize:            viper.GetString("pvc-size"),
 		Timestamp:          viper.GetBool("build-timestamp"),
 		ServiceAccountName: viper.GetString("service-account"),
+		ImagePullSecret:    viper.GetString("image-pull-secret"),
 		Deployer:           viper.GetString("deployer"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
@@ -598,6 +604,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
 	f.Build.RemoteStorageClass = c.RemoteStorageClass
 	f.Deploy.ServiceAccountName = c.ServiceAccountName
+	f.Deploy.ImagePullSecret = c.ImagePullSecret
 	f.Deploy.Deployer = c.Deployer
 	f.Local.Remote = c.Remote
 

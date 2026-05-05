@@ -173,12 +173,14 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	defer func(t fnhttp.RoundTripCloser) {
 		_ = t.Close()
 	}(t)
-	if err = checkPullPermissions(ctx, k8sClient.CoreV1(), t, f.Deploy.Image, namespace); err != nil {
+	if err = checkPullPermissions(ctx, k8sClient.CoreV1(), t, f.Deploy.Image, namespace, f.Deploy.ImagePullSecret); err != nil {
 		msg := fmt.Sprintf("warning: error while checking pull secrets: %v", err)
 		switch {
 		case stdErrors.Is(err, errPullSecretNotFound):
 			msg = `warning: pull secrets not detected, the cluster **may** fail to pull the image
-consider setting up the pull secrets and linking it to the default service account, sample setup:
+consider using the --image-pull-secret flag, or setting up pull secrets manually:
+  $ func deploy --image-pull-secret <SECRET_NAME>
+  or:
   $ kubectl create secret docker-registry sample-secret --docker-server <REG> --docker-username <UNAME> --docker-password <PWD>
   $ kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "sample-secret"}]}'`
 		case stdErrors.Is(err, errOnlyIncorrectPullSecretFound):
@@ -215,7 +217,7 @@ consider setting up the pull secrets and linking it to the default service accou
 				return fn.DeploymentResult{}, err
 			}
 
-			err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
+			err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -317,7 +319,7 @@ consider setting up the pull secrets and linking it to the default service accou
 			return fn.DeploymentResult{}, err
 		}
 
-		err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
+		err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -469,6 +471,7 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 								container,
 							},
 							ServiceAccountName: f.Deploy.ServiceAccountName,
+							ImagePullSecrets:   k8s.ImagePullSecrets(f.Deploy.ImagePullSecret),
 							Volumes:            newVolumes,
 						},
 					},
@@ -559,6 +562,7 @@ func updateService(f fn.Function, previousService *servingv1.Service, newEnv []c
 		cp.VolumeMounts = newVolumeMounts
 		service.Spec.Template.Spec.Volumes = newVolumes
 		service.Spec.Template.Spec.ServiceAccountName = f.Deploy.ServiceAccountName
+		service.Spec.Template.Spec.ImagePullSecrets = k8s.ImagePullSecrets(f.Deploy.ImagePullSecret)
 		return service, nil
 	}
 }
@@ -664,7 +668,7 @@ func UsesKnativeDeployer(annotations map[string]string) bool {
 	return !ok || deployer == KnativeDeployerName
 }
 
-func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans http.RoundTripper, img, ns string) error {
+func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans http.RoundTripper, img, ns, imagePullSecret string) error {
 	ref, err := name.ParseReference(img)
 	if err != nil {
 		return fmt.Errorf("failed to parse image %q: %w", img, err)
@@ -679,11 +683,35 @@ func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans ht
 		return err
 	}
 
+	var incorrectCredentialsFound bool
+
+	// check function-level image pull secret first
+	if imagePullSecret != "" {
+		sc, err := core.Secrets(ns).Get(ctx, imagePullSecret, metav1.GetOptions{})
+		if err == nil {
+			cf, err := secretToConfigFile(sc)
+			if err == nil {
+				_, err = remote.Head(ref,
+					remote.WithContext(ctx),
+					remote.WithTransport(trans),
+					remote.WithAuthFromKeychain(configFileKeychain{cf: cf}),
+				)
+				if err == nil {
+					return nil
+				}
+				if !isUnauthorized(err) && !stdErrors.Is(err, errPullSecretNotFound) {
+					return err
+				}
+				incorrectCredentialsFound = true
+			}
+		}
+	}
+
+	// fall back to default ServiceAccount's image pull secrets
 	sa, err := core.ServiceAccounts(ns).Get(ctx, "default", metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get default ServiceAccount: %w", err)
 	}
-	var incorrectCredentialsFound bool
 	for _, secret := range sa.ImagePullSecrets {
 		sc, err := core.Secrets(ns).Get(ctx, secret.Name, metav1.GetOptions{})
 		if err != nil {
