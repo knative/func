@@ -30,11 +30,10 @@ func TestTool_Delete_Readonly(t *testing.T) {
 // TestTool_Delete_BothPathAndName ensures the delete tool returns a validation error
 // when both path and name are provided simultaneously.
 func TestTool_Delete_BothPathAndName(t *testing.T) {
-	client, server, err := newTestPair(t)
+	client, _, err := newTestPair(t)
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.readonly = false
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "delete",
@@ -54,11 +53,10 @@ func TestTool_Delete_BothPathAndName(t *testing.T) {
 // TestTool_Delete_NeitherPathNorName ensures the delete tool returns a validation error
 // when neither path nor name is provided.
 func TestTool_Delete_NeitherPathNorName(t *testing.T) {
-	client, server, err := newTestPair(t)
+	client, _, err := newTestPair(t)
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.readonly = false
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "delete",
