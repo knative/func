@@ -114,7 +114,7 @@ func New(options ...Option) *Server {
 	// Help
 	// A resource for each command which returns its help
 	// eg. "config volumes add" -> "func://help/config/volumes/add")
-	i.AddResource(newHelpResource(s, "Help", "help for the command root", ""))
+	i.AddResource(newHelpResource(s, "Help", "help for the command root"))
 	i.AddResource(newHelpResource(s, "Create Help", "help for 'create'", "create"))
 	i.AddResource(newHelpResource(s, "Build Help", "help for 'build'", "build"))
 	i.AddResource(newHelpResource(s, "Deploy Help", "help for 'deploy'", "deploy"))
@@ -151,12 +151,19 @@ type defaultExecutor struct {
 }
 
 func (e defaultExecutor) Execute(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-	// Parse prefix: "func" or "kn func" -> ["func"] or ["kn", "func"]
-	cmdParts := strings.Fields(e.s.prefix)
-	cmdParts = append(cmdParts, subcommand)
-	cmdParts = append(cmdParts, args...)
-
+	cmdParts := buildArgs(e.s.prefix, subcommand, args)
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
 	// cmd.Dir not set - inherits process working directory which is the current working directory
 	return cmd.CombinedOutput()
+}
+
+// buildArgs constructs the ordered argument list for execution.
+// An empty subcommand is omitted so that commands like "func --help" are
+// built correctly rather than "func  --help" with a spurious empty argument.
+func buildArgs(prefix, subcommand string, args []string) []string {
+	parts := strings.Fields(prefix)
+	if subcommand != "" {
+		parts = append(parts, subcommand)
+	}
+	return append(parts, args...)
 }
