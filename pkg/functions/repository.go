@@ -466,7 +466,16 @@ func credentialsForURL(rawURL string) transport.AuthMethod {
 //
 //	https://user:password@host
 //
-// The first line whose scheme and hostname match u wins.
+// Matching rules (mirrors git's own credential matching with one relaxation):
+//   - Hostname must match exactly.
+//   - Port must match. Implicit default ports (80 for http, 443 for https) are
+//     normalised to empty so that http://example.com credentials work for
+//     https://example.com (and vice-versa), but http://example.com:8080 does
+//     NOT match http://example.com.
+//   - Scheme is intentionally not checked: http:// and https:// are treated as
+//     interchangeable for BasicAuth purposes.
+//
+// The first matching entry wins.
 func credentialsFromGitStore(u *url.URL) transport.AuthMethod {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -476,13 +485,20 @@ func credentialsFromGitStore(u *url.URL) transport.AuthMethod {
 	if err != nil {
 		return nil
 	}
+	targetPort := gitCredentialPort(u)
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 		entry, err := url.Parse(line)
-		if err != nil || entry.Scheme != u.Scheme || entry.Hostname() != u.Hostname() {
+		if err != nil {
+			continue
+		}
+		if entry.Hostname() != u.Hostname() {
+			continue
+		}
+		if gitCredentialPort(entry) != targetPort {
 			continue
 		}
 		if entry.User == nil {
@@ -496,6 +512,19 @@ func credentialsFromGitStore(u *url.URL) transport.AuthMethod {
 		return &githttp.BasicAuth{Username: username, Password: password}
 	}
 	return nil
+}
+
+// gitCredentialPort returns the canonical port string for credential matching.
+// Ports 80 and 443 (the implicit defaults for http and https) are normalised
+// to the empty string so that http://example.com and https://example.com are
+// considered the same "address" for BasicAuth purposes, while an explicit
+// non-standard port like :8080 is preserved and must match exactly.
+func gitCredentialPort(u *url.URL) string {
+	p := u.Port()
+	if p == "80" || p == "443" {
+		return ""
+	}
+	return p
 }
 
 // credentialsFromNetRC reads ~/.netrc and returns credentials for the host in u.

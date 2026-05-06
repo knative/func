@@ -135,6 +135,112 @@ func TestCredentialsForURL_NetRC(t *testing.T) {
 	}
 }
 
+// TestCredentialsForURL_CrossScheme verifies that a credential stored under
+// http:// is returned when the request URL uses https://, and vice-versa.
+// This mirrors git's own behaviour: scheme is not part of the host identity
+// for BasicAuth purposes.
+func TestCredentialsForURL_CrossScheme(t *testing.T) {
+	tests := []struct {
+		name       string
+		storedURL  string
+		requestURL string
+	}{
+		{
+			name:       "http credential matches https request",
+			storedURL:  "http://alice:s3cr3t@example.com",
+			requestURL: "https://example.com/org/repo",
+		},
+		{
+			name:       "https credential matches http request",
+			storedURL:  "https://alice:s3cr3t@example.com",
+			requestURL: "http://example.com/org/repo",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setupGitCredentialStore(t, tc.storedURL)
+			auth := credentialsForURL(tc.requestURL)
+			if auth == nil {
+				t.Fatalf("expected non-nil AuthMethod for cross-scheme match, got nil")
+			}
+			basic, ok := auth.(*githttp.BasicAuth)
+			if !ok {
+				t.Fatalf("expected *githttp.BasicAuth, got %T", auth)
+			}
+			if basic.Username != "alice" {
+				t.Errorf("username: want %q, got %q", "alice", basic.Username)
+			}
+		})
+	}
+}
+
+// TestCredentialsForURL_PortMismatch verifies that a credential with an
+// explicit non-standard port does NOT match a URL on a different port.
+// http://example.com:8080 must not satisfy a request to http://example.com.
+func TestCredentialsForURL_PortMismatch(t *testing.T) {
+	setupGitCredentialStore(t, "http://alice:s3cr3t@example.com:8080")
+
+	auth := credentialsForURL("http://example.com/repo")
+	if auth != nil {
+		t.Fatalf("expected nil AuthMethod for port mismatch, got %v", auth)
+	}
+}
+
+// TestCredentialsForURL_PortMatch verifies that a credential with an explicit
+// non-standard port matches a request URL with the same port.
+func TestCredentialsForURL_PortMatch(t *testing.T) {
+	setupGitCredentialStore(t, "https://alice:s3cr3t@example.com:8443")
+
+	auth := credentialsForURL("https://example.com:8443/repo")
+	if auth == nil {
+		t.Fatal("expected non-nil AuthMethod for matching custom port, got nil")
+	}
+	basic, ok := auth.(*githttp.BasicAuth)
+	if !ok {
+		t.Fatalf("expected *githttp.BasicAuth, got %T", auth)
+	}
+	if basic.Username != "alice" {
+		t.Errorf("username: want %q, got %q", "alice", basic.Username)
+	}
+}
+
+// TestCredentialsForURL_ImplicitPortsAreEquivalent verifies that the implicit
+// default ports (80 for http, 443 for https) are treated as equivalent to no
+// port at all, so http://example.com and https://example.com:443 match the
+// same credential entry.
+func TestCredentialsForURL_ImplicitPortsAreEquivalent(t *testing.T) {
+	tests := []struct {
+		name       string
+		storedURL  string
+		requestURL string
+	}{
+		{
+			name:       "stored port 443 matches https no-port request",
+			storedURL:  "https://alice:s3cr3t@example.com:443",
+			requestURL: "https://example.com/repo",
+		},
+		{
+			name:       "stored port 80 matches http no-port request",
+			storedURL:  "http://alice:s3cr3t@example.com:80",
+			requestURL: "http://example.com/repo",
+		},
+		{
+			name:       "stored no-port matches request with explicit port 443",
+			storedURL:  "https://alice:s3cr3t@example.com",
+			requestURL: "https://example.com:443/repo",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setupGitCredentialStore(t, tc.storedURL)
+			auth := credentialsForURL(tc.requestURL)
+			if auth == nil {
+				t.Fatalf("expected non-nil AuthMethod for implicit-port equivalence, got nil")
+			}
+		})
+	}
+}
+
 // TestIsAuthError verifies the sentinel value detection used for retry logic.
 func TestIsAuthError(t *testing.T) {
 	tests := []struct {
