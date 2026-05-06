@@ -8,12 +8,12 @@ import (
 	"sync/atomic"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"knative.dev/func/pkg/version"
 )
 
 const (
-	name    = "func"
-	title   = "func"
-	version = "0.1.0"
+	name  = "func"
+	title = "func"
 )
 
 // NOTE: Invoking prompts in some interfaces (such as Claude Code) when all
@@ -87,11 +87,16 @@ func New(options ...Option) *Server {
 		o(s)
 	}
 
+	vers := version.Vers
+	if vers == "" {
+		vers = "0.0.0+source"
+	}
+
 	i := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    name,
 			Title:   title,
-			Version: version},
+			Version: vers},
 		&mcp.ServerOptions{
 			Instructions:       instructions(s.readonly.Load()),
 			HasPrompts:         true,
