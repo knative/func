@@ -8,6 +8,25 @@ import (
 	"knative.dev/func/pkg/mcp/mock"
 )
 
+// TestTool_Deploy_Readonly ensures the deploy tool returns an error when the server is in readonly mode.
+func TestTool_Deploy_Readonly(t *testing.T) {
+	client, _, err := newTestPairWithReadonly(t, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "deploy",
+		Arguments: map[string]any{"path": "."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for readonly server, got success")
+	}
+}
+
 // TestTool_Deploy_Args ensures the deploy tool executes with all arguments passed correctly.
 func TestTool_Deploy_Args(t *testing.T) {
 	// Test data - defined once and used for both input and validation

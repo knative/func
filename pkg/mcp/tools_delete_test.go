@@ -8,6 +8,70 @@ import (
 	"knative.dev/func/pkg/mcp/mock"
 )
 
+// TestTool_Delete_Readonly ensures the delete tool returns an error when the server is in readonly mode.
+func TestTool_Delete_Readonly(t *testing.T) {
+	client, _, err := newTestPairWithReadonly(t, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "delete",
+		Arguments: map[string]any{"name": "my-function"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for readonly server, got success")
+	}
+}
+
+// TestTool_Delete_BothPathAndName ensures the delete tool returns a validation error
+// when both path and name are provided simultaneously.
+func TestTool_Delete_BothPathAndName(t *testing.T) {
+	client, server, err := newTestPair(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly = false
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "delete",
+		Arguments: map[string]any{
+			"path": "/some/path",
+			"name": "my-function",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when both path and name are provided, got success")
+	}
+}
+
+// TestTool_Delete_NeitherPathNorName ensures the delete tool returns a validation error
+// when neither path nor name is provided.
+func TestTool_Delete_NeitherPathNorName(t *testing.T) {
+	client, server, err := newTestPair(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly = false
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "delete",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when neither path nor name is provided, got success")
+	}
+}
+
 // TestTool_Delete_Args ensures the delete tool executes with all arguments passed correctly.
 func TestTool_Delete_Args(t *testing.T) {
 	// Test data - defined once and used for both input and validation
