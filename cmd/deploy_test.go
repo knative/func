@@ -1912,6 +1912,50 @@ func TestDeploy_ImagePullSecretFromEnv(t *testing.T) {
 	}
 }
 
+// TestDeploy_ImagePullSecretRemote ensures that when deploying remotely,
+// func.yaml is written to disk before the pipeline starts, so the on-cluster
+// deploy step picks up the --image-pull-secret value.
+func TestDeploy_ImagePullSecretRemote(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pipelinesProvider := mock.NewPipelinesProvider()
+	pipelinesProvider.RunFn = func(f fn.Function) (string, fn.Function, error) {
+		// Inside the pipeline Run, func.yaml on disk should already
+		// have the image pull secret written.
+		diskFn, err := fn.NewFunction(root)
+		if err != nil {
+			t.Fatalf("failed to load func.yaml during pipeline Run: %v", err)
+		}
+		if diskFn.Deploy.ImagePullSecret != "my-remote-secret" {
+			t.Fatalf("expected func.yaml on disk to have imagePullSecret 'my-remote-secret', got '%v'", diskFn.Deploy.ImagePullSecret)
+		}
+		f.Deploy.Namespace = "default"
+		if f.Deploy.Image, err = f.ImageName(); err != nil {
+			return "", f, err
+		}
+		return "", f, nil
+	}
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithPipelinesProvider(pipelinesProvider),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--remote", "--image-pull-secret=my-remote-secret", "--namespace=default"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !pipelinesProvider.RunInvoked {
+		t.Fatal("expected pipeline Run to be invoked")
+	}
+}
+
 // Test_ValidateBuilder tests that the builder validation accepts the
 // set of known builders, and spot-checks an error is thrown for unknown.
 func Test_ValidateBuilder(t *testing.T) {
