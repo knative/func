@@ -122,15 +122,15 @@ func New(options ...Option) *Server {
 
 	i.AddResource(newHelpResource(s, "Volumes Help", "general help for volumes", "config", "volumes"))
 	i.AddResource(newHelpResource(s, "Volumes Add Help", "help for 'config volumes add'", "config", "volumes", "add"))
-	i.AddResource(newHelpResource(s, "Volumes Remove Help", "help for 'config volumes remove'", "list", "volumes", "remove"))
+	i.AddResource(newHelpResource(s, "Volumes Remove Help", "help for 'config volumes remove'", "config", "volumes", "remove"))
 
 	i.AddResource(newHelpResource(s, "Labels Help", "general help for labels", "config", "labels"))
 	i.AddResource(newHelpResource(s, "Labels Add Help", "help for 'config labels add'", "config", "labels", "add"))
-	i.AddResource(newHelpResource(s, "Labels Remove Help", "help for 'config labels remove'", "list", "labels", "remove"))
+	i.AddResource(newHelpResource(s, "Labels Remove Help", "help for 'config labels remove'", "config", "labels", "remove"))
 
 	i.AddResource(newHelpResource(s, "Envs Help", "general help for environment variables", "config", "envs"))
 	i.AddResource(newHelpResource(s, "Envs Add Help", "help for 'config envs add'", "config", "envs", "add"))
-	i.AddResource(newHelpResource(s, "Envs Remove Help", "help for 'config envs remove'", "list", "envs", "remove"))
+	i.AddResource(newHelpResource(s, "Envs Remove Help", "help for 'config envs remove'", "config", "envs", "remove"))
 
 	s.impl = i
 
