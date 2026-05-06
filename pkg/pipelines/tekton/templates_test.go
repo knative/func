@@ -1,7 +1,9 @@
 package tekton
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/manifestival/manifestival"
@@ -318,6 +320,85 @@ func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 
 			if err := createAndApplyPipelineRunTemplate(f, tt.namespace, tt.labels); (err != nil) != tt.wantErr {
 				t.Errorf("createAndApplyPipelineRunTemplate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_PipelineRunHasPodTemplateSecurityContext(t *testing.T) {
+	tests := []struct {
+		name    string
+		root    string
+		builder string
+		runtime string
+	}{
+		{
+			name:    "pack builder with quarkus",
+			root:    "testdata/testCreatePipelinePackQuarkus",
+			builder: builders.Pack,
+			runtime: "quarkus",
+		},
+		{
+			name:    "s2i builder with quarkus",
+			root:    "testdata/testCreatePipelineS2IQuarkus",
+			builder: builders.S2I,
+			runtime: "quarkus",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := tt.root + "Run"
+			defer Using(t, root)()
+
+			f, err := fn.NewFunction(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			f.Build.Builder = tt.builder
+			f.Runtime = tt.runtime
+			f.Image = "docker.io/alice/" + f.Name
+			f.Registry = TestRegistry
+
+			// Create the PipelineRun template
+			err = createPipelineRunTemplatePAC(f, make(map[string]string))
+			if err != nil {
+				t.Fatalf("createPipelineRunTemplatePAC() error = %v", err)
+			}
+
+			// Read the generated file and verify it contains podTemplate with securityContext
+			fp := filepath.Join(root, resourcesDirectory, pipelineRunFilenamePAC)
+			content, err := os.ReadFile(fp)
+			if err != nil {
+				t.Fatalf("failed to read generated PipelineRun: %v", err)
+			}
+
+			contentStr := string(content)
+
+			// Verify podTemplate is present
+			if !strings.Contains(contentStr, "podTemplate:") {
+				t.Error("podTemplate not found in generated PipelineRun")
+			}
+
+			// Verify securityContext is present
+			if !strings.Contains(contentStr, "securityContext:") {
+				t.Error("securityContext not found in podTemplate")
+			}
+
+			// Verify fsGroup is set
+			if !strings.Contains(contentStr, "fsGroup: 1002") {
+				t.Error("fsGroup not set to 1002 in securityContext")
+			}
+
+			// Verify runAsUser is set
+			if !strings.Contains(contentStr, "runAsUser: 1001") {
+				t.Error("runAsUser not set to 1001 in securityContext")
+			}
+
+			// Verify runAsGroup is set
+			if !strings.Contains(contentStr, "runAsGroup: 0") {
+				t.Error("runAsGroup not set to 0 in securityContext")
 			}
 		})
 	}

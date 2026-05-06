@@ -125,6 +125,11 @@ spec:
       value: "{{.Commit}}"
   pipelineRef:
    name: {{.PipelineName}}
+  podTemplate:
+    securityContext:
+      runAsUser: 1001
+      runAsGroup: 0
+      fsGroup: 1002
   workspaces:
     - name: source-workspace
       persistentVolumeClaim:
@@ -185,6 +190,11 @@ spec:
         {{end}}
   pipelineRef:
    name: {{.PipelineName}}
+  podTemplate:
+    securityContext:
+      runAsUser: 1001
+      runAsGroup: 0
+      fsGroup: 1002
   workspaces:
     - name: source-workspace
       persistentVolumeClaim:
