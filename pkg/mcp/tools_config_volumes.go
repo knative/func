@@ -7,35 +7,61 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-var configVolumesTool = &mcp.Tool{
-	Name:        "config_volumes",
-	Title:       "Config Volumes",
-	Description: "Manages volume configurations for a function. Can add, remove, or list.",
+// config_volumes_list
+
+var configVolumesListTool = &mcp.Tool{
+	Name:        "config_volumes_list",
+	Title:       "Config Volumes List",
+	Description: "Lists the volume configurations for a function.",
 	Annotations: &mcp.ToolAnnotations{
-		Title:           "Config Volumes",
-		ReadOnlyHint:    false,
-		DestructiveHint: ptr(true),
-		IdempotentHint:  false, // Adding the same volume twice or removing a non-existent volume will fail.
+		Title:          "Config Volumes List",
+		ReadOnlyHint:   true,
+		IdempotentHint: true,
 	},
 }
 
-func (s *Server) configVolumesHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesInput) (result *mcp.CallToolResult, output ConfigVolumesOutput, err error) {
+type ConfigVolumesListInput struct {
+	Path    string `json:"path" jsonschema:"required,Path to the function project directory"`
+	Verbose *bool  `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+}
+
+func (i ConfigVolumesListInput) Args() []string {
+	args := []string{"volumes", "--path", i.Path}
+	args = appendBoolFlag(args, "--verbose", i.Verbose)
+	return args
+}
+
+type ConfigVolumesListOutput struct {
+	Message string `json:"message" jsonschema:"Output message"`
+}
+
+func (s *Server) configVolumesListHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesListInput) (result *mcp.CallToolResult, output ConfigVolumesListOutput, err error) {
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigVolumesOutput{
-		Message: string(out),
-	}
+	output = ConfigVolumesListOutput{Message: string(out)}
 	return
 }
 
-// ConfigVolumesInput defines the input parameters for the config_volumes tool.
-type ConfigVolumesInput struct {
-	Action    string  `json:"action" jsonschema:"required,Action to perform: add, remove, or list"`
+// config_volumes_add
+
+var configVolumesAddTool = &mcp.Tool{
+	Name:        "config_volumes_add",
+	Title:       "Config Volumes Add",
+	Description: "Adds a volume to a function's configuration.",
+	Annotations: &mcp.ToolAnnotations{
+		Title:           "Config Volumes Add",
+		ReadOnlyHint:    false,
+		DestructiveHint: ptr(false), // additive only; does not overwrite or delete
+		IdempotentHint:  false,      // adding the same volume twice will fail
+	},
+}
+
+type ConfigVolumesAddInput struct {
 	Path      string  `json:"path" jsonschema:"required,Path to the function project directory"`
-	Type      *string `json:"type,omitempty" jsonschema:"Volume type for add action: configmap, secret, pvc, or emptydir"`
+	Type      *string `json:"type,omitempty" jsonschema:"Volume type: configmap, secret, pvc, or emptydir"`
 	MountPath *string `json:"mountPath,omitempty" jsonschema:"Mount path for the volume in the container"`
 	Source    *string `json:"source,omitempty" jsonschema:"Name of the ConfigMap, Secret, or PVC to mount"`
 	Medium    *string `json:"medium,omitempty" jsonschema:"Storage medium for EmptyDir volume: Memory or empty string"`
@@ -44,15 +70,8 @@ type ConfigVolumesInput struct {
 	Verbose   *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
-func (i ConfigVolumesInput) Args() []string {
-	args := []string{"volumes"}
-
-	// Allow "list" as an alias for the default action
-	if i.Action != "list" {
-		args = append(args, i.Action)
-	}
-
-	args = append(args, "--path", i.Path)
+func (i ConfigVolumesAddInput) Args() []string {
+	args := []string{"volumes", "add", "--path", i.Path}
 	args = appendStringFlag(args, "--type", i.Type)
 	args = appendStringFlag(args, "--mount-path", i.MountPath)
 	args = appendStringFlag(args, "--source", i.Source)
@@ -60,11 +79,60 @@ func (i ConfigVolumesInput) Args() []string {
 	args = appendStringFlag(args, "--size", i.Size)
 	args = appendBoolFlag(args, "--read-only", i.ReadOnly)
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
-
 	return args
 }
 
-// ConfigVolumesOutput defines the structured output returned by the config_volumes tool.
-type ConfigVolumesOutput struct {
+type ConfigVolumesAddOutput struct {
 	Message string `json:"message" jsonschema:"Output message"`
+}
+
+func (s *Server) configVolumesAddHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesAddInput) (result *mcp.CallToolResult, output ConfigVolumesAddOutput, err error) {
+	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	if err != nil {
+		err = fmt.Errorf("%w\n%s", err, string(out))
+		return
+	}
+	output = ConfigVolumesAddOutput{Message: string(out)}
+	return
+}
+
+// config_volumes_remove
+
+var configVolumesRemoveTool = &mcp.Tool{
+	Name:        "config_volumes_remove",
+	Title:       "Config Volumes Remove",
+	Description: "Removes a volume from a function's configuration.",
+	Annotations: &mcp.ToolAnnotations{
+		Title:           "Config Volumes Remove",
+		ReadOnlyHint:    false,
+		DestructiveHint: ptr(true), // removes data irreversibly from function config
+		IdempotentHint:  false,     // removing a non-existent volume will fail
+	},
+}
+
+type ConfigVolumesRemoveInput struct {
+	Path      string  `json:"path" jsonschema:"required,Path to the function project directory"`
+	MountPath *string `json:"mountPath,omitempty" jsonschema:"Mount path of the volume to remove"`
+	Verbose   *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+}
+
+func (i ConfigVolumesRemoveInput) Args() []string {
+	args := []string{"volumes", "remove", "--path", i.Path}
+	args = appendStringFlag(args, "--mount-path", i.MountPath)
+	args = appendBoolFlag(args, "--verbose", i.Verbose)
+	return args
+}
+
+type ConfigVolumesRemoveOutput struct {
+	Message string `json:"message" jsonschema:"Output message"`
+}
+
+func (s *Server) configVolumesRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesRemoveInput) (result *mcp.CallToolResult, output ConfigVolumesRemoveOutput, err error) {
+	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	if err != nil {
+		err = fmt.Errorf("%w\n%s", err, string(out))
+		return
+	}
+	output = ConfigVolumesRemoveOutput{Message: string(out)}
+	return
 }

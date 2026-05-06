@@ -96,9 +96,15 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, deployTool, s.deployHandler)
 	mcp.AddTool(i, listTool, s.listHandler)
 	mcp.AddTool(i, deleteTool, s.deleteHandler)
-	mcp.AddTool(i, configVolumesTool, s.configVolumesHandler)
-	mcp.AddTool(i, configLabelsTool, s.configLabelsHandler)
-	mcp.AddTool(i, configEnvsTool, s.configEnvsHandler)
+	mcp.AddTool(i, configVolumesListTool, s.configVolumesListHandler)
+	mcp.AddTool(i, configVolumesAddTool, s.configVolumesAddHandler)
+	mcp.AddTool(i, configVolumesRemoveTool, s.configVolumesRemoveHandler)
+	mcp.AddTool(i, configLabelsListTool, s.configLabelsListHandler)
+	mcp.AddTool(i, configLabelsAddTool, s.configLabelsAddHandler)
+	mcp.AddTool(i, configLabelsRemoveTool, s.configLabelsRemoveHandler)
+	mcp.AddTool(i, configEnvsListTool, s.configEnvsListHandler)
+	mcp.AddTool(i, configEnvsAddTool, s.configEnvsAddHandler)
+	mcp.AddTool(i, configEnvsRemoveTool, s.configEnvsRemoveHandler)
 
 	// Resources
 	// ---------
