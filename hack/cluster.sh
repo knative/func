@@ -239,8 +239,9 @@ networking() {
 
   echo "Installing a configured Contour."
   curl -sSL "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml" \
+    | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args[] | select(. == "--xds-address=0.0.0.0")) = "--xds-address=::"' \
     | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args)
-          += ["--envoy-service-http-address=::", "--envoy-service-https-address=::"]' \
+          += ["--envoy-service-http-address=::", "--envoy-service-https-address=::", "--stats-address=::"]' \
     | $KUBECTL apply -f -
 
   sleep 5
