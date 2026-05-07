@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,8 +13,6 @@ import (
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
-
-var ErrNameAndPathConflict = errors.New("cannot specify both name and path")
 
 func NewDescribeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{

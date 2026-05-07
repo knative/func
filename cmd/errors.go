@@ -69,6 +69,32 @@ func wrapPromptError(err error, cmd string) error {
 	return err
 }
 
+// wrapDeleteError wraps errors from delete command with CLI-specific guidance
+func wrapDeleteError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var cliNotInit *ErrNotInitialized
+	if errors.As(err, &cliNotInit) {
+		return err
+	}
+
+	var coreNotInit *fn.ErrNotInitialized
+	if errors.As(err, &coreNotInit) {
+		return NewErrNotInitialized(err, "delete")
+	}
+
+	if errors.Is(err, fn.ErrNameRequired) {
+		return NewErrDeleteNameRequired(err)
+	}
+	if errors.Is(err, fn.ErrNamespaceRequired) {
+		return NewErrDeleteNamespaceRequired(err)
+	}
+
+	return err
+}
+
 // ---------------------------- TYPES AND METHODS --------------------------- //
 
 type ErrPlatformNotSupported struct {
@@ -366,11 +392,110 @@ Or use --path to describe from anywhere:
 
 For more options, run 'func describe --help'`, e.Err)
 
+	case "delete":
+		return fmt.Sprintf(`%v
+
+No function found in provided path (current directory or via --path).
+You need to be in a function directory (or use --path).
+
+Try this:
+	func create --language go myfunction    Create a new function
+	cd myfunction                          Go into the function directory
+	func delete                            Delete the deployed function
+
+Or if you have an existing function:
+	cd path/to/your/function              Go to your function directory
+	func delete                            Delete the deployed function
+
+Or use --path to delete from anywhere:
+	func delete --path /path/to/function
+
+For more options, run 'func delete --help'`, e.Err)
+
 	default:
 		return e.Err.Error()
 	}
 }
 func (e *ErrNotInitialized) Unwrap() error {
+	return e.Err
+}
+
+// -------------------------------------------------------------------------- //
+
+// ErrNameAndPathConflict is returned when both a name and a path are provided.
+var ErrNameAndPathConflict = errors.New("cannot specify both name and path")
+
+// -------------------------------------------------------------------------- //
+
+// ErrDeleteNameRequired wraps core library errors with CLI-specific context
+// for delete operations that require a function name or path.
+type ErrDeleteNameRequired struct {
+	// Underlying error from the core library (e.g., fn.ErrNameRequired)
+	Err error
+}
+
+// NewErrDeleteNameRequired creates a new ErrDeleteNameRequired wrapping the given error
+func NewErrDeleteNameRequired(err error) error {
+	return &ErrDeleteNameRequired{Err: err}
+}
+
+// Error implements the error interface with CLI-specific help text
+func (e *ErrDeleteNameRequired) Error() string {
+	return fmt.Sprintf(`%v
+
+Function name is required for deletion (or --path not specified).
+
+You can delete functions in two ways:
+
+1. By name:
+   func delete myfunction                     Delete function by name
+   func delete myfunction --namespace apps    Delete from specific namespace
+
+2. By path:
+   func delete --path /path/to/function       Delete function at specific path
+
+Examples:
+   func delete myfunction                     Delete 'myfunction' from cluster
+   func delete myfunction --namespace prod    Delete from 'prod' namespace
+   func delete --path ./myfunction            Delete function at path
+
+For more options, run 'func delete --help'`, e.Err)
+}
+
+// Unwrap returns the underlying error for errors.Is/As
+func (e *ErrDeleteNameRequired) Unwrap() error {
+	return e.Err
+}
+
+// -------------------------------------------------------------------------- //
+
+// ErrDeleteNamespaceRequired wraps core library errors when namespace is missing for delete
+type ErrDeleteNamespaceRequired struct {
+	Err error
+}
+
+// NewErrDeleteNamespaceRequired creates a new ErrDeleteNamespaceRequired
+func NewErrDeleteNamespaceRequired(err error) error {
+	return &ErrDeleteNamespaceRequired{Err: err}
+}
+
+// Error implements the error interface with CLI-specific help text
+func (e *ErrDeleteNamespaceRequired) Error() string {
+	return fmt.Sprintf(`%v
+
+Namespace is required to delete a deployed function.
+
+Try this:
+  func delete myfunction --namespace apps    Delete from a specific namespace
+
+Or delete by path if the function has a recorded namespace:
+  func delete --path /path/to/function
+
+For more options, run 'func delete --help'`, e.Err)
+}
+
+// Unwrap returns the underlying error for errors.Is/As
+func (e *ErrDeleteNamespaceRequired) Unwrap() error {
 	return e.Err
 }
 

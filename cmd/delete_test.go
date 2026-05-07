@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -315,14 +316,27 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatalf("expected error on conflicting flags not received")
-	}
-
-	if !strings.Contains(err.Error(), "only one of --path and [NAME] should be provided") {
-		t.Fatalf("unexpected error message: %v", err)
+	} else if !errors.Is(err, ErrNameAndPathConflict) {
+		t.Fatalf("expected ErrNameAndPathConflict, got %v", err)
 	}
 
 	// Also fail if remover's .Remove is invoked.
 	if remover.RemoveInvoked {
 		t.Fatal("fn.Remover invoked despite invalid combination and an error")
+	}
+}
+
+// TestDelete_NoFunctionAtPath ensures delete returns a not-initialized error when no function exists at path
+func TestDelete_NoFunctionAtPath(t *testing.T) {
+	_ = FromTempDirectory(t)
+
+	cmd := NewDeleteCmd(NewTestClient())
+	cmd.SetArgs([]string{})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when deleting without a function in path")
+	}
+	if !strings.Contains(err.Error(), "No function found in provided path") {
+		t.Fatalf("unexpected error message: %v", err)
 	}
 }

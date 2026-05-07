@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -38,11 +37,7 @@ No local files are deleted.
 		SilenceUsage:      true, // no usage dump on error
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Layer 2: Catch technical errors and provide CLI-specific user-friendly messages
-			err := runDelete(cmd, args, newClient)
-			if err != nil && errors.Is(err, fn.ErrNameRequired) {
-				return NewErrDeleteNameRequired(err)
-			}
-			return err
+			return wrapDeleteError(runDelete(cmd, args, newClient))
 		},
 	}
 
@@ -75,8 +70,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 			return err
 		}
 		if !f.Initialized() {
-			// Return technical error (Layer 1) - will be caught and enhanced by CLI
-			return fn.ErrNameRequired
+			return NewErrNotInitializedFromPath(f.Root, "delete")
 		}
 	}
 
@@ -130,7 +124,7 @@ func newDeleteConfig(cmd *cobra.Command, args []string) (cfg deleteConfig, err e
 		// logically inconsistent to provide both a name and a path to source.
 		// Either use the function's local state on disk (--path), or specify
 		// a name and a namespace to ignore any local function source.
-		err = fmt.Errorf("only one of --path and [NAME] should be provided")
+		err = ErrNameAndPathConflict
 	}
 	return
 }
@@ -174,39 +168,4 @@ func (c deleteConfig) Prompt() (deleteConfig, error) {
 	dc.All = answers.All
 
 	return dc, err
-}
-
-// ErrDeleteNameRequired wraps core library errors with CLI-specific context
-// for delete operations that require a function name or path.
-type ErrDeleteNameRequired struct {
-	// Underlying error from the core library (e.g., fn.ErrNameRequired)
-	Err error
-}
-
-// NewErrDeleteNameRequired creates a new ErrDeleteNameRequired wrapping the given error
-func NewErrDeleteNameRequired(err error) ErrDeleteNameRequired {
-	return ErrDeleteNameRequired{Err: err}
-}
-
-// Error implements the error interface with CLI-specific help text
-func (e ErrDeleteNameRequired) Error() string {
-	return fmt.Sprintf(`%v
-
-Function name is required for deletion (or --path not specified).
-
-You can delete functions in two ways:
-
-1. By name:
-   func delete myfunction                     Delete function by name
-   func delete myfunction --namespace apps    Delete from specific namespace
-
-2. By path:
-   func delete --path /path/to/function       Delete function at specific path
-
-Examples:
-   func delete myfunction                     Delete 'myfunction' from cluster
-   func delete myfunction --namespace prod    Delete from 'prod' namespace
-   func delete --path ./myfunction            Delete function at path
-
-For more options, run 'func delete --help'`, e.Err)
 }
