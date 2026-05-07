@@ -72,6 +72,47 @@ func DeletePersistentVolumeClaims(ctx context.Context, namespaceOverride string,
 	return client.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
+// DeletePersistentVolumeClaim deletes a single PVC by name
+func DeletePersistentVolumeClaim(ctx context.Context, name, namespaceOverride string) error {
+	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+	if err != nil {
+		return err
+	}
+
+	err = client.CoreV1().PersistentVolumeClaims(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete PVC %s: %w", name, err)
+	}
+	return nil
+}
+
+// WaitForPVCDeletion waits for a PVC to be fully deleted (not just in Terminating state)
+func WaitForPVCDeletion(ctx context.Context, name, namespaceOverride string) error {
+	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+	if err != nil {
+		return err
+	}
+
+	// Poll until PVC is gone
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			_, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				// PVC is fully deleted
+				return nil
+			}
+			if err != nil {
+				return fmt.Errorf("error checking PVC deletion status: %w", err)
+			}
+			// PVC still exists (possibly Terminating), wait and retry
+			time.Sleep(time.Second)
+		}
+	}
+}
+
 var TarImage = "ghcr.io/knative/func-utils:v2"
 
 // UploadToVolume uploads files (passed in form of tar stream) into volume.
