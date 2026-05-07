@@ -68,11 +68,11 @@ require (
 	k8s.io/client-go v0.35.4
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260108192941-914a6e750570
-	knative.dev/client/pkg v0.0.0-20260506143824-394ffd7fd4ee
+	knative.dev/client/pkg v0.0.0-20260507023623-53a15c99b861
 	knative.dev/eventing v0.49.1-0.20260506130425-5a46719f32de
 	knative.dev/hack v0.0.0-20260428014158-b2a37f1b6e7b
 	knative.dev/pkg v0.0.0-20260505204821-021ad709ec68
-	knative.dev/serving v0.49.1-0.20260506141525-8ac221f17f12
+	knative.dev/serving v0.49.1-0.20260507125025-d8fdec397597
 )
 
 require (
