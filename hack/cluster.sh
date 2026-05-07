@@ -108,19 +108,23 @@ kubernetes() {
   cat <<EOF | $KIND create cluster --name=func --kubeconfig="${KUBECONFIG}" --wait=60s --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  apiServerAddress: "::1"
+  apiServerPort: 6443
+  ipFamily: ipv6
 nodes:
   - role: control-plane
     image: kindest/node:${kind_node_version}
     extraPortMappings:
     - containerPort: 80
       hostPort: 80
-      listenAddress: "127.0.0.1"
+      listenAddress: "::1"
     - containerPort: 443
       hostPort: 443
-      listenAddress: "127.0.0.1"
+      listenAddress: "::1"
     - containerPort: 30022
       hostPort: 30022
-      listenAddress: "127.0.0.1"
+      listenAddress: "::1"
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:50000"]
@@ -131,6 +135,15 @@ containerdConfigPatches:
     endpoint = ["http://func-registry:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
     endpoint = ["http://func-registry:5000"]
+kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+      certSANs:
+        - "localhost"
+        - "localtest.me"
+        - "::"
+        - "::1"
 EOF
   sleep 10
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
