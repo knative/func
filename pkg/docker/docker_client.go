@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -19,11 +20,44 @@ import (
 
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/go-connections/tlsconfig"
+	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/moby/moby/client"
 	"golang.org/x/crypto/ssh"
 
 	fnssh "knative.dev/func/pkg/ssh"
 )
+
+// DockerClient is a subset of client.APIClient with only the methods
+// needed by this project and its third-party integrations (pack, s2i).
+type DockerClient interface {
+	daemon.Client // Ping, ImageSave, ImageLoad, ImageTag, ImageInspect, ImageHistory
+
+	ContainerAttach(ctx context.Context, container string, options client.ContainerAttachOptions) (client.ContainerAttachResult, error)
+	ContainerCommit(ctx context.Context, container string, options client.ContainerCommitOptions) (client.ContainerCommitResult, error)
+	ContainerCreate(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error)
+	ContainerInspect(ctx context.Context, containerID string, options client.ContainerInspectOptions) (client.ContainerInspectResult, error)
+	ContainerKill(ctx context.Context, containerID string, options client.ContainerKillOptions) (client.ContainerKillResult, error)
+	ContainerRemove(ctx context.Context, container string, options client.ContainerRemoveOptions) (client.ContainerRemoveResult, error)
+	ContainerStart(ctx context.Context, container string, options client.ContainerStartOptions) (client.ContainerStartResult, error)
+	ContainerStop(ctx context.Context, containerID string, options client.ContainerStopOptions) (client.ContainerStopResult, error)
+	ContainerWait(ctx context.Context, containerID string, options client.ContainerWaitOptions) client.ContainerWaitResult
+	CopyFromContainer(ctx context.Context, containerID string, options client.CopyFromContainerOptions) (client.CopyFromContainerResult, error)
+	CopyToContainer(ctx context.Context, container string, options client.CopyToContainerOptions) (client.CopyToContainerResult, error)
+
+	ImageBuild(ctx context.Context, buildContext io.Reader, options client.ImageBuildOptions) (client.ImageBuildResult, error)
+	ImagePull(ctx context.Context, ref string, options client.ImagePullOptions) (client.ImagePullResponse, error)
+	ImagePush(ctx context.Context, ref string, options client.ImagePushOptions) (client.ImagePushResponse, error)
+	ImageRemove(ctx context.Context, image string, options client.ImageRemoveOptions) (client.ImageRemoveResult, error)
+
+	Info(ctx context.Context, options client.InfoOptions) (client.SystemInfoResult, error)
+	NetworkCreate(ctx context.Context, name string, options client.NetworkCreateOptions) (client.NetworkCreateResult, error)
+	NetworkRemove(ctx context.Context, networkID string, options client.NetworkRemoveOptions) (client.NetworkRemoveResult, error)
+	ServerVersion(ctx context.Context, options client.ServerVersionOptions) (client.ServerVersionResult, error)
+	VolumeList(ctx context.Context, options client.VolumeListOptions) (client.VolumeListResult, error)
+	VolumeRemove(ctx context.Context, volumeID string, options client.VolumeRemoveOptions) (client.VolumeRemoveResult, error)
+
+	Close() error
+}
 
 var ErrNoDocker = errors.New("docker/podman API not available")
 
@@ -35,10 +69,11 @@ var ErrNoDocker = errors.New("docker/podman API not available")
 //   - For TCP connections it returns "" so it defaults in the remote (note that
 //     one should not be use client.DefaultDockerHost in this situation). This is
 //     needed beaus of TCP+tls connections.
-func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInRemote string, err error) {
+func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, err error) {
+	var rawClient client.APIClient
 	defer func() {
-		if dockerClient != nil && err == nil {
-			dockerClient = &closeGuardingClient{pimpl: dockerClient}
+		if rawClient != nil && err == nil {
+			dc = &closeGuardingClient{pimpl: rawClient}
 		}
 	}()
 
@@ -62,7 +97,7 @@ func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInR
 		case os.IsNotExist(err) && podmanPresent():
 			if runtime.GOOS == "linux" {
 				// on Linux: spawn temporary podman service
-				dockerClient, dockerHostInRemote, err = newClientWithPodmanService()
+				rawClient, dockerHostInRemote, err = newClientWithPodmanService()
 				return
 			} else {
 				// on non-Linux: try to use connection to podman machine
@@ -109,7 +144,7 @@ func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInR
 				opts = append(opts, client.WithHTTPClient(httpClient))
 			}
 		}
-		dockerClient, err = client.New(opts...)
+		rawClient, err = client.New(opts...)
 		return
 	}
 
@@ -133,19 +168,19 @@ func NewClient(defaultHost string) (dockerClient client.APIClient, dockerHostInR
 		},
 	}
 
-	dockerClient, err = client.New(
+	rawClient, err = client.New(
 		client.WithHTTPClient(httpClient))
 
 	if closer, ok := contextDialer.(io.Closer); ok {
-		dockerClient = clientWithAdditionalCleanup{
-			APIClient: dockerClient,
+		rawClient = clientWithAdditionalCleanup{
+			APIClient: rawClient,
 			cleanUp: func() {
 				closer.Close()
 			},
 		}
 	}
 
-	return dockerClient, dockerHostInRemote, err
+	return dc, dockerHostInRemote, err
 }
 
 // If the DOCKER_TLS_VERIFY environment variable is set
