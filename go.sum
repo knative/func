@@ -197,8 +197,8 @@ github.com/buildpacks/libcnb v1.30.3 h1:JtFMFPO2450uDLzpE1b50TvmM1GEZa8YT9cQ2ZZt
 github.com/buildpacks/libcnb v1.30.3/go.mod h1:JPb1vC7HQcGK0oONfqJvsYzOjw3be+WBbQ0KYOIhNvA=
 github.com/buildpacks/lifecycle v0.21.0 h1:s2okNv1I4rETBC4CRm4ly7DRr5eTqx1bpKXyf+ywVms=
 github.com/buildpacks/lifecycle v0.21.0/go.mod h1:5Rb9kld2v1XYQC14fJrIGESqmuJvSYHVlUxAW5MAxNU=
-github.com/buildpacks/pack v0.40.3 h1:JCBsul/yYfHEYv8whNkKUztOUthP8PAS5TW/x2WR8vQ=
-github.com/buildpacks/pack v0.40.3/go.mod h1:Cw9SRAL7Tzo0tGGyXlokO4ciqu1FRs9jcvZqtXcUCeo=
+github.com/buildpacks/pack v0.40.1 h1:6WiG38YRjd+q12wNJMMuSt9bBVaLRCcCe6MQeNGt/5k=
+github.com/buildpacks/pack v0.40.1/go.mod h1:tntRVOeJjm/Slz5fOljgDGrbvo+v+3Q2L9B4Lfg31Wc=
 github.com/cenkalti/backoff/v4 v4.1.1/go.mod h1:scbssz8iZGpm3xbr14ovlUdkxfGXNInqkPWOWmG2CLw=
 github.com/cenkalti/backoff/v4 v4.1.3/go.mod h1:scbssz8iZGpm3xbr14ovlUdkxfGXNInqkPWOWmG2CLw=
 github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=
