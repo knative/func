@@ -887,6 +887,96 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 	}
 }
 
+// TestInt_ResourceValidationOnFirstDeploy verifies that a first-time deploy
+// referencing a non-existent Secret is rejected with an error, and that the
+// same deploy succeeds once the Secret is created on the cluster.
+//
+// This is a regression test for the bug where generateNewService allocated
+// its own local referenced-resource sets that were never visible to the
+// caller, causing CheckResourcesArePresent to always run against empty sets
+// and silently pass validation on the create path.
+func TestInt_ResourceValidationOnFirstDeploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	name := "func-int-resval-" + rand.String(5)
+	root := t.TempDir()
+	ns := Namespace(t, ctx)
+
+	t.Cleanup(cancel)
+
+	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
+		fn.WithBuilder(oci.NewBuilder("", false)),
+		fn.WithPusher(oci.NewPusher(true, true, true)),
+		fn.WithDeployer(deployer),
+		fn.WithDescribers(describer),
+		fn.WithRemovers(remover),
+	)
+
+	secretName := "func-int-resval-secret-" + rand.String(5)
+
+	f, err := client.Init(fn.Function{
+		Root:      root,
+		Name:      name,
+		Runtime:   "go",
+		Namespace: ns,
+		Registry:  Registry(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handlerPath := filepath.Join(root, "function.go")
+	if err := os.WriteFile(handlerPath, []byte(testHandler), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Reference a Secret that does NOT exist on the cluster yet.
+	f.Run.Envs.Add("SECRET_KEY", "{{ secret: "+secretName+":SECRET_KEY }}")
+
+	err = client.Scaffold(ctx, f, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = client.Build(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, _, err = client.Push(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First deploy: the referenced Secret is absent — must be rejected.
+	_, err = client.Deploy(ctx, f)
+	if err == nil {
+		t.Fatal("expected deploy to fail when referencing a missing Secret, but it succeeded")
+	}
+	if !strings.Contains(err.Error(), secretName) {
+		t.Fatalf("expected error to mention missing Secret %q, got: %v", secretName, err)
+	}
+	t.Logf("deploy correctly rejected with: %v", err)
+
+	// Create the Secret on the cluster.
+	createSecret(t, ns, secretName, map[string]string{
+		"SECRET_KEY": "secret-value",
+	})
+
+	// Second deploy: the Secret now exists — must succeed.
+	f, err = client.Deploy(ctx, f)
+	if err != nil {
+		t.Fatalf("expected deploy to succeed after Secret was created, got: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := client.Remove(ctx, "", "", f, true); err != nil {
+			t.Logf("error removing Function: %v", err)
+		}
+	})
+}
+
 // Helper functions
 // ================
 

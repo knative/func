@@ -24,9 +24,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/pkg/ptr"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 const (
@@ -332,6 +335,120 @@ func setupRegistry(t *testing.T) http.RoundTripper {
 	}
 
 	return trans
+}
+
+// TestUpdateService_EnvsPropagated checks that the updateService closure replaces
+// (not merges) the container env list with the supplied newEnv slice.
+// It calls updateService directly — it does not exercise Deploy, ProcessEnvs, or
+// UpdateServiceWithRetry.
+func TestUpdateService_EnvsPropagated(t *testing.T) {
+	// Simulate an existing deployed service that carries a stale env var.
+	previousService := &servingv1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-func",
+			Namespace: "default",
+		},
+		Spec: servingv1.ServiceSpec{
+			ConfigurationSpec: servingv1.ConfigurationSpec{
+				Template: servingv1.RevisionTemplateSpec{
+					Spec: servingv1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Image: "example.com/test:v1",
+									Env:   []corev1.EnvVar{{Name: "OLD_VAR", Value: "old"}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	f := fn.Function{
+		Name: "test-func",
+		Deploy: fn.DeploySpec{
+			Image: "example.com/test:v2",
+		},
+	}
+
+	// newEnv represents the resolved env vars the deployer computes via
+	// k8s.ProcessEnvs(f.Run.Envs, ...) before invoking updateService.
+	newEnv := []corev1.EnvVar{
+		{Name: "MYVAR", Value: "myvalue"},
+		{Name: "OTHER", Value: "othervalue"},
+	}
+
+	// Obtain the update closure — this mirrors what Deploy() does when
+	// previousService != nil (the service already exists on the cluster).
+	updateFn := updateService(f, previousService, newEnv, nil, nil, nil, nil, false)
+
+	// Apply the closure to a working copy of the service (mirroring what
+	// UpdateServiceWithRetry does internally on each attempt).
+	svcCopy := previousService.DeepCopy()
+	result, err := updateFn(svcCopy)
+	if err != nil {
+		t.Fatalf("updateService closure returned unexpected error: %v", err)
+	}
+
+	containers := result.Spec.Template.Spec.Containers
+	if len(containers) != 1 {
+		t.Fatalf("expected 1 container, got %d", len(containers))
+	}
+
+	gotEnv := containers[0].Env
+	envMap := make(map[string]string, len(gotEnv))
+	for _, e := range gotEnv {
+		envMap[e.Name] = e.Value
+	}
+
+	if v, ok := envMap["MYVAR"]; !ok || v != "myvalue" {
+		t.Errorf("expected MYVAR=myvalue in updated container env, got: %v", gotEnv)
+	}
+	if v, ok := envMap["OTHER"]; !ok || v != "othervalue" {
+		t.Errorf("expected OTHER=othervalue in updated container env, got: %v", gotEnv)
+	}
+	// OLD_VAR must not survive: updateService replaces (not merges) the env list.
+	if _, ok := envMap["OLD_VAR"]; ok {
+		t.Errorf("expected OLD_VAR to be replaced by updateService but it was still present: %v", gotEnv)
+	}
+}
+
+// TestGenerateNewService_ResourceSetsPopulated is a regression test for the
+// create (first-deploy) path. It proves that generateNewService populates the
+// caller-supplied referencedSecrets and referencedConfigMaps sets so that the
+// subsequent CheckResourcesArePresent call in Deploy() actually validates them.
+// Before the fix, generateNewService allocated its own internal sets and the
+// caller's sets remained empty, causing validation to be silently skipped.
+func TestGenerateNewService_ResourceSetsPopulated(t *testing.T) {
+	secretName := "my-secret"
+	configMapName := "my-configmap"
+
+	f := fn.Function{
+		Name: "test-func",
+		Deploy: fn.DeploySpec{
+			Image: "example.com/test:v1",
+		},
+	}
+	f.Run.Envs.Add("FROM_SECRET", "{{ secret:"+secretName+":key }}")
+	f.Run.Envs.Add("FROM_CM", "{{ configMap:"+configMapName+":key }}")
+
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVCs := sets.New[string]()
+
+	_, err := generateNewService(f, nil, false, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	if err != nil {
+		t.Fatalf("generateNewService returned unexpected error: %v", err)
+	}
+
+	if !referencedSecrets.Has(secretName) {
+		t.Errorf("expected referencedSecrets to contain %q after generateNewService, got: %v", secretName, referencedSecrets)
+	}
+	if !referencedConfigMaps.Has(configMapName) {
+		t.Errorf("expected referencedConfigMaps to contain %q after generateNewService, got: %v", configMapName, referencedConfigMaps)
+	}
 }
 
 func assertAuth(uname, pwd string, w http.ResponseWriter, r *http.Request) bool {
