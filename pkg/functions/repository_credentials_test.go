@@ -241,6 +241,39 @@ func TestCredentialsForURL_ImplicitPortsAreEquivalent(t *testing.T) {
 	}
 }
 
+// TestScanNetRC_FirstMatchWins verifies that when multiple machine stanzas
+// match the same host, the first one is returned (per netrc(5) spec).
+func TestScanNetRC_FirstMatchWins(t *testing.T) {
+	content := `
+machine example.com login first password one
+machine example.com login second password two
+`
+	login, password := scanNetRC(content, "example.com")
+	if login != "first" {
+		t.Errorf("login: want %q, got %q", "first", login)
+	}
+	if password != "one" {
+		t.Errorf("password: want %q, got %q", "one", password)
+	}
+}
+
+// TestScanNetRC_CommentLinesIgnored verifies that lines beginning with '#'
+// are treated as comments and do not interfere with parsing.
+func TestScanNetRC_CommentLinesIgnored(t *testing.T) {
+	content := `
+# this is a comment
+machine example.com login alice password secret
+# another comment
+`
+	login, password := scanNetRC(content, "example.com")
+	if login != "alice" {
+		t.Errorf("login: want %q, got %q", "alice", login)
+	}
+	if password != "secret" {
+		t.Errorf("password: want %q, got %q", "secret", password)
+	}
+}
+
 // TestIsAuthError verifies the sentinel value detection used for retry logic.
 func TestIsAuthError(t *testing.T) {
 	tests := []struct {

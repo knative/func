@@ -547,17 +547,35 @@ func credentialsFromNetRC(u *url.URL) transport.AuthMethod {
 // scanNetRC is a minimal netrc(5) token scanner. It returns the login and
 // password for the first "machine" stanza whose name matches host. Falls back
 // to the "default" stanza when no exact match is found.
+//
+// Lines beginning with '#' are treated as comments and skipped. This is not
+// part of the official netrc(5) spec but is recognised by curl and Python's
+// netrc module, making the parser more robust in practice.
 func scanNetRC(content, host string) (login, password string) {
 	type entry struct{ login, password string }
 	var matched, def *entry
 	var cur *entry
 	inMacdef := false
 
-	tokens := strings.Fields(content)
+	// Strip comment lines before tokenising. netrc(5) does not define a comment
+	// syntax, but '#'-prefixed lines are a widely-supported de-facto convention.
+	var lines []string
+	for _, line := range strings.Split(content, "\n") {
+		if trimmed := strings.TrimSpace(line); strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	tokens := strings.Fields(strings.Join(lines, "\n"))
+
 	for i := 0; i < len(tokens); i++ {
 		switch tokens[i] {
 		case "machine":
 			inMacdef = false
+			// Per netrc(5): once a match is found, stop at the next stanza.
+			if matched != nil {
+				return matched.login, matched.password
+			}
 			if i+1 >= len(tokens) {
 				continue
 			}
@@ -570,6 +588,10 @@ func scanNetRC(content, host string) (login, password string) {
 			}
 		case "default":
 			inMacdef = false
+			// Per netrc(5): once a match is found, stop at the next stanza.
+			if matched != nil {
+				return matched.login, matched.password
+			}
 			if def == nil {
 				def = &entry{}
 			}
