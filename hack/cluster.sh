@@ -161,18 +161,14 @@ serving() {
 
   curl -L -s https://github.com/knative/serving/releases/download/knative-$knative_serving_version/serving-core.yaml | $KUBECTL apply -f -
 
-  sleep 2
-  # Exclude autoscaler: it crash-loops on IPv6-only clusters due to upstream
-  # Knative bug (EndpointSlice rejects IPv6 addresses as "must be an IPv4 address").
-  $KUBECTL wait pod --for=condition=Ready -l '!job-name,app!=autoscaler' -n knative-serving --timeout=5m
+  # Patch autoscaler image: upstream Knative bug hardcodes EndpointSlice
+  # AddressType to IPv4, crashing the autoscaler on IPv6-only clusters.
+  # This patched image detects the IP family from POD_IP.
+  $KUBECTL set image deployment/autoscaler -n knative-serving \
+    autoscaler="quay.io/mvasek/knative/autoscaler@sha256:6a2f328833e9ed516dd281aba891923082ddaa69e5907f0f0cef6d2402732e4c"
 
-  # Disable scale-to-zero: the autoscaler crash-loops on IPv6-only clusters
-  # (upstream Knative bug: EndpointSlice hardcodes AddressType IPv4).
-  # Disabling scale-to-zero avoids depending on the broken autoscaler.
-  $KUBECTL patch configmap/config-autoscaler \
-    --namespace knative-serving \
-    --type merge \
-    --patch '{"data":{"enable-scale-to-zero":"false"}}'
+  sleep 2
+  $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
 
   $KUBECTL get pod -A
   echo "${green}✅ Knative Serving${reset}"
@@ -288,9 +284,7 @@ networking() {
   kubectl patch -n contour-external svc/envoy --type merge --patch '{"spec":{"ipFamilyPolicy":"PreferDualStack"}}'
 
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
-  # Exclude autoscaler: it crash-loops on IPv6-only clusters due to upstream
-  # Knative bug (EndpointSlice rejects IPv6 addresses as "must be an IPv4 address").
-  $KUBECTL wait pod --for=condition=Ready -l '!job-name,app!=autoscaler' -n knative-serving --timeout=10m
+  $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=10m
   echo "${green}✅ Ingress${reset}"
 }
 
