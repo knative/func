@@ -96,6 +96,7 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 				NewRunCmd(newClient),
 				NewInvokeCmd(newClient),
 				NewBuildCmd(newClient),
+				NewLogsCmd(newClient),
 			},
 		},
 		{
