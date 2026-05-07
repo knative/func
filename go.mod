@@ -1,6 +1,6 @@
 module knative.dev/func
 
-go 1.25.9
+go 1.25.7
 
 // this is required bacause of bad dep in github.com/openshift-pipelines/pipelines-as-code
 replace github.com/imdario/mergo => dario.cat/mergo v1.0.1
@@ -13,7 +13,7 @@ require (
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 	github.com/blang/semver/v4 v4.0.0
-	github.com/buildpacks/pack v0.40.3
+	github.com/buildpacks/pack v0.40.1
 	github.com/chainguard-dev/git-urls v1.0.2
 	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/containerd/errdefs v1.0.0
