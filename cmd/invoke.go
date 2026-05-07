@@ -166,22 +166,23 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		return fmt.Errorf("no function found in current directory.\nYou need to be inside a function directory to invoke it.\n\nTry this:\n  func create --language go myfunction    Create a new function\n  cd myfunction                          Go into the function directory\n  func invoke                            Now you can invoke it\n\nOr if you have an existing function:\n  cd path/to/your/function              Go to your function directory\n  func invoke                           Invoke the function")
 	}
 
+	// If extensions were provided, ensure the format is cloudevent, otherwise return an error.
+	if len(cfg.Extensions) > 0 {
+		effectiveFormat := cfg.Format
+		if effectiveFormat == "" {
+			effectiveFormat = f.Invoke
+		}
+		if effectiveFormat != "cloudevent" {
+			return fmt.Errorf("--extension (-e) is only valid with cloudevents")
+		}
+		if effectiveFormat != "" && effectiveFormat != "cloudevent" {
+			return fmt.Errorf("--extension flag is only valid with cloudevent format")
+		}
+	}
+
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
 	defer done()
-
-	// Build extensions map
-	if cfg.Extensions == nil {
-		cfg.Extensions = []string{}
-	}
-	extensionsMap := make(map[string]string)
-	for _, ext := range cfg.Extensions {
-		parts := strings.SplitN(ext, "=", 2)
-		if len(parts) != 2 {
-			return fmt.Errorf("invalid extension format: %q, expected key=value", ext)
-		}
-		extensionsMap[parts[0]] = parts[1]
-	}
 
 	// Message to send the running function built from parameters gathered
 	// from the user (or defaults)
@@ -193,7 +194,7 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		RequestType: strings.ToUpper(cfg.RequestType),
 		Data:        cfg.Data,
 		Format:      cfg.Format,
-		Extensions:  extensionsMap,
+		Extensions:  cfg.extensionsMap(),
 	}
 
 	// If --file was specified, use its content for message data
@@ -312,6 +313,17 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 	fmt.Printf("Insecure: %v\n", cfg.Insecure)
 	fmt.Printf("Extensions: %v\n", cfg.Extensions)
 	return
+}
+
+func (c invokeConfig) extensionsMap() map[string]string {
+	extensionsMap := make(map[string]string)
+	for _, ext := range c.Extensions {
+		parts := strings.SplitN(ext, "=", 2)
+		if len(parts) == 2 {
+			extensionsMap[parts[0]] = parts[1]
+		}
+	}
+	return extensionsMap
 }
 
 func (c invokeConfig) prompt() (invokeConfig, error) {
