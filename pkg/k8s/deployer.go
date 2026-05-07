@@ -157,7 +157,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		}
 
 		if err = CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
-			return fn.DeploymentResult{}, fmt.Errorf("failed to update deployment: %w", err)
+			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
 		svc, err := d.generateService(f, namespace, daprInstalled, existingDeployment)
@@ -206,7 +206,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		}
 
 		if err = CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
-			return fn.DeploymentResult{}, fmt.Errorf("failed to create deployment: %w", err)
+			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
 		deployment, err = deploymentClient.Create(ctx, deployment, metav1.CreateOptions{})
