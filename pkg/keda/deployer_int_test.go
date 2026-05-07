@@ -59,3 +59,11 @@ func TestInt_EnvsUpdate(t *testing.T) {
 		keda.NewDescriber(false),
 		keda.KedaDeployerName)
 }
+
+func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
+	deployertesting.TestInt_ResourceValidationOnFirstDeploy(t,
+		keda.NewDeployer(keda.WithDeployerVerbose(false)),
+		keda.NewRemover(false),
+		keda.NewDescriber(false),
+		keda.KedaDeployerName)
+}
