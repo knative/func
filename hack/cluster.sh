@@ -162,7 +162,17 @@ serving() {
   curl -L -s https://github.com/knative/serving/releases/download/knative-$knative_serving_version/serving-core.yaml | $KUBECTL apply -f -
 
   sleep 2
-  $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
+  # Exclude autoscaler: it crash-loops on IPv6-only clusters due to upstream
+  # Knative bug (EndpointSlice rejects IPv6 addresses as "must be an IPv4 address").
+  $KUBECTL wait pod --for=condition=Ready -l '!job-name,app!=autoscaler' -n knative-serving --timeout=5m
+
+  # Disable scale-to-zero: the autoscaler crash-loops on IPv6-only clusters
+  # (upstream Knative bug: EndpointSlice hardcodes AddressType IPv4).
+  # Disabling scale-to-zero avoids depending on the broken autoscaler.
+  $KUBECTL patch configmap/config-autoscaler \
+    --namespace knative-serving \
+    --type merge \
+    --patch '{"data":{"enable-scale-to-zero":"false"}}'
 
   $KUBECTL get pod -A
   echo "${green}✅ Knative Serving${reset}"
@@ -278,7 +288,9 @@ networking() {
   kubectl patch -n contour-external svc/envoy --type merge --patch '{"spec":{"ipFamilyPolicy":"PreferDualStack"}}'
 
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
-  $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=10m
+  # Exclude autoscaler: it crash-loops on IPv6-only clusters due to upstream
+  # Knative bug (EndpointSlice rejects IPv6 addresses as "must be an IPv4 address").
+  $KUBECTL wait pod --for=condition=Ready -l '!job-name,app!=autoscaler' -n knative-serving --timeout=10m
   echo "${green}✅ Ingress${reset}"
 }
 
