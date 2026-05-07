@@ -159,6 +159,12 @@ jobs:
           remove_swap: true
           rm_cmd: "rmz" # Faster than rm
 
+      - name: Setup WireGuard for IPv6
+        if: ${{ secrets.WG_CONFIG != '' }}
+        env:
+          WG_CONFIG: ${{ secrets.WG_CONFIG }}
+        run: sudo -E ./hack/wg-setup.sh
+
       - name: Install Binaries
         run: ./hack/binaries.sh
       - name: Allocate Cluster
@@ -218,6 +224,12 @@ jobs:
           remove_haskell: true
           remove_swap: true
           rm_cmd: "rmz" # Faster than rm
+
+      - name: Setup WireGuard for IPv6
+        if: ${{ secrets.WG_CONFIG != '' }}
+        env:
+          WG_CONFIG: ${{ secrets.WG_CONFIG }}
+        run: sudo -E ./hack/wg-setup.sh
 
       - name: Install Binaries
         run: ./hack/binaries.sh
@@ -280,6 +292,12 @@ jobs:
           remove_haskell: true
           remove_swap: true
           rm_cmd: "rmz" # Faster than rm
+
+      - name: Setup WireGuard for IPv6
+        if: ${{ secrets.WG_CONFIG != '' }}
+        env:
+          WG_CONFIG: ${{ secrets.WG_CONFIG }}
+        run: sudo -E ./hack/wg-setup.sh
 
       - name: Start Podman
         run: sudo apt update && sudo apt install -y podman && podman system service --time=0 &
@@ -371,6 +389,12 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       # Allocate Cluster
+      - name: Setup WireGuard for IPv6
+        if: ${{ secrets.WG_CONFIG != '' }}
+        env:
+          WG_CONFIG: ${{ secrets.WG_CONFIG }}
+        run: sudo -E ./hack/wg-setup.sh
+
       - name: Install Binaries
         run: ./hack/binaries.sh
       - name: Allocate Cluster
@@ -426,6 +450,12 @@ jobs:
           remove_haskell: true
           remove_swap: true
           rm_cmd: "rmz"
+
+      - name: Setup WireGuard for IPv6
+        if: ${{ secrets.WG_CONFIG != '' }}
+        env:
+          WG_CONFIG: ${{ secrets.WG_CONFIG }}
+        run: sudo -E ./hack/wg-setup.sh
 
       - name: Install Binaries
         run: ./hack/binaries.sh

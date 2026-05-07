@@ -33,6 +33,12 @@ jobs:
         run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
       - uses: knative/actions/setup-go@main
+      - name: Setup WireGuard for IPv6
+        if: ${{ secrets.WG_CONFIG != '' }}
+        env:
+          WG_CONFIG: ${{ secrets.WG_CONFIG }}
+        run: sudo -E ./hack/wg-setup.sh
+
       - name: Install Binaries
         run: ./hack/binaries.sh
       - name: Allocate Cluster
