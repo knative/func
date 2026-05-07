@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 )
 
 var buildTool = &mcp.Tool{
@@ -27,6 +28,9 @@ func (s *Server) buildHandler(ctx context.Context, r *mcp.CallToolRequest, input
 	}
 	output = BuildOutput{
 		Message: string(out),
+	}
+	if f, ferr := fn.NewFunction(input.Path); ferr == nil {
+		output.Image = f.Build.Image
 	}
 	return
 }

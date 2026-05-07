@@ -1,10 +1,14 @@
 package mcp
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 )
 
 var deployTool = &mcp.Tool{
@@ -31,8 +35,46 @@ func (s *Server) deployHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 	}
 	output = DeployOutput{
 		Message: string(out),
+		URL:     parseDeployedURL(out),
+	}
+	if f, ferr := fn.NewFunction(input.Path); ferr == nil {
+		output.Image = f.Deploy.Image
 	}
 	return
+}
+
+// parseDeployedURL extracts the deployed function URL from combined command
+// output. It handles two formats produced by the func CLI:
+//
+//   - Local deploy (written to stderr by the functions client):
+//     "✅ Function deployed/updated in namespace "ns" and exposed at URL: \n   <url>"
+//
+//   - Remote pipeline deploy (written to stdout by cmd/deploy.go):
+//     "Function Deployed at <url>"
+func parseDeployedURL(out []byte) string {
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	urlNext := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		if urlNext {
+			if u := strings.TrimSpace(line); u != "" {
+				return u
+			}
+		}
+		// Local deploy: URL follows on the next non-empty line after this marker.
+		if strings.Contains(line, "exposed at URL:") {
+			urlNext = true
+			continue
+		}
+		// Remote pipeline deploy: URL is on the same line after the prefix.
+		const remotePrefix = "Function Deployed at "
+		if idx := strings.Index(line, remotePrefix); idx >= 0 {
+			if u := strings.TrimSpace(line[idx+len(remotePrefix):]); u != "" {
+				return u
+			}
+		}
+	}
+	return ""
 }
 
 // DeployInput defines the input parameters for the deploy tool.
