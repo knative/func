@@ -118,3 +118,65 @@ func newTestPairWithReadonly(t *testing.T, readonly bool) (*mcp.ClientSession, *
 func newTestPair(t *testing.T, options ...Option) (session *mcp.ClientSession, server *Server, err error) {
 	return newTestPairCore(t, false, options...)
 }
+
+// TestBuildArgs verifies that buildArgs constructs the command argument list
+// correctly, and in particular that an empty subcommand is never injected.
+func TestBuildArgs(t *testing.T) {
+	cases := []struct {
+		name       string
+		prefix     string
+		subcommand string
+		args       []string
+		want       []string
+	}{
+		{
+			name:       "empty subcommand is omitted",
+			prefix:     "func",
+			subcommand: "",
+			args:       []string{"create", "--help"},
+			want:       []string{"func", "create", "--help"},
+		},
+		{
+			name:       "non-empty subcommand is included",
+			prefix:     "func",
+			subcommand: "deploy",
+			args:       []string{"--verbose"},
+			want:       []string{"func", "deploy", "--verbose"},
+		},
+		{
+			name:       "multi-word prefix is split correctly",
+			prefix:     "kn func",
+			subcommand: "build",
+			args:       []string{"--push"},
+			want:       []string{"kn", "func", "build", "--push"},
+		},
+		{
+			name:       "multi-word prefix with empty subcommand",
+			prefix:     "kn func",
+			subcommand: "",
+			args:       []string{"list", "--help"},
+			want:       []string{"kn", "func", "list", "--help"},
+		},
+		{
+			name:       "no args",
+			prefix:     "func",
+			subcommand: "list",
+			args:       nil,
+			want:       []string{"func", "list"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildArgs(tc.prefix, tc.subcommand, tc.args)
+			if len(got) != len(tc.want) {
+				t.Fatalf("buildArgs(%q, %q, %v) = %v, want %v", tc.prefix, tc.subcommand, tc.args, got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("buildArgs result[%d] = %q, want %q (full: %v)", i, got[i], tc.want[i], got)
+				}
+			}
+		})
+	}
+}
