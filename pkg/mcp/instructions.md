@@ -33,7 +33,7 @@ This is essential because:
 - `create` tool: path = absolute path to directory where Function will be created
 - `deploy` tool: path = absolute path to Function directory (where func.yaml exists)
 - `build` tool: path = absolute path to Function directory (where func.yaml exists)
-- `config_*` tools: path = absolute path to Function directory (where func.yaml exists)
+- `config_*_list`, `config_*_add`, `config_*_remove` tools: path = absolute path to Function directory (where func.yaml exists)
 
 **IMPORTANT:** You must use absolute paths (e.g., `/Users/name/myproject/myfunc`), NOT relative paths (e.g., `.` or `myfunc`). The MCP server process runs in a different directory than your current working directory, so relative paths will not resolve correctly.
 
@@ -140,8 +140,29 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - Exactly ONE of 'path' or 'name' must be provided, not both
 - Deleting does not affect local files (source). Only cluster resources.
 
-### config_volumes, config_labels, config_envs
+### config_envs_list, config_envs_add, config_envs_remove
 
-- All config tools require the 'path' parameter
-- path points to the Function directory whose func.yaml will be modified
-- These tools modify local func.yaml files only (changes take effect on next deploy)
+- **BEFORE calling add/remove:** Consider reading `func://help/config/envs` for authoritative usage
+- All three tools require the 'path' parameter (absolute path to the Function directory)
+- `config_envs_list` — read-only; lists current environment variables
+- `config_envs_add` — adds an environment variable; optional `name` and `value` parameters
+- `config_envs_remove` — removes an environment variable by `name`
+- add/remove modify local func.yaml only (changes take effect on next deploy)
+
+### config_labels_list, config_labels_add, config_labels_remove
+
+- **BEFORE calling add/remove:** Consider reading `func://help/config/labels` for authoritative usage
+- All three tools require the 'path' parameter (absolute path to the Function directory)
+- `config_labels_list` — read-only; lists current labels
+- `config_labels_add` — adds a label; optional `name` and `value` parameters
+- `config_labels_remove` — removes a label by `name`
+- add/remove modify local func.yaml only (changes take effect on next deploy)
+
+### config_volumes_list, config_volumes_add, config_volumes_remove
+
+- **BEFORE calling add/remove:** Consider reading `func://help/config/volumes` for authoritative usage
+- All three tools require the 'path' parameter (absolute path to the Function directory)
+- `config_volumes_list` — read-only; lists current volume mounts
+- `config_volumes_add` — adds a volume; accepts `type` (configmap, secret, pvc, emptydir), `mountPath`, `source`, `medium`, `size`, `readOnly`
+- `config_volumes_remove` — removes a volume by `mountPath`
+- add/remove modify local func.yaml only (changes take effect on next deploy)

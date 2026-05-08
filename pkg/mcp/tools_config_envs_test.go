@@ -2,14 +2,15 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"knative.dev/func/pkg/mcp/mock"
 )
 
-// TestTool_ConfigEnvs_Add ensures the config envs tool executes with all arguments for add action.
-func TestTool_ConfigEnvs_Add(t *testing.T) {
+// TestTool_ConfigEnvsAdd ensures the config_envs_add tool executes with all arguments.
+func TestTool_ConfigEnvsAdd(t *testing.T) {
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
@@ -24,8 +25,6 @@ func TestTool_ConfigEnvs_Add(t *testing.T) {
 		"verbose": "--verbose",
 	}
 
-	action := "add"
-
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "config" {
@@ -33,20 +32,17 @@ func TestTool_ConfigEnvs_Add(t *testing.T) {
 		}
 
 		if len(args) < 2 {
-			t.Fatalf("expected at least 2 args (subcommand and action), got %d: %v", len(args), args)
+			t.Fatalf("expected at least 2 args, got %d: %v", len(args), args)
 		}
 
-		// Validate "envs" subcommand
 		if args[0] != "envs" {
 			t.Fatalf("expected args[0]='envs', got %q", args[0])
 		}
-
-		// Validate action
-		if args[1] != action {
-			t.Fatalf("expected args[1]=%q, got %q", action, args[1])
+		if args[1] != "add" {
+			t.Fatalf("expected args[1]='add', got %q", args[1])
 		}
 
-		// Validate flags (skip first 2 args which are "envs" and "add")
+		// args[2:] are the flags
 		validateArgLength(t, args[2:], len(stringFlags), len(boolFlags))
 		validateStringFlags(t, args[2:], stringFlags)
 		validateBoolFlags(t, args[2:], boolFlags)
@@ -59,13 +55,10 @@ func TestTool_ConfigEnvs_Add(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Build input arguments from test data
 	inputArgs := buildInputArgs(stringFlags, boolFlags)
-	inputArgs["action"] = action
 
-	// Invoke tool with all arguments
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
-		Name:      "config_envs",
+		Name:      "config_envs_add",
 		Arguments: inputArgs,
 	})
 	if err != nil {
@@ -79,17 +72,15 @@ func TestTool_ConfigEnvs_Add(t *testing.T) {
 	}
 }
 
-// TestTool_ConfigEnvs_List ensures the config envs tool can list environment variables.
-func TestTool_ConfigEnvs_List(t *testing.T) {
-	action := "list"
-
+// TestTool_ConfigEnvsList ensures the config_envs_list tool lists environment variables.
+func TestTool_ConfigEnvsList(t *testing.T) {
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "config" {
 			t.Fatalf("expected subcommand 'config', got %q", subcommand)
 		}
 
-		// For list action, "envs" + "--path" flag = 3 args
+		// "envs" + "--path" + "." = 3 args
 		if len(args) != 3 {
 			t.Fatalf("expected 3 args, got %d: %v", len(args), args)
 		}
@@ -97,10 +88,9 @@ func TestTool_ConfigEnvs_List(t *testing.T) {
 			t.Fatalf("expected args[0]='envs', got %q", args[0])
 		}
 
-		// Validate path flag
 		argsMap := argsToMap(args[1:])
 		if val, ok := argsMap["--path"]; !ok || val != "." {
-			t.Fatalf("expected --path flag with value '.', got %q", val)
+			t.Fatalf("expected --path='.', got %q", val)
 		}
 
 		return []byte("DATABASE_URL=postgres://localhost\nAPI_KEY=secret\n"), nil
@@ -112,11 +102,8 @@ func TestTool_ConfigEnvs_List(t *testing.T) {
 	}
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
-		Name: "config_envs",
-		Arguments: map[string]any{
-			"action": action,
-			"path":   ".",
-		},
+		Name:      "config_envs_list",
+		Arguments: map[string]any{"path": "."},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -126,5 +113,133 @@ func TestTool_ConfigEnvs_List(t *testing.T) {
 	}
 	if !executor.ExecuteInvoked {
 		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_ConfigEnvsRemove ensures the config_envs_remove tool removes an environment variable.
+func TestTool_ConfigEnvsRemove(t *testing.T) {
+	stringFlags := map[string]struct {
+		jsonKey string
+		flag    string
+		value   string
+	}{
+		"path": {"path", "--path", "."},
+		"name": {"name", "--name", "API_KEY"},
+	}
+
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		if subcommand != "config" {
+			t.Fatalf("expected subcommand 'config', got %q", subcommand)
+		}
+
+		if len(args) < 2 {
+			t.Fatalf("expected at least 2 args, got %d: %v", len(args), args)
+		}
+
+		if args[0] != "envs" {
+			t.Fatalf("expected args[0]='envs', got %q", args[0])
+		}
+		if args[1] != "remove" {
+			t.Fatalf("expected args[1]='remove', got %q", args[1])
+		}
+
+		validateArgLength(t, args[2:], len(stringFlags), 0)
+		validateStringFlags(t, args[2:], stringFlags)
+
+		return []byte("Environment variable removed successfully\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	inputArgs := buildInputArgs(stringFlags, nil)
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_remove",
+		Arguments: inputArgs,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_ConfigEnvsList_Error ensures the config_envs_list tool propagates executor errors.
+func TestTool_ConfigEnvsList_Error(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		return []byte("list failed"), errors.New("executor error")
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_list",
+		Arguments: map[string]any{"path": "."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result, got success")
+	}
+}
+
+// TestTool_ConfigEnvsAdd_Error ensures the config_envs_add tool propagates executor errors.
+func TestTool_ConfigEnvsAdd_Error(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		return []byte("add failed"), errors.New("executor error")
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_add",
+		Arguments: map[string]any{"path": "."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result, got success")
+	}
+}
+
+// TestTool_ConfigEnvsRemove_Error ensures the config_envs_remove tool propagates executor errors.
+func TestTool_ConfigEnvsRemove_Error(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		return []byte("remove failed"), errors.New("executor error")
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_remove",
+		Arguments: map[string]any{"path": "."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result, got success")
 	}
 }
