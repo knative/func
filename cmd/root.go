@@ -20,10 +20,12 @@ import (
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/version"
 )
 
-// DefaultVersion when building source directly (bypassing the Makefile)
-const DefaultVersion = "v0.0.0+source"
+// DefaultVersion when building source directly (bypassing the Makefile).
+// Delegates to version.DefaultVers so the fallback is defined in one place.
+const DefaultVersion = version.DefaultVers
 
 // DefaultNamespace is the global static default namespace, and is equivalent
 // to the Kubernetes default namespace.

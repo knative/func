@@ -87,16 +87,11 @@ func New(options ...Option) *Server {
 		o(s)
 	}
 
-	vers := version.Vers
-	if vers == "" {
-		vers = "0.0.0+source"
-	}
-
 	i := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    name,
 			Title:   title,
-			Version: vers},
+			Version: version.Get().String()},
 		&mcp.ServerOptions{
 			Instructions:       instructions(s.readonly.Load()),
 			HasPrompts:         true,
