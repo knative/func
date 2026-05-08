@@ -59,3 +59,11 @@ func TestInt_EnvsUpdate(t *testing.T) {
 		k8s.NewDescriber(false),
 		k8s.KubernetesDeployerName)
 }
+
+func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
+	deployertesting.TestInt_ResourceValidationOnFirstDeploy(t,
+		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
+		k8s.NewRemover(false),
+		k8s.NewDescriber(false),
+		k8s.KubernetesDeployerName)
+}

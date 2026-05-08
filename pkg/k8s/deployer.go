@@ -147,9 +147,17 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	var status fn.Status
 	if err == nil {
 		// Update the existing function
-		deployment, err := d.generateDeployment(f, namespace, daprInstalled)
+		referencedSecrets := sets.New[string]()
+		referencedConfigMaps := sets.New[string]()
+		referencedPVCs := sets.New[string]()
+
+		deployment, err := d.generateDeployment(f, namespace, daprInstalled, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
+		}
+
+		if err = CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
 		svc, err := d.generateService(f, namespace, daprInstalled, existingDeployment)
@@ -188,9 +196,17 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to check for existing deployment: %w", err)
 		}
 
-		deployment, err := d.generateDeployment(f, namespace, daprInstalled)
+		referencedSecrets := sets.New[string]()
+		referencedConfigMaps := sets.New[string]()
+		referencedPVCs := sets.New[string]()
+
+		deployment, err := d.generateDeployment(f, namespace, daprInstalled, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
+		}
+
+		if err = CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
 		deployment, err = deploymentClient.Create(ctx, deployment, metav1.CreateOptions{})
@@ -363,7 +379,7 @@ func deleteStaleTriggers(ctx context.Context, eventingClient clienteventingv1.Kn
 	return nil
 }
 
-func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInstalled bool) (*appsv1.Deployment, error) {
+func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInstalled bool, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string]) (*appsv1.Deployment, error) {
 	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
 	if err != nil {
 		return nil, err
@@ -375,17 +391,12 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInsta
 	podAnnotations := make(map[string]string)
 	maps.Copy(podAnnotations, annotations)
 
-	// Process environment variables and volumes
-	referencedSecrets := sets.New[string]()
-	referencedConfigMaps := sets.New[string]()
-	referencedPVCs := sets.New[string]()
-
-	envVars, envFrom, err := ProcessEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
+	envVars, envFrom, err := ProcessEnvs(f.Run.Envs, referencedSecrets, referencedConfigMaps)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process environment variables: %w", err)
 	}
 
-	volumes, volumeMounts, err := ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	volumes, volumeMounts, err := ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process volumes: %w", err)
 	}
