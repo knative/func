@@ -97,6 +97,64 @@ func NewTracker() *Tracker {
 	}
 }
 
+// ensureInit initializes any nil sets in the embedded References so that
+// methods on a zero-value or partially-constructed Tracker never panic on a
+// nil-map Insert.
+func (t *Tracker) ensureInit() {
+	if t.Secrets == nil {
+		t.Secrets = sets.New[string]()
+	}
+	if t.ConfigMaps == nil {
+		t.ConfigMaps = sets.New[string]()
+	}
+	if t.PVCs == nil {
+		t.PVCs = sets.New[string]()
+	}
+}
+
+// ProcessEnvs is a package-level wrapper kept for backwards compatibility.
+//
+// Deprecated: Create a Tracker via NewTracker() and call its ProcessEnvs
+// method instead. The out-parameter sets are populated from the tracker's
+// accumulated references after the call.
+func ProcessEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
+	t := NewTracker()
+	vars, from, err := t.ProcessEnvs(envs)
+	if err != nil {
+		return nil, nil, err
+	}
+	if referencedSecrets != nil {
+		referencedSecrets.Insert(t.Secrets.UnsortedList()...)
+	}
+	if referencedConfigMaps != nil {
+		referencedConfigMaps.Insert(t.ConfigMaps.UnsortedList()...)
+	}
+	return vars, from, nil
+}
+
+// ProcessVolumes is a package-level wrapper kept for backwards compatibility.
+//
+// Deprecated: Create a Tracker via NewTracker() and call its ProcessVolumes
+// method instead. The out-parameter sets are populated from the tracker's
+// accumulated references after the call.
+func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string]) ([]corev1.Volume, []corev1.VolumeMount, error) {
+	t := NewTracker()
+	vols, mounts, err := t.ProcessVolumes(volumes)
+	if err != nil {
+		return nil, nil, err
+	}
+	if referencedSecrets != nil {
+		referencedSecrets.Insert(t.Secrets.UnsortedList()...)
+	}
+	if referencedConfigMaps != nil {
+		referencedConfigMaps.Insert(t.ConfigMaps.UnsortedList()...)
+	}
+	if referencedPVCs != nil {
+		referencedPVCs.Insert(t.PVCs.UnsortedList()...)
+	}
+	return vols, mounts, nil
+}
+
 func onClusterFix(f fn.Function) fn.Function {
 	// This only exists because of a bootstrapping problem with On-Cluster
 	// builds:  It appears that, when sending a function to be built on-cluster
@@ -512,8 +570,10 @@ func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalle
 	return service, nil
 }
 
-// CheckResourcesArePresent returns error if Secrets or ConfigMaps
-// referenced in input sets are not deployed on the cluster in the specified namespace
+// CheckResourcesArePresent returns an error if any of the cluster resources
+// referenced by refs — Secrets, ConfigMaps, or PersistentVolumeClaims — are
+// absent from the given namespace, or if the optional ServiceAccount or
+// imagePullSecret do not exist there.
 func CheckResourcesArePresent(ctx context.Context, namespace string, refs References, referencedServiceAccount, imagePullSecret string) error {
 	errMsg := ""
 	for s := range refs.Secrets {
@@ -634,6 +694,7 @@ func SetSecurityContext(container *corev1.Container) {
 //     value: {{ configMap:configMapName:key }}  # ENV from a key in ConfigMap
 //   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
 func (t *Tracker) ProcessEnvs(envs []fn.Env) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
+	t.ensureInit()
 
 	envs = withOpenAddress(envs) // prepends ADDRESS=0.0.0.0 if not extant
 
@@ -851,6 +912,7 @@ func processLocalEnvValue(val string) (string, error) {
 //   - emptyDir: {}                                         # mount EmptyDir as Volume
 //     path: /etc/configMap-volume
 func (t *Tracker) ProcessVolumes(volumes []fn.Volume) ([]corev1.Volume, []corev1.VolumeMount, error) {
+	t.ensureInit()
 	createdVolumes := sets.NewString()
 	usedPaths := sets.NewString()
 
