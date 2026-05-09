@@ -81,7 +81,7 @@ func New(options ...Option) *Server {
 			Version: version},
 		&mcp.ServerOptions{
 			Instructions:       instructions(s.readonly),
-			HasPrompts:         true,
+			HasPrompts:         false,
 			HasResources:       true,
 			HasTools:           true,
 			InitializedHandler: func(ctx context.Context, _ *mcp.InitializedRequest) { s.OnInit(ctx) },
