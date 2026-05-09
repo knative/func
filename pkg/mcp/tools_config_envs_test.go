@@ -72,6 +72,208 @@ func TestTool_ConfigEnvsAdd(t *testing.T) {
 	}
 }
 
+// TestTool_ConfigEnvsAdd_SecretKey ensures secret-key-sourced env vars produce
+// the correct "{{ secret:name:key }}" value template.
+func TestTool_ConfigEnvsAdd_SecretKey(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		if subcommand != "config" {
+			t.Fatalf("expected subcommand 'config', got %q", subcommand)
+		}
+
+		argsMap := argsToMap(args)
+		wantValue := "{{ secret:my-secret:MY_KEY }}"
+		if got, ok := argsMap["--value"]; !ok || got != wantValue {
+			t.Fatalf("expected --value=%q, got %q", wantValue, got)
+		}
+		if got, ok := argsMap["--name"]; !ok || got != "API_KEY" {
+			t.Fatalf("expected --name='API_KEY', got %q", got)
+		}
+		return []byte("Environment variable added successfully\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_envs_add",
+		Arguments: map[string]any{
+			"path":       ".",
+			"name":       "API_KEY",
+			"secretName": "my-secret",
+			"secretKey":  "MY_KEY",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_ConfigEnvsAdd_SecretAllKeys ensures importing all keys from a Secret
+// produces the "{{ secret:name }}" value template without --name.
+func TestTool_ConfigEnvsAdd_SecretAllKeys(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		argsMap := argsToMap(args)
+		wantValue := "{{ secret:my-secret }}"
+		if got, ok := argsMap["--value"]; !ok || got != wantValue {
+			t.Fatalf("expected --value=%q, got %q", wantValue, got)
+		}
+		if _, ok := argsMap["--name"]; ok {
+			t.Fatal("expected no --name flag when importing all secret keys")
+		}
+		return []byte("Environment variable added successfully\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_envs_add",
+		Arguments: map[string]any{
+			"path":       ".",
+			"secretName": "my-secret",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_ConfigEnvsAdd_ConfigMapKey ensures configmap-key-sourced env vars produce
+// the correct "{{ configMap:name:key }}" value template.
+func TestTool_ConfigEnvsAdd_ConfigMapKey(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		argsMap := argsToMap(args)
+		wantValue := "{{ configMap:my-config:DB_HOST }}"
+		if got, ok := argsMap["--value"]; !ok || got != wantValue {
+			t.Fatalf("expected --value=%q, got %q", wantValue, got)
+		}
+		if got, ok := argsMap["--name"]; !ok || got != "DATABASE_HOST" {
+			t.Fatalf("expected --name='DATABASE_HOST', got %q", got)
+		}
+		return []byte("Environment variable added successfully\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_envs_add",
+		Arguments: map[string]any{
+			"path":         ".",
+			"name":         "DATABASE_HOST",
+			"configMapName": "my-config",
+			"configMapKey":  "DB_HOST",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_ConfigEnvsAdd_ConfigMapAllKeys ensures importing all keys from a ConfigMap
+// produces the "{{ configMap:name }}" value template without --name.
+func TestTool_ConfigEnvsAdd_ConfigMapAllKeys(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		argsMap := argsToMap(args)
+		wantValue := "{{ configMap:my-config }}"
+		if got, ok := argsMap["--value"]; !ok || got != wantValue {
+			t.Fatalf("expected --value=%q, got %q", wantValue, got)
+		}
+		if _, ok := argsMap["--name"]; ok {
+			t.Fatal("expected no --name flag when importing all configmap keys")
+		}
+		return []byte("Environment variable added successfully\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_envs_add",
+		Arguments: map[string]any{
+			"path":          ".",
+			"configMapName": "my-config",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_ConfigEnvsAdd_ValueTakesPrecedence ensures that when both Value and
+// SecretName are provided, the explicit Value is used.
+func TestTool_ConfigEnvsAdd_ValueTakesPrecedence(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		argsMap := argsToMap(args)
+		wantValue := "explicit-value"
+		if got, ok := argsMap["--value"]; !ok || got != wantValue {
+			t.Fatalf("expected --value=%q, got %q", wantValue, got)
+		}
+		return []byte("Environment variable added successfully\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_envs_add",
+		Arguments: map[string]any{
+			"path":       ".",
+			"name":       "MY_VAR",
+			"value":      "explicit-value",
+			"secretName": "ignored-secret",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
+	}
+}
+
 // TestTool_ConfigEnvsList ensures the config_envs_list tool lists environment variables.
 func TestTool_ConfigEnvsList(t *testing.T) {
 	executor := mock.NewExecutor()

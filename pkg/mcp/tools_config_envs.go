@@ -48,9 +48,21 @@ func (s *Server) configEnvsListHandler(ctx context.Context, r *mcp.CallToolReque
 // config_envs_add
 
 var configEnvsAddTool = &mcp.Tool{
-	Name:        "config_envs_add",
-	Title:       "Config Environment Variables Add",
-	Description: "Adds an environment variable to a function's configuration.",
+	Name:  "config_envs_add",
+	Title: "Config Environment Variables Add",
+	Description: `Adds an environment variable to a function's configuration.
+
+Supports four source types:
+  1. Literal value:      set Name and Value directly.
+  2. Local env var:      set Name and Value to "{{ env:LOCAL_VAR }}".
+  3. Secret (all keys):  set SecretName only — imports every key from the Secret as env vars.
+  4. Secret (one key):   set Name, SecretName, and SecretKey.
+  5. ConfigMap (all):    set ConfigMapName only — imports every key from the ConfigMap as env vars.
+  6. ConfigMap (one key): set Name, ConfigMapName, and ConfigMapKey.
+
+When SecretName or ConfigMapName is provided, the tool constructs the
+appropriate "{{ secret:… }}" or "{{ configMap:… }}" value template automatically.
+The explicit Value field takes precedence if provided alongside source fields.`,
 	Annotations: &mcp.ToolAnnotations{
 		Title:           "Config Environment Variables Add",
 		ReadOnlyHint:    false,
@@ -60,16 +72,41 @@ var configEnvsAddTool = &mcp.Tool{
 }
 
 type ConfigEnvsAddInput struct {
-	Path    string  `json:"path" jsonschema:"required,Path to the function project directory"`
-	Name    *string `json:"name,omitempty" jsonschema:"Name of the environment variable"`
-	Value   *string `json:"value,omitempty" jsonschema:"Value of the environment variable"`
-	Verbose *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Path         string  `json:"path" jsonschema:"required,Path to the function project directory"`
+	Name         *string `json:"name,omitempty" jsonschema:"Name of the environment variable"`
+	Value        *string `json:"value,omitempty" jsonschema:"Literal value for the environment variable"`
+	SecretName   *string `json:"secretName,omitempty" jsonschema:"Name of the Kubernetes Secret to source the value from"`
+	SecretKey    *string `json:"secretKey,omitempty" jsonschema:"Key within the Secret; omit to import all keys as env vars"`
+	ConfigMapName *string `json:"configMapName,omitempty" jsonschema:"Name of the Kubernetes ConfigMap to source the value from"`
+	ConfigMapKey  *string `json:"configMapKey,omitempty" jsonschema:"Key within the ConfigMap; omit to import all keys as env vars"`
+	Verbose      *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
 func (i ConfigEnvsAddInput) Args() []string {
 	args := []string{"envs", "add", "--path", i.Path}
 	args = appendStringFlag(args, "--name", i.Name)
-	args = appendStringFlag(args, "--value", i.Value)
+
+	// Explicit Value takes precedence over structured secret/configmap fields.
+	if i.Value != nil {
+		args = appendStringFlag(args, "--value", i.Value)
+	} else if i.SecretName != nil {
+		var v string
+		if i.SecretKey != nil {
+			v = fmt.Sprintf("{{ secret:%s:%s }}", *i.SecretName, *i.SecretKey)
+		} else {
+			v = fmt.Sprintf("{{ secret:%s }}", *i.SecretName)
+		}
+		args = append(args, "--value", v)
+	} else if i.ConfigMapName != nil {
+		var v string
+		if i.ConfigMapKey != nil {
+			v = fmt.Sprintf("{{ configMap:%s:%s }}", *i.ConfigMapName, *i.ConfigMapKey)
+		} else {
+			v = fmt.Sprintf("{{ configMap:%s }}", *i.ConfigMapName)
+		}
+		args = append(args, "--value", v)
+	}
+
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
 	return args
 }
