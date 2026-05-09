@@ -127,3 +127,36 @@ func startMockDaemonUnix(t *testing.T, sock string) {
 	}
 	startMockDaemon(t, l)
 }
+
+// TestNewClient_DockerContext tests that Docker context is properly detected
+// when DOCKER_HOST is not set
+func TestNewClient_DockerContext(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping Docker context test on Windows")
+	}
+
+	// This test requires docker CLI to be available
+	// If not available, skip the test
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second*5)
+	defer cancel()
+
+	// Unset DOCKER_HOST to force context detection
+	t.Setenv("DOCKER_HOST", "")
+
+	// Try to create a client - it should use Docker context if available
+	dockerClient, _, err := docker.NewClient(client.DefaultDockerHost)
+	if err != nil {
+		// If docker is not available or not running, skip the test
+		if err == docker.ErrNoDocker {
+			t.Skip("Docker not available, skipping context detection test")
+		}
+		t.Fatalf("Failed to create Docker client: %v", err)
+	}
+	defer dockerClient.Close()
+
+	// Try to ping the daemon to verify the connection works
+	_, err = dockerClient.Ping(ctx, client.PingOptions{})
+	if err != nil {
+		t.Errorf("Failed to ping Docker daemon via context: %v", err)
+	}
+}
