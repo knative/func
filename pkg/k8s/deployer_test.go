@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -121,8 +120,8 @@ func Test_generateDeployment_ImagePullSecret(t *testing.T) {
 				ImagePullSecret: "my-registry-secret",
 			},
 		}
-		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
-		deployment, err := d.generateDeployment(f, "default", false, &rs, &rcm, &rpvc)
+		tracker := NewTracker()
+		deployment, err := d.generateDeployment(f, "default", false, tracker)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -139,8 +138,8 @@ func Test_generateDeployment_ImagePullSecret(t *testing.T) {
 				Image: "registry.example.com/test:latest",
 			},
 		}
-		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
-		deployment, err := d.generateDeployment(f, "default", false, &rs, &rcm, &rpvc)
+		tracker := NewTracker()
+		deployment, err := d.generateDeployment(f, "default", false, tracker)
 		if err != nil {
 			t.Fatal(err)
 		}
