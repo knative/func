@@ -3,9 +3,17 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// validResourceName matches Kubernetes resource names as accepted by the env template syntax.
+// Mirrors the name capture group used in pkg/functions/function.go validation regexes.
+var validResourceName = regexp.MustCompile(`^((?:\w|['-]\w)+)$`)
+
+// validKeyName matches Secret/ConfigMap key names as accepted by the env template syntax.
+var validKeyName = regexp.MustCompile(`^[-._a-zA-Z0-9]+$`)
 
 // config_envs_list
 
@@ -52,7 +60,7 @@ var configEnvsAddTool = &mcp.Tool{
 	Title: "Config Environment Variables Add",
 	Description: `Adds an environment variable to a function's configuration.
 
-Supports four source types:
+Supports six source types:
   1. Literal value:      set Name and Value directly.
   2. Local env var:      set Name and Value to "{{ env:LOCAL_VAR }}".
   3. Secret (all keys):  set SecretName only — imports every key from the Secret as env vars.
@@ -80,6 +88,30 @@ type ConfigEnvsAddInput struct {
 	ConfigMapName *string `json:"configMapName,omitempty" jsonschema:"Name of the Kubernetes ConfigMap to source the value from"`
 	ConfigMapKey  *string `json:"configMapKey,omitempty" jsonschema:"Key within the ConfigMap; omit to import all keys as env vars"`
 	Verbose       *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+}
+
+// validate returns an error for any illegal input combination or character set
+// violation before args are constructed and forwarded to the CLI.
+func (i ConfigEnvsAddInput) validate() error {
+	if i.SecretKey != nil && i.SecretName == nil {
+		return fmt.Errorf("secretKey requires secretName to be set")
+	}
+	if i.ConfigMapKey != nil && i.ConfigMapName == nil {
+		return fmt.Errorf("configMapKey requires configMapName to be set")
+	}
+	if i.SecretName != nil && !validResourceName.MatchString(*i.SecretName) {
+		return fmt.Errorf("invalid secretName %q: only word characters, hyphens and apostrophes are allowed", *i.SecretName)
+	}
+	if i.SecretKey != nil && !validKeyName.MatchString(*i.SecretKey) {
+		return fmt.Errorf("invalid secretKey %q: only alphanumeric characters, hyphens, dots and underscores are allowed", *i.SecretKey)
+	}
+	if i.ConfigMapName != nil && !validResourceName.MatchString(*i.ConfigMapName) {
+		return fmt.Errorf("invalid configMapName %q: only word characters, hyphens and apostrophes are allowed", *i.ConfigMapName)
+	}
+	if i.ConfigMapKey != nil && !validKeyName.MatchString(*i.ConfigMapKey) {
+		return fmt.Errorf("invalid configMapKey %q: only alphanumeric characters, hyphens, dots and underscores are allowed", *i.ConfigMapKey)
+	}
+	return nil
 }
 
 func (i ConfigEnvsAddInput) Args() []string {
@@ -116,6 +148,9 @@ type ConfigEnvsAddOutput struct {
 }
 
 func (s *Server) configEnvsAddHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsAddInput) (result *mcp.CallToolResult, output ConfigEnvsAddOutput, err error) {
+	if err = input.validate(); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
