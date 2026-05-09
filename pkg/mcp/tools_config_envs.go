@@ -72,14 +72,14 @@ The explicit Value field takes precedence if provided alongside source fields.`,
 }
 
 type ConfigEnvsAddInput struct {
-	Path         string  `json:"path" jsonschema:"required,Path to the function project directory"`
-	Name         *string `json:"name,omitempty" jsonschema:"Name of the environment variable"`
-	Value        *string `json:"value,omitempty" jsonschema:"Literal value for the environment variable"`
-	SecretName   *string `json:"secretName,omitempty" jsonschema:"Name of the Kubernetes Secret to source the value from"`
-	SecretKey    *string `json:"secretKey,omitempty" jsonschema:"Key within the Secret; omit to import all keys as env vars"`
+	Path          string  `json:"path" jsonschema:"required,Path to the function project directory"`
+	Name          *string `json:"name,omitempty" jsonschema:"Name of the environment variable"`
+	Value         *string `json:"value,omitempty" jsonschema:"Literal value for the environment variable"`
+	SecretName    *string `json:"secretName,omitempty" jsonschema:"Name of the Kubernetes Secret to source the value from"`
+	SecretKey     *string `json:"secretKey,omitempty" jsonschema:"Key within the Secret; omit to import all keys as env vars"`
 	ConfigMapName *string `json:"configMapName,omitempty" jsonschema:"Name of the Kubernetes ConfigMap to source the value from"`
 	ConfigMapKey  *string `json:"configMapKey,omitempty" jsonschema:"Key within the ConfigMap; omit to import all keys as env vars"`
-	Verbose      *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Verbose       *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
 func (i ConfigEnvsAddInput) Args() []string {

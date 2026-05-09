@@ -180,8 +180,8 @@ func TestTool_ConfigEnvsAdd_ConfigMapKey(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":         ".",
-			"name":         "DATABASE_HOST",
+			"path":          ".",
+			"name":          "DATABASE_HOST",
 			"configMapName": "my-config",
 			"configMapKey":  "DB_HOST",
 		},
