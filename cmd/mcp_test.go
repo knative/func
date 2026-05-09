@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -51,7 +50,7 @@ func TestMCP_StartWriteable(t *testing.T) {
 	}
 
 	// Ensure it is set to true on proper truthy value
-	_ = os.Setenv("FUNC_ENABLE_MCP_WRITE", "true")
+	t.Setenv("FUNC_ENABLE_MCP_WRITE", "true")
 	server = mock.NewMCPServer()
 	server.StartFn = func(_ context.Context, writeEnabled bool) error {
 		if !writeEnabled {
