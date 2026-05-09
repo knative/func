@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	"knative.dev/client/pkg/flags"
@@ -207,17 +206,15 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		}
 		if errors.IsNotFound(err) {
 
-			referencedSecrets := sets.New[string]()
-			referencedConfigMaps := sets.New[string]()
-			referencedPVCs := sets.New[string]()
+			tracker := k8s.NewTracker()
 
-			service, err := generateNewService(f, d.decorator, daprInstalled, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+			service, err := generateNewService(f, d.decorator, daprInstalled, tracker)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
 			}
 
-			err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
+			err = k8s.CheckResourcesArePresent(ctx, namespace, tracker.References, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -305,21 +302,19 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		}
 	} else {
 		// Update the existing Service
-		referencedSecrets := sets.New[string]()
-		referencedConfigMaps := sets.New[string]()
-		referencedPVCs := sets.New[string]()
+		tracker := k8s.NewTracker()
 
-		newEnv, newEnvFrom, err := k8s.ProcessEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
+		newEnv, newEnvFrom, err := tracker.ProcessEnvs(f.Run.Envs)
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
 
-		newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+		newVolumes, newVolumeMounts, err := tracker.ProcessVolumes(f.Run.Volumes)
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
 
-		err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
+		err = k8s.CheckResourcesArePresent(ctx, namespace, tracker.References, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -413,7 +408,7 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 	return nil
 }
 
-func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprInstalled bool, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string]) (*servingv1.Service, error) {
+func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprInstalled bool, tracker *k8s.Tracker) (*servingv1.Service, error) {
 	container := corev1.Container{
 		Image: f.Deploy.Image,
 	}
@@ -421,14 +416,14 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 	k8s.SetSecurityContext(&container)
 	k8s.SetHealthEndpoints(f, &container)
 
-	newEnv, newEnvFrom, err := k8s.ProcessEnvs(f.Run.Envs, referencedSecrets, referencedConfigMaps)
+	newEnv, newEnvFrom, err := tracker.ProcessEnvs(f.Run.Envs)
 	if err != nil {
 		return nil, err
 	}
 	container.Env = newEnv
 	container.EnvFrom = newEnvFrom
 
-	newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)
+	newVolumes, newVolumeMounts, err := tracker.ProcessVolumes(f.Run.Volumes)
 	if err != nil {
 		return nil, err
 	}

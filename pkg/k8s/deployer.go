@@ -69,6 +69,34 @@ func WithDeployerDecorator(decorator deployer.DeployDecorator) DeployerOpt {
 	}
 }
 
+// References holds the names of cluster resources referenced by a function.
+// It is populated during deployment manifest generation and consumed by
+// CheckResourcesArePresent to validate that every referenced resource exists.
+type References struct {
+	Secrets    sets.Set[string]
+	ConfigMaps sets.Set[string]
+	PVCs       sets.Set[string]
+}
+
+// Tracker accumulates References across a chain of processing calls.
+// Using a receiver ensures all processing steps write into the same sets,
+// making it structurally impossible for any caller to silently bypass
+// validation by threading a disconnected set through the call chain.
+type Tracker struct {
+	References
+}
+
+// NewTracker returns a Tracker with all sets initialized and ready for use.
+func NewTracker() *Tracker {
+	return &Tracker{
+		References: References{
+			Secrets:    sets.New[string](),
+			ConfigMaps: sets.New[string](),
+			PVCs:       sets.New[string](),
+		},
+	}
+}
+
 func onClusterFix(f fn.Function) fn.Function {
 	// This only exists because of a bootstrapping problem with On-Cluster
 	// builds:  It appears that, when sending a function to be built on-cluster
@@ -147,16 +175,14 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	var status fn.Status
 	if err == nil {
 		// Update the existing function
-		referencedSecrets := sets.New[string]()
-		referencedConfigMaps := sets.New[string]()
-		referencedPVCs := sets.New[string]()
+		tracker := NewTracker()
 
-		deployment, err := d.generateDeployment(f, namespace, daprInstalled, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+		deployment, err := d.generateDeployment(f, namespace, daprInstalled, tracker)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
 		}
 
-		if err = CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
+		if err = CheckResourcesArePresent(ctx, namespace, tracker.References, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
@@ -196,16 +222,14 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to check for existing deployment: %w", err)
 		}
 
-		referencedSecrets := sets.New[string]()
-		referencedConfigMaps := sets.New[string]()
-		referencedPVCs := sets.New[string]()
+		tracker := NewTracker()
 
-		deployment, err := d.generateDeployment(f, namespace, daprInstalled, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+		deployment, err := d.generateDeployment(f, namespace, daprInstalled, tracker)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
 		}
 
-		if err = CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
+		if err = CheckResourcesArePresent(ctx, namespace, tracker.References, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
@@ -379,7 +403,7 @@ func deleteStaleTriggers(ctx context.Context, eventingClient clienteventingv1.Kn
 	return nil
 }
 
-func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInstalled bool, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string]) (*appsv1.Deployment, error) {
+func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInstalled bool, tracker *Tracker) (*appsv1.Deployment, error) {
 	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
 	if err != nil {
 		return nil, err
@@ -391,12 +415,12 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInsta
 	podAnnotations := make(map[string]string)
 	maps.Copy(podAnnotations, annotations)
 
-	envVars, envFrom, err := ProcessEnvs(f.Run.Envs, referencedSecrets, referencedConfigMaps)
+	envVars, envFrom, err := tracker.ProcessEnvs(f.Run.Envs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process environment variables: %w", err)
 	}
 
-	volumes, volumeMounts, err := ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)
+	volumes, volumeMounts, err := tracker.ProcessVolumes(f.Run.Volumes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process volumes: %w", err)
 	}
@@ -490,9 +514,9 @@ func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalle
 
 // CheckResourcesArePresent returns error if Secrets or ConfigMaps
 // referenced in input sets are not deployed on the cluster in the specified namespace
-func CheckResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount, imagePullSecret string) error {
+func CheckResourcesArePresent(ctx context.Context, namespace string, refs References, referencedServiceAccount, imagePullSecret string) error {
 	errMsg := ""
-	for s := range *referencedSecrets {
+	for s := range refs.Secrets {
 		_, err := GetSecret(ctx, s, namespace)
 		if err != nil {
 			if errors.IsForbidden(err) {
@@ -503,14 +527,14 @@ func CheckResourcesArePresent(ctx context.Context, namespace string, referencedS
 		}
 	}
 
-	for cm := range *referencedConfigMaps {
+	for cm := range refs.ConfigMaps {
 		_, err := GetConfigMap(ctx, cm, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced ConfigMap \"%s\" is not present in namespace \"%s\"\n", cm, namespace)
 		}
 	}
 
-	for pvc := range *referencedPVCs {
+	for pvc := range refs.PVCs {
 		_, err := GetPersistentVolumeClaim(ctx, pvc, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced PersistentVolumeClaim \"%s\" is not present in namespace \"%s\"\n", pvc, namespace)
@@ -609,7 +633,7 @@ func SetSecurityContext(container *corev1.Container) {
 //   - name: EXAMPLE4
 //     value: {{ configMap:configMapName:key }}  # ENV from a key in ConfigMap
 //   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
-func ProcessEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
+func (t *Tracker) ProcessEnvs(envs []fn.Env) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 
 	envs = withOpenAddress(envs) // prepends ADDRESS=0.0.0.0 if not extant
 
@@ -620,7 +644,7 @@ func ProcessEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.Se
 		if env.Name == nil && env.Value != nil {
 			// all key-pair values from secret/configMap are set as ENV, eg. {{ secret:secretName }} or {{ configMap:configMapName }}
 			if strings.HasPrefix(*env.Value, "{{") {
-				envFromSource, err := createEnvFromSource(*env.Value, referencedSecrets, referencedConfigMaps)
+				envFromSource, err := t.createEnvFromSource(*env.Value)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -632,7 +656,7 @@ func ProcessEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.Se
 				slices := strings.Split(strings.Trim(*env.Value, "{} "), ":")
 				if len(slices) == 3 {
 					// ENV from a key in secret/configMap, eg. FOO={{ secret:secretName:key }} FOO={{ configMap:configMapName.key }}
-					valueFrom, err := createEnvVarSource(slices, referencedSecrets, referencedConfigMaps)
+					valueFrom, err := t.createEnvVarSource(slices)
 					envVars = append(envVars, corev1.EnvVar{Name: *env.Name, ValueFrom: valueFrom})
 					if err != nil {
 						return nil, nil, err
@@ -698,7 +722,7 @@ func withOpenAddress(ee []fn.Env) []fn.Env {
 	return ee
 }
 
-func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.EnvFromSource, error) {
+func (t *Tracker) createEnvFromSource(value string) (*corev1.EnvFromSource, error) {
 	slices := strings.Split(strings.Trim(value, "{} "), ":")
 	if len(slices) != 2 {
 		return nil, fmt.Errorf("env requires a value in form \"resourceType:name\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
@@ -719,8 +743,8 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 				Name: sourceName,
 			}}
 
-		if !referencedConfigMaps.Has(sourceName) {
-			referencedConfigMaps.Insert(sourceName)
+		if !t.ConfigMaps.Has(sourceName) {
+			t.ConfigMaps.Insert(sourceName)
 		}
 	case "secret":
 		sourceType = "Secret"
@@ -728,8 +752,8 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: sourceName,
 			}}
-		if !referencedSecrets.Has(sourceName) {
-			referencedSecrets.Insert(sourceName)
+		if !t.Secrets.Has(sourceName) {
+			t.Secrets.Insert(sourceName)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported env source type %q; supported source types are \"configMap\" or \"secret\"", slices[0])
@@ -742,7 +766,7 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 	return &envVarSource, nil
 }
 
-func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.EnvVarSource, error) {
+func (t *Tracker) createEnvVarSource(slices []string) (*corev1.EnvVarSource, error) {
 	if len(slices) != 3 {
 		return nil, fmt.Errorf("env requires a value in form \"resourceType:name:key\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
 	}
@@ -764,8 +788,8 @@ func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps
 			},
 			Key: sourceKey}
 
-		if !referencedConfigMaps.Has(sourceName) {
-			referencedConfigMaps.Insert(sourceName)
+		if !t.ConfigMaps.Has(sourceName) {
+			t.ConfigMaps.Insert(sourceName)
 		}
 	case "secret":
 		sourceType = "Secret"
@@ -775,8 +799,8 @@ func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps
 			},
 			Key: sourceKey}
 
-		if !referencedSecrets.Has(sourceName) {
-			referencedSecrets.Insert(sourceName)
+		if !t.Secrets.Has(sourceName) {
+			t.Secrets.Insert(sourceName)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported env source type %q; supported source types are \"configMap\" or \"secret\"", slices[0])
@@ -826,7 +850,7 @@ func processLocalEnvValue(val string) (string, error) {
 //     path: /etc/secret-volume
 //   - emptyDir: {}                                         # mount EmptyDir as Volume
 //     path: /etc/configMap-volume
-func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string]) ([]corev1.Volume, []corev1.VolumeMount, error) {
+func (t *Tracker) ProcessVolumes(volumes []fn.Volume) ([]corev1.Volume, []corev1.VolumeMount, error) {
 	createdVolumes := sets.NewString()
 	usedPaths := sets.NewString()
 
@@ -851,8 +875,8 @@ func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 				})
 				createdVolumes.Insert(volumeName)
 
-				if !referencedSecrets.Has(*vol.Secret) {
-					referencedSecrets.Insert(*vol.Secret)
+				if !t.Secrets.Has(*vol.Secret) {
+					t.Secrets.Insert(*vol.Secret)
 				}
 			}
 		} else if vol.ConfigMap != nil {
@@ -871,8 +895,8 @@ func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 				})
 				createdVolumes.Insert(volumeName)
 
-				if !referencedConfigMaps.Has(*vol.ConfigMap) {
-					referencedConfigMaps.Insert(*vol.ConfigMap)
+				if !t.ConfigMaps.Has(*vol.ConfigMap) {
+					t.ConfigMaps.Insert(*vol.ConfigMap)
 				}
 			}
 		} else if vol.PersistentVolumeClaim != nil {
@@ -890,8 +914,8 @@ func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 				})
 				createdVolumes.Insert(volumeName)
 
-				if !referencedPVCs.Has(*vol.PersistentVolumeClaim.ClaimName) {
-					referencedPVCs.Insert(*vol.PersistentVolumeClaim.ClaimName)
+				if !t.PVCs.Has(*vol.PersistentVolumeClaim.ClaimName) {
+					t.PVCs.Insert(*vol.PersistentVolumeClaim.ClaimName)
 				}
 			}
 		} else if vol.EmptyDir != nil {
