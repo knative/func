@@ -216,7 +216,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 
 			err = k8s.CheckResourcesArePresent(ctx, namespace, tracker.References, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 			if err != nil {
-				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
+				err = fmt.Errorf("knative deployer referenced resource validation failed: %v", err)
 				return fn.DeploymentResult{}, err
 			}
 
@@ -316,7 +316,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 
 		err = k8s.CheckResourcesArePresent(ctx, namespace, tracker.References, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 		if err != nil {
-			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
+			err = fmt.Errorf("knative deployer referenced resource validation failed: %v", err)
 			return fn.DeploymentResult{}, err
 		}
 
