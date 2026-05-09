@@ -80,8 +80,10 @@ func TestTool_ConfigEnvsAdd_SecretKey(t *testing.T) {
 		if subcommand != "config" {
 			t.Fatalf("expected subcommand 'config', got %q", subcommand)
 		}
-
-		argsMap := argsToMap(args)
+		if len(args) < 2 || args[0] != "envs" || args[1] != "add" {
+			t.Fatalf("expected positional args ['envs','add'], got %v", args[:min(2, len(args))])
+		}
+		argsMap := argsToMap(args[2:])
 		wantValue := "{{ secret:my-secret:MY_KEY }}"
 		if got, ok := argsMap["--value"]; !ok || got != wantValue {
 			t.Fatalf("expected --value=%q, got %q", wantValue, got)
@@ -122,7 +124,13 @@ func TestTool_ConfigEnvsAdd_SecretKey(t *testing.T) {
 func TestTool_ConfigEnvsAdd_SecretAllKeys(t *testing.T) {
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		argsMap := argsToMap(args)
+		if subcommand != "config" {
+			t.Fatalf("expected subcommand 'config', got %q", subcommand)
+		}
+		if len(args) < 2 || args[0] != "envs" || args[1] != "add" {
+			t.Fatalf("expected positional args ['envs','add'], got %v", args[:min(2, len(args))])
+		}
+		argsMap := argsToMap(args[2:])
 		wantValue := "{{ secret:my-secret }}"
 		if got, ok := argsMap["--value"]; !ok || got != wantValue {
 			t.Fatalf("expected --value=%q, got %q", wantValue, got)
@@ -161,7 +169,13 @@ func TestTool_ConfigEnvsAdd_SecretAllKeys(t *testing.T) {
 func TestTool_ConfigEnvsAdd_ConfigMapKey(t *testing.T) {
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		argsMap := argsToMap(args)
+		if subcommand != "config" {
+			t.Fatalf("expected subcommand 'config', got %q", subcommand)
+		}
+		if len(args) < 2 || args[0] != "envs" || args[1] != "add" {
+			t.Fatalf("expected positional args ['envs','add'], got %v", args[:min(2, len(args))])
+		}
+		argsMap := argsToMap(args[2:])
 		wantValue := "{{ configMap:my-config:DB_HOST }}"
 		if got, ok := argsMap["--value"]; !ok || got != wantValue {
 			t.Fatalf("expected --value=%q, got %q", wantValue, got)
@@ -202,7 +216,13 @@ func TestTool_ConfigEnvsAdd_ConfigMapKey(t *testing.T) {
 func TestTool_ConfigEnvsAdd_ConfigMapAllKeys(t *testing.T) {
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		argsMap := argsToMap(args)
+		if subcommand != "config" {
+			t.Fatalf("expected subcommand 'config', got %q", subcommand)
+		}
+		if len(args) < 2 || args[0] != "envs" || args[1] != "add" {
+			t.Fatalf("expected positional args ['envs','add'], got %v", args[:min(2, len(args))])
+		}
+		argsMap := argsToMap(args[2:])
 		wantValue := "{{ configMap:my-config }}"
 		if got, ok := argsMap["--value"]; !ok || got != wantValue {
 			t.Fatalf("expected --value=%q, got %q", wantValue, got)
@@ -241,7 +261,13 @@ func TestTool_ConfigEnvsAdd_ConfigMapAllKeys(t *testing.T) {
 func TestTool_ConfigEnvsAdd_ValueTakesPrecedence(t *testing.T) {
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		argsMap := argsToMap(args)
+		if subcommand != "config" {
+			t.Fatalf("expected subcommand 'config', got %q", subcommand)
+		}
+		if len(args) < 2 || args[0] != "envs" || args[1] != "add" {
+			t.Fatalf("expected positional args ['envs','add'], got %v", args[:min(2, len(args))])
+		}
+		argsMap := argsToMap(args[2:])
 		wantValue := "explicit-value"
 		if got, ok := argsMap["--value"]; !ok || got != wantValue {
 			t.Fatalf("expected --value=%q, got %q", wantValue, got)
@@ -271,6 +297,106 @@ func TestTool_ConfigEnvsAdd_ValueTakesPrecedence(t *testing.T) {
 	}
 	if !executor.ExecuteInvoked {
 		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_ConfigEnvsAdd_NameWithSecretAllKeys ensures a validation error is returned
+// when name is provided alongside an all-keys Secret import (no secretKey).
+func TestTool_ConfigEnvsAdd_NameWithSecretAllKeys(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		t.Fatal("executor must not be called when input is invalid")
+		return nil, nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_envs_add",
+		Arguments: map[string]any{
+			"path":       ".",
+			"name":       "MY_VAR",
+			"secretName": "my-secret",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when name is set alongside an all-keys Secret import")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when input fails validation")
+	}
+}
+
+// TestTool_ConfigEnvsAdd_NameWithConfigMapAllKeys ensures a validation error is returned
+// when name is provided alongside an all-keys ConfigMap import (no configMapKey).
+func TestTool_ConfigEnvsAdd_NameWithConfigMapAllKeys(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		t.Fatal("executor must not be called when input is invalid")
+		return nil, nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_envs_add",
+		Arguments: map[string]any{
+			"path":          ".",
+			"name":          "MY_VAR",
+			"configMapName": "my-config",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when name is set alongside an all-keys ConfigMap import")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when input fails validation")
+	}
+}
+
+// TestTool_ConfigEnvsAdd_BothSecretAndConfigMap ensures a validation error is returned
+// when both secretName and configMapName are provided simultaneously.
+func TestTool_ConfigEnvsAdd_BothSecretAndConfigMap(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		t.Fatal("executor must not be called when input is invalid")
+		return nil, nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_envs_add",
+		Arguments: map[string]any{
+			"path":          ".",
+			"name":          "MY_VAR",
+			"secretName":    "my-secret",
+			"configMapName": "my-config",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when both secretName and configMapName are provided")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when input fails validation")
 	}
 }
 

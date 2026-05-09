@@ -82,7 +82,7 @@ The explicit Value field takes precedence if provided alongside source fields.`,
 type ConfigEnvsAddInput struct {
 	Path          string  `json:"path" jsonschema:"required,Path to the function project directory"`
 	Name          *string `json:"name,omitempty" jsonschema:"Name of the environment variable"`
-	Value         *string `json:"value,omitempty" jsonschema:"Literal value for the environment variable"`
+	Value         *string `json:"value,omitempty" jsonschema:"Literal value or template expression (e.g. '{{ env:MY_VAR }}') for the environment variable"`
 	SecretName    *string `json:"secretName,omitempty" jsonschema:"Name of the Kubernetes Secret to source the value from"`
 	SecretKey     *string `json:"secretKey,omitempty" jsonschema:"Key within the Secret; omit to import all keys as env vars"`
 	ConfigMapName *string `json:"configMapName,omitempty" jsonschema:"Name of the Kubernetes ConfigMap to source the value from"`
@@ -98,6 +98,21 @@ func (i ConfigEnvsAddInput) validate() error {
 	}
 	if i.ConfigMapKey != nil && i.ConfigMapName == nil {
 		return fmt.Errorf("configMapKey requires configMapName to be set")
+	}
+	if i.SecretName != nil && i.ConfigMapName != nil {
+		return fmt.Errorf("secretName and configMapName are mutually exclusive; provide only one source")
+	}
+	// All-keys import (no secretKey/configMapKey) is incompatible with --name: the
+	// underlying env validation only allows whole-secret/configMap templates when name is nil.
+	// The guard is skipped when an explicit Value is present because Value takes precedence
+	// and SecretName/ConfigMapName is effectively ignored in that path.
+	if i.Value == nil {
+		if i.SecretName != nil && i.SecretKey == nil && i.Name != nil {
+			return fmt.Errorf("name must not be set when importing all keys from a Secret (omit secretKey to import all keys)")
+		}
+		if i.ConfigMapName != nil && i.ConfigMapKey == nil && i.Name != nil {
+			return fmt.Errorf("name must not be set when importing all keys from a ConfigMap (omit configMapKey to import all keys)")
+		}
 	}
 	if i.SecretName != nil && !validResourceName.MatchString(*i.SecretName) {
 		return fmt.Errorf("invalid secretName %q: only word characters, hyphens and apostrophes are allowed", *i.SecretName)
