@@ -72,7 +72,7 @@ func TestRootCmd(t *testing.T) {
 			args: args{
 				args:          []string{"-", "TCP:does.not.exist:10000"},
 				inputString:   "tcp-echo",
-				errOutMatcher: contains("not resolve"),
+				errOutMatcher: contains("no such host"),
 				wantErr:       true,
 			},
 		},
