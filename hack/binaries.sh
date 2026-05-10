@@ -28,7 +28,7 @@ install_binaries() {
 
   local kubectl_version=1.33.1
   local kind_version=0.31.0
-  local dapr_version=1.16.0
+  local dapr_version=1.17.1
   local helm_version=3.18.0
   local stern_version=1.32.0
   local kn_version=1.18.0
