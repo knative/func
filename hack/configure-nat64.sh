@@ -29,6 +29,7 @@ source "$(cd "$(dirname "$0")" && pwd)/common.sh"
 
 readonly NAT64_PREFIX="64:ff9b::/96"
 readonly TAYGA_IPV4="192.168.255.1"
+readonly TAYGA_IPV6="fd00:64:64::1"
 readonly TAYGA_POOL="192.168.255.0/24"
 readonly TAYGA_DEV="nat64"
 
@@ -110,10 +111,13 @@ configure_nat64() {
   echo "${blue}Configuring TAYGA (NAT64)${reset}"
 
   # Write TAYGA config
+  # ipv6-addr is required when using the well-known prefix 64:ff9b::/96
+  # with a non-global (RFC 1918) ipv4-addr.
   sudo tee /etc/tayga.conf > /dev/null <<EOF
 tun-device ${TAYGA_DEV}
 prefix ${NAT64_PREFIX}
 ipv4-addr ${TAYGA_IPV4}
+ipv6-addr ${TAYGA_IPV6}
 dynamic-pool ${TAYGA_POOL}
 data-dir /var/db/tayga
 EOF
@@ -124,7 +128,7 @@ EOF
   sudo tayga --mktun
   sudo ip link set ${TAYGA_DEV} up
   sudo ip addr add ${TAYGA_IPV4} dev ${TAYGA_DEV}
-  sudo ip addr add 2001:db8::1 dev ${TAYGA_DEV}
+  sudo ip addr add ${TAYGA_IPV6} dev ${TAYGA_DEV}
   sudo ip route add ${TAYGA_POOL} dev ${TAYGA_DEV}
   sudo ip route add ${NAT64_PREFIX} dev ${TAYGA_DEV}
 
