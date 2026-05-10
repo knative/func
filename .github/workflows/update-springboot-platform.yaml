@@ -28,7 +28,7 @@ jobs:
       - name: Update Spring Boot platform version
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: go run ./hack/cmd/update-springboot-platform/main.go
+        run: go run ./hack/cmd/update-springboot-platform
       - name: Run make generate
         run: make generate/zz_filesystem_generated.go
       - name: Check for changes
