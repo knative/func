@@ -441,6 +441,7 @@ dapr_runtime() {
   if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
     dapr_flags="--image-registry=ghcr.io/dapr --log-as-json"
   fi
+  dapr_flags="--image-registry=quay.io/mvasek/dapr --log-as-json"
 
   # Install Dapr Runtime
   # shellcheck disable=SC2086
