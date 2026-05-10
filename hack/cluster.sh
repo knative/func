@@ -604,10 +604,15 @@ localtest.me.            IN      AAAA    ${cluster_node_addr6}\n\
   # Docker). Bridge this gap with socat: proxy DNS from the node's IPv6
   # address to the IPv4 nameserver. This preserves full container-runtime DNS
   # resolution (container names, search domains, etc.).
+  # Note: the node itself may be dual-stack (Docker assigns IPv4 to the
+  # container regardless of Kind's ipFamily), so we check whether CoreDNS
+  # pods have IPv4 to determine if the cluster is truly IPv6-only.
   local dns_forward="forward . /etc/resolv.conf"
   local node_resolv
   node_resolv="$($CONTAINER_ENGINE exec func-control-plane cat /etc/resolv.conf 2>/dev/null || true)"
-  if [[ -n "$cluster_node_addr6" ]] && ! echo "$node_resolv" | grep -qE 'nameserver\s+[0-9a-fA-F]*:'; then
+  local coredns_ip
+  coredns_ip="$($KUBECTL get pods -n kube-system -l k8s-app=kube-dns -o jsonpath='{.items[0].status.podIP}' 2>/dev/null || true)"
+  if [[ "$coredns_ip" == *":"* ]] && [[ -n "$cluster_node_addr6" ]] && ! echo "$node_resolv" | grep -qE 'nameserver\s+[0-9a-fA-F]*:'; then
     local ipv4_ns
     ipv4_ns="$(echo "$node_resolv" | grep -oP 'nameserver\s+\K[0-9.]+' | head -1)"
     if [[ -n "$ipv4_ns" ]]; then
