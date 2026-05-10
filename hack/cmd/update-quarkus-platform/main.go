@@ -52,7 +52,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("OK!")
 }
 
 func run(ctx context.Context) error {
@@ -76,46 +75,11 @@ func run(ctx context.Context) error {
 		return nil
 	}
 
-	owner, repo, err := shared.RepoFromEnv()
-	if err != nil {
-		return err
-	}
-	ghClient := shared.NewGHClient(ctx)
-
-	prTitle := fmt.Sprintf("chore: update Quarkus platform version to %s", latestVersion)
-	exists, err := shared.PRExists(ctx, ghClient, owner, repo, func(title string) bool {
-		return title == prTitle
-	})
-	if err != nil {
-		return fmt.Errorf("cannot check for existing PR: %w", err)
-	}
-	if exists {
-		fmt.Println("The PR already exists!")
-		return nil
-	}
-
 	for _, pomPath := range []string{cePomPath, httpPomPath} {
 		if err := updatePOM(pomPath, latestVersion); err != nil {
 			return fmt.Errorf("cannot update %s: %w", pomPath, err)
 		}
 	}
-
-	smokeCmd := []string{"make", "test-quarkus"}
-	if err := shared.RunCmd(ctx, smokeCmd[0], smokeCmd[1:]...); err != nil {
-		return fmt.Errorf("smoke test failed: %w", err)
-	}
-
-	branchName := fmt.Sprintf("update-quarkus-platform-%s", latestVersion)
-	if err := shared.PrepareBranch(ctx, branchName, prTitle, []string{
-		cePomPath, httpPomPath, "generate/zz_filesystem_generated.go",
-	}); err != nil {
-		return fmt.Errorf("cannot prepare branch: %w", err)
-	}
-
-	if err := shared.CreatePR(ctx, ghClient, owner, repo, prTitle, fmt.Sprintf("%s:%s", owner, branchName)); err != nil {
-		return err
-	}
-	fmt.Println("The PR has been created!")
 	return nil
 }
 
@@ -124,7 +88,7 @@ func getLatestQuarkusVersion(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := shared.HTTPClient.Do(req)
 	if err != nil {
 		return "", err
 	}

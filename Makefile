@@ -424,15 +424,15 @@ __update-builder: # Used in automation
 
 .PHONY: update-quarkus-platform
 update-quarkus-platform: ## Update Quarkus platform version in templates
-	cd hack && go run ./cmd/update-quarkus-platform
+	go run ./hack/cmd/update-quarkus-platform/main.go
 
 .PHONY: update-springboot-platform
 update-springboot-platform: ## Update Spring Boot platform version in templates
-	cd hack && go run ./cmd/update-springboot-platform
+	go run ./hack/cmd/update-springboot-platform/main.go
 
 .PHONY: update-ca-bundle
 update-ca-bundle: ## Update CA bundle in templates
-	cd hack && go run ./cmd/update-ca-bundle
+	go run ./hack/cmd/update-ca-bundle/main.go
 
 .PHONY: setup-githooks
 setup-githooks:
