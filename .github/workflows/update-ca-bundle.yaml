@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: knative/actions/setup-go@main
       - name: Update CA bundle
-        run: go run ./hack/cmd/update-ca-bundle/main.go
+        run: go run ./hack/cmd/update-ca-bundle
       - name: Run make generate
         run: make generate/zz_filesystem_generated.go
       - name: Check for changes
