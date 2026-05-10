@@ -35,6 +35,8 @@ jobs:
       - uses: knative/actions/setup-go@main
       - name: Install Binaries
         run: ./hack/binaries.sh
+      - name: Configure IPv6
+        run: ./hack/configure-nat64.sh
       - name: Allocate Cluster
         run: ./hack/cluster.sh
       - name: Local Registry

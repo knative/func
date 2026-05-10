@@ -153,6 +153,8 @@ jobs:
 
       - name: Install Binaries
         run: ./hack/binaries.sh
+      - name: Configure IPv6
+        run: ./hack/configure-nat64.sh
       - name: Allocate Cluster
         run: ./hack/cluster.sh
       - name: Start Local Registry
@@ -205,6 +207,8 @@ jobs:
 
       - name: Install Binaries
         run: ./hack/binaries.sh
+      - name: Configure IPv6
+        run: ./hack/configure-nat64.sh
       - name: Allocate Cluster
         run: ./hack/cluster.sh
       - name: Start Local Registry
@@ -262,6 +266,8 @@ jobs:
 
       - name: Install Binaries
         run: ./hack/binaries.sh
+      - name: Configure IPv6
+        run: ./hack/configure-nat64.sh
       - name: Allocate Cluster
         run: ./hack/cluster.sh
       - name: Start Local Registry
@@ -341,6 +347,8 @@ jobs:
       # Allocate Cluster
       - name: Install Binaries
         run: ./hack/binaries.sh
+      - name: Configure IPv6
+        run: ./hack/configure-nat64.sh
       - name: Allocate Cluster
         run: ./hack/cluster.sh
       - name: Start Local Registry
@@ -388,6 +396,8 @@ jobs:
 
       - name: Install Binaries
         run: ./hack/binaries.sh
+      - name: Configure IPv6
+        run: ./hack/configure-nat64.sh
       - name: Allocate Cluster
         run: ./hack/cluster.sh
       - name: Start Local Registry
