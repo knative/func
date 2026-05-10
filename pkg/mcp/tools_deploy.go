@@ -24,6 +24,9 @@ func (s *Server) deployHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
 		return
 	}
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "deploy", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))

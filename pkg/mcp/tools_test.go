@@ -62,6 +62,19 @@ func validateBoolFlags(t *testing.T, args []string, boolFlags map[string]string)
 	}
 }
 
+// TestValidatePath ensures validatePath accepts absolute paths and rejects relative ones.
+func TestValidatePath(t *testing.T) {
+	if err := validatePath("/absolute/path"); err != nil {
+		t.Fatalf("expected no error for absolute path, got: %v", err)
+	}
+	if err := validatePath("relative/path"); err == nil {
+		t.Fatal("expected error for relative path, got nil")
+	}
+	if err := validatePath("."); err == nil {
+		t.Fatal("expected error for '.', got nil")
+	}
+}
+
 // buildInputArgs constructs the input arguments map for CallTool from test data.
 func buildInputArgs(stringFlags map[string]struct {
 	jsonKey string

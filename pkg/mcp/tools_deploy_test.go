@@ -11,12 +11,13 @@ import (
 // TestTool_Deploy_Args ensures the deploy tool executes with all arguments passed correctly.
 func TestTool_Deploy_Args(t *testing.T) {
 	// Test data - defined once and used for both input and validation
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path":               {"path", "--path", "."},
+		"path":               {"path", "--path", path},
 		"builder":            {"builder", "--builder", "pack"},
 		"registry":           {"registry", "--registry", "ghcr.io/user"},
 		"image":              {"image", "--image", "ghcr.io/user/my-func:latest"},

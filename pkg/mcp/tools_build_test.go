@@ -11,12 +11,13 @@ import (
 // TestTool_Build_Args ensures the build tool executes with all arguments passed correctly.
 func TestTool_Build_Args(t *testing.T) {
 	// Test data - defined once and used for both input and validation
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path":         {"path", "--path", "."},
+		"path":         {"path", "--path", path},
 		"builder":      {"builder", "--builder", "pack"},
 		"registry":     {"registry", "--registry", "ghcr.io/user"},
 		"builderImage": {"builderImage", "--builder-image", "custom-builder:latest"},

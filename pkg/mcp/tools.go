@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -39,4 +40,13 @@ func appendBoolFlag(args []string, flag string, value *bool) []string {
 // Useful for setting optional annotation fields.
 func ptr[T any](v T) *T {
 	return &v
+}
+
+// validatePath rejects relative paths. Since cmd.Dir is not set in the executor,
+// relative paths resolve against the MCP server's CWD, not the user's project root.
+func validatePath(path string) error {
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("path must be absolute, got %q", path)
+	}
+	return nil
 }
