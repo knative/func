@@ -12,12 +12,13 @@ import (
 
 // TestTool_ConfigLabelsAdd ensures the config_labels_add tool executes with all arguments.
 func TestTool_ConfigLabelsAdd(t *testing.T) {
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path":  {"path", "--path", "."},
+		"path":  {"path", "--path", path},
 		"name":  {"name", "--name", "environment"},
 		"value": {"value", "--value", "prod"},
 	}
@@ -74,13 +75,14 @@ func TestTool_ConfigLabelsAdd(t *testing.T) {
 
 // TestTool_ConfigLabelsList ensures the config_labels_list tool lists labels.
 func TestTool_ConfigLabelsList(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "config" {
 			t.Fatalf("expected subcommand 'config', got %q", subcommand)
 		}
 
-		// "labels" + "--path" + "." = 3 args
+		// "labels" + "--path" + path = 3 args
 		if len(args) != 3 {
 			t.Fatalf("expected 3 args, got %d: %v", len(args), args)
 		}
@@ -89,8 +91,8 @@ func TestTool_ConfigLabelsList(t *testing.T) {
 		}
 
 		argsMap := argsToMap(args[1:])
-		if val, ok := argsMap["--path"]; !ok || val != "." {
-			t.Fatalf("expected --path='.', got %q", val)
+		if val, ok := argsMap["--path"]; !ok || val != path {
+			t.Fatalf("expected --path=%q, got %q", path, val)
 		}
 
 		return []byte("app=my-function\nenvironment=prod\n"), nil
@@ -103,7 +105,7 @@ func TestTool_ConfigLabelsList(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_labels_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": path},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -118,12 +120,13 @@ func TestTool_ConfigLabelsList(t *testing.T) {
 
 // TestTool_ConfigLabelsRemove ensures the config_labels_remove tool removes a label.
 func TestTool_ConfigLabelsRemove(t *testing.T) {
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path": {"path", "--path", "."},
+		"path": {"path", "--path", path},
 		"name": {"name", "--name", "environment"},
 	}
 
@@ -186,7 +189,7 @@ func TestTool_ConfigLabelsList_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_labels_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -210,7 +213,7 @@ func TestTool_ConfigLabelsAdd_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_labels_add",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -234,7 +237,7 @@ func TestTool_ConfigLabelsRemove_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_labels_remove",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)

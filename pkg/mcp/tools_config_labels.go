@@ -36,6 +36,9 @@ type ConfigLabelsListOutput struct {
 }
 
 func (s *Server) configLabelsListHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigLabelsListInput) (result *mcp.CallToolResult, output ConfigLabelsListOutput, err error) {
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
@@ -83,6 +86,9 @@ func (s *Server) configLabelsAddHandler(ctx context.Context, r *mcp.CallToolRequ
 		err = fmt.Errorf("the server is currently in readonly mode. Please set %s and restart the MCP server", EnvMCPWrite)
 		return
 	}
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
@@ -126,6 +132,9 @@ type ConfigLabelsRemoveOutput struct {
 func (s *Server) configLabelsRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigLabelsRemoveInput) (result *mcp.CallToolResult, output ConfigLabelsRemoveOutput, err error) {
 	if s.readonly.Load() {
 		err = fmt.Errorf("the server is currently in readonly mode. Please set %s and restart the MCP server", EnvMCPWrite)
+		return
+	}
+	if err = validatePath(input.Path); err != nil {
 		return
 	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)

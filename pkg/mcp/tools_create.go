@@ -20,6 +20,9 @@ var createTool = &mcp.Tool{
 }
 
 func (s *Server) createHandler(ctx context.Context, r *mcp.CallToolRequest, input CreateInput) (result *mcp.CallToolResult, output CreateOutput, err error) {
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "create", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))

@@ -36,6 +36,9 @@ type ConfigVolumesListOutput struct {
 }
 
 func (s *Server) configVolumesListHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesListInput) (result *mcp.CallToolResult, output ConfigVolumesListOutput, err error) {
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
@@ -91,6 +94,9 @@ func (s *Server) configVolumesAddHandler(ctx context.Context, r *mcp.CallToolReq
 		err = fmt.Errorf("the server is currently in readonly mode. Please set %s and restart the MCP server", EnvMCPWrite)
 		return
 	}
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
@@ -134,6 +140,9 @@ type ConfigVolumesRemoveOutput struct {
 func (s *Server) configVolumesRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesRemoveInput) (result *mcp.CallToolResult, output ConfigVolumesRemoveOutput, err error) {
 	if s.readonly.Load() {
 		err = fmt.Errorf("the server is currently in readonly mode. Please set %s and restart the MCP server", EnvMCPWrite)
+		return
+	}
+	if err = validatePath(input.Path); err != nil {
 		return
 	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
