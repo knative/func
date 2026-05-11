@@ -239,8 +239,9 @@ networking() {
 
   echo "Installing a configured Contour."
   curl -sSL "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml" \
+    | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args[] | select(. == "--xds-address=0.0.0.0")) = "--xds-address=::"' \
     | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args)
-          += ["--envoy-service-http-address=::", "--envoy-service-https-address=::"]' \
+          += ["--envoy-service-http-address=::", "--envoy-service-https-address=::", "--stats-address=::"]' \
     | $KUBECTL apply -f -
 
   sleep 5
@@ -598,10 +599,37 @@ localtest.me.            IN      AAAA    ${cluster_node_addr6}\n\
 *.localtest.me.          IN      AAAA    ${cluster_node_addr6}\n"
   fi
 
+  # On IPv6-only clusters, CoreDNS pods can only speak IPv6 but the node's
+  # /etc/resolv.conf may contain only an IPv4 nameserver (e.g. 172.18.0.1 on
+  # Docker). Bridge this gap with socat: proxy DNS from the node's IPv6
+  # address to the IPv4 nameserver. This preserves full container-runtime DNS
+  # resolution (container names, search domains, etc.).
+  # Note: the node itself may be dual-stack (Docker assigns IPv4 to the
+  # container regardless of Kind's ipFamily), so we check whether CoreDNS
+  # pods have IPv4 to determine if the cluster is truly IPv6-only.
+  local dns_forward="forward . /etc/resolv.conf"
+  local node_resolv
+  node_resolv="$($CONTAINER_ENGINE exec func-control-plane cat /etc/resolv.conf 2>/dev/null || true)"
+  local coredns_ip
+  coredns_ip="$($KUBECTL get pods -n kube-system -l k8s-app=kube-dns -o jsonpath='{.items[0].status.podIP}' 2>/dev/null || true)"
+  if [[ "$coredns_ip" == *":"* ]] && [[ -n "$cluster_node_addr6" ]] && ! echo "$node_resolv" | grep -qE 'nameserver\s+[0-9a-fA-F]*:'; then
+    local ipv4_ns
+    ipv4_ns="$(echo "$node_resolv" | grep -oP 'nameserver\s+\K[0-9.]+' | head -1)"
+    if [[ -n "$ipv4_ns" ]]; then
+      echo "Node has no IPv6 nameservers — proxying DNS via socat (${cluster_node_addr6} → ${ipv4_ns})"
+      $CONTAINER_ENGINE exec func-control-plane bash -c "
+        apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq socat >/dev/null 2>&1
+        socat UDP6-LISTEN:53,bind=[${cluster_node_addr6}],fork,reuseaddr UDP4:${ipv4_ns}:53 &
+        socat TCP6-LISTEN:53,bind=[${cluster_node_addr6}],fork,reuseaddr TCP4:${ipv4_ns}:53 &
+      "
+      dns_forward="forward . ${cluster_node_addr6}"
+    fi
+  fi
+
   $KUBECTL patch cm/coredns -n kube-system --patch-file /dev/stdin <<EOF
 {
   "data": {
-    "Corefile": ".:53 {\n    errors\n    health {\n       lameduck 5s\n    }\n    ready\n    kubernetes cluster.local in-addr.arpa ip6.arpa {\n       pods insecure\n       fallthrough in-addr.arpa ip6.arpa\n       ttl 30\n    }\n    file /etc/coredns/example.db localtest.me\n    prometheus :9153\n    forward . /etc/resolv.conf {\n       max_concurrent 1000\n    }\n    cache 30\n    loop\n    reload\n    loadbalance\n}\n",
+    "Corefile": ".:53 {\n    errors\n    health {\n       lameduck 5s\n    }\n    ready\n    kubernetes cluster.local in-addr.arpa ip6.arpa {\n       pods insecure\n       fallthrough in-addr.arpa ip6.arpa\n       ttl 30\n    }\n    file /etc/coredns/example.db localtest.me\n    prometheus :9153\n    ${dns_forward} {\n       max_concurrent 1000\n    }\n    cache 30\n    loop\n    reload\n    loadbalance\n}\n",
     "example.db": "; localtest.me test file\n\
 localtest.me.            IN      SOA     sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600\n\
 $a_recs\
