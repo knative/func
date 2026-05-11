@@ -49,12 +49,17 @@ func (s *Server) deployHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 	return
 }
 
-// parseDeployedURL extracts the deployed URL from deploy output.
-// Handles two formats: local deploy prints the URL on the line after
-// "exposed at URL:", remote pipeline prints it inline after "Function Deployed at ".
+// parseDeployedURL extracts the deployed function URL from combined command
+// output. It handles two formats produced by the func CLI:
+//
+//   - Local deploy (written to stderr by the functions client):
+//     "✅ Function deployed/updated in namespace "ns" and exposed at URL: \n   <url>"
+//
+//   - Remote pipeline deploy (written to stdout by cmd/deploy.go):
+//     "Function Deployed at <url>"
 func parseDeployedURL(out []byte) (string, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(out))
-	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024) // handle large/verbose deploy output
 	urlNext := false
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -63,10 +68,12 @@ func parseDeployedURL(out []byte) (string, error) {
 				return u, nil
 			}
 		}
+		// Local deploy: URL follows on the next non-empty line after this marker.
 		if strings.Contains(line, "exposed at URL:") {
 			urlNext = true
 			continue
 		}
+		// Remote pipeline deploy: URL is on the same line after the prefix.
 		const remotePrefix = "Function Deployed at "
 		if idx := strings.Index(line, remotePrefix); idx >= 0 {
 			if u := strings.TrimSpace(line[idx+len(remotePrefix):]); u != "" {
