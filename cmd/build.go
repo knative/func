@@ -500,7 +500,7 @@ func (c buildConfig) buildOptions() (oo []fn.BuildOption, err error) {
 	if c.Platform != "" {
 		parts := strings.Split(c.Platform, "/")
 		if len(parts) != 2 {
-			return oo, fmt.Errorf("the value for --patform must be in the form [OS]/[Architecture].  eg \"linux/amd64\"")
+			return oo, fmt.Errorf("the value for --platform must be in the form [OS]/[Architecture].  eg \"linux/amd64\"")
 		}
 		oo = append(oo, fn.BuildWithPlatforms([]fn.Platform{{OS: parts[0], Architecture: parts[1]}}))
 	}
