@@ -33,12 +33,18 @@ func (s *Server) deployHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
+	url, urlErr := parseDeployedURL(out)
 	output = DeployOutput{
 		Message: string(out),
-		URL:     parseDeployedURL(out),
+		URL:     url,
+	}
+	if urlErr != nil {
+		output.Message += fmt.Sprintf("\n(warning: could not parse deployed URL from output: %v)", urlErr)
 	}
 	if f, ferr := fn.NewFunction(input.Path); ferr == nil {
 		output.Image = f.Deploy.Image
+	} else {
+		output.Message += fmt.Sprintf("\n(warning: could not read deployed image from func.yaml: %v)", ferr)
 	}
 	return
 }
@@ -51,14 +57,15 @@ func (s *Server) deployHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 //
 //   - Remote pipeline deploy (written to stdout by cmd/deploy.go):
 //     "Function Deployed at <url>"
-func parseDeployedURL(out []byte) string {
+func parseDeployedURL(out []byte) (string, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(out))
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024) // handle large/verbose deploy output
 	urlNext := false
 	for scanner.Scan() {
 		line := scanner.Text()
 		if urlNext {
 			if u := strings.TrimSpace(line); u != "" {
-				return u
+				return u, nil
 			}
 		}
 		// Local deploy: URL follows on the next non-empty line after this marker.
@@ -70,11 +77,11 @@ func parseDeployedURL(out []byte) string {
 		const remotePrefix = "Function Deployed at "
 		if idx := strings.Index(line, remotePrefix); idx >= 0 {
 			if u := strings.TrimSpace(line[idx+len(remotePrefix):]); u != "" {
-				return u
+				return u, nil
 			}
 		}
 	}
-	return ""
+	return "", scanner.Err()
 }
 
 // DeployInput defines the input parameters for the deploy tool.

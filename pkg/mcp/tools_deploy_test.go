@@ -121,7 +121,10 @@ func TestParseDeployedURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseDeployedURL([]byte(tt.out))
+			got, err := parseDeployedURL([]byte(tt.out))
+			if err != nil {
+				t.Fatalf("parseDeployedURL(%q) unexpected error: %v", tt.out, err)
+			}
 			if got != tt.want {
 				t.Errorf("parseDeployedURL(%q) = %q, want %q", tt.out, got, tt.want)
 			}

@@ -31,6 +31,8 @@ func (s *Server) buildHandler(ctx context.Context, r *mcp.CallToolRequest, input
 	}
 	if f, ferr := fn.NewFunction(input.Path); ferr == nil {
 		output.Image = f.Build.Image
+	} else {
+		output.Message += fmt.Sprintf("\n(warning: could not read built image from func.yaml: %v)", ferr)
 	}
 	return
 }
