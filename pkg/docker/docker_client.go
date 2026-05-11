@@ -84,21 +84,34 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 	hostKeyCallback := fnssh.NewHostKeyCbk()
 
 	if dockerHost == "" {
-		// Try to get Docker host from current context
-		if contextHost := getDockerContextHost(); contextHost != "" {
-			dockerHost = contextHost
-		} else {
-			_url, err = url.Parse(defaultHost)
-			if err != nil {
-				return
+		_url, err = url.Parse(defaultHost)
+		if err != nil {
+			return
+		}
+		_, err = os.Stat(_url.Path)
+		switch {
+		case err == nil:
+			dockerHost = defaultHost
+		case err != nil && !os.IsNotExist(err):
+			return
+		case os.IsNotExist(err):
+			// Default socket doesn't exist, try Docker context
+			if contextHost := GetDockerContextHostFunc(); contextHost != "" {
+				// Verify the context socket actually exists
+				contextURL, parseErr := url.Parse(contextHost)
+				if parseErr == nil && (contextURL.Scheme == "unix" || contextURL.Scheme == "") {
+					socketPath := contextURL.Path
+					if contextURL.Scheme == "" {
+						socketPath = contextHost
+					}
+					if _, statErr := os.Stat(socketPath); statErr == nil {
+						dockerHost = contextHost
+					}
+				}
 			}
-			_, err = os.Stat(_url.Path)
-			switch {
-			case err == nil:
-				dockerHost = defaultHost
-			case err != nil && !os.IsNotExist(err):
-				return
-			case os.IsNotExist(err) && podmanPresent():
+
+			// If context didn't work, try Podman
+			if dockerHost == "" && podmanPresent() {
 				if runtime.GOOS == "linux" {
 					// on Linux: spawn temporary podman service
 					rawClient, dockerHostInRemote, err = newClientWithPodmanService()
@@ -327,6 +340,9 @@ func getDockerContextHost() string {
 
 	return ""
 }
+
+// GetDockerContextHostFunc is a variable to allow mocking in tests
+var GetDockerContextHostFunc = getDockerContextHost
 
 type clientWithAdditionalCleanup struct {
 	client.APIClient
