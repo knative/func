@@ -65,15 +65,9 @@ func createConnection(address string, stdio connection) (connection, error) {
 	switch typ {
 	case "tcp", "tcp4", "tcp6":
 		_, _ = fmt.Fprintln(os.Stderr, "opening connection")
-		var laddr net.TCPAddr
-		raddr, err := net.ResolveTCPAddr(typ, addr)
-		if err != nil {
-			return nil, fmt.Errorf("name does not resolve: %w", err)
-		}
-
-		conn, err := net.DialTCP(typ, &laddr, raddr)
+		conn, err := net.Dial(typ, addr)
 		if err == nil {
-			_, _ = fmt.Fprintf(os.Stderr, "successfully connected to %v\n", raddr)
+			_, _ = fmt.Fprintf(os.Stderr, "successfully connected to %v\n", conn.RemoteAddr())
 		}
 		return conn, err
 	case "open":
