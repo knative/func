@@ -18,6 +18,7 @@ import (
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
+	"knative.dev/func/pkg/operator"
 	"knative.dev/func/pkg/pipelines/tekton"
 )
 
@@ -83,6 +84,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 				docker.WithTransport(t),
 				docker.WithVerbose(cfg.Verbose),
 				docker.WithInsecure(cfg.InsecureSkipVerify))),
+			fn.WithSyncer(operator.NewSyncer(operator.WithCredentialsProvider(c))),
 		}
 	)
 

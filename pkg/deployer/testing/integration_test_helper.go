@@ -1201,7 +1201,7 @@ func (f *Function) Handle(w http.ResponseWriter, req *http.Request) {
 }
 `
 
-// TestInt_OperatorSync ensures that deploying with WithPostDeploy creates a
+// TestInt_OperatorSync ensures that deploying with WithSyncer creates a
 // Function CR on first deploy, and only annotates it on subsequent deploys.
 func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	t.Helper()
@@ -1217,20 +1217,6 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 	repoBranch := "main"
 	repoPath := "."
 
-	postDeploy := func(ctx context.Context, f fn.Function) error {
-		namespace := f.Deploy.Namespace
-		if namespace == "" {
-			namespace = f.Namespace
-		}
-		return operator.SyncFunctionCR(ctx, operator.SyncConfig{
-			FunctionName: f.Name,
-			Namespace:    namespace,
-			RepoURL:      repoURL,
-			RepoBranch:   repoBranch,
-			RepoPath:     repoPath,
-		})
-	}
-
 	client := fn.New(
 		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", false)),
@@ -1238,7 +1224,7 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 		fn.WithDeployer(deployer),
 		fn.WithDescribers(describer),
 		fn.WithRemovers(remover),
-		fn.WithPostDeploy(postDeploy),
+		fn.WithSyncer(operator.NewSyncer()),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -1251,6 +1237,10 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	f.Build.Git.URL = repoURL
+	f.Build.Git.Revision = repoBranch
+	f.Build.Git.ContextDir = repoPath
 
 	err = client.Scaffold(ctx, f, "")
 	if err != nil {
