@@ -8,6 +8,7 @@ import (
 
 	v1alpha1 "github.com/functions-dev/func-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
@@ -140,7 +141,10 @@ func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.Di
 func hasFunctionCRD(disc discovery.DiscoveryInterface) (bool, error) {
 	resources, err := disc.ServerResourcesForGroupVersion("functions.dev/v1alpha1")
 	if err != nil {
-		return false, nil
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("querying API resources: %w", err)
 	}
 	for _, r := range resources.APIResources {
 		if r.Kind == "Function" {
