@@ -1343,7 +1343,7 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 
 func hasFunctionCRD(t *testing.T, disc discovery.DiscoveryInterface) bool {
 	t.Helper()
-	resources, err := disc.ServerResourcesForGroupVersion("functions.dev/v1alpha1")
+	resources, err := disc.ServerResourcesForGroupVersion(v1alpha1.GroupVersion.String())
 	if err != nil {
 		return false
 	}

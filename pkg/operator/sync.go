@@ -139,7 +139,7 @@ func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.Di
 }
 
 func hasFunctionCRD(disc discovery.DiscoveryInterface) (bool, error) {
-	resources, err := disc.ServerResourcesForGroupVersion("functions.dev/v1alpha1")
+	resources, err := disc.ServerResourcesForGroupVersion(v1alpha1.GroupVersion.String())
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return false, nil

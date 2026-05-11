@@ -26,7 +26,7 @@ func fakeDiscoveryWithCRD() *fakediscovery.FakeDiscovery {
 	fd := cs.Discovery().(*fakediscovery.FakeDiscovery)
 	fd.Resources = []*metav1.APIResourceList{
 		{
-			GroupVersion: "functions.dev/v1alpha1",
+			GroupVersion: v1alpha1.GroupVersion.String(),
 			APIResources: []metav1.APIResource{
 				{Name: "functions", Kind: "Function"},
 			},
