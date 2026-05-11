@@ -76,7 +76,6 @@ func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.Di
 	}
 
 	if cfg.RepoURL == "" {
-		fmt.Fprintln(os.Stderr, "Function CR not created: no git remote found. Set --git-url to enable operator management.")
 		return nil
 	}
 

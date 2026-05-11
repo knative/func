@@ -36,11 +36,11 @@ func (s *Syncer) Sync(ctx context.Context, f fn.Function) error {
 	repoPath := f.Build.Git.ContextDir
 
 	if repoURL == "" {
-		var err error
-		repoURL, err = funcgit.ResolveRemoteURL(f.Root)
+		resolved, err := funcgit.ResolveRemoteURL(f.Root)
 		if err != nil {
-			return err
+			return nil
 		}
+		repoURL = resolved
 	}
 
 	if repoBranch == "" {
