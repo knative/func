@@ -46,7 +46,7 @@ func ptr[T any](v T) *T {
 // relative paths resolve against the MCP server's CWD, not the user's project root.
 func validatePath(path string) error {
 	if !filepath.IsAbs(path) {
-		return fmt.Errorf("path must be absolute, got %q", path)
+		return fmt.Errorf("path must be absolute (the MCP server's working directory is not the user's project root), got %q", path)
 	}
 	return nil
 }
