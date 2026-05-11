@@ -160,17 +160,16 @@ func findExistingCR(ctx context.Context, cl ctrlclient.Client, funcName, namespa
 		return nil, err
 	}
 
+	// Status.Name takes priority over metadata name, so we must scan the
+	// full list before falling back to a metadata name match.
+	var byName *v1alpha1.Function
 	for i := range list.Items {
 		if list.Items[i].Status.Name == funcName {
 			return &list.Items[i], nil
 		}
-	}
-
-	for i := range list.Items {
-		if list.Items[i].Name == funcName {
-			return &list.Items[i], nil
+		if byName == nil && list.Items[i].Name == funcName {
+			byName = &list.Items[i]
 		}
 	}
-
-	return nil, nil
+	return byName, nil
 }
