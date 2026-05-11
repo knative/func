@@ -256,23 +256,13 @@ func TestTool_ConfigEnvsAdd_ConfigMapAllKeys(t *testing.T) {
 	}
 }
 
-// TestTool_ConfigEnvsAdd_ValueTakesPrecedence ensures that when both Value and
-// SecretName are provided, the explicit Value is used.
-func TestTool_ConfigEnvsAdd_ValueTakesPrecedence(t *testing.T) {
+// TestTool_ConfigEnvsAdd_ValueAndSecretMutuallyExclusive ensures a validation
+// error is returned when both Value and SecretName are provided together.
+func TestTool_ConfigEnvsAdd_ValueAndSecretMutuallyExclusive(t *testing.T) {
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		if subcommand != "config" {
-			t.Fatalf("expected subcommand 'config', got %q", subcommand)
-		}
-		if len(args) < 2 || args[0] != "envs" || args[1] != "add" {
-			t.Fatalf("expected positional args ['envs','add'], got %v", args[:min(2, len(args))])
-		}
-		argsMap := argsToMap(args[2:])
-		wantValue := "explicit-value"
-		if got, ok := argsMap["--value"]; !ok || got != wantValue {
-			t.Fatalf("expected --value=%q, got %q", wantValue, got)
-		}
-		return []byte("Environment variable added successfully\n"), nil
+		t.Fatal("executor must not be called when input is invalid")
+		return nil, nil
 	}
 
 	client, _, err := newTestPair(t, WithExecutor(executor))
@@ -286,17 +276,17 @@ func TestTool_ConfigEnvsAdd_ValueTakesPrecedence(t *testing.T) {
 			"path":       ".",
 			"name":       "MY_VAR",
 			"value":      "explicit-value",
-			"secretName": "ignored-secret",
+			"secretName": "my-secret",
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.IsError {
-		t.Fatalf("unexpected error result: %v", result)
+	if !result.IsError {
+		t.Fatal("expected error result when value and secretName are both provided")
 	}
-	if !executor.ExecuteInvoked {
-		t.Fatal("executor was not invoked")
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when input fails validation")
 	}
 }
 
@@ -460,106 +450,6 @@ func TestTool_ConfigEnvsAdd_ConfigMapKeyWithoutConfigMapName(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected error result when configMapKey is set without configMapName")
-	}
-	if executor.ExecuteInvoked {
-		t.Fatal("executor must not be invoked when input fails validation")
-	}
-}
-
-// TestTool_ConfigEnvsAdd_InvalidSecretName ensures a validation error is returned when
-// secretName contains characters outside the allowed set (SEVERE-3).
-func TestTool_ConfigEnvsAdd_InvalidSecretName(t *testing.T) {
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		t.Fatal("executor must not be called when input is invalid")
-		return nil, nil
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
-		Name: "config_envs_add",
-		Arguments: map[string]any{
-			"path":       ".",
-			"name":       "MY_VAR",
-			"secretName": "evil:inject}}",
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.IsError {
-		t.Fatal("expected error result when secretName contains invalid characters")
-	}
-	if executor.ExecuteInvoked {
-		t.Fatal("executor must not be invoked when input fails validation")
-	}
-}
-
-// TestTool_ConfigEnvsAdd_InvalidSecretKey ensures a validation error is returned when
-// secretKey contains characters outside the allowed set (SEVERE-3).
-func TestTool_ConfigEnvsAdd_InvalidSecretKey(t *testing.T) {
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		t.Fatal("executor must not be called when input is invalid")
-		return nil, nil
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
-		Name: "config_envs_add",
-		Arguments: map[string]any{
-			"path":       ".",
-			"name":       "MY_VAR",
-			"secretName": "my-secret",
-			"secretKey":  "bad key with spaces",
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.IsError {
-		t.Fatal("expected error result when secretKey contains invalid characters")
-	}
-	if executor.ExecuteInvoked {
-		t.Fatal("executor must not be invoked when input fails validation")
-	}
-}
-
-// TestTool_ConfigEnvsAdd_InvalidConfigMapName ensures a validation error is returned when
-// configMapName contains characters outside the allowed set (SEVERE-3).
-func TestTool_ConfigEnvsAdd_InvalidConfigMapName(t *testing.T) {
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		t.Fatal("executor must not be called when input is invalid")
-		return nil, nil
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
-		Name: "config_envs_add",
-		Arguments: map[string]any{
-			"path":          ".",
-			"name":          "MY_VAR",
-			"configMapName": "bad}name",
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.IsError {
-		t.Fatal("expected error result when configMapName contains invalid characters")
 	}
 	if executor.ExecuteInvoked {
 		t.Fatal("executor must not be invoked when input fails validation")

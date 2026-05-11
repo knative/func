@@ -3,17 +3,9 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
-
-// validResourceName matches Kubernetes resource names as accepted by the env template syntax.
-// Mirrors the name capture group used in pkg/functions/function.go validation regexes.
-var validResourceName = regexp.MustCompile(`^((?:\w|['-]\w)+)$`)
-
-// validKeyName matches Secret/ConfigMap key names as accepted by the env template syntax.
-var validKeyName = regexp.MustCompile(`^[-._a-zA-Z0-9]+$`)
 
 // config_envs_list
 
@@ -70,7 +62,7 @@ Supports six source types:
 
 When SecretName or ConfigMapName is provided, the tool constructs the
 appropriate "{{ secret:… }}" or "{{ configMap:… }}" value template automatically.
-The explicit Value field takes precedence if provided alongside source fields.`,
+Value is mutually exclusive with SecretName and ConfigMapName.`,
 	Annotations: &mcp.ToolAnnotations{
 		Title:           "Config Environment Variables Add",
 		ReadOnlyHint:    false,
@@ -90,9 +82,13 @@ type ConfigEnvsAddInput struct {
 	Verbose       *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
-// validate returns an error for any illegal input combination or character set
-// violation before args are constructed and forwarded to the CLI.
+// validate returns an error for any illegal input combination before args are
+// constructed and forwarded to the CLI. Character-set validation is deferred to
+// func's own parser, keeping this layer as a thin pass-through.
 func (i ConfigEnvsAddInput) validate() error {
+	if i.Value != nil && (i.SecretName != nil || i.ConfigMapName != nil) {
+		return fmt.Errorf("value is mutually exclusive with secretName/configMapName; provide one or the other")
+	}
 	if i.SecretKey != nil && i.SecretName == nil {
 		return fmt.Errorf("secretKey requires secretName to be set")
 	}
@@ -104,27 +100,11 @@ func (i ConfigEnvsAddInput) validate() error {
 	}
 	// All-keys import (no secretKey/configMapKey) is incompatible with --name: the
 	// underlying env validation only allows whole-secret/configMap templates when name is nil.
-	// The guard is skipped when an explicit Value is present because Value takes precedence
-	// and SecretName/ConfigMapName is effectively ignored in that path.
-	if i.Value == nil {
-		if i.SecretName != nil && i.SecretKey == nil && i.Name != nil {
-			return fmt.Errorf("name must not be set when importing all keys from a Secret (omit secretKey to import all keys)")
-		}
-		if i.ConfigMapName != nil && i.ConfigMapKey == nil && i.Name != nil {
-			return fmt.Errorf("name must not be set when importing all keys from a ConfigMap (omit configMapKey to import all keys)")
-		}
+	if i.SecretName != nil && i.SecretKey == nil && i.Name != nil {
+		return fmt.Errorf("name must not be set when importing all keys from a Secret (omit secretKey to import all keys)")
 	}
-	if i.SecretName != nil && !validResourceName.MatchString(*i.SecretName) {
-		return fmt.Errorf("invalid secretName %q: only word characters, hyphens and apostrophes are allowed", *i.SecretName)
-	}
-	if i.SecretKey != nil && !validKeyName.MatchString(*i.SecretKey) {
-		return fmt.Errorf("invalid secretKey %q: only alphanumeric characters, hyphens, dots and underscores are allowed", *i.SecretKey)
-	}
-	if i.ConfigMapName != nil && !validResourceName.MatchString(*i.ConfigMapName) {
-		return fmt.Errorf("invalid configMapName %q: only word characters, hyphens and apostrophes are allowed", *i.ConfigMapName)
-	}
-	if i.ConfigMapKey != nil && !validKeyName.MatchString(*i.ConfigMapKey) {
-		return fmt.Errorf("invalid configMapKey %q: only alphanumeric characters, hyphens, dots and underscores are allowed", *i.ConfigMapKey)
+	if i.ConfigMapName != nil && i.ConfigMapKey == nil && i.Name != nil {
+		return fmt.Errorf("name must not be set when importing all keys from a ConfigMap (omit configMapKey to import all keys)")
 	}
 	return nil
 }
@@ -133,7 +113,6 @@ func (i ConfigEnvsAddInput) Args() []string {
 	args := []string{"envs", "add", "--path", i.Path}
 	args = appendStringFlag(args, "--name", i.Name)
 
-	// Explicit Value takes precedence over structured secret/configmap fields.
 	if i.Value != nil {
 		args = appendStringFlag(args, "--value", i.Value)
 	} else if i.SecretName != nil {
