@@ -152,13 +152,17 @@ func (v Version) StringVerbose() string {
 	if mw := v.MiddlewareVersions.String(); mw != "" {
 		sb.WriteString("Middleware Versions:\n" + mw)
 	}
-	return sb.String()
+	// Trim trailing newlines: String methods should return bare content; the
+	// caller is responsible for adding output termination. Every field write
+	// ends in "\n", so the result would otherwise produce a double newline
+	// when a caller (such as Human) adds its own.
+	return strings.TrimRight(sb.String(), "\n")
 }
 
 // Human prints version information in human-readable format.
 func (v Version) Human(w io.Writer) error {
 	if v.Verbose {
-		_, err := fmt.Fprint(w, v.StringVerbose())
+		_, err := fmt.Fprintln(w, v.StringVerbose())
 		return err
 	}
 	_, err := fmt.Fprintf(w, "%s\n", v.Vers)
