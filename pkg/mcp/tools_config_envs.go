@@ -142,7 +142,7 @@ type ConfigEnvsAddOutput struct {
 }
 
 func (s *Server) configEnvsAddHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsAddInput) (result *mcp.CallToolResult, output ConfigEnvsAddOutput, err error) {
-	if s.readonly {
+	if s.readonly.Load() {
 		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
 		return
 	}
@@ -190,7 +190,7 @@ type ConfigEnvsRemoveOutput struct {
 }
 
 func (s *Server) configEnvsRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsRemoveInput) (result *mcp.CallToolResult, output ConfigEnvsRemoveOutput, err error) {
-	if s.readonly {
+	if s.readonly.Load() {
 		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
 		return
 	}
