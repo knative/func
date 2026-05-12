@@ -335,6 +335,9 @@ func getDockerContextHost() string {
 
 	// Return the host from the first (current) context
 	if len(contexts) > 0 && contexts[0].Endpoints.Docker.Host != "" {
+		if contexts[0].Name == "default" {
+			return ""
+		}
 		return contexts[0].Endpoints.Docker.Host
 	}
 

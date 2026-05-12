@@ -19,10 +19,6 @@ func TestNewDockerClientWithAutomaticPodmanSuccess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*1)
 	defer cancel()
 
-	// Disable Docker context detection for this test
-	oldFunc := docker.GetDockerContextHostFunc
-	docker.GetDockerContextHostFunc = func() string { return "" }
-	defer func() { docker.GetDockerContextHostFunc = oldFunc }()
 
 	WithExecutable(t, "podman", mockPodmanSrc)
 	t.Setenv("DOCKER_HOST", "")
@@ -45,11 +41,6 @@ func TestNewDockerClientWithAutomaticPodmanSuccess(t *testing.T) {
 
 func TestNewDockerClientWithAutomaticPodmanFail(t *testing.T) {
 	src := `package main;import ("os";"fmt");func main(){fmt.Println("something went wrong");os.Exit(1);}`
-
-	// Disable Docker context detection for this test
-	oldFunc := docker.GetDockerContextHostFunc
-	docker.GetDockerContextHostFunc = func() string { return "" }
-	defer func() { docker.GetDockerContextHostFunc = oldFunc }()
 
 	WithExecutable(t, "podman", src)
 	t.Setenv("DOCKER_HOST", "")
