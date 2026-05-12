@@ -74,6 +74,11 @@ const (
 	// overridden using FUNC_E2E_NAMESPACE environment variable.
 	DefaultNamespace = "default"
 
+	// DefaultBrokerHost is the hostname of the Knative broker ingress.
+	// Defaults to "broker.localtest.me" but can be overridden using
+	// FUNC_E2E_BROKER_HOST environment variable.
+	DefaultBrokerHost = "broker.localtest.me"
+
 	// DefaultDomain for E2E tests. Defaults to "localtest.me" but can be
 	// overridden using FUNC_E2E_DOMAIN environment variable. This domain
 	// must be properly configured in the cluster's DNS and Knative serving.
@@ -157,6 +162,10 @@ var (
 
 	// MatrixTemplates specifies the templates to check during matrix tests.
 	MatrixTemplates = []string{"http", "cloudevents"}
+
+	// BrokerHost is the hostname of the Knative broker ingress.
+	// Defaults to "broker.localtest.me". Can be set with FUNC_E2E_BROKER_HOST.
+	BrokerHost string
 
 	// Namespace is the Kubernetes namespace where functions will be deployed
 	// during tests. Defaults to "default". When using a custom namespace,
@@ -255,6 +264,7 @@ func init() {
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_CLEAN=%v\n", os.Getenv("FUNC_E2E_CLEAN"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_CLEAN_IMAGES=%v\n", os.Getenv("FUNC_E2E_CLEAN_IMAGES"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_DOCKER_HOST=%v\n", os.Getenv("FUNC_E2E_DOCKER_HOST"))
+	fmt.Fprintf(os.Stderr, "  FUNC_E2E_BROKER_HOST=%v\n", os.Getenv("FUNC_E2E_BROKER_HOST"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_DOMAIN=%v\n", os.Getenv("FUNC_E2E_DOMAIN"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_GOCOVERDIR=%v\n", os.Getenv("FUNC_E2E_GOCOVERDIR"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_HOME=%v\n", os.Getenv("FUNC_E2E_HOME"))
@@ -283,6 +293,7 @@ func init() {
 
 	fmt.Fprintln(os.Stderr, "Final Config:")
 	fmt.Fprintf(os.Stderr, "  Bin=%v\n", Bin)
+	fmt.Fprintf(os.Stderr, "  BrokerHost=%v\n", BrokerHost)
 	fmt.Fprintf(os.Stderr, "  Clean=%v\n", Clean)
 	fmt.Fprintf(os.Stderr, "  CleanImages=%v\n", CleanImages)
 	fmt.Fprintf(os.Stderr, "  DockerHost=%v\n", DockerHost)
@@ -323,6 +334,9 @@ func readEnvs() {
 	// Bin - path to binary which will be used when running the tests.
 	Bin = getEnvPath("FUNC_E2E_BIN", "E2E_FUNC_BIN", DefaultBin)
 	// Final =          current ENV, deprecated ENV, default
+
+	// BrokerHost - the hostname of the Knative broker ingress
+	BrokerHost = getEnv("FUNC_E2E_BROKER_HOST", "", DefaultBrokerHost)
 
 	// Clean up deployed functions before starting next test
 	Clean = getEnvBool("FUNC_E2E_CLEAN", "", DefaultClean)
