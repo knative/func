@@ -99,12 +99,20 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 			if contextHost := GetDockerContextHostFunc(); contextHost != "" {
 				// Verify the context socket actually exists
 				contextURL, parseErr := url.Parse(contextHost)
-				if parseErr == nil && (contextURL.Scheme == "unix" || contextURL.Scheme == "") {
-					socketPath := contextURL.Path
-					if contextURL.Scheme == "" {
-						socketPath = contextHost
-					}
-					if _, statErr := os.Stat(socketPath); statErr == nil {
+				if parseErr == nil {
+					switch contextURL.Scheme {
+					case "unix", "":
+						// For unix sockets, verify the socket file exists
+						socketPath := contextURL.Path
+						if contextURL.Scheme == "" {
+							socketPath = contextHost
+						}
+						if _, statErr := os.Stat(socketPath); statErr == nil {
+							dockerHost = contextHost
+						}
+					case "ssh", "tcp", "npipe":
+						// For remote connections, use the context host directly
+						// We can't verify connectivity here, so trust the context
 						dockerHost = contextHost
 					}
 				}
