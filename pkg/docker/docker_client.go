@@ -156,7 +156,7 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 	}
 
 	if !isSSH {
-		opts := []client.Opt{client.FromEnv}
+		opts := []client.Opt{client.FromEnv, client.WithHost(dockerHost)}
 		if isTCP {
 			if httpClient := newHttpClient(); httpClient != nil {
 				opts = append(opts, client.WithHTTPClient(httpClient))
