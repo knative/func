@@ -19,7 +19,6 @@ func TestNewDockerClientWithAutomaticPodmanSuccess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*1)
 	defer cancel()
 
-
 	WithExecutable(t, "podman", mockPodmanSrc)
 	t.Setenv("DOCKER_HOST", "")
 
