@@ -17,7 +17,6 @@ import (
 	"time"
 
 	fn "knative.dev/func/pkg/functions"
-	fnhttp "knative.dev/func/pkg/http"
 )
 
 // ---------------------------------------------------------------------------
@@ -611,13 +610,8 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	// a reply CloudEvent just to satisfy waitForCloudevent.
 	waitForTriggerKnative(t, Namespace, subscriberName)
 
-	transport := fnhttp.NewRoundTripper()
-	defer transport.Close()
-	client := http.Client{
-		Transport: transport,
-		Timeout:   30 * time.Second,
-	}
-	url := fmt.Sprintf("http://broker-ingress.knative-eventing.svc/%s/%s", Namespace, brokerName)
+	client := http.Client{Timeout: 30 * time.Second}
+	url := fmt.Sprintf("http://%s/%s/%s", BrokerHost, Namespace, brokerName)
 	req, _ := http.NewRequestWithContext(t.Context(), "POST", url, strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("ce-specversion", "1.0")
@@ -699,13 +693,8 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 	// Wait for trigger to be created and ready
 	waitForTriggerRaw(t, Namespace, subscriberName)
 
-	transport := fnhttp.NewRoundTripper()
-	defer transport.Close()
-	client := http.Client{
-		Transport: transport,
-		Timeout:   30 * time.Second,
-	}
-	url := fmt.Sprintf("http://broker-ingress.knative-eventing.svc/%s/%s", Namespace, brokerName)
+	client := http.Client{Timeout: 30 * time.Second}
+	url := fmt.Sprintf("http://%s/%s/%s", BrokerHost, Namespace, brokerName)
 	req, _ := http.NewRequestWithContext(t.Context(), "POST", url, strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("ce-specversion", "1.0")

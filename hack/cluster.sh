@@ -293,7 +293,8 @@ eventing() {
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-eventing --timeout=5m
 
-  echo "Exposing broker at broker.localtest.me"
+  local -r broker_host="${FUNC_E2E_BROKER_HOST:-broker.localtest.me}"
+  echo "Exposing broker at ${broker_host}"
   $KUBECTL apply -f - <<EOF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -303,7 +304,7 @@ metadata:
 spec:
   ingressClassName: contour-external
   rules:
-    - host: broker.localtest.me
+    - host: ${broker_host}
       http:
         paths:
           - backend:
