@@ -94,18 +94,44 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 			dockerHost = defaultHost
 		case err != nil && !os.IsNotExist(err):
 			return
-		case os.IsNotExist(err) && podmanPresent():
-			if runtime.GOOS == "linux" {
-				// on Linux: spawn temporary podman service
-				rawClient, dockerHostInRemote, err = newClientWithPodmanService()
-				return
-			} else {
-				// on non-Linux: try to use connection to podman machine
-				dh, dhid := tryGetPodmanRemoteConn()
-				if dh != "" {
-					dockerHost, dockerHostSSHIdentity = dh, dhid
-					hostKeyCallback = func(hostPort string, pubKey ssh.PublicKey) error {
-						return nil
+		case os.IsNotExist(err):
+			// Default socket doesn't exist, try Docker context
+			if contextHost := GetDockerContextHostFunc(); contextHost != "" {
+				// Verify the context socket actually exists
+				contextURL, parseErr := url.Parse(contextHost)
+				if parseErr == nil {
+					switch contextURL.Scheme {
+					case "unix", "":
+						// For unix sockets, verify the socket file exists
+						socketPath := contextURL.Path
+						if contextURL.Scheme == "" {
+							socketPath = contextHost
+						}
+						if _, statErr := os.Stat(socketPath); statErr == nil {
+							dockerHost = contextHost
+						}
+					case "ssh", "tcp", "npipe":
+						// For remote connections, use the context host directly
+						// We can't verify connectivity here, so trust the context
+						dockerHost = contextHost
+					}
+				}
+			}
+
+			// If context didn't work, try Podman
+			if dockerHost == "" && podmanPresent() {
+				if runtime.GOOS == "linux" {
+					// on Linux: spawn temporary podman service
+					rawClient, dockerHostInRemote, err = newClientWithPodmanService()
+					return
+				} else {
+					// on non-Linux: try to use connection to podman machine
+					dh, dhid := tryGetPodmanRemoteConn()
+					if dh != "" {
+						dockerHost, dockerHostSSHIdentity = dh, dhid
+						hostKeyCallback = func(hostPort string, pubKey ssh.PublicKey) error {
+							return nil
+						}
 					}
 				}
 			}
@@ -138,7 +164,7 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 	}
 
 	if !isSSH {
-		opts := []client.Opt{client.FromEnv}
+		opts := []client.Opt{client.FromEnv, client.WithHost(dockerHost)}
 		if isTCP {
 			if httpClient := newHttpClient(); httpClient != nil {
 				opts = append(opts, client.WithHTTPClient(httpClient))
@@ -283,6 +309,51 @@ func podmanPresent() bool {
 	_, err := exec.LookPath("podman")
 	return err == nil
 }
+
+// getDockerContextHost tries to get the Docker host from the current Docker context.
+// This is useful for Docker Desktop which uses context-specific sockets.
+// Returns empty string if unable to determine the context host.
+func getDockerContextHost() string {
+	// Check if docker CLI is available
+	dockerPath, err := exec.LookPath("docker")
+	if err != nil {
+		return ""
+	}
+
+	// Run 'docker context inspect' to get current context details
+	cmd := exec.Command(dockerPath, "context", "inspect")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return ""
+	}
+
+	// Parse the JSON output
+	var contexts []struct {
+		Name      string
+		Endpoints struct {
+			Docker struct {
+				Host string `json:"Host"`
+			} `json:"docker"`
+		} `json:"Endpoints"`
+	}
+
+	if err := json.Unmarshal(out, &contexts); err != nil {
+		return ""
+	}
+
+	// Return the host from the first (current) context
+	if len(contexts) > 0 && contexts[0].Endpoints.Docker.Host != "" {
+		if contexts[0].Name == "default" {
+			return ""
+		}
+		return contexts[0].Endpoints.Docker.Host
+	}
+
+	return ""
+}
+
+// GetDockerContextHostFunc is a variable to allow mocking in tests
+var GetDockerContextHostFunc = getDockerContextHost
 
 type clientWithAdditionalCleanup struct {
 	client.APIClient

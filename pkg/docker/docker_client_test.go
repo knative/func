@@ -2,15 +2,20 @@ package docker_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/moby/moby/api/types/system"
 	"github.com/moby/moby/client"
 
 	"knative.dev/func/pkg/docker"
@@ -96,13 +101,40 @@ func TestNewClient_DockerHost(t *testing.T) {
 }
 
 func startMockDaemon(t *testing.T, listener net.Listener) {
-	server := http.Server{}
+	mux := http.NewServeMux()
+
 	// mimics /_ping endpoint
-	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Add("Content-Type", "text/plain")
-		writer.WriteHeader(200)
-		_, _ = writer.Write([]byte("OK"))
+	mux.HandleFunc("/_ping", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
 	})
+
+	// mimics /info endpoint (also matched as /v{version}/info)
+	mux.HandleFunc("/info", func(w http.ResponseWriter, r *http.Request) {
+		info := system.Info{
+			ID:            "mock-daemon",
+			ServerVersion: "0.0.0-mock",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(info)
+	})
+
+	server := http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Docker client prefixes paths with /v{version},
+			// e.g. /v1.47/_ping or /v1.47/info.
+			// Strip the version prefix so the mux can match.
+			p := r.URL.Path
+			if strings.HasPrefix(p, "/v") {
+				if i := strings.Index(p[1:], "/"); i != -1 {
+					r.URL.Path = p[1+i:]
+				}
+			}
+			mux.ServeHTTP(w, r)
+		}),
+	}
 
 	serErrChan := make(chan error)
 	go func() {
@@ -126,4 +158,89 @@ func startMockDaemonUnix(t *testing.T, sock string) {
 		t.Fatal(err)
 	}
 	startMockDaemon(t, l)
+}
+
+// TestNewClient_DockerContext tests that Docker context is properly detected
+// when DOCKER_HOST is not set and default socket doesn't exist.
+func TestNewClient_DockerContext(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping Docker context test on Windows")
+	}
+
+	// Check if docker CLI is available
+	_, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("Docker CLI not available, skipping context detection test")
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second*5)
+	defer cancel()
+
+	tmpDir := t.TempDir()
+
+	// Start a mock daemon on a socket in the temp directory.
+	sock := filepath.Join(tmpDir, "docker.sock")
+	startMockDaemonUnix(t, sock)
+	sockHost := fmt.Sprintf("unix://%s", sock)
+
+	// Build a Docker config directory with a context pointing to
+	// the mock daemon socket.
+	configDir := filepath.Join(tmpDir, "docker-config")
+	contextName := "func-test-ctx"
+	createDockerContextConfig(t, configDir, contextName, sockHost)
+
+	t.Setenv("DOCKER_HOST", "")
+	t.Setenv("DOCKER_CONFIG", configDir)
+
+	// Pass a non-existent socket as the default host to force context detection.
+	nonExistentDefault := fmt.Sprintf("unix://%s", filepath.Join(tmpDir, "nonexistent.sock"))
+	dockerClient, _, err := docker.NewClient(nonExistentDefault)
+	if err != nil {
+		if err == docker.ErrNoDocker {
+			t.Skip("Docker not available, skipping context detection test")
+		}
+		t.Fatalf("Failed to create Docker client: %v", err)
+	}
+	defer dockerClient.Close()
+
+	// If we can reach the mock daemon despite passing a non-existent default
+	// socket, context detection found our mock daemon's socket.
+	nfo, err := dockerClient.Info(ctx, client.InfoOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get info from mock daemon: %v", err)
+	}
+	if nfo.Info.ID != "mock-daemon" {
+		t.Errorf("unexpected server ID: got %q, want %q", nfo.Info.ID, "mock-daemon")
+	}
+}
+
+// createDockerContextConfig writes a minimal Docker CLI config directory
+// with a single context pointing to the given host.
+func createDockerContextConfig(t *testing.T, configDir, contextName, host string) {
+	t.Helper()
+
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	configJSON := fmt.Sprintf(`{"auths":{},"currentContext":%q}`, contextName)
+	if err := os.WriteFile(filepath.Join(configDir, "config.json"), []byte(configJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Docker CLI stores context metadata under
+	// contexts/meta/<sha256(contextName)>/meta.json
+	hash := sha256.Sum256([]byte(contextName))
+	metaDir := filepath.Join(configDir, "contexts", "meta", fmt.Sprintf("%x", hash))
+	if err := os.MkdirAll(metaDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	metaJSON := fmt.Sprintf(
+		`{"Name":%q,"Metadata":{"Description":"test context"},"Endpoints":{"docker":{"Host":%q,"SkipTLSVerify":false}}}`,
+		contextName, host,
+	)
+	if err := os.WriteFile(filepath.Join(metaDir, "meta.json"), []byte(metaJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
