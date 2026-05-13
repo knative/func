@@ -57,7 +57,7 @@ func TestCore_PythonUserDepsRemote(t *testing.T) {
 
 	// Deploy remotely via Tekton
 	if err := newCmd(t, "deploy", "--builder", "pack", "--remote",
-		fmt.Sprintf("--registry=%s", ClusterRegistry)).Run(); err != nil {
+		fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
 		t.Fatal(err)
 	}
 

@@ -668,6 +668,7 @@ func resetEnv() {
 func newClient(verbose bool) *fn.Client {
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),
+		fn.WithRegistryInsecure(true),
 		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", verbose)),
 		fn.WithPusher(oci.NewPusher(true, true, verbose)),
@@ -683,10 +684,11 @@ func newClient(verbose bool) *fn.Client {
 func newClientWithS2i(verbose bool) *fn.Client {
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),
+		fn.WithRegistryInsecure(true),
 		fn.WithVerbose(verbose),
 		fn.WithScaffolder(s2i.NewScaffolder(true)),
 		fn.WithBuilder(s2i.NewBuilder(s2i.WithVerbose(verbose))),
-		fn.WithPusher(docker.NewPusher(docker.WithVerbose(verbose))),
+		fn.WithPusher(docker.NewPusher(docker.WithVerbose(verbose), docker.WithInsecure(true))),
 		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
 		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
 		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),

@@ -153,7 +153,7 @@ func TestCheckPullPermissions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = checkPullPermissions(t.Context(), tt.core, trans, tt.image, "default", "")
+			err = checkPullPermissions(t.Context(), tt.core, trans, tt.image, "default", "", false)
 			p := tt.errPred
 			if p == nil {
 				p = func(err error) bool {
@@ -184,7 +184,7 @@ func TestCheckPullPermissions_FunctionImagePullSecret(t *testing.T) {
 		}
 		coreClient := fake.NewClientset(sa, secretA).CoreV1()
 
-		err := checkPullPermissions(t.Context(), coreClient, trans, securedImage, "default", secretA.Name)
+		err := checkPullPermissions(t.Context(), coreClient, trans, securedImage, "default", secretA.Name, false)
 		if err != nil {
 			t.Errorf("expected no error with valid function-level pull secret, got: %v", err)
 		}
@@ -197,7 +197,7 @@ func TestCheckPullPermissions_FunctionImagePullSecret(t *testing.T) {
 		}
 		coreClient := fake.NewClientset(sa, badSecret).CoreV1()
 
-		err := checkPullPermissions(t.Context(), coreClient, trans, securedImage, "default", badSecret.Name)
+		err := checkPullPermissions(t.Context(), coreClient, trans, securedImage, "default", badSecret.Name, false)
 		if !errors.Is(err, errOnlyIncorrectPullSecretFound) {
 			t.Errorf("expected errOnlyIncorrectPullSecretFound, got: %v", err)
 		}
@@ -205,7 +205,7 @@ func TestCheckPullPermissions_FunctionImagePullSecret(t *testing.T) {
 
 	t.Run("no function-level secret falls back to SA", func(t *testing.T) {
 		coreClient := core(secretA)
-		err := checkPullPermissions(t.Context(), coreClient, trans, securedImage, "default", "")
+		err := checkPullPermissions(t.Context(), coreClient, trans, securedImage, "default", "", false)
 		if err != nil {
 			t.Errorf("expected no error when SA has valid pull secret, got: %v", err)
 		}

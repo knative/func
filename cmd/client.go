@@ -59,9 +59,9 @@ func NewTestClient(options ...fn.Option) ClientFactory {
 // 'Verbose' indicates the system should write out a higher amount of logging.
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
-		t  = newTransport(cfg.InsecureSkipVerify)        // may provide a custom impl which proxies
-		c  = newCredentialsProvider(config.Dir(), t, "") // for accessing registries
-		d  = newKnativeDeployer(cfg.Verbose)             // default deployer (can be overridden via options)
+		t  = newTransport(cfg.InsecureSkipVerify)                                // may provide a custom impl which proxies
+		c  = newCredentialsProvider(config.Dir(), t, "", cfg.InsecureSkipVerify) // for accessing registries
+		d  = newKnativeDeployer(cfg.Verbose)                                     // default deployer (can be overridden via options)
 		pp = newTektonPipelinesProvider(c, cfg.Verbose, t)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
@@ -81,7 +81,8 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithPusher(docker.NewPusher(
 				docker.WithCredentialsProvider(c),
 				docker.WithTransport(t),
-				docker.WithVerbose(cfg.Verbose))),
+				docker.WithVerbose(cfg.Verbose),
+				docker.WithInsecure(cfg.InsecureSkipVerify))),
 		}
 	)
 
@@ -110,7 +111,8 @@ func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
 // has cluster-flavor specific additional credential loaders to take advantage
 // of features or configuration nuances of cluster variants.
 // If authFilePath is provided (non-empty), it will be used as the primary auth file.
-func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath string) oci.CredentialsProvider {
+// When insecure is true, credential verification uses plain HTTP instead of HTTPS.
+func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath string, insecure bool) oci.CredentialsProvider {
 	additionalLoaders := append(k8s.GetOpenShiftDockerCredentialLoaders(), k8s.GetGoogleCredentialLoader()...)
 	additionalLoaders = append(additionalLoaders, k8s.GetECRCredentialLoader()...)
 	additionalLoaders = append(additionalLoaders, k8s.GetACRCredentialLoader()...)
@@ -135,6 +137,7 @@ func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath
 		creds.WithPromptForCredentials(prompt.NewPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
 		creds.WithPromptForCredentialStore(prompt.NewPromptForCredentialStore()),
 		creds.WithTransport(t),
+		creds.WithInsecure(insecure),
 		creds.WithAdditionalCredentialLoaders(additionalLoaders...),
 	}
 

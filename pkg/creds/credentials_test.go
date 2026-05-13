@@ -213,7 +213,7 @@ func TestCheckAuth(t *testing.T) {
 				}
 				return dialer.DialContext(ctx, network, net.JoinHostPort(h, p))
 			}
-			if err := creds.CheckAuth(tt.args.ctx, tt.args.registry+"/someorg/someimage:sometag", c, transport); (err != nil) != tt.wantErr {
+			if err := creds.CheckAuth(tt.args.ctx, tt.args.registry+"/someorg/someimage:sometag", c, transport, false); (err != nil) != tt.wantErr {
 				t.Errorf("CheckAuth() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -223,7 +223,7 @@ func TestCheckAuth(t *testing.T) {
 func TestCheckAuthEmptyCreds(t *testing.T) {
 
 	localhost, _, _ := startServer(t, "", "")
-	err := creds.CheckAuth(t.Context(), localhost+"/someorg/someimage:sometag", oci.Credentials{}, http.DefaultTransport)
+	err := creds.CheckAuth(t.Context(), localhost+"/someorg/someimage:sometag", oci.Credentials{}, http.DefaultTransport, false)
 	if err != nil {
 		t.Error(err)
 	}

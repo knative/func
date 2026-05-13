@@ -791,7 +791,7 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 	}
 
 	t := newTransport(c.RegistryInsecure)
-	creds := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile)
+	creds := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile, c.RegistryInsecure)
 
 	// Override the pipelines provider to use custom credentials
 	// This is needed for remote builds (deploy --remote)

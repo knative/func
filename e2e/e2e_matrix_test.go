@@ -136,7 +136,7 @@ func TestMatrix_Remote(t *testing.T) {
 		}
 
 		// Deploy
-		if err := newCmd(t, "deploy", "--builder", builder, "--remote", fmt.Sprintf("--registry=%s", ClusterRegistry)).Run(); err != nil {
+		if err := newCmd(t, "deploy", "--builder", builder, "--remote", fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
 			t.Fatal(err)
 		}
 

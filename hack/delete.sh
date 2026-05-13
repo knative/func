@@ -9,9 +9,8 @@ delete_resources() {
   echo "${blue}Deleting Cluster and Registry${reset}"
 
   $KIND delete cluster --name=func --kubeconfig="${KUBECONFIG}"
-  docker stop func-registry && docker rm func-registry
   echo "${red}NOTE:${reset}  The following changes have not been undone:"
-  echo " - Config setting registry localhost:50000 (func-registry) as insecure"
+  echo " - Config setting registry.localtest.me as insecure"
   echo " - Downloaded container images were not removed"
   echo "${green}DONE${reset}"
 }

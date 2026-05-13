@@ -169,11 +169,11 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		daprInstalled = true
 	}
 
-	t := fnhttp.NewRoundTripper(fnhttp.WithOpenShiftServiceCA())
+	t := fnhttp.NewRoundTripper(fnhttp.WithOpenShiftServiceCA(), fnhttp.WithInsecureSkipVerify(f.RegistryInsecure))
 	defer func(t fnhttp.RoundTripCloser) {
 		_ = t.Close()
 	}(t)
-	if err = checkPullPermissions(ctx, k8sClient.CoreV1(), t, f.Deploy.Image, namespace, f.Deploy.ImagePullSecret); err != nil {
+	if err = checkPullPermissions(ctx, k8sClient.CoreV1(), t, f.Deploy.Image, namespace, f.Deploy.ImagePullSecret, f.RegistryInsecure); err != nil {
 		msg := fmt.Sprintf("warning: error while checking pull secrets: %v", err)
 		switch {
 		case stdErrors.Is(err, errPullSecretNotFound):
@@ -664,8 +664,12 @@ func UsesKnativeDeployer(annotations map[string]string) bool {
 	return !ok || deployer == KnativeDeployerName
 }
 
-func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans http.RoundTripper, img, ns, imagePullSecret string) error {
-	ref, err := name.ParseReference(img)
+func checkPullPermissions(ctx context.Context, core v1.CoreV1Interface, trans http.RoundTripper, img, ns, imagePullSecret string, insecure bool) error {
+	var nameOpts []name.Option
+	if insecure {
+		nameOpts = append(nameOpts, name.Insecure)
+	}
+	ref, err := name.ParseReference(img, nameOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to parse image %q: %w", img, err)
 	}

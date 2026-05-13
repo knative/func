@@ -88,13 +88,13 @@ const (
 	// of the registry created by default when using the cluster.sh script
 	// to set up a local testing cluster, but can be customized with
 	// FUNC_E2E_REGISTRY.
-	DefaultRegistry = "localhost:50000/func"
+	DefaultRegistry = "registry.localtest.me/func"
 
 	// DefaultClusterRegistry to use for in-cluster (remote) builds.
 	// This is the cluster-internal registry URL accessible from within
 	// the cluster for Tekton builds. Can be customized with
 	// FUNC_E2E_CLUSTER_REGISTRY.
-	DefaultClusterRegistry = "registry.default.svc.cluster.local:5000/func"
+	DefaultClusterRegistry = "registry.localtest.me/func"
 
 	// DefaultVerbose sets the default for the --verbose flag of all commands.
 	DefaultVerbose = false
@@ -494,6 +494,12 @@ func setupEnv(t *testing.T) {
 	// global config, or already defaulted by the user via environment variable.
 	os.Setenv("FUNC_REGISTRY", Registry)
 
+	// When using the default registry (registry.localtest.me), mark it as
+	// insecure since it serves plain HTTP.
+	if strings.Contains(Registry, "registry.localtest.me") {
+		os.Setenv("FUNC_REGISTRY_INSECURE", "true")
+	}
+
 	// If the docker host is set, it should affect any tests which perform
 	// container operations except for podman-specific tests.  These use
 	// the FUNC_E2E_PODMAN_HOST value during test execution directly.
@@ -507,8 +513,7 @@ func setupEnv(t *testing.T) {
 }
 
 // setupPodmanEnvs
-// - configures VM to treat localhost:50000 as an insecure registry
-// - proxy connections to the host if running in a VM (like on darwin)
+// - configures VM to treat registry.localtest.me as an insecure registry
 // - creates an XDG_CONFIG_HOME and XDG_DATA_HOME
 func setupPodman(t *testing.T) error {
 	t.Helper()
@@ -523,7 +528,7 @@ func setupPodman(t *testing.T) error {
 short-name-mode="permissive"
 
 [[registry]]
-location="localhost:50000"
+location="registry.localtest.me"
 insecure=true
 `
 	cfgPath := filepath.Join(t.TempDir(), "registries.conf")
@@ -558,24 +563,6 @@ insecure=true
 	if !strings.Contains(string(output), "Currently running") && !strings.Contains(string(output), "Running") {
 		return fmt.Errorf("Podman machine is not running. Please start it with: podman machine start podman-machine-default")
 	}
-
-	// Kill any existing process on port 50000 in the Podman VM
-	killCmd := exec.Command("podman", "machine", "ssh", "--",
-		"sudo lsof -ti :50000 | sudo xargs kill -9 2>/dev/null || true")
-	if output, err = killCmd.CombinedOutput(); err != nil {
-		t.Logf("output: %s", output)
-		return fmt.Errorf("failed killing existing registry proxy: %v", err)
-	}
-
-	// Set up socat proxy to forward localhost:50000 to host.containers.internal:50000
-	// This allows containers in Podman to access the host's registry
-	proxyCmd := exec.Command("podman", "machine", "ssh", "--",
-		"sudo sh -c 'socat TCP-LISTEN:50000,fork,reuseaddr TCP:host.containers.internal:50000 </dev/null >/dev/null 2>&1 & echo Registry proxy started'")
-	if output, err = proxyCmd.CombinedOutput(); err != nil {
-		t.Logf("output: %s", output)
-		return fmt.Errorf("failed to set up registry proxy: %v, output: %s", err, output)
-	}
-	t.Logf("Podman registry proxy enabled: %s", strings.TrimSpace(string(output)))
 
 	return nil
 }

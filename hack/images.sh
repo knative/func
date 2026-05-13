@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-FUNC_UTILS_IMG="localhost:50000/knative/func-utils:v2"
+FUNC_UTILS_IMG="registry.localtest.me/knative/func-utils:v2"
 
 CGO_ENABLED=0 go build -o "func-util" -trimpath -ldflags '-w -s' ./cmd/func-util
 

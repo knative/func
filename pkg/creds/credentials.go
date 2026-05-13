@@ -56,10 +56,15 @@ func (k keyChain) Resolve(resource authn.Resource) (authn.Authenticator, error) 
 	}, nil
 }
 
-// CheckAuth verifies that credentials can be used for image push
-func CheckAuth(ctx context.Context, image string, credentials oci.Credentials, trans http.RoundTripper) error {
+// CheckAuth verifies that credentials can be used for image push.
+// When insecure is true, the registry is accessed over plain HTTP instead of HTTPS.
+func CheckAuth(ctx context.Context, image string, credentials oci.Credentials, trans http.RoundTripper, insecure bool) error {
 
-	ref, err := name.ParseReference(image)
+	var nameOpts []name.Option
+	if insecure {
+		nameOpts = append(nameOpts, name.Insecure)
+	}
+	ref, err := name.ParseReference(image, nameOpts...)
 	if err != nil {
 		return fmt.Errorf("cannot parse image reference: %w", err)
 	}
@@ -90,6 +95,7 @@ type credentialsProvider struct {
 	credentialLoaders        []CredentialsCallback
 	authFilePath             string
 	transport                http.RoundTripper
+	insecure                 bool
 }
 
 type Opt func(opts *credentialsProvider)
@@ -133,6 +139,14 @@ func WithTransport(transport http.RoundTripper) Opt {
 	}
 }
 
+// WithInsecure configures the credentials provider to access the registry
+// over plain HTTP instead of HTTPS.
+func WithInsecure(insecure bool) Opt {
+	return func(opts *credentialsProvider) {
+		opts.insecure = insecure
+	}
+}
+
 // WithAdditionalCredentialLoaders adds custom callbacks for credential retrieval.
 // The callbacks shall return ErrCredentialsNotFound if the credentials are not found.
 // The callbacks are supposed to be non-interactive as opposed to WithPromptForCredentials.
@@ -171,7 +185,7 @@ func NewCredentialsProvider(configPath string, opts ...Opt) oci.CredentialsProvi
 
 	if c.verifyCredentials == nil {
 		c.verifyCredentials = func(ctx context.Context, registry string, credentials oci.Credentials) error {
-			return CheckAuth(ctx, registry, credentials, c.transport)
+			return CheckAuth(ctx, registry, credentials, c.transport, c.insecure)
 		}
 	}
 

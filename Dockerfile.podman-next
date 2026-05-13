@@ -10,7 +10,7 @@ unqualified-search-registries = ["docker.io", "quay.io", "registry.fedoraproject
 short-name-mode="permissive"
 
 [[registry]]
-location="localhost:50000"
+location="registry.localtest.me"
 insecure=true
 EOF
 
