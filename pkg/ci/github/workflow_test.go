@@ -16,15 +16,12 @@ func TestGitHubWorkflow_Export(t *testing.T) {
 	bufferWriter := NewBufferWriter()
 
 	// WHEN
-	cfg := Config{
-		FnRoot:    "path/to/function",
-		FnRuntime: "go",
-	}
+	opts := WorkflowConfig{}
 
-	gw, workflowErr := newGitHubWorkflow(cfg, &bytes.Buffer{})
+	gw, workflowErr := newGitHubWorkflow(WorkflowConfig{}, "go", &bytes.Buffer{})
 	assert.NilError(t, workflowErr, "unexpected error when creating GitHub Workflow")
 
-	exportErr := gw.Export(cfg.FnGitHubWorkflowFilepath(), bufferWriter, true, &bytes.Buffer{})
+	exportErr := gw.Export(opts.fnGitHubWorkflowFilepath("path/to/functions"), bufferWriter, true, &bytes.Buffer{})
 
 	// THEN
 	assert.NilError(t, exportErr, "unexpected error when exporting GitHub Workflow")

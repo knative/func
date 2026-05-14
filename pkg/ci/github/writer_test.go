@@ -32,7 +32,7 @@ func TestBufferWriter_Write_StoresPath(t *testing.T) {
 }
 
 // TestBufferWriter_Write_ResetsBuffer ensures that consecutive Write calls do
-// not accumulate content — each call starts with a fresh buffer.
+// not accumulate content, each call starts with a fresh buffer.
 func TestBufferWriter_Write_ResetsBuffer(t *testing.T) {
 	bw := NewBufferWriter()
 

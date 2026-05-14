@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/ory/viper"
@@ -11,6 +12,11 @@ import (
 	"knative.dev/func/pkg/ci/github"
 	fn "knative.dev/func/pkg/functions"
 )
+
+// ciGeneratorFactory creates a CIGenerator from resolved CLI flag values.
+// Using a factory allows tests to capture the resolved config and inject
+// a mock generator without running the real implementation.
+type ciGeneratorFactory func(github.WorkflowConfig, github.WorkflowWriter, io.Writer, bool) fn.CIGenerator
 
 const (
 	ConfigCIFeatureFlag              = "FUNC_ENABLE_CI_CONFIG"
@@ -34,9 +40,10 @@ const (
 
 func NewConfigCICmd(
 	loaderSaver common.FunctionLoaderSaver,
-	pathWriter fn.PathWriter,
+	workflowWriter github.WorkflowWriter,
 	currentBranch common.CurrentBranchFunc,
 	workingDir common.WorkDirFunc,
+	newCIGenerator ciGeneratorFactory,
 	newClient ClientFactory,
 ) *cobra.Command {
 	cmd := &cobra.Command{
@@ -67,11 +74,12 @@ func NewConfigCICmd(
 
 			return runConfigCIGitHub(
 				cmd,
-				pathWriter,
+				workflowWriter,
 				loaderSaver,
 				currentBranch,
 				workingDir,
 				workflowNameExplicit,
+				newCIGenerator,
 				newClient,
 			)
 		},
@@ -171,14 +179,15 @@ func NewConfigCICmd(
 
 func runConfigCIGitHub(
 	cmd *cobra.Command,
-	pathWriter fn.PathWriter,
+	workflowWriter github.WorkflowWriter,
 	fnLoaderSaver common.FunctionLoaderSaver,
 	currentBranch common.CurrentBranchFunc,
 	workingDir common.WorkDirFunc,
 	workflowNameExplicit bool,
+	newCIGenerator ciGeneratorFactory,
 	newClient ClientFactory,
 ) error {
-	cfg, err := newCIConfig(
+	cfg, f, err := newConfigAndLoadedFunc(
 		fnLoaderSaver,
 		currentBranch,
 		workingDir,
@@ -188,48 +197,50 @@ func runConfigCIGitHub(
 		return err
 	}
 
+	verbose := viper.GetBool(verboseFlag)
+	ciGenerator := newCIGenerator(cfg, workflowWriter, cmd.OutOrStdout(), verbose)
+
 	client, done := newClient(
-		ClientConfig{Verbose: viper.GetBool(verboseFlag)},
-		fn.WithPathWriter(pathWriter),
-		fn.WithStdout(cmd.OutOrStdout()),
+		ClientConfig{Verbose: verbose},
+		fn.WithCIGenerator(ciGenerator),
 	)
 	defer done()
 
-	if err := client.GenerateCIWorkflow(cmd.Context(), cfg); err != nil {
+	if err := client.GenerateCIWorkflow(cmd.Context(), f); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func newCIConfig(
+func newConfigAndLoadedFunc(
 	fnLoader common.FunctionLoader,
 	currentBranch common.CurrentBranchFunc,
 	workingDir common.WorkDirFunc,
 	workflowNameExplicit bool,
-) (github.Config, error) {
+) (github.WorkflowConfig, fn.Function, error) {
 	if err := resolvePlatform(); err != nil {
-		return github.Config{}, err
+		return github.WorkflowConfig{}, fn.Function{}, err
 	}
 
 	path, err := resolvePath(workingDir)
 	if err != nil {
-		return github.Config{}, err
+		return github.WorkflowConfig{}, fn.Function{}, err
 	}
 
 	branch, err := resolveBranch(path, currentBranch)
 	if err != nil {
-		return github.Config{}, err
+		return github.WorkflowConfig{}, fn.Function{}, err
 	}
 
 	workflowName := resolveWorkflowName(workflowNameExplicit)
 
 	f, err := fnLoader.Load(path)
 	if err != nil {
-		return github.Config{}, err
+		return github.WorkflowConfig{}, fn.Function{}, err
 	}
 
-	return github.Config{
+	return github.WorkflowConfig{
 		GithubWorkflowDir:      github.DefaultGitHubWorkflowDir,
 		GithubWorkflowFilename: github.DefaultGitHubWorkflowFilename,
 		Branch:                 branch,
@@ -245,9 +256,7 @@ func newCIConfig(
 		WorkflowDispatch:       viper.GetBool(workflowDispatchFlag),
 		TestStep:               viper.GetBool(testStepFlag),
 		Force:                  viper.GetBool(forceFlag),
-		FnRuntime:              f.Runtime,
-		FnRoot:                 f.Root,
-	}, nil
+	}, f, nil
 }
 
 func resolvePlatform() error {
@@ -301,4 +310,26 @@ func resolveWorkflowName(explicit bool) string {
 	}
 
 	return github.DefaultWorkflowName
+}
+
+// NewCIGeneratorFactory returns the default production factory that
+// constructs a github.WorkflowGenerator from resolved flag values.
+func NewCIGeneratorFactory() ciGeneratorFactory {
+	return func(cfg github.WorkflowConfig, ww github.WorkflowWriter, mw io.Writer, v bool) fn.CIGenerator {
+		return github.NewWorkflowGenerator(
+			github.WithWorkflowConfig(cfg),
+			github.WithWorkflowWriter(ww),
+			github.WithMessageWriter(mw),
+			github.WithVerbose(v),
+		)
+	}
+}
+
+// NewTestCIGeneratorFactory returns a test factory that captures the resolved
+// WorkflowConfig and returns the given mock as the CIGenerator.
+func NewTestCIGeneratorFactory(mock *github.WorkflowGeneratorMock) ciGeneratorFactory {
+	return func(cfg github.WorkflowConfig, _ github.WorkflowWriter, _ io.Writer, _ bool) fn.CIGenerator {
+		mock.Config = cfg
+		return mock
+	}
 }

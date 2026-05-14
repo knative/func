@@ -9,15 +9,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"knative.dev/func/cmd/common"
+	"knative.dev/func/pkg/ci/github"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
 
 func NewConfigCmd(
 	loaderSaver common.FunctionLoaderSaver,
-	pathWriter fn.PathWriter,
+	workflowWriter github.WorkflowWriter,
 	currentBranch common.CurrentBranchFunc,
 	workingDir common.WorkDirFunc,
+	newCIGenerator ciGeneratorFactory,
 	newClient ClientFactory,
 ) *cobra.Command {
 	cmd := &cobra.Command{
@@ -49,9 +51,10 @@ or from the directory specified with --path.
 	if os.Getenv(ConfigCIFeatureFlag) == "true" {
 		cmd.AddCommand(NewConfigCICmd(
 			loaderSaver,
-			pathWriter,
+			workflowWriter,
 			currentBranch,
 			workingDir,
+			newCIGenerator,
 			newClient,
 		))
 	}

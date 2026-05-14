@@ -11,10 +11,16 @@ const (
 	filePerm = 0644 // u: rw-, g: r--, o: r--
 )
 
+// WorkflowWriter defines the interface for writing workflow files to a given path.
+type WorkflowWriter interface {
+	Exist(path string) bool
+	Write(path string, raw []byte) error
+}
+
 // DefaultWorkflowWriter is the default implementation for writing workflow files to disk.
 var DefaultWorkflowWriter = &fileWriter{}
 
-// fileWriter implements functions.PathWriter
+// fileWriter implements WorkflowWriter
 type fileWriter struct{}
 
 // Write writes raw bytes to the specified path, creating directories as needed.
@@ -35,7 +41,7 @@ func (fw *fileWriter) Exist(path string) bool {
 	return err == nil
 }
 
-// BufferWriter is a test double (fake) that implements functions.PathWriter
+// BufferWriter is a test double (fake) that implements WorkflowWriter
 // by writing to an in-memory buffer instead of the filesystem.
 type BufferWriter struct {
 	Path   string

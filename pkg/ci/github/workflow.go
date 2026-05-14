@@ -5,15 +5,115 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
-	fn "knative.dev/func/pkg/functions"
 )
-
-const defaultFuncCliVersion = "knative-v1.21.0"
 
 // ErrWorkflowExists is returned when a GitHub workflow file already exists and --force is not specified.
 var ErrWorkflowExists = errors.New("existing GitHub workflow detected, overwrite using the --force option")
+
+const (
+	defaultFuncCliVersion               = "knative-v1.22.0"
+	DefaultPlatform                     = "github"
+	DefaultGitHubWorkflowDir            = ".github/workflows"
+	DefaultGitHubWorkflowFilename       = "func-deploy.yaml"
+	DefaultBranch                       = "main"
+	DefaultWorkflowName                 = "Func Deploy"
+	DefaultRemoteBuildWorkflowName      = "Remote " + DefaultWorkflowName
+	DefaultKubeconfigSecretName         = "KUBECONFIG"
+	DefaultRegistryLoginUrlVariableName = "REGISTRY_LOGIN_URL"
+	DefaultRegistryUserVariableName     = "REGISTRY_USERNAME"
+	DefaultRegistryPassSecretName       = "REGISTRY_PASSWORD"
+	DefaultRegistryUrlVariableName      = "REGISTRY_URL"
+	DefaultRegistryLogin                = true
+	DefaultWorkflowDispatch             = false
+	DefaultRemoteBuild                  = false
+	DefaultSelfHostedRunner             = false
+	DefaultTestStep                     = true
+	DefaultForce                        = false
+	DefaultVerbose                      = false
+)
+
+// WorkflowConfig holds the settings for generating a GitHub Actions workflow.
+type WorkflowConfig struct {
+	GithubWorkflowDir,
+	GithubWorkflowFilename,
+	Branch,
+	WorkflowName,
+	KubeconfigSecret,
+	RegistryLoginUrlVar,
+	RegistryUserVar,
+	RegistryPassSecret,
+	RegistryUrlVar string
+	RegistryLogin,
+	SelfHostedRunner,
+	RemoteBuild,
+	WorkflowDispatch,
+	TestStep,
+	Force bool
+}
+
+func (o WorkflowConfig) fnGitHubWorkflowFilepath(fnRoot string) string {
+	fnGitHubWorkflowDir := filepath.Join(fnRoot, o.GithubWorkflowDir)
+	return filepath.Join(fnGitHubWorkflowDir, o.GithubWorkflowFilename)
+}
+
+func (o WorkflowConfig) outputPath() string {
+	return filepath.Join(o.GithubWorkflowDir, o.GithubWorkflowFilename)
+}
+
+func defaultWorkflowConfig() WorkflowConfig {
+	return WorkflowConfig{
+		GithubWorkflowDir:      DefaultGitHubWorkflowDir,
+		GithubWorkflowFilename: DefaultGitHubWorkflowFilename,
+		Branch:                 DefaultBranch,
+		WorkflowName:           DefaultWorkflowName,
+		KubeconfigSecret:       DefaultKubeconfigSecretName,
+		RegistryLoginUrlVar:    DefaultRegistryLoginUrlVariableName,
+		RegistryUserVar:        DefaultRegistryUserVariableName,
+		RegistryPassSecret:     DefaultRegistryPassSecretName,
+		RegistryUrlVar:         DefaultRegistryUrlVariableName,
+		RegistryLogin:          DefaultRegistryLogin,
+		SelfHostedRunner:       DefaultSelfHostedRunner,
+		RemoteBuild:            DefaultRemoteBuild,
+		WorkflowDispatch:       DefaultWorkflowDispatch,
+		TestStep:               DefaultTestStep,
+		Force:                  DefaultForce,
+	}
+}
+
+func setEmptyFieldsToDefaults(defaults WorkflowConfig) WorkflowConfig {
+	if defaults.GithubWorkflowDir == "" {
+		defaults.GithubWorkflowDir = DefaultGitHubWorkflowDir
+	}
+	if defaults.GithubWorkflowFilename == "" {
+		defaults.GithubWorkflowFilename = DefaultGitHubWorkflowFilename
+	}
+	if defaults.Branch == "" {
+		defaults.Branch = DefaultBranch
+	}
+	if defaults.WorkflowName == "" {
+		defaults.WorkflowName = DefaultWorkflowName
+	}
+	if defaults.KubeconfigSecret == "" {
+		defaults.KubeconfigSecret = DefaultKubeconfigSecretName
+	}
+	if defaults.RegistryLoginUrlVar == "" {
+		defaults.RegistryLoginUrlVar = DefaultRegistryLoginUrlVariableName
+	}
+	if defaults.RegistryUserVar == "" {
+		defaults.RegistryUserVar = DefaultRegistryUserVariableName
+	}
+	if defaults.RegistryPassSecret == "" {
+		defaults.RegistryPassSecret = DefaultRegistryPassSecretName
+	}
+	if defaults.RegistryUrlVar == "" {
+		defaults.RegistryUrlVar = DefaultRegistryUrlVariableName
+	}
+
+	return defaults
+}
 
 type workflow struct {
 	Name string           `yaml:"name"`
@@ -43,25 +143,25 @@ type step struct {
 	With map[string]string `yaml:"with,omitempty"`
 }
 
-func newGitHubWorkflow(conf Config, messageWriter io.Writer) (*workflow, error) {
+func newGitHubWorkflow(cfg WorkflowConfig, runtime string, messageWriter io.Writer) (*workflow, error) {
 	var steps []step
 	steps = createCheckoutStep(steps)
-	steps = createRuntimeTestStep(conf, messageWriter, steps)
-	steps = createK8ContextStep(conf, steps)
-	steps = createRegistryLoginStep(conf, steps)
+	steps = createRuntimeTestStep(cfg, runtime, messageWriter, steps)
+	steps = createK8ContextStep(cfg, steps)
+	steps = createRegistryLoginStep(cfg, steps)
 	steps = createFuncCLIInstallStep(steps)
 
-	steps, err := createFuncDeployStep(conf, steps)
+	steps, err := createFuncDeployStep(cfg, runtime, steps)
 	if err != nil {
 		return nil, err
 	}
 
 	return &workflow{
-		Name: conf.WorkflowName,
-		On:   createPushTrigger(conf),
+		Name: cfg.WorkflowName,
+		On:   createPushTrigger(cfg),
 		Jobs: map[string]job{
 			"deploy": {
-				RunsOn: determineRunner(conf.SelfHostedRunner),
+				RunsOn: determineRunner(cfg.SelfHostedRunner),
 				Steps:  steps,
 			},
 		},
@@ -75,14 +175,14 @@ func createCheckoutStep(steps []step) []step {
 	return append(steps, *checkoutCode)
 }
 
-func createRuntimeTestStep(conf Config, messageWriter io.Writer, steps []step) []step {
-	if !conf.TestStep {
+func createRuntimeTestStep(opts WorkflowConfig, runtime string, messageWriter io.Writer, steps []step) []step {
+	if !opts.TestStep {
 		return steps
 	}
 
 	testStep := newStep("Run tests")
 
-	switch conf.FnRuntime {
+	switch runtime {
 	case "go":
 		testStep.withRun("go test ./...")
 	case "node", "typescript":
@@ -93,32 +193,32 @@ func createRuntimeTestStep(conf Config, messageWriter io.Writer, steps []step) [
 		testStep.withRun("./mvnw test")
 	default:
 		// best-effort user message; errors are non-critical
-		_, _ = fmt.Fprintf(messageWriter, "WARNING: test step not supported for runtime %s\n", conf.FnRuntime)
+		_, _ = fmt.Fprintf(messageWriter, "WARNING: test step not supported for runtime %s\n", runtime)
 		return steps
 	}
 
 	return append(steps, *testStep)
 }
 
-func createK8ContextStep(conf Config, steps []step) []step {
+func createK8ContextStep(opts WorkflowConfig, steps []step) []step {
 	setupK8Context := newStep("Setup Kubernetes context").
 		withUses("azure/k8s-set-context@v4").
 		withActionConfig("method", "kubeconfig").
-		withActionConfig("kubeconfig", newSecret(conf.KubeconfigSecret))
+		withActionConfig("kubeconfig", newSecret(opts.KubeconfigSecret))
 
 	return append(steps, *setupK8Context)
 }
 
-func createRegistryLoginStep(conf Config, steps []step) []step {
-	if !conf.RegistryLogin {
+func createRegistryLoginStep(opts WorkflowConfig, steps []step) []step {
+	if !opts.RegistryLogin {
 		return steps
 	}
 
 	loginToContainerRegistry := newStep("Login to container registry").
 		withUses("docker/login-action@v3").
-		withActionConfig("registry", newVariable(conf.RegistryLoginUrlVar)).
-		withActionConfig("username", newVariable(conf.RegistryUserVar)).
-		withActionConfig("password", newSecret(conf.RegistryPassSecret))
+		withActionConfig("registry", newVariable(opts.RegistryLoginUrlVar)).
+		withActionConfig("username", newVariable(opts.RegistryUserVar)).
+		withActionConfig("password", newSecret(opts.RegistryPassSecret))
 
 	return append(steps, *loginToContainerRegistry)
 }
@@ -132,23 +232,23 @@ func createFuncCLIInstallStep(steps []step) []step {
 	return append(steps, *installFuncCli)
 }
 
-func createFuncDeployStep(conf Config, steps []step) ([]step, error) {
+func createFuncDeployStep(opts WorkflowConfig, runtime string, steps []step) ([]step, error) {
 	deployFuncStep := newStep("Deploy function").
 		withEnv("FUNC_VERBOSE", "true")
 
-	builder, err := determineBuilder(conf.FnRuntime, conf.RemoteBuild)
+	builder, err := determineBuilder(runtime, opts.RemoteBuild)
 	if err != nil {
 		return nil, err
 	}
 	deployFuncStep.withEnv("FUNC_BUILDER", builder)
 
-	if conf.RemoteBuild {
+	if opts.RemoteBuild {
 		deployFuncStep.withEnv("FUNC_REMOTE", "true")
 	}
 
-	registryUrl := newVariable(conf.RegistryUrlVar)
-	if conf.RegistryLogin {
-		registryUrl = newVariable(conf.RegistryLoginUrlVar) + "/" + newVariable(conf.RegistryUserVar)
+	registryUrl := newVariable(opts.RegistryUrlVar)
+	if opts.RegistryLogin {
+		registryUrl = newVariable(opts.RegistryLoginUrlVar) + "/" + newVariable(opts.RegistryUserVar)
 	}
 	deployFuncStep.withEnv("FUNC_REGISTRY", registryUrl).
 		withRun("func deploy")
@@ -156,12 +256,12 @@ func createFuncDeployStep(conf Config, steps []step) ([]step, error) {
 	return append(steps, *deployFuncStep), nil
 }
 
-func createPushTrigger(conf Config) workflowTriggers {
+func createPushTrigger(opts WorkflowConfig) workflowTriggers {
 	result := workflowTriggers{
-		Push: &pushTrigger{Branches: []string{conf.Branch}},
+		Push: &pushTrigger{Branches: []string{opts.Branch}},
 	}
 
-	if conf.WorkflowDispatch {
+	if opts.WorkflowDispatch {
 		result.WorkflowDispatch = &struct{}{}
 	}
 
@@ -202,7 +302,7 @@ func (s *step) withEnv(key, value string) *step {
 	return s
 }
 
-func (gw *workflow) Export(path string, w fn.PathWriter, force bool, m io.Writer) error {
+func (gw *workflow) Export(path string, w WorkflowWriter, force bool, m io.Writer) error {
 	if !force && w.Exist(path) {
 		return ErrWorkflowExists
 	}

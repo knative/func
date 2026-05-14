@@ -55,6 +55,7 @@ func setupConfigEnvCmd(mock common.FunctionLoaderSaver, args ...string) *cobra.C
 		github.NewBufferWriter(),
 		common.CurrentBranchStub("", nil),
 		common.WorkDirStub("", nil),
+		fnCmd.NewTestCIGeneratorFactory(&github.WorkflowGeneratorMock{}),
 		fnCmd.NewClient,
 	)
 	cmd.SetArgs(append([]string{"envs"}, args...))

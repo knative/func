@@ -83,9 +83,7 @@ type Client struct {
 	mcpServer         MCPServer         // MCP Server
 	startTimeout      time.Duration     // default start timeout for all runs
 	syncer            FunctionSyncer    // Syncs Function CR after deploy
-	ci                CI
-	stdout            io.Writer
-	pathWriter        PathWriter
+	ciGenerator       CIGenerator       // CI workflow generator
 }
 
 // Scaffolder wraps a function with a service scaffolding (entrypoint)
@@ -233,14 +231,9 @@ type MCPServer interface {
 	Start(context.Context) error
 }
 
-type CI interface {
-	Generate(context.Context, any, PathWriter, io.Writer) error
-}
-
-// PathWriter defines the interface for writing files to a given path.
-type PathWriter interface {
-	Exist(path string) bool
-	Write(path string, raw []byte) error
+// CIGenerator creates CI/CD workflow files for a given function.
+type CIGenerator interface {
+	Generate(context.Context, Function) error
 }
 
 // New client for function management.
@@ -259,7 +252,7 @@ func New(options ...Option) *Client {
 		mcpServer:         &noopMCPServer{},
 		transport:         http.DefaultTransport,
 		startTimeout:      DefaultStartTimeout,
-		ci:                &noopCI{},
+		ciGenerator:       &noopCIGenerator{},
 	}
 	c.runner = newDefaultRunner(c, os.Stdout, os.Stderr)
 	for _, o := range options {
@@ -385,7 +378,7 @@ func WithRepositoriesPath(path string) Option {
 }
 
 // WithRepository sets a specific URL to a Git repository from which to pull
-// templates.  This setting's existence precedes the use of either the inbuilt
+// templates.  This setting's existence precludes the use of either the inbuilt
 // templates or any repositories from the extensible repositories path.
 func WithRepository(uri string) Option {
 	return func(c *Client) {
@@ -458,21 +451,10 @@ func WithStartTimeout(t time.Duration) Option {
 	}
 }
 
-func WithCI(ci CI) Option {
+// WithCIGenerator sets the CI workflow generator implementation.
+func WithCIGenerator(cig CIGenerator) Option {
 	return func(c *Client) {
-		c.ci = ci
-	}
-}
-
-func WithPathWriter(pw PathWriter) Option {
-	return func(c *Client) {
-		c.pathWriter = pw
-	}
-}
-
-func WithStdout(out io.Writer) Option {
-	return func(c *Client) {
-		c.stdout = out
+		c.ciGenerator = cig
 	}
 }
 
@@ -1301,8 +1283,9 @@ func (c *Client) StartMCPServer(ctx context.Context) error {
 	return c.mcpServer.Start(ctx)
 }
 
-func (c *Client) GenerateCIWorkflow(ctx context.Context, config any) error {
-	return c.ci.Generate(ctx, config, c.pathWriter, c.stdout)
+// GenerateCIWorkflow delegates to the configured CIGenerator.
+func (c *Client) GenerateCIWorkflow(ctx context.Context, f Function) error {
+	return c.ciGenerator.Generate(ctx, f)
 }
 
 // ensureRunDataDir creates a .func directory at the given path, and
@@ -1672,6 +1655,6 @@ type noopMCPServer struct{}
 
 func (n *noopMCPServer) Start(_ context.Context) error { return nil }
 
-type noopCI struct{}
+type noopCIGenerator struct{}
 
-func (n *noopCI) Generate(_ context.Context, _ any, _ PathWriter, _ io.Writer) error { return nil }
+func (n *noopCIGenerator) Generate(_ context.Context, _ Function) error { return nil }
