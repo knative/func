@@ -93,7 +93,7 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, healthCheckTool, s.healthcheckHandler)
 	mcp.AddTool(i, createTool, s.createHandler)
 	mcp.AddTool(i, buildTool, s.buildHandler)
-	mcp.AddTool(i, deployTool, s.deployHandler)
+	mcp.AddTool(i, deployTool, s.deployHandler) 
 	mcp.AddTool(i, listTool, s.listHandler)
 	mcp.AddTool(i, describeTool, s.describeHandler)
 	mcp.AddTool(i, deleteTool, s.deleteHandler)

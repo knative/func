@@ -58,21 +58,73 @@ func TestTool_Describe_ByPath(t *testing.T) {
 
 // TestTool_Describe_ByName ensures the describe tool passes the function name as a positional argument.
 func TestTool_Describe_ByName(t *testing.T) {
+	stringFlags := map[string]struct {
+		jsonKey string
+		flag    string
+		value   string
+	}{
+		"namespace": {"namespace", "--namespace", "prod"},
+	}
+
+	boolFlags := map[string]string{}
+
+	name := "my-func"
+
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "describe" {
 			t.Fatalf("expected subcommand 'describe', got %q", subcommand)
 		}
-		// expect: ["my-func", "--namespace", "prod"]
-		if len(args) != 3 {
-			t.Fatalf("expected 3 args, got %d: %v", len(args), args)
+
+		// Expected: 1 positional + 1 string flag * 2 + 0 bool flags = 3 args
+		if len(args) != 1+len(stringFlags)*2+len(boolFlags) {
+			t.Fatalf("expected %d args, got %d: %v", 1+len(stringFlags)*2+len(boolFlags), len(args), args)
 		}
-		if args[0] != "my-func" {
-			t.Fatalf("expected positional name 'my-func', got %q", args[0])
+
+		// Validate positional name argument comes first
+		if args[0] != name {
+			t.Fatalf("expected positional arg %q, got %q", name, args[0])
 		}
-		argsMap := argsToMap(args[1:])
-		if ns, ok := argsMap["--namespace"]; !ok || ns != "prod" {
-			t.Fatalf("expected --namespace prod, got map: %v", argsMap)
+
+		validateStringFlags(t, args[1:], stringFlags)
+		validateBoolFlags(t, args[1:], boolFlags)
+
+		return []byte("Function name:\n  my-func\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	inputArgs := buildInputArgs(stringFlags, boolFlags)
+	inputArgs["name"] = name
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "describe",
+		Arguments: inputArgs,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_Describe_NoArgs ensures the describe tool works with no arguments,
+// falling back to describing the function in the current working directory.
+func TestTool_Describe_NoArgs(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		if subcommand != "describe" {
+			t.Fatalf("expected subcommand 'describe', got %q", subcommand)
+		}
+		if len(args) != 0 {
+			t.Fatalf("expected no args for current-directory describe, got %d: %v", len(args), args)
 		}
 		return []byte("Function name:\n  my-func\n"), nil
 	}
@@ -83,11 +135,8 @@ func TestTool_Describe_ByName(t *testing.T) {
 	}
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
-		Name: "describe",
-		Arguments: map[string]any{
-			"name":      "my-func",
-			"namespace": "prod",
-		},
+		Name:      "describe",
+		Arguments: map[string]any{},
 	})
 	if err != nil {
 		t.Fatal(err)
