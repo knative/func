@@ -110,8 +110,8 @@ func Load(path string) (c Global, err error) {
 //	c.Verbose = true
 //	c.Write(config.File())
 func (c Global) Write(path string) (err error) {
-	bb, _ := yaml.Marshal(&c) // Marshaling no longer errors; this is back compat
-	return os.WriteFile(path, bb, os.ModePerm)
+	bb, _ := yaml.Marshal(&c)           // Marshaling no longer errors; this is back compat
+	return os.WriteFile(path, bb, 0600) // Owner read/write only for security
 }
 
 // Apply populated values from a function to the config.
@@ -218,10 +218,10 @@ func RepositoriesPath() string {
 // ~/.config/func
 // ~/.config/func/repositories
 func CreatePaths() (err error) {
-	if err = os.MkdirAll(Dir(), os.ModePerm); err != nil {
+	if err = os.MkdirAll(Dir(), 0755); err != nil { // rwxr-xr-x for directories
 		return fmt.Errorf("error creating global config path: %v", err)
 	}
-	if err = os.MkdirAll(RepositoriesPath(), os.ModePerm); err != nil {
+	if err = os.MkdirAll(RepositoriesPath(), 0755); err != nil { // rwxr-xr-x for directories
 		return fmt.Errorf("error creating global config repositories path: %v", err)
 	}
 	return
