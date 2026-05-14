@@ -61,8 +61,8 @@ type DockerClient interface {
 	Close() error
 }
 
-// DockerContextConfig holds Docker context configuration including TLS settings
-type DockerContextConfig struct {
+// dockerContextConfig holds Docker context configuration including TLS settings
+type dockerContextConfig struct {
 	Host          string
 	TLSCACert     []byte
 	TLSCert       []byte
@@ -89,6 +89,7 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 	}()
 
 	var _url *url.URL
+	var contextConfig *dockerContextConfig // Cache context config to avoid calling docker CLI twice
 
 	dockerHost := os.Getenv("DOCKER_HOST")
 	dockerHostSSHIdentity := os.Getenv("DOCKER_HOST_SSH_IDENTITY")
@@ -107,24 +108,25 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 			return
 		case os.IsNotExist(err):
 			// Default socket doesn't exist, try Docker context
-			if contextHost := GetDockerContextHostFunc(); contextHost != "" {
+			contextConfig = getDockerContextConfig() // Fetch once and cache
+			if contextConfig != nil && contextConfig.Host != "" {
 				// Verify the context socket actually exists
-				contextURL, parseErr := url.Parse(contextHost)
+				contextURL, parseErr := url.Parse(contextConfig.Host)
 				if parseErr == nil {
 					switch contextURL.Scheme {
 					case "unix", "":
 						// For unix sockets, verify the socket file exists
 						socketPath := contextURL.Path
 						if contextURL.Scheme == "" {
-							socketPath = contextHost
+							socketPath = contextConfig.Host
 						}
 						if _, statErr := os.Stat(socketPath); statErr == nil {
-							dockerHost = contextHost
+							dockerHost = contextConfig.Host
 						}
 					case "ssh", "tcp", "npipe":
 						// For remote connections, use the context host directly
 						// We can't verify connectivity here, so trust the context
-						dockerHost = contextHost
+						dockerHost = contextConfig.Host
 					}
 				}
 			}
@@ -177,8 +179,9 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 	if !isSSH {
 		opts := []client.Opt{client.FromEnv, client.WithHost(dockerHost)}
 		if isTCP {
-			// Try to get HTTP client with TLS from Docker context or environment variables
-			if httpClient := newHttpClient(); httpClient != nil {
+			// Try to get HTTP client with TLS
+			// Pass contextConfig only if the host came from context detection (contextConfig != nil)
+			if httpClient := newHttpClient(contextConfig); httpClient != nil {
 				opts = append(opts, client.WithHTTPClient(httpClient))
 			}
 		}
@@ -221,81 +224,84 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 	return dc, dockerHostInRemote, err
 }
 
-// If the DOCKER_TLS_VERIFY environment variable is set
-// this function returns HTTP client with appropriately configured TLS config.
-// Otherwise, nil is returned.
-func newHttpClient() *http.Client {
-	// First, try to get TLS config from Docker context
-	if contextConfig := getDockerContextConfig(); contextConfig != nil && len(contextConfig.TLSCert) > 0 && len(contextConfig.TLSKey) > 0 {
+// newHttpClient returns an HTTP client with TLS configuration.
+// It checks environment variables first (DOCKER_TLS_VERIFY, DOCKER_CERT_PATH),
+// and only falls back to Docker context if env vars are not set.
+// contextConfig should only be passed if the host came from context detection.
+func newHttpClient(contextConfig *dockerContextConfig) *http.Client {
+	// Check environment variables FIRST - they take precedence over context
+	tlsVerifyStr, tlsVerifyChanged := os.LookupEnv("DOCKER_TLS_VERIFY")
+
+	if tlsVerifyChanged {
+		// Environment variables are set - use them, ignore context
+		var tlsOpts []func(*tls.Config)
+
+		tlsVerify := true
+		if b, err := strconv.ParseBool(tlsVerifyStr); err == nil {
+			tlsVerify = b
+		}
+
+		if !tlsVerify {
+			tlsOpts = append(tlsOpts, func(t *tls.Config) {
+				t.InsecureSkipVerify = true
+			})
+		}
+
+		dockerCertPath := os.Getenv("DOCKER_CERT_PATH")
+		if dockerCertPath == "" {
+			dockerCertPath = config.Dir()
+		}
+
+		// Set root CA.
+		caData, err := os.ReadFile(filepath.Join(dockerCertPath, "ca.pem"))
+		if err == nil {
+			certPool := x509.NewCertPool()
+			if certPool.AppendCertsFromPEM(caData) {
+				tlsOpts = append(tlsOpts, func(t *tls.Config) {
+					t.RootCAs = certPool
+				})
+			}
+		}
+
+		// Set client certificate.
+		certData, certErr := os.ReadFile(filepath.Join(dockerCertPath, "cert.pem"))
+		keyData, keyErr := os.ReadFile(filepath.Join(dockerCertPath, "key.pem"))
+		if certErr == nil && keyErr == nil {
+			cliCert, err := tls.X509KeyPair(certData, keyData)
+			if err == nil {
+				tlsOpts = append(tlsOpts, func(cfg *tls.Config) {
+					cfg.Certificates = []tls.Certificate{cliCert}
+				})
+			}
+		}
+
+		dialer := &net.Dialer{
+			KeepAlive: 30 * time.Second,
+			Timeout:   30 * time.Second,
+		}
+
+		tlsConfig := tlsconfig.ClientDefault(tlsOpts...)
+
+		return &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+				DialContext:     dialer.DialContext,
+			},
+			CheckRedirect: client.CheckRedirect,
+		}
+	}
+
+	// No env vars set - try Docker context if available
+	if contextConfig != nil && len(contextConfig.TLSCert) > 0 && len(contextConfig.TLSKey) > 0 {
 		return newHttpClientFromContext(contextConfig)
 	}
 
-	// Fall back to environment variables
-	tlsVerifyStr, tlsVerifyChanged := os.LookupEnv("DOCKER_TLS_VERIFY")
-
-	if !tlsVerifyChanged {
-		return nil
-	}
-
-	var tlsOpts []func(*tls.Config)
-
-	tlsVerify := true
-	if b, err := strconv.ParseBool(tlsVerifyStr); err == nil {
-		tlsVerify = b
-	}
-
-	if !tlsVerify {
-		tlsOpts = append(tlsOpts, func(t *tls.Config) {
-			t.InsecureSkipVerify = true
-		})
-	}
-
-	dockerCertPath := os.Getenv("DOCKER_CERT_PATH")
-	if dockerCertPath == "" {
-		dockerCertPath = config.Dir()
-	}
-
-	// Set root CA.
-	caData, err := os.ReadFile(filepath.Join(dockerCertPath, "ca.pem"))
-	if err == nil {
-		certPool := x509.NewCertPool()
-		if certPool.AppendCertsFromPEM(caData) {
-			tlsOpts = append(tlsOpts, func(t *tls.Config) {
-				t.RootCAs = certPool
-			})
-		}
-	}
-
-	// Set client certificate.
-	certData, certErr := os.ReadFile(filepath.Join(dockerCertPath, "cert.pem"))
-	keyData, keyErr := os.ReadFile(filepath.Join(dockerCertPath, "key.pem"))
-	if certErr == nil && keyErr == nil {
-		cliCert, err := tls.X509KeyPair(certData, keyData)
-		if err == nil {
-			tlsOpts = append(tlsOpts, func(cfg *tls.Config) {
-				cfg.Certificates = []tls.Certificate{cliCert}
-			})
-		}
-	}
-
-	dialer := &net.Dialer{
-		KeepAlive: 30 * time.Second,
-		Timeout:   30 * time.Second,
-	}
-
-	tlsConfig := tlsconfig.ClientDefault(tlsOpts...)
-
-	return &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-			DialContext:     dialer.DialContext,
-		},
-		CheckRedirect: client.CheckRedirect,
-	}
+	// No TLS configuration found
+	return nil
 }
 
 // newHttpClientFromContext creates an HTTP client configured with TLS from Docker context
-func newHttpClientFromContext(contextConfig *DockerContextConfig) *http.Client {
+func newHttpClientFromContext(contextConfig *dockerContextConfig) *http.Client {
 	var tlsOpts []func(*tls.Config)
 
 	if contextConfig.SkipTLSVerify {
@@ -317,7 +323,10 @@ func newHttpClientFromContext(contextConfig *DockerContextConfig) *http.Client {
 	// Load client certificate and key
 	if len(contextConfig.TLSCert) > 0 && len(contextConfig.TLSKey) > 0 {
 		cert, err := tls.X509KeyPair(contextConfig.TLSCert, contextConfig.TLSKey)
-		if err == nil {
+		if err != nil {
+			// Log warning but continue - connection might still work without client cert
+			fmt.Fprintf(os.Stderr, "Warning: failed to load TLS client certificate from Docker context: %v\n", err)
+		} else {
 			tlsOpts = append(tlsOpts, func(t *tls.Config) {
 				t.Certificates = []tls.Certificate{cert}
 			})
@@ -377,7 +386,7 @@ func podmanPresent() bool {
 // getDockerContextConfig tries to get the Docker host and TLS configuration from the current Docker context.
 // This is useful for Docker Desktop which uses context-specific sockets and for remote Docker with TLS.
 // Returns nil if unable to determine the context configuration.
-func getDockerContextConfig() *DockerContextConfig {
+func getDockerContextConfig() *dockerContextConfig {
 	// Check if docker CLI is available
 	dockerPath, err := exec.LookPath("docker")
 	if err != nil {
@@ -387,11 +396,7 @@ func getDockerContextConfig() *DockerContextConfig {
 	// Run 'docker context inspect' to get current context details
 	cmd := exec.Command(dockerPath, "context", "inspect")
 
-	// Respect DOCKER_CONFIG environment variable
-	if dockerConfig := os.Getenv("DOCKER_CONFIG"); dockerConfig != "" {
-		cmd.Env = append(os.Environ(), "DOCKER_CONFIG="+dockerConfig)
-	}
-
+	// Note: DOCKER_CONFIG is automatically inherited from parent environment
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil
@@ -426,7 +431,7 @@ func getDockerContextConfig() *DockerContextConfig {
 		return nil
 	}
 
-	config := &DockerContextConfig{
+	config := &dockerContextConfig{
 		Host:          contexts[0].Endpoints.Docker.Host,
 		SkipTLSVerify: contexts[0].Endpoints.Docker.SkipTLSVerify,
 	}
@@ -442,10 +447,10 @@ func getDockerContextConfig() *DockerContextConfig {
 			dockerConfigDir = filepath.Join(os.Getenv("HOME"), ".docker")
 		}
 
-		// Docker stores context TLS files in contexts/meta/<sha256-hash>/
-		// The hash is SHA256 of the context name
+		// Docker stores context TLS files in contexts/tls/<sha256-hash>/
+		// NOT in contexts/meta/<hash>/ (that's where meta.json lives)
 		hash := sha256.Sum256([]byte(contexts[0].Name))
-		tlsPath = filepath.Join(dockerConfigDir, "contexts", "meta", fmt.Sprintf("%x", hash))
+		tlsPath = filepath.Join(dockerConfigDir, "contexts", "tls", fmt.Sprintf("%x", hash))
 	}
 
 	// Try to read TLS files from the determined path
