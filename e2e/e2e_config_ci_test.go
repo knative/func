@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestConfigCI_DeployFuncViaGeneratedGitHubWorkflow(t *testing.T) {
@@ -73,6 +76,10 @@ func gitInit(t *testing.T, dir string) {
 func runGitHubWorkflow(t *testing.T, dir string) {
 	t.Helper()
 
+	// Patch the generated workflow to use the locally-built func binary
+	// instead of downloading a release via functions-dev/action.
+	patchWorkflowWithLocalBinary(t, filepath.Join(dir, ".github", "workflows", "func-deploy.yaml"))
+
 	args := []string{"push",
 		"-P", "ubuntu-latest=-self-hosted",
 		"-W", ".github/workflows/func-deploy.yaml",
@@ -88,6 +95,49 @@ func runGitHubWorkflow(t *testing.T, dir string) {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// patchWorkflowWithLocalBinary replaces the "Install func cli" step in the
+// generated GitHub workflow with a step that symlinks the locally-built binary.
+// This ensures the CI config test exercises the current code rather than a
+// released version that may lack recent fixes.
+func patchWorkflowWithLocalBinary(t *testing.T, workflowPath string) {
+	t.Helper()
+
+	data, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("failed to read workflow %s: %v", workflowPath, err)
+	}
+
+	var wf map[string]interface{}
+	if err := yaml.Unmarshal(data, &wf); err != nil {
+		t.Fatalf("failed to parse workflow: %v", err)
+	}
+
+	jobs, _ := wf["jobs"].(map[string]interface{})
+	deploy, _ := jobs["deploy"].(map[string]interface{})
+	steps, _ := deploy["steps"].([]interface{})
+
+	binDir := t.TempDir()
+	for i, s := range steps {
+		step, _ := s.(map[string]interface{})
+		if step["name"] == "Install func cli" {
+			steps[i] = map[string]interface{}{
+				"name": "Install func cli",
+				"run":  fmt.Sprintf("ln -sf %s %s/func && echo %s >> $GITHUB_PATH", Bin, binDir, binDir),
+			}
+			break
+		}
+	}
+
+	out, err := yaml.Marshal(wf)
+	if err != nil {
+		t.Fatalf("failed to marshal workflow: %v", err)
+	}
+
+	if err := os.WriteFile(workflowPath, out, 0644); err != nil {
+		t.Fatalf("failed to write workflow %s: %v", workflowPath, err)
 	}
 }
 
