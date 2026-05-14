@@ -18,6 +18,9 @@ var healthCheckTool = &mcp.Tool{
 }
 
 func (s *Server) healthcheckHandler(ctx context.Context, r *mcp.CallToolRequest, input HealthcheckInput) (result *mcp.CallToolResult, output HealthcheckOutput, err error) {
+	if err = ctx.Err(); err != nil {
+		return
+	}
 	output = HealthcheckOutput{
 		Status:  "ok",
 		Message: "The MCP server is running!",
