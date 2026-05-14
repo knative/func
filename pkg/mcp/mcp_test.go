@@ -61,6 +61,40 @@ func TestInstructions(t *testing.T) {
 	}
 }
 
+// TestInstructionsStartArgDrivesReadonly covers the cmd/mcp.go flow: New is
+// called without WithReadonly, then Start receives writeEnabled. The
+// resulting Instructions must reflect Start's argument.
+func TestInstructionsStartArgDrivesReadonly(t *testing.T) {
+	testCases := []struct {
+		name         string
+		writeEnabled bool
+		wantWarning  bool
+	}{
+		{name: "readonly", writeEnabled: false, wantWarning: true},
+		{name: "write", writeEnabled: true, wantWarning: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client, _, err := newTestPairCore(t, !tc.writeEnabled)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			result := client.InitializeResult()
+			if result == nil {
+				t.Fatal("InitializeResult is nil")
+			}
+
+			hasReadonlyWarning := strings.Contains(result.Instructions, "# ⚠️  Read-Only Mode Warning")
+			if hasReadonlyWarning != tc.wantWarning {
+				t.Errorf("writeEnabled=%v: got readonly warning=%v, want %v",
+					tc.writeEnabled, hasReadonlyWarning, tc.wantWarning)
+			}
+		})
+	}
+}
+
 // newTestPairCore is the core logic for creating a ClientSession and Server connected over an in-memory transport.
 func newTestPairCore(t *testing.T, readonly bool, options ...Option) (session *mcp.ClientSession, server *Server, err error) {
 	t.Helper()

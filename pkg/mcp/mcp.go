@@ -73,7 +73,21 @@ func New(options ...Option) *Server {
 	for _, o := range options {
 		o(s)
 	}
+	return s
+}
 
+// Start the MCP server using the configured transport.
+// The underlying mcp.Server is built here so that the Instructions string
+// reflects readonly as resolved from writeEnabled, not whatever was set at New.
+func (s *Server) Start(ctx context.Context, writeEnabled bool) error {
+	s.readonly = !writeEnabled
+	s.impl = s.buildImpl()
+	return s.impl.Run(ctx, s.transport)
+}
+
+// buildImpl constructs the underlying *mcp.Server. Called from Start so that
+// readonly resolution from writeEnabled is observable in Instructions.
+func (s *Server) buildImpl() *mcp.Server {
 	i := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    name,
@@ -138,15 +152,7 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Envs Add Help", "help for 'config envs add'", "config", "envs", "add"))
 	i.AddResource(newHelpResource(s, "Envs Remove Help", "help for 'config envs remove'", "config", "envs", "remove"))
 
-	s.impl = i
-
-	return s
-}
-
-// Start the MCP server using the configured transport
-func (s *Server) Start(ctx context.Context, writeEnabled bool) error {
-	s.readonly = !writeEnabled
-	return s.impl.Run(ctx, s.transport)
+	return i
 }
 
 // For now the executor is a simple run of the command "func" or "kn func"
