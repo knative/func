@@ -91,7 +91,7 @@ DESCRIPTION
 	}
 	// no flags at this time; future enhancements may be to allow configuring
 	// HTTP Stream vs stdio, single vs multiuser modes, etc.  For now
-	// we just use a simple gathering of options in runMCPServer.
+	// we just use a simple gathering of options in runMCPStart.
 	return cmd
 }
 
