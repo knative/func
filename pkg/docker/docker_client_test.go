@@ -2,9 +2,16 @@ package docker_test
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net"
 	"net/http"
 	"os"
@@ -239,6 +246,224 @@ func createDockerContextConfig(t *testing.T, configDir, contextName, host string
 	metaJSON := fmt.Sprintf(
 		`{"Name":%q,"Metadata":{"Description":"test context"},"Endpoints":{"docker":{"Host":%q,"SkipTLSVerify":false}}}`,
 		contextName, host,
+	)
+	if err := os.WriteFile(filepath.Join(metaDir, "meta.json"), []byte(metaJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// startMockTLSDaemon creates a TLS-enabled mock Docker daemon for testing.
+// Returns the listener, CA cert, client cert, and client key in PEM format.
+func startMockTLSDaemon(t *testing.T) (net.Listener, []byte, []byte, []byte) {
+	t.Helper()
+
+	// Generate CA certificate
+	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	caTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"Test CA"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	caCertDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	caCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caCertDER})
+
+	// Generate server certificate
+	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	serverTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject: pkix.Name{
+			Organization: []string{"Test Server"},
+		},
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().Add(time.Hour),
+		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+	}
+
+	serverCertDER, err := x509.CreateCertificate(rand.Reader, serverTemplate, caTemplate, &serverKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Generate client certificate
+	clientKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	clientTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(3),
+		Subject: pkix.Name{
+			Organization: []string{"Test Client"},
+		},
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().Add(time.Hour),
+		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+
+	clientCertDER, err := x509.CreateCertificate(rand.Reader, clientTemplate, caTemplate, &clientKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	clientCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: clientCertDER})
+	clientKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientKey)})
+
+	// Create TLS config for server
+	// Server needs to trust the CA that signed the client cert
+	clientCACertPool := x509.NewCertPool()
+	caCert, err := x509.ParseCertificate(caCertDER)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientCACertPool.AddCert(caCert)
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{
+			{
+				Certificate: [][]byte{serverCertDER},
+				PrivateKey:  serverKey,
+			},
+		},
+		ClientAuth: tls.RequireAndVerifyClientCert,
+		ClientCAs:  clientCACertPool,
+	}
+
+	// Start TLS listener
+	listener, err := tls.Listen("tcp", "127.0.0.1:0", tlsConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Start mock daemon with TLS
+	startMockDaemon(t, listener)
+
+	return listener, caCertPEM, clientCertPEM, clientKeyPEM
+}
+
+// TestNewClient_DockerContextTLS tests that TLS configuration from Docker context
+// is properly loaded and used when connecting to remote Docker daemons.
+func TestNewClient_DockerContextTLS(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping Docker context TLS test on Windows")
+	}
+
+	// Check if docker CLI is available
+	_, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("Docker CLI not available, skipping context TLS test")
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second*5)
+	defer cancel()
+
+	tmpDir := t.TempDir()
+
+	// Start a mock TLS daemon
+	tlsListener, caCert, clientCert, clientKey := startMockTLSDaemon(t)
+	tlsHost := fmt.Sprintf("tcp://%s", tlsListener.Addr().String())
+
+	// Build a Docker config directory with a context that has TLS configuration
+	configDir := filepath.Join(tmpDir, "docker-config")
+	contextName := "func-test-tls-ctx"
+
+	// Calculate the hash for the context name (Docker uses SHA256)
+	hash := sha256.Sum256([]byte(contextName))
+	hashStr := fmt.Sprintf("%x", hash)
+
+	// Docker stores TLS files in contexts/tls/<hash>/
+	tlsDir := filepath.Join(configDir, "contexts", "tls", hashStr)
+
+	// Create TLS directory and write the actual certificate files
+	if err := os.MkdirAll(tlsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(tlsDir, "ca.pem"), caCert, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tlsDir, "cert.pem"), clientCert, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tlsDir, "key.pem"), clientKey, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	createDockerContextConfigWithTLS(t, configDir, contextName, tlsHost, tlsDir)
+
+	t.Setenv("DOCKER_HOST", "")
+	t.Setenv("DOCKER_CONFIG", configDir)
+
+	// Pass a non-existent socket as the default host to force context detection
+	nonExistentDefault := fmt.Sprintf("unix://%s", filepath.Join(tmpDir, "nonexistent.sock"))
+	dockerClient, _, err := docker.NewClient(nonExistentDefault)
+	if err != nil {
+		t.Fatalf("Failed to create Docker client with TLS context: %v", err)
+	}
+	defer dockerClient.Close()
+
+	// Verify we can connect to the TLS-enabled mock daemon
+	// This proves that TLS certificates from the context are actually being used
+	_, err = dockerClient.Ping(ctx, client.PingOptions{})
+	if err != nil {
+		t.Fatalf("Failed to ping TLS-enabled mock daemon: %v", err)
+	}
+
+	// Verify we're actually talking to our mock daemon
+	nfo, err := dockerClient.Info(ctx, client.InfoOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get info from TLS mock daemon: %v", err)
+	}
+	if nfo.Info.ID != "mock-daemon" {
+		t.Errorf("unexpected server ID: got %q, want %q", nfo.Info.ID, "mock-daemon")
+	}
+}
+
+// createDockerContextConfigWithTLS writes a Docker CLI config directory
+// with a context that includes TLS configuration.
+func createDockerContextConfigWithTLS(t *testing.T, configDir, contextName, host, tlsPath string) {
+	t.Helper()
+
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	configJSON := fmt.Sprintf(`{"auths":{},"currentContext":%q}`, contextName)
+	if err := os.WriteFile(filepath.Join(configDir, "config.json"), []byte(configJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	hash := sha256.Sum256([]byte(contextName))
+	metaDir := filepath.Join(configDir, "contexts", "meta", fmt.Sprintf("%x", hash))
+	if err := os.MkdirAll(metaDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	metaJSON := fmt.Sprintf(
+		`{"Name":%q,"Metadata":{"Description":"test context with TLS"},"Endpoints":{"docker":{"Host":%q,"SkipTLSVerify":false}},"Storage":{"MetadataPath":%q,"TLSPath":%q}}`,
+		contextName, host, metaDir, tlsPath,
 	)
 	if err := os.WriteFile(filepath.Join(metaDir, "meta.json"), []byte(metaJSON), 0o644); err != nil {
 		t.Fatal(err)

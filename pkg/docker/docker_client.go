@@ -2,10 +2,12 @@ package docker
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -57,6 +59,15 @@ type DockerClient interface {
 	VolumeRemove(ctx context.Context, volumeID string, options client.VolumeRemoveOptions) (client.VolumeRemoveResult, error)
 
 	Close() error
+}
+
+// DockerContextConfig holds Docker context configuration including TLS settings
+type DockerContextConfig struct {
+	Host          string
+	TLSCACert     []byte
+	TLSCert       []byte
+	TLSKey        []byte
+	SkipTLSVerify bool
 }
 
 var ErrNoDocker = errors.New("docker/podman API not available")
@@ -166,6 +177,7 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 	if !isSSH {
 		opts := []client.Opt{client.FromEnv, client.WithHost(dockerHost)}
 		if isTCP {
+			// Try to get HTTP client with TLS from Docker context or environment variables
 			if httpClient := newHttpClient(); httpClient != nil {
 				opts = append(opts, client.WithHTTPClient(httpClient))
 			}
@@ -213,6 +225,12 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 // this function returns HTTP client with appropriately configured TLS config.
 // Otherwise, nil is returned.
 func newHttpClient() *http.Client {
+	// First, try to get TLS config from Docker context
+	if contextConfig := getDockerContextConfig(); contextConfig != nil && len(contextConfig.TLSCert) > 0 && len(contextConfig.TLSKey) > 0 {
+		return newHttpClientFromContext(contextConfig)
+	}
+
+	// Fall back to environment variables
 	tlsVerifyStr, tlsVerifyChanged := os.LookupEnv("DOCKER_TLS_VERIFY")
 
 	if !tlsVerifyChanged {
@@ -276,6 +294,52 @@ func newHttpClient() *http.Client {
 	}
 }
 
+// newHttpClientFromContext creates an HTTP client configured with TLS from Docker context
+func newHttpClientFromContext(contextConfig *DockerContextConfig) *http.Client {
+	var tlsOpts []func(*tls.Config)
+
+	if contextConfig.SkipTLSVerify {
+		tlsOpts = append(tlsOpts, func(t *tls.Config) {
+			t.InsecureSkipVerify = true
+		})
+	}
+
+	// Load CA certificate if provided
+	if len(contextConfig.TLSCACert) > 0 {
+		caCertPool := x509.NewCertPool()
+		if caCertPool.AppendCertsFromPEM(contextConfig.TLSCACert) {
+			tlsOpts = append(tlsOpts, func(t *tls.Config) {
+				t.RootCAs = caCertPool
+			})
+		}
+	}
+
+	// Load client certificate and key
+	if len(contextConfig.TLSCert) > 0 && len(contextConfig.TLSKey) > 0 {
+		cert, err := tls.X509KeyPair(contextConfig.TLSCert, contextConfig.TLSKey)
+		if err == nil {
+			tlsOpts = append(tlsOpts, func(t *tls.Config) {
+				t.Certificates = []tls.Certificate{cert}
+			})
+		}
+	}
+
+	dialer := &net.Dialer{
+		KeepAlive: 30 * time.Second,
+		Timeout:   30 * time.Second,
+	}
+
+	tlsConfig := tlsconfig.ClientDefault(tlsOpts...)
+
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+			DialContext:     dialer.DialContext,
+		},
+		CheckRedirect: client.CheckRedirect,
+	}
+}
+
 // tries to get connection to default podman machine
 func tryGetPodmanRemoteConn() (uri string, identity string) {
 	cmd := exec.Command("podman", "system", "connection", "list", "--format=json")
@@ -310,21 +374,27 @@ func podmanPresent() bool {
 	return err == nil
 }
 
-// getDockerContextHost tries to get the Docker host from the current Docker context.
-// This is useful for Docker Desktop which uses context-specific sockets.
-// Returns empty string if unable to determine the context host.
-func getDockerContextHost() string {
+// getDockerContextConfig tries to get the Docker host and TLS configuration from the current Docker context.
+// This is useful for Docker Desktop which uses context-specific sockets and for remote Docker with TLS.
+// Returns nil if unable to determine the context configuration.
+func getDockerContextConfig() *DockerContextConfig {
 	// Check if docker CLI is available
 	dockerPath, err := exec.LookPath("docker")
 	if err != nil {
-		return ""
+		return nil
 	}
 
 	// Run 'docker context inspect' to get current context details
 	cmd := exec.Command(dockerPath, "context", "inspect")
+
+	// Respect DOCKER_CONFIG environment variable
+	if dockerConfig := os.Getenv("DOCKER_CONFIG"); dockerConfig != "" {
+		cmd.Env = append(os.Environ(), "DOCKER_CONFIG="+dockerConfig)
+	}
+
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return ""
+		return nil
 	}
 
 	// Parse the JSON output
@@ -332,24 +402,78 @@ func getDockerContextHost() string {
 		Name      string
 		Endpoints struct {
 			Docker struct {
-				Host string `json:"Host"`
+				Host          string `json:"Host"`
+				SkipTLSVerify bool   `json:"SkipTLSVerify"`
 			} `json:"docker"`
 		} `json:"Endpoints"`
+		Storage struct {
+			MetadataPath string `json:"MetadataPath"`
+			TLSPath      string `json:"TLSPath"`
+		} `json:"Storage"`
 	}
 
 	if err := json.Unmarshal(out, &contexts); err != nil {
+		return nil
+	}
+
+	// Return config from the first (current) context
+	if len(contexts) == 0 || contexts[0].Endpoints.Docker.Host == "" {
+		return nil
+	}
+
+	// Skip default context
+	if contexts[0].Name == "default" {
+		return nil
+	}
+
+	config := &DockerContextConfig{
+		Host:          contexts[0].Endpoints.Docker.Host,
+		SkipTLSVerify: contexts[0].Endpoints.Docker.SkipTLSVerify,
+	}
+
+	// Try to load TLS certificates from the context storage
+	tlsPath := contexts[0].Storage.TLSPath
+
+	// If TLSPath is not a real path (e.g., "<IN MEMORY>"), try to find it manually
+	if tlsPath == "" || tlsPath == "<IN MEMORY>" || !filepath.IsAbs(tlsPath) {
+		// Determine Docker config directory
+		dockerConfigDir := os.Getenv("DOCKER_CONFIG")
+		if dockerConfigDir == "" {
+			dockerConfigDir = filepath.Join(os.Getenv("HOME"), ".docker")
+		}
+
+		// Docker stores context TLS files in contexts/meta/<sha256-hash>/
+		// The hash is SHA256 of the context name
+		hash := sha256.Sum256([]byte(contexts[0].Name))
+		tlsPath = filepath.Join(dockerConfigDir, "contexts", "meta", fmt.Sprintf("%x", hash))
+	}
+
+	// Try to read TLS files from the determined path
+	if tlsPath != "" && tlsPath != "<IN MEMORY>" {
+		// Read CA certificate
+		if caData, err := os.ReadFile(filepath.Join(tlsPath, "ca.pem")); err == nil {
+			config.TLSCACert = caData
+		}
+
+		// Read client certificate and key
+		if certData, err := os.ReadFile(filepath.Join(tlsPath, "cert.pem")); err == nil {
+			config.TLSCert = certData
+		}
+		if keyData, err := os.ReadFile(filepath.Join(tlsPath, "key.pem")); err == nil {
+			config.TLSKey = keyData
+		}
+	}
+
+	return config
+}
+
+// getDockerContextHost is a wrapper for backward compatibility
+func getDockerContextHost() string {
+	config := getDockerContextConfig()
+	if config == nil {
 		return ""
 	}
-
-	// Return the host from the first (current) context
-	if len(contexts) > 0 && contexts[0].Endpoints.Docker.Host != "" {
-		if contexts[0].Name == "default" {
-			return ""
-		}
-		return contexts[0].Endpoints.Docker.Host
-	}
-
-	return ""
+	return config.Host
 }
 
 // GetDockerContextHostFunc is a variable to allow mocking in tests
