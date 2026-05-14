@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -72,12 +73,16 @@ func gitInit(t *testing.T, dir string) {
 func runGitHubWorkflow(t *testing.T, dir string) {
 	t.Helper()
 
-	cmd := exec.Command("act", "push",
+	args := []string{"push",
 		"-P", "ubuntu-latest=-self-hosted",
 		"-W", ".github/workflows/func-deploy.yaml",
-		"-s", "KUBECONFIG="+readFile(t, Kubeconfig),
-		"--var", "REGISTRY_URL="+Registry,
-	)
+		"-s", "KUBECONFIG=" + readFile(t, Kubeconfig),
+		"--var", "REGISTRY_URL=" + Registry,
+	}
+	if strings.Contains(Registry, "registry.localtest.me") {
+		args = append(args, "--env", "FUNC_REGISTRY_INSECURE=true")
+	}
+	cmd := exec.Command("act", args...)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
