@@ -26,13 +26,16 @@ func appendStringFlag(args []string, flag string, value *string) []string {
 	return args
 }
 
-// appendBoolFlag adds a boolean flag to args only if the value is non-nil and true.
-// This ensures we only pass flags that were explicitly provided by the user.
+// appendBoolFlag adds a boolean flag to args only if the value is non-nil.
+// true appends "--flag", false appends "--flag=false", nil omits the flag entirely.
 func appendBoolFlag(args []string, flag string, value *bool) []string {
-	if value != nil && *value {
+	if value == nil {
+		return args
+	}
+	if *value {
 		return append(args, flag)
 	}
-	return args
+	return append(args, flag+"=false")
 }
 
 // ptr returns a pointer to the given value.

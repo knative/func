@@ -17,11 +17,17 @@ func validateArgLength(t *testing.T, args []string, stringFlagsCount, boolFlagsC
 }
 
 // argsToMap converts a command-line arguments slice into a map for order-independent validation.
-// String flags are stored as "--flag" -> "value", boolean flags as "--flag" -> "".
+// String flags are stored as "--flag" -> "value", boolean flags as "--flag" -> "",
+// and --flag=value forms as "--flag" -> "value".
 func argsToMap(args []string) map[string]string {
 	argsMap := make(map[string]string)
 	for i := 0; i < len(args); {
-		if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+		if strings.Contains(args[i], "=") {
+			// --flag=value form
+			parts := strings.SplitN(args[i], "=", 2)
+			argsMap[parts[0]] = parts[1]
+			i++
+		} else if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
 			// String flag: --flag value
 			argsMap[args[i]] = args[i+1]
 			i += 2
@@ -76,4 +82,28 @@ func buildInputArgs(stringFlags map[string]struct {
 		inputArgs[key] = true
 	}
 	return inputArgs
+}
+
+// TestAppendBoolFlag verifies nil/true/false semantics of appendBoolFlag.
+func TestAppendBoolFlag(t *testing.T) {
+	t.Run("nil omits flag", func(t *testing.T) {
+		args := appendBoolFlag([]string{}, "--verbose", nil)
+		if len(args) != 0 {
+			t.Fatalf("expected empty args for nil, got %v", args)
+		}
+	})
+	t.Run("true appends flag", func(t *testing.T) {
+		v := true
+		args := appendBoolFlag([]string{}, "--verbose", &v)
+		if len(args) != 1 || args[0] != "--verbose" {
+			t.Fatalf("expected [--verbose], got %v", args)
+		}
+	})
+	t.Run("false appends flag=false", func(t *testing.T) {
+		v := false
+		args := appendBoolFlag([]string{}, "--verbose", &v)
+		if len(args) != 1 || args[0] != "--verbose=false" {
+			t.Fatalf("expected [--verbose=false], got %v", args)
+		}
+	})
 }
