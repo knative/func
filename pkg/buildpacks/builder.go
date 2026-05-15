@@ -265,18 +265,29 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 			opts.Env["SERVICE_BINDING_ROOT"] = "/platform/bindings"
 		}
 
-		// Add the CA certificates binding as a mount
-		f.Build.Mounts = append(f.Build.Mounts, fn.MountSpec{
+		// Create a local copy of mounts and add the CA certificates binding
+		// We don't modify f.Build.Mounts directly to avoid race conditions
+		mounts := make([]fn.MountSpec, len(f.Build.Mounts), len(f.Build.Mounts)+1)
+		copy(mounts, f.Build.Mounts)
+		mounts = append(mounts, fn.MountSpec{
 			Source:      caCertsBindingDir,
 			Destination: filepath.Join(opts.Env["SERVICE_BINDING_ROOT"], "ca-certificates"),
 		})
-	}
 
-	var bindings = make([]string, 0, len(f.Build.Mounts))
-	for _, m := range f.Build.Mounts {
-		bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
+		// Convert mounts to bindings format
+		var bindings = make([]string, 0, len(mounts))
+		for _, m := range mounts {
+			bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
+		}
+		opts.ContainerConfig.Volumes = bindings
+	} else {
+		// No CA bundle, just use the existing mounts
+		var bindings = make([]string, 0, len(f.Build.Mounts))
+		for _, m := range f.Build.Mounts {
+			bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
+		}
+		opts.ContainerConfig.Volumes = bindings
 	}
-	opts.ContainerConfig.Volumes = bindings
 
 	// only trust our known builders
 	opts.TrustBuilder = TrustBuilder
