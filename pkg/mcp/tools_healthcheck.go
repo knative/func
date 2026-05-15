@@ -21,6 +21,7 @@ func (s *Server) healthcheckHandler(ctx context.Context, r *mcp.CallToolRequest,
 	output = HealthcheckOutput{
 		Status:  "ok",
 		Message: "The MCP server is running!",
+		Version: version,
 	}
 	return
 }
@@ -33,4 +34,5 @@ type HealthcheckInput struct{}
 type HealthcheckOutput struct {
 	Status  string `json:"status" jsonschema:"Status of the server (ok)"`
 	Message string `json:"message" jsonschema:"Healthcheck message"`
+	Version string `json:"version" jsonschema:"Version of the MCP server"`
 }

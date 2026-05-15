@@ -63,4 +63,8 @@ func TestTool_Healthcheck(t *testing.T) {
 	if !strings.Contains(output.Message, "running") {
 		t.Errorf("expected message to contain 'running', got %q", output.Message)
 	}
+
+	if output.Version == "" {
+		t.Error("expected non-empty version")
+	}
 }
