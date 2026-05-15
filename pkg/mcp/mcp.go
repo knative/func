@@ -125,6 +125,7 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Build Help", "help for 'build'", "build"))
 	i.AddResource(newHelpResource(s, "Deploy Help", "help for 'deploy'", "deploy"))
 	i.AddResource(newHelpResource(s, "List Help", "help for 'list'", "list"))
+	i.AddResource(newHelpResource(s, "Delete Help", "help for delete", "delete"))
 
 	i.AddResource(newHelpResource(s, "Volumes Help", "general help for volumes", "config", "volumes"))
 	i.AddResource(newHelpResource(s, "Volumes Add Help", "help for 'config volumes add'", "config", "volumes", "add"))

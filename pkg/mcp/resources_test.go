@@ -121,6 +121,11 @@ func TestResource_Help(t *testing.T) {
 			wantArgs: []string{"list", "--help"},
 		},
 		{
+			name:     "delete help",
+			uri:      "func://help/delete",
+			wantArgs: []string{"delete", "--help"},
+		},
+		{
 			name:     "config volumes help",
 			uri:      "func://help/config/volumes",
 			wantArgs: []string{"config", "volumes", "--help"},
