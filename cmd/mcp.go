@@ -112,7 +112,9 @@ func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory) err
 
 	// Instantiate
 	client, done := newClient(ClientConfig{},
-		fn.WithMCPServer(mcp.New(mcp.WithPrefix(cmdPrefix))))
+		fn.WithMCPServer(mcp.New(
+			mcp.WithPrefix(cmdPrefix),
+			mcp.WithReadonly(!writeEnabled))))
 	defer done()
 
 	// Start
