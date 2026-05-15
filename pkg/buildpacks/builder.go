@@ -224,6 +224,30 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		opts.Env["BP_IMAGE_LABELS"] = strings.Join(imageLabels, " ")
 	}
 
+	// CA Certificate Bundle support for corporate proxies
+	if f.Build.CACertBundle != "" {
+		// Validate that the CA bundle file exists
+		if _, err := os.Stat(f.Build.CACertBundle); err != nil {
+			return fmt.Errorf("CA bundle file not found: %w", err)
+		}
+
+		// Set environment variables for various runtimes to use the CA bundle
+		// These will be available during the build process
+		opts.Env["SSL_CERT_FILE"] = f.Build.CACertBundle
+		opts.Env["REQUESTS_CA_BUNDLE"] = f.Build.CACertBundle                                       // Python
+		opts.Env["NODE_EXTRA_CA_CERTS"] = f.Build.CACertBundle                                      // Node.js
+		opts.Env["CURL_CA_BUNDLE"] = f.Build.CACertBundle                                           // curl
+		opts.Env["GIT_SSL_CAINFO"] = f.Build.CACertBundle                                           // git
+		opts.Env["PIP_CERT"] = f.Build.CACertBundle                                                 // pip (Python)
+		opts.Env["NPM_CONFIG_CAFILE"] = f.Build.CACertBundle                                        // npm (Node.js)
+		opts.Env["CARGO_HTTP_CAINFO"] = f.Build.CACertBundle                                        // cargo (Rust)
+		opts.Env["MAVEN_OPTS"] = fmt.Sprintf("-Djavax.net.ssl.trustStore=%s", f.Build.CACertBundle) // Maven (Java)
+
+		// Mount the CA bundle file into the build container
+		opts.ContainerConfig.Volumes = append(opts.ContainerConfig.Volumes,
+			fmt.Sprintf("%s:%s:ro", f.Build.CACertBundle, f.Build.CACertBundle))
+	}
+
 	var bindings = make([]string, 0, len(f.Build.Mounts))
 	for _, m := range f.Build.Mounts {
 		bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))

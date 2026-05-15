@@ -150,6 +150,11 @@ type BuildSpec struct {
 	// Build Env variables to be set
 	BuildEnvs Envs `yaml:"buildEnvs,omitempty"`
 
+	// CACertBundle specifies the path to a CA certificate bundle file to use
+	// for SSL verification during build. This is useful when building behind
+	// corporate proxies with SSL inspection.
+	CACertBundle string `yaml:"caCertBundle,omitempty" jsonschema:"description=Path to CA certificate bundle for SSL verification during build"`
+
 	// PVCSize specifies the size of persistent volume claim used to store function
 	// when using deployment and remote build process (only relevant when Remote is true).
 	PVCSize string `yaml:"pvcSize,omitempty"`

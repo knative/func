@@ -220,6 +220,31 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		cfg.BuildVolumes = append(cfg.BuildVolumes, fmt.Sprintf("%s:%s:ro,Z", m.Source, m.Destination))
 	}
 
+	// CA Certificate Bundle support for corporate proxies
+	if f.Build.CACertBundle != "" {
+		// Validate that the CA bundle file exists
+		if _, err := os.Stat(f.Build.CACertBundle); err != nil {
+			return fmt.Errorf("CA bundle file not found: %w", err)
+		}
+
+		// Set environment variables for various runtimes to use the CA bundle
+		cfg.Environment = append(cfg.Environment,
+			api.EnvironmentSpec{Name: "SSL_CERT_FILE", Value: f.Build.CACertBundle},
+			api.EnvironmentSpec{Name: "REQUESTS_CA_BUNDLE", Value: f.Build.CACertBundle},                                       // Python
+			api.EnvironmentSpec{Name: "NODE_EXTRA_CA_CERTS", Value: f.Build.CACertBundle},                                      // Node.js
+			api.EnvironmentSpec{Name: "CURL_CA_BUNDLE", Value: f.Build.CACertBundle},                                           // curl
+			api.EnvironmentSpec{Name: "GIT_SSL_CAINFO", Value: f.Build.CACertBundle},                                           // git
+			api.EnvironmentSpec{Name: "PIP_CERT", Value: f.Build.CACertBundle},                                                 // pip (Python)
+			api.EnvironmentSpec{Name: "NPM_CONFIG_CAFILE", Value: f.Build.CACertBundle},                                        // npm (Node.js)
+			api.EnvironmentSpec{Name: "CARGO_HTTP_CAINFO", Value: f.Build.CACertBundle},                                        // cargo (Rust)
+			api.EnvironmentSpec{Name: "MAVEN_OPTS", Value: fmt.Sprintf("-Djavax.net.ssl.trustStore=%s", f.Build.CACertBundle)}, // Maven (Java)
+		)
+
+		// Mount the CA bundle file into the build container
+		cfg.BuildVolumes = append(cfg.BuildVolumes,
+			fmt.Sprintf("%s:%s:ro,Z", f.Build.CACertBundle, f.Build.CACertBundle))
+	}
+
 	if runtime.GOOS == "linux" {
 		cfg.DockerNetworkMode = "host"
 	}
