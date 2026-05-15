@@ -24,9 +24,9 @@ func (s *Server) deployHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
 		return
 	}
-	out, err := s.executor.Execute(ctx, "deploy", input.Args()...)
-	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
+	out, execErr := s.executor.Execute(ctx, "deploy", input.Args()...)
+	if execErr != nil {
+		err = newStructuredError(string(out), execErr)
 		return
 	}
 	output = DeployOutput{
@@ -34,6 +34,7 @@ func (s *Server) deployHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 	}
 	return
 }
+
 
 // DeployInput defines the input parameters for the deploy tool.
 type DeployInput struct {

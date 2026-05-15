@@ -2,10 +2,10 @@ package mcp
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
 
 var buildTool = &mcp.Tool{
 	Name:        "build",
@@ -20,16 +20,18 @@ var buildTool = &mcp.Tool{
 }
 
 func (s *Server) buildHandler(ctx context.Context, r *mcp.CallToolRequest, input BuildInput) (result *mcp.CallToolResult, output BuildOutput, err error) {
-	out, err := s.executor.Execute(ctx, "build", input.Args()...)
-	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
+	out, execErr := s.executor.Execute(ctx, "build", input.Args()...)
+	if execErr != nil {
+		err = newStructuredError(string(out), execErr)
 		return
 	}
+
 	output = BuildOutput{
 		Message: string(out),
 	}
 	return
 }
+
 
 // BuildInput defines the input parameters for the build tool.
 type BuildInput struct {
