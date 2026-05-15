@@ -177,7 +177,7 @@ password=nbusr123
 	for _, tt := range testCases {
 		var f = f
 		t.Run(tt.Name, func(t *testing.T) {
-			f.Build.Image = "localhost:50000/go-app:test-" + tt.Name
+			f.Build.Image = "registry.localtest.me/go-app:test-" + tt.Name
 			f.Build.Builder = tt.Name
 			f.Build.BuilderImages = map[string]string{
 				tt.Name: tt.BuilderImage(ctx, t, certDir),
@@ -274,7 +274,7 @@ func randSN() *big.Int {
 
 // Builds a s2i Golang builder that trusts to our self-signed certificate (see createCertificate).
 func buildPatchedS2IBuilder(ctx context.Context, t *testing.T, certDir string) string {
-	tag := "localhost:50000/go-toolset:test"
+	tag := "registry.localtest.me/go-toolset:test"
 	dockerfile := `FROM registry.access.redhat.com/ubi8/go-toolset:latest
 COPY 85c05568.0 /etc/pki/ca-trust/source/anchors/
 USER 0:0
@@ -286,7 +286,7 @@ USER 1001:0
 
 // Builds a tiny paketo builder that trusts to our self-signed certificate (see createCertificate).
 func buildPatchedBuildpackBuilder(ctx context.Context, t *testing.T, certDir string) string {
-	tag := "localhost:50000/builder-jammy-tin:test"
+	tag := "registry.localtest.me/builder-jammy-tin:test"
 	dockerfile := `FROM ghcr.io/knative/builder-jammy-tiny:v2
 COPY 85c05568.0 /etc/ssl/certs/
 `

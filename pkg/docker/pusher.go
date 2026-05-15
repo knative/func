@@ -44,6 +44,7 @@ type PusherDockerClientFactory func() (PusherDockerClient, error)
 // Pusher of images from local to remote registry.
 type Pusher struct {
 	verbose             bool // verbose logging.
+	insecure            bool // use HTTP instead of HTTPS for the registry.
 	credentialsProvider oci.CredentialsProvider
 	transport           http.RoundTripper
 	dockerClientFactory PusherDockerClientFactory
@@ -73,6 +74,12 @@ func WithVerbose(verbose bool) Opt {
 	}
 }
 
+func WithInsecure(insecure bool) Opt {
+	return func(pusher *Pusher) {
+		pusher.insecure = insecure
+	}
+}
+
 // NewPusher creates an instance of a docker-based image pusher.
 func NewPusher(opts ...Opt) *Pusher {
 	result := &Pusher{
@@ -88,6 +95,13 @@ func NewPusher(opts ...Opt) *Pusher {
 	}
 
 	return result
+}
+
+func (n *Pusher) nameOptions() []name.Option {
+	if n.insecure {
+		return []name.Option{name.Insecure}
+	}
+	return nil
 }
 
 func GetRegistry(img string) (string, error) {
@@ -121,7 +135,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (string, error) {
 		remote.WithTransport(n.transport),
 	}
 
-	imgRef, err := name.ParseReference(f.ImageNameWithDigest(imgDigest))
+	imgRef, err := name.ParseReference(f.ImageNameWithDigest(imgDigest), n.nameOptions()...)
 	if err != nil {
 		return "", fmt.Errorf("cannot parse image ref: %w", err)
 	}
@@ -147,7 +161,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (string, error) {
 		Descriptor: *newDesc,
 	})
 
-	idxRef, err := name.ParseReference(f.Build.Image)
+	idxRef, err := name.ParseReference(f.Build.Image, n.nameOptions()...)
 	if err != nil {
 		return "", fmt.Errorf("cannot parse image index ref: %w", err)
 	}
@@ -265,7 +279,7 @@ func (n *Pusher) push(ctx context.Context, f fn.Function, credentials oci.Creden
 		Password: credentials.Password,
 	}
 
-	ref, err := name.ParseReference(f.Build.Image)
+	ref, err := name.ParseReference(f.Build.Image, n.nameOptions()...)
 	if err != nil {
 		return "", err
 	}

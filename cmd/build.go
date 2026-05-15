@@ -448,7 +448,7 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 	}
 
 	t := newTransport(c.RegistryInsecure)
-	creds := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile)
+	creds := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile, c.RegistryInsecure)
 
 	switch c.Builder {
 	case builders.Host:
@@ -470,7 +470,8 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 			fn.WithPusher(docker.NewPusher(
 				docker.WithCredentialsProvider(creds),
 				docker.WithTransport(t),
-				docker.WithVerbose(c.Verbose))))
+				docker.WithVerbose(c.Verbose),
+				docker.WithInsecure(c.RegistryInsecure))))
 	case builders.S2I:
 		o = append(o,
 			fn.WithScaffolder(s2i.NewScaffolder(c.Verbose)),
@@ -480,7 +481,8 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 			fn.WithPusher(docker.NewPusher(
 				docker.WithCredentialsProvider(creds),
 				docker.WithTransport(t),
-				docker.WithVerbose(c.Verbose))))
+				docker.WithVerbose(c.Verbose),
+				docker.WithInsecure(c.RegistryInsecure))))
 	default:
 		return o, builders.ErrUnknownBuilder{Name: c.Builder, Known: KnownBuilders()}
 	}

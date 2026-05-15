@@ -71,13 +71,13 @@ func initFunction(t *testing.T, name string) fn.Function {
 		Name:     name,
 		Root:     t.TempDir(),
 		Runtime:  "go",
-		Registry: "localhost:50000",
+		Registry: "registry.localtest.me",
 	}
 	f, err := fn.New().Init(f)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Build.Image = "localhost:50000/" + name + ":latest"
+	f.Build.Image = "registry.localtest.me/" + name + ":latest"
 	return f
 }
 

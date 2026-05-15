@@ -27,7 +27,7 @@ func TestRemote_Deploy(t *testing.T) {
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if err := newCmd(t, "deploy", "--remote", "--builder=pack", fmt.Sprintf("--registry=%s", ClusterRegistry)).Run(); err != nil {
+	if err := newCmd(t, "deploy", "--remote", "--builder=pack", fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
@@ -57,7 +57,7 @@ func TestRemote_Source(t *testing.T) {
 	// Trigger the deploy
 	if err := newCmd(t, "deploy", "--remote",
 		"--git-url", "https://github.com/functions-dev/func-e2e-tests",
-		"--registry", ClusterRegistry,
+		"--registry", Registry,
 		"--builder", "pack",
 	).Run(); err != nil {
 		t.Fatal(err)
@@ -101,7 +101,7 @@ func TestRemote_Ref(t *testing.T) {
 	if err := newCmd(t, "deploy", "--remote",
 		"--git-url", "https://github.com/functions-dev/func-e2e-tests",
 		"--git-branch", name,
-		"--registry", ClusterRegistry,
+		"--registry", Registry,
 		"--builder", "pack",
 		"--build",
 	).Run(); err != nil {
@@ -148,7 +148,7 @@ func TestRemote_Dir(t *testing.T) {
 	if err := newCmd(t, "deploy", "--remote",
 		"--git-url", "https://github.com/functions-dev/func-e2e-tests",
 		"--git-dir", name,
-		"--registry", ClusterRegistry,
+		"--registry", Registry,
 		"--builder", "pack",
 		"--build",
 	).Run(); err != nil {
@@ -160,6 +160,29 @@ func TestRemote_Dir(t *testing.T) {
 
 	if !waitFor(t, ksvcUrl(name),
 		withContentMatch(name)) {
+		t.Fatal("function did not deploy correctly")
+	}
+}
+
+// TestRemote_Deploy_InClusterRegistry ensures that the in-cluster dialer
+// tunneling path works correctly by using the cluster-internal registry URL.
+//
+//	func deploy --remote --registry=registry.default.svc.cluster.local:5000/func
+func TestRemote_Deploy_InClusterRegistry(t *testing.T) {
+	name := "func-e2e-test-remote-incluster"
+	_ = fromCleanEnv(t, name)
+
+	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := newCmd(t, "deploy", "--remote", "--builder=pack", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		clean(t, name, Namespace)
+	}()
+
+	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 }

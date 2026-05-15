@@ -123,14 +123,14 @@ nodes:
       listenAddress: "127.0.0.1"
 containerdConfigPatches:
 - |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:50000"]
-    endpoint = ["http://func-registry:5000"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.localtest.me"]
+    endpoint = ["http://localhost:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.default.svc.cluster.local:5000"]
-    endpoint = ["http://func-registry:5000"]
+    endpoint = ["http://localhost:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."ghcr.io"]
-    endpoint = ["http://func-registry:5000"]
+    endpoint = ["http://localhost:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
-    endpoint = ["http://func-registry:5000"]
+    endpoint = ["http://localhost:5000"]
 EOF
   sleep 10
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
@@ -320,15 +320,69 @@ EOF
 }
 
 registry() {
-  # see https://kind.sigs.k8s.io/docs/user/local-registry/
-
   echo "${blue}Creating Registry${reset}"
-  if [ "$CONTAINER_ENGINE" == "docker" ]; then
-    $CONTAINER_ENGINE run -d --restart=always -p "127.0.0.1:50000:5000" --name "func-registry" registry:2
-    $CONTAINER_ENGINE network connect "kind" "func-registry"
-  elif [ "$CONTAINER_ENGINE" == "podman" ]; then
-    $CONTAINER_ENGINE run -d --restart=always -p "127.0.0.1:50000:5000" --net=kind --name "func-registry" registry:2
-  fi
+
+  # Deploy the registry as a Deployment inside the cluster
+  $KUBECTL apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry
+  template:
+    metadata:
+      labels:
+        app: registry
+    spec:
+      containers:
+      - name: registry
+        image: registry:2
+        ports:
+        - containerPort: 5000
+          hostPort: 5000
+        volumeMounts:
+        - name: registry-data
+          mountPath: /var/lib/registry
+      volumes:
+      - name: registry-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry
+  namespace: default
+spec:
+  selector:
+    app: registry
+  ports:
+  - port: 5000
+    targetPort: 5000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: registry
+  namespace: default
+spec:
+  ingressClassName: contour-external
+  rules:
+  - host: registry.localtest.me
+    http:
+      paths:
+      - backend:
+          service:
+            name: registry
+            port:
+              number: 5000
+        pathType: Prefix
+        path: /
+EOF
 
   $KUBECTL apply -f - <<EOF
 apiVersion: v1
@@ -338,22 +392,11 @@ metadata:
   namespace: kube-public
 data:
   localRegistryHosting.v1: |
-    host: "localhost:50000"
+    host: "registry.localtest.me"
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
 
-  # Make the registry available in cluster under registry.default.svc.cluster.local:5000.
-  # This is useful since for "*.local" registries HTTP (not HTTPS) is used by default by some applications.
-  $KUBECTL apply -f - <<EOF
-apiVersion: v1
-kind: Service
-metadata:
-  name: registry
-  namespace: default
-spec:
-  type: ExternalName
-  externalName: func-registry
-EOF
+  $KUBECTL wait --for=condition=Available deployment/registry -n default --timeout=5m
   echo "${green}✅ Registry${reset}"
 }
 
@@ -724,16 +767,16 @@ next_steps() {
   echo -e "${blue}----------${reset}"
   echo -e ""
   echo -e "${grey}REGISTRY"
-  echo -e "Before using the cluster for integration and E2E tests, please run \"${reset}registry.sh${grey}\" (Linux systems) which will configure podman or docker to communicate with the standalone container registry without TLS."
+  echo -e "Before using the cluster for integration and E2E tests, please run \"${reset}registry.sh${grey}\" (Linux systems) which will configure podman or docker to communicate with the in-cluster container registry without TLS."
   echo -e ""
   echo -e "For other operating systems, or to do this manually, edit the docker daemon config:"
   echo -e "  - Linux: /etc/docker/daemon.json"
   echo -e "  - macOS: ~/.docker/daemon.json (or via Docker Desktop settings)"
   echo -e "Add the following configuration:"
-  echo -e "${reset}{ \"insecure-registries\": [ \"localhost:50000\" ] }"
+  echo -e "${reset}{ \"insecure-registries\": [ \"registry.localtest.me\" ] }"
   echo -e ""
   echo -e "${grey}For podman, edit /etc/container/registries.conf to include:"
-  echo -e "${reset}[[registry-insecure-local]]\nlocation = \"localhost:50000\"\ninsecure = true\n"
+  echo -e "${reset}[[registry]]\nlocation = \"registry.localtest.me\"\ninsecure = true\n"
   echo -e "${grey}The cluster and resources can be removed with \"${reset}delete.sh\""
   echo -e ""
   echo -e "${grey}KUBECONFIG"

@@ -87,20 +87,20 @@ The help text provides authoritative parameter information and usage context.
 
 A common challenge with users is determining the right value for "registry". This is composed of two parts:
 
-1. **Registry domain:** docker.io, ghcr.io, localhost:50000
+1. **Registry domain:** docker.io, ghcr.io, registry.localtest.me
 2. **Registry user:** alice, func, etc.
 
 When combined this constitutes a full "registry" location for the Function's built image.
 
 **Examples:**
 - `docker.io/alice`
-- `localhost:50000/func`
+- `registry.localtest.me/func`
 
 The final Function image will then have the Function name as a suffix along with the :latest tag (example: `docker.io/alice/myfunc:latest`), but this is hidden from the user unless they want to fully override this behavior and supply their own custom value for the image parameter.
 
 **Important guidance:**
 - It is important to carefully guide the user through the creation of this registry argument, as this is often the most challenging part of getting a Function deployed the first time
-- Ask for the registry. If they only provide the DOMAIN part (eg docker.io or localhost:50000), ask them to either confirm there is no registry user part or provide it
+- Ask for the registry. If they only provide the DOMAIN part (eg docker.io or registry.localtest.me), ask them to either confirm there is no registry user part or provide it
 - The final value is the two concatenated with a forward slash
 - Subsequent deployments automatically reuse the last setting, so this should only be asked for on those first deployments
 - BE SURE to verify the final format of this value as consisting of both a DOMAIN part and a USER part
