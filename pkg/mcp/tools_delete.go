@@ -49,7 +49,7 @@ type DeleteInput struct {
 	Path      *string `json:"path,omitempty" jsonschema:"Path to the function project directory (mutually exclusive with name)"`
 	Name      *string `json:"name,omitempty" jsonschema:"Name of the function to delete (mutually exclusive with path)"`
 	Namespace *string `json:"namespace,omitempty" jsonschema:"Kubernetes namespace to delete from (default: current or active namespace)"`
-	All       *string `json:"all,omitempty" jsonschema:"Delete all related resources like Pipelines, Secrets (true/false)"`
+	All       *bool   `json:"all,omitempty" jsonschema:"Delete all related resources like Pipelines, Secrets"`
 	Verbose   *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
@@ -64,7 +64,7 @@ func (i DeleteInput) Args() []string {
 	}
 
 	args = appendStringFlag(args, "--namespace", i.Namespace)
-	args = appendStringFlag(args, "--all", i.All)
+	args = appendBoolFlag(args, "--all", i.All)
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
 	return args
 }

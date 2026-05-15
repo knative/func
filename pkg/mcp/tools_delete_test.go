@@ -17,11 +17,11 @@ func TestTool_Delete_Args(t *testing.T) {
 		value   string
 	}{
 		"namespace": {"namespace", "--namespace", "prod"},
-		"all":       {"all", "--all", "true"},
 	}
 
 	boolFlags := map[string]string{
 		"verbose": "--verbose",
+		"all":     "--all",
 	}
 
 	// Required fields and positional arguments
