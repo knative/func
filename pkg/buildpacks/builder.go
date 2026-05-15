@@ -225,27 +225,51 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	}
 
 	// CA Certificate Bundle support for corporate proxies
+	// Use Paketo CA certificates buildpack binding instead of manual env vars
 	if f.Build.CACertBundle != "" {
+		// Resolve to absolute path if relative
+		caBundlePath := f.Build.CACertBundle
+		if !filepath.IsAbs(caBundlePath) {
+			caBundlePath = filepath.Join(f.Root, caBundlePath)
+		}
+
 		// Validate that the CA bundle file exists
-		if _, err := os.Stat(f.Build.CACertBundle); err != nil {
+		if _, err := os.Stat(caBundlePath); err != nil {
 			return fmt.Errorf("CA bundle file not found: %w", err)
 		}
 
-		// Set environment variables for various runtimes to use the CA bundle
-		// These will be available during the build process
-		opts.Env["SSL_CERT_FILE"] = f.Build.CACertBundle
-		opts.Env["REQUESTS_CA_BUNDLE"] = f.Build.CACertBundle                                       // Python
-		opts.Env["NODE_EXTRA_CA_CERTS"] = f.Build.CACertBundle                                      // Node.js
-		opts.Env["CURL_CA_BUNDLE"] = f.Build.CACertBundle                                           // curl
-		opts.Env["GIT_SSL_CAINFO"] = f.Build.CACertBundle                                           // git
-		opts.Env["PIP_CERT"] = f.Build.CACertBundle                                                 // pip (Python)
-		opts.Env["NPM_CONFIG_CAFILE"] = f.Build.CACertBundle                                        // npm (Node.js)
-		opts.Env["CARGO_HTTP_CAINFO"] = f.Build.CACertBundle                                        // cargo (Rust)
-		opts.Env["MAVEN_OPTS"] = fmt.Sprintf("-Djavax.net.ssl.trustStore=%s", f.Build.CACertBundle) // Maven (Java)
+		// Create a temporary directory for the CA certificates binding
+		caCertsBindingDir, err := os.MkdirTemp("", "func-ca-certs-*")
+		if err != nil {
+			return fmt.Errorf("failed to create CA certificates binding directory: %w", err)
+		}
+		// Note: We don't defer cleanup here because the build process needs it
+		// The directory will be cleaned up when the temp dir is cleaned by the OS
 
-		// Mount the CA bundle file into the build container
-		opts.ContainerConfig.Volumes = append(opts.ContainerConfig.Volumes,
-			fmt.Sprintf("%s:%s:ro", f.Build.CACertBundle, f.Build.CACertBundle))
+		// Write the binding type file
+		if err := os.WriteFile(filepath.Join(caCertsBindingDir, "type"), []byte("ca-certificates"), 0644); err != nil {
+			return fmt.Errorf("failed to write CA certificates binding type: %w", err)
+		}
+
+		// Copy the CA bundle to the binding directory
+		caData, err := os.ReadFile(caBundlePath)
+		if err != nil {
+			return fmt.Errorf("failed to read CA bundle: %w", err)
+		}
+		if err := os.WriteFile(filepath.Join(caCertsBindingDir, "ca-certificates.crt"), caData, 0644); err != nil {
+			return fmt.Errorf("failed to write CA certificates to binding: %w", err)
+		}
+
+		// Set SERVICE_BINDING_ROOT if not already set
+		if _, ok := opts.Env["SERVICE_BINDING_ROOT"]; !ok {
+			opts.Env["SERVICE_BINDING_ROOT"] = "/platform/bindings"
+		}
+
+		// Add the CA certificates binding as a mount
+		f.Build.Mounts = append(f.Build.Mounts, fn.MountSpec{
+			Source:      caCertsBindingDir,
+			Destination: filepath.Join(opts.Env["SERVICE_BINDING_ROOT"], "ca-certificates"),
+		})
 	}
 
 	var bindings = make([]string, 0, len(f.Build.Mounts))
