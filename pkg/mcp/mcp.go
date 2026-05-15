@@ -30,6 +30,7 @@ type Server struct {
 
 type executor interface {
 	Execute(ctx context.Context, subcommand string, args ...string) ([]byte, error)
+	ExecuteRaw(ctx context.Context, cmd string, args ...string) ([]byte, error)
 }
 
 type Option func(*Server)
@@ -105,6 +106,7 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, configEnvsListTool, s.configEnvsListHandler)
 	mcp.AddTool(i, configEnvsAddTool, s.configEnvsAddHandler)
 	mcp.AddTool(i, configEnvsRemoveTool, s.configEnvsRemoveHandler)
+	mcp.AddTool(i, checkPrerequisitesTool, s.checkPrerequisitesHandler)
 
 	// Resources
 	// ---------
@@ -126,6 +128,8 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Deploy Help", "help for 'deploy'", "deploy"))
 	i.AddResource(newHelpResource(s, "List Help", "help for 'list'", "list"))
 	i.AddResource(newHelpResource(s, "Delete Help", "help for delete", "delete"))
+	i.AddResource(newHelpResource(s, "Check Prerequisites Help", "help for 'check_prerequisites'", "check_prerequisites"))
+
 
 	i.AddResource(newHelpResource(s, "Volumes Help", "general help for volumes", "config", "volumes"))
 	i.AddResource(newHelpResource(s, "Volumes Add Help", "help for 'config volumes add'", "config", "volumes", "add"))
@@ -161,6 +165,11 @@ func (e defaultExecutor) Execute(ctx context.Context, subcommand string, args ..
 	cmdParts := buildArgs(e.s.prefix, subcommand, args)
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
 	// cmd.Dir not set - inherits process working directory which is the current working directory
+	return cmd.CombinedOutput()
+}
+
+func (e defaultExecutor) ExecuteRaw(ctx context.Context, cmdName string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, cmdName, args...)
 	return cmd.CombinedOutput()
 }
 

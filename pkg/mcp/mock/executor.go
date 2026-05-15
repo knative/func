@@ -9,6 +9,7 @@ import (
 type Executor struct {
 	ExecuteInvoked bool
 	ExecuteFn      func(context.Context, string, ...string) ([]byte, error)
+	ExecuteRawFn   func(context.Context, string, ...string) ([]byte, error)
 }
 
 // NewExecutor creates a new mock executor
@@ -23,6 +24,18 @@ func (m *Executor) Execute(ctx context.Context, subcommand string, args ...strin
 
 	if m.ExecuteFn != nil {
 		return m.ExecuteFn(ctx, subcommand, args...)
+	}
+
+	return []byte(""), nil
+}
+
+// ExecuteRaw implements the executor interface, recording invocation details
+// and delegating to ExecuteRawFn if provided.
+func (m *Executor) ExecuteRaw(ctx context.Context, cmd string, args ...string) ([]byte, error) {
+	m.ExecuteInvoked = true
+
+	if m.ExecuteRawFn != nil {
+		return m.ExecuteRawFn(ctx, cmd, args...)
 	}
 
 	return []byte(""), nil
