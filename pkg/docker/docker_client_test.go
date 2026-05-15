@@ -469,3 +469,83 @@ func createDockerContextConfigWithTLS(t *testing.T, configDir, contextName, host
 		t.Fatal(err)
 	}
 }
+
+// TestNewClient_DockerContextTLS_FallbackPath tests that TLS configuration is properly
+// loaded even when storage.TLSPath is "<IN MEMORY>" or empty, by falling back to the
+// calculated path based on the context name hash.
+func TestNewClient_DockerContextTLS_FallbackPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping Docker context TLS fallback test on Windows")
+	}
+
+	// Check if docker CLI is available
+	_, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("Docker CLI not available, skipping context TLS fallback test")
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second*5)
+	defer cancel()
+
+	tmpDir := t.TempDir()
+
+	// Start a mock TLS daemon
+	tlsListener, caCert, clientCert, clientKey := startMockTLSDaemon(t)
+	tlsHost := fmt.Sprintf("tcp://%s", tlsListener.Addr().String())
+
+	// Build a Docker config directory with a context that has TLS configuration
+	configDir := filepath.Join(tmpDir, "docker-config")
+	contextName := "func-test-tls-fallback-ctx"
+
+	// Calculate the hash for the context name (Docker uses SHA256)
+	hash := sha256.Sum256([]byte(contextName))
+	hashStr := fmt.Sprintf("%x", hash)
+
+	// Docker stores TLS files in contexts/tls/<hash>/
+	tlsDir := filepath.Join(configDir, "contexts", "tls", hashStr)
+
+	// Create TLS directory and write the actual certificate files
+	if err := os.MkdirAll(tlsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(tlsDir, "ca.pem"), caCert, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tlsDir, "cert.pem"), clientCert, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tlsDir, "key.pem"), clientKey, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create context config with TLSPath set to "<IN MEMORY>" to test fallback
+	createDockerContextConfigWithTLS(t, configDir, contextName, tlsHost, "<IN MEMORY>")
+
+	t.Setenv("DOCKER_HOST", "")
+	t.Setenv("DOCKER_CONFIG", configDir)
+
+	// Pass a non-existent socket as the default host to force context detection
+	nonExistentDefault := fmt.Sprintf("unix://%s", filepath.Join(tmpDir, "nonexistent.sock"))
+	dockerClient, _, err := docker.NewClient(nonExistentDefault)
+	if err != nil {
+		t.Fatalf("Failed to create Docker client with TLS context (fallback path): %v", err)
+	}
+	defer dockerClient.Close()
+
+	// Verify we can connect to the TLS-enabled mock daemon
+	// This proves that TLS certificates were found via the fallback path calculation
+	_, err = dockerClient.Ping(ctx, client.PingOptions{})
+	if err != nil {
+		t.Fatalf("Failed to ping TLS-enabled mock daemon (fallback path): %v", err)
+	}
+
+	// Verify we're actually talking to our mock daemon
+	nfo, err := dockerClient.Info(ctx, client.InfoOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get info from TLS mock daemon (fallback path): %v", err)
+	}
+	if nfo.Info.ID != "mock-daemon" {
+		t.Errorf("unexpected server ID: got %q, want %q", nfo.Info.ID, "mock-daemon")
+	}
+}

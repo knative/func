@@ -472,18 +472,6 @@ func getDockerContextConfig() *dockerContextConfig {
 	return config
 }
 
-// getDockerContextHost is a wrapper for backward compatibility
-func getDockerContextHost() string {
-	config := getDockerContextConfig()
-	if config == nil {
-		return ""
-	}
-	return config.Host
-}
-
-// GetDockerContextHostFunc is a variable to allow mocking in tests
-var GetDockerContextHostFunc = getDockerContextHost
-
 type clientWithAdditionalCleanup struct {
 	client.APIClient
 	cleanUp func()
