@@ -150,6 +150,21 @@ func TestResource_Help(t *testing.T) {
 			uri:      "func://help/config/envs/add",
 			wantArgs: []string{"config", "envs", "add", "--help"},
 		},
+		{
+			name:     "config volumes remove help",
+			uri:      "func://help/config/volumes/remove",
+			wantArgs: []string{"config", "volumes", "remove", "--help"},
+		},
+		{
+			name:     "config labels remove help",
+			uri:      "func://help/config/labels/remove",
+			wantArgs: []string{"config", "labels", "remove", "--help"},
+		},
+		{
+			name:     "config envs remove help",
+			uri:      "func://help/config/envs/remove",
+			wantArgs: []string{"config", "envs", "remove", "--help"},
+		},
 	}
 
 	for _, tc := range cases {
