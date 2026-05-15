@@ -61,6 +61,7 @@ func build
       --build-timestamp            Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
   -b, --builder string             Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
       --builder-image string       Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+      --ca-bundle string           Path to CA certificate bundle file for SSL verification during build. Useful when building behind corporate proxies. ($FUNC_CA_BUNDLE)
   -c, --confirm                    Prompt to confirm options interactively ($FUNC_CONFIRM)
   -h, --help                       help for build
   -i, --image string               Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)
