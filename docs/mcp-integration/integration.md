@@ -1,6 +1,6 @@
 # MCP Integration Quick Usage
 
-This document shows how to configure your MCP server with various clients. You do **not** need to run `func mcp` manually — MCP clients launch it themselves when configured.
+This document shows how to configure your MCP server with various clients. You do **not** need to run `func mcp start` manually — MCP clients launch it themselves when configured.
 
 Once configured, you can also use the MCP server **directly in agent mode while chatting with the model**. This enables seamless access to your functions and tools during conversations.
 
@@ -11,7 +11,7 @@ Base config to add:
   "mcpServers": {
     "func-mcp": {
       "command": "func",
-      "args": ["mcp"]
+      "args": ["mcp", "start"]
     }
   }
 }
@@ -101,7 +101,7 @@ For example:
   "mcpServers": {
     "func-mcp": {
       "command": "func",
-      "args": ["mcp"]
+      "args": ["mcp", "start"]
     }
   }
 }
