@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -93,10 +94,10 @@ the local machine.
 			}
 
 			if np != nil {
-				return fmt.Errorf("--value is required when --name is provided")
+				return errors.New("--value is required when --name is provided")
 			}
 			if vp != nil {
-				return fmt.Errorf("--name is required when --value is provided")
+				return errors.New("--name is required when --value is provided")
 			}
 
 			return runAddLabelsPrompt(cmd.Context(), function, loaderSaver)
