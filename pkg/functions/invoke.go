@@ -35,6 +35,7 @@ type InvokeMessage struct {
 	Data        []byte
 	RequestType string // HTTP Request GET/POST (defaults to POST)
 	Format      string // optional override for function-defined message format
+	Extensions  map[string]string
 }
 
 // NewInvokeMessage creates a new InvokeMessage with fields populated
@@ -168,6 +169,9 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 	event.SetID(m.ID)
 	event.SetSource(m.Source)
 	event.SetType(m.Type)
+	for extension := range m.Extensions {
+		event.SetExtension(extension, m.Extensions[extension])
+	}
 	err = event.SetData(m.ContentType, (m.Data))
 	if err != nil {
 		return "", fmt.Errorf("cannot set data: %w", err)
