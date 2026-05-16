@@ -4,6 +4,7 @@ import (
 	"context"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -22,7 +23,7 @@ const (
 type Server struct {
 	OnInit    func(context.Context) // Invoked when the server is initialized
 	prefix    string                // Command prefix ("func" or "kn func")
-	readonly  bool                  // disables deploy and delete when true
+	readonly  atomic.Bool           // disables deploy and delete when true
 	executor  executor
 	transport mcp.Transport // Transport to use (defaults to StdioTransport)
 	impl      *mcp.Server   // implements the protocol
@@ -58,7 +59,7 @@ func WithTransport(transport mcp.Transport) Option {
 // WithReadonly sets the server to readonly mode.
 func WithReadonly(readonly bool) Option {
 	return func(s *Server) {
-		s.readonly = readonly
+		s.readonly.Store(readonly)
 	}
 }
 
@@ -80,7 +81,7 @@ func New(options ...Option) *Server {
 			Title:   title,
 			Version: version},
 		&mcp.ServerOptions{
-			Instructions:       instructions(s.readonly),
+			Instructions:       instructions(s.readonly.Load()),
 			HasPrompts:         true,
 			HasResources:       true,
 			HasTools:           true,
@@ -146,7 +147,7 @@ func New(options ...Option) *Server {
 
 // Start the MCP server using the configured transport
 func (s *Server) Start(ctx context.Context, writeEnabled bool) error {
-	s.readonly = !writeEnabled
+	s.readonly.Store(!writeEnabled)
 	return s.impl.Run(ctx, s.transport)
 }
 
