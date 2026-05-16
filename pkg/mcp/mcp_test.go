@@ -180,3 +180,44 @@ func TestBuildArgs(t *testing.T) {
 		})
 	}
 }
+
+// TestWithPrefix_Validation ensures that WithPrefix rejects shell
+// metacharacters and empty/whitespace-only prefixes.
+func TestWithPrefix_Validation(t *testing.T) {
+	// Valid prefixes should not panic.
+	validCases := []string{"func", "kn func", "/usr/local/bin/func"}
+	for _, prefix := range validCases {
+		t.Run("valid_"+prefix, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("WithPrefix(%q) panicked unexpectedly: %v", prefix, r)
+				}
+			}()
+			New(WithPrefix(prefix))
+		})
+	}
+
+	// Invalid prefixes containing shell metacharacters should panic.
+	invalidCases := []struct {
+		name   string
+		prefix string
+	}{
+		{"semicolon", "func; rm -rf /"},
+		{"pipe", "func | cat"},
+		{"ampersand", "func & bg"},
+		{"backtick", "func `whoami`"},
+		{"dollar_paren", "func $(whoami)"},
+		{"empty", ""},
+		{"whitespace_only", "   "},
+	}
+	for _, tc := range invalidCases {
+		t.Run("invalid_"+tc.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r == nil {
+					t.Fatalf("WithPrefix(%q) should have panicked but did not", tc.prefix)
+				}
+			}()
+			New(WithPrefix(tc.prefix))
+		})
+	}
+}
