@@ -171,6 +171,75 @@ func TestTool_ConfigLabelsRemove(t *testing.T) {
 	}
 }
 
+// TestTool_ConfigLabelsAdd_EmptyName ensures the config_labels_add tool rejects an empty name.
+func TestTool_ConfigLabelsAdd_EmptyName(t *testing.T) {
+	executor := mock.NewExecutor()
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_labels_add",
+		Arguments: map[string]any{"path": ".", "name": "", "value": "prod"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when name is empty")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when name is empty")
+	}
+}
+
+// TestTool_ConfigLabelsAdd_EmptyValue ensures the config_labels_add tool rejects an empty value.
+func TestTool_ConfigLabelsAdd_EmptyValue(t *testing.T) {
+	executor := mock.NewExecutor()
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_labels_add",
+		Arguments: map[string]any{"path": ".", "name": "environment", "value": ""},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when value is empty")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when value is empty")
+	}
+}
+
+// TestTool_ConfigLabelsRemove_EmptyName ensures the config_labels_remove tool rejects an empty name.
+func TestTool_ConfigLabelsRemove_EmptyName(t *testing.T) {
+	executor := mock.NewExecutor()
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_labels_remove",
+		Arguments: map[string]any{"path": ".", "name": ""},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when name is empty")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when name is empty")
+	}
+}
+
 // TestTool_ConfigLabelsAdd_MissingName ensures the config_labels_add tool rejects calls without name.
 func TestTool_ConfigLabelsAdd_MissingName(t *testing.T) {
 	executor := mock.NewExecutor()

@@ -77,6 +77,14 @@ type ConfigLabelsAddOutput struct {
 }
 
 func (s *Server) configLabelsAddHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigLabelsAddInput) (result *mcp.CallToolResult, output ConfigLabelsAddOutput, err error) {
+	if input.Name == "" {
+		err = fmt.Errorf("'name' must not be empty")
+		return
+	}
+	if input.Value == "" {
+		err = fmt.Errorf("'value' must not be empty")
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
@@ -117,6 +125,10 @@ type ConfigLabelsRemoveOutput struct {
 }
 
 func (s *Server) configLabelsRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigLabelsRemoveInput) (result *mcp.CallToolResult, output ConfigLabelsRemoveOutput, err error) {
+	if input.Name == "" {
+		err = fmt.Errorf("'name' must not be empty")
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))

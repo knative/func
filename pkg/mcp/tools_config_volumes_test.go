@@ -175,6 +175,29 @@ func TestTool_ConfigVolumesRemove(t *testing.T) {
 	}
 }
 
+// TestTool_ConfigVolumesRemove_EmptyMountPath ensures the config_volumes_remove tool rejects an empty mountPath.
+func TestTool_ConfigVolumesRemove_EmptyMountPath(t *testing.T) {
+	executor := mock.NewExecutor()
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_volumes_remove",
+		Arguments: map[string]any{"path": ".", "mountPath": ""},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when mountPath is empty")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when mountPath is empty")
+	}
+}
+
 // TestTool_ConfigVolumesRemove_MissingMountPath ensures the config_volumes_remove tool rejects calls without mountPath.
 func TestTool_ConfigVolumesRemove_MissingMountPath(t *testing.T) {
 	executor := mock.NewExecutor()

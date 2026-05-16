@@ -188,6 +188,10 @@ type ConfigEnvsRemoveOutput struct {
 }
 
 func (s *Server) configEnvsRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsRemoveInput) (result *mcp.CallToolResult, output ConfigEnvsRemoveOutput, err error) {
+	if input.Name == "" {
+		err = fmt.Errorf("'name' must not be empty")
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))

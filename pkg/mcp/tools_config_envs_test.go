@@ -605,6 +605,29 @@ func TestTool_ConfigEnvsAdd_MissingValue(t *testing.T) {
 	}
 }
 
+// TestTool_ConfigEnvsRemove_EmptyName ensures the config_envs_remove tool rejects an empty name.
+func TestTool_ConfigEnvsRemove_EmptyName(t *testing.T) {
+	executor := mock.NewExecutor()
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_remove",
+		Arguments: map[string]any{"path": ".", "name": ""},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when name is empty")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when name is empty")
+	}
+}
+
 // TestTool_ConfigEnvsRemove_MissingName ensures the config_envs_remove tool rejects calls without name.
 func TestTool_ConfigEnvsRemove_MissingName(t *testing.T) {
 	executor := mock.NewExecutor()

@@ -127,6 +127,10 @@ type ConfigVolumesRemoveOutput struct {
 }
 
 func (s *Server) configVolumesRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesRemoveInput) (result *mcp.CallToolResult, output ConfigVolumesRemoveOutput, err error) {
+	if input.MountPath == "" {
+		err = fmt.Errorf("'mountPath' must not be empty")
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
