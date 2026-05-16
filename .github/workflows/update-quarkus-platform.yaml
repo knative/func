@@ -29,19 +29,9 @@ jobs:
         run: go run ./hack/cmd/update-quarkus-platform
       - name: Run make generate
         run: make generate/zz_filesystem_generated.go
-      - name: Check for changes
-        id: changes
-        run: |
-          if git diff --quiet; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-          fi
       - name: Run smoke tests
-        if: steps.changes.outputs.changed == 'true'
         run: make test-quarkus
       - name: Create Pull Request
-        if: steps.changes.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ github.token }}

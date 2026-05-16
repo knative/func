@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
 	"regexp"
 	"strings"
-	"syscall"
 
 	"github.com/blang/semver/v4"
 	"gopkg.in/yaml.v3"
@@ -57,17 +55,8 @@ type springCloudBOM struct {
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		cancel()
-		<-sigs
-		os.Exit(130)
-	}()
+	ctx, stop := shared.NotifyContext(context.Background())
+	defer stop()
 
 	if err := run(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
