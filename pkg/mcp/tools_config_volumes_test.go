@@ -175,6 +175,27 @@ func TestTool_ConfigVolumesRemove(t *testing.T) {
 	}
 }
 
+// TestTool_ConfigVolumesRemove_MissingMountPath ensures the config_volumes_remove tool rejects calls without mountPath.
+func TestTool_ConfigVolumesRemove_MissingMountPath(t *testing.T) {
+	executor := mock.NewExecutor()
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_volumes_remove",
+		Arguments: map[string]any{"path": "."},
+	})
+	// Schema validation may produce a protocol-level error or a tool-level error result.
+	if err == nil && !result.IsError {
+		t.Fatal("expected error when mountPath is missing")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when required fields are absent")
+	}
+}
+
 // TestTool_ConfigVolumesList_Error ensures the config_volumes_list tool propagates executor errors.
 func TestTool_ConfigVolumesList_Error(t *testing.T) {
 	executor := mock.NewExecutor()
@@ -237,12 +258,15 @@ func TestTool_ConfigVolumesRemove_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_volumes_remove",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": ".", "mountPath": "/workspace/secret"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !result.IsError {
 		t.Fatal("expected error result, got success")
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
 	}
 }

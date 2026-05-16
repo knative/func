@@ -60,16 +60,14 @@ var configLabelsAddTool = &mcp.Tool{
 }
 
 type ConfigLabelsAddInput struct {
-	Path    string  `json:"path" jsonschema:"required,Path to the function project directory"`
-	Name    *string `json:"name,omitempty" jsonschema:"Name of the label"`
-	Value   *string `json:"value,omitempty" jsonschema:"Value of the label"`
-	Verbose *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Path    string `json:"path" jsonschema:"required,Path to the function project directory"`
+	Name    string `json:"name" jsonschema:"required,Name of the label"`
+	Value   string `json:"value" jsonschema:"required,Value of the label"`
+	Verbose *bool  `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
 func (i ConfigLabelsAddInput) Args() []string {
-	args := []string{"labels", "add", "--path", i.Path}
-	args = appendStringFlag(args, "--name", i.Name)
-	args = appendStringFlag(args, "--value", i.Value)
+	args := []string{"labels", "add", "--path", i.Path, "--name", i.Name, "--value", i.Value}
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
 	return args
 }
@@ -103,14 +101,13 @@ var configLabelsRemoveTool = &mcp.Tool{
 }
 
 type ConfigLabelsRemoveInput struct {
-	Path    string  `json:"path" jsonschema:"required,Path to the function project directory"`
-	Name    *string `json:"name,omitempty" jsonschema:"Name of the label to remove"`
-	Verbose *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Path    string `json:"path" jsonschema:"required,Path to the function project directory"`
+	Name    string `json:"name" jsonschema:"required,Name of the label to remove"`
+	Verbose *bool  `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
 func (i ConfigLabelsRemoveInput) Args() []string {
-	args := []string{"labels", "remove", "--path", i.Path}
-	args = appendStringFlag(args, "--name", i.Name)
+	args := []string{"labels", "remove", "--path", i.Path, "--name", i.Name}
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
 	return args
 }

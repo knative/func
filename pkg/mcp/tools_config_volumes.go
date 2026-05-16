@@ -111,14 +111,13 @@ var configVolumesRemoveTool = &mcp.Tool{
 }
 
 type ConfigVolumesRemoveInput struct {
-	Path      string  `json:"path" jsonschema:"required,Path to the function project directory"`
-	MountPath *string `json:"mountPath,omitempty" jsonschema:"Mount path of the volume to remove"`
-	Verbose   *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Path      string `json:"path" jsonschema:"required,Path to the function project directory"`
+	MountPath string `json:"mountPath" jsonschema:"required,Mount path of the volume to remove"`
+	Verbose   *bool  `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
 func (i ConfigVolumesRemoveInput) Args() []string {
-	args := []string{"volumes", "remove", "--path", i.Path}
-	args = appendStringFlag(args, "--mount-path", i.MountPath)
+	args := []string{"volumes", "remove", "--path", i.Path, "--mount-path", i.MountPath}
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
 	return args
 }
