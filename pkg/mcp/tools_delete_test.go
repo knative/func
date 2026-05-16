@@ -55,7 +55,7 @@ func TestTool_Delete_Args(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Delete requires write mode - enable it for this test
-	server.readonly = false
+	server.readonly.Store(false)
 
 	// Build input arguments from test data
 	inputArgs := buildInputArgs(stringFlags, boolFlags)
@@ -74,5 +74,24 @@ func TestTool_Delete_Args(t *testing.T) {
 	}
 	if !executor.ExecuteInvoked {
 		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_Delete_Readonly ensures the delete tool rejects requests in readonly mode.
+func TestTool_Delete_Readonly(t *testing.T) {
+	client, _, err := newTestPairWithReadonly(t, true) // readonly = true
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "delete",
+		Arguments: map[string]any{"name": "my-function"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected delete to be rejected in readonly mode")
 	}
 }
