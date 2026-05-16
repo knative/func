@@ -118,6 +118,6 @@ func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory) err
 	defer done()
 
 	// Start
-	return client.StartMCPServer(cmd.Context(), writeEnabled)
+	return client.StartMCPServer(cmd.Context())
 
 }

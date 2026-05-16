@@ -221,7 +221,7 @@ type PipelinesProvider interface {
 // MCPServer for a given client instance which performs bidirectional
 // communication with a client agent.
 type MCPServer interface {
-	Start(context.Context, bool) error
+	Start(context.Context) error
 }
 
 // New client for function management.
@@ -1247,8 +1247,8 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, bool, error) {
 
 // StartMCPServer is currently a passthrough to the configured MCP Server
 // instance.
-func (c *Client) StartMCPServer(ctx context.Context, writeEnabled bool) error {
-	return c.mcpServer.Start(ctx, writeEnabled)
+func (c *Client) StartMCPServer(ctx context.Context) error {
+	return c.mcpServer.Start(ctx)
 }
 
 // ensureRunDataDir creates a .func directory at the given path, and
@@ -1536,4 +1536,4 @@ func (n *noopDNSProvider) Provide(_ Function) error { return nil }
 // MCPServer
 type noopMCPServer struct{}
 
-func (n *noopMCPServer) Start(_ context.Context, _ bool) error { return nil }
+func (n *noopMCPServer) Start(_ context.Context) error { return nil }

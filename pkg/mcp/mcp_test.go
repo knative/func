@@ -84,7 +84,7 @@ func newTestPairCore(t *testing.T, readonly bool, options ...Option) (session *m
 
 	// Start the Server
 	go func() {
-		errCh <- server.Start(t.Context(), !readonly)
+		errCh <- server.Start(t.Context())
 	}()
 
 	// Connect a client to trigger initialization

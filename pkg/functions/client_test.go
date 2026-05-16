@@ -1286,7 +1286,7 @@ func TestClient_StartMCPServer(t *testing.T) {
 
 	client := fn.New(fn.WithMCPServer(server))
 
-	if err := client.StartMCPServer(t.Context(), true); err != nil {
+	if err := client.StartMCPServer(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 
