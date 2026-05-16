@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -34,9 +35,20 @@ type executor interface {
 
 type Option func(*Server)
 
-// WithPrefix sets the command prefix (e.g., "func" or "kn func")
+// disallowedPrefixChars contains shell metacharacters that must not appear
+// in the command prefix to prevent command injection.
+const disallowedPrefixChars = "&|;`$(){}[]!><\"'\\\n\r"
+
+// WithPrefix sets the command prefix (e.g., "func" or "kn func").
+// The prefix is validated to reject shell metacharacters.
 func WithPrefix(prefix string) Option {
 	return func(s *Server) {
+		if strings.ContainsAny(prefix, disallowedPrefixChars) {
+			panic(fmt.Sprintf("mcp: prefix %q contains disallowed shell metacharacters", prefix))
+		}
+		if strings.TrimSpace(prefix) == "" {
+			panic("mcp: prefix must not be empty or whitespace-only")
+		}
 		s.prefix = prefix
 	}
 }
