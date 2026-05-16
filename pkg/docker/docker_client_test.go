@@ -549,3 +549,66 @@ func TestNewClient_DockerContextTLS_FallbackPath(t *testing.T) {
 		t.Errorf("unexpected server ID: got %q, want %q", nfo.Info.ID, "mock-daemon")
 	}
 }
+
+// TestNewClient_TLS_EnvVars tests the original TLS functionality using environment
+// variables (DOCKER_TLS_VERIFY, DOCKER_CERT_PATH) without Docker context.
+// This ensures backward compatibility with the pre-context TLS configuration method.
+func TestNewClient_TLS_EnvVars(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping TLS env vars test on Windows")
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second*5)
+	defer cancel()
+
+	tmpDir := t.TempDir()
+
+	// Start a mock TLS daemon
+	tlsListener, caCert, clientCert, clientKey := startMockTLSDaemon(t)
+	tlsHost := fmt.Sprintf("tcp://%s", tlsListener.Addr().String())
+
+	// Create a directory for TLS certificates (simulating DOCKER_CERT_PATH)
+	certDir := filepath.Join(tmpDir, "docker-certs")
+	if err := os.MkdirAll(certDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write TLS certificates to the cert directory
+	if err := os.WriteFile(filepath.Join(certDir, "ca.pem"), caCert, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(certDir, "cert.pem"), clientCert, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(certDir, "key.pem"), clientKey, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set environment variables for TLS (the "old" way, pre-context)
+	t.Setenv("DOCKER_HOST", tlsHost)
+	t.Setenv("DOCKER_TLS_VERIFY", "1")
+	t.Setenv("DOCKER_CERT_PATH", certDir)
+
+	// Create Docker client - should use env vars for TLS, not context
+	dockerClient, _, err := docker.NewClient(client.DefaultDockerHost)
+	if err != nil {
+		t.Fatalf("Failed to create Docker client with TLS env vars: %v", err)
+	}
+	defer dockerClient.Close()
+
+	// Verify we can connect to the TLS-enabled mock daemon
+	// This proves that TLS configuration from env vars is working
+	_, err = dockerClient.Ping(ctx, client.PingOptions{})
+	if err != nil {
+		t.Fatalf("Failed to ping TLS-enabled mock daemon (env vars): %v", err)
+	}
+
+	// Verify we're actually talking to our mock daemon
+	nfo, err := dockerClient.Info(ctx, client.InfoOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get info from TLS mock daemon (env vars): %v", err)
+	}
+	if nfo.Info.ID != "mock-daemon" {
+		t.Errorf("unexpected server ID: got %q, want %q", nfo.Info.ID, "mock-daemon")
+	}
+}
