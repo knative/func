@@ -113,6 +113,82 @@ func TestListEnvAdd(t *testing.T) {
 	}
 }
 
+// TestEnvsAddNameWithoutValue ensures that providing --name without --value returns an error
+// rather than silently writing a broken fn.Env{Name: &key, Value: nil} to func.yaml.
+func TestEnvsAddNameWithoutValue(t *testing.T) {
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{}, nil
+	}
+	mock.SaveFn = func(f fn.Function) error {
+		t.Error("Save must not be called when validation fails")
+		return nil
+	}
+
+	cmd := setupConfigEnvCmd(mock, "add", "--name=API_KEY")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --name is provided without --value, got nil")
+	}
+}
+
+func setupConfigLabelsCmd(mock common.FunctionLoaderSaver, args ...string) *cobra.Command {
+	cmd := fnCmd.NewConfigCmd(
+		mock,
+		ci.NewBufferWriter(),
+		common.CurrentBranchStub("", nil),
+		common.WorkDirStub("", nil),
+		fnCmd.NewClient,
+	)
+	cmd.SetArgs(append([]string{"labels"}, args...))
+	return cmd
+}
+
+// TestLabelsAddNameWithoutValue ensures that providing --name without --value returns an error.
+func TestLabelsAddNameWithoutValue(t *testing.T) {
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{}, nil
+	}
+	mock.SaveFn = func(f fn.Function) error {
+		t.Error("Save must not be called when validation fails")
+		return nil
+	}
+
+	cmd := setupConfigLabelsCmd(mock, "add", "--name=env")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --name is provided without --value, got nil")
+	}
+}
+
+// TestLabelsAddValueWithoutName ensures that providing --value without --name returns an error.
+func TestLabelsAddValueWithoutName(t *testing.T) {
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{}, nil
+	}
+	mock.SaveFn = func(f fn.Function) error {
+		t.Error("Save must not be called when validation fails")
+		return nil
+	}
+
+	cmd := setupConfigLabelsCmd(mock, "add", "--value=prod")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --value is provided without --name, got nil")
+	}
+}
+
 func envsEqual(a, b []fn.Env) bool {
 	if len(a) != len(b) {
 		return false

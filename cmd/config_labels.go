@@ -92,6 +92,13 @@ the local machine.
 				return loaderSaver.Save(function)
 			}
 
+			if np != nil {
+				return fmt.Errorf("--value is required when --name is provided")
+			}
+			if vp != nil {
+				return fmt.Errorf("--name is required when --value is provided")
+			}
+
 			return runAddLabelsPrompt(cmd.Context(), function, loaderSaver)
 		},
 	}
