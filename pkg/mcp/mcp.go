@@ -105,6 +105,10 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, configEnvsListTool, s.configEnvsListHandler)
 	mcp.AddTool(i, configEnvsAddTool, s.configEnvsAddHandler)
 	mcp.AddTool(i, configEnvsRemoveTool, s.configEnvsRemoveHandler)
+	mcp.AddTool(i, repositoryListTool, s.repositoryListHandler)
+	mcp.AddTool(i, repositoryAddTool, s.repositoryAddHandler)
+	mcp.AddTool(i, repositoryRenameTool, s.repositoryRenameHandler)
+	mcp.AddTool(i, repositoryRemoveTool, s.repositoryRemoveHandler)
 
 	// Resources
 	// ---------
@@ -138,6 +142,11 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Envs Help", "general help for environment variables", "config", "envs"))
 	i.AddResource(newHelpResource(s, "Envs Add Help", "help for 'config envs add'", "config", "envs", "add"))
 	i.AddResource(newHelpResource(s, "Envs Remove Help", "help for 'config envs remove'", "config", "envs", "remove"))
+
+	i.AddResource(newHelpResource(s, "Repository Help", "general help for repository management", "repository"))
+	i.AddResource(newHelpResource(s, "Repository Add Help", "help for 'repository add'", "repository", "add"))
+	i.AddResource(newHelpResource(s, "Repository Rename Help", "help for 'repository rename'", "repository", "rename"))
+	i.AddResource(newHelpResource(s, "Repository Remove Help", "help for 'repository remove'", "repository", "remove"))
 
 	s.impl = i
 
