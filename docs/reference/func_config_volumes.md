@@ -22,6 +22,12 @@ func config volumes
   -v, --verbose       Print verbose logs ($FUNC_VERBOSE)
 ```
 
+### Options inherited from parent commands
+
+```
+      --json   Output results as JSON ($FUNC_JSON)
+```
+
 ### SEE ALSO
 
 * [func config](func_config.md)	 - Configure a function

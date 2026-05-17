@@ -215,7 +215,7 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	// When --json: emit structured envelope only – no human text on stdout.
 	if isJSONEnabled(cmd) {
 		return writeJSONSuccess(cmd.OutOrStdout(), invokeJSONResult{
-			Response: string(body),
+			Response: body,
 		})
 	}
 
