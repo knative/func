@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/pkg/stdcopy"
@@ -353,12 +354,26 @@ func volumeMounts(root string, volumes []fn.Volume, out io.Writer) []mount.Mount
 //   - ConfigMap → bind mount from <runDir>/configmaps/<name> (created if absent, mode 0750)
 //   - EmptyDir  → tmpfs for both default and Memory mediums (matches ephemeral pod semantics)
 //   - PVC       → named Docker volume keyed by claimName (shared across functions, matches k8s semantics)
+//
+// safeLocalName rejects names that contain path separators or traversal
+// sequences. Secret and ConfigMap names are used as file-path components; an
+// adversarial name such as "../../etc" would otherwise escape the .func tree.
+func safeLocalName(name string) error {
+	if strings.ContainsAny(name, "/\\") || strings.Contains(name, "..") {
+		return fmt.Errorf("name %q must not contain path separators or \"..\"", name)
+	}
+	return nil
+}
+
 func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 	target := *vol.Path
 	// fn.RunDataDir = ".func"; the "run" subdirectory scopes local run state.
 	runDir := filepath.Join(root, fn.RunDataDir, "run")
 
 	if vol.Secret != nil {
+		if err := safeLocalName(*vol.Secret); err != nil {
+			return mount.Mount{}, fmt.Errorf("secret: %w", err)
+		}
 		src := filepath.Join(runDir, "secrets", *vol.Secret)
 		if err := os.MkdirAll(src, 0700); err != nil {
 			return mount.Mount{}, fmt.Errorf("cannot create local secret dir %q: %w", src, err)
@@ -367,6 +382,9 @@ func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 	}
 
 	if vol.ConfigMap != nil {
+		if err := safeLocalName(*vol.ConfigMap); err != nil {
+			return mount.Mount{}, fmt.Errorf("configMap: %w", err)
+		}
 		src := filepath.Join(runDir, "configmaps", *vol.ConfigMap)
 		if err := os.MkdirAll(src, 0750); err != nil {
 			return mount.Mount{}, fmt.Errorf("cannot create local configmap dir %q: %w", src, err)

@@ -148,6 +148,30 @@ func TestToMount_UnrecognizedType(t *testing.T) {
 	}
 }
 
+// TestToMount_Secret_TraversalRejected verifies that a secret name containing
+// path traversal sequences is rejected to prevent escaping the .func tree.
+func TestToMount_Secret_TraversalRejected(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"../evil", "../../etc/passwd", "a/b", `a\b`} {
+		vol := fn.Volume{Secret: ptr(name), Path: ptr("/mnt")}
+		if _, err := toMount(root, vol); err == nil {
+			t.Errorf("expected error for secret name %q, got nil", name)
+		}
+	}
+}
+
+// TestToMount_ConfigMap_TraversalRejected verifies that a configMap name
+// containing path traversal sequences is rejected.
+func TestToMount_ConfigMap_TraversalRejected(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"../evil", "../../etc/passwd", "a/b", `a\b`} {
+		vol := fn.Volume{ConfigMap: ptr(name), Path: ptr("/mnt")}
+		if _, err := toMount(root, vol); err == nil {
+			t.Errorf("expected error for configMap name %q, got nil", name)
+		}
+	}
+}
+
 // TestVolumeMounts_SkipsNilPath verifies that volumes missing a path emit a warning
 // and are skipped without aborting.
 func TestVolumeMounts_SkipsNilPath(t *testing.T) {
