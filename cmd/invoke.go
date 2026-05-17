@@ -212,6 +212,13 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		return err
 	}
 
+	// When --json: emit structured envelope only – no human text on stdout.
+	if isJSONEnabled(cmd) {
+		return writeJSONSuccess(cmd.OutOrStdout(), invokeJSONResult{
+			Response: string(body),
+		})
+	}
+
 	// When Verbose
 	// - Print an explicit "Received response" indicator
 	// - Print metadata (headers for HTTP requests, CloudEvents already include
@@ -221,25 +228,18 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		// stdout could be confusing on a first-time run, viewing a proper echo.
 		// user feedback suggests this actually be placed behind the --verbose
 		// setting:
-		fmt.Println("Function invoked.  Response:")
+		fmt.Fprintln(cmd.ErrOrStderr(), "Function invoked.  Response:")
 
 		if len(metadata) > 0 {
-			fmt.Println("  Metadata:")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  Metadata:")
 		}
 		for k, vv := range metadata {
 			values := strings.Join(vv, ";")
-			fmt.Fprintf(cmd.OutOrStdout(), "    %v: %v\n", k, values)
+			fmt.Fprintf(cmd.ErrOrStderr(), "    %v: %v\n", k, values)
 		}
 		if len(metadata) > 0 {
-			fmt.Println("  Content:")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  Content:")
 		}
-	}
-
-	// When --json: wrap response in envelope
-	if isJSONEnabled(cmd) {
-		return writeJSONSuccess(cmd.OutOrStdout(), invokeJSONResult{
-			Response: string(body),
-		})
 	}
 
 	// Always print the response's default stringification

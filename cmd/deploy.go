@@ -300,12 +300,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if changingNamespace(f) && k8s.IsOpenShift() && k8s.IsOpenShiftInternalRegistry(f.Registry) {
 		f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Namespace
 		if cfg.Verbose {
-			fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Info: Overriding openshift registry to %s\n", f.Registry)
 		}
 	}
 
-	// Informative non-error messages regarding the final deployment request
-	printDeployMessages(cmd.OutOrStdout(), f)
+	// Informative non-error messages: always go to stderr so that --json
+	// output on stdout is not contaminated with human-readable status text.
+	printDeployMessages(cmd.ErrOrStderr(), f)
 
 	// Get options based on the value of the config such as concrete impls
 	// of builders and pushers based on the value of the --builder flag
@@ -390,6 +391,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return wrapDeploymentError(err)
+		}
+		// Capture the deployed URL for --json output.  The URL is not
+		// returned directly by Deploy; a lightweight Describe call fetches it.
+		if isJSONEnabled(cmd) {
+			if inst, descErr := client.Describe(cmd.Context(), "", "", f); descErr == nil && len(inst.Routes) > 0 {
+				deployedURL = inst.Routes[0]
+			}
 		}
 	}
 

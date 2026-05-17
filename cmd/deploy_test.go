@@ -1165,17 +1165,18 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 	))
 	cmd.SetArgs([]string{})
-	stdout := strings.Builder{}
-	cmd.SetOut(&stdout)
+	stderr := strings.Builder{}
+	cmd.SetErr(&stderr)
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
 	expected := "Warning: namespace chosen is 'funcns', but currently active namespace is 'mynamespace'. Continuing with deployment to 'funcns'."
 
-	// Ensure output contained warning if changing namespace
-	if !strings.Contains(stdout.String(), expected) {
-		t.Log("STDOUT:\n" + stdout.String())
+	// Ensure warning appears on stderr (deploy messages always go to stderr
+	// so they don't contaminate stdout when --json is active).
+	if !strings.Contains(stderr.String(), expected) {
+		t.Log("STDERR:\n" + stderr.String())
 		t.Fatalf("Expected warning not found:\n%v", expected)
 	}
 

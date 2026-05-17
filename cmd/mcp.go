@@ -96,6 +96,9 @@ DESCRIPTION
 }
 
 func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory) error {
+	if isJSONEnabled(cmd) {
+		return fmt.Errorf("--json is not supported for 'mcp start': it is a long-running server process with its own stdio protocol")
+	}
 	// Configure write mode
 	writeEnabled := false
 	if val := os.Getenv("FUNC_ENABLE_MCP_WRITE"); val != "" {
