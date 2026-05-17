@@ -432,7 +432,7 @@ func TestGenerateNewService_ResourceSetsPopulated(t *testing.T) {
 	f.Run.Envs.Add("FROM_SECRET", "{{ secret:"+secretName+":key }}")
 	f.Run.Envs.Add("FROM_CM", "{{ configMap:"+configMapName+":key }}")
 
-	tracker := k8s.NewTracker()
+	tracker := k8s.NewReferences()
 
 	_, err := generateNewService(f, nil, false, tracker)
 	if err != nil {
