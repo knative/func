@@ -64,11 +64,6 @@ func WriteJSONError(w io.Writer, err error) error {
 	})
 }
 
-// writeJSONError is the package-internal alias.
-func writeJSONError(w io.Writer, err error) error {
-	return WriteJSONError(w, err)
-}
-
 // errorToJSONError maps a Go error to a structured JSONError by inspecting
 // the known typed errors in the cmd and pkg/functions layers.
 func errorToJSONError(err error) *JSONError {

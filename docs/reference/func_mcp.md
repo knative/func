@@ -54,6 +54,12 @@ EXAMPLES
   -h, --help   help for mcp
 ```
 
+### Options inherited from parent commands
+
+```
+      --json   Output results as JSON ($FUNC_JSON)
+```
+
 ### SEE ALSO
 
 * [func](func.md)	 - func manages Knative Functions
