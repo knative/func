@@ -283,6 +283,160 @@ func errorToJSONError(err error) *JSONError {
 		}
 	}
 
+	// --- TEMPLATE / REPOSITORY errors ---
+
+	if errors.Is(err, fn.ErrTemplateNotFound) {
+		return &JSONError{
+			Category:  "TEMPLATE_ERROR",
+			Code:      "TEMPLATE_NOT_FOUND",
+			Retryable: false,
+			Message:   err.Error(),
+			Hint:      "Run 'func repository list' to see available repositories and templates",
+		}
+	}
+
+	if errors.Is(err, fn.ErrTemplatesNotFound) {
+		return &JSONError{
+			Category:  "TEMPLATE_ERROR",
+			Code:      "TEMPLATES_NOT_FOUND",
+			Retryable: false,
+			Message:   err.Error(),
+			Hint:      "The repository may be missing a 'templates' directory",
+		}
+	}
+
+	if errors.Is(err, fn.ErrTemplateMissingRepository) {
+		return &JSONError{
+			Category:  "TEMPLATE_ERROR",
+			Code:      "TEMPLATE_MISSING_REPOSITORY",
+			Retryable: false,
+			Message:   err.Error(),
+			Hint:      "Specify the repository prefix, e.g. 'myrepo/http'",
+		}
+	}
+
+	if errors.Is(err, fn.ErrRepositoryNotFound) {
+		return &JSONError{
+			Category:  "TEMPLATE_ERROR",
+			Code:      "REPOSITORY_NOT_FOUND",
+			Retryable: false,
+			Message:   err.Error(),
+			Hint:      "Add the repository with 'func repository add'",
+		}
+	}
+
+	if errors.Is(err, fn.ErrRepositoriesNotDefined) {
+		return &JSONError{
+			Category:  "TEMPLATE_ERROR",
+			Code:      "REPOSITORIES_NOT_DEFINED",
+			Retryable: false,
+			Message:   err.Error(),
+			Hint:      "Set FUNC_REPOSITORIES_PATH or add a repository with 'func repository add'",
+		}
+	}
+
+	// --- RUNTIME errors ---
+
+	if errors.Is(err, fn.ErrRuntimeNotFound) {
+		return &JSONError{
+			Category:  "RUNTIME_ERROR",
+			Code:      "RUNTIME_NOT_FOUND",
+			Retryable: false,
+			Message:   err.Error(),
+			Hint:      "Run 'func languages' to see supported runtimes",
+		}
+	}
+
+	if errors.Is(err, fn.ErrRuntimeRequired) {
+		return &JSONError{
+			Category:  "RUNTIME_ERROR",
+			Code:      "RUNTIME_REQUIRED",
+			Retryable: false,
+			Message:   err.Error(),
+			Hint:      "Provide --language or set the runtime in func.yaml",
+		}
+	}
+
+	var runtimeNotRecognized fn.ErrRuntimeNotRecognized
+	if errors.As(err, &runtimeNotRecognized) {
+		return &JSONError{
+			Category:  "RUNTIME_ERROR",
+			Code:      "RUNTIME_NOT_RECOGNIZED",
+			Retryable: false,
+			Message:   runtimeNotRecognized.Error(),
+			Hint:      "Run 'func languages' to see supported runtimes",
+			Context:   map[string]string{"runtime": runtimeNotRecognized.Runtime},
+		}
+	}
+
+	var runnerNotImplemented fn.ErrRunnerNotImplemented
+	if errors.As(err, &runnerNotImplemented) {
+		return &JSONError{
+			Category:  "RUNTIME_ERROR",
+			Code:      "RUNNER_NOT_IMPLEMENTED",
+			Retryable: false,
+			Message:   runnerNotImplemented.Error(),
+			Hint:      "Use 'func deploy' to run containerized functions",
+			Context:   map[string]string{"runtime": runnerNotImplemented.Runtime},
+		}
+	}
+
+	var runTimeout fn.ErrRunTimeout
+	if errors.As(err, &runTimeout) {
+		return &JSONError{
+			Category:  "RUNTIME_ERROR",
+			Code:      "RUN_TIMEOUT",
+			Retryable: true,
+			Message:   runTimeout.Error(),
+			Hint:      "The function did not become ready in time; check container logs",
+		}
+	}
+
+	// --- FUNCTION state errors ---
+
+	if errors.Is(err, fn.ErrFunctionNotFound) {
+		return &JSONError{
+			Category:  "NOT_FOUND",
+			Code:      "FUNCTION_NOT_FOUND",
+			Retryable: false,
+			Message:   err.Error(),
+		}
+	}
+
+	if errors.Is(err, fn.ErrNotRunning) {
+		return &JSONError{
+			Category:  "NOT_FOUND",
+			Code:      "FUNCTION_NOT_RUNNING",
+			Retryable: false,
+			Message:   err.Error(),
+			Hint:      "Start the function with 'func run' or 'func deploy'",
+		}
+	}
+
+	// --- PORT / RUN errors (pkg/functions layer) ---
+
+	var portUnavailableCore *fn.ErrPortUnavailableError
+	if errors.As(err, &portUnavailableCore) {
+		if portUnavailableCore.IsPermissionDenied() {
+			return &JSONError{
+				Category:  "VALIDATION_ERROR",
+				Code:      "PORT_PERMISSION_DENIED",
+				Retryable: false,
+				Message:   portUnavailableCore.Error(),
+				Hint:      "Use a non-privileged port (>1024) or run with elevated permissions",
+				Context:   map[string]string{"port": portUnavailableCore.Port},
+			}
+		}
+		return &JSONError{
+			Category:  "VALIDATION_ERROR",
+			Code:      "PORT_UNAVAILABLE",
+			Retryable: true,
+			Message:   portUnavailableCore.Error(),
+			Hint:      "Try a different port with --address",
+			Context:   map[string]string{"port": portUnavailableCore.Port},
+		}
+	}
+
 	// --- BUILD errors ---
 
 	if errors.Is(err, docker.ErrNoDocker) {
