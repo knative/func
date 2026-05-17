@@ -110,11 +110,18 @@ func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory) err
 	rootCmd := cmd.Root()
 	cmdPrefix := rootCmd.Use
 
-	// Instantiate
-	client, done := newClient(ClientConfig{},
-		fn.WithMCPServer(mcp.New(
-			mcp.WithPrefix(cmdPrefix),
-			mcp.WithReadonly(!writeEnabled))))
+	// Instantiate. The MCP server needs a *fn.Client for tool handlers that
+	// call pkg/functions directly (see issue #3771). We capture the client
+	// via a closure so the MCP server can look it up lazily after the client
+	// is constructed below.
+	var client *fn.Client
+	mcpServer := mcp.New(
+		mcp.WithPrefix(cmdPrefix),
+		mcp.WithReadonly(!writeEnabled),
+		mcp.WithClientProvider(func() *fn.Client { return client }),
+	)
+	var done func()
+	client, done = newClient(ClientConfig{}, fn.WithMCPServer(mcpServer))
 	defer done()
 
 	// Start
