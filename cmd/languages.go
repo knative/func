@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/ory/viper"
@@ -86,16 +85,10 @@ func runLanguages(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 
 	if cfg.JSON {
-		var s []byte
-		s, err = json.MarshalIndent(runtimes, "", "  ")
-		if err != nil {
-			return
-		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(s))
-	} else {
-		for _, runtime := range runtimes {
-			fmt.Fprintln(cmd.OutOrStdout(), runtime)
-		}
+		return writeJSONSuccess(cmd.OutOrStdout(), runtimes)
+	}
+	for _, runtime := range runtimes {
+		fmt.Fprintln(cmd.OutOrStdout(), runtime)
 	}
 	return
 }

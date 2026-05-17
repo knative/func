@@ -63,6 +63,9 @@ specified with --path. Abstracts away the underlying service name and pod detail
 }
 
 func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
+	if isJSONEnabled(cmd) {
+		return fmt.Errorf("--json is not supported for streaming commands such as 'logs'")
+	}
 	cfg, err := newLogsConfig(cmd)
 	if err != nil {
 		return err

@@ -95,6 +95,9 @@ func runVersion(cmd *cobra.Command, v Version) error {
 	}
 	v.MiddlewareVersions = latestMW
 
+	if isJSONEnabled(cmd) {
+		return writeJSONSuccess(cmd.OutOrStdout(), v)
+	}
 	return write(cmd.OutOrStdout(), v, output)
 }
 

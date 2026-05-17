@@ -202,7 +202,26 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	}
 	// Stamp is a performance optimization: treat the function as being built
 	// (cached) unless the fs changes.
-	return f.Stamp()
+	if err = f.Stamp(); err != nil {
+		return
+	}
+	if isJSONEnabled(cmd) {
+		image := f.Build.Image
+		if image == "" {
+			image = f.Image
+		}
+		err = writeJSONSuccess(cmd.OutOrStdout(), buildJSONResult{
+			Name:  f.Name,
+			Image: image,
+		})
+	}
+	return
+}
+
+// buildJSONResult is the data payload emitted on success when --json is set.
+type buildJSONResult struct {
+	Name  string `json:"name"`
+	Image string `json:"image,omitempty"`
 }
 
 // warnRegistryInsecureChange checks if the registry has changed but

@@ -297,7 +297,7 @@ func runRepository(cmd *cobra.Command, args []string, newClient ClientFactory) (
 }
 
 // List
-func runRepositoryList(_ *cobra.Command, newClient ClientFactory) (err error) {
+func runRepositoryList(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	cfg, err := newRepositoryConfig()
 	if err != nil {
 		return
@@ -310,6 +310,18 @@ func runRepositoryList(_ *cobra.Command, newClient ClientFactory) (err error) {
 	rr, err := client.Repositories().All()
 	if err != nil {
 		return
+	}
+
+	if isJSONEnabled(cmd) {
+		type repoItem struct {
+			Name string `json:"name"`
+			URL  string `json:"url,omitempty"`
+		}
+		items := make([]repoItem, len(rr))
+		for i, r := range rr {
+			items[i] = repoItem{Name: r.Name, URL: r.URL()}
+		}
+		return writeJSONSuccess(cmd.OutOrStdout(), items)
 	}
 
 	// Print repository names, or name plus url if verbose
@@ -325,7 +337,7 @@ func runRepositoryList(_ *cobra.Command, newClient ClientFactory) (err error) {
 }
 
 // Add
-func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) (err error) {
+func runRepositoryAdd(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	// Supports both composable, discrete CLI commands or prompt-based "config"
 	// by setting the argument values (name and ulr) to value of positional args,
 	// but only requires them if not prompting.  If prompting, those values
@@ -415,6 +427,12 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 	if n, err = client.Repositories().Add(params.Name, params.URL); err != nil {
 		return
 	}
+	if isJSONEnabled(cmd) {
+		return writeJSONSuccess(cmd.OutOrStdout(), struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		}{Name: n, URL: params.URL})
+	}
 	if cfg.Verbose {
 		fmt.Fprintf(os.Stdout, "Repository added: %s\n", n)
 	}
@@ -422,7 +440,7 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 }
 
 // Rename
-func runRepositoryRename(_ *cobra.Command, args []string, newClient ClientFactory) (err error) {
+func runRepositoryRename(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	cfg, err := newRepositoryConfig()
 	if err != nil {
 		return
@@ -485,6 +503,12 @@ func runRepositoryRename(_ *cobra.Command, args []string, newClient ClientFactor
 	if err = client.Repositories().Rename(params.Old, params.New); err != nil {
 		return
 	}
+	if isJSONEnabled(cmd) {
+		return writeJSONSuccess(cmd.OutOrStdout(), struct {
+			Old string `json:"old"`
+			New string `json:"new"`
+		}{Old: params.Old, New: params.New})
+	}
 	if cfg.Verbose {
 		fmt.Fprintln(os.Stdout, "Repository renamed")
 	}
@@ -492,7 +516,7 @@ func runRepositoryRename(_ *cobra.Command, args []string, newClient ClientFactor
 }
 
 // Remove
-func runRepositoryRemove(_ *cobra.Command, args []string, newClient ClientFactory) (err error) {
+func runRepositoryRemove(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	cfg, err := newRepositoryConfig()
 	if err != nil {
 		return
@@ -577,6 +601,11 @@ func runRepositoryRemove(_ *cobra.Command, args []string, newClient ClientFactor
 	// Remove the repository
 	if err = client.Repositories().Remove(params.Name); err != nil {
 		return
+	}
+	if isJSONEnabled(cmd) {
+		return writeJSONSuccess(cmd.OutOrStdout(), struct {
+			Name string `json:"name"`
+		}{Name: params.Name})
 	}
 	if cfg.Verbose {
 		fmt.Fprintln(os.Stdout, "Repository removed")

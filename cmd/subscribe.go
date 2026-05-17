@@ -62,7 +62,24 @@ func runSubscribe(cmd *cobra.Command) (err error) {
 	f.Deploy.Subscriptions = updateOrAddSubscription(f.Deploy.Subscriptions, cfg)
 
 	// pump it
-	return f.Write()
+	if err = f.Write(); err != nil {
+		return
+	}
+	if isJSONEnabled(cmd) {
+		err = writeJSONSuccess(cmd.OutOrStdout(), subscribeJSONResult{
+			Name:    f.Name,
+			Source:  cfg.Source,
+			Filters: extractFilterMap(cfg.Filter),
+		})
+	}
+	return
+}
+
+// subscribeJSONResult is the data payload emitted on success when --json is set.
+type subscribeJSONResult struct {
+	Name    string            `json:"name"`
+	Source  string            `json:"source"`
+	Filters map[string]string `json:"filters,omitempty"`
 }
 
 func extractFilterMap(filters []string) map[string]string {

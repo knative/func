@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -107,15 +106,10 @@ func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 			return err
 		}
 		if cfg.JSON {
-			s, err := json.MarshalIndent(templates, "", "  ")
-			if err != nil {
-				return err
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), string(s))
-		} else {
-			for _, template := range templates {
-				fmt.Fprintln(cmd.OutOrStdout(), template)
-			}
+			return writeJSONSuccess(cmd.OutOrStdout(), templates)
+		}
+		for _, template := range templates {
+			fmt.Fprintln(cmd.OutOrStdout(), template)
 		}
 		return nil
 	} else if len(args) > 1 {
@@ -129,7 +123,7 @@ func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 		return
 	}
 	if cfg.JSON {
-		// Gather into a single data structure for printing as json
+		// Gather into a single data structure for the envelope
 		templateMap := make(map[string][]string)
 		for _, runtime := range runtimes {
 			templates, err := client.Templates().List(runtime)
@@ -138,11 +132,7 @@ func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 			}
 			templateMap[runtime] = templates
 		}
-		s, err := json.MarshalIndent(templateMap, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(s))
+		return writeJSONSuccess(cmd.OutOrStdout(), templateMap)
 	} else {
 		// print using a formatted writer (sorted)
 		builder := strings.Builder{}

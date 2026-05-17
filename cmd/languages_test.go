@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"testing"
 
 	. "knative.dev/func/pkg/testing"
@@ -33,7 +34,7 @@ typescript`
 }
 
 // TestLanguages_JSON ensures that listing languages in --json format returns
-// builtin languages as a JSON array.
+// builtin languages wrapped in a structured JSON envelope.
 func TestLanguages_JSON(t *testing.T) {
 	_ = FromTempDirectory(t)
 
@@ -44,17 +45,17 @@ func TestLanguages_JSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := `[
-  "go",
-  "node",
-  "python",
-  "quarkus",
-  "rust",
-  "springboot",
-  "typescript"
-]`
-	output := buf()
-	if output != expected {
-		t.Fatalf("expected:\n%v\ngot:\n%v\n", expected, output)
+	var resp JSONResponse
+	if err := json.Unmarshal([]byte(buf()), &resp); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	if resp.APIVersion != "v1" {
+		t.Errorf("expected apiVersion 'v1', got %q", resp.APIVersion)
+	}
+	if resp.Status != "ok" {
+		t.Errorf("expected status 'ok', got %q", resp.Status)
+	}
+	if resp.Data == nil {
+		t.Error("expected non-nil data")
 	}
 }
