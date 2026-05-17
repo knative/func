@@ -87,7 +87,6 @@ func NewReferences() *References {
 	}
 }
 
-
 func onClusterFix(f fn.Function) fn.Function {
 	// This only exists because of a bootstrapping problem with On-Cluster
 	// builds:  It appears that, when sending a function to be built on-cluster
