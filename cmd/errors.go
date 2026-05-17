@@ -95,6 +95,46 @@ func wrapDeleteError(err error) error {
 	return err
 }
 
+// wrapDescribeError wraps errors from describe command with CLI-specific guidance
+func wrapDescribeError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var cliNotInit *ErrNotInitialized
+	if errors.As(err, &cliNotInit) {
+		return err
+	}
+
+	var coreNotInit *fn.ErrNotInitialized
+	if errors.As(err, &coreNotInit) {
+		return NewErrNotInitialized(err, "describe")
+	}
+
+	if errors.Is(err, fn.ErrClusterNotAccessible) {
+		return NewErrDescribeClusterConnection(err)
+	}
+
+	return err
+}
+
+func wrapInvokeError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var cliNotInit *ErrNotInitialized
+	if errors.As(err, &cliNotInit) {
+		return NewErrNotInitialized(err, "invoke")
+	}
+
+	if errors.Is(err, fn.ErrNotRunning) {
+		return NewErrInvokeNotRunning(err)
+	}
+
+	return err
+}
+
 // ---------------------------- TYPES AND METHODS --------------------------- //
 
 type ErrPlatformNotSupported struct {
@@ -400,17 +440,32 @@ You need to be in a function directory (or use --path).
 
 Try this:
 	func create --language go myfunction    Create a new function
-	cd myfunction                          Go into the function directory
+	cd myfunction                           Go into the function directory
 	func delete                            Delete the deployed function
 
 Or if you have an existing function:
-	cd path/to/your/function              Go to your function directory
-	func delete                            Delete the deployed function
+	cd path/to/your/function                Go to your function directory
+	func delete                             Delete the deployed function
 
 Or use --path to delete from anywhere:
 	func delete --path /path/to/function
 
 For more options, run 'func delete --help'`, e.Err)
+
+	case "invoke":
+		return fmt.Sprintf(`%v
+No function found in provided path.
+You need to be inside a function directory to invoke it (or use --path).
+
+Try this: 
+	func create --language go myfunction    Create a new function 
+	cd myfunction                           Go into the function directory
+	func invoke                            Invoke the function
+
+Of if you have an existing function:
+	cd path/to/you/function                 Go to your function directory
+	func invoke                            Invoke the function
+For more options, run 'func invoke --help'`, e.Err)
 
 	default:
 		return e.Err.Error()
@@ -733,5 +788,69 @@ Use one or the other:
 }
 
 func (e *ErrListConflictingNamespaceFlags) Unwrap() error {
+	return e.Err
+}
+
+// -------------------------------------------------------------------------- //
+
+type ErrDescribeClusterConnection struct {
+	Err error
+}
+
+func NewErrDescribeClusterConnection(err error) error {
+	return &ErrDescribeClusterConnection{Err: err}
+}
+
+func (e *ErrDescribeClusterConnection) Error() string {
+	return fmt.Sprintf(`%v
+Cannot connect to Knative cluster
+
+The 'func describe' command shows details about a deployed function.
+
+To use this command, you need:
+	1. A running Kubernetes cluster
+	2. Knative Serving installed on the cluster
+	3. kubectl configured to access your cluster
+
+Troubleshooting:
+	kubectl cluster-info                       Verify cluster is accessible
+	kubectl config current-context             Verify cluster connection
+	kubectl get ksvc --all-namespaces          List deployed Knative services
+
+For more options, run 'func describe --help'`, e.Err)
+}
+
+func (e *ErrDescribeClusterConnection) Unwrap() error {
+	return e.Err
+}
+
+// -------------------------------------------------------------------------- //
+
+type ErrInvokeNotRunning struct {
+	Err error
+}
+
+func NewErrInvokeNotRunning(err error) error {
+	return &ErrInvokeNotRunning{Err: err}
+}
+
+func (e *ErrInvokeNotRunning) Error() string {
+	return fmt.Sprintf(`%v
+No running function instance found to invoke.
+
+The 'func invoke' command sends test data to a running function.
+
+Try this:
+	func run       Start the function locally
+	func invoke    Then invoke it
+
+Or deploy and invoke remote:
+	func deploy --registry <registry>       Deploy to cluster
+	func invoke --target=remote             Invoke the remote instance
+
+For more options, run 'func invoke --help'`, e.Err)
+}
+
+func (e *ErrInvokeNotRunning) Unwrap() error {
 	return e.Err
 }
