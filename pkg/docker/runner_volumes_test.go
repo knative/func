@@ -154,8 +154,8 @@ func TestVolumeMounts_SkipsNilPath(t *testing.T) {
 	root := t.TempDir()
 	var out bytes.Buffer
 	vols := []fn.Volume{
-		{Secret: ptr("s"), Path: nil},          // no path — should be skipped
-		{Secret: ptr("s2"), Path: ptr("/ok")},  // valid
+		{Secret: ptr("s"), Path: nil},         // no path — should be skipped
+		{Secret: ptr("s2"), Path: ptr("/ok")}, // valid
 	}
 	mounts := volumeMounts(root, vols, &out)
 
