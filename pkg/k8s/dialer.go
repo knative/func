@@ -81,7 +81,7 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 		stderrBuff := bytes.NewBuffer(nil)
 		ctrStderr := io.MultiWriter(stderrBuff, detectConnSuccess(connectSuccess))
 
-		err := c.exec(context.TODO(), addr, ctrStdin, ctrStdout, ctrStderr)
+		err := c.exec(ctx, addr, ctrStdin, ctrStdout, ctrStderr)
 		if err != nil {
 			stderrStr := stderrBuff.String()
 			socatErr := tryParseSocatError(network, addr, stderrStr)
