@@ -120,7 +120,7 @@ func Test_generateDeployment_ImagePullSecret(t *testing.T) {
 				ImagePullSecret: "my-registry-secret",
 			},
 		}
-		tracker := NewTracker()
+		tracker := NewReferences()
 		deployment, err := d.generateDeployment(f, "default", false, tracker)
 		if err != nil {
 			t.Fatal(err)
@@ -138,7 +138,7 @@ func Test_generateDeployment_ImagePullSecret(t *testing.T) {
 				Image: "registry.example.com/test:latest",
 			},
 		}
-		tracker := NewTracker()
+		tracker := NewReferences()
 		deployment, err := d.generateDeployment(f, "default", false, tracker)
 		if err != nil {
 			t.Fatal(err)

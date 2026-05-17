@@ -78,82 +78,15 @@ type References struct {
 	PVCs       sets.Set[string]
 }
 
-// Tracker accumulates References across a chain of processing calls.
-// Using a receiver ensures all processing steps write into the same sets,
-// making it structurally impossible for any caller to silently bypass
-// validation by threading a disconnected set through the call chain.
-type Tracker struct {
-	References
-}
-
-// NewTracker returns a Tracker with all sets initialized and ready for use.
-func NewTracker() *Tracker {
-	return &Tracker{
-		References: References{
-			Secrets:    sets.New[string](),
-			ConfigMaps: sets.New[string](),
-			PVCs:       sets.New[string](),
-		},
+// NewReferences returns a References with all sets initialized and ready for use.
+func NewReferences() *References {
+	return &References{
+		Secrets:    sets.New[string](),
+		ConfigMaps: sets.New[string](),
+		PVCs:       sets.New[string](),
 	}
 }
 
-// ensureInit initializes any nil sets in the embedded References so that
-// methods on a zero-value or partially-constructed Tracker never panic on a
-// nil-map Insert.
-func (t *Tracker) ensureInit() {
-	if t.Secrets == nil {
-		t.Secrets = sets.New[string]()
-	}
-	if t.ConfigMaps == nil {
-		t.ConfigMaps = sets.New[string]()
-	}
-	if t.PVCs == nil {
-		t.PVCs = sets.New[string]()
-	}
-}
-
-// ProcessEnvs is a package-level wrapper kept for backwards compatibility.
-//
-// Deprecated: Create a Tracker via NewTracker() and call its ProcessEnvs
-// method instead. The out-parameter sets are populated from the tracker's
-// accumulated references after the call.
-func ProcessEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
-	t := NewTracker()
-	vars, from, err := t.ProcessEnvs(envs)
-	if err != nil {
-		return nil, nil, err
-	}
-	if referencedSecrets != nil {
-		referencedSecrets.Insert(t.Secrets.UnsortedList()...)
-	}
-	if referencedConfigMaps != nil {
-		referencedConfigMaps.Insert(t.ConfigMaps.UnsortedList()...)
-	}
-	return vars, from, nil
-}
-
-// ProcessVolumes is a package-level wrapper kept for backwards compatibility.
-//
-// Deprecated: Create a Tracker via NewTracker() and call its ProcessVolumes
-// method instead. The out-parameter sets are populated from the tracker's
-// accumulated references after the call.
-func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string]) ([]corev1.Volume, []corev1.VolumeMount, error) {
-	t := NewTracker()
-	vols, mounts, err := t.ProcessVolumes(volumes)
-	if err != nil {
-		return nil, nil, err
-	}
-	if referencedSecrets != nil {
-		referencedSecrets.Insert(t.Secrets.UnsortedList()...)
-	}
-	if referencedConfigMaps != nil {
-		referencedConfigMaps.Insert(t.ConfigMaps.UnsortedList()...)
-	}
-	if referencedPVCs != nil {
-		referencedPVCs.Insert(t.PVCs.UnsortedList()...)
-	}
-	return vols, mounts, nil
-}
 
 func onClusterFix(f fn.Function) fn.Function {
 	// This only exists because of a bootstrapping problem with On-Cluster
@@ -233,14 +166,14 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	var status fn.Status
 	if err == nil {
 		// Update the existing function
-		tracker := NewTracker()
+		tracker := NewReferences()
 
 		deployment, err := d.generateDeployment(f, namespace, daprInstalled, tracker)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
 		}
 
-		if err = CheckResourcesArePresent(ctx, namespace, tracker.References, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
+		if err = CheckResourcesArePresent(ctx, namespace, *tracker, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
@@ -280,14 +213,14 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to check for existing deployment: %w", err)
 		}
 
-		tracker := NewTracker()
+		tracker := NewReferences()
 
 		deployment, err := d.generateDeployment(f, namespace, daprInstalled, tracker)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
 		}
 
-		if err = CheckResourcesArePresent(ctx, namespace, tracker.References, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
+		if err = CheckResourcesArePresent(ctx, namespace, *tracker, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
@@ -461,7 +394,7 @@ func deleteStaleTriggers(ctx context.Context, eventingClient clienteventingv1.Kn
 	return nil
 }
 
-func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInstalled bool, tracker *Tracker) (*appsv1.Deployment, error) {
+func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInstalled bool, tracker *References) (*appsv1.Deployment, error) {
 	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
 	if err != nil {
 		return nil, err
@@ -693,9 +626,7 @@ func SetSecurityContext(container *corev1.Container) {
 //   - name: EXAMPLE4
 //     value: {{ configMap:configMapName:key }}  # ENV from a key in ConfigMap
 //   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
-func (t *Tracker) ProcessEnvs(envs []fn.Env) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
-	t.ensureInit()
-
+func (t *References) ProcessEnvs(envs []fn.Env) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 	envs = withOpenAddress(envs) // prepends ADDRESS=0.0.0.0 if not extant
 
 	envVars := []corev1.EnvVar{{Name: "BUILT", Value: time.Now().Format("20060102T150405")}}
@@ -783,7 +714,7 @@ func withOpenAddress(ee []fn.Env) []fn.Env {
 	return ee
 }
 
-func (t *Tracker) createEnvFromSource(value string) (*corev1.EnvFromSource, error) {
+func (t *References) createEnvFromSource(value string) (*corev1.EnvFromSource, error) {
 	slices := strings.Split(strings.Trim(value, "{} "), ":")
 	if len(slices) != 2 {
 		return nil, fmt.Errorf("env requires a value in form \"resourceType:name\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
@@ -827,7 +758,7 @@ func (t *Tracker) createEnvFromSource(value string) (*corev1.EnvFromSource, erro
 	return &envVarSource, nil
 }
 
-func (t *Tracker) createEnvVarSource(slices []string) (*corev1.EnvVarSource, error) {
+func (t *References) createEnvVarSource(slices []string) (*corev1.EnvVarSource, error) {
 	if len(slices) != 3 {
 		return nil, fmt.Errorf("env requires a value in form \"resourceType:name:key\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
 	}
@@ -911,8 +842,7 @@ func processLocalEnvValue(val string) (string, error) {
 //     path: /etc/secret-volume
 //   - emptyDir: {}                                         # mount EmptyDir as Volume
 //     path: /etc/configMap-volume
-func (t *Tracker) ProcessVolumes(volumes []fn.Volume) ([]corev1.Volume, []corev1.VolumeMount, error) {
-	t.ensureInit()
+func (t *References) ProcessVolumes(volumes []fn.Volume) ([]corev1.Volume, []corev1.VolumeMount, error) {
 	createdVolumes := sets.NewString()
 	usedPaths := sets.NewString()
 

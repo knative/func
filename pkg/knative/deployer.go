@@ -206,7 +206,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		}
 		if errors.IsNotFound(err) {
 
-			tracker := k8s.NewTracker()
+			tracker := k8s.NewReferences()
 
 			service, err := generateNewService(f, d.decorator, daprInstalled, tracker)
 			if err != nil {
@@ -214,7 +214,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 				return fn.DeploymentResult{}, err
 			}
 
-			err = k8s.CheckResourcesArePresent(ctx, namespace, tracker.References, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
+			err = k8s.CheckResourcesArePresent(ctx, namespace, *tracker, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 			if err != nil {
 				err = fmt.Errorf("knative deployer referenced resource validation failed: %v", err)
 				return fn.DeploymentResult{}, err
@@ -302,7 +302,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		}
 	} else {
 		// Update the existing Service
-		tracker := k8s.NewTracker()
+		tracker := k8s.NewReferences()
 
 		newEnv, newEnvFrom, err := tracker.ProcessEnvs(f.Run.Envs)
 		if err != nil {
@@ -314,7 +314,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			return fn.DeploymentResult{}, err
 		}
 
-		err = k8s.CheckResourcesArePresent(ctx, namespace, tracker.References, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
+		err = k8s.CheckResourcesArePresent(ctx, namespace, *tracker, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 		if err != nil {
 			err = fmt.Errorf("knative deployer referenced resource validation failed: %v", err)
 			return fn.DeploymentResult{}, err
@@ -408,7 +408,7 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 	return nil
 }
 
-func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprInstalled bool, tracker *k8s.Tracker) (*servingv1.Service, error) {
+func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprInstalled bool, tracker *k8s.References) (*servingv1.Service, error) {
 	container := corev1.Container{
 		Image: f.Deploy.Image,
 	}
