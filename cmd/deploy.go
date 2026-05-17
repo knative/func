@@ -318,12 +318,11 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Deploy
 	if cfg.Remote {
-		// Write func.yaml before the pipeline uploads sources to the PVC,
-		// so that the on-cluster deploy step sees the latest config
-		// (e.g. --image-pull-secret, --service-account, --deployer).
-		if err = f.Write(); err != nil {
-			return
-		}
+		// NOTE: func.yaml is intentionally NOT written here. The remote
+		// pipeline's source upload injects the in-memory func.yaml (with
+		// any CLI overrides) into the tar stream, so the on-cluster deploy
+		// step sees the latest config without dirtying the working tree
+		// before a successful deploy (issue #3679).
 		var url string
 		// Invoke a remote build/push/deploy pipeline
 		// Returned is the function with fields like Registry, f.Deploy.Image &
