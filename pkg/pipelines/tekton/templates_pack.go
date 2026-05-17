@@ -44,6 +44,18 @@ spec:
       name: commit
       default: ''
       type: string
+    - description: Image pull secret name forwarded to the in-cluster deploy step
+      name: imagePullSecret
+      default: ''
+      type: string
+    - description: Service account name forwarded to the in-cluster deploy step
+      name: serviceAccount
+      default: ''
+      type: string
+    - description: Deployer type forwarded to the in-cluster deploy step (knative, raw, keda)
+      name: deployer
+      default: ''
+      type: string
   tasks:
     - name: build
       params:
@@ -64,6 +76,12 @@ spec:
             - '$(params.buildEnvs[*])'
         - name: COMMIT
           value: $(params.commit)
+        - name: IMAGE_PULL_SECRET
+          value: $(params.imagePullSecret)
+        - name: SERVICE_ACCOUNT
+          value: $(params.serviceAccount)
+        - name: DEPLOYER
+          value: $(params.deployer)
         {{- if eq .TlsVerify "false"}}
         - name: INSECURE_REGISTRIES
           value: $(params.registry)
@@ -123,6 +141,12 @@ spec:
         {{end}}
     - name: commit
       value: "{{.Commit}}"
+    - name: imagePullSecret
+      value: "{{.ImagePullSecret}}"
+    - name: serviceAccount
+      value: "{{.ServiceAccountName}}"
+    - name: deployer
+      value: "{{.Deployer}}"
   pipelineRef:
    name: {{.PipelineName}}
   podTemplate:
