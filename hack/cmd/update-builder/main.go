@@ -512,7 +512,7 @@ func addRustBuildpack(config *builder.Config) {
 				Version: "0.65.0",
 			},
 			ImageOrURI: dist.ImageOrURI{
-				BuildpackURI: dist.BuildpackURI{URI: "docker://docker.io/paketocommunity/rust:0.65.0"},
+				BuildpackURI: dist.BuildpackURI{URI: "docker://ghcr.io/paketocommunity/rust:0.65.0"},
 			},
 		},
 	}
@@ -553,7 +553,7 @@ func updateJavaBuildpacks(ctx context.Context, builderConfig *builder.Config, ar
 				return fmt.Errorf("cannot build %q buildpack: %w", bp, err)
 			}
 			for i := range builderConfig.Buildpacks {
-				if strings.HasPrefix(builderConfig.Buildpacks[i].URI, "docker://docker.io/paketobuildpacks/"+bp+":") {
+				if strings.HasPrefix(builderConfig.Buildpacks[i].URI, "docker://ghcr.io/paketobuildpacks/"+bp+":") {
 					builderConfig.Buildpacks[i].URI = "docker://ghcr.io/knative/buildpacks/" + bp + ":" + entry.Group[0].Version
 				}
 			}
@@ -578,7 +578,7 @@ func addQuarkusBuildpack(packageDesc *buildpackage.Config, bpDesc *dist.Buildpac
 
 	packageDesc.Dependencies = append(packageDesc.Dependencies, dist.ImageOrURI{
 		BuildpackURI: dist.BuildpackURI{
-			URI: "docker://index.docker.io/paketobuildpacks/quarkus:" + latestQuarkusVersion,
+			URI: "docker://ghcr.io/paketobuildpacks/quarkus:" + latestQuarkusVersion,
 		},
 	})
 	quarkusBP := dist.ModuleRef{
