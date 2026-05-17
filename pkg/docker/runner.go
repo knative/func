@@ -330,12 +330,12 @@ func volumeMounts(root string, volumes []fn.Volume, out io.Writer) []mount.Mount
 	var mounts []mount.Mount
 	for _, vol := range volumes {
 		if vol.Path == nil {
-			fmt.Fprintf(out, "warning: skipping volume %v: missing path\n", vol)
+			fmt.Fprintf(out, "warning: skipping volume %s: missing path\n", vol.String())
 			continue
 		}
 		m, err := toMount(root, vol)
 		if err != nil {
-			fmt.Fprintf(out, "warning: skipping volume %v: %v\n", vol, err)
+			fmt.Fprintf(out, "warning: skipping volume %s: %v\n", vol.String(), err)
 			continue
 		}
 		mounts = append(mounts, m)
@@ -345,16 +345,21 @@ func volumeMounts(root string, volumes []fn.Volume, out io.Writer) []mount.Mount
 
 // toMount maps a single Volume spec to a Docker mount.Mount.
 //
+// runDir is <root>/.func/run (fn.RunDataDir = ".func", the extra "run" segment
+// scopes local state for the run subcommand away from build artifacts).
+//
 // Mapping rules:
-//   - Secret       → bind mount from .func/run/secrets/<name>  (created if absent)
-//   - ConfigMap    → bind mount from .func/run/configmaps/<name> (created if absent)
-//   - EmptyDir     → tmpfs (medium=Memory) or anonymous Docker volume (default medium)
-//   - PVC          → named Docker volume keyed by claimName
+//   - Secret    → bind mount from <runDir>/secrets/<name>   (created if absent, mode 0700)
+//   - ConfigMap → bind mount from <runDir>/configmaps/<name> (created if absent, mode 0750)
+//   - EmptyDir  → tmpfs for both default and Memory mediums (matches ephemeral pod semantics)
+//   - PVC       → named Docker volume keyed by claimName (shared across functions, matches k8s semantics)
 func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 	target := *vol.Path
+	// fn.RunDataDir = ".func"; the "run" subdirectory scopes local run state.
+	runDir := filepath.Join(root, fn.RunDataDir, "run")
 
 	if vol.Secret != nil {
-		src := filepath.Join(root, fn.RunDataDir, "run", "secrets", *vol.Secret)
+		src := filepath.Join(runDir, "secrets", *vol.Secret)
 		if err := os.MkdirAll(src, 0700); err != nil {
 			return mount.Mount{}, fmt.Errorf("cannot create local secret dir %q: %w", src, err)
 		}
@@ -362,7 +367,7 @@ func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 	}
 
 	if vol.ConfigMap != nil {
-		src := filepath.Join(root, fn.RunDataDir, "run", "configmaps", *vol.ConfigMap)
+		src := filepath.Join(runDir, "configmaps", *vol.ConfigMap)
 		if err := os.MkdirAll(src, 0750); err != nil {
 			return mount.Mount{}, fmt.Errorf("cannot create local configmap dir %q: %w", src, err)
 		}
@@ -370,24 +375,20 @@ func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 	}
 
 	if vol.EmptyDir != nil {
-		if vol.EmptyDir.Medium == fn.StorageMediumMemory {
-			return mount.Mount{Type: mount.TypeTmpfs, Target: target}, nil
-		}
-		// Default medium: anonymous Docker volume; no local directory needed.
-		return mount.Mount{Type: mount.TypeVolume, Target: target}, nil
+		// Both mediums map to tmpfs locally: EmptyDir is ephemeral (pod-lifetime)
+		// and anonymous Docker volumes persist across runs, leaking storage.
+		return mount.Mount{Type: mount.TypeTmpfs, Target: target}, nil
 	}
 
 	if vol.PersistentVolumeClaim != nil {
 		if vol.PersistentVolumeClaim.ClaimName == nil {
 			return mount.Mount{}, fmt.Errorf("persistentVolumeClaim missing claimName")
 		}
-		src := filepath.Join(root, fn.RunDataDir, "run", "pvcs", *vol.PersistentVolumeClaim.ClaimName)
-		if err := os.MkdirAll(src, 0750); err != nil {
-			return mount.Mount{}, fmt.Errorf("cannot create local pvc dir %q: %w", src, err)
-		}
+		// Named Docker volume keyed by claimName: multiple functions referencing
+		// the same claim share the same local volume, matching Kubernetes semantics.
 		return mount.Mount{
-			Type:     mount.TypeBind,
-			Source:   src,
+			Type:     mount.TypeVolume,
+			Source:   *vol.PersistentVolumeClaim.ClaimName,
 			Target:   target,
 			ReadOnly: vol.PersistentVolumeClaim.ReadOnly,
 		}, nil
