@@ -457,8 +457,8 @@ For more options, run 'func delete --help'`, e.Err)
 No function found in provided path.
 You need to be inside a function directory to invoke it (or use --path).
 
-Try this: 
-	func create --language go myfunction    Create a new function 
+Try this:
+	func create --language go myfunction    Create a new function
 	cd myfunction                           Go into the function directory
 	func invoke                            Invoke the function
 
