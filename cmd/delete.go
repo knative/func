@@ -81,15 +81,37 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
 
+	var deletedName, deletedNamespace string
 	if cfg.Name != "" { // Delete by name if provided
-		return client.Remove(cmd.Context(), cfg.Name, cfg.Namespace, fn.Function{}, cfg.All)
+		deletedName = cfg.Name
+		deletedNamespace = cfg.Namespace
+		if err = client.Remove(cmd.Context(), cfg.Name, cfg.Namespace, fn.Function{}, cfg.All); err != nil {
+			return
+		}
 	} else { // Otherwise; delete the function at path (cwd by default)
 		f, err := fn.NewFunction(cfg.Path)
 		if err != nil {
 			return err
 		}
-		return client.Remove(cmd.Context(), "", "", f, cfg.All)
+		deletedName = f.Name
+		deletedNamespace = f.Deploy.Namespace
+		if err = client.Remove(cmd.Context(), "", "", f, cfg.All); err != nil {
+			return err
+		}
 	}
+	if isJSONEnabled(cmd) {
+		err = writeJSONSuccess(cmd.OutOrStdout(), deleteJSONResult{
+			Name:      deletedName,
+			Namespace: deletedNamespace,
+		})
+	}
+	return
+}
+
+// deleteJSONResult is the data payload emitted on success when --json is set.
+type deleteJSONResult struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 type deleteConfig struct {

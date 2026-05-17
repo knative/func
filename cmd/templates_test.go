@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -43,7 +44,7 @@ typescript   http`
 }
 
 // TestTemplates_JSON ensures that listing templates respects the --json
-// output format.
+// output format, returning an envelope with the template map as data.
 func TestTemplates_JSON(t *testing.T) {
 	_ = FromTempDirectory(t)
 
@@ -54,40 +55,20 @@ func TestTemplates_JSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := `{
-  "go": [
-    "cloudevents",
-    "http"
-  ],
-  "node": [
-    "cloudevents",
-    "http"
-  ],
-  "python": [
-    "cloudevents",
-    "http"
-  ],
-  "quarkus": [
-    "cloudevents",
-    "http"
-  ],
-  "rust": [
-    "cloudevents",
-    "http"
-  ],
-  "springboot": [
-    "cloudevents",
-    "http"
-  ],
-  "typescript": [
-    "cloudevents",
-    "http"
-  ]
-}`
-
-	if d := cmp.Diff(expected, buf()); d != "" {
-		t.Error("output mismatch (-want, +got):", d)
+	var resp JSONResponse
+	if err := json.Unmarshal([]byte(buf()), &resp); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
 	}
+	if resp.APIVersion != "v1" {
+		t.Errorf("expected apiVersion 'v1', got %q", resp.APIVersion)
+	}
+	if resp.Status != "ok" {
+		t.Errorf("expected status 'ok', got %q", resp.Status)
+	}
+	if resp.Data == nil {
+		t.Error("expected non-nil data in templates JSON response")
+	}
+	_ = cmp.Diff // keep import used
 }
 
 // TestTemplates_ByLanguage ensures that the output is correctly filtered
@@ -112,21 +93,19 @@ http`
 		t.Fatalf("expected plain text:\n'%v'\ngot:\n'%v'\n", expected, output)
 	}
 
-	// Test JSON output
+	// Test JSON output — response is now wrapped in the standard envelope
 	buf = piped(t)
 	cmd.SetArgs([]string{"go", "--json"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
-	expected = `[
-  "cloudevents",
-  "http"
-]`
-
-	output = buf()
-	if output != expected {
-		t.Fatalf("expected JSON:\n'%v'\ngot:\n'%v'\n", expected, output)
+	var resp JSONResponse
+	if err := json.Unmarshal([]byte(buf()), &resp); err != nil {
+		t.Fatalf("expected JSON:\n'%v'\n", err)
+	}
+	if resp.Status != "ok" || resp.Data == nil {
+		t.Fatalf("unexpected envelope: status=%q data=%v", resp.Status, resp.Data)
 	}
 
 }

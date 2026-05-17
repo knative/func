@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -90,6 +91,15 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 	items, err := client.List(cmd.Context(), cfg.Namespace)
 	if err != nil {
 		return NewErrListClusterConnection(err)
+	}
+
+	if isJSONEnabled(cmd) {
+		var buf bytes.Buffer
+		if err = listItems(items).JSON(&buf); err != nil {
+			return
+		}
+		var raw json.RawMessage = buf.Bytes()
+		return writeJSONSuccess(cmd.OutOrStdout(), raw)
 	}
 
 	if len(items) == 0 {

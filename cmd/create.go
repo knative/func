@@ -136,7 +136,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Create
-	_, err = client.Init(fn.Function{
+	f, err := client.Init(fn.Function{
 		Name:     cfg.Name,
 		Root:     cfg.Path,
 		Runtime:  cfg.Runtime,
@@ -145,9 +145,25 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	if err != nil {
 		return err
 	}
+	if isJSONEnabled(cmd) {
+		return writeJSONSuccess(cmd.OutOrStdout(), createJSONResult{
+			Name:     f.Name,
+			Path:     f.Root,
+			Runtime:  f.Runtime,
+			Template: cfg.Template,
+		})
+	}
 	// Confirm
 	fmt.Fprintf(cmd.OutOrStderr(), "Created %v function in %v\n", cfg.Runtime, cfg.Path)
 	return nil
+}
+
+// createJSONResult is the data payload emitted on success when --json is set.
+type createJSONResult struct {
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	Runtime  string `json:"runtime"`
+	Template string `json:"template,omitempty"`
 }
 
 type createConfig struct {

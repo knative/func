@@ -235,10 +235,22 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		}
 	}
 
+	// When --json: wrap response in envelope
+	if isJSONEnabled(cmd) {
+		return writeJSONSuccess(cmd.OutOrStdout(), invokeJSONResult{
+			Response: string(body),
+		})
+	}
+
 	// Always print the response's default stringification
 	// Note body already includes a linebreak.
 	fmt.Fprint(cmd.OutOrStdout(), body)
 	return
+}
+
+// invokeJSONResult is the data payload emitted on success when --json is set.
+type invokeJSONResult struct {
+	Response string `json:"response"`
 }
 
 type invokeConfig struct {
