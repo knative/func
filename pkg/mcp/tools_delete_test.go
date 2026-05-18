@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mcp/mock"
 )
 
@@ -93,5 +94,60 @@ func TestTool_Delete_Readonly(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected delete to be rejected in readonly mode")
+	}
+}
+
+// TestTool_Delete_DirectClient validates direct pkg/functions client invocation for delete
+func TestTool_Delete_DirectClient(t *testing.T) {
+	tempDir := t.TempDir()
+
+	fnClient := fn.New()
+	
+	// Create a dummy function first so there is something initialized to delete by path
+	_, err := fnClient.Init(fn.Function{
+		Name:     "my-func",
+		Root:     tempDir,
+		Runtime:  "go",
+		Template: "http",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client, server, err := newTestPair(t, WithClientProvider(func() *fn.Client {
+		return fnClient
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly.Store(false)
+
+	// Call delete with path
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "delete",
+		Arguments: map[string]any{
+			"path": tempDir,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", resultToString(result))
+	}
+
+	// Call delete with name
+	result, err = client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "delete",
+		Arguments: map[string]any{
+			"name":      "my-func",
+			"namespace": "default",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", resultToString(result))
 	}
 }

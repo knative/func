@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mcp/mock"
 )
 
@@ -121,5 +122,44 @@ func TestTool_Create_BinaryFailure(t *testing.T) {
 	// Error should include binary output
 	if !strings.Contains(resultToString(result), "example error") {
 		t.Errorf("expected error to include binary output, got: %s", resultToString(result))
+	}
+}
+
+// TestTool_Create_DirectClient validates direct pkg/functions client invocation
+func TestTool_Create_DirectClient(t *testing.T) {
+	tempDir := t.TempDir()
+
+	fnClient := fn.New()
+	client, _, err := newTestPair(t, WithClientProvider(func() *fn.Client {
+		return fnClient
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "create",
+		Arguments: map[string]any{
+			"language": "go",
+			"path":     tempDir,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", resultToString(result))
+	}
+
+	// Verify the function was successfully created
+	f, err := fn.NewFunction(tempDir)
+	if err != nil {
+		t.Fatalf("failed to load created function: %v", err)
+	}
+	if !f.Initialized() {
+		t.Fatal("expected function to be initialized")
+	}
+	if f.Runtime != "go" {
+		t.Fatalf("expected runtime 'go', got %q", f.Runtime)
 	}
 }
