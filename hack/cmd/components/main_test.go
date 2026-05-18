@@ -29,6 +29,7 @@ set_versions() {
 	pac_version="v0.35.2"
 	keda_version="v2.17.0"
 	keda_http_addon_version="v0.11.1"
+	func_operator_version="v0.2.1"
 }
 `
 
@@ -42,6 +43,9 @@ const expectedJson string = `{
 		"version": "v1.19.0",
 		"owner": "knative",
 		"repo": "eventing"
+	},
+	"FuncOperator": {
+		"version": "v0.2.1"
 	},
 	"Keda": {
 		"version": "v2.17.0"
@@ -104,6 +108,9 @@ func TestWrite(t *testing.T) {
 			Version: "v1.19.0",
 			Owner:   "knative",
 			Repo:    "eventing",
+		},
+		"FuncOperator": {
+			Version: "v0.2.1",
 		},
 		"KindNode": {
 			Version: "v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027",

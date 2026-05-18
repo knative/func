@@ -131,10 +131,10 @@ EXAMPLES
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
 			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
-			"git-url", "image", "image-pull-secret", "namespace", "path", "platform",
-			"push", "pvc-size", "service-account", "deployer", "registry",
-			"registry-insecure", "registry-authfile", "remote", "username", "password",
-			"token", "verbose", "remote-storage-class"),
+			"git-url", "image", "image-pull-secret", "management-disabled", "namespace", "path", "platform", "push", "pvc-size",
+			"service-account", "deployer", "registry", "registry-insecure",
+			"registry-authfile", "remote", "username", "password", "token", "verbose",
+			"remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -216,6 +216,8 @@ EXAMPLES
 	cmd.Flags().StringP("token", "", "",
 		"Token to use when pushing to the registry. ($FUNC_TOKEN)")
 	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
+	cmd.Flags().Bool("management-disabled", f.Deploy.ManagementDisabled,
+		"Disable operator management of this function ($FUNC_MANAGEMENT_DISABLED)")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(f, false),
 		"Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE)")
 
@@ -555,6 +557,9 @@ type deployConfig struct {
 	// Timestamp the built container with the current date and time.
 	// This is currently only supported by the Pack builder.
 	Timestamp bool
+
+	// ManagementDisabled disables automatic Function CR sync after deploy.
+	ManagementDisabled bool
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
@@ -576,6 +581,7 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		ServiceAccountName: viper.GetString("service-account"),
 		ImagePullSecret:    viper.GetString("image-pull-secret"),
 		Deployer:           viper.GetString("deployer"),
+		ManagementDisabled: viper.GetBool("management-disabled"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
@@ -612,6 +618,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Deploy.ServiceAccountName = c.ServiceAccountName
 	f.Deploy.ImagePullSecret = c.ImagePullSecret
 	f.Deploy.Deployer = c.Deployer
+	f.Deploy.ManagementDisabled = c.ManagementDisabled
 	f.Local.Remote = c.Remote
 
 	// PVCSize

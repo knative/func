@@ -82,6 +82,7 @@ type Client struct {
 	pipelinesProvider PipelinesProvider // CI/CD pipelines management
 	mcpServer         MCPServer         // MCP Server
 	startTimeout      time.Duration     // default start timeout for all runs
+	syncer            FunctionSyncer    // Syncs Function CR after deploy
 }
 
 // Scaffolder wraps a function with a service scaffolding (entrypoint)
@@ -108,6 +109,11 @@ type Pusher interface {
 type Deployer interface {
 	// Deploy a function of given name, using given backing image.
 	Deploy(context.Context, Function) (DeploymentResult, error)
+}
+
+// FunctionSyncer syncs a Function's state to an external system after deploy.
+type FunctionSyncer interface {
+	Sync(ctx context.Context, f Function) error
 }
 
 type DeploymentResult struct {
@@ -308,6 +314,13 @@ func WithPusher(d Pusher) Option {
 func WithDeployer(d Deployer) Option {
 	return func(c *Client) {
 		c.deployer = d
+	}
+}
+
+// WithSyncer sets the FunctionSyncer used to sync Function CRs after deploy.
+func WithSyncer(s FunctionSyncer) Option {
+	return func(c *Client) {
+		c.syncer = s
 	}
 }
 
@@ -882,6 +895,12 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	case Updated:
 		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
 	default:
+	}
+
+	if c.syncer != nil && !f.Deploy.ManagementDisabled {
+		if err := c.syncer.Sync(ctx, f); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to sync Function CR: %v\n", err)
+		}
 	}
 
 	return f, nil

@@ -13,17 +13,22 @@ import (
 	"testing"
 	"time"
 
+	v1alpha1 "github.com/functions-dev/func-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/oci"
+	"knative.dev/func/pkg/operator"
 	. "knative.dev/func/pkg/testing"
 	. "knative.dev/func/pkg/testing/k8s"
 	v1 "knative.dev/pkg/apis/duck/v1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -1195,6 +1200,160 @@ func (f *Function) Handle(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 `
+
+// TestInt_OperatorSync ensures that deploying with WithSyncer creates a
+// Function CR on first deploy, and only annotates it on subsequent deploys.
+func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	name := "func-int-operator-sync-" + rand.String(5)
+	root := t.TempDir()
+	ns := Namespace(t, ctx)
+
+	t.Cleanup(cancel)
+
+	repoURL := "https://github.com/alice/my-func.git"
+	repoBranch := "main"
+	repoPath := "."
+
+	client := fn.New(
+		fn.WithScaffolder(oci.NewScaffolder(true)),
+		fn.WithBuilder(oci.NewBuilder("", false)),
+		fn.WithPusher(oci.NewPusher(true, true, true)),
+		fn.WithDeployer(deployer),
+		fn.WithDescribers(describer),
+		fn.WithRemovers(remover),
+		fn.WithSyncer(operator.NewSyncer()),
+	)
+
+	f, err := client.Init(fn.Function{
+		Root:      root,
+		Name:      name,
+		Runtime:   "go",
+		Namespace: ns,
+		Registry:  Registry(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f.Build.Git.URL = repoURL
+	f.Build.Git.Revision = repoBranch
+	f.Build.Git.ContextDir = repoPath
+
+	err = client.Scaffold(ctx, f, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = client.Build(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, _, err = client.Push(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First deploy — SyncFunctionCR creates the CR if the CRD is installed
+	f, err = client.Deploy(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		err := client.Remove(ctx, "", "", f, true)
+		if err != nil {
+			t.Logf("error removing Function: %v", err)
+		}
+	})
+
+	// Verify CR state only if the Function CRD is installed
+	restCfg, err := k8s.GetClientConfig().ClientConfig()
+	if err != nil {
+		t.Fatalf("getting kubernetes config: %v", err)
+	}
+	disc, err := discovery.NewDiscoveryClientForConfig(restCfg)
+	if err != nil {
+		t.Fatalf("creating discovery client: %v", err)
+	}
+	if !hasFunctionCRD(t, disc) {
+		t.Log("Function CRD not installed, skipping CR verification")
+		return
+	}
+
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	cl, err := ctrlclient.New(restCfg, ctrlclient.Options{Scheme: scheme})
+	if err != nil {
+		t.Fatalf("creating kubernetes client: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_ = cl.Delete(context.Background(), &v1alpha1.Function{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: ns,
+			},
+		})
+	})
+
+	var funcCR v1alpha1.Function
+	err = cl.Get(ctx, ctrlclient.ObjectKey{Name: name, Namespace: ns}, &funcCR)
+	if err != nil {
+		t.Fatalf("expected Function CR to be created: %v", err)
+	}
+	if funcCR.Spec.Repository.URL != repoURL {
+		t.Fatalf("expected repo URL %q, got %q", repoURL, funcCR.Spec.Repository.URL)
+	}
+	if funcCR.Spec.Repository.Branch != repoBranch {
+		t.Fatalf("expected branch %q, got %q", repoBranch, funcCR.Spec.Repository.Branch)
+	}
+	if funcCR.Spec.Repository.Path != repoPath {
+		t.Fatalf("expected path %q, got %q", repoPath, funcCR.Spec.Repository.Path)
+	}
+
+	// Second deploy — should only annotate, not change spec
+	f, err = client.Deploy(ctx, f, fn.WithDeploySkipBuildCheck(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = cl.Get(ctx, ctrlclient.ObjectKey{Name: name, Namespace: ns}, &funcCR)
+	if err != nil {
+		t.Fatalf("expected Function CR to still exist: %v", err)
+	}
+
+	if funcCR.Spec.Repository.URL != repoURL {
+		t.Fatalf("expected spec URL unchanged %q, got %q", repoURL, funcCR.Spec.Repository.URL)
+	}
+	if funcCR.Spec.Repository.Branch != repoBranch {
+		t.Fatalf("expected spec branch unchanged %q, got %q", repoBranch, funcCR.Spec.Repository.Branch)
+	}
+
+	ts, ok := funcCR.Annotations["functions.knative.dev/last-deployed"]
+	if !ok {
+		t.Fatal("expected last-deployed annotation to be set")
+	}
+	if _, err := time.Parse(time.RFC3339, ts); err != nil {
+		t.Fatalf("expected valid RFC3339 timestamp, got %q: %v", ts, err)
+	}
+}
+
+func hasFunctionCRD(t *testing.T, disc discovery.DiscoveryInterface) bool {
+	t.Helper()
+	resources, err := disc.ServerResourcesForGroupVersion(v1alpha1.GroupVersion.String())
+	if err != nil {
+		return false
+	}
+	for _, r := range resources.APIResources {
+		if r.Kind == "Function" {
+			return true
+		}
+	}
+	return false
+}
 
 func postText(ctx context.Context, url, reqBody, deployer string) (respBody string, err error) {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(reqBody))

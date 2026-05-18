@@ -228,6 +228,11 @@ type DeploySpec struct {
 	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw,enum=keda"`
 
 	Subscriptions []KnativeSubscription `yaml:"subscriptions,omitempty"`
+
+	// ManagementDisabled disables automatic creation/update of a Function CR
+	// for operator management after deploy. The zero value (false) means
+	// the function is managed by default when the func-operator is installed.
+	ManagementDisabled bool `yaml:"managementDisabled,omitempty"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime

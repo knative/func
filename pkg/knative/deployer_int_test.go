@@ -65,3 +65,11 @@ func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
 		knative.NewDescriber(false),
 		knative.KnativeDeployerName)
 }
+
+func TestInt_OperatorSync(t *testing.T) {
+	deployertesting.TestInt_OperatorSync(t,
+		knative.NewDeployer(knative.WithDeployerVerbose(true)),
+		knative.NewRemover(false),
+		knative.NewDescriber(false),
+		knative.KnativeDeployerName)
+}

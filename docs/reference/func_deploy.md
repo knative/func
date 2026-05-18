@@ -128,6 +128,7 @@ func deploy
   -h, --help                          help for deploy
   -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
       --image-pull-secret string      Image pull secret to use when the function's image is in a private registry ($FUNC_IMAGE_PULL_SECRET)
+      --management-disabled           Disable operator management of this function ($FUNC_MANAGEMENT_DISABLED)
   -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "default")
       --password string               Password to use when pushing to the registry. ($FUNC_PASSWORD)
   -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
