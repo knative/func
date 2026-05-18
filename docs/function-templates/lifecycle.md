@@ -10,8 +10,8 @@ and `/health/readiness`.
 
 Due to the fact that each function runtime is implemented in a different language, the APIs for the lifecycle hooks are not
 consistent across all runtimes. This document describes the intent of the lifecycle hooks and the expected behavior of the
-function runtime, but does not address the implementation details for each language. Currently none of the function runtimes
-expose this behavior. This document is forward-looking.
+function runtime, but does not address the implementation details for each language. Python templates currently implement
+lifecycle hooks (`start`, `stop`, `alive`, `ready`). Other runtimes may add support in the future.
 
 Function lifecycle hooks allow the function developer to provide custom code that is executed at specific points in the
 function's lifecycle. The function developer can provide a function that is executed when the function is started, and when the

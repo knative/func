@@ -33,6 +33,8 @@ When a new Function is created, a few files are placed in the new Function's dir
 
 The source of these templates is `./templates`; a directory subdivided by language and template name.
 For example, the Go HTTP template is located in `./templates/go/http`.
+Some languages (Go, Python) also have scaffolding templates under `./templates/<lang>/scaffolding/`
+with `instanced-*` and `static-*` variants used for service-oriented project generation.
 The client library and CLI are self-contained
 by encoding this directory as a ZIP byte array in the `./generate/zz_filesystem_generated.go` file.
 Therefore, any updates to templates require re-generating this file.
@@ -41,6 +43,7 @@ When changes are made to files in the `./templates` directory,
 regenerate `./generate/zz_filesystem_generated.go` by running `make generate/zz_filesystem_generated.go`.
 It is also important to run the unit tests of the template modified.
 For example, to run the unit tests of the Go templates, use `make test-go`.
+To lint scaffolding templates, use `make check-go` (or the equivalent for other languages).
 For a list of available make targets, use `make help`.
 
 ## Integration Testing

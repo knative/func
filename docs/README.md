@@ -6,10 +6,11 @@ Functions can be written in the following languages using built-in templates:
 
 * Go (Golang)
 * Node.js (JavaScript)
-* Quarkus (Java)
-* SpringBoot (Java)
 * Python
+* Quarkus (Java)
 * Rust
+* SpringBoot (Java)
+* TypeScript
 
 Functions can be deployed on the following platforms:
 
@@ -23,6 +24,7 @@ Functions can be deployed on the following platforms:
 [Function Quickstart](https://knative.dev/docs/getting-started/about-knative-functions/)
 [Function Developer's Guide](https://knative.dev/docs/functions/)
 [Function Integrator's Guide](integrators_guide.md).
+[CLI Command Reference](reference/func.md)
 
 ## Contributing
 

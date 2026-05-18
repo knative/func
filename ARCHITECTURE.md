@@ -23,10 +23,17 @@ pkg/
   buildpacks/           # Pack/Cloud Native Buildpacks builder (in container)
   s2i/                  # Source-to-Image builder (in container)
   oci/                  # Direct OCI image builder (on host)
+  builders/             # Builder coordination utilities
+  docker/               # Docker client, image pushing
 
   knative/              # Knative Serving deployer
+  deployer/             # Deployment coordination
   k8s/                  # Kubernetes utilities
+  operator/             # Knative func-operator integration
+  keda/                 # KEDA autoscaler support
 
+  config/               # User/global configuration
+  scaffolding/          # Project scaffolding logic
   pipelines/tekton/     # Remote builds via Tekton
   mcp/                  # AI agent integration (MCP server)
 

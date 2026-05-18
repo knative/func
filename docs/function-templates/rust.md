@@ -42,6 +42,6 @@ generate an app capable of responding to
 ```
 
 The handlers of each app differ slightly. See its generated
-[README.md](../../templates/rust/events/README.md) for more details.
+[README.md](../../templates/rust/cloudevents/README.md) for more details.
 
 Have fun!
