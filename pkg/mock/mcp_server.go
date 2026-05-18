@@ -6,16 +6,16 @@ import (
 
 type MCPServer struct {
 	StartInvoked bool
-	StartFn      func(context.Context, bool) error
+	StartFn      func(context.Context) error
 }
 
 func NewMCPServer() *MCPServer {
 	return &MCPServer{
-		StartFn: func(context.Context, bool) error { return nil },
+		StartFn: func(context.Context) error { return nil },
 	}
 }
 
-func (s *MCPServer) Start(ctx context.Context, writeEnabled bool) error {
+func (s *MCPServer) Start(ctx context.Context) error {
 	s.StartInvoked = true
-	return s.StartFn(ctx, writeEnabled)
+	return s.StartFn(ctx)
 }

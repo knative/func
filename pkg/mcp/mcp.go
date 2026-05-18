@@ -157,9 +157,10 @@ func New(options ...Option) *Server {
 	return s
 }
 
-// Start the MCP server using the configured transport
-func (s *Server) Start(ctx context.Context, writeEnabled bool) error {
-	s.readonly.Store(!writeEnabled)
+// Start the MCP server using the configured transport.
+// The server's readonly mode is determined at construction time via
+// WithReadonly; it cannot be changed after the server is created.
+func (s *Server) Start(ctx context.Context) error {
 	return s.impl.Run(ctx, s.transport)
 }
 
