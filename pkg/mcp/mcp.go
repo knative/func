@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 )
 
 const (
@@ -26,6 +27,7 @@ type Server struct {
 	prefix    string                // Command prefix ("func" or "kn func")
 	readonly  atomic.Bool           // disables deploy and delete when true
 	executor  executor
+	client    *fn.Client    // direct pkg/functions client; replaces executor per #3771
 	transport mcp.Transport // Transport to use (defaults to StdioTransport)
 	impl      *mcp.Server   // implements the protocol
 }
@@ -61,6 +63,14 @@ func WithExecutor(executor executor) Option {
 	}
 }
 
+// WithClient sets a custom functions client; used in tests.
+// This allows injecting a pre-configured client instead of the default.
+func WithClient(client *fn.Client) Option {
+	return func(s *Server) {
+		s.client = client
+	}
+}
+
 // WithTransport sets a custom transport for the server; used in tests.
 func WithTransport(transport mcp.Transport) Option {
 	return func(s *Server) {
@@ -83,6 +93,12 @@ func New(options ...Option) *Server {
 		OnInit:    func(_ context.Context) {},
 	}
 	s.executor = defaultExecutor{s}
+
+	// TODO(#3771): replace all executor usage with direct pkg/functions calls.
+	// The client is initialised here so migrated tool handlers can use it
+	// immediately without further changes to New().
+	s.client = fn.New()
+
 	for _, o := range options {
 		o(s)
 	}
