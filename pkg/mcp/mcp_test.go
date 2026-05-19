@@ -307,3 +307,45 @@ func TestMCP_AllToolsExposedInReadonlyMode(t *testing.T) {
 		}
 	}
 }
+
+// TestMCP_ReadonlyEnforcedAtRuntime verifies that deploy and delete return a
+// protocol-level tool error when the server is in readonly mode.
+//
+// The enforcement is observable via the MCP CallTool response (IsError=true),
+// which is exactly what a real MCP client would see. This validates the
+// runtime guard behavior introduced alongside the readonly fix in #3758.
+func TestMCP_ReadonlyEnforcedAtRuntime(t *testing.T) {
+	session, _, err := newTestPairWithReadonly(t, true) // readonly mode
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		tool      string
+		arguments map[string]any
+	}{
+		{
+			tool:      "deploy",
+			arguments: map[string]any{"path": "."},
+		},
+		{
+			tool:      "delete",
+			arguments: map[string]any{"path": "."},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.tool, func(t *testing.T) {
+			result, err := session.CallTool(t.Context(), &mcp.CallToolParams{
+				Name:      tc.tool,
+				Arguments: tc.arguments,
+			})
+			if err != nil {
+				t.Fatalf("CallTool(%q) returned unexpected protocol error: %v", tc.tool, err)
+			}
+			if !result.IsError {
+				t.Errorf("tool %q: expected IsError=true in readonly mode, got IsError=false", tc.tool)
+			}
+		})
+	}
+}
