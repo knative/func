@@ -117,12 +117,21 @@ nodes:
     - containerPort: 80
       hostPort: 80
       listenAddress: "127.0.0.1"
+    - containerPort: 80
+      hostPort: 80
+      listenAddress: "::1"
     - containerPort: 443
       hostPort: 443
       listenAddress: "127.0.0.1"
+    - containerPort: 443
+      hostPort: 443
+      listenAddress: "::1"
     - containerPort: 30022
       hostPort: 30022
       listenAddress: "127.0.0.1"
+    - containerPort: 30022
+      hostPort: 30022
+      listenAddress: "::1"
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.localtest.me"]
