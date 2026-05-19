@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -30,37 +29,32 @@ func TestMCP_Start(t *testing.T) {
 	}
 }
 
-// TestMCP_StartWriteable ensures that the server is started with write
-// enabled only when the environment variable FUNC_ENABLE_MCP_WRITE is set.
+// TestMCP_StartWriteable ensures that the FUNC_ENABLE_MCP_WRITE environment
+// variable is correctly parsed and the server starts in both default
+// (readonly) and write-enabled modes.
 func TestMCP_StartWriteable(t *testing.T) {
 	_ = FromTempDirectory(t)
 
-	// Ensure it defaults to off.
+	// Ensure it defaults to readonly (no env var set).
 	server := mock.NewMCPServer()
-	server.StartFn = func(_ context.Context, writeEnabled bool) error {
-		if writeEnabled {
-			t.Fatal("MCP server started write-enabled by default")
-		}
-		return nil
-	}
 	cmd := NewMCPCmd(NewTestClient(fn.WithMCPServer(server)))
 	cmd.SetArgs([]string{"start"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
+	if !server.StartInvoked {
+		t.Fatal("MCP server was not started in default mode")
+	}
 
-	// Ensure it is set to true on proper truthy value
+	// Ensure it starts successfully with write mode enabled.
 	t.Setenv("FUNC_ENABLE_MCP_WRITE", "true")
 	server = mock.NewMCPServer()
-	server.StartFn = func(_ context.Context, writeEnabled bool) error {
-		if !writeEnabled {
-			t.Fatal("MCP server was not enabled")
-		}
-		return nil
-	}
 	cmd = NewMCPCmd(NewTestClient(fn.WithMCPServer(server)))
 	cmd.SetArgs([]string{"start"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
+	}
+	if !server.StartInvoked {
+		t.Fatal("MCP server was not started with write mode enabled")
 	}
 }

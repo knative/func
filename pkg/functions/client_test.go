@@ -1286,12 +1286,21 @@ func TestClient_StartMCPServer(t *testing.T) {
 
 	client := fn.New(fn.WithMCPServer(server))
 
-	if err := client.StartMCPServer(t.Context(), true); err != nil {
+	if err := client.StartMCPServer(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 
 	if !server.StartInvoked {
 		t.Fatal("MCP server was not invoked")
+	}
+}
+
+// TestClient_StartMCPServer_Default ensures the default noop MCP server
+// does not error when no server is explicitly configured.
+func TestClient_StartMCPServer_Default(t *testing.T) {
+	client := fn.New() // no WithMCPServer — uses noopMCPServer
+	if err := client.StartMCPServer(t.Context()); err != nil {
+		t.Fatal(err)
 	}
 }
 
