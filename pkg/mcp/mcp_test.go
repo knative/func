@@ -221,3 +221,89 @@ func TestWithPrefix_Validation(t *testing.T) {
 		})
 	}
 }
+
+// toolNames returns a map of tool names that are currently advertised by the
+// server, discovered via a real MCP ListTools protocol call.
+// This is implementation-agnostic: it validates what an MCP client would
+// actually observe, not any internal server state.
+func toolNames(t *testing.T, session *mcp.ClientSession) map[string]bool {
+	t.Helper()
+	res, err := session.ListTools(t.Context(), &mcp.ListToolsParams{})
+	if err != nil {
+		t.Fatalf("ListTools failed: %v", err)
+	}
+	names := make(map[string]bool, len(res.Tools))
+	for _, tool := range res.Tools {
+		names[tool.Name] = true
+	}
+	return names
+}
+
+// TestMCP_ToolsExposedViaProtocol verifies that all expected tools are
+// advertised through the MCP protocol in write mode.
+//
+// This is a regression test: if a tool registration is accidentally removed
+// from New(), this test will catch it through a real client/server protocol
+// interaction — not by inspecting internal server state.
+func TestMCP_ToolsExposedViaProtocol(t *testing.T) {
+	session, _, err := newTestPairWithReadonly(t, false) // write mode
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []string{
+		"healthcheck",
+		"create",
+		"build",
+		"deploy",
+		"list",
+		"delete",
+		"config_volumes_list",
+		"config_volumes_add",
+		"config_volumes_remove",
+		"config_labels_list",
+		"config_labels_add",
+		"config_labels_remove",
+		"config_envs_list",
+		"config_envs_add",
+		"config_envs_remove",
+	}
+
+	exposed := toolNames(t, session)
+	for _, name := range expected {
+		if !exposed[name] {
+			t.Errorf("expected tool %q to be advertised via MCP protocol, but it was not listed", name)
+		}
+	}
+}
+
+// TestMCP_AllToolsExposedInReadonlyMode verifies that all tools — including
+// deploy and delete — are advertised in readonly mode.
+//
+// Current upstream behavior: readonly enforcement is applied at handler
+// execution time (deploy/delete return an error when called), NOT by hiding
+// tools from the MCP tool list. This test validates that invariant.
+func TestMCP_AllToolsExposedInReadonlyMode(t *testing.T) {
+	session, _, err := newTestPairWithReadonly(t, true) // readonly mode
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	exposed := toolNames(t, session)
+
+	// Mutating tools must still appear in the tool list; readonly restricts
+	// execution, not advertisement. An MCP client relying on tool presence
+	// to detect capabilities must not be misled.
+	for _, name := range []string{"deploy", "delete"} {
+		if !exposed[name] {
+			t.Errorf("tool %q should be advertised even in readonly mode (enforcement is at execution time)", name)
+		}
+	}
+
+	// Safe read-only tools must also be present.
+	for _, name := range []string{"healthcheck", "list", "build", "create"} {
+		if !exposed[name] {
+			t.Errorf("tool %q should be advertised in readonly mode", name)
+		}
+	}
+}
