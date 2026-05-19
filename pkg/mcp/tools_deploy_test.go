@@ -80,21 +80,18 @@ func TestTool_Deploy_Args(t *testing.T) {
 	}
 }
 
-// TestTool_Deploy_Readonly ensures the deploy tool rejects requests in readonly mode.
+// TestTool_Deploy_Readonly ensures the deploy tool is not registered and rejects requests in readonly mode.
 func TestTool_Deploy_Readonly(t *testing.T) {
 	client, _, err := newTestPairWithReadonly(t, true) // readonly = true
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+	_, err = client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "deploy",
 		Arguments: map[string]any{"path": "."},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.IsError {
-		t.Fatal("expected deploy to be rejected in readonly mode")
+	if err == nil {
+		t.Fatal("expected deploy to be rejected (unknown tool) in readonly mode")
 	}
 }

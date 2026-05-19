@@ -25,6 +25,7 @@ type Server struct {
 	OnInit    func(context.Context) // Invoked when the server is initialized
 	prefix    string                // Command prefix ("func" or "kn func")
 	readonly  atomic.Bool           // disables deploy and delete when true
+	started   atomic.Bool           // double-start protection guard
 	executor  executor
 	transport mcp.Transport // Transport to use (defaults to StdioTransport)
 	impl      *mcp.Server   // implements the protocol
@@ -106,9 +107,13 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, healthCheckTool, s.healthcheckHandler)
 	mcp.AddTool(i, createTool, s.createHandler)
 	mcp.AddTool(i, buildTool, s.buildHandler)
-	mcp.AddTool(i, deployTool, s.deployHandler)
+	if !s.readonly.Load() {
+		mcp.AddTool(i, deployTool, s.deployHandler)
+	}
 	mcp.AddTool(i, listTool, s.listHandler)
-	mcp.AddTool(i, deleteTool, s.deleteHandler)
+	if !s.readonly.Load() {
+		mcp.AddTool(i, deleteTool, s.deleteHandler)
+	}
 	mcp.AddTool(i, configVolumesListTool, s.configVolumesListHandler)
 	mcp.AddTool(i, configVolumesAddTool, s.configVolumesAddHandler)
 	mcp.AddTool(i, configVolumesRemoveTool, s.configVolumesRemoveHandler)
@@ -158,8 +163,10 @@ func New(options ...Option) *Server {
 }
 
 // Start the MCP server using the configured transport
-func (s *Server) Start(ctx context.Context, writeEnabled bool) error {
-	s.readonly.Store(!writeEnabled)
+func (s *Server) Start(ctx context.Context) error {
+	if !s.started.CompareAndSwap(false, true) {
+		return nil
+	}
 	return s.impl.Run(ctx, s.transport)
 }
 

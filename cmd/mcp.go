@@ -95,7 +95,7 @@ DESCRIPTION
 	return cmd
 }
 
-func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory) error {
+func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory, extraMCPOpts ...mcp.Option) error {
 	// Configure write mode
 	writeEnabled := false
 	if val := os.Getenv("FUNC_ENABLE_MCP_WRITE"); val != "" {
@@ -110,14 +110,14 @@ func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory) err
 	rootCmd := cmd.Root()
 	cmdPrefix := rootCmd.Use
 
-	// Instantiate
+	mcpOpts := []mcp.Option{
+		mcp.WithPrefix(cmdPrefix),
+		mcp.WithReadonly(!writeEnabled),
+	}
+	mcpOpts = append(mcpOpts, extraMCPOpts...)
 	client, done := newClient(ClientConfig{},
-		fn.WithMCPServer(mcp.New(
-			mcp.WithPrefix(cmdPrefix),
-			mcp.WithReadonly(!writeEnabled))))
+		fn.WithMCPServer(mcp.New(mcpOpts...)))
 	defer done()
 
-	// Start
-	return client.StartMCPServer(cmd.Context(), writeEnabled)
-
+	return client.StartMCPServer(cmd.Context())
 }

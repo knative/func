@@ -77,21 +77,18 @@ func TestTool_Delete_Args(t *testing.T) {
 	}
 }
 
-// TestTool_Delete_Readonly ensures the delete tool rejects requests in readonly mode.
+// TestTool_Delete_Readonly ensures the delete tool is not registered and rejects requests in readonly mode.
 func TestTool_Delete_Readonly(t *testing.T) {
 	client, _, err := newTestPairWithReadonly(t, true) // readonly = true
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+	_, err = client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "delete",
 		Arguments: map[string]any{"name": "my-function"},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.IsError {
-		t.Fatal("expected delete to be rejected in readonly mode")
+	if err == nil {
+		t.Fatal("expected delete to be rejected (unknown tool) in readonly mode")
 	}
 }

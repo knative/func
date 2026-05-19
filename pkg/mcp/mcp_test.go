@@ -84,7 +84,7 @@ func newTestPairCore(t *testing.T, readonly bool, options ...Option) (session *m
 
 	// Start the Server
 	go func() {
-		errCh <- server.Start(t.Context(), !readonly)
+		errCh <- server.Start(t.Context())
 	}()
 
 	// Connect a client to trigger initialization
@@ -219,5 +219,96 @@ func TestWithPrefix_Validation(t *testing.T) {
 			}()
 			New(WithPrefix(tc.prefix))
 		})
+	}
+}
+
+func hasExposedTool(t *testing.T, session *mcp.ClientSession, toolName string) bool {
+	t.Helper()
+	res, err := session.ListTools(t.Context(), &mcp.ListToolsParams{})
+	if err != nil {
+		t.Fatalf("failed to list tools: %v", err)
+	}
+	for _, tool := range res.Tools {
+		if tool.Name == toolName {
+			return true
+		}
+	}
+	return false
+}
+
+// TestMCP_ImmutableReadonly ensures that when the server is built with WithReadonly(true),
+// mutating tools (deploy, delete) are completely absent from the exposed tool set.
+func TestMCP_ImmutableReadonly(t *testing.T) {
+	session, _, err := newTestPairWithReadonly(t, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if hasExposedTool(t, session, "deploy") {
+		t.Error("deploy tool should not be exposed in readonly mode")
+	}
+	if hasExposedTool(t, session, "delete") {
+		t.Error("delete tool should not be exposed in readonly mode")
+	}
+}
+
+// TestMCP_WriteableUnchanged ensures that when the server is built with WithReadonly(false),
+// mutating tools (deploy, delete) are present in the exposed tool set.
+func TestMCP_WriteableUnchanged(t *testing.T) {
+	session, _, err := newTestPairWithReadonly(t, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !hasExposedTool(t, session, "deploy") {
+		t.Error("deploy tool should be exposed in writeable mode")
+	}
+	if !hasExposedTool(t, session, "delete") {
+		t.Error("delete tool should be exposed in writeable mode")
+	}
+}
+
+// TestMCP_DeterministicLifecycle ensures that calling Start(ctx) twice returns no error
+// and does not change the tool set.
+func TestMCP_DeterministicLifecycle(t *testing.T) {
+	session, server, err := newTestPairWithReadonly(t, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if hasExposedTool(t, session, "deploy") {
+		t.Error("deploy tool should not be exposed initially")
+	}
+
+	if err := server.Start(t.Context()); err != nil {
+		t.Fatalf("second call to Start failed: %v", err)
+	}
+
+	if hasExposedTool(t, session, "deploy") {
+		t.Error("deploy tool should not be exposed after second Start")
+	}
+}
+
+// TestMCP_NoSilentMutation ensures that the readonly field is never written after New().
+// We verify that the readonly behavior and tool exposure remain stable and consistent
+// across the server lifecycle.
+func TestMCP_NoSilentMutation(t *testing.T) {
+	session, server, err := newTestPairWithReadonly(t, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify mutating tool is absent initially
+	if hasExposedTool(t, session, "deploy") {
+		t.Error("deploy tool should not be exposed initially")
+	}
+
+	// Call Start, which is the only runtime execution path
+	if err := server.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	if hasExposedTool(t, session, "deploy") {
+		t.Error("deploy tool should not be exposed after Start")
 	}
 }
