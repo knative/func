@@ -349,3 +349,65 @@ func TestMCP_ReadonlyEnforcedAtRuntime(t *testing.T) {
 		})
 	}
 }
+
+// TestMCP_WriteModePermitsExecution verifies that deploy and delete do NOT
+// return a readonly-mode error when the server is started in write mode.
+//
+// The executor is stubbed to prevent real shell execution. The test validates
+// only that the readonly guard is not triggered — the tool call itself may
+// fail for other reasons (e.g. no running cluster), and that is expected.
+func TestMCP_WriteModePermitsExecution(t *testing.T) {
+	// Stub executor: records invocations and returns a benign non-error output.
+	// This prevents real 'func deploy/delete' execution while allowing the
+	// readonly guard check to be validated in isolation.
+	stubExecutor := &stubExec{}
+
+	session, _, err := newTestPair(t, WithExecutor(stubExecutor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		tool      string
+		arguments map[string]any
+	}{
+		{
+			tool:      "deploy",
+			arguments: map[string]any{"path": "."},
+		},
+		{
+			tool:      "delete",
+			arguments: map[string]any{"path": "."},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.tool, func(t *testing.T) {
+			result, err := session.CallTool(t.Context(), &mcp.CallToolParams{
+				Name:      tc.tool,
+				Arguments: tc.arguments,
+			})
+			if err != nil {
+				t.Fatalf("CallTool(%q) returned unexpected protocol error: %v", tc.tool, err)
+			}
+			// In write mode the readonly guard must not fire.
+			// The stub executor returns success, so IsError should be false.
+			if result.IsError {
+				t.Errorf("tool %q: got IsError=true in write mode; readonly guard must not fire", tc.tool)
+			}
+		})
+	}
+}
+
+// stubExec is a minimal executor that records calls and returns empty output.
+// It satisfies the executor interface without invoking any real process.
+type stubExec struct {
+	Invoked    bool
+	Subcommand string
+}
+
+func (s *stubExec) Execute(_ context.Context, subcommand string, _ ...string) ([]byte, error) {
+	s.Invoked = true
+	s.Subcommand = subcommand
+	return []byte(""), nil
+}
