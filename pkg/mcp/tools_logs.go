@@ -10,7 +10,7 @@ import (
 var logsTool = &mcp.Tool{
 	Name:        "logs",
 	Title:       "Get Function Logs",
-	Description: "Retrieve recent logs from a deployed Function. Use --since to control the time window (e.g. '5m', '1h'). Identify the Function by path (reads func.yaml) or by name.",
+	Description: "Retrieve recent logs from a deployed Function. Use the since argument to control the time window (e.g. '5m', '1h'). Identify the Function by path (reads func.yaml) or by name.",
 	Annotations: &mcp.ToolAnnotations{
 		Title:           "Get Function Logs",
 		ReadOnlyHint:    true,
@@ -21,7 +21,7 @@ var logsTool = &mcp.Tool{
 
 func (s *Server) logsHandler(ctx context.Context, r *mcp.CallToolRequest, input LogsInput) (result *mcp.CallToolResult, output LogsOutput, err error) {
 	if input.Path != nil && input.Name != nil {
-		err = fmt.Errorf("'path' and 'name' are mutually exclusive: provide exactly one")
+		err = fmt.Errorf("'path' and 'name' are mutually exclusive: provide at most one")
 		return
 	}
 
