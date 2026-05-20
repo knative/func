@@ -38,6 +38,12 @@ func subscribe --filter type=com.example --filter extension=my-extension-value -
   -v, --verbose              Print verbose logs ($FUNC_VERBOSE)
 ```
 
+### Options inherited from parent commands
+
+```
+      --json   Output results as JSON ($FUNC_JSON)
+```
+
 ### SEE ALSO
 
 * [func](func.md)	 - func manages Knative Functions

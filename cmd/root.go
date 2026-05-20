@@ -131,7 +131,16 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 	groups.AddTo(cmd)
 	groups.SetRootUsage(cmd, nil)
 
+	addJSONFlag(cmd)
+
 	return cmd
+}
+
+// addJSONFlag ensures common text/wording when the --json flag is used
+func addJSONFlag(cmd *cobra.Command) {
+	cmd.PersistentFlags().Bool("json", false, "Output results as JSON ($FUNC_JSON)")
+	// Bind to viper so app.go can check viper.GetBool("json") in the error sink.
+	_ = viper.BindPFlag("json", cmd.PersistentFlags().Lookup("json"))
 }
 
 // Helpers

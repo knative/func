@@ -48,9 +48,11 @@ the current directory or from the directory specified with --path.
 	return cmd
 }
 
-func runConfigGitCmd(_ *cobra.Command, _ ClientFactory) (err error) {
-	fmt.Printf("--------------------------- Function Git config ---------------------------\n")
-	fmt.Printf("Not implemented yet.\n")
-
+func runConfigGitCmd(cmd *cobra.Command, _ ClientFactory) (err error) {
+	if isJSONEnabled(cmd) {
+		return writeJSONSuccess(cmd.OutOrStdout(), nil)
+	}
+	fmt.Fprintln(cmd.ErrOrStderr(), "--------------------------- Function Git config ---------------------------")
+	fmt.Fprintln(cmd.ErrOrStderr(), "Not implemented yet.")
 	return nil
 }

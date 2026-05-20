@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -89,6 +90,14 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 		}
 	}
 
+	if isJSONEnabled(cmd) {
+		var buf bytes.Buffer
+		if err = info(details).JSON(&buf); err != nil {
+			return
+		}
+		var raw json.RawMessage = buf.Bytes()
+		return writeJSONSuccess(cmd.OutOrStdout(), raw)
+	}
 	write(os.Stdout, info(details), cfg.Output)
 	return
 }

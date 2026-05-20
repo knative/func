@@ -302,12 +302,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if changingNamespace(f) && k8s.IsOpenShift() && k8s.IsOpenShiftInternalRegistry(f.Registry) {
 		f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Namespace
 		if cfg.Verbose {
-			fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Info: Overriding openshift registry to %s\n", f.Registry)
 		}
 	}
 
-	// Informative non-error messages regarding the final deployment request
-	printDeployMessages(cmd.OutOrStdout(), f)
+	// Informative non-error messages: always go to stderr so that --json
+	// output on stdout is not contaminated with human-readable status text.
+	printDeployMessages(cmd.ErrOrStderr(), f)
 
 	// Get options based on the value of the config such as concrete impls
 	// of builders and pushers based on the value of the --builder flag
@@ -319,6 +320,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	defer done()
 
 	// Deploy
+	var deployedURL string
 	if cfg.Remote {
 		// Write func.yaml before the pipeline uploads sources to the PVC,
 		// so that the on-cluster deploy step sees the latest config
@@ -333,7 +335,10 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		if url, f, err = client.RunPipeline(cmd.Context(), f); err != nil {
 			return wrapDeploymentError(err)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Function Deployed at %v\n", url)
+		deployedURL = url
+		if !isJSONEnabled(cmd) {
+			fmt.Fprintf(cmd.OutOrStdout(), "Function Deployed at %v\n", url)
+		}
 	} else {
 		var buildOptions []fn.BuildOption
 		if buildOptions, err = cfg.buildOptions(); err != nil {
@@ -389,6 +394,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return wrapDeploymentError(err)
 		}
+		// Capture the deployed URL for --json output.  The URL is not
+		// returned directly by Deploy; a lightweight Describe call fetches it.
+		if isJSONEnabled(cmd) {
+			if inst, descErr := client.Describe(cmd.Context(), "", "", f); descErr == nil && len(inst.Routes) > 0 {
+				deployedURL = inst.Routes[0]
+			}
+		}
 	}
 
 	// Write
@@ -400,7 +412,26 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Updates the build stamp because building must have been accomplished
 	// during this process, and a future call to deploy without any appreciable
 	// changes to the filesystem should not rebuild again unless `--build`
-	return f.Stamp()
+	if err = f.Stamp(); err != nil {
+		return
+	}
+	if isJSONEnabled(cmd) {
+		err = writeJSONSuccess(cmd.OutOrStdout(), deployJSONResult{
+			Name:      f.Name,
+			Namespace: f.Deploy.Namespace,
+			URL:       deployedURL,
+			Image:     f.Deploy.Image,
+		})
+	}
+	return
+}
+
+// deployJSONResult is the data payload emitted on success when --json is set.
+type deployJSONResult struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	URL       string `json:"url,omitempty"`
+	Image     string `json:"image,omitempty"`
 }
 
 // build determines if the function should be built based on given flag
