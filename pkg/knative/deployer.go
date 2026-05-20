@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -234,14 +235,25 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			}
 			chprivate := make(chan bool)
 			cherr := make(chan error)
+			done := make(chan struct{})
 			go func() {
-				private := false
-				for !private {
-					time.Sleep(5 * time.Second)
-					private = d.isImageInPrivateRegistry(ctx, client, f)
-					chprivate <- private
+				defer close(chprivate)
+				for {
+					select {
+					case <-time.After(5 * time.Second):
+					case <-done:
+						return
+					}
+					private := d.isImageInPrivateRegistry(ctx, client, f)
+					select {
+					case chprivate <- private:
+						if private {
+							return
+						}
+					case <-done:
+						return
+					}
 				}
-				close(chprivate)
 			}()
 			go func() {
 				err, _ := client.WaitForService(ctx, f.Name,
@@ -265,6 +277,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 					break main
 				}
 			}
+			close(done)
 			if presumePrivate {
 				err := fmt.Errorf("your function image is unreachable. It is possible that your docker registry is private. If so, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
 				return fn.DeploymentResult{}, err
@@ -408,6 +421,36 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 		if err != nil && !errors.IsAlreadyExists(err) {
 			err = fmt.Errorf("knative deployer failed to create the Trigger: %v", err)
 			return err
+		}
+	}
+
+	// Clean up stale triggers that are no longer in the desired subscription set.
+	// The knative deployer names triggers as <name>-function-trigger-<index>.
+	// If the subscription count decreases, triggers with higher indices become orphaned.
+	triggerPrefix := fmt.Sprintf("%s-function-trigger-", ksvc.GetName())
+	existingTriggers, err := eventingClient.ListTriggers(ctx)
+	if err != nil {
+		if errors.IsNotFound(err) || strings.HasPrefix(err.Error(), "no or newer Knative Eventing API found on the backend") {
+			return nil
+		}
+		return fmt.Errorf("knative deployer failed to list triggers for cleanup: %v", err)
+	}
+	desiredCount := len(f.Deploy.Subscriptions)
+	for _, trigger := range existingTriggers.Items {
+		if !strings.HasPrefix(trigger.Name, triggerPrefix) {
+			continue
+		}
+		idxStr := strings.TrimPrefix(trigger.Name, triggerPrefix)
+		idx, parseErr := strconv.Atoi(idxStr)
+		if parseErr != nil {
+			continue
+		}
+		if idx >= desiredCount {
+			fmt.Fprintf(os.Stderr, "Deleting stale trigger: %s\n", trigger.Name)
+			delErr := eventingClient.DeleteTrigger(ctx, trigger.Name)
+			if delErr != nil && !errors.IsNotFound(delErr) {
+				return fmt.Errorf("knative deployer failed to delete stale trigger %s: %v", trigger.Name, delErr)
+			}
 		}
 	}
 	return nil
