@@ -165,8 +165,10 @@ func TestTool_ConfigGitSet_MissingGitURL(t *testing.T) {
 			"git_branch": "main",
 		},
 	})
+	// The MCP SDK validates required schema fields before calling the handler,
+	// returning a protocol-level error (err != nil).  Accept either error path.
 	if err != nil {
-		t.Fatal(err)
+		return
 	}
 	if !result.IsError {
 		t.Fatal("expected error result when git_url is missing")
@@ -194,8 +196,10 @@ func TestTool_ConfigGitSet_MissingGitBranch(t *testing.T) {
 			"git_url": "https://github.com/user/repo",
 		},
 	})
+	// The MCP SDK validates required schema fields before calling the handler,
+	// returning a protocol-level error (err != nil).  Accept either error path.
 	if err != nil {
-		t.Fatal(err)
+		return
 	}
 	if !result.IsError {
 		t.Fatal("expected error result when git_branch is missing")
