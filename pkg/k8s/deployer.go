@@ -633,10 +633,10 @@ func ProcessEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.Se
 				if len(slices) == 3 {
 					// ENV from a key in secret/configMap, eg. FOO={{ secret:secretName:key }} FOO={{ configMap:configMapName.key }}
 					valueFrom, err := createEnvVarSource(slices, referencedSecrets, referencedConfigMaps)
-					envVars = append(envVars, corev1.EnvVar{Name: *env.Name, ValueFrom: valueFrom})
 					if err != nil {
 						return nil, nil, err
 					}
+					envVars = append(envVars, corev1.EnvVar{Name: *env.Name, ValueFrom: valueFrom})
 					continue
 				} else if len(slices) == 2 {
 					// ENV from the local ENV var, eg. FOO={{ env:LOCAL_ENV }}
@@ -709,11 +709,12 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 	typeString := strings.TrimSpace(slices[0])
 	sourceName := strings.TrimSpace(slices[1])
 
-	var sourceType string
+	if len(sourceName) == 0 {
+		return nil, fmt.Errorf("env source name cannot be an empty string")
+	}
 
 	switch typeString {
 	case "configMap":
-		sourceType = "ConfigMap"
 		envVarSource.ConfigMapRef = &corev1.ConfigMapEnvSource{
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: sourceName,
@@ -723,7 +724,6 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 			referencedConfigMaps.Insert(sourceName)
 		}
 	case "secret":
-		sourceType = "Secret"
 		envVarSource.SecretRef = &corev1.SecretEnvSource{
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: sourceName,
@@ -733,10 +733,6 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 		}
 	default:
 		return nil, fmt.Errorf("unsupported env source type %q; supported source types are \"configMap\" or \"secret\"", slices[0])
-	}
-
-	if len(sourceName) == 0 {
-		return nil, fmt.Errorf("the name of %s cannot be an empty string", sourceType)
 	}
 
 	return &envVarSource, nil
@@ -753,11 +749,16 @@ func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps
 	sourceName := strings.TrimSpace(slices[1])
 	sourceKey := strings.TrimSpace(slices[2])
 
-	var sourceType string
+	if len(sourceName) == 0 {
+		return nil, fmt.Errorf("env source name cannot be an empty string")
+	}
+
+	if len(sourceKey) == 0 {
+		return nil, fmt.Errorf("env source key cannot be an empty string")
+	}
 
 	switch typeString {
 	case "configMap":
-		sourceType = "ConfigMap"
 		envVarSource.ConfigMapKeyRef = &corev1.ConfigMapKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: sourceName,
@@ -768,7 +769,6 @@ func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps
 			referencedConfigMaps.Insert(sourceName)
 		}
 	case "secret":
-		sourceType = "Secret"
 		envVarSource.SecretKeyRef = &corev1.SecretKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: sourceName,
@@ -780,14 +780,6 @@ func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps
 		}
 	default:
 		return nil, fmt.Errorf("unsupported env source type %q; supported source types are \"configMap\" or \"secret\"", slices[0])
-	}
-
-	if len(sourceName) == 0 {
-		return nil, fmt.Errorf("the name of %s cannot be an empty string", sourceType)
-	}
-
-	if len(sourceKey) == 0 {
-		return nil, fmt.Errorf("the key referenced by resource %s %q cannot be an empty string", sourceType, sourceName)
 	}
 
 	return &envVarSource, nil
