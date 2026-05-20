@@ -32,7 +32,7 @@ func Main() {
 	cfg := cmd.RootCommandConfig{
 		Name: "func",
 		Version: cmd.Version{
-			Vers: version.Vers,
+			Vers: version.Get().Original(),
 			Kver: version.Kver,
 			Hash: version.Hash,
 		}}
