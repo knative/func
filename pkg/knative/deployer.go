@@ -45,6 +45,8 @@ const (
 	KnativeDeployerName = "knative"
 )
 
+var errPrivateRegistry = stdErrors.New("your function image is unreachable. It is possible that your docker registry is private. If so, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
+
 type DeployerOpt func(*Deployer)
 
 type Deployer struct {
@@ -232,44 +234,21 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			if d.verbose {
 				fmt.Println("Waiting for Knative Service to become ready")
 			}
-			chprivate := make(chan bool)
-			cherr := make(chan error)
-			go func() {
-				private := false
-				for !private {
-					time.Sleep(5 * time.Second)
-					private = d.isImageInPrivateRegistry(ctx, client, f)
-					chprivate <- private
-				}
-				close(chprivate)
-			}()
-			go func() {
+			waitForService := func() error {
 				err, _ := client.WaitForService(ctx, f.Name,
 					clientservingv1.WaitConfig{Timeout: k8s.DefaultWaitingTimeout, ErrorWindow: k8s.DefaultErrorWindowTimeout},
 					wait.NoopMessageCallback())
-				cherr <- err
-				close(cherr)
-			}()
+				return err
+			}
+			isPrivateRegistry := func() bool {
+				return d.isImageInPrivateRegistry(ctx, client, f)
+			}
 
-			presumePrivate := false
-		main:
-			// Wait for either a timeout or a container condition signaling the image is unreachable
-			for {
-				select {
-				case private := <-chprivate:
-					if private {
-						presumePrivate = true
-						break main
-					}
-				case err = <-cherr:
-					break main
-				}
-			}
-			if presumePrivate {
-				err := fmt.Errorf("your function image is unreachable. It is possible that your docker registry is private. If so, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
-				return fn.DeploymentResult{}, err
-			}
+			err = waitForReadyOrPrivateRegistry(waitForService, isPrivateRegistry, 5*time.Second)
 			if err != nil {
+				if stdErrors.Is(err, errPrivateRegistry) {
+					return fn.DeploymentResult{}, err
+				}
 				err = fmt.Errorf("knative deployer failed to wait for the Knative Service to become ready: %v", err)
 				if !d.verbose {
 					fmt.Fprintln(os.Stderr, "\nService output:")
@@ -853,6 +832,68 @@ func wrapK8sConnectionError(err error) error {
 		strings.Contains(errMsg, "i/o timeout") ||
 		strings.Contains(errMsg, "x509:") {
 		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
+	}
+
+	return nil
+}
+
+// waitForReadyOrPrivateRegistry handles polling for a private registry image pull error
+// or successfully waiting for the service to become ready.
+func waitForReadyOrPrivateRegistry(
+	waitForService func() error,
+	isPrivateRegistry func() bool,
+	pollInterval time.Duration,
+) error {
+	chprivate := make(chan bool)
+	cherr := make(chan error, 1)
+	done := make(chan struct{})
+
+	go func() {
+		defer close(chprivate)
+		for {
+			select {
+			case <-time.After(pollInterval):
+			case <-done:
+				return
+			}
+			private := isPrivateRegistry()
+			select {
+			case chprivate <- private:
+				if private {
+					return
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	go func() {
+		cherr <- waitForService()
+		close(cherr)
+	}()
+
+	presumePrivate := false
+main:
+	for {
+		select {
+		case private := <-chprivate:
+			if private {
+				presumePrivate = true
+				break main
+			}
+		case err := <-cherr:
+			if err != nil {
+				close(done)
+				return err
+			}
+			break main
+		}
+	}
+	close(done)
+
+	if presumePrivate {
+		return errPrivateRegistry
 	}
 
 	return nil

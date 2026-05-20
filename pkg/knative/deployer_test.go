@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
@@ -460,4 +461,65 @@ func assertAuth(uname, pwd string, w http.ResponseWriter, r *http.Request) bool 
 	w.WriteHeader(401)
 	_, _ = fmt.Fprintln(w, "Unauthorised.")
 	return false
+}
+
+func TestWaitForReadyOrPrivateRegistry_Success(t *testing.T) {
+	waitForService := func() error {
+		return nil // returns immediately with success
+	}
+	isPrivateRegistry := func() bool {
+		return false
+	}
+	err := waitForReadyOrPrivateRegistry(waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_WaitError(t *testing.T) {
+	expectedErr := errors.New("timeout waiting for service")
+	waitForService := func() error {
+		return expectedErr // returns immediately with error
+	}
+	isPrivateRegistry := func() bool {
+		return false
+	}
+	err := waitForReadyOrPrivateRegistry(waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected error %v, got %v", expectedErr, err)
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_PrivateRegistry(t *testing.T) {
+	waitForService := func() error {
+		// block forever (or at least long enough for private registry check to fire)
+		time.Sleep(1 * time.Second)
+		return nil
+	}
+	isPrivate := false
+	isPrivateRegistry := func() bool {
+		isPrivate = true
+		return true // instantly return true
+	}
+	err := waitForReadyOrPrivateRegistry(waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if !errors.Is(err, errPrivateRegistry) {
+		t.Fatalf("expected errPrivateRegistry, got %v", err)
+	}
+	if !isPrivate {
+		t.Fatalf("expected isPrivateRegistry to be called")
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_DelayedSuccess(t *testing.T) {
+	waitForService := func() error {
+		time.Sleep(50 * time.Millisecond)
+		return nil
+	}
+	isPrivateRegistry := func() bool {
+		return false // never private
+	}
+	err := waitForReadyOrPrivateRegistry(waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
 }
