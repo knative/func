@@ -20,6 +20,10 @@ var createTool = &mcp.Tool{
 }
 
 func (s *Server) createHandler(ctx context.Context, r *mcp.CallToolRequest, input CreateInput) (result *mcp.CallToolResult, output CreateOutput, err error) {
+	if s.readonly.Load() {
+		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
+		return
+	}
 	out, err := s.executor.Execute(ctx, "create", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))

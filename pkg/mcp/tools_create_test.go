@@ -123,3 +123,25 @@ func TestTool_Create_BinaryFailure(t *testing.T) {
 		t.Errorf("expected error to include binary output, got: %s", resultToString(result))
 	}
 }
+
+// TestTool_Create_Readonly ensures the create tool rejects requests in readonly mode.
+func TestTool_Create_Readonly(t *testing.T) {
+	client, _, err := newTestPairWithReadonly(t, true) // readonly = true
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "create",
+		Arguments: map[string]any{"language": "go", "path": "."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected create to be rejected in readonly mode")
+	}
+	if !strings.Contains(resultToString(result), "readonly mode") {
+		t.Errorf("expected readonly error message, got: %s", resultToString(result))
+	}
+}
