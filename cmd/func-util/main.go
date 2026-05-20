@@ -153,6 +153,22 @@ func deploy(ctx context.Context) error {
 	if f.Deploy.Image == "" {
 		f.Deploy.Image = f.Image
 	}
+
+	// For Git-based remote deploys the on-cluster func.yaml comes from the
+	// committed repo and never contains CLI overrides supplied by the user
+	// (--image-pull-secret, --service-account, --deployer).  The pipeline run
+	// forwards those overrides as environment variables so they can be applied
+	// here before deploying.
+	if v := os.Getenv("FUNC_IMAGE_PULL_SECRET"); v != "" {
+		f.Deploy.ImagePullSecret = v
+	}
+	if v := os.Getenv("FUNC_SERVICE_ACCOUNT"); v != "" {
+		f.Deploy.ServiceAccountName = v
+	}
+	if v := os.Getenv("FUNC_DEPLOYER"); v != "" {
+		f.Deploy.Deployer = v
+	}
+
 	if f.Deploy.Deployer == "" {
 		f.Deploy.Deployer = knative.KnativeDeployerName
 	}
