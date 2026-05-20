@@ -252,6 +252,9 @@ func TestTool_ConfigGitRemove_Args(t *testing.T) {
 		if subcommand != "config" {
 			t.Fatalf("expected subcommand 'config', got %q", subcommand)
 		}
+		if len(args) < 2 {
+			t.Fatalf("expected at least 2 args ('git', 'remove'), got %d: %v", len(args), args)
+		}
 		if args[0] != "git" {
 			t.Fatalf("expected args[0]='git', got %q", args[0])
 		}

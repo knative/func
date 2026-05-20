@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -53,9 +54,10 @@ func (i ConfigGitSetInput) Args() []string {
 	args = append(args, "--git-branch", i.GitBranch)
 
 	// Always pass --git-dir to prevent the interactive prompt.
-	// Default to "." (repository root) when not explicitly provided.
+	// Default to "." (repository root) when not provided or when provided as
+	// empty/whitespace-only, as an empty value re-triggers the CLI prompt.
 	gitDir := "."
-	if i.GitDir != nil {
+	if i.GitDir != nil && strings.TrimSpace(*i.GitDir) != "" {
 		gitDir = *i.GitDir
 	}
 	args = append(args, "--git-dir", gitDir)
