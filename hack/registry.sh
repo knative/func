@@ -31,6 +31,13 @@ registry() {
   # This supports environments where both are installed
   echo 'Setting registry as trusted local-only'
 
+  # Pin registry.localtest.me to IPv4 loopback to prevent Docker from
+  # connecting via IPv6 (::1) where KinD's port mapping doesn't listen.
+  if ! grep -q 'registry.localtest.me' /etc/hosts 2>/dev/null; then
+      echo "Pinning registry.localtest.me to 127.0.0.1 in /etc/hosts"
+      echo '127.0.0.1 registry.localtest.me' | sudo tee -a /etc/hosts > /dev/null
+  fi
+
   # Try to configure Docker if it exists
   if command -v docker &> /dev/null; then
       echo "Configuring Docker for insecure registry..."
