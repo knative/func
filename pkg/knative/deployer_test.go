@@ -24,10 +24,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	fn "knative.dev/func/pkg/functions"
+	k8s "knative.dev/func/pkg/k8s"
 	"knative.dev/pkg/ptr"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -417,10 +417,8 @@ func TestUpdateService_EnvsPropagated(t *testing.T) {
 
 // TestGenerateNewService_ResourceSetsPopulated is a regression test for the
 // create (first-deploy) path. It proves that generateNewService populates the
-// caller-supplied referencedSecrets and referencedConfigMaps sets so that the
-// subsequent CheckResourcesArePresent call in Deploy() actually validates them.
-// Before the fix, generateNewService allocated its own internal sets and the
-// caller's sets remained empty, causing validation to be silently skipped.
+// tracker's References so that the subsequent CheckResourcesArePresent call in
+// Deploy() actually validates them.
 func TestGenerateNewService_ResourceSetsPopulated(t *testing.T) {
 	secretName := "my-secret"
 	configMapName := "my-configmap"
@@ -434,20 +432,18 @@ func TestGenerateNewService_ResourceSetsPopulated(t *testing.T) {
 	f.Run.Envs.Add("FROM_SECRET", "{{ secret:"+secretName+":key }}")
 	f.Run.Envs.Add("FROM_CM", "{{ configMap:"+configMapName+":key }}")
 
-	referencedSecrets := sets.New[string]()
-	referencedConfigMaps := sets.New[string]()
-	referencedPVCs := sets.New[string]()
+	tracker := k8s.NewReferences()
 
-	_, err := generateNewService(f, nil, false, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	_, err := generateNewService(f, nil, false, tracker)
 	if err != nil {
 		t.Fatalf("generateNewService returned unexpected error: %v", err)
 	}
 
-	if !referencedSecrets.Has(secretName) {
-		t.Errorf("expected referencedSecrets to contain %q after generateNewService, got: %v", secretName, referencedSecrets)
+	if !tracker.Secrets.Has(secretName) {
+		t.Errorf("expected tracker.Secrets to contain %q after generateNewService, got: %v", secretName, tracker.Secrets)
 	}
-	if !referencedConfigMaps.Has(configMapName) {
-		t.Errorf("expected referencedConfigMaps to contain %q after generateNewService, got: %v", configMapName, referencedConfigMaps)
+	if !tracker.ConfigMaps.Has(configMapName) {
+		t.Errorf("expected tracker.ConfigMaps to contain %q after generateNewService, got: %v", configMapName, tracker.ConfigMaps)
 	}
 }
 
