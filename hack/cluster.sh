@@ -106,7 +106,22 @@ allocate_cluster() {
   echo -e "\n${green}🎉 DONE${reset}\n"
 }
 
+docker_enable_ipv6() {
+  if [ "${GITHUB_ACTIONS:-false}" = "true" ] && [ "$CONTAINER_ENGINE" = "docker" ]; then
+    echo "${blue}Enabling Docker IPv6 support${reset}"
+    local daemon_json="/etc/docker/daemon.json"
+    if [ ! -f "$daemon_json" ]; then
+      echo '{}' | sudo tee "$daemon_json" > /dev/null
+    fi
+    sudo jq '. + {"ipv6": true, "ip6tables": true, "fixed-cidr-v6": "fd00::/80"}' "$daemon_json" > /tmp/daemon.json.tmp \
+      && sudo mv /tmp/daemon.json.tmp "$daemon_json"
+    sudo systemctl restart docker
+    echo "${green}✅ Docker IPv6${reset}"
+  fi
+}
+
 kubernetes() {
+  docker_enable_ipv6
   cat <<EOF | $KIND create cluster --name=func --kubeconfig="${KUBECONFIG}" --wait=60s --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
