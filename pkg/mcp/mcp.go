@@ -135,6 +135,8 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, repositoryAddTool, s.repositoryAddHandler)
 	mcp.AddTool(i, repositoryRenameTool, s.repositoryRenameHandler)
 	mcp.AddTool(i, repositoryRemoveTool, s.repositoryRemoveHandler)
+	mcp.AddTool(i, configGitSetTool, s.configGitSetHandler)
+	mcp.AddTool(i, configGitRemoveTool, s.configGitRemoveHandler)
 
 	// Resources
 	// ---------
@@ -178,6 +180,10 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Repository Add Help", "help for 'repository add'", "repository", "add"))
 	i.AddResource(newHelpResource(s, "Repository Rename Help", "help for 'repository rename'", "repository", "rename"))
 	i.AddResource(newHelpResource(s, "Repository Remove Help", "help for 'repository remove'", "repository", "remove"))
+
+	i.AddResource(newHelpResource(s, "Git Help", "general help for Git pipeline config", "config", "git"))
+	i.AddResource(newHelpResource(s, "Git Set Help", "help for 'config git set'", "config", "git", "set"))
+	i.AddResource(newHelpResource(s, "Git Remove Help", "help for 'config git remove'", "config", "git", "remove"))
 
 	s.impl = i
 
