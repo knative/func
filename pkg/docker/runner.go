@@ -7,10 +7,13 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 	"github.com/pkg/errors"
@@ -90,7 +93,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {
 		return job, errors.Wrap(err, "failed to create Docker API client")
 	}
-	if id, err = newContainer(ctx, c, f, host, port, n.verbose); err != nil {
+	if id, err = newContainer(ctx, c, f, host, port, n.verbose, n.errOut); err != nil {
 		return job, errors.Wrap(err, "runner unable to create container")
 	}
 	if conn, err = copyStdio(ctx, c, id, copyErrCh, n.out, n.errOut); err != nil {
@@ -254,7 +257,7 @@ func choosePort(host, preferredPort string, dialTimeout time.Duration) string {
 
 }
 
-func newContainer(ctx context.Context, c DockerClient, f fn.Function, host, port string, verbose bool) (id string, err error) {
+func newContainer(ctx context.Context, c DockerClient, f fn.Function, host, port string, verbose bool, out io.Writer) (id string, err error) {
 	var (
 		containerCfg container.Config
 		hostCfg      container.HostConfig
@@ -262,7 +265,7 @@ func newContainer(ctx context.Context, c DockerClient, f fn.Function, host, port
 	if containerCfg, err = newContainerConfig(f, port, verbose); err != nil {
 		return
 	}
-	if hostCfg, err = newHostConfig(host, port); err != nil {
+	if hostCfg, err = newHostConfig(host, port, f, out); err != nil {
 		return
 	}
 	t, err := c.ContainerCreate(ctx, client.ContainerCreateOptions{
@@ -303,7 +306,7 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	return
 }
 
-func newHostConfig(host, port string) (c container.HostConfig, err error) {
+func newHostConfig(host, port string, f fn.Function, out io.Writer) (c container.HostConfig, err error) {
 	httpPort := network.MustParsePort("8080/tcp")
 	hostIP, err := netip.ParseAddr(host)
 	if err != nil {
@@ -317,7 +320,99 @@ func newHostConfig(host, port string) (c container.HostConfig, err error) {
 			},
 		},
 	}
-	return container.HostConfig{PortBindings: ports}, nil
+	mounts := volumeMounts(f.Root, f.Run.Volumes, out)
+	return container.HostConfig{PortBindings: ports, Mounts: mounts}, nil
+}
+
+// volumeMounts converts func.yaml volume definitions into Docker mount specs.
+// Volumes that cannot be mapped locally emit a warning and are skipped rather
+// than aborting the run.
+func volumeMounts(root string, volumes []fn.Volume, out io.Writer) []mount.Mount {
+	var mounts []mount.Mount
+	for _, vol := range volumes {
+		if vol.Path == nil {
+			fmt.Fprintf(out, "warning: skipping volume %s: missing path\n", vol.String())
+			continue
+		}
+		m, err := toMount(root, vol)
+		if err != nil {
+			fmt.Fprintf(out, "warning: skipping volume %s: %v\n", vol.String(), err)
+			continue
+		}
+		mounts = append(mounts, m)
+	}
+	return mounts
+}
+
+// toMount maps a single Volume spec to a Docker mount.Mount.
+//
+// runDir is <root>/.func/run (fn.RunDataDir = ".func", the extra "run" segment
+// scopes local state for the run subcommand away from build artifacts).
+//
+// Mapping rules:
+//   - Secret    → bind mount from <runDir>/secrets/<name>   (created if absent, mode 0700)
+//   - ConfigMap → bind mount from <runDir>/configmaps/<name> (created if absent, mode 0750)
+//   - EmptyDir  → tmpfs for both default and Memory mediums (matches ephemeral pod semantics)
+//   - PVC       → named Docker volume keyed by claimName (shared across functions, matches k8s semantics)
+//
+// safeLocalName rejects names that contain path separators or traversal
+// sequences. Secret and ConfigMap names are used as file-path components; an
+// adversarial name such as "../../etc" would otherwise escape the .func tree.
+func safeLocalName(name string) error {
+	if strings.ContainsAny(name, "/\\") || strings.Contains(name, "..") {
+		return fmt.Errorf("name %q must not contain path separators or \"..\"", name)
+	}
+	return nil
+}
+
+func toMount(root string, vol fn.Volume) (mount.Mount, error) {
+	target := *vol.Path
+	// fn.RunDataDir = ".func"; the "run" subdirectory scopes local run state.
+	runDir := filepath.Join(root, fn.RunDataDir, "run")
+
+	if vol.Secret != nil {
+		if err := safeLocalName(*vol.Secret); err != nil {
+			return mount.Mount{}, fmt.Errorf("secret: %w", err)
+		}
+		src := filepath.Join(runDir, "secrets", *vol.Secret)
+		if err := os.MkdirAll(src, 0700); err != nil {
+			return mount.Mount{}, fmt.Errorf("cannot create local secret dir %q: %w", src, err)
+		}
+		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target}, nil
+	}
+
+	if vol.ConfigMap != nil {
+		if err := safeLocalName(*vol.ConfigMap); err != nil {
+			return mount.Mount{}, fmt.Errorf("configMap: %w", err)
+		}
+		src := filepath.Join(runDir, "configmaps", *vol.ConfigMap)
+		if err := os.MkdirAll(src, 0750); err != nil {
+			return mount.Mount{}, fmt.Errorf("cannot create local configmap dir %q: %w", src, err)
+		}
+		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target}, nil
+	}
+
+	if vol.EmptyDir != nil {
+		// Both mediums map to tmpfs locally: EmptyDir is ephemeral (pod-lifetime)
+		// and anonymous Docker volumes persist across runs, leaking storage.
+		return mount.Mount{Type: mount.TypeTmpfs, Target: target}, nil
+	}
+
+	if vol.PersistentVolumeClaim != nil {
+		if vol.PersistentVolumeClaim.ClaimName == nil {
+			return mount.Mount{}, fmt.Errorf("persistentVolumeClaim missing claimName")
+		}
+		// Named Docker volume keyed by claimName: multiple functions referencing
+		// the same claim share the same local volume, matching Kubernetes semantics.
+		return mount.Mount{
+			Type:     mount.TypeVolume,
+			Source:   *vol.PersistentVolumeClaim.ClaimName,
+			Target:   target,
+			ReadOnly: vol.PersistentVolumeClaim.ReadOnly,
+		}, nil
+	}
+
+	return mount.Mount{}, fmt.Errorf("unrecognized volume type")
 }
 
 // copy stdin and stdout from the container of the given ID.  Errors encountered
