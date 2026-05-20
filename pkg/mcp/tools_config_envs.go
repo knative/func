@@ -3,8 +3,10 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 )
 
 // config_envs_list
@@ -21,28 +23,54 @@ var configEnvsListTool = &mcp.Tool{
 }
 
 type ConfigEnvsListInput struct {
-	Path    string `json:"path" jsonschema:"required,Path to the function project directory"`
-	Verbose *bool  `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Path string `json:"path" jsonschema:"required,Path to the function project directory"`
 }
 
-func (i ConfigEnvsListInput) Args() []string {
-	args := []string{"envs", "--path", i.Path}
-	args = appendBoolFlag(args, "--verbose", i.Verbose)
-	return args
+// EnvVar is the MCP-facing representation of a configured environment
+// variable. It mirrors fn.Env without the invopop/jsonschema struct tags,
+// which the MCP SDK's output-schema generator cannot parse.
+type EnvVar struct {
+	Name  *string `json:"name,omitempty" jsonschema:"Environment variable name"`
+	Value *string `json:"value,omitempty" jsonschema:"Literal value or template expression"`
 }
 
+// ConfigEnvsListOutput exposes the configured environment variables as typed
+// structured data; Message is a human-readable summary for fallback display.
 type ConfigEnvsListOutput struct {
-	Message string `json:"message" jsonschema:"Output message"`
+	Envs    []EnvVar `json:"envs" jsonschema:"Configured environment variables"`
+	Message string   `json:"message" jsonschema:"Human-readable summary"`
 }
 
-func (s *Server) configEnvsListHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsListInput) (result *mcp.CallToolResult, output ConfigEnvsListOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+// configEnvsListHandler loads the function at the given path and returns its
+// configured environment variables directly from pkg/functions rather than
+// shelling out to `func config envs`. Part of the migration tracked in
+// https://github.com/knative/func/issues/3771.
+func (s *Server) configEnvsListHandler(_ context.Context, _ *mcp.CallToolRequest, input ConfigEnvsListInput) (result *mcp.CallToolResult, output ConfigEnvsListOutput, err error) {
+	f, err := fn.NewFunction(input.Path)
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigEnvsListOutput{Message: string(out)}
+	envs := make([]EnvVar, len(f.Run.Envs))
+	for i, e := range f.Run.Envs {
+		envs[i] = EnvVar{Name: e.Name, Value: e.Value}
+	}
+	output = ConfigEnvsListOutput{
+		Envs:    envs,
+		Message: formatEnvs(f.Run.Envs),
+	}
 	return
+}
+
+func formatEnvs(envs fn.Envs) string {
+	if len(envs) == 0 {
+		return "There aren't any configured Environment variables"
+	}
+	var b strings.Builder
+	b.WriteString("Configured Environment variables:\n")
+	for _, e := range envs {
+		fmt.Fprintf(&b, " -  %s\n", e.String())
+	}
+	return b.String()
 }
 
 // config_envs_add
