@@ -146,6 +146,7 @@ EOF
   sleep 10
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
   echo "${green}✅ Kubernetes${reset}"
+  docker network inspect kind
 }
 
 serving() {
