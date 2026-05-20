@@ -4,6 +4,7 @@ package k8s_test
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -246,4 +247,120 @@ func TestInt_DialUnreachable(t *testing.T) {
 	if !strings.Contains(err.Error(), "connection refused") {
 		t.Errorf("error %q doesn't contain expected substring: ", err.Error())
 	}
+}
+
+// TestInt_DialContextExpiry verifies that a connection established via
+// DialContext continues to work after the dial context has expired.
+// Per net.Dialer.DialContext semantics: "Once successfully connected, any
+// expiration of the context will not affect the connection."
+func TestInt_DialContextExpiry(t *testing.T) {
+	var setupCtx = t.Context()
+
+	clientConfig := k8s.GetClientConfig()
+	rc, err := clientConfig.ClientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cliSet, err := kubernetes.NewForConfig(rc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pp := metaV1.DeletePropagationForeground
+	creatOpts := metaV1.CreateOptions{}
+	deleteOpts := metaV1.DeleteOptions{PropagationPolicy: &pp}
+
+	testingNS, _, err := clientConfig.Namespace()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rnd := rand.String(5)
+	one := int32(1)
+	labels := map[string]string{"app.kubernetes.io/name": "helloworld-ctx"}
+
+	deployment := &appsV1.Deployment{
+		ObjectMeta: metaV1.ObjectMeta{Name: "helloworld-ctx-" + rnd, Labels: labels},
+		Spec: appsV1.DeploymentSpec{
+			Replicas: &one,
+			Selector: &metaV1.LabelSelector{MatchLabels: labels},
+			Template: coreV1.PodTemplateSpec{
+				ObjectMeta: metaV1.ObjectMeta{Labels: labels},
+				Spec: coreV1.PodSpec{
+					Containers: []coreV1.Container{{
+						Name:  "helloworld",
+						Image: "gcr.io/knative-samples/helloworld-go@sha256:2babda8ec819e24d5a6342095e8f8a25a67b44eb7231ae253ecc2c448632f07e",
+						Ports: []coreV1.ContainerPort{{Name: "http", ContainerPort: 8080, Protocol: coreV1.ProtocolTCP}},
+						Env:   []coreV1.EnvVar{{Name: "PORT", Value: "8080"}},
+					}},
+				},
+			},
+		},
+	}
+	_, err = cliSet.AppsV1().Deployments(testingNS).Create(setupCtx, deployment, creatOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cliSet.AppsV1().Deployments(testingNS).Delete(setupCtx, deployment.Name, deleteOpts) })
+
+	svc := &coreV1.Service{
+		ObjectMeta: metaV1.ObjectMeta{Name: "helloworld-ctx-" + rnd},
+		Spec: coreV1.ServiceSpec{
+			Ports:    []coreV1.ServicePort{{Name: "http", Protocol: coreV1.ProtocolTCP, Port: 80, TargetPort: intstr.FromInt(8080)}},
+			Selector: labels,
+		},
+	}
+	svc, err = cliSet.CoreV1().Services(testingNS).Create(setupCtx, svc, creatOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cliSet.CoreV1().Services(testingNS).Delete(setupCtx, svc.Name, deleteOpts) })
+
+	if err := k8s.WaitForDeploymentAvailable(setupCtx, cliSet, testingNS, deployment.Name, 60*time.Second); err != nil {
+		t.Fatal("deployment never became ready:", err)
+	}
+
+	dialer := k8s.NewLazyInitInClusterDialer(clientConfig)
+	t.Cleanup(func() { dialer.Close() })
+
+	// Use a short-lived context for dial establishment only.
+	dialCtx, dialCancel := context.WithTimeout(setupCtx, 30*time.Second)
+
+	transport := &http.Transport{
+		DialContext: dialer.DialContext,
+	}
+	client := http.Client{Transport: transport}
+
+	svcURL := fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
+
+	// First request — establishes the connection while dialCtx is alive.
+	resp, err := client.Get(svcURL)
+	if err != nil {
+		dialCancel()
+		t.Fatal(err)
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		dialCancel()
+		t.Fatalf("unexpected status code: %d", resp.StatusCode)
+	}
+	t.Log("first request succeeded while dial context is alive")
+
+	// Now cancel the dial context.
+	dialCancel()
+	t.Log("dial context cancelled; connection should survive")
+
+	// Second request — reuses the established connection.
+	// If the exec stream was incorrectly tied to dialCtx, this will fail.
+	resp, err = client.Get(svcURL)
+	if err != nil {
+		t.Fatalf("connection died after dial context expired: %v", err)
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode != 200 {
+		t.Fatalf("unexpected status code after dial context expired: %d", resp.StatusCode)
+	}
+	t.Log("second request succeeded after dial context expired — connection survived")
 }
