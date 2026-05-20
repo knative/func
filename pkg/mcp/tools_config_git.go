@@ -10,7 +10,7 @@ import (
 // config_git_set
 
 var configGitSetTool = &mcp.Tool{
-	Name: "config_git_set",
+	Name:  "config_git_set",
 	Title: "Config Git Set",
 	Description: "Set Git source repository settings for a Function's pipeline-based build and deployment. " +
 		"Configures the Git URL, branch, and optional subdirectory, and creates local pipeline templates. " +
@@ -34,16 +34,16 @@ var configGitSetTool = &mcp.Tool{
 // When none of config-local/cluster/remote are set, --config-local is
 // forwarded automatically so the CLI skips the webhook confirmation prompt.
 type ConfigGitSetInput struct {
-	Path           string  `json:"path"                     jsonschema:"required,Absolute path to the Function project directory"`
-	GitURL         string  `json:"git_url"                  jsonschema:"required,URL of the Git repository containing the Function source code"`
-	GitBranch      string  `json:"git_branch"               jsonschema:"required,Git branch or tag to build from (e.g. main)"`
-	GitDir         *string `json:"git_dir,omitempty"        jsonschema:"Subdirectory within the repository where the Function source is located (default: repository root)"`
-	GitProvider    *string `json:"git_provider,omitempty"   jsonschema:"Git platform provider for webhook setup; usually auto-detected from the URL (e.g. github, gitlab, gitea)"`
-	ConfigLocal    *bool   `json:"config_local,omitempty"   jsonschema:"Create local pipeline template files in the Function directory (default: true when no config flags are set)"`
-	ConfigCluster  *bool   `json:"config_cluster,omitempty" jsonschema:"Create pipeline credentials and config on the cluster"`
-	ConfigRemote   *bool   `json:"config_remote,omitempty"  jsonschema:"Configure a webhook on the remote Git provider (requires gh_access_token for GitHub)"`
-	GhAccessToken  *string `json:"gh_access_token,omitempty" jsonschema:"GitHub Personal Access Token for webhook creation (scope: public_repo or repo, admin:repo_hook for automatic webhook setup)"`
-	Verbose        *bool   `json:"verbose,omitempty"        jsonschema:"Enable verbose logging output"`
+	Path          string  `json:"path"                     jsonschema:"required,Absolute path to the Function project directory"`
+	GitURL        string  `json:"git_url"                  jsonschema:"required,URL of the Git repository containing the Function source code"`
+	GitBranch     string  `json:"git_branch"               jsonschema:"required,Git branch or tag to build from (e.g. main)"`
+	GitDir        *string `json:"git_dir,omitempty"        jsonschema:"Subdirectory within the repository where the Function source is located (default: repository root)"`
+	GitProvider   *string `json:"git_provider,omitempty"   jsonschema:"Git platform provider for webhook setup; usually auto-detected from the URL (e.g. github, gitlab, gitea)"`
+	ConfigLocal   *bool   `json:"config_local,omitempty"   jsonschema:"Create local pipeline template files in the Function directory (default: true when no config flags are set)"`
+	ConfigCluster *bool   `json:"config_cluster,omitempty" jsonschema:"Create pipeline credentials and config on the cluster"`
+	ConfigRemote  *bool   `json:"config_remote,omitempty"  jsonschema:"Configure a webhook on the remote Git provider (requires gh_access_token for GitHub)"`
+	GhAccessToken *string `json:"gh_access_token,omitempty" jsonschema:"GitHub Personal Access Token for webhook creation (scope: public_repo or repo, admin:repo_hook for automatic webhook setup)"`
+	Verbose       *bool   `json:"verbose,omitempty"        jsonschema:"Enable verbose logging output"`
 }
 
 func (i ConfigGitSetInput) Args() []string {
