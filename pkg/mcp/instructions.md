@@ -148,7 +148,7 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
   - **REQUIRED:** `git_url` (repository URL) and `git_branch` (branch or tag, e.g. `main`)
   - **OPTIONAL:** `git_dir` (subdirectory in the repo; defaults to repository root when omitted)
   - **OPTIONAL:** `git_provider` (auto-detected from URL; override only if detection fails)
-  - **OPTIONAL PAC:** `config_local`, `config_cluster`, `config_remote` (boolean flags to control which pipeline resources are created; defaults to local-only when none are specified)
+  - **OPTIONAL:** `config_local`, `config_cluster`, `config_remote` (boolean flags to control which pipeline resources are created; defaults to local-only when none are specified)
   - **OPTIONAL:** `gh_access_token` — required only when `config_remote` is true to create a GitHub webhook
   - Changes are written to `func.yaml` and take effect on the next pipeline build
 - `config_git_remove` — removes Git settings and associated pipeline resources:
