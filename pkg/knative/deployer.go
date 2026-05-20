@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -408,6 +409,46 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 		if err != nil && !errors.IsAlreadyExists(err) {
 			err = fmt.Errorf("knative deployer failed to create the Trigger: %v", err)
 			return err
+		}
+	}
+
+	// Clean up stale triggers that are no longer in the desired subscription set.
+	triggerPrefix := fmt.Sprintf("%s-function-trigger-", ksvc.GetName())
+	existingTriggers, err := eventingClient.ListTriggers(ctx)
+	if err != nil {
+		if errors.IsNotFound(err) || strings.HasPrefix(err.Error(), "no or newer Knative Eventing API found on the backend") {
+			return nil
+		}
+		return fmt.Errorf("knative deployer failed to list triggers for cleanup: %v", err)
+	}
+	triggerNames := make([]string, len(existingTriggers.Items))
+	for i, t := range existingTriggers.Items {
+		triggerNames[i] = t.Name
+	}
+	return deleteStaleTriggers(triggerNames, triggerPrefix, len(f.Deploy.Subscriptions), func(name string) error {
+		return eventingClient.DeleteTrigger(ctx, name)
+	})
+}
+
+// deleteStaleTriggers removes triggers whose numeric index suffix is >= desiredCount.
+// The knative deployer names triggers as <prefix><index>. If the subscription count
+// decreases, triggers with higher indices become orphaned and must be cleaned up.
+func deleteStaleTriggers(triggerNames []string, triggerPrefix string, desiredCount int, deleteFn func(name string) error) error {
+	for _, name := range triggerNames {
+		if !strings.HasPrefix(name, triggerPrefix) {
+			continue
+		}
+		idxStr := strings.TrimPrefix(name, triggerPrefix)
+		idx, parseErr := strconv.Atoi(idxStr)
+		if parseErr != nil {
+			continue
+		}
+		if idx >= desiredCount {
+			fmt.Fprintf(os.Stderr, "Deleting stale trigger: %s\n", name)
+			delErr := deleteFn(name)
+			if delErr != nil && !errors.IsNotFound(delErr) {
+				return fmt.Errorf("knative deployer failed to delete stale trigger %s: %v", name, delErr)
+			}
 		}
 	}
 	return nil

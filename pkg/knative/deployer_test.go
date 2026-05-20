@@ -461,3 +461,87 @@ func assertAuth(uname, pwd string, w http.ResponseWriter, r *http.Request) bool 
 	_, _ = fmt.Fprintln(w, "Unauthorised.")
 	return false
 }
+
+// TestDeleteStaleTriggers_NoStale ensures no triggers are deleted when all are within range.
+func TestDeleteStaleTriggers_NoStale(t *testing.T) {
+	triggers := []string{"my-func-function-trigger-0", "my-func-function-trigger-1"}
+	prefix := "my-func-function-trigger-"
+	var deleted []string
+	deleteFn := func(name string) error {
+		deleted = append(deleted, name)
+		return nil
+	}
+	err := deleteStaleTriggers(triggers, prefix, 2, deleteFn)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(deleted) != 0 {
+		t.Fatalf("expected no deletions, got %v", deleted)
+	}
+}
+
+// TestDeleteStaleTriggers_DeletesStale ensures triggers beyond desired count are deleted.
+func TestDeleteStaleTriggers_DeletesStale(t *testing.T) {
+	triggers := []string{
+		"my-func-function-trigger-0",
+		"my-func-function-trigger-1",
+		"my-func-function-trigger-2",
+		"my-func-function-trigger-3",
+	}
+	prefix := "my-func-function-trigger-"
+	var deleted []string
+	deleteFn := func(name string) error {
+		deleted = append(deleted, name)
+		return nil
+	}
+	// desiredCount=2 means indices 2 and 3 are stale
+	err := deleteStaleTriggers(triggers, prefix, 2, deleteFn)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(deleted) != 2 {
+		t.Fatalf("expected 2 deletions, got %v", deleted)
+	}
+	if deleted[0] != "my-func-function-trigger-2" || deleted[1] != "my-func-function-trigger-3" {
+		t.Fatalf("unexpected deleted triggers: %v", deleted)
+	}
+}
+
+// TestDeleteStaleTriggers_SkipsNonMatching ensures triggers that don't match the prefix or
+// have unparseable suffixes are skipped.
+func TestDeleteStaleTriggers_SkipsNonMatching(t *testing.T) {
+	triggers := []string{
+		"other-trigger-0",              // wrong prefix
+		"my-func-function-trigger-abc", // unparseable index
+		"my-func-function-trigger-2",   // stale, should be deleted
+	}
+	prefix := "my-func-function-trigger-"
+	var deleted []string
+	deleteFn := func(name string) error {
+		deleted = append(deleted, name)
+		return nil
+	}
+	err := deleteStaleTriggers(triggers, prefix, 1, deleteFn)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(deleted) != 1 || deleted[0] != "my-func-function-trigger-2" {
+		t.Fatalf("expected only trigger-2 deleted, got %v", deleted)
+	}
+}
+
+// TestDeleteStaleTriggers_DeleteError ensures errors from the delete callback are returned.
+func TestDeleteStaleTriggers_DeleteError(t *testing.T) {
+	triggers := []string{"my-func-function-trigger-5"}
+	prefix := "my-func-function-trigger-"
+	deleteFn := func(name string) error {
+		return fmt.Errorf("connection refused")
+	}
+	err := deleteStaleTriggers(triggers, prefix, 1, deleteFn)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "connection refused") {
+		t.Fatalf("expected 'connection refused' in error, got: %v", err)
+	}
+}
