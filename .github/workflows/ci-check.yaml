@@ -4,9 +4,24 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**/*.md'
+      - '*.md'
+      - 'OWNERS'
+      - 'OWNERS_ALIASES'
+      - 'LICENSE'
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**/*.md'
+      - '*.md'
+      - 'OWNERS'
+      - 'OWNERS_ALIASES'
+      - 'LICENSE'
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
