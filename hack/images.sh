@@ -13,7 +13,7 @@ docker push "${FUNC_UTILS_IMG}"
 
 # Build custom buildah image for tests.
 # This image will accept registries ending with .cluster.local as insecure (non-TLS).
-go install github.com/google/go-containerregistry/cmd/crane@latest
+go install github.com/google/go-containerregistry/cmd/crane@v0.21.5
 crane append --base=quay.io/buildah/stable:v1.31.0 \
              --new_layer="$(dirname "$0")/allow-insecure.tar" \
              --new_tag=quay.io/buildah/stable:v1.31.0 \
