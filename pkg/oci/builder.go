@@ -34,32 +34,6 @@ const (
 	DefaultGid = 1000
 )
 
-var defaultIgnored = []string{
-	".git",
-	".func",
-	".funcignore",
-	".gitignore",
-}
-
-// readFuncIgnore reads the .funcignore file from the given root directory
-// and returns its patterns with blank lines and '#' comments removed. A
-// missing or unreadable file returns nil; .funcignore is optional.
-func readFuncIgnore(root string) []string {
-	data, err := os.ReadFile(filepath.Join(root, ".funcignore"))
-	if err != nil {
-		return nil
-	}
-	var patterns []string
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		patterns = append(patterns, line)
-	}
-	return patterns
-}
-
 var builders = map[string]languageBuilder{
 	"go":     goBuilder{},
 	"python": pythonBuilder{},
@@ -337,10 +311,9 @@ func writeDataLayer(job buildJob) (layer imageLayer, err error) {
 	source := job.function.Root // The source is the function's entire filesystem
 	target := filepath.Join(job.buildDir(), "datalayer.tar.gz")
 
-	ignored := append([]string{}, defaultIgnored...)
-	ignored = append(ignored, readFuncIgnore(source)...)
+	userPatterns := fn.ParseFuncIgnore(source)
 
-	if err = newDataTarball(source, target, ignored, job.verbose); err != nil {
+	if err = newDataTarball(source, target, userPatterns, job.verbose); err != nil {
 		return
 	}
 
@@ -386,26 +359,11 @@ func newDataTarball(root, target string, ignored []string, verbose bool) error {
 			return err
 		}
 
-		// Skip files explicitly ignored. Two pattern forms are supported:
-		//   "/foo/bar" — root-relative; matches that exact path and
-		//                everything beneath it.
-		//   "foo"     — base-name; matches any entry named "foo" at any
-		//                depth (the historical default).
-		for _, v := range ignored {
-			match := false
-			if strings.HasPrefix(v, "/") {
-				p := v[1:]
-				r := filepath.ToSlash(relPath)
-				match = r == p || strings.HasPrefix(r, p+"/")
-			} else {
-				match = info.Name() == v
+		if relPath != "." && fn.IsIgnored(relPath, ignored) {
+			if info.IsDir() {
+				return filepath.SkipDir
 			}
-			if match {
-				if info.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
+			return nil
 		}
 
 		lnk := "" // if link, this will be used as the target

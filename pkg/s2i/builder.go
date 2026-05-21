@@ -131,7 +131,19 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		client = c
 	}
 
-	// Link .s2iignore -> .funcignore
+	// Symlink .s2iignore -> .funcignore so S2I reads .funcignore patterns
+	// natively - strips comments and handles root-relative and trailing-slash
+	// patterns via filepath.Join(workingDir, pattern) before globbing.
+	//
+	// gauron99 - known diff: S2I glob matching is non-recursive. A pattern like
+	// "*.tmp" only excludes files at the root of the source tree, whereas the
+	// host&pack builder, Fingerprint() exclude matching files at any depth.
+	// See: https://github.com/openshift/source-to-image/blob/master/pkg/ignore/ignore.go
+	//
+	// This appears to be the only limitation compared to other builders and
+	// Fingerprint(). If we wanted full sync we would have to parse .funcignore
+	// and expand this incompatible pattern to match s2i pattern to write into
+	// .s2iignore file.
 	funcignorePath := filepath.Join(f.Root, ".funcignore")
 	s2iignorePath := filepath.Join(f.Root, ".s2iignore")
 	if _, err := os.Stat(funcignorePath); err == nil {

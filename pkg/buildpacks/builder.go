@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -142,23 +141,9 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		buildpacks = defaultBuildpacks[f.Runtime]
 	}
 
-	// Reading .funcignore file
-	var excludes []string
-	filePath := filepath.Join(f.Root, ".funcignore")
-	file, err := os.Open(filePath)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("\nfailed to open file: %s", err)
-		}
-	} else {
-		defer file.Close()
-		buf := new(bytes.Buffer)
-		_, err := io.Copy(buf, file)
-		if err != nil {
-			return fmt.Errorf("\nfailed to read file: %s", err)
-		}
-		excludes = strings.Split(buf.String(), "\n")
-	}
+	// Reading .funcignore file (user patterns only — pack handles its own
+	// build context and needs access to directories like .func/build)
+	excludes := fn.ParseFuncIgnore(f.Root)
 	// Pack build options
 	opts := pack.BuildOptions{
 		GroupID:        -1,

@@ -1353,16 +1353,90 @@ func ensureFuncIgnore(root string) error {
 	defer file.Close()
 
 	// Write the desired string to the file
-	_, err = file.WriteString(`
-# Use the .funcignore file to exclude files which should not be
-# tracked in the image build. To instruct the system not to track
-# files in the image build, add the regex pattern or file information
-# to this file.
+	_, err = file.WriteString(`# Use the .funcignore file to exclude files from the image build.
+# Excluded files do not affect the rebuild fingerprint.
+#
+# Supported patterns:
+#   foo        - exclude any file or directory named "foo" at any depth
+#   *.tmp      - glob; exclude matching files at any depth (except S2I: root only)
+#   /docs      - root-relative; exclude only the top-level "docs" entry
+#   build/     - trailing slash stripped, then matched as a basename
+#
+# Lines starting with # are comments and are ignored.
 `)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// DefaultIgnored contains entries that are always ignored regardless of
+// .funcignore file contents.
+var DefaultIgnored = []string{
+	".git",
+	".func",
+	".funcignore",
+	".gitignore",
+}
+
+// ParseFuncIgnore reads .funcignore and returns patterns with comments
+// and blank lines stripped.
+func ParseFuncIgnore(root string) []string {
+	f, err := os.Open(filepath.Join(root, ".funcignore"))
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	var patterns []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+	return patterns
+}
+
+// IsIgnored reports whether a path should be skipped based on the
+// default ignored entries and user-defined patterns from .funcignore.
+// Four pattern forms are supported:
+//
+//	"/foo" — root-relative; matches that exact path and everything beneath it.
+//	"foo/" — trailing slash stripped, then matched as basename.
+//	"*.tmp" — glob; matched against basename and full relative path (filepath.Match semantics).
+//	"foo" — basename; matches any entry named "foo" at any depth.
+//
+// Used by Fingerprint and the OCI builder. Known differences from other builders:
+//   - Pack (go-gitignore): supports "**" recursive globs and "!" negation — this does not.
+//   - S2I (filepath.Glob): non-recursive — "*.tmp" only matches at root level, this matches at any depth.
+func IsIgnored(relPath string, userPatterns []string) bool {
+	base := filepath.Base(relPath)
+	for _, d := range DefaultIgnored {
+		if base == d {
+			return true
+		}
+	}
+	slashRel := filepath.ToSlash(relPath)
+	for _, pattern := range userPatterns {
+		if strings.HasPrefix(pattern, "/") {
+			p := pattern[1:]
+			if slashRel == p || strings.HasPrefix(slashRel, p+"/") {
+				return true
+			}
+			continue
+		}
+		pattern = strings.TrimSuffix(pattern, "/")
+		if matched, _ := filepath.Match(pattern, base); matched {
+			return true
+		}
+		if matched, _ := filepath.Match(pattern, relPath); matched {
+			return true
+		}
+	}
+	return false
 }
 
 // Fingerprint the files at a given path.  Returns a hash calculated from the
@@ -1371,10 +1445,10 @@ func ensureFuncIgnore(root string) error {
 // which contributed to the hash.
 // Intended to determine if there were appreciable changes to a function's
 // source code, certain directories and files are ignored, such as
-// .git and .func.
-// Future updates will include files explicitly marked as ignored by a
-// .funcignore.
+// .git and .func. User-defined patterns from .funcignore are also respected.
 func Fingerprint(root string) (hash, log string, err error) {
+	userPatterns := ParseFuncIgnore(root)
+
 	h := sha256.New()   // Hash builder
 	l := bytes.Buffer{} // Log buffer
 
@@ -1385,9 +1459,15 @@ func Fingerprint(root string) (hash, log string, err error) {
 		if path == root {
 			return nil
 		}
-		// Always ignore .func, .git (TODO: .funcignore)
-		if info.IsDir() && (info.Name() == RunDataDir || info.Name() == ".git") {
-			return filepath.SkipDir
+		relPath, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if IsIgnored(relPath, userPatterns) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		fmt.Fprintf(h, "%v:%v:", path, info.ModTime().UnixNano())   // Write to the Hasher
 		fmt.Fprintf(&l, "%v:%v\n", path, info.ModTime().UnixNano()) // Write to the Log

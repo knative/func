@@ -145,45 +145,45 @@ func TestBuild_BuilderImageConfigurable(t *testing.T) {
 	}
 }
 
-// TestBuild_BuilderImageExclude ensures that ignored files are not added to the func
-// image
-func TestBuild_BuilderImageExclude(t *testing.T) {
+// TestBuild_BuilderImageExcludePatterns verifies that all supported
+// .funcignore pattern forms are correctly passed to pack's Exclude option.
+func TestBuild_BuilderImageExcludePatterns(t *testing.T) {
 	root, done := Mktemp(t)
 	defer done()
 
 	var (
-		i = &mockImpl{} // mock underlying implementation
-		b = NewBuilder( // Func Builder logic
-			WithName(builders.Pack), WithImpl(i))
-		f = fn.Function{
-			Runtime:  "go",
-			Root:     root,
-			Registry: "example.com/alice",
-		}
+		i   = &mockImpl{}
+		b   = NewBuilder(WithName(builders.Pack), WithImpl(i))
+		f   = fn.Function{Runtime: "go", Root: root, Registry: "example.com/alice"}
 		err error
 	)
 
-	// Initialize the function to create proper source files
 	if f, err = fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
-	funcIgnoreContent := []byte(`#testing comments
-hello.txt`)
-	expected := []string{"hello.txt"}
-
-	//create a .funcignore file containing the details of the files to be ignored
-	err = os.WriteFile(filepath.Join(f.Root, ".funcignore"), funcIgnoreContent, 0644)
-	if err != nil {
+	content := []byte("# comment stripped\nnotes.txt\n*.tmp\n/docs\ndist/\n")
+	if err = os.WriteFile(filepath.Join(f.Root, ".funcignore"), content, 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
-		if len(opts.ProjectDescriptor.Build.Exclude) != 2 {
-			t.Fatalf("expected 2 lines of exclusions , got %v", len(opts.ProjectDescriptor.Build.Exclude))
+		excludes := opts.ProjectDescriptor.Build.Exclude
+		// 4 user patterns: notes.txt, *.tmp, /docs, dist/ (comment stripped)
+		if len(excludes) != 4 {
+			t.Fatalf("expected 4 exclusions, got %v: %v", len(excludes), excludes)
 		}
-		if opts.ProjectDescriptor.Build.Exclude[1] != expected[0] {
-			t.Fatalf("expected excluded file to be '%v', got '%v'", expected[1], opts.ProjectDescriptor.Build.Exclude[1])
+		want := map[string]bool{"notes.txt": true, "*.tmp": true, "/docs": true, "dist/": true}
+		for _, e := range excludes {
+			if !want[e] {
+				t.Errorf("unexpected exclusion: %q", e)
+			}
+		}
+		// Verify comment was stripped
+		for _, e := range excludes {
+			if len(e) > 0 && e[0] == '#' {
+				t.Errorf("comment line in excludes: %q", e)
+			}
 		}
 		return nil
 	}
