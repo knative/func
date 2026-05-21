@@ -253,6 +253,11 @@ func TestInt_DialUnreachable(t *testing.T) {
 // DialContext continues to work after the dial context has expired.
 // Per net.Dialer.DialContext semantics: "Once successfully connected, any
 // expiration of the context will not affect the connection."
+//
+// We use the raw net.Conn returned by DialContext and perform an HTTP
+// request "by hand" so that only the dial step is governed by dialCtx.
+// (http.Client uses the request context for the entire request lifetime,
+// which would conflate what we are testing.)
 func TestInt_DialContextExpiry(t *testing.T) {
 	var setupCtx = t.Context()
 
@@ -320,47 +325,44 @@ func TestInt_DialContextExpiry(t *testing.T) {
 		t.Fatal("deployment never became ready:", err)
 	}
 
-	dialer := k8s.NewLazyInitInClusterDialer(clientConfig)
+	// Create the dialer pod eagerly so that pod creation is not tied to dialCtx.
+	dialer, err := k8s.NewInClusterDialer(setupCtx, clientConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { dialer.Close() })
 
 	// Use a short-lived context for dial establishment only.
 	dialCtx, dialCancel := context.WithTimeout(setupCtx, 30*time.Second)
 
-	transport := &http.Transport{
-		DialContext: dialer.DialContext,
-	}
-	client := http.Client{Transport: transport}
-
-	svcURL := fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
-
-	// First request — establishes the connection while dialCtx is alive.
-	resp, err := client.Get(svcURL)
+	// Dial directly to obtain a raw net.Conn.
+	addr := fmt.Sprintf("%s.%s.svc:80", svc.Name, svc.Namespace)
+	conn, err := dialer.DialContext(dialCtx, "tcp", addr)
 	if err != nil {
 		dialCancel()
 		t.Fatal(err)
 	}
-	_, _ = io.Copy(io.Discard, resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		dialCancel()
-		t.Fatalf("unexpected status code: %d", resp.StatusCode)
-	}
-	t.Log("first request succeeded while dial context is alive")
+	t.Log("connection established while dial context is alive")
 
-	// Now cancel the dial context.
+	// Cancel the dial context — per net.Dialer semantics, the connection must survive.
 	dialCancel()
 	t.Log("dial context cancelled; connection should survive")
 
-	// Second request — reuses the established connection.
-	// If the exec stream was incorrectly tied to dialCtx, this will fail.
-	resp, err = client.Get(svcURL)
+	// Perform an HTTP request "by hand" over the raw connection.
+	_, err = fmt.Fprintf(conn, "GET / HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", addr)
 	if err != nil {
-		t.Fatalf("connection died after dial context expired: %v", err)
+		t.Fatalf("write failed after dial context expired: %v", err)
+	}
+
+	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
+	if err != nil {
+		t.Fatalf("read failed after dial context expired: %v", err)
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
+
 	if resp.StatusCode != 200 {
 		t.Fatalf("unexpected status code after dial context expired: %d", resp.StatusCode)
 	}
-	t.Log("second request succeeded after dial context expired — connection survived")
+	t.Log("HTTP request over raw conn succeeded after dial context expired — connection survived")
 }

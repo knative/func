@@ -106,8 +106,10 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 	case <-connectSuccess:
 		return conn, nil
 	case err := <-connectFailure:
+		execCancel()
 		return nil, err
 	case <-ctx.Done():
+		execCancel()
 		_ = conn.closeWithError(ctx.Err())
 		return nil, ctx.Err()
 	}
