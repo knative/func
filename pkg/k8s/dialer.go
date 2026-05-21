@@ -77,11 +77,18 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 	ctrStdin, ctrStdout, conn := newConn()
 	connectSuccess := make(chan struct{})
 	connectFailure := make(chan error, 1)
+	// The exec stream must outlive the dial context: per net.Dialer.DialContext
+	// semantics, ctx governs connection *establishment* only. Once connected,
+	// expiry of ctx must not tear down the tunnel. We therefore give exec its
+	// own background-derived context and cancel it when the goroutine exits
+	// (which happens when the connection's pipes are closed).
+	execCtx, execCancel := context.WithCancel(context.Background())
 	go func() {
+		defer execCancel()
 		stderrBuff := bytes.NewBuffer(nil)
 		ctrStderr := io.MultiWriter(stderrBuff, detectConnSuccess(connectSuccess))
 
-		err := c.exec(context.TODO(), addr, ctrStdin, ctrStdout, ctrStderr)
+		err := c.exec(execCtx, addr, ctrStdin, ctrStdout, ctrStderr)
 		if err != nil {
 			stderrStr := stderrBuff.String()
 			socatErr := tryParseSocatError(network, addr, stderrStr)
@@ -99,8 +106,10 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 	case <-connectSuccess:
 		return conn, nil
 	case err := <-connectFailure:
+		execCancel()
 		return nil, err
 	case <-ctx.Done():
+		execCancel()
 		_ = conn.closeWithError(ctx.Err())
 		return nil, ctx.Err()
 	}
