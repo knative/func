@@ -24,6 +24,7 @@ const (
 type Server struct {
 	OnInit    func(context.Context) // Invoked when the server is initialized
 	prefix    string                // Command prefix ("func" or "kn func")
+	version   string                // Computed once at construction; used by healthcheck
 	readonly  atomic.Bool           // disables deploy and delete when true
 	executor  executor
 	transport mcp.Transport // Transport to use (defaults to StdioTransport)
@@ -79,6 +80,7 @@ func WithReadonly(readonly bool) Option {
 func New(options ...Option) *Server {
 	s := &Server{
 		prefix:    "func",
+		version:   version.Get().String(),
 		transport: &mcp.StdioTransport{},
 		OnInit:    func(_ context.Context) {},
 	}
@@ -91,7 +93,7 @@ func New(options ...Option) *Server {
 		&mcp.Implementation{
 			Name:    name,
 			Title:   title,
-			Version: version.Get().String()},
+			Version: s.version},
 		&mcp.ServerOptions{
 			Instructions:       instructions(s.readonly.Load()),
 			HasPrompts:         true,

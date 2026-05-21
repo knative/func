@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"knative.dev/func/pkg/version"
 )
 
 var healthCheckTool = &mcp.Tool{
@@ -22,7 +21,7 @@ func (s *Server) healthcheckHandler(ctx context.Context, r *mcp.CallToolRequest,
 	output = HealthcheckOutput{
 		Status:  "ok",
 		Message: "The MCP server is running!",
-		Version: version.Get().String(),
+		Version: s.version,
 	}
 	return
 }
