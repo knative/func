@@ -43,8 +43,8 @@ var ensureRegistrySecret = k8s.EnsureDockerRegistrySecretExist
 // SyncFunctionCR creates or updates a Function CR for the given function.
 // It sets up Kubernetes clients, checks if the Function CRD exists on the
 // cluster, and creates or updates the CR accordingly.
-func SyncFunctionCR(ctx context.Context, cfg SyncConfig) error {
-	restCfg, err := k8s.GetClientConfig().ClientConfig()
+func SyncFunctionCR(ctx context.Context, cfg SyncConfig, kc *k8s.Client) error {
+	restCfg, err := kc.ClientConfig()
 	if err != nil {
 		return fmt.Errorf("getting kubernetes config: %w", err)
 	}
@@ -64,10 +64,10 @@ func SyncFunctionCR(ctx context.Context, cfg SyncConfig) error {
 		return fmt.Errorf("creating kubernetes client: %w", err)
 	}
 
-	return syncFunctionCR(ctx, cl, disc, cfg)
+	return syncFunctionCR(ctx, kc, cl, disc, cfg)
 }
 
-func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.DiscoveryInterface, cfg SyncConfig) error {
+func syncFunctionCR(ctx context.Context, kc *k8s.Client, cl ctrlclient.Client, disc discovery.DiscoveryInterface, cfg SyncConfig) error {
 	hasCRD, err := hasFunctionCRD(disc)
 	if err != nil {
 		return fmt.Errorf("checking for Function CRD: %w", err)
@@ -84,7 +84,7 @@ func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.Di
 	var registrySecretRef *v1.LocalObjectReference
 	if cfg.RegistryCredentials != nil {
 		secretName := cfg.FunctionName + "-registry-auth"
-		if err := ensureRegistrySecret(ctx, secretName, cfg.Namespace, nil, nil,
+		if err := ensureRegistrySecret(ctx, kc, secretName, cfg.Namespace, nil, nil,
 			cfg.RegistryCredentials.Username, cfg.RegistryCredentials.Password, cfg.RegistryCredentials.Server); err != nil {
 			return fmt.Errorf("creating registry secret: %w", err)
 		}

@@ -156,21 +156,23 @@ func deploy(ctx context.Context) error {
 	if f.Deploy.Deployer == "" {
 		f.Deploy.Deployer = knative.KnativeDeployerName
 	}
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
 	var d fn.Deployer
 	switch f.Deploy.Deployer {
 	case knative.KnativeDeployerName:
-		d = knative.NewDeployer(
-			knative.WithDeployerDecorator(deployDecorator{}),
+		d = knative.NewDeployer(kc,
+			knative.WithDeployerDecorator(deployDecorator{k8sClient: kc}),
 			knative.WithDeployerVerbose(true),
 		)
 	case k8s.KubernetesDeployerName:
-		d = k8s.NewDeployer(
-			k8s.WithDeployerDecorator(deployDecorator{}),
+		d = k8s.NewDeployer(kc,
+			k8s.WithDeployerDecorator(deployDecorator{k8sClient: kc}),
 			k8s.WithDeployerVerbose(true),
 		)
 	case keda.KedaDeployerName:
-		d = keda.NewDeployer(
-			keda.WithDeployerDecorator(deployDecorator{}),
+		d = keda.NewDeployer(kc,
+			keda.WithDeployerDecorator(deployDecorator{k8sClient: kc}),
 			keda.WithDeployerVerbose(true),
 		)
 	default:
@@ -188,18 +190,19 @@ func deploy(ctx context.Context) error {
 }
 
 type deployDecorator struct {
-	oshDec k8s.OpenshiftMetadataDecorator
+	k8sClient *k8s.Client
+	oshDec    k8s.OpenshiftMetadataDecorator
 }
 
 func (d deployDecorator) UpdateAnnotations(function fn.Function, annotations map[string]string) map[string]string {
-	if k8s.IsOpenShift() {
+	if d.k8sClient != nil && d.k8sClient.IsOpenshift() {
 		return d.oshDec.UpdateAnnotations(function, annotations)
 	}
 	return annotations
 }
 
 func (d deployDecorator) UpdateLabels(function fn.Function, labels map[string]string) map[string]string {
-	if k8s.IsOpenShift() {
+	if d.k8sClient != nil && d.k8sClient.IsOpenshift() {
 		return d.oshDec.UpdateLabels(function, labels)
 	}
 	return labels

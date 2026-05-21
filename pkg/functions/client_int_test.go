@@ -212,7 +212,9 @@ func TestInt_Update_WithAnnotationsAndLabels(t *testing.T) {
 	functionName := "updateannlab"
 	verbose := false
 
-	servingClient, err := knative.NewServingClient(DefaultIntTestNamespace)
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
+	servingClient, err := knative.NewServingClient(kc, DefaultIntTestNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -666,22 +668,26 @@ func resetEnv() {
 // newClient creates an instance of the func client with concrete impls
 // sufficient for running integration tests.
 func newClient(verbose bool) *fn.Client {
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),
 		fn.WithRegistryInsecure(true),
 		fn.WithScaffolder(oci.NewScaffolder(true)),
 		fn.WithBuilder(oci.NewBuilder("", verbose)),
 		fn.WithPusher(oci.NewPusher(true, true, verbose)),
-		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
-		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
-		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
-		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
+		fn.WithDeployer(knative.NewDeployer(kc, knative.WithDeployerVerbose(verbose))),
+		fn.WithDescribers(knative.NewDescriber(kc, verbose), k8s.NewDescriber(kc, verbose)),
+		fn.WithRemovers(knative.NewRemover(kc, verbose), k8s.NewRemover(kc, verbose)),
+		fn.WithListers(knative.NewLister(kc, verbose), k8s.NewLister(kc, verbose)),
 		fn.WithVerbose(verbose),
 	)
 }
 
 // copy of newClient just with s2i methods instead
 func newClientWithS2i(verbose bool) *fn.Client {
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),
 		fn.WithRegistryInsecure(true),
@@ -689,10 +695,10 @@ func newClientWithS2i(verbose bool) *fn.Client {
 		fn.WithScaffolder(s2i.NewScaffolder(true)),
 		fn.WithBuilder(s2i.NewBuilder(s2i.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithVerbose(verbose), docker.WithInsecure(true))),
-		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
-		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
-		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
-		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
+		fn.WithDeployer(knative.NewDeployer(kc, knative.WithDeployerVerbose(verbose))),
+		fn.WithDescribers(knative.NewDescriber(kc, verbose), k8s.NewDescriber(kc, verbose)),
+		fn.WithRemovers(knative.NewRemover(kc, verbose), k8s.NewRemover(kc, verbose)),
+		fn.WithListers(knative.NewLister(kc, verbose), k8s.NewLister(kc, verbose)),
 	)
 }
 

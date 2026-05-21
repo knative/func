@@ -358,3 +358,104 @@ func Test_WarnIfLegacyS2IScaffolding(t *testing.T) {
 		})
 	}
 }
+
+// TestLocalAuth_SetFindPersist verifies that auth entries stored via SetAuth
+// are persisted to .func/local.yaml and survive a function reload.
+func TestLocalAuth_SetFindPersist(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	// Create and initialize a function
+	f := fn.Function{Runtime: "go", Root: root}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Store auth for a cluster
+	f.Local.SetAuth("https://cluster.example.com:6443", fn.ClusterTLS{
+		CertificateAuthorityData: "Y2EtZGF0YQ==",
+		InsecureSkipTLSVerify:    false,
+	}, fn.UserAuth{
+		Token:                 "my-token",
+		ClientCertificateData: "Y2VydC1kYXRh",
+		ClientKeyData:         "a2V5LWRhdGE=",
+	})
+
+	// Write to disk
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify local.yaml exists
+	localPath := filepath.Join(root, ".func", "local.yaml")
+	if _, err := os.Stat(localPath); err != nil {
+		t.Fatalf("expected local.yaml to exist: %v", err)
+	}
+
+	// Reload function from disk
+	f2, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// FindAuth should return the stored entry
+	entry := f2.Local.FindAuth("https://cluster.example.com:6443")
+	if entry == nil {
+		t.Fatal("expected auth entry after reload, got nil")
+	}
+	if entry.User.Token != "my-token" {
+		t.Fatalf("expected token 'my-token', got %q", entry.User.Token)
+	}
+	if entry.Cluster.CertificateAuthorityData != "Y2EtZGF0YQ==" {
+		t.Fatalf("expected CA data preserved, got %q", entry.Cluster.CertificateAuthorityData)
+	}
+	if entry.User.ClientCertificateData != "Y2VydC1kYXRh" {
+		t.Fatalf("expected cert data preserved, got %q", entry.User.ClientCertificateData)
+	}
+	if entry.User.ClientKeyData != "a2V5LWRhdGE=" {
+		t.Fatalf("expected key data preserved, got %q", entry.User.ClientKeyData)
+	}
+}
+
+// TestLocalAuth_FindMiss verifies FindAuth returns nil for unknown cluster URLs.
+func TestLocalAuth_FindMiss(t *testing.T) {
+	local := fn.Local{}
+	local.SetAuth("https://known.example.com", fn.ClusterTLS{}, fn.UserAuth{Token: "tok"})
+
+	if entry := local.FindAuth("https://unknown.example.com"); entry != nil {
+		t.Fatalf("expected nil for unknown URL, got %v", entry)
+	}
+}
+
+// TestLocalAuth_Upsert verifies SetAuth updates existing entries.
+func TestLocalAuth_Upsert(t *testing.T) {
+	local := fn.Local{}
+	local.SetAuth("https://cluster.example.com", fn.ClusterTLS{}, fn.UserAuth{Token: "old-token"})
+	local.SetAuth("https://cluster.example.com", fn.ClusterTLS{}, fn.UserAuth{Token: "new-token"})
+
+	if len(local.Auth) != 1 {
+		t.Fatalf("expected 1 entry after upsert, got %d", len(local.Auth))
+	}
+	if local.Auth[0].User.Token != "new-token" {
+		t.Fatalf("expected upserted token, got %q", local.Auth[0].User.Token)
+	}
+}
+
+// TestLocalAuth_MultipleEntries verifies multiple clusters can be stored.
+func TestLocalAuth_MultipleEntries(t *testing.T) {
+	local := fn.Local{}
+	local.SetAuth("https://cluster-a.example.com", fn.ClusterTLS{}, fn.UserAuth{Token: "tok-a"})
+	local.SetAuth("https://cluster-b.example.com", fn.ClusterTLS{}, fn.UserAuth{Token: "tok-b"})
+
+	if len(local.Auth) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(local.Auth))
+	}
+	a := local.FindAuth("https://cluster-a.example.com")
+	b := local.FindAuth("https://cluster-b.example.com")
+	if a == nil || a.User.Token != "tok-a" {
+		t.Fatal("cluster-a auth not found or wrong")
+	}
+	if b == nil || b.User.Token != "tok-b" {
+		t.Fatal("cluster-b auth not found or wrong")
+	}
+}

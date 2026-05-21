@@ -35,12 +35,14 @@ func logs --since 5m
 ### Options
 
 ```
-  -h, --help               help for logs
-      --name string        Name of the function to get logs from ($FUNC_NAME)
-  -n, --namespace string   The namespace of the function ($FUNC_NAMESPACE) (default "default")
-  -p, --path string        Path to the function.  Default is current directory ($FUNC_PATH)
-      --since string       Return logs newer than a relative duration like 5s, 2m, or 3h ($FUNC_LOGS_SINCE) (default "1m")
-  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+      --cluster string         Specify a cluster api url. ($FUNC_CLUSTER)
+      --cluster-token string   Bearer token for cluster authentication. ($FUNC_CLUSTER_TOKEN)
+  -h, --help                   help for logs
+      --name string            Name of the function to get logs from ($FUNC_NAME)
+  -n, --namespace string       The namespace of the function ($FUNC_NAMESPACE) (default "default")
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+      --since string           Return logs newer than a relative duration like 5s, 2m, or 3h ($FUNC_LOGS_SINCE) (default "1m")
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

@@ -16,6 +16,7 @@ import (
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/oci"
 )
 
@@ -180,8 +181,11 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		cfg.Verbose = false
 	}
 
-	// Client
-	clientOptions, err := cfg.clientOptions()
+	// construct a k8s client with default k8s configs because 'run' shares its
+	// function client options with build - buildConfig.clientOptions()
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
+	clientOptions, err := cfg.clientOptions(kc)
 	if err != nil {
 		return
 	}

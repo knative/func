@@ -12,14 +12,15 @@ import (
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/buildpacks"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/s2i"
 )
 
-func deletePipelines(ctx context.Context, namespace string, listOptions metav1.ListOptions) (err error) {
+func deletePipelines(ctx context.Context, kc *k8s.Client, namespace string, listOptions metav1.ListOptions) (err error) {
 	if namespace == "" {
 		return errors.New("delete pipeline: namespace required")
 	}
-	client, err := NewTektonClient(namespace)
+	client, err := NewTektonClient(kc, namespace)
 	if err != nil {
 		return
 	}
@@ -27,11 +28,11 @@ func deletePipelines(ctx context.Context, namespace string, listOptions metav1.L
 	return client.Pipelines(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-func deletePipelineRuns(ctx context.Context, namespace string, listOptions metav1.ListOptions) (err error) {
+func deletePipelineRuns(ctx context.Context, kc *k8s.Client, namespace string, listOptions metav1.ListOptions) (err error) {
 	if namespace == "" {
 		return errors.New("delete pipeline run: namespace required")
 	}
-	client, err := NewTektonClient(namespace)
+	client, err := NewTektonClient(kc, namespace)
 	if err != nil {
 		return
 	}

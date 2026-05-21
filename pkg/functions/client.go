@@ -861,7 +861,6 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 		return f, ErrNameRequired
 	}
 
-	// Warn if moving
 	changingNamespace := func(f Function) bool {
 		// We're changing namespace if:
 		return f.Deploy.Namespace != "" && // it's already deployed
@@ -873,7 +872,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	// On forced namespace change (using --namespace flag)
 	if changingNamespace(f) {
 		if c.verbose {
-			fmt.Fprintf(os.Stderr, "Moving Function from %q to %q \n", f.Deploy.Namespace, f.Namespace)
+			fmt.Fprintf(os.Stderr, "Moving Function from namespace %q to %q\n", f.Deploy.Namespace, f.Namespace)
 		}
 
 		// c.Remove removes a Function in f.Deploy.Namespace which removes the OLD Function

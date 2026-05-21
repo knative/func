@@ -29,11 +29,13 @@ func describe --output yaml --path myotherfunc
 ### Options
 
 ```
-  -h, --help               help for describe
-  -n, --namespace string   The namespace in which to look for the named function. ($FUNC_NAMESPACE) (default "default")
-  -o, --output string      Output format (human|plain|json|yaml|url) ($FUNC_OUTPUT) (default "human")
-  -p, --path string        Path to the function.  Default is current directory ($FUNC_PATH)
-  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+      --cluster string         Specify a cluster api url for your function deployment. ($FUNC_CLUSTER)
+      --cluster-token string   Bearer token for cluster authentication. ($FUNC_CLUSTER_TOKEN)
+  -h, --help                   help for describe
+  -n, --namespace string       The namespace in which to look for the named function. ($FUNC_NAMESPACE) (default "default")
+  -o, --output string          Output format (human|plain|json|yaml|url) ($FUNC_OUTPUT) (default "human")
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

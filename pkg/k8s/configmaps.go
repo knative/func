@@ -12,8 +12,8 @@ import (
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 )
 
-func GetConfigMap(ctx context.Context, name, namespaceOverride string) (*corev1.ConfigMap, error) {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+func GetConfigMap(ctx context.Context, c *Client, name, namespaceOverride string) (*corev1.ConfigMap, error) {
+	client, namespace, err := c.ClientAndNamespace(namespaceOverride)
 	if err != nil {
 		return nil, err
 	}
@@ -23,8 +23,8 @@ func GetConfigMap(ctx context.Context, name, namespaceOverride string) (*corev1.
 
 // ListConfigMapsNamesIfConnected lists names of ConfigMaps present and the current k8s context
 // returns empty list, if not connected to any cluster
-func ListConfigMapsNamesIfConnected(ctx context.Context, namespaceOverride string) (names []string, err error) {
-	names, err = listConfigMapsNames(ctx, namespaceOverride)
+func ListConfigMapsNamesIfConnected(ctx context.Context, c *Client, namespaceOverride string) (names []string, err error) {
+	names, err = listConfigMapsNames(ctx, c, namespaceOverride)
 	if err != nil {
 		// not logged our authorized to access resources
 		if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) || k8serrors.IsInvalid(err) || k8serrors.IsTimeout(err) {
@@ -53,8 +53,8 @@ func ListConfigMapsNamesIfConnected(ctx context.Context, namespaceOverride strin
 	return
 }
 
-func listConfigMapsNames(ctx context.Context, namespaceOverride string) (names []string, err error) {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+func listConfigMapsNames(ctx context.Context, c *Client, namespaceOverride string) (names []string, err error) {
+	client, namespace, err := c.ClientAndNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}

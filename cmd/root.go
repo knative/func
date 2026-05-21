@@ -138,16 +138,6 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 // Helpers
 // ------------------------------------------
 
-// registry to use is that provided as --registry or FUNC_REGISTRY.
-// If not provided, global configuration determines the default to use.
-func registry() string {
-	if r := viper.GetString("registry"); r != "" {
-		return r
-	}
-	cfg, _ := config.NewDefault()
-	return cfg.RegistryDefault()
-}
-
 // effectivePath to use is that which was provided by --path or FUNC_PATH.
 // Manually parses flags such that this can be used during (cobra/viper) flag
 // definition (prior to parsing).
@@ -190,7 +180,9 @@ func defaultNamespace(f fn.Function, verbose bool) string {
 	}
 
 	// Active K8S namespace
-	namespace, err := k8s.GetDefaultNamespace()
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	defaultKc := k8s.NewClient(cc)
+	namespace, err := defaultKc.DefaultNamespace()
 	if err != nil {
 		if verbose {
 			fmt.Fprintf(os.Stderr, "Unable to get current active kubernetes namespace.  Defaults will be used. %v", err)

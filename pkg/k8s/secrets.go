@@ -15,8 +15,8 @@ import (
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 )
 
-func GetSecret(ctx context.Context, name, namespaceOverride string) (*corev1.Secret, error) {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+func GetSecret(ctx context.Context, kc *Client, name, namespaceOverride string) (*corev1.Secret, error) {
+	client, namespace, err := kc.ClientAndNamespace(namespaceOverride)
 	if err != nil {
 		return nil, err
 	}
@@ -26,8 +26,8 @@ func GetSecret(ctx context.Context, name, namespaceOverride string) (*corev1.Sec
 
 // ListSecretsNamesIfConnected lists names of Secrets present and the current k8s context
 // returns empty list, if not connected to any cluster
-func ListSecretsNamesIfConnected(ctx context.Context, namespaceOverride string) (names []string, err error) {
-	names, err = listSecretsNames(ctx, namespaceOverride)
+func ListSecretsNamesIfConnected(ctx context.Context, kc *Client, namespaceOverride string) (names []string, err error) {
+	names, err = listSecretsNames(ctx, kc, namespaceOverride)
 	if err != nil {
 		// not logged our authorized to access resources
 		if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) || k8serrors.IsInvalid(err) || k8serrors.IsTimeout(err) {
@@ -56,8 +56,8 @@ func ListSecretsNamesIfConnected(ctx context.Context, namespaceOverride string) 
 	return
 }
 
-func listSecretsNames(ctx context.Context, namespaceOverride string) (names []string, err error) {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+func listSecretsNames(ctx context.Context, kc *Client, namespaceOverride string) (names []string, err error) {
+	client, namespace, err := kc.ClientAndNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
@@ -74,8 +74,8 @@ func listSecretsNames(ctx context.Context, namespaceOverride string) (names []st
 	return
 }
 
-func DeleteSecrets(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+func DeleteSecrets(ctx context.Context, kc *Client, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
+	client, namespace, err := kc.ClientAndNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
@@ -83,7 +83,7 @@ func DeleteSecrets(ctx context.Context, namespaceOverride string, listOptions me
 	return client.CoreV1().Secrets(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, username, password, server string) (err error) {
+func EnsureDockerRegistrySecretExist(ctx context.Context, kc *Client, name, namespace string, labels, annotations map[string]string, username, password, server string) (err error) {
 	dockerConfigJSONContent, err := HandleDockerCfgJSONContent(username, password, "", server)
 	if err != nil {
 		return
@@ -101,18 +101,18 @@ func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverrid
 	}
 	secret.Data["config.json"] = dockerConfigJSONContent
 
-	return EnsureSecretExist(ctx, secret, namespaceOverride)
+	return EnsureSecretExist(ctx, kc, secret, namespace)
 }
 
-func EnsureSecretExist(ctx context.Context, secret corev1.Secret, namespaceOverride string) (err error) {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+func EnsureSecretExist(ctx context.Context, kc *Client, secret corev1.Secret, namespaceOverride string) (err error) {
+	client, namespace, err := kc.ClientAndNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
 
 	// Check whether Secret with specified name exist
 	secretNotFound := false
-	existingSecret, err := GetSecret(ctx, secret.Name, namespace)
+	existingSecret, err := GetSecret(ctx, kc, secret.Name, namespace)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return

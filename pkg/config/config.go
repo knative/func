@@ -12,7 +12,6 @@ import (
 	"gopkg.in/yaml.v2"
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 const (
@@ -31,17 +30,18 @@ const (
 
 // Global configuration settings.
 type Global struct {
-	Builder   string `yaml:"builder,omitempty"`
-	Confirm   bool   `yaml:"confirm,omitempty"`
-	Language  string `yaml:"language,omitempty"`
-	Namespace string `yaml:"namespace,omitempty"`
-	Registry  string `yaml:"registry,omitempty"`
-	Verbose   bool   `yaml:"verbose,omitempty"`
+	Builder          string `yaml:"builder,omitempty"`
+	Confirm          bool   `yaml:"confirm,omitempty"`
+	Language         string `yaml:"language,omitempty"`
+	Namespace        string `yaml:"namespace,omitempty"`
+	Registry         string `yaml:"registry,omitempty"`
+	Verbose          bool   `yaml:"verbose,omitempty"`
+	RegistryInsecure bool   `yaml:"registryInsecure,omitempty"`
+	Cluster          string `yaml:"cluster,omitempty"`
+
 	// NOTE: all members must include their yaml serialized names, even when
 	// this is the default, because these tag values are used for the static
 	// getter/setter accessors to match requests.
-
-	RegistryInsecure bool `yaml:"registryInsecure,omitempty"`
 }
 
 // New Config struct with all members set to static defaults.  See NewDefaults
@@ -51,22 +51,6 @@ func New() Global {
 		Builder:  DefaultBuilder,
 		Language: DefaultLanguage,
 		// ...
-	}
-}
-
-// RegistyDefault is a convenience method for deferred calculation of a
-// default registry taking into account both the global config file and cluster
-// detection.
-func (c Global) RegistryDefault() string {
-	// If defined, the user's choice for global registry default value is used
-	if c.Registry != "" {
-		return c.Registry
-	}
-	switch {
-	case k8s.IsOpenShift():
-		return k8s.GetDefaultOpenShiftRegistry()
-	default:
-		return ""
 	}
 }
 
@@ -141,6 +125,9 @@ func (c Global) Apply(f fn.Function) Global {
 	// Unconditional because bool has no "empty value". Works because
 	// viper resolves the correct precedence via our defaulting.
 	c.RegistryInsecure = f.RegistryInsecure
+	if f.Deploy.Cluster != "" {
+		c.Cluster = f.Deploy.Cluster
+	}
 
 	return c
 }
@@ -163,6 +150,9 @@ func (c Global) Configure(f fn.Function) fn.Function {
 	// Unconditional because bool has no "empty value". Works because
 	// viper resolves the correct precedence via our defaulting.
 	f.RegistryInsecure = c.RegistryInsecure
+
+	// Unconditional to allow --cluster= (empty value) to use kubeconfig context
+	f.Deploy.Cluster = c.Cluster
 
 	return f
 }

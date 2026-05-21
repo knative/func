@@ -51,11 +51,12 @@ type Deployer struct {
 	// verbose logging enablement flag.
 	verbose bool
 
+	k8sClient *k8s.Client
 	decorator deployer.DeployDecorator
 }
 
-func NewDeployer(opts ...DeployerOpt) *Deployer {
-	d := &Deployer{}
+func NewDeployer(k8sClient *k8s.Client, opts ...DeployerOpt) *Deployer {
+	d := &Deployer{k8sClient: k8sClient}
 
 	for _, opt := range opts {
 		opt(d)
@@ -83,7 +84,7 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	if err != nil {
 		return false
 	}
-	k8sClient, err := k8s.NewKubernetesClientset()
+	k8sClient, err := d.k8sClient.Clientset()
 	if err != nil {
 		return false
 	}
@@ -106,7 +107,7 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	return false
 }
 
-func onClusterFix(f fn.Function) fn.Function {
+func onClusterFix(f fn.Function, kc *k8s.Client) fn.Function {
 	// This only exists because of a bootstrapping problem with On-Cluster
 	// builds:  It appears that, when sending a function to be built on-cluster
 	// the target namespace is not being transmitted in the pipeline
@@ -115,13 +116,13 @@ func onClusterFix(f fn.Function) fn.Function {
 	// earlier versions of this logic relied entirely on the current
 	// kubernetes context.
 	if f.Namespace == "" && f.Deploy.Namespace == "" {
-		f.Namespace, _ = k8s.GetDefaultNamespace()
+		f.Namespace, _ = kc.DefaultNamespace()
 	}
 	return f
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
-	f = onClusterFix(f)
+	f = onClusterFix(f, d.k8sClient)
 	// Choosing f.Namespace vs f.Deploy.Namespace:
 	// This is minimal logic currently required of all deployer impls.
 	// If f.Namespace is defined, this is the (possibly new) target
@@ -150,17 +151,17 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// Clients
-	client, err := NewServingClient(namespace)
+	client, err := NewServingClient(d.k8sClient, namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, wrapDeployerClientError(err)
 	}
-	eventingClient, err := NewEventingClient(namespace)
+	eventingClient, err := NewEventingClient(d.k8sClient, namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, wrapDeployerClientError(err)
 	}
 	// check if 'dapr-system' namespace exists
 	daprInstalled := false
-	k8sClient, err := k8s.NewKubernetesClientset()
+	k8sClient, err := d.k8sClient.Clientset()
 	if err != nil {
 		return fn.DeploymentResult{}, wrapDeployerClientError(err)
 	}
@@ -169,7 +170,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		daprInstalled = true
 	}
 
-	t := fnhttp.NewRoundTripper(fnhttp.WithOpenShiftServiceCA(), fnhttp.WithInsecureSkipVerify(f.RegistryInsecure))
+	t := fnhttp.NewRoundTripper(d.k8sClient, fnhttp.WithOpenShiftServiceCA(d.k8sClient), fnhttp.WithInsecureSkipVerify(f.RegistryInsecure))
 	defer func(t fnhttp.RoundTripCloser) {
 		_ = t.Close()
 	}(t)
@@ -197,7 +198,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 	}
 	since := time.Now()
 	go func() {
-		_ = GetKServiceLogs(ctx, namespace, f.Name, f.Deploy.Image, &since, out)
+		_ = GetKServiceLogs(ctx, d.k8sClient, namespace, f.Name, f.Deploy.Image, &since, out)
 	}()
 
 	previousService, err := client.GetService(ctx, f.Name)
@@ -217,7 +218,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 				return fn.DeploymentResult{}, err
 			}
 
-			err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
+			err = k8s.CheckResourcesArePresent(ctx, d.k8sClient, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -319,7 +320,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			return fn.DeploymentResult{}, err
 		}
 
-		err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
+		err = k8s.CheckResourcesArePresent(ctx, d.k8sClient, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err

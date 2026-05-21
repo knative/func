@@ -7,8 +7,8 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-func NewHTTPScaledObjectClientset() (*httpv1alpha1.Clientset, error) {
-	restConfig, err := k8s.GetClientConfig().ClientConfig()
+func NewHTTPScaledObjectClientset(kc *k8s.Client) (*httpv1alpha1.Clientset, error) {
+	restConfig, err := kc.ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get clientconfig: %w", err)
 	}

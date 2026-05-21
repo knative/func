@@ -374,7 +374,8 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 		image = "ghcr.io/matejvasek/git-private:latest"
 	)
 
-	k8sClient, err := k8s.NewKubernetesClientset()
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	k8sClient, err := k8s.NewClient(cc).Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}

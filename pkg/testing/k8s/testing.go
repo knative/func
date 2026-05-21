@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -17,7 +18,9 @@ const DefaultIntTestNamespacePrefix = "func-int-test"
 func Namespace(t *testing.T, ctx context.Context) string {
 	t.Helper()
 
-	cliSet, err := k8s.NewKubernetesClientset()
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
+	cliSet, err := kc.Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}

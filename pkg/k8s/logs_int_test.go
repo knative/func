@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -18,7 +19,9 @@ func TestInt_GetPodLogs(t *testing.T) {
 	var err error
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*5)
 	t.Cleanup(cancel)
-	cliSet, err := k8s.NewKubernetesClientset()
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
+	cliSet, err := kc.Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +83,7 @@ out:
 		time.Sleep(time.Millisecond * 500)
 	}
 
-	out, err := k8s.GetPodLogs(ctx, testingNS, testingPodName, testingPodName)
+	out, err := k8s.GetPodLogs(ctx, kc, testingNS, testingPodName, testingPodName)
 	if err != nil {
 		t.Fatal(err)
 	}

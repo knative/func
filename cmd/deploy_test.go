@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -18,6 +17,9 @@ import (
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/mock"
 	. "knative.dev/func/pkg/testing"
+
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // commandConstructor is used to share test implementations between commands
@@ -1065,6 +1067,84 @@ func TestDeploy_Namespace(t *testing.T) {
 	}
 }
 
+// writeKubeconfigNS points KUBECONFIG at a single-context kubeconfig whose
+// active context defaults to the given namespace -- i.e. simulates `kubens <ns>`.
+func writeKubeconfigNS(t *testing.T, namespace string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "kubeconfig")
+	cfg := clientcmdapi.Config{
+		CurrentContext: "test",
+		Contexts:       map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test", Namespace: namespace}},
+		Clusters:       map[string]*clientcmdapi.Cluster{"test": {Server: "https://cluster.example.com:6443", InsecureSkipTLSVerify: true}},
+		AuthInfos:      map[string]*clientcmdapi.AuthInfo{"test": {Token: "test-token"}},
+	}
+	if err := clientcmd.WriteToFile(cfg, path); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KUBECONFIG", path)
+}
+
+// TestDeploy_NamespacePinSurvivesContextSwitch is the headline guarantee: once a
+// function is deployed, switching the active kubeconfig context (the `kubens`
+// case) must NOT move where it deploys. Complements TestDeploy_Namespace, which
+// keeps the active context constant; here the active namespace actively changes
+// between deploys.
+func TestDeploy_NamespacePinSurvivesContextSwitch(t *testing.T) {
+	root := FromTempDirectory(t)
+	testClientFn := NewTestClient(fn.WithDeployer(mock.NewDeployer()))
+
+	f, err := fn.New().Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy pins the function to "team-a".
+	cmd := NewDeployCmd(testClientFn)
+	cmd.SetArgs([]string{"--namespace=team-a"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ = fn.NewFunction(root); f.Deploy.Namespace != "team-a" {
+		t.Fatalf("setup: expected deployed namespace 'team-a', got %q", f.Deploy.Namespace)
+	}
+
+	// kubens: switch the active context to a different namespace.
+	writeKubeconfigNS(t, "switched-ns")
+
+	// Redeploy with no --namespace: the function's pin must win over the now
+	// different active context, not follow it to 'switched-ns'.
+	cmd = NewDeployCmd(testClientFn)
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ = fn.NewFunction(root); f.Deploy.Namespace != "team-a" {
+		t.Fatalf("namespace pin did not survive context switch: got %q, want team-a", f.Deploy.Namespace)
+	}
+}
+
+// TestDeploy_NamespaceFromEnv verifies the env-var leg of namespace resolution
+// (FUNC_NAMESPACE), mirroring the env coverage cluster/token already have.
+func TestDeploy_NamespaceFromEnv(t *testing.T) {
+	root := FromTempDirectory(t)
+	t.Setenv("FUNC_NAMESPACE", "env-ns") // after FromTempDirectory, which clears FUNC_*
+	testClientFn := NewTestClient(fn.WithDeployer(mock.NewDeployer()))
+
+	f, err := fn.New().Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(testClientFn)
+	cmd.SetArgs([]string{}) // no --namespace; env should win over the active-context default
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ = fn.NewFunction(root); f.Deploy.Namespace != "env-ns" {
+		t.Fatalf("expected namespace from FUNC_NAMESPACE 'env-ns', got %q", f.Deploy.Namespace)
+	}
+}
+
 // TestDeploy_NamespaceDefaultsToK8sContext ensures that when not specified, a
 // users's active kubernetes context is used for the namespace if available.
 func TestDeploy_NamespaceDefaultsToK8sContext(t *testing.T) {
@@ -1165,18 +1245,8 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 	))
 	cmd.SetArgs([]string{})
-	stdout := strings.Builder{}
-	cmd.SetOut(&stdout)
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
-	}
-
-	expected := "Warning: namespace chosen is 'funcns', but currently active namespace is 'mynamespace'. Continuing with deployment to 'funcns'."
-
-	// Ensure output contained warning if changing namespace
-	if !strings.Contains(stdout.String(), expected) {
-		t.Log("STDOUT:\n" + stdout.String())
-		t.Fatalf("Expected warning not found:\n%v", expected)
 	}
 
 	// Ensure the function was saved as having been deployed to the correct ns
@@ -1193,15 +1263,22 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 // to a new namespace issues a warning.
 // Also implicitly checks that the --namespace flag takes precedence over
 // the namespace of a previously deployed Function.
-func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
+// TestDeploy_DeployTargetChangeWarning ensures that changing namespace or
+// cluster from a previous deployment issues an informational message.
+func TestDeploy_DeployTargetChangeWarning(t *testing.T) {
 	root := FromTempDirectory(t)
 
+	// Provide a kubeconfig so BuildClientConfig can resolve auth for the new cluster
+	writeDeployTestKubeconfig(t, "https://new-cluster:6443", "test-token")
+
 	// Create a Function which appears to have been deployed to 'myns'
+	// on cluster 'https://old-cluster:6443'
 	f := fn.Function{
 		Runtime: "go",
 		Root:    root,
 		Deploy: fn.DeploySpec{
 			Namespace: "myns",
+			Cluster:   "https://old-cluster:6443",
 		},
 	}
 	f, err := fn.New().Init(f)
@@ -1209,16 +1286,15 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Redeploy the function, specifying 'newns'
+	// Redeploy the function, specifying new namespace and cluster
 	cmd := NewDeployCmd(NewTestClient(
 		fn.WithDeployer(mock.NewDeployer()),
 		fn.WithBuilder(mock.NewBuilder()),
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 		fn.WithRegistry(TestRegistry),
 	))
-	cmd.SetArgs([]string{"--namespace=newns"})
+	cmd.SetArgs([]string{"--namespace=newns", "--cluster=https://new-cluster:6443"})
 	out := strings.Builder{}
-	fmt.Fprintln(&out, "Test error")
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
@@ -1226,28 +1302,32 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(1 * time.Second)
+	output := out.String()
 
-	activeNamespace, err := k8s.GetDefaultNamespace()
-	if err != nil {
-		t.Fatalf("Couldn't get active namespace, got error: %v", err)
+	// Ensure output contains namespace change info
+	expectedNS := "Info: namespace changed from 'myns' to 'newns'. Function will be moved."
+	if !strings.Contains(output, expectedNS) {
+		t.Log("OUTPUT:\n" + output)
+		t.Fatalf("Expected namespace change info not found:\n%v", expectedNS)
 	}
 
-	expected1 := "Info: chosen namespace has changed from 'myns' to 'newns'. Undeploying function from 'myns' and deploying new in 'newns'."
-	expected2 := fmt.Sprintf("Warning: namespace chosen is 'newns', but currently active namespace is '%s'. Continuing with deployment to 'newns'.", activeNamespace)
-	// Ensure output contained info and warning if changing namespace
-	if !strings.Contains(out.String(), expected1) || !strings.Contains(out.String(), expected2) {
-		t.Log("STDERR:\n" + out.String())
-		t.Fatalf("Expected Info and/or Warning not found:\n%v|%v", expected1, expected2)
+	// Ensure output contains cluster change info
+	expectedCluster := "Warning: Changing deployment cluster from 'https://old-cluster:6443' to 'https://new-cluster:6443'. Function will NOT be removed from the old cluster."
+	if !strings.Contains(output, expectedCluster) {
+		t.Log("OUTPUT:\n" + output)
+		t.Fatalf("Expected cluster change info not found:\n%v", expectedCluster)
 	}
 
-	// Ensure the function was saved as having been deployed to
+	// Ensure the function was saved with the new namespace
 	f, err = fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if f.Deploy.Namespace != "newns" {
-		t.Fatalf("expected function to be deployed into namespace 'newns'.  got '%v'", f.Deploy.Namespace)
+		t.Fatalf("expected function to be deployed into namespace 'newns'. got '%v'", f.Deploy.Namespace)
+	}
+	if f.Deploy.Cluster != "https://new-cluster:6443" {
+		t.Fatalf("expected function to be deployed to cluster 'https://new-cluster:6443'. got '%v'", f.Deploy.Cluster)
 	}
 }
 
@@ -1340,72 +1420,32 @@ func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 // TestDeploy_NamespaceChangePreservesExternalRegistry ensures that changing
 // namespace on OpenShift does not overwrite an external registry (e.g.
 // docker.io/user) with the internal OpenShift registry.
-// Regression test for https://github.com/knative/func/issues/2172
-func TestDeploy_NamespaceChangePreservesExternalRegistry(t *testing.T) {
-	root := FromTempDirectory(t)
+//
+// If running full deploy cmd flow here is desired, we might consider changing
+// signature of NewTestClient() function (noted at the functions' constructor)
+func TestResolveRegistry_OpenShift(t *testing.T) {
+	fakeLocal := fn.Local{Auth: []fn.AuthEntry{{ClusterURL: "fake-cluster", User: fn.UserAuth{Token: "fake"}}}}
+	fakeCC, _ := k8s.BuildClientConfig("fake-cluster", "", "", fakeLocal)
+	cc := k8s.NewClientWithOpenShift(fakeCC, true)
 
-	cleanup := k8s.SetOpenShiftForTest(true)
-	defer cleanup()
-
-	// Create a function deployed to "ns1" with an external registry
-	f := fn.Function{
-		Runtime:  "go",
-		Root:     root,
-		Registry: "docker.io/user",
-		Deploy:   fn.DeploySpec{Namespace: "ns1"},
-	}
-	f, err := fn.New().Init(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Deploy to a different namespace
-	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
-	cmd.SetArgs([]string{"--namespace=ns2"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name      string
+		registry  string
+		namespace string
+		expected  string
+	}{
+		{"external registry preserved", "docker.io/user", "ns2", "docker.io/user"},
+		{"internal registry rewritten", "image-registry.openshift-image-registry.svc:5000/ns1", "ns2", "image-registry.openshift-image-registry.svc:5000/ns2"},
+		{"empty fallback to openshift", "", "", "image-registry.openshift-image-registry.svc:5000/default"},
 	}
 
-	// Reload and verify the external registry was preserved
-	f, _ = fn.NewFunction(root)
-	if f.Registry != "docker.io/user" {
-		t.Errorf("expected registry 'docker.io/user' to be preserved, got %q", f.Registry)
-	}
-}
-
-// TestDeploy_NamespaceChangeUpdatesInternalRegistry ensures that changing
-// namespace on OpenShift DOES update the registry when the function uses
-// the internal OpenShift registry (the namespace is part of the registry path).
-func TestDeploy_NamespaceChangeUpdatesInternalRegistry(t *testing.T) {
-	root := FromTempDirectory(t)
-
-	cleanup := k8s.SetOpenShiftForTest(true)
-	defer cleanup()
-
-	// Create a function deployed to "ns1" using the internal registry
-	f := fn.Function{
-		Runtime:  "go",
-		Root:     root,
-		Registry: "image-registry.openshift-image-registry.svc:5000/ns1",
-		Deploy:   fn.DeploySpec{Namespace: "ns1"},
-	}
-	f, err := fn.New().Init(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Deploy to a different namespace
-	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
-	cmd.SetArgs([]string{"--namespace=ns2"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Reload and verify the internal registry was updated to the new namespace
-	f, _ = fn.NewFunction(root)
-	expected := "image-registry.openshift-image-registry.svc:5000/ns2"
-	if f.Registry != expected {
-		t.Errorf("expected registry to update to %q, got %q", expected, f.Registry)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ret := resolveRegistry(tt.registry, tt.namespace, cc)
+			if ret != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, ret)
+			}
+		})
 	}
 }
 
@@ -2546,4 +2586,20 @@ func TestDeploy_ValidDomain(t *testing.T) {
 
 func TestDeploy_RegistryInsecurePersists(t *testing.T) {
 	testRegistryInsecurePersists(NewDeployCmd, t)
+}
+
+func writeDeployTestKubeconfig(t *testing.T, serverURL, token string) {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kubeconfig")
+	cfg := clientcmdapi.Config{
+		CurrentContext: "test",
+		Contexts:       map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test"}},
+		Clusters:       map[string]*clientcmdapi.Cluster{"test": {Server: serverURL}},
+		AuthInfos:      map[string]*clientcmdapi.AuthInfo{"test": {Token: token}},
+	}
+	if err := clientcmd.WriteToFile(cfg, path); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KUBECONFIG", path)
 }

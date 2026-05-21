@@ -6,8 +6,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GetServiceAccount(ctx context.Context, referencedServiceAccount, namespace string) error {
-	k8sClient, err := NewKubernetesClientset()
+func GetServiceAccount(ctx context.Context, kc *Client, referencedServiceAccount, namespace string) error {
+	k8sClient, err := kc.Clientset()
 	if err != nil {
 		return err
 	}

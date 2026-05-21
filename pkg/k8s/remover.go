@@ -10,14 +10,16 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-func NewRemover(verbose bool) *Remover {
+func NewRemover(kc *Client, verbose bool) *Remover {
 	return &Remover{
+		kc:      kc,
 		verbose: verbose,
 	}
 }
 
 type Remover struct {
 	verbose bool
+	kc      *Client
 }
 
 func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
@@ -26,7 +28,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 		return fn.ErrNamespaceRequired
 	}
 
-	clientset, err := NewKubernetesClientset()
+	clientset, err := remover.kc.Clientset()
 	if err != nil {
 		return fmt.Errorf("could not setup kubernetes clientset: %w", err)
 	}

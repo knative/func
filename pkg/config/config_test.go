@@ -372,6 +372,7 @@ func TestList(t *testing.T) {
 	values := config.List()
 	expected := []string{
 		"builder",
+		"cluster",
 		"confirm",
 		"language",
 		"namespace",

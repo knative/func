@@ -35,7 +35,7 @@ Lists deployed functions.
 `,
 		SuggestFor: []string{"lsit"},
 		Aliases:    []string{"ls"},
-		PreRunE:    bindEnv("all-namespaces", "output", "namespace", "verbose"),
+		PreRunE:    bindEnv("all-namespaces", "output", "namespace", "cluster", "cluster-token", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(cmd, args, newClient)
 		},
@@ -68,6 +68,8 @@ Lists deployed functions.
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace for which to list functions. ($FUNC_NAMESPACE)")
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) ($FUNC_OUTPUT)")
+	cmd.Flags().String("cluster", cfg.Cluster, "Specify a cluster api url. ($FUNC_CLUSTER)")
+	cmd.Flags().String("cluster-token", "", "Bearer token for cluster authentication. ($FUNC_CLUSTER_TOKEN)")
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
@@ -83,7 +85,11 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 		return err
 	}
 
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+	kc, err := newK8sClientFromConfig(cfg.Cluster, cfg.ClusterToken, cfg.Namespace, fn.Local{})
+	if err != nil {
+		return err
+	}
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, K8sClient: kc})
 	defer done()
 
 	items, err := client.List(cmd.Context(), cfg.Namespace)
@@ -105,16 +111,20 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 // ------------------------------
 
 type listConfig struct {
-	Namespace string
-	Output    string
-	Verbose   bool
+	Namespace    string
+	Output       string
+	Cluster      string
+	ClusterToken string
+	Verbose      bool
 }
 
 func newListConfig(cmd *cobra.Command) (cfg listConfig, err error) {
 	cfg = listConfig{
-		Namespace: viper.GetString("namespace"),
-		Output:    viper.GetString("output"),
-		Verbose:   viper.GetBool("verbose"),
+		Namespace:    viper.GetString("namespace"),
+		Output:       viper.GetString("output"),
+		Cluster:      viper.GetString("cluster"),
+		ClusterToken: viper.GetString("cluster-token"),
+		Verbose:      viper.GetBool("verbose"),
 	}
 	// If --all-namespaces, zero out any value for namespace (such as)
 	// "all" to the lister.

@@ -7,19 +7,21 @@ import (
 	"knative.dev/pkg/apis"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 type Lister struct {
-	verbose bool
+	verbose   bool
+	k8sClient *k8s.Client
 }
 
-func NewLister(verbose bool) *Lister {
-	return &Lister{verbose: verbose}
+func NewLister(k8sClient *k8s.Client, verbose bool) *Lister {
+	return &Lister{verbose: verbose, k8sClient: k8sClient}
 }
 
 // List functions, optionally specifying a namespace.
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
-	client, err := NewServingClient(namespace)
+	client, err := NewServingClient(l.k8sClient, namespace)
 	if err != nil {
 		return nil, err
 	}

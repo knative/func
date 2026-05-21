@@ -13,7 +13,7 @@ import (
 
 	"knative.dev/func/pkg/buildpacks"
 	"knative.dev/func/pkg/config"
-	"knative.dev/func/pkg/functions"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/pipelines/tekton"
 	"knative.dev/func/pkg/s2i"
@@ -72,8 +72,8 @@ type Environment struct {
 	Environment          []string
 	Cluster              string
 	Defaults             config.Global
-	Function             *functions.Function `json:",omitempty" yaml:",omitempty"`
-	Instance             *functions.Instance `json:",omitempty" yaml:",omitempty"`
+	Function             *fn.Function `json:",omitempty" yaml:",omitempty"`
+	Instance             *fn.Instance `json:",omitempty" yaml:",omitempty"`
 }
 
 func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (err error) {
@@ -83,7 +83,7 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 	}
 
 	// Create a client to get runtimes and templates
-	client := functions.New(functions.WithVerbose(cfg.Verbose))
+	client := fn.New(fn.WithVerbose(cfg.Verbose))
 
 	r, err := getRuntimes(client)
 	if err != nil {
@@ -114,13 +114,16 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		return
 	}
 
-	// Gets the cluster host
+	f, _ := fn.NewFunction(cfg.Path)
+
+	// Gets the cluster host — use the function's stored cluster if available
 	var host string
-	cc, err := k8s.GetClientConfig().ClientConfig()
-	if err != nil {
-		fmt.Printf("error getting client config %v\n", err)
-	} else {
-		host = cc.Host
+	envKc, kcErr := newK8sClientFromConfig(f.Deploy.Cluster, "", f.Deploy.Namespace, f.Local)
+	if kcErr == nil {
+		restCfg, clientErr := envKc.ClientConfig()
+		if clientErr == nil {
+			host = restCfg.Host
+		}
 	}
 
 	//Get default image builders
@@ -131,7 +134,7 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 	environment := Environment{
 		Version:              v.String(),
 		GitRevision:          v.Hash,
-		SpecVersion:          functions.LastSpecVersion(),
+		SpecVersion:          fn.LastSpecVersion(),
 		SocatImage:           k8s.SocatImage,
 		TarImage:             k8s.TarImage,
 		FuncUtilsImage:       tekton.FuncUtilImage,
@@ -146,12 +149,11 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		Defaults:             defaults,
 	}
 
-	function, instance := describeFuncInformation(cmd.Context(), newClient, cfg)
-	if function != nil {
-		environment.Function = function
-	}
-	if instance != nil {
-		environment.Instance = instance
+	if f.Initialized() {
+		environment.Function = &f
+		if instance := describeFuncInformation(cmd.Context(), f, envKc, newClient, cfg); instance != nil {
+			environment.Instance = instance
+		}
 	}
 
 	var s []byte
@@ -171,7 +173,7 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 	return nil
 }
 
-func getRuntimes(client *functions.Client) ([]string, error) {
+func getRuntimes(client *fn.Client) ([]string, error) {
 	runtimes, err := client.Runtimes()
 	if err != nil {
 		return nil, err
@@ -179,7 +181,7 @@ func getRuntimes(client *functions.Client) ([]string, error) {
 	return runtimes, nil
 }
 
-func getTemplates(client *functions.Client, runtimes []string) (map[string][]string, error) {
+func getTemplates(client *fn.Client, runtimes []string) (map[string][]string, error) {
 	templateMap := make(map[string][]string)
 	for _, runtime := range runtimes {
 		templates, err := client.Templates().List(runtime)
@@ -191,20 +193,14 @@ func getTemplates(client *functions.Client, runtimes []string) (map[string][]str
 	return templateMap, nil
 }
 
-func describeFuncInformation(context context.Context, newClient ClientFactory, cfg environmentConfig) (*functions.Function, *functions.Instance) {
-	function, err := functions.NewFunction(cfg.Path)
-	if err != nil || !function.Initialized() {
-		return nil, nil
-	}
-
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+func describeFuncInformation(ctx context.Context, f fn.Function, kc *k8s.Client, newClient ClientFactory, cfg environmentConfig) *fn.Instance {
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, K8sClient: kc})
 	defer done()
-
-	instance, err := client.Describe(context, function.Name, function.Deploy.Namespace, function)
+	instance, err := client.Describe(ctx, f.Name, f.Deploy.Namespace, f)
 	if err != nil {
-		return &function, nil
+		return nil
 	}
-	return &function, &instance
+	return &instance
 }
 
 type environmentConfig struct {

@@ -6,17 +6,20 @@ import (
 	"net/http"
 	"testing"
 
+	fn "knative.dev/func/pkg/functions"
 	fnhttp "knative.dev/func/pkg/http"
 	"knative.dev/func/pkg/k8s"
 )
 
 func TestInt_RoundTripper(t *testing.T) {
-	if !k8s.IsOpenShift() {
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
+	if !kc.IsOpenshift() {
 		t.Skip("The cluster in not an instance of OpenShift.")
 		return
 	}
 
-	transport := fnhttp.NewRoundTripper(fnhttp.WithOpenShiftServiceCA())
+	transport := fnhttp.NewRoundTripper(kc, fnhttp.WithOpenShiftServiceCA(kc))
 	defer transport.Close()
 
 	client := http.Client{

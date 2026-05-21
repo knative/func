@@ -6,7 +6,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"strings"
-	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -24,8 +23,23 @@ const (
 	openShiftRegistryHostPort = openShiftRegistryHost + ":5000"
 )
 
-func GetOpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
-	client, ns, err := NewClientAndResolvedNamespace("")
+// IsOpenshift detects whether the target cluster is OpenShift by checking
+// for the route.openshift.io API group. The result is cached per Client instance.
+func (c *Client) IsOpenshift() bool {
+	c.openShiftOnce.Do(func() {
+		clientset, err := c.Clientset()
+		if err != nil {
+			return
+		}
+		_, err = clientset.Discovery().ServerResourcesForGroupVersion("route.openshift.io/v1")
+		// if this group version is found == Openshift cluster
+		c.openshift = err == nil
+	})
+	return c.openshift
+}
+
+func (c *Client) GetOpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
+	client, ns, err := c.ClientAndNamespace("")
 	if err != nil {
 		return nil, err
 	}
@@ -85,12 +99,11 @@ func GetOpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
 	}
 }
 
-func GetDefaultOpenShiftRegistry() string {
-	ns, _ := GetDefaultNamespace()
+func GetDefaultOpenShiftRegistry(c *Client) string {
+	ns, _ := c.DefaultNamespace()
 	if ns == "" {
 		ns = "default"
 	}
-
 	return openShiftRegistryHostPort + "/" + ns
 }
 
@@ -100,23 +113,15 @@ func IsOpenShiftInternalRegistry(registry string) bool {
 	return strings.HasPrefix(registry, openShiftRegistryHost)
 }
 
-func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
-	conf := GetClientConfig()
-
-	rawConf, err := conf.RawConfig()
-	if err != nil {
+func GetOpenShiftDockerCredentialLoaders(c *Client) []creds.CredentialsCallback {
+	restCfg, err := c.ClientConfig()
+	if err != nil || restCfg.BearerToken == "" {
 		return nil
 	}
 
-	cc, ok := rawConf.Contexts[rawConf.CurrentContext]
-	if !ok {
-		return nil
-	}
-	var credentials oci.Credentials
-
-	if authInfo := rawConf.AuthInfos[cc.AuthInfo]; authInfo != nil {
-		credentials.Username = "openshift"
-		credentials.Password = authInfo.Token
+	credentials := oci.Credentials{
+		Username: "openshift",
+		Password: restCfg.BearerToken,
 	}
 
 	return []creds.CredentialsCallback{
@@ -128,42 +133,6 @@ func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
 		},
 	}
 
-}
-
-var isOpenShift bool
-var checkOpenShiftOnce sync.Once
-
-// SetOpenShiftForTest overrides OpenShift detection for testing.
-// Returns a cleanup function that restores the previous state.
-func SetOpenShiftForTest(val bool) func() {
-	checkOpenShiftOnce.Do(func() {}) // ensure real detection won't run
-	prev := isOpenShift
-	isOpenShift = val
-	return func() { isOpenShift = prev }
-}
-
-func IsOpenShift() bool {
-	checkOpenShiftOnce.Do(func() {
-		isOpenShift = false
-		client, err := NewKubernetesClientset()
-		if err != nil {
-			return
-		}
-
-		// Detect OpenShift by checking for OpenShift-specific API groups
-		// This is reliable and works even with restrictive RBAC, unlike checking
-		// for namespaces/services which can produce false positives when forbidden
-		discoveryClient := client.Discovery()
-
-		// Check for route.openshift.io API group (Routes are OpenShift-specific)
-		_, err = discoveryClient.ServerResourcesForGroupVersion("route.openshift.io/v1")
-		if err == nil {
-			// API group exists - this is OpenShift
-			isOpenShift = true
-		}
-		// If NotFound or any other error, this is most likely not OpenShift
-	})
-	return isOpenShift
 }
 
 const (

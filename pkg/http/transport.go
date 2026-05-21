@@ -54,10 +54,12 @@ func WithInsecureSkipVerify(insecureSkipVerify bool) Option {
 // if the dial operation fails due to hostname resolution the RoundTripper tries to dial from in cluster pod.
 //
 // This is useful for accessing cluster internal services (pushing a CloudEvent into Knative broker).
-func NewRoundTripper(opts ...Option) RoundTripCloser {
+func NewRoundTripper(kc *k8s.Client, opts ...Option) RoundTripCloser {
 	o := options{
-		inClusterDialer:    k8s.NewLazyInitInClusterDialer(k8s.GetClientConfig()),
 		insecureSkipVerify: false,
+	}
+	if kc != nil {
+		o.inClusterDialer = k8s.NewLazyInitInClusterDialer(kc)
 	}
 	for _, option := range opts {
 		option(&o)
@@ -133,6 +135,9 @@ func (d *dialerWithFallback) DialContext(ctx context.Context, network, address s
 		return nil, err
 	}
 
+	if d.fallbackDialer == nil {
+		return nil, err
+	}
 	return d.fallbackDialer.DialContext(ctx, network, address)
 }
 
@@ -145,7 +150,9 @@ func (d *dialerWithFallback) Close() error {
 		errs = append(errs, err)
 	}
 
-	err = d.fallbackDialer.Close()
+	if d.fallbackDialer != nil {
+		err = d.fallbackDialer.Close()
+	}
 	if err != nil {
 		errs = append(errs, err)
 	}

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 )
 
@@ -398,7 +399,9 @@ func TestCore_Delete(t *testing.T) {
 	}
 
 	// Check it appears in the list
-	client := fn.New(fn.WithListers(knative.NewLister(false)))
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
+	client := fn.New(fn.WithListers(knative.NewLister(kc, false)))
 	list, err := client.List(t.Context(), Namespace)
 	if err != nil {
 		t.Fatal(err)
@@ -423,5 +426,52 @@ func TestCore_Delete(t *testing.T) {
 	if containsInstance(t, list, name, Namespace) {
 		t.Logf("list: %v", list)
 		t.Fatalf("Instance %q is still shown as available", name)
+	}
+}
+
+// TestCore_DeployWithCachedAuth verifies that after a successful deploy using
+// kubeconfig, the cluster auth is extracted and persisted to local.yaml.
+// A subsequent deploy with an invalid kubeconfig should still succeed because
+// the stored auth is used via ConfigOverrides.
+func TestCore_DeployWithCachedAuth(t *testing.T) {
+	name := "func-e2e-test-cached-auth"
+	root := fromCleanEnv(t, name)
+
+	// Step 1: Init and deploy using normal kubeconfig
+	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := newCmd(t, "deploy").Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		// Restore valid kubeconfig for cleanup
+		os.Setenv("KUBECONFIG", Kubeconfig)
+		clean(t, name, Namespace)
+	}()
+
+	if !waitFor(t, ksvcUrl(name)) {
+		t.Fatal("function did not deploy correctly on first deploy")
+	}
+
+	// Step 2: Verify local.yaml has auth cached
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.Cluster == "" {
+		t.Fatal("expected Deploy.Cluster to be set after first deploy")
+	}
+	if f.Local.FindAuth(f.Deploy.Cluster) == nil {
+		t.Fatalf("expected auth entry for cluster %q in local.yaml after first deploy", f.Deploy.Cluster)
+	}
+
+	// Step 3: Point kubeconfig to /dev/null (invalid) and redeploy
+	// The deploy should succeed because stored auth from local.yaml is used
+	// via ConfigOverrides on top of the (broken) kubeconfig.
+	os.Setenv("KUBECONFIG", "/dev/null")
+
+	if err := newCmd(t, "deploy", "--build=false", "--push=false").Run(); err != nil {
+		t.Fatalf("expected redeploy with cached auth to succeed, got: %v", err)
 	}
 }

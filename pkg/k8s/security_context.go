@@ -16,11 +16,11 @@ import (
 // with Tekton buildpack tasks that mount volumes with group ownership 0.
 // This does not violate the restricted profile (which checks UID, not GID) but is
 // tracked for remediation in https://github.com/knative/func/issues/3517.
-func defaultPodSecurityContext() *corev1.PodSecurityContext {
+func defaultPodSecurityContext(kc *Client) *corev1.PodSecurityContext {
 	runAsNonRoot := true
 	seccompProfile := &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}
 
-	if IsOpenShift() {
+	if kc.IsOpenshift() {
 		// On OpenShift, SCCs manage RunAsUser/RunAsGroup/FSGroup; setting them
 		// here would conflict with the namespace's SCC UID range policy.
 		// Only set the fields required by the restricted PSA profile.

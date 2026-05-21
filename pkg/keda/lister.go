@@ -15,21 +15,23 @@ import (
 
 type Lister struct {
 	verbose bool
+	kc      *k8s.Client
 }
 
-func NewLister(verbose bool) fn.Lister {
+func NewLister(kc *k8s.Client, verbose bool) fn.Lister {
 	return &Lister{
+		kc:      kc,
 		verbose: verbose,
 	}
 }
 
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := l.kc.Clientset()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client: %v", err)
 	}
 
-	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
+	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset(l.kc)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create HTTPScaledObject client: %v", err)
 	}

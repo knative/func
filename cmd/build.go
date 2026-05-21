@@ -15,6 +15,7 @@ import (
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/oci"
 	"knative.dev/func/pkg/s2i"
 )
@@ -171,8 +172,13 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
+
+	f.Registry = resolveRegistry(f.Registry, "", kc)
+
 	// Client
-	clientOptions, err := cfg.clientOptions()
+	clientOptions, err := cfg.clientOptions(kc)
 	if err != nil {
 		return
 	}
@@ -264,8 +270,9 @@ func newBuildConfig() buildConfig {
 	return buildConfig{
 		Global: config.Global{
 			Builder:          viper.GetString("builder"),
+			Cluster:          viper.GetString("cluster"),
 			Confirm:          viper.GetBool("confirm"),
-			Registry:         registry(), // deferred defaulting
+			Registry:         viper.GetString("registry"),
 			Verbose:          viper.GetBool("verbose"),
 			RegistryInsecure: viper.GetBool("registry-insecure"),
 		},
@@ -441,14 +448,14 @@ func (c buildConfig) Validate(cmd *cobra.Command) (err error) {
 // TODO: As a further optimization, it might be ideal to only build the
 // image necessary for the target cluster, since the end product of a function
 // deployment is not the container, but rather the running service.
-func (c buildConfig) clientOptions() ([]fn.Option, error) {
+func (c buildConfig) clientOptions(kc *k8s.Client) ([]fn.Option, error) {
 	o := []fn.Option{
 		fn.WithRegistry(c.Registry),
 		fn.WithRegistryInsecure(c.RegistryInsecure),
 	}
 
-	t := newTransport(c.RegistryInsecure)
-	creds := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile, c.RegistryInsecure)
+	t := newTransport(kc, c.RegistryInsecure)
+	creds := newCredentialsProvider(kc, config.Dir(), t, c.RegistryAuthfile, c.RegistryInsecure)
 
 	switch c.Builder {
 	case builders.Host:
@@ -456,7 +463,7 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 			fn.WithScaffolder(oci.NewScaffolder(c.Verbose)),
 			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
 			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose,
-				oci.WithTransport(newTransport(c.RegistryInsecure)),
+				oci.WithTransport(newTransport(kc, c.RegistryInsecure)),
 				oci.WithCredentialsProvider(creds),
 				oci.WithVerbose(c.Verbose))),
 		)

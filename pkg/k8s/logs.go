@@ -16,13 +16,13 @@ import (
 
 // GetPodLogs returns logs from a specified Container in a Pod, if container is empty string,
 // then the first container in the pod is selected.
-func GetPodLogs(ctx context.Context, namespace, podName, containerName string) (string, error) {
+func GetPodLogs(ctx context.Context, kc *Client, namespace, podName, containerName string) (string, error) {
 	podLogOpts := corev1.PodLogOptions{}
 	if containerName != "" {
 		podLogOpts.Container = containerName
 	}
 
-	client, namespace, _ := NewClientAndResolvedNamespace(namespace)
+	client, namespace, _ := kc.ClientAndNamespace(namespace)
 	request := client.CoreV1().Pods(namespace).GetLogs(podName, &podLogOpts)
 
 	containerLogStream, err := request.Stream(ctx)
@@ -46,8 +46,8 @@ func GetPodLogs(ctx context.Context, namespace, podName, containerName string) (
 // In addition, filtering on image can be done so only logs for given image are logged.
 //
 // This function runs as long as the passed context is active (i.e. it is required cancel the context to stop log gathering).
-func GetPodLogsBySelector(ctx context.Context, namespace, labelSelector, containerName, image string, since *time.Time, out io.Writer) error {
-	client, namespace, err := NewClientAndResolvedNamespace(namespace)
+func GetPodLogsBySelector(ctx context.Context, kc *Client, namespace, labelSelector, containerName, image string, since *time.Time, out io.Writer) error {
+	client, namespace, err := kc.ClientAndNamespace(namespace)
 	if err != nil {
 		return fmt.Errorf("cannot create k8s client: %w", err)
 	}

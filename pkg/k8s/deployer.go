@@ -47,10 +47,11 @@ type DeployerOpt func(*Deployer)
 type Deployer struct {
 	verbose   bool
 	decorator deployer.DeployDecorator
+	kc        *Client
 }
 
-func NewDeployer(opts ...DeployerOpt) *Deployer {
-	d := &Deployer{}
+func NewDeployer(kc *Client, opts ...DeployerOpt) *Deployer {
+	d := &Deployer{kc: kc}
 	for _, opt := range opts {
 		opt(d)
 	}
@@ -69,20 +70,6 @@ func WithDeployerDecorator(decorator deployer.DeployDecorator) DeployerOpt {
 	}
 }
 
-func onClusterFix(f fn.Function) fn.Function {
-	// This only exists because of a bootstrapping problem with On-Cluster
-	// builds:  It appears that, when sending a function to be built on-cluster
-	// the target namespace is not being transmitted in the pipeline
-	// configuration.  We should figure out how to transmit this information
-	// to the pipeline run for initial builds.  This is a new problem because
-	// earlier versions of this logic relied entirely on the current
-	// kubernetes context.
-	if f.Namespace == "" && f.Deploy.Namespace == "" {
-		f.Namespace, _ = GetDefaultNamespace()
-	}
-	return f
-}
-
 // newEventingClient creates a Knative Eventing client from a REST config
 func newEventingClient(config *rest.Config, namespace string) (clienteventingv1.KnEventingClient, error) {
 	eventingClient, err := eventingv1client.NewForConfig(config)
@@ -93,7 +80,6 @@ func newEventingClient(config *rest.Config, namespace string) (clienteventingv1.
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
-	f = onClusterFix(f)
 	// Choosing f.Namespace vs f.Deploy.Namespace:
 	// This is minimal logic currently required of all deployer impls.
 	// If f.Namespace is defined, this is the (possibly new) target
@@ -122,7 +108,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// Get the Kubernetes REST config
-	config, err := GetClientConfig().ClientConfig()
+	config, err := d.kc.ClientConfig()
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
@@ -156,7 +142,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
 		}
 
-		if err = CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
+		if err = CheckResourcesArePresent(ctx, d.kc, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
@@ -205,7 +191,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
 		}
 
-		if err = CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
+		if err = CheckResourcesArePresent(ctx, d.kc, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
@@ -490,10 +476,10 @@ func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalle
 
 // CheckResourcesArePresent returns error if Secrets or ConfigMaps
 // referenced in input sets are not deployed on the cluster in the specified namespace
-func CheckResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount, imagePullSecret string) error {
+func CheckResourcesArePresent(ctx context.Context, kc *Client, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount, imagePullSecret string) error {
 	errMsg := ""
 	for s := range *referencedSecrets {
-		_, err := GetSecret(ctx, s, namespace)
+		_, err := GetSecret(ctx, kc, s, namespace)
 		if err != nil {
 			if errors.IsForbidden(err) {
 				errMsg += " Ensure that the service account has the necessary permissions to access the secret.\n"
@@ -504,14 +490,14 @@ func CheckResourcesArePresent(ctx context.Context, namespace string, referencedS
 	}
 
 	for cm := range *referencedConfigMaps {
-		_, err := GetConfigMap(ctx, cm, namespace)
+		_, err := GetConfigMap(ctx, kc, cm, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced ConfigMap \"%s\" is not present in namespace \"%s\"\n", cm, namespace)
 		}
 	}
 
 	for pvc := range *referencedPVCs {
-		_, err := GetPersistentVolumeClaim(ctx, pvc, namespace)
+		_, err := GetPersistentVolumeClaim(ctx, kc, pvc, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced PersistentVolumeClaim \"%s\" is not present in namespace \"%s\"\n", pvc, namespace)
 		}
@@ -519,14 +505,14 @@ func CheckResourcesArePresent(ctx context.Context, namespace string, referencedS
 
 	// check if referenced ServiceAccount is present in the namespace if it is not default
 	if referencedServiceAccount != "" && referencedServiceAccount != "default" {
-		err := GetServiceAccount(ctx, referencedServiceAccount, namespace)
+		err := GetServiceAccount(ctx, kc, referencedServiceAccount, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced ServiceAccount \"%s\" is not present in namespace \"%s\"\n", referencedServiceAccount, namespace)
 		}
 	}
 
 	if imagePullSecret != "" {
-		_, err := GetSecret(ctx, imagePullSecret, namespace)
+		_, err := GetSecret(ctx, kc, imagePullSecret, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced image pull Secret \"%s\" is not present in namespace \"%s\"\n", imagePullSecret, namespace)
 		}
