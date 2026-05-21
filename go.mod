@@ -54,26 +54,26 @@ require (
 	github.com/tektoncd/pipeline v1.10.0
 	gitlab.com/gitlab-org/api/client-go v0.150.0
 	go.podman.io/image/v5 v5.39.2-0.20260306124909-d48bc74146d6
-	golang.org/x/crypto v0.50.0
-	golang.org/x/mod v0.35.0
-	golang.org/x/net v0.53.0
+	golang.org/x/crypto v0.51.0
+	golang.org/x/mod v0.36.0
+	golang.org/x/net v0.54.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
-	golang.org/x/sys v0.43.0
-	golang.org/x/term v0.42.0
+	golang.org/x/sys v0.44.0
+	golang.org/x/term v0.43.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/v3 v3.5.2
-	k8s.io/api v0.35.4
-	k8s.io/apimachinery v0.35.4
-	k8s.io/client-go v0.35.4
+	k8s.io/api v0.35.5
+	k8s.io/apimachinery v0.35.5
+	k8s.io/client-go v0.35.5
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
-	knative.dev/client/pkg v0.0.0-20260515142934-95c16c5f0a73
-	knative.dev/eventing v0.49.1-0.20260518101736-fdfff0bdc3d6
+	knative.dev/client/pkg v0.0.0-20260521025326-0e8c8cd30b12
+	knative.dev/eventing v0.49.1-0.20260521032925-b4a23c85e4bb
 	knative.dev/hack v0.0.0-20260428014158-b2a37f1b6e7b
-	knative.dev/pkg v0.0.0-20260507212125-df317a52d112
-	knative.dev/serving v0.49.1-0.20260515125932-a4e653bb53da
+	knative.dev/pkg v0.0.0-20260520153225-91e8142be85c
+	knative.dev/serving v0.49.1-0.20260521031525-42d556e48efd
 	sigs.k8s.io/controller-runtime v0.23.3
 )
 
@@ -303,7 +303,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
@@ -314,8 +314,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	k8s.io/apiextensions-apiserver v0.35.4 // indirect
-	k8s.io/apiserver v0.35.4 // indirect
+	k8s.io/apiextensions-apiserver v0.35.5 // indirect
+	k8s.io/apiserver v0.35.5 // indirect
 	k8s.io/cli-runtime v0.34.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
 	knative.dev/networking v0.0.0-20260506015723-9b427f7c8091 // indirect
