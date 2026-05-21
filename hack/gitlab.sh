@@ -148,6 +148,7 @@ metadata:
   name: gitlab-external-ssh
   namespace: gitlab
 spec:
+  ipFamilyPolicy: PreferDualStack
   selector:
     app.kubernetes.io/name: gitlab
   ports:
