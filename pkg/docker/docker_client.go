@@ -90,6 +90,7 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 
 	var _url *url.URL
 	var contextConfig *dockerContextConfig // Cache context config to avoid calling docker CLI twice
+	var hostFromContext bool               // Track if host came from context detection
 
 	dockerHost := os.Getenv("DOCKER_HOST")
 	dockerHostSSHIdentity := os.Getenv("DOCKER_HOST_SSH_IDENTITY")
@@ -122,11 +123,13 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 						}
 						if _, statErr := os.Stat(socketPath); statErr == nil {
 							dockerHost = contextConfig.Host
+							hostFromContext = true
 						}
 					case "ssh", "tcp", "npipe":
 						// For remote connections, use the context host directly
 						// We can't verify connectivity here, so trust the context
 						dockerHost = contextConfig.Host
+						hostFromContext = true
 					}
 				}
 			}
@@ -180,8 +183,12 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 		opts := []client.Opt{client.FromEnv, client.WithHost(dockerHost)}
 		if isTCP {
 			// Try to get HTTP client with TLS
-			// Pass contextConfig only if the host came from context detection (contextConfig != nil)
-			if httpClient := newHttpClient(contextConfig); httpClient != nil {
+			// Only pass contextConfig if the host came from context detection
+			var configForTLS *dockerContextConfig
+			if hostFromContext {
+				configForTLS = contextConfig
+			}
+			if httpClient := newHttpClient(configForTLS); httpClient != nil {
 				opts = append(opts, client.WithHTTPClient(httpClient))
 			}
 		}
@@ -305,6 +312,8 @@ func newHttpClientFromContext(contextConfig *dockerContextConfig) *http.Client {
 	var tlsOpts []func(*tls.Config)
 
 	if contextConfig.SkipTLSVerify {
+		// #nosec G402 -- InsecureSkipVerify is intentionally configurable via Docker context
+		// This respects the user's explicit context configuration
 		tlsOpts = append(tlsOpts, func(t *tls.Config) {
 			t.InsecureSkipVerify = true
 		})
@@ -444,13 +453,17 @@ func getDockerContextConfig() *dockerContextConfig {
 		// Determine Docker config directory
 		dockerConfigDir := os.Getenv("DOCKER_CONFIG")
 		if dockerConfigDir == "" {
-			dockerConfigDir = filepath.Join(os.Getenv("HOME"), ".docker")
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return config // Can't determine home dir, return config without TLS
+			}
+			dockerConfigDir = filepath.Join(homeDir, ".docker")
 		}
 
-		// Docker stores context TLS files in contexts/tls/<sha256-hash>/
-		// NOT in contexts/meta/<hash>/ (that's where meta.json lives)
+		// Docker stores context TLS files in contexts/tls/<sha256-hash>/docker/
+		// The "docker" subdirectory corresponds to the endpoint name
 		hash := sha256.Sum256([]byte(contexts[0].Name))
-		tlsPath = filepath.Join(dockerConfigDir, "contexts", "tls", fmt.Sprintf("%x", hash))
+		tlsPath = filepath.Join(dockerConfigDir, "contexts", "tls", fmt.Sprintf("%x", hash), "docker")
 	}
 
 	// Try to read TLS files from the determined path
