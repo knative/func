@@ -282,20 +282,7 @@ func newHttpClient(contextConfig *dockerContextConfig) *http.Client {
 			}
 		}
 
-		dialer := &net.Dialer{
-			KeepAlive: 30 * time.Second,
-			Timeout:   30 * time.Second,
-		}
-
-		tlsConfig := tlsconfig.ClientDefault(tlsOpts...)
-
-		return &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: tlsConfig,
-				DialContext:     dialer.DialContext,
-			},
-			CheckRedirect: client.CheckRedirect,
-		}
+		return buildHTTPClient(tlsOpts)
 	}
 
 	// No env vars set - try Docker context if available
@@ -305,6 +292,24 @@ func newHttpClient(contextConfig *dockerContextConfig) *http.Client {
 
 	// No TLS configuration found
 	return nil
+}
+
+// buildHTTPClient creates an HTTP client with the given TLS options
+func buildHTTPClient(tlsOpts []func(*tls.Config)) *http.Client {
+	dialer := &net.Dialer{
+		KeepAlive: 30 * time.Second,
+		Timeout:   30 * time.Second,
+	}
+
+	tlsConfig := tlsconfig.ClientDefault(tlsOpts...)
+
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+			DialContext:     dialer.DialContext,
+		},
+		CheckRedirect: client.CheckRedirect,
+	}
 }
 
 // newHttpClientFromContext creates an HTTP client configured with TLS from Docker context
@@ -333,29 +338,14 @@ func newHttpClientFromContext(contextConfig *dockerContextConfig) *http.Client {
 	if len(contextConfig.TLSCert) > 0 && len(contextConfig.TLSKey) > 0 {
 		cert, err := tls.X509KeyPair(contextConfig.TLSCert, contextConfig.TLSKey)
 		if err != nil {
-			// Log warning but continue - connection might still work without client cert
-			fmt.Fprintf(os.Stderr, "Warning: failed to load TLS client certificate from Docker context: %v\n", err)
-		} else {
-			tlsOpts = append(tlsOpts, func(t *tls.Config) {
-				t.Certificates = []tls.Certificate{cert}
-			})
+			return nil // Cert parse failure - TLS setup failed
 		}
+		tlsOpts = append(tlsOpts, func(t *tls.Config) {
+			t.Certificates = []tls.Certificate{cert}
+		})
 	}
 
-	dialer := &net.Dialer{
-		KeepAlive: 30 * time.Second,
-		Timeout:   30 * time.Second,
-	}
-
-	tlsConfig := tlsconfig.ClientDefault(tlsOpts...)
-
-	return &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-			DialContext:     dialer.DialContext,
-		},
-		CheckRedirect: client.CheckRedirect,
-	}
+	return buildHTTPClient(tlsOpts)
 }
 
 // tries to get connection to default podman machine
