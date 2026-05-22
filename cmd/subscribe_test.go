@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -284,5 +286,27 @@ func TestSubscribeWithDuplicated(t *testing.T) {
 	if f.Deploy.Subscriptions[0].Filters["foo"] != "gogo" {
 		t.Fatalf("Expected subscription filter for 'foo' to be 'gogo', but got '%v'", f.Deploy.Subscriptions[0].Filters["foo"])
 	}
+}
 
+func TestSubscribe_WrapsNotInitialized(t *testing.T) {
+	_ = FromTempDirectory(t)
+
+	cmd := NewSubscribeCmd()
+	cmd.SetArgs([]string{"--filter", "type=example"})
+	err := cmd.Execute()
+
+	if err == nil {
+		t.Fatal("expected error when subscribing from empty directory")
+	}
+
+	var cliNotInit *ErrNotInitialized
+	if !errors.As(err, &cliNotInit) {
+		t.Fatalf("expected *ErrNotInitialized, got %T: %v", err, err)
+	}
+	if cliNotInit.Cmd != "subscribe" {
+		t.Fatalf("expected Cmd 'subscribe', got '%v'", cliNotInit.Cmd)
+	}
+	if !strings.Contains(err.Error(), "func subscribe --filter") {
+		t.Fatalf("expected error to contain 'func subscribe' guidance, got: %v", err)
+	}
 }

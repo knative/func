@@ -30,7 +30,7 @@ and an 'extension' attribute for the value 'my-extension-value'.
 		SuggestFor: []string{"subcsribe"}, //nolint:misspell
 		PreRunE:    bindEnv("filter", "source", "verbose"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runSubscribe(cmd)
+			return wrapSubscribeError(runSubscribe(cmd))
 		},
 	}
 
@@ -55,7 +55,7 @@ func runSubscribe(cmd *cobra.Command) (err error) {
 		return
 	}
 	if !f.Initialized() {
-		return fmt.Errorf("no function found in current directory.\nYou need to be inside a function directory to subscribe to events.\n\nTry this:\n  func create --language go myfunction    Create a new function\n  cd myfunction                          Go into the function directory\n  func subscribe --filter type=example   Subscribe to events\n\nOr if you have an existing function:\n  cd path/to/your/function              Go to your function directory\n  func subscribe --filter type=example  Subscribe to events")
+		return NewErrNotInitializedFromPath(f.Root, "subscribe")
 	}
 
 	// add subscription	to function
