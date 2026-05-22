@@ -75,7 +75,7 @@ type RepositoryAddOutput struct {
 }
 
 func (s *Server) repositoryAddHandler(ctx context.Context, _ *mcp.CallToolRequest, input RepositoryAddInput) (result *mcp.CallToolResult, output RepositoryAddOutput, err error) {
-	if s.readonly {
+	if s.readonly.Load() {
 		err = fmt.Errorf("the server is currently in readonly mode. Please set FUNC_ENABLE_MCP_WRITE and restart the MCP server")
 		return
 	}
@@ -119,7 +119,7 @@ type RepositoryRenameOutput struct {
 }
 
 func (s *Server) repositoryRenameHandler(ctx context.Context, _ *mcp.CallToolRequest, input RepositoryRenameInput) (result *mcp.CallToolResult, output RepositoryRenameOutput, err error) {
-	if s.readonly {
+	if s.readonly.Load() {
 		err = fmt.Errorf("the server is currently in readonly mode. Please set FUNC_ENABLE_MCP_WRITE and restart the MCP server")
 		return
 	}
@@ -162,7 +162,7 @@ type RepositoryRemoveOutput struct {
 }
 
 func (s *Server) repositoryRemoveHandler(ctx context.Context, _ *mcp.CallToolRequest, input RepositoryRemoveInput) (result *mcp.CallToolResult, output RepositoryRemoveOutput, err error) {
-	if s.readonly {
+	if s.readonly.Load() {
 		err = fmt.Errorf("the server is currently in readonly mode. Please set FUNC_ENABLE_MCP_WRITE and restart the MCP server")
 		return
 	}

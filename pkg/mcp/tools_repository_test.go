@@ -149,7 +149,7 @@ func TestTool_RepositoryAdd_Readonly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.readonly = true
+	server.readonly.Store(true)
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "repository_add",
@@ -240,7 +240,7 @@ func TestTool_RepositoryRename_Readonly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.readonly = true
+	server.readonly.Store(true)
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "repository_rename",
@@ -328,7 +328,7 @@ func TestTool_RepositoryRemove_Readonly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.readonly = true
+	server.readonly.Store(true)
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "repository_remove",
