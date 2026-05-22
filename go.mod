@@ -73,7 +73,7 @@ require (
 	knative.dev/eventing v0.49.1-0.20260521032925-b4a23c85e4bb
 	knative.dev/hack v0.0.0-20260428014158-b2a37f1b6e7b
 	knative.dev/pkg v0.0.0-20260520153225-91e8142be85c
-	knative.dev/serving v0.49.1-0.20260521031525-42d556e48efd
+	knative.dev/serving v0.49.1-0.20260522131527-c3847a68c543
 	sigs.k8s.io/controller-runtime v0.23.3
 )
 
