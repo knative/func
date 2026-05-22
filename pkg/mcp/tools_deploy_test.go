@@ -2,13 +2,15 @@ package mcp
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"knative.dev/func/pkg/mcp/mock"
 )
 
-// TestTool_Deploy_Readonly ensures the deploy tool returns an error when the server is in readonly mode.
+// TestTool_Deploy_Readonly ensures the deploy tool returns the readonly-mode
+// error when the server is in readonly mode.
 func TestTool_Deploy_Readonly(t *testing.T) {
 	client, _, err := newTestPairWithReadonly(t, true)
 	if err != nil {
@@ -24,6 +26,10 @@ func TestTool_Deploy_Readonly(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected error result for readonly server, got success")
+	}
+	got := result.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
 	}
 }
 

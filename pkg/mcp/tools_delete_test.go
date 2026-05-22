@@ -2,13 +2,15 @@ package mcp
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"knative.dev/func/pkg/mcp/mock"
 )
 
-// TestTool_Delete_Readonly ensures the delete tool returns an error when the server is in readonly mode.
+// TestTool_Delete_Readonly ensures the delete tool returns the readonly-mode
+// error when the server is in readonly mode.
 func TestTool_Delete_Readonly(t *testing.T) {
 	client, _, err := newTestPairWithReadonly(t, true)
 	if err != nil {
@@ -25,10 +27,14 @@ func TestTool_Delete_Readonly(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("expected error result for readonly server, got success")
 	}
+	got := result.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
+	}
 }
 
-// TestTool_Delete_BothPathAndName ensures the delete tool returns a validation error
-// when both path and name are provided simultaneously.
+// TestTool_Delete_BothPathAndName ensures the delete tool returns a mutual-
+// exclusion validation error when both path and name are provided.
 func TestTool_Delete_BothPathAndName(t *testing.T) {
 	client, _, err := newTestPair(t)
 	if err != nil {
@@ -48,10 +54,14 @@ func TestTool_Delete_BothPathAndName(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("expected error result when both path and name are provided, got success")
 	}
+	got := result.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(got, "exactly one of 'path' or 'name'") {
+		t.Fatalf("expected mutual-exclusion validation error, got: %q", got)
+	}
 }
 
-// TestTool_Delete_NeitherPathNorName ensures the delete tool returns a validation error
-// when neither path nor name is provided.
+// TestTool_Delete_NeitherPathNorName ensures the delete tool returns a mutual-
+// exclusion validation error when neither path nor name is provided.
 func TestTool_Delete_NeitherPathNorName(t *testing.T) {
 	client, _, err := newTestPair(t)
 	if err != nil {
@@ -67,6 +77,10 @@ func TestTool_Delete_NeitherPathNorName(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected error result when neither path nor name is provided, got success")
+	}
+	got := result.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(got, "exactly one of 'path' or 'name'") {
+		t.Fatalf("expected mutual-exclusion validation error, got: %q", got)
 	}
 }
 
