@@ -91,7 +91,7 @@ EOF
 
   echo "starting func-git service at: ${func_git_host}"
 
-  kubectl wait --for=condition=Ready "pod/${name}" --timeout=30s
+  kubectl wait --for=condition=Ready "pod/${name}" --timeout=120s
 }
 
 git_server
