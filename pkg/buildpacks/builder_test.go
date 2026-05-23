@@ -82,6 +82,34 @@ func TestBuild_BuilderImageDefault(t *testing.T) {
 
 }
 
+// TestBuild_QuarkusBuilderMultiArch ensures that the Quarkus runtime uses
+// a multi-arch builder image (paketobuildpacks/builder-ubi8-base) instead of
+// the amd64-only builder, to support s390x/ppc64le clusters.
+// See: https://github.com/knative/func/issues/3781
+func TestBuild_QuarkusBuilderMultiArch(t *testing.T) {
+	var (
+		i = &mockImpl{}
+		b = NewBuilder(WithImpl(i))
+		f = fn.Function{Runtime: "quarkus"}
+	)
+
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		expected := DefaultQuarkusBuilder
+		if opts.Builder != expected {
+			t.Fatalf("expected Quarkus builder image '%v' (multi-arch), got '%v'", expected, opts.Builder)
+		}
+		// Verify it's the multi-arch builder, not the old amd64-only one
+		if opts.Builder == DefaultTinyBuilder {
+			t.Fatal("Quarkus should not use DefaultTinyBuilder (amd64-only)")
+		}
+		return nil
+	}
+
+	if err := b.Build(t.Context(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestBuild_BuildpacksDefault ensures that, if there are default buildpacks
 // defined in-code, but none defined on the function, the defaults will be
 // used.

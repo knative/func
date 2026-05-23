@@ -30,6 +30,7 @@ const DefaultName = builders.Pack
 
 var DefaultBaseBuilder = "ghcr.io/knative/builder-jammy-base:v2"
 var DefaultTinyBuilder = "ghcr.io/knative/builder-jammy-tiny:v2"
+var DefaultQuarkusBuilder = "paketobuildpacks/builder-ubi8-base" // Multi-arch support for s390x/ppc64le
 
 var (
 	DefaultBuilderImages = map[string]string{
@@ -38,7 +39,7 @@ var (
 		"typescript": DefaultBaseBuilder,
 		"go":         DefaultTinyBuilder,
 		"python":     DefaultBaseBuilder,
-		"quarkus":    DefaultTinyBuilder,
+		"quarkus":    DefaultQuarkusBuilder, // Changed to multi-arch builder
 		"rust":       DefaultBaseBuilder,
 		"springboot": DefaultBaseBuilder,
 	}
