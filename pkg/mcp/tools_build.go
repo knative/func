@@ -21,7 +21,7 @@ var buildTool = &mcp.Tool{
 
 func (s *Server) buildHandler(ctx context.Context, r *mcp.CallToolRequest, input BuildInput) (result *mcp.CallToolResult, output BuildOutput, err error) {
 	if s.readonly.Load() {
-		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
+		err = fmt.Errorf("the server is currently in read-only mode; to enable write operations, set FUNC_ENABLE_MCP_WRITE in the server environment and restart the server")
 		return
 	}
 
