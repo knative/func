@@ -175,9 +175,6 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		if effectiveFormat != "cloudevent" {
 			return fmt.Errorf("--extension (-e) is only valid with cloudevents")
 		}
-		if effectiveFormat != "" && effectiveFormat != "cloudevent" {
-			return fmt.Errorf("--extension flag is only valid with cloudevent format")
-		}
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
