@@ -402,7 +402,7 @@ func TestPipelineTemplatesValidate(t *testing.T) {
 	}
 }
 
-// TestPipelineRunTemplatesValidate renders each PipelineRun template with dummy
+// TestPipelineRunTemplatesValidate renders each PipelineRun template with sample
 // data and decodes it into a typed tektonv1.PipelineRun using a strict
 // deserializer. This catches unknown/misplaced fields (e.g. spec.podTemplate
 // instead of spec.taskRunTemplate.podTemplate) that string-based tests miss.
