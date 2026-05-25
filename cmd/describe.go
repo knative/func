@@ -89,8 +89,7 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 		}
 	}
 
-	write(os.Stdout, info(details), cfg.Output)
-	return
+	return write(os.Stdout, info(details), cfg.Output)
 }
 
 // CLI Configuration (parameters)

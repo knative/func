@@ -95,8 +95,7 @@ func runVersion(cmd *cobra.Command, v Version) error {
 	}
 	v.MiddlewareVersions = latestMW
 
-	write(cmd.OutOrStdout(), v, output)
-	return nil
+	return write(cmd.OutOrStdout(), v, output)
 }
 
 // Version information populated on build.
