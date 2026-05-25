@@ -328,6 +328,80 @@ func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 	}
 }
 
+// strictTektonDecoder returns a strict deserializer that rejects unknown fields
+// in Tekton v1 resources (Pipeline, PipelineRun, etc.).
+func strictTektonDecoder(t *testing.T) runtime.Decoder {
+	t.Helper()
+	myScheme := runtime.NewScheme()
+	if err := tektonv1.AddToScheme(myScheme); err != nil {
+		t.Fatal(err)
+	}
+	codecs := serializer.NewCodecFactory(myScheme, serializer.EnableStrict)
+	return codecs.UniversalDeserializer()
+}
+
+// renderTemplate renders a Go text/template with the given data and returns the result.
+func renderTemplate(t *testing.T, name, tmplStr string, data any) []byte {
+	t.Helper()
+	tmpl, err := template.New(name).Parse(tmplStr)
+	if err != nil {
+		t.Fatalf("failed to parse template: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		t.Fatalf("failed to execute template: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// TestPipelineTemplatesValidate renders each Pipeline template with real
+// inline task specs and decodes it into a typed tektonv1.Pipeline using a
+// strict deserializer that rejects unknown fields.
+func TestPipelineTemplatesValidate(t *testing.T) {
+	buildpacksTaskRef, err := getTaskSpec(getBuildpackTask())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2iTaskRef, err := getTaskSpec(getS2ITask())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := templateData{
+		FunctionName:          "myfunc",
+		Annotations:           map[string]string{"test": "val"},
+		Labels:                map[string]string{"test": "val"},
+		PipelineName:          "myfunc-pipeline",
+		TlsVerify:             "true",
+		Registry:              "docker.io/alice",
+		FuncBuildpacksTaskRef: buildpacksTaskRef,
+		FuncS2iTaskRef:        s2iTaskRef,
+	}
+
+	tests := []struct {
+		name    string
+		tmplStr string
+	}{
+		{"packPipelineTemplate", packPipelineTemplate},
+		{"s2iPipelineTemplate", s2iPipelineTemplate},
+	}
+
+	decode := strictTektonDecoder(t)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rendered := renderTemplate(t, tt.name, tt.tmplStr, data)
+			obj, _, err := decode.Decode(rendered, nil, nil)
+			if err != nil {
+				t.Fatalf("failed to decode Pipeline: %v", err)
+			}
+			if _, ok := obj.(*tektonv1.Pipeline); !ok {
+				t.Fatalf("expected *Pipeline, got %T", obj)
+			}
+		})
+	}
+}
+
 // TestPipelineRunTemplatesValidate renders each PipelineRun template with dummy
 // data and decodes it into a typed tektonv1.PipelineRun using a strict
 // deserializer. This catches unknown/misplaced fields (e.g. spec.podTemplate
@@ -367,25 +441,12 @@ func TestPipelineRunTemplatesValidate(t *testing.T) {
 		{"s2iRunTemplatePAC", s2iRunTemplatePAC},
 	}
 
-	myScheme := runtime.NewScheme()
-	if err := tektonv1.AddToScheme(myScheme); err != nil {
-		t.Fatal(err)
-	}
-	codecs := serializer.NewCodecFactory(myScheme, serializer.EnableStrict)
-	decode := codecs.UniversalDeserializer().Decode
+	decode := strictTektonDecoder(t)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpl, err := template.New(tt.name).Parse(tt.tmplStr)
-			if err != nil {
-				t.Fatalf("failed to parse template: %v", err)
-			}
-			var buf bytes.Buffer
-			if err := tmpl.Execute(&buf, data); err != nil {
-				t.Fatalf("failed to execute template: %v", err)
-			}
-
-			obj, _, err := decode(buf.Bytes(), nil, nil)
+			rendered := renderTemplate(t, tt.name, tt.tmplStr, data)
+			obj, _, err := decode.Decode(rendered, nil, nil)
 			if err != nil {
 				t.Fatalf("failed to decode PipelineRun: %v", err)
 			}
