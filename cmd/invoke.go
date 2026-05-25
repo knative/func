@@ -186,7 +186,7 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 
 	// Message to send the running function built from parameters gathered
 	// from the user (or defaults)
-	exts, err := cfg.extensionsMap()
+	exts, err := cfg.parseExtensions()
 	if err != nil {
 		return err
 	}
@@ -319,11 +319,11 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 	return
 }
 
-func (c invokeConfig) extensionsMap() (map[string]string, error) {
+func (c invokeConfig) parseExtensions() (map[string]string, error) {
 	result := make(map[string]string)
 	for _, ext := range c.Extensions {
 		parts := strings.SplitN(ext, "=", 2)
-		if len(parts) != 2 {
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
 			return nil, fmt.Errorf("invalid --extension %q: must be in key=value format", ext)
 		}
 		result[parts[0]] = parts[1]
