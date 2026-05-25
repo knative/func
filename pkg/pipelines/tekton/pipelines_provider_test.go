@@ -82,10 +82,7 @@ func TestSourcesAsTarStream(t *testing.T) {
 }
 
 func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
-	type mockCreateType func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error)
-	type mockGetType func(ctx context.Context, name, namespaceOverride string) (*corev1.PersistentVolumeClaim, error)
-	type mockDeleteType func(ctx context.Context, name, namespaceOverride string) error
-	type mockWaitType func(ctx context.Context, name, namespaceOverride string) error
+	type mockType func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error)
 
 	type args struct {
 		ctx       context.Context
@@ -95,13 +92,10 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 		size      string
 	}
 	tests := []struct {
-		name       string
-		args       args
-		mockCreate mockCreateType
-		mockGet    mockGetType
-		mockDelete mockDeleteType
-		mockWait   mockWaitType
-		wantErr    bool
+		name    string
+		args    args
+		mock    mockType
+		wantErr bool
 	}{
 		{
 			name: "returns error if pvc creation failed",
@@ -112,16 +106,13 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 				labels:    nil,
 				size:      DefaultPersistentVolumeClaimSize.String(),
 			},
-			mockGet: func(ctx context.Context, name, namespaceOverride string) (*corev1.PersistentVolumeClaim, error) {
-				return nil, &apiErrors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonNotFound}}
-			},
-			mockCreate: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
+			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
 				return errors.New("creation of pvc failed")
 			},
 			wantErr: true,
 		},
 		{
-			name: "deletes and recreates if pvc already exists",
+			name: "returns nil if pvc already exists",
 			args: args{
 				ctx:       t.Context(),
 				f:         fn.Function{},
@@ -129,85 +120,32 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 				labels:    nil,
 				size:      DefaultPersistentVolumeClaimSize.String(),
 			},
-			mockGet: func(ctx context.Context, name, namespaceOverride string) (*corev1.PersistentVolumeClaim, error) {
-				return &corev1.PersistentVolumeClaim{}, nil
-			},
-			mockDelete: func(ctx context.Context, name, namespaceOverride string) error {
-				return nil
-			},
-			mockWait: func(ctx context.Context, name, namespaceOverride string) error {
-				return nil
-			},
-			mockCreate: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
-				return nil
+			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
+				return &apiErrors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonAlreadyExists}}
 			},
 			wantErr: false,
 		},
 		{
-			name: "returns error if deletion fails",
+			name: "returns err if namespace not defined and default returns an err",
 			args: args{
 				ctx:       t.Context(),
 				f:         fn.Function{},
-				namespace: "test-ns",
+				namespace: "",
 				labels:    nil,
 				size:      DefaultPersistentVolumeClaimSize.String(),
 			},
-			mockGet: func(ctx context.Context, name, namespaceOverride string) (*corev1.PersistentVolumeClaim, error) {
-				return &corev1.PersistentVolumeClaim{}, nil
-			},
-			mockDelete: func(ctx context.Context, name, namespaceOverride string) error {
-				return errors.New("deletion failed")
-			},
-			wantErr: true,
-		},
-		{
-			name: "returns error if waiting for deletion fails",
-			args: args{
-				ctx:       t.Context(),
-				f:         fn.Function{},
-				namespace: "test-ns",
-				labels:    nil,
-				size:      DefaultPersistentVolumeClaimSize.String(),
-			},
-			mockGet: func(ctx context.Context, name, namespaceOverride string) (*corev1.PersistentVolumeClaim, error) {
-				return &corev1.PersistentVolumeClaim{}, nil
-			},
-			mockDelete: func(ctx context.Context, name, namespaceOverride string) error {
-				return nil
-			},
-			mockWait: func(ctx context.Context, name, namespaceOverride string) error {
-				return errors.New("wait for deletion failed")
+			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
+				return errors.New("no namespace defined")
 			},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// save current functions and restore them at the end
-			oldCreate := createPersistentVolumeClaim
-			oldGet := getPersistentVolumeClaim
-			oldDelete := deletePersistentVolumeClaim
-			oldWait := waitForPVCDeletion
-			defer func() {
-				createPersistentVolumeClaim = oldCreate
-				getPersistentVolumeClaim = oldGet
-				deletePersistentVolumeClaim = oldDelete
-				waitForPVCDeletion = oldWait
-			}()
+		t.Run(tt.name, func(t *testing.T) { // save current function and restore it at the end
+			old := createPersistentVolumeClaim
+			defer func() { createPersistentVolumeClaim = old }()
 
-			if tt.mockCreate != nil {
-				createPersistentVolumeClaim = tt.mockCreate
-			}
-			if tt.mockGet != nil {
-				getPersistentVolumeClaim = tt.mockGet
-			}
-			if tt.mockDelete != nil {
-				deletePersistentVolumeClaim = tt.mockDelete
-			}
-			if tt.mockWait != nil {
-				waitForPVCDeletion = tt.mockWait
-			}
-
+			createPersistentVolumeClaim = tt.mock
 			tt.args.f.Build.PVCSize = tt.args.size
 			if err := createPipelinePersistentVolumeClaim(tt.args.ctx, tt.args.f, tt.args.namespace, tt.args.labels); (err != nil) != tt.wantErr {
 				t.Errorf("createPipelinePersistentVolumeClaim() error = %v, wantErr %v", err, tt.wantErr)
