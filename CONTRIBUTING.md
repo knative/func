@@ -1,16 +1,44 @@
 # Development
 
+## Using AI
+
+This project is not against use of AI/LLMs and its assistance in generating code.
+AI is a great tool, however using this tool does NOT negate or supersede the
+need for human understanding in any way.
+
+Today, it is significantly more expensive to review, understand and maintain
+code compared to generating it. This applies to documentation as well — keep
+PR descriptions concise with a high signal-to-noise ratio. If you would like
+to contribute to this project please keep this in mind.
+
+An opened PR should include:
+- basic explanation why it is needed (what problem does it solve or what feature does it add? is this something you need or a problem you've encountered?)
+- explanation of what testing was performed to make sure this change fixes the problem (did you test manually? what tests did you add? what do they cover?)
+- must include tests for new code; regression test for bug fixes
+
+If a PR does not follow these points it may be closed without detailed review
+or feedback until the missing information is provided.
+
+General instructions are available for AI agents in `AGENTS.md`.
+If you prefer your own instructions, you can instead create `AGENTS.override.md`.
+
+Usually AI agents read the `AGENTS.md` file by default. At the top of this file
+there is an override directive which points the AI agent to instead read this
+`AGENTS.override.md` and follow it. It is preemptively part of `.gitignore` so
+that it is not source controlled.
+
+## General information
 This document details how to get started contributing to the project.  This includes building and testing the core, templates and how to update them, and usage of the optional integration testing tooling.
 
 **Tip**:
 Install git hooks that do basic pre-commit checks.
 
-**Tip**:
-Read through our (architecture)[ARCHITECTURE.md] file for how we structure this project (Or have AI do it!)
-
 ```sh
 make setup-githooks
 ```
+
+**Tip**:
+Read through our [architecture](ARCHITECTURE.md) file for how we structure this project (Or have AI do it!)
 
 ## Building
 
@@ -25,7 +53,6 @@ To run core unit tests, use `make test`.
 ## Linting
 
 Before submitting code in a Pull Request, please run `make check` and resolve any errors.  This creates and runs `bin/golangci-lint`.  For settings such as configured linters, see [.golangci.yaml](../.golangci.yaml).
-
 
 ## Templates
 
@@ -87,12 +114,3 @@ To run integration tests, use `make test-integration`.
 
 The cluster and registry can be deleted by running `hack/delete.sh`
 
-## Using AI
-
-General instruction are available for AI agents in `AGENTS.md`.
-If you prefer your own instructions, you can instead create `AGENTS.override.md`.
-
-Usually AI agents read the `AGENTS.md` file by default. At the top of this file
-there is an override directive which points the AI agent to instead read this
-`AGENTS.override.md` and follow it. It is preemptively part of `.gitignore` so
-that it is not source controlled.
