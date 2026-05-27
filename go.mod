@@ -56,10 +56,10 @@ require (
 	go.podman.io/image/v5 v5.39.2-0.20260306124909-d48bc74146d6
 	golang.org/x/crypto v0.51.0
 	golang.org/x/mod v0.36.0
-	golang.org/x/net v0.54.0
+	golang.org/x/net v0.55.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
-	golang.org/x/sys v0.44.0
+	golang.org/x/sys v0.45.0
 	golang.org/x/term v0.43.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -72,7 +72,7 @@ require (
 	knative.dev/client/pkg v0.0.0-20260525150729-19b7e45aed4b
 	knative.dev/eventing v0.49.1-0.20260521032925-b4a23c85e4bb
 	knative.dev/hack v0.0.0-20260428014158-b2a37f1b6e7b
-	knative.dev/pkg v0.0.0-20260520153225-91e8142be85c
+	knative.dev/pkg v0.0.0-20260526162440-71f6ad65d251
 	knative.dev/serving v0.49.1-0.20260525133029-a4ab6ebc4761
 	sigs.k8s.io/controller-runtime v0.23.3
 )
