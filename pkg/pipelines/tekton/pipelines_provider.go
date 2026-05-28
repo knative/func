@@ -42,7 +42,7 @@ import (
 const DefaultNamespace = "default"
 
 // DefaultPersistentVolumeClaimSize to allocate for the function.
-var DefaultPersistentVolumeClaimSize = resource.MustParse("256Mi")
+var DefaultPersistentVolumeClaimSize = resource.MustParse("750Mi")
 
 type PipelineDecorator interface {
 	UpdateLabels(fn.Function, map[string]string) map[string]string
