@@ -51,10 +51,16 @@ func isECRRegistry(registry string) bool {
 	if registry == "public.ecr.aws" {
 		return true
 	}
-	if strings.Contains(registry, ".dkr.ecr.") || strings.Contains(registry, ".dkr.ecr-fips.") {
-		return true
+	// Private ECR registries are always under a small set of known AWS partitions.
+	isKnownECRDomain := strings.HasSuffix(registry, ".amazonaws.com") ||
+		strings.HasSuffix(registry, ".amazonaws.com.cn") ||
+		strings.HasSuffix(registry, ".sc2s.sgov.gov") ||
+		strings.HasSuffix(registry, ".c2s.ic.gov")
+	if !isKnownECRDomain {
+		return false
 	}
-	return false
+
+	return strings.Contains(registry, ".dkr.ecr.") || strings.Contains(registry, ".dkr.ecr-fips.")
 }
 
 func GetECRCredentialLoader() []creds.CredentialsCallback {
