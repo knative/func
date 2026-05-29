@@ -32,7 +32,11 @@ func TestIsECRRegistry(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.registry, func(t *testing.T) {
+		name := tt.registry
+		if name == "" {
+			name = "empty"
+		}
+		t.Run(name, func(t *testing.T) {
 			result := isECRRegistry(tt.registry)
 			if result != tt.expected {
 				t.Errorf("isECRRegistry(%q) = %v; want %v", tt.registry, result, tt.expected)

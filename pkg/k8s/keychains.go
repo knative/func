@@ -64,6 +64,20 @@ func isECRRegistry(registry string) bool {
 	return strings.Contains(registry, ".dkr.ecr.") || strings.Contains(registry, ".dkr.ecr-fips.")
 }
 
+func isAWSCredentialsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if dockercreds.IsErrCredentialsNotFound(err) {
+		return true
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "credentials not found") ||
+		strings.Contains(errStr, "no valid providers in chain") ||
+		strings.Contains(errStr, "NoCredentialProviders") ||
+		strings.Contains(errStr, "no AWS credentials")
+}
+
 func GetECRCredentialLoader() []creds.CredentialsCallback {
 	ecrHelper := ecr.NewECRHelper(ecr.WithLogger(io.Discard))
 	keychain := authn.NewKeychainFromHelper(ecrHelper)
@@ -81,11 +95,7 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 
 			authenticator, err := keychain.Resolve(res)
 			if err != nil {
-				if dockercreds.IsErrCredentialsNotFound(err) ||
-					strings.Contains(err.Error(), "credentials not found") ||
-					strings.Contains(err.Error(), "no valid providers in chain") ||
-					strings.Contains(err.Error(), "NoCredentialProviders") ||
-					strings.Contains(err.Error(), "no AWS credentials") {
+				if isAWSCredentialsNotFound(err) {
 					return oci.Credentials{}, creds.ErrCredentialsNotFound
 				}
 				return oci.Credentials{}, fmt.Errorf("resolve ECR keychain: %w", err)
@@ -93,11 +103,7 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 
 			authCfg, err := authenticator.Authorization()
 			if err != nil {
-				if dockercreds.IsErrCredentialsNotFound(err) ||
-					strings.Contains(err.Error(), "credentials not found") ||
-					strings.Contains(err.Error(), "no valid providers in chain") ||
-					strings.Contains(err.Error(), "NoCredentialProviders") ||
-					strings.Contains(err.Error(), "no AWS credentials") {
+				if isAWSCredentialsNotFound(err) {
 					return oci.Credentials{}, creds.ErrCredentialsNotFound
 				}
 				return oci.Credentials{}, fmt.Errorf("get authorization: %w", err)
