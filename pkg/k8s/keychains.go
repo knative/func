@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -68,9 +69,36 @@ func isAWSCredentialsNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
+	// Check standard docker-credential-helpers sentinel
 	if dockercreds.IsErrCredentialsNotFound(err) {
 		return true
 	}
+
+	// Check for AWS SDK v1 errors if wrapped/accessible
+	type awsError interface {
+		Code() string
+		Message() string
+	}
+	var awsErr awsError
+	if errors.As(err, &awsErr) {
+		if awsErr.Code() == "NoCredentialProviders" {
+			return true
+		}
+	}
+
+	// Check for AWS SDK v2 (smithy) API errors
+	type smithyAPIError interface {
+		ErrorCode() string
+		ErrorMessage() string
+	}
+	var smithyErr smithyAPIError
+	if errors.As(err, &smithyErr) {
+		if smithyErr.ErrorCode() == "NoCredentialProviders" {
+			return true
+		}
+	}
+
+	// Last-resort fallback message checks
 	errStr := err.Error()
 	return strings.Contains(errStr, "credentials not found") ||
 		strings.Contains(errStr, "no valid providers in chain") ||
