@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
+	dockercreds "github.com/docker/docker-credential-helpers/credentials"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
@@ -64,6 +65,9 @@ func isECRRegistry(registry string) bool {
 }
 
 func GetECRCredentialLoader() []creds.CredentialsCallback {
+	ecrHelper := ecr.NewECRHelper(ecr.WithLogger(io.Discard))
+	keychain := authn.NewKeychainFromHelper(ecrHelper)
+
 	return []creds.CredentialsCallback{
 		func(registry string) (oci.Credentials, error) {
 			if !isECRRegistry(registry) {
@@ -75,16 +79,27 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 				return oci.Credentials{}, fmt.Errorf("parse registry: %w", err)
 			}
 
-			ecrHelper := ecr.NewECRHelper(ecr.WithLogger(io.Discard))
-			keychain := authn.NewKeychainFromHelper(ecrHelper)
-
 			authenticator, err := keychain.Resolve(res)
 			if err != nil {
+				if dockercreds.IsErrCredentialsNotFound(err) ||
+					strings.Contains(err.Error(), "credentials not found") ||
+					strings.Contains(err.Error(), "no valid providers in chain") ||
+					strings.Contains(err.Error(), "NoCredentialProviders") ||
+					strings.Contains(err.Error(), "no AWS credentials") {
+					return oci.Credentials{}, creds.ErrCredentialsNotFound
+				}
 				return oci.Credentials{}, fmt.Errorf("resolve ECR keychain: %w", err)
 			}
 
 			authCfg, err := authenticator.Authorization()
 			if err != nil {
+				if dockercreds.IsErrCredentialsNotFound(err) ||
+					strings.Contains(err.Error(), "credentials not found") ||
+					strings.Contains(err.Error(), "no valid providers in chain") ||
+					strings.Contains(err.Error(), "NoCredentialProviders") ||
+					strings.Contains(err.Error(), "no AWS credentials") {
+					return oci.Credentials{}, creds.ErrCredentialsNotFound
+				}
 				return oci.Credentials{}, fmt.Errorf("get authorization: %w", err)
 			}
 
