@@ -574,7 +574,7 @@ func (f Function) Stamp(oo ...stampOption) (err error) {
 	}
 
 	// Write out the hash
-	if err = os.WriteFile(filepath.Join(f.Root, RunDataDir, BuiltHash), []byte(hash), os.ModePerm); err != nil {
+	if err = os.WriteFile(filepath.Join(f.Root, RunDataDir, BuiltHash), []byte(hash), 0644); err != nil {
 		return
 	}
 
@@ -830,7 +830,7 @@ func (f Function) WriteRuntimeBuiltImage(verbose bool) error {
 		fmt.Printf("Writing built image: '%s' at path: '%s'\n", f.Build.Image, path)
 	}
 
-	return os.WriteFile(path, []byte(f.Build.Image), os.ModePerm)
+	return os.WriteFile(path, []byte(f.Build.Image), 0644)
 }
 
 // getLastBuiltImage reads .func/built-image and returns its value or empty string
