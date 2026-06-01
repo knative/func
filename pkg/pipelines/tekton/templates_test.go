@@ -376,9 +376,14 @@ func Test_PipelineRunHasPodTemplateSecurityContext(t *testing.T) {
 
 			contentStr := string(content)
 
-			// Verify podTemplate is present
+			// Verify taskRunTemplate is present (Tekton v1 API requirement)
+			if !strings.Contains(contentStr, "taskRunTemplate:") {
+				t.Error("taskRunTemplate not found in generated PipelineRun")
+			}
+
+			// Verify podTemplate is nested under taskRunTemplate
 			if !strings.Contains(contentStr, "podTemplate:") {
-				t.Error("podTemplate not found in generated PipelineRun")
+				t.Error("podTemplate not found in taskRunTemplate")
 			}
 
 			// Verify securityContext is present
