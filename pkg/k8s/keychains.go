@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	dockercreds "github.com/docker/docker-credential-helpers/credentials"
@@ -121,30 +123,59 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 				return oci.Credentials{}, fmt.Errorf("parse registry: %w", err)
 			}
 
-			authenticator, err := keychain.Resolve(res)
-			if err != nil {
-				if isAWSCredentialsNotFound(err) {
-					return oci.Credentials{}, creds.ErrCredentialsNotFound
+			// Add timeout to prevent hanging on AWS credential lookups
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			type result struct {
+				creds oci.Credentials
+				err   error
+			}
+			ch := make(chan result, 1)
+
+			go func() {
+				authenticator, err := keychain.Resolve(res)
+				if err != nil {
+					if isAWSCredentialsNotFound(err) {
+						ch <- result{err: creds.ErrCredentialsNotFound}
+					} else {
+						ch <- result{err: fmt.Errorf("resolve ECR keychain: %w", err)}
+					}
+					return
 				}
-				return oci.Credentials{}, fmt.Errorf("resolve ECR keychain: %w", err)
-			}
 
-			authCfg, err := authenticator.Authorization()
-			if err != nil {
-				if isAWSCredentialsNotFound(err) {
-					return oci.Credentials{}, creds.ErrCredentialsNotFound
+				authCfg, err := authenticator.Authorization()
+				if err != nil {
+					if isAWSCredentialsNotFound(err) {
+						ch <- result{err: creds.ErrCredentialsNotFound}
+					} else {
+						ch <- result{err: fmt.Errorf("get authorization: %w", err)}
+					}
+					return
 				}
-				return oci.Credentials{}, fmt.Errorf("get authorization: %w", err)
-			}
 
-			if authCfg.Username == "" || authCfg.Password == "" {
-				return oci.Credentials{}, creds.ErrCredentialsNotFound
-			}
+				if authCfg.Username == "" || authCfg.Password == "" {
+					ch <- result{err: creds.ErrCredentialsNotFound}
+					return
+				}
 
-			return oci.Credentials{
-				Username: authCfg.Username,
-				Password: authCfg.Password,
-			}, nil
+				ch <- result{
+					creds: oci.Credentials{
+						Username: authCfg.Username,
+						Password: authCfg.Password,
+					},
+				}
+			}()
+
+			select {
+			case r := <-ch:
+				if r.err != nil {
+					return oci.Credentials{}, r.err
+				}
+				return r.creds, nil
+			case <-ctx.Done():
+				return oci.Credentials{}, fmt.Errorf("ECR credential lookup timed out: %w", ctx.Err())
+			}
 		},
 	}
 }

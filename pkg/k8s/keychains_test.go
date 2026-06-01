@@ -2,7 +2,11 @@ package k8s
 
 import (
 	"errors"
+	"net"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"knative.dev/func/pkg/creds"
 )
@@ -79,6 +83,66 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		_, err := loader("123456789012.dkr.ecr.us-east-1.amazonaws.com")
 		if !errors.Is(err, creds.ErrCredentialsNotFound) {
 			t.Errorf("expected ErrCredentialsNotFound when AWS credentials are not configured, got %v", err)
+		}
+	})
+
+	t.Run("returns timeout error for ECR registry when AWS requests hang", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("skipping timeout test in short mode")
+		}
+
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var conns []net.Conn
+		var mu sync.Mutex
+		go func() {
+			for {
+				conn, err := l.Accept()
+				if err != nil {
+					return
+				}
+				mu.Lock()
+				conns = append(conns, conn)
+				mu.Unlock()
+			}
+		}()
+		defer func() {
+			l.Close()
+			mu.Lock()
+			for _, c := range conns {
+				c.Close()
+			}
+			mu.Unlock()
+		}()
+
+		tmp := t.TempDir()
+		t.Setenv("HOME", tmp)
+		t.Setenv("USERPROFILE", tmp)
+		t.Setenv("AWS_ACCESS_KEY_ID", "")
+		t.Setenv("AWS_SECRET_ACCESS_KEY", "")
+		t.Setenv("AWS_SESSION_TOKEN", "")
+		t.Setenv("AWS_PROFILE", "")
+		t.Setenv("AWS_SHARED_CREDENTIALS_FILE", tmp+"/credentials")
+		t.Setenv("AWS_CONFIG_FILE", tmp+"/config")
+		t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
+		t.Setenv("AWS_ROLE_ARN", "")
+		t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+		t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", "http://"+l.Addr().String())
+
+		start := time.Now()
+		_, err = loader("123456789012.dkr.ecr.us-east-1.amazonaws.com")
+		elapsed := time.Since(start)
+
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "timed out") && !strings.Contains(err.Error(), "deadline exceeded") {
+			t.Errorf("expected timeout error, got: %v", err)
+		}
+		if elapsed < 4*time.Second || elapsed > 8*time.Second {
+			t.Errorf("expected execution time around 5 seconds, got %v", elapsed)
 		}
 	})
 }
