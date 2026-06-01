@@ -707,3 +707,31 @@ Installation guide: https://knative.dev/docs/serving/#installation`, e.Err)
 func (e *ErrListClusterConnection) Unwrap() error {
 	return e.Err
 }
+
+// -------------------------------------------------------------------------- //
+
+type ErrListConflictingNamespaceFlags struct {
+	Err error
+}
+
+func NewErrListConflictingNamespaceFlags() error {
+	return &ErrListConflictingNamespaceFlags{
+		Err: errors.New("both --namespace and --all-namespaces specified"),
+	}
+}
+
+func (e *ErrListConflictingNamespaceFlags) Error() string {
+	return fmt.Sprintf(`%v
+
+These flags are mutually exclusive:
+  --namespace        List functions in a specific namespace
+  --all-namespaces   List functions across all namespaces
+
+Use one or the other:
+  func list --namespace my-ns
+  func list --all-namespaces`, e.Err)
+}
+
+func (e *ErrListConflictingNamespaceFlags) Unwrap() error {
+	return e.Err
+}
