@@ -224,11 +224,11 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		opts.Env["BP_IMAGE_LABELS"] = strings.Join(imageLabels, " ")
 	}
 
-	// CA Certificate Bundle support for corporate proxies
+	// CA Certificate Bundle support for corporate proxies (build-time only)
 	// Use Paketo CA certificates buildpack binding instead of manual env vars
-	if f.Build.CACertBundle != "" {
+	if f.Build.BuildCACertFile != "" {
 		// Resolve to absolute path if relative
-		caBundlePath := f.Build.CACertBundle
+		caBundlePath := f.Build.BuildCACertFile
 		if !filepath.IsAbs(caBundlePath) {
 			caBundlePath = filepath.Join(f.Root, caBundlePath)
 		}

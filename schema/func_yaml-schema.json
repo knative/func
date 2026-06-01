@@ -41,9 +41,9 @@
 					"type": "array",
 					"description": "Build Env variables to be set"
 				},
-				"caCertBundle": {
+				"buildCACertFile": {
 					"type": "string",
-					"description": "Path to CA certificate bundle for SSL verification during build"
+					"description": "Path to CA certificate file for SSL verification during build (build-time only)"
 				},
 				"pvcSize": {
 					"type": "string",

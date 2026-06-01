@@ -220,10 +220,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		cfg.BuildVolumes = append(cfg.BuildVolumes, fmt.Sprintf("%s:%s:ro,Z", m.Source, m.Destination))
 	}
 
-	// CA Certificate Bundle support for corporate proxies
-	if f.Build.CACertBundle != "" {
+	// CA Certificate Bundle support for corporate proxies (build-time only)
+	if f.Build.BuildCACertFile != "" {
 		// Resolve to absolute path if relative
-		caBundlePath := f.Build.CACertBundle
+		caBundlePath := f.Build.BuildCACertFile
 		if !filepath.IsAbs(caBundlePath) {
 			caBundlePath = filepath.Join(f.Root, caBundlePath)
 		}

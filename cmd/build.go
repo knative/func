@@ -114,8 +114,8 @@ EXAMPLES
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("base-image", "", f.Build.BaseImage,
 		"Override the base image for your function (host builder only)")
-	cmd.Flags().StringP("ca-bundle", "", f.Build.CACertBundle,
-		"Path to CA certificate bundle file for SSL verification during build. Useful when building behind corporate proxies. ($FUNC_CA_BUNDLE)")
+	cmd.Flags().StringP("build-ca-file", "", f.Build.BuildCACertFile,
+		"Path to CA certificate file for SSL verification during build (build-time only). Useful when building behind corporate proxies with SSL inspection. ($FUNC_BUILD_CA_FILE)")
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)")
 
@@ -232,8 +232,9 @@ type buildConfig struct {
 	// TODO: gauron99 -- make option to add a path to dockerfile ?
 	BaseImage string
 
-	// CACertBundle is the path to a CA certificate bundle file for SSL verification
-	CACertBundle string
+	// BuildCACertFile is the path to a CA certificate file for SSL verification
+	// during build time only (not included in runtime image)
+	BuildCACertFile string
 
 	// Path of the function implementation on local disk. Defaults to current
 	// working directory of the process.
@@ -276,7 +277,7 @@ func newBuildConfig() buildConfig {
 		},
 		BuilderImage:     viper.GetString("builder-image"),
 		BaseImage:        viper.GetString("base-image"),
-		CACertBundle:     viper.GetString("ca-bundle"),
+		BuildCACertFile:  viper.GetString("build-ca-file"),
 		Image:            viper.GetString("image"),
 		Path:             viper.GetString("path"),
 		Platform:         viper.GetString("platform"),
@@ -300,7 +301,7 @@ func (c buildConfig) Configure(f fn.Function) fn.Function {
 	}
 	f.Image = c.Image
 	f.Build.BaseImage = c.BaseImage
-	f.Build.CACertBundle = c.CACertBundle
+	f.Build.BuildCACertFile = c.BuildCACertFile
 	// Path, Platform and Push are not part of a function's state.
 	return f
 }
