@@ -65,6 +65,7 @@ func TestGetECRCredentialLoader(t *testing.T) {
 	})
 
 	t.Run("returns ErrCredentialsNotFound for ECR registry when AWS credentials are not configured", func(t *testing.T) {
+		ecrCache = sync.Map{} // Reset cache for test determinism
 		tmp := t.TempDir()
 		// Make the test deterministic by clearing common ambient credential sources.
 		t.Setenv("HOME", tmp)
@@ -87,6 +88,7 @@ func TestGetECRCredentialLoader(t *testing.T) {
 	})
 
 	t.Run("returns timeout error for ECR registry when AWS requests hang", func(t *testing.T) {
+		ecrCache = sync.Map{} // Reset cache for test determinism
 		if testing.Short() {
 			t.Skip("skipping timeout test in short mode")
 		}
@@ -143,6 +145,57 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		}
 		if elapsed < 4*time.Second || elapsed > 8*time.Second {
 			t.Errorf("expected execution time around 5 seconds, got %v", elapsed)
+		}
+	})
+
+	t.Run("caches resolved results and circuit-breaks subsequent lookups", func(t *testing.T) {
+		ecrCache = sync.Map{} // Reset cache for test determinism
+		tmp := t.TempDir()
+		t.Setenv("HOME", tmp)
+		t.Setenv("USERPROFILE", tmp)
+		t.Setenv("AWS_ACCESS_KEY_ID", "")
+		t.Setenv("AWS_SECRET_ACCESS_KEY", "")
+		t.Setenv("AWS_SESSION_TOKEN", "")
+		t.Setenv("AWS_PROFILE", "")
+		t.Setenv("AWS_SHARED_CREDENTIALS_FILE", tmp+"/credentials")
+		t.Setenv("AWS_CONFIG_FILE", tmp+"/config")
+		t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
+		t.Setenv("AWS_ROLE_ARN", "")
+		t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", "")
+		t.Setenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", "")
+		t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+
+		// First call should run ECR resolver lookup (failing with ErrCredentialsNotFound)
+		start := time.Now()
+		_, err := loader("123456789012.dkr.ecr.us-east-1.amazonaws.com")
+		elapsed := time.Since(start)
+		if !errors.Is(err, creds.ErrCredentialsNotFound) {
+			t.Fatalf("expected ErrCredentialsNotFound, got %v", err)
+		}
+
+		// Configure the environment such that, if the helper were actually called again,
+		// it would hang/timeout. But because of the circuit breaker/caching, it should return instantly.
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer l.Close()
+		t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", "http://"+l.Addr().String())
+
+		// Second call should hit the cache and return the cached error instantly
+		start2 := time.Now()
+		_, err2 := loader("123456789012.dkr.ecr.us-east-1.amazonaws.com")
+		elapsed2 := time.Since(start2)
+
+		if !errors.Is(err2, creds.ErrCredentialsNotFound) {
+			t.Errorf("expected ErrCredentialsNotFound on cached call, got %v", err2)
+		}
+		// The cached lookup must be much faster than the network-based lookup (e.g. < 50ms)
+		if elapsed2 > 100*time.Millisecond {
+			t.Errorf("expected cached lookup to be instant (<100ms), but took %v", elapsed2)
+		}
+		if elapsed2 > elapsed {
+			t.Errorf("expected cached lookup to be faster than first lookup, but took %v vs %v", elapsed2, elapsed)
 		}
 	})
 }

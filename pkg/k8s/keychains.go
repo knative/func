@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
@@ -108,20 +109,43 @@ func isAWSCredentialsNotFound(err error) bool {
 		strings.Contains(errStr, "no AWS credentials")
 }
 
-func GetECRCredentialLoader() []creds.CredentialsCallback {
-	ecrHelper := ecr.NewECRHelper(ecr.WithLogger(io.Discard))
-	keychain := authn.NewKeychainFromHelper(ecrHelper)
+var (
+	ecrHelper   *ecr.ECRHelper
+	ecrKeychain authn.Keychain
+	ecrInitOnce sync.Once
+	ecrCache    sync.Map // registry (string) -> ecrCacheEntry
+)
 
+type ecrCacheEntry struct {
+	creds oci.Credentials
+	err   error
+}
+
+func initECR() {
+	ecrHelper = ecr.NewECRHelper(ecr.WithLogger(io.Discard))
+	ecrKeychain = authn.NewKeychainFromHelper(ecrHelper)
+}
+
+func GetECRCredentialLoader() []creds.CredentialsCallback {
 	return []creds.CredentialsCallback{
 		func(registry string) (oci.Credentials, error) {
 			if !isECRRegistry(registry) {
 				return oci.Credentials{}, creds.ErrCredentialsNotFound
 			}
 
+			// Check cache first (contains cached successes, failures, and timeouts)
+			if val, ok := ecrCache.Load(registry); ok {
+				entry := val.(ecrCacheEntry)
+				return entry.creds, entry.err
+			}
+
 			res, err := name.NewRegistry(registry)
 			if err != nil {
 				return oci.Credentials{}, fmt.Errorf("parse registry: %w", err)
 			}
+
+			// Lazy initialize ECR helper and keychain
+			ecrInitOnce.Do(initECR)
 
 			// Add timeout to prevent hanging on AWS credential lookups
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -134,7 +158,7 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 			ch := make(chan result, 1)
 
 			go func() {
-				authenticator, err := keychain.Resolve(res)
+				authenticator, err := ecrKeychain.Resolve(res)
 				if err != nil {
 					if isAWSCredentialsNotFound(err) {
 						ch <- result{err: creds.ErrCredentialsNotFound}
@@ -167,15 +191,24 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 				}
 			}()
 
+			var resCreds oci.Credentials
+			var resErr error
+
 			select {
 			case r := <-ch:
 				if r.err != nil {
-					return oci.Credentials{}, r.err
+					resErr = r.err
+				} else {
+					resCreds = r.creds
 				}
-				return r.creds, nil
 			case <-ctx.Done():
-				return oci.Credentials{}, fmt.Errorf("ECR credential lookup timed out: %w", ctx.Err())
+				resErr = fmt.Errorf("ECR credential lookup timed out: %w", ctx.Err())
 			}
+
+			// Cache the result (success or failure)
+			ecrCache.Store(registry, ecrCacheEntry{creds: resCreds, err: resErr})
+
+			return resCreds, resErr
 		},
 	}
 }
