@@ -109,31 +109,30 @@ func isAWSCredentialsNotFound(err error) bool {
 		strings.Contains(errStr, "no AWS credentials")
 }
 
-var (
-	ecrHelper   *ecr.ECRHelper
-	ecrKeychain authn.Keychain
-	ecrInitOnce sync.Once
-	ecrCache    sync.Map // registry (string) -> ecrCacheEntry
-)
-
 type ecrCacheEntry struct {
 	creds oci.Credentials
 	err   error
 }
 
-func initECR() {
-	ecrHelper = ecr.NewECRHelper(ecr.WithLogger(io.Discard))
-	ecrKeychain = authn.NewKeychainFromHelper(ecrHelper)
-}
-
 func GetECRCredentialLoader() []creds.CredentialsCallback {
+	var (
+		ecrHelper   *ecr.ECRHelper
+		ecrKeychain authn.Keychain
+		ecrInitOnce sync.Once
+		ecrCache    sync.Map // registry (string) -> ecrCacheEntry
+	)
+	initECR := func() {
+		ecrHelper = ecr.NewECRHelper(ecr.WithLogger(io.Discard))
+		ecrKeychain = authn.NewKeychainFromHelper(ecrHelper)
+	}
+
 	return []creds.CredentialsCallback{
 		func(registry string) (oci.Credentials, error) {
 			if !isECRRegistry(registry) {
 				return oci.Credentials{}, creds.ErrCredentialsNotFound
 			}
 
-			// Check cache first (contains cached successes, failures, and timeouts)
+			// Check cache first (contains cached failures and timeouts)
 			if val, ok := ecrCache.Load(registry); ok {
 				entry := val.(ecrCacheEntry)
 				return entry.creds, entry.err
@@ -205,8 +204,10 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 				resErr = fmt.Errorf("ECR credential lookup timed out: %w", ctx.Err())
 			}
 
-			// Cache the result (success or failure)
-			ecrCache.Store(registry, ecrCacheEntry{creds: resCreds, err: resErr})
+			// Cache only failures to avoid pinning expiring ECR auth tokens.
+			if resErr != nil {
+				ecrCache.Store(registry, ecrCacheEntry{creds: resCreds, err: resErr})
+			}
 
 			return resCreds, resErr
 		},

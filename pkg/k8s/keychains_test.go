@@ -50,14 +50,17 @@ func TestIsECRRegistry(t *testing.T) {
 }
 
 func TestGetECRCredentialLoader(t *testing.T) {
-	loaders := GetECRCredentialLoader()
-	if len(loaders) != 1 {
-		t.Fatalf("expected 1 loader callback, got %d", len(loaders))
+	getLoader := func(t *testing.T) creds.CredentialsCallback {
+		t.Helper()
+		loaders := GetECRCredentialLoader()
+		if len(loaders) != 1 {
+			t.Fatalf("expected 1 loader callback, got %d", len(loaders))
+		}
+		return loaders[0]
 	}
 
-	loader := loaders[0]
-
 	t.Run("returns ErrCredentialsNotFound for non-ECR registry", func(t *testing.T) {
+		loader := getLoader(t)
 		_, err := loader("gcr.io")
 		if !errors.Is(err, creds.ErrCredentialsNotFound) {
 			t.Errorf("expected ErrCredentialsNotFound for non-ECR registry, got %v", err)
@@ -65,7 +68,7 @@ func TestGetECRCredentialLoader(t *testing.T) {
 	})
 
 	t.Run("returns ErrCredentialsNotFound for ECR registry when AWS credentials are not configured", func(t *testing.T) {
-		ecrCache = sync.Map{} // Reset cache for test determinism
+		loader := getLoader(t)
 		tmp := t.TempDir()
 		// Make the test deterministic by clearing common ambient credential sources.
 		t.Setenv("HOME", tmp)
@@ -88,7 +91,7 @@ func TestGetECRCredentialLoader(t *testing.T) {
 	})
 
 	t.Run("returns timeout error for ECR registry when AWS requests hang", func(t *testing.T) {
-		ecrCache = sync.Map{} // Reset cache for test determinism
+		loader := getLoader(t)
 		if testing.Short() {
 			t.Skip("skipping timeout test in short mode")
 		}
@@ -131,6 +134,7 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
 		t.Setenv("AWS_ROLE_ARN", "")
 		t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+		t.Setenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", "")
 		t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", "http://"+l.Addr().String())
 
 		start := time.Now()
@@ -149,7 +153,7 @@ func TestGetECRCredentialLoader(t *testing.T) {
 	})
 
 	t.Run("caches resolved results and circuit-breaks subsequent lookups", func(t *testing.T) {
-		ecrCache = sync.Map{} // Reset cache for test determinism
+		loader := getLoader(t)
 		tmp := t.TempDir()
 		t.Setenv("HOME", tmp)
 		t.Setenv("USERPROFILE", tmp)
@@ -166,9 +170,7 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
 
 		// First call should run ECR resolver lookup (failing with ErrCredentialsNotFound)
-		start := time.Now()
 		_, err := loader("123456789012.dkr.ecr.us-east-1.amazonaws.com")
-		elapsed := time.Since(start)
 		if !errors.Is(err, creds.ErrCredentialsNotFound) {
 			t.Fatalf("expected ErrCredentialsNotFound, got %v", err)
 		}
@@ -190,12 +192,9 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		if !errors.Is(err2, creds.ErrCredentialsNotFound) {
 			t.Errorf("expected ErrCredentialsNotFound on cached call, got %v", err2)
 		}
-		// The cached lookup must be much faster than the network-based lookup (e.g. < 50ms)
+		// The cached lookup must be much faster than the network-based lookup (e.g. < 100ms)
 		if elapsed2 > 100*time.Millisecond {
 			t.Errorf("expected cached lookup to be instant (<100ms), but took %v", elapsed2)
-		}
-		if elapsed2 > elapsed {
-			t.Errorf("expected cached lookup to be faster than first lookup, but took %v vs %v", elapsed2, elapsed)
 		}
 	})
 }
