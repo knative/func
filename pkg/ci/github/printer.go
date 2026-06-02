@@ -1,4 +1,4 @@
-package ci
+package github
 
 import (
 	"fmt"
@@ -49,29 +49,34 @@ Create the following Secret on github.com: %s
 `
 )
 
-func PrintConfiguration(w io.Writer, conf CIConfig) error {
+func PrintConfiguration(cfg WorkflowConfig, runtime string, w io.Writer) error {
+	builder, err := determineBuilder(runtime, cfg.RemoteBuild)
+	if err != nil {
+		return err
+	}
+
 	if _, err := fmt.Fprintf(w, MainLayoutPlainText,
-		conf.OutputPath(),
-		conf.WorkflowName(),
-		conf.Branch(),
-		conf.FnBuilder(),
-		enabledOrDisabled(conf.RemoteBuild()),
-		determineRunner(conf.SelfHostedRunner()),
-		enabledOrDisabled(conf.TestStep()),
-		enabledOrDisabled(conf.RegistryLogin()),
-		enabledOrDisabled(conf.WorkflowDispatch()),
-		enabledOrDisabled(conf.Force()),
+		cfg.outputPath(),
+		cfg.WorkflowName,
+		cfg.Branch,
+		builder,
+		enabledOrDisabled(cfg.RemoteBuild),
+		determineRunner(cfg.SelfHostedRunner),
+		enabledOrDisabled(cfg.TestStep),
+		enabledOrDisabled(cfg.RegistryLogin),
+		enabledOrDisabled(cfg.WorkflowDispatch),
+		enabledOrDisabled(cfg.Force),
 	); err != nil {
 		return err
 	}
 
-	if conf.RegistryLogin() {
+	if cfg.RegistryLogin {
 		if _, err := fmt.Fprintf(w, RequireManyPlainText,
-			secretsPrefix(conf.KubeconfigSecret()),
-			secretsPrefix(conf.RegistryPassSecret()),
-			varsPrefix(conf.RegistryLoginUrlVar()),
-			varsPrefix(conf.RegistryUserVar()),
-			varsPrefix(conf.RegistryUrlVar()),
+			secretsPrefix(cfg.KubeconfigSecret),
+			secretsPrefix(cfg.RegistryPassSecret),
+			varsPrefix(cfg.RegistryLoginUrlVar),
+			varsPrefix(cfg.RegistryUserVar),
+			varsPrefix(cfg.RegistryUrlVar),
 		); err != nil {
 			return err
 		}
@@ -81,7 +86,7 @@ func PrintConfiguration(w io.Writer, conf CIConfig) error {
 
 	if _, err := fmt.Fprintf(w,
 		RequireOnePlainText,
-		secretsPrefix(conf.KubeconfigSecret()),
+		secretsPrefix(cfg.KubeconfigSecret),
 	); err != nil {
 		return err
 	}
@@ -89,22 +94,22 @@ func PrintConfiguration(w io.Writer, conf CIConfig) error {
 	return nil
 }
 
-func PrintPostExportMessage(w io.Writer, conf CIConfig) error {
-	if conf.RegistryLogin() {
+func PrintPostExportMessage(opts WorkflowConfig, w io.Writer) error {
+	if opts.RegistryLogin {
 		_, err := fmt.Fprintf(w, PostExportManyPlainText,
-			conf.OutputPath(),
-			secretsPrefix(conf.KubeconfigSecret()),
-			secretsPrefix(conf.RegistryPassSecret()),
-			varsPrefix(conf.RegistryLoginUrlVar()),
-			varsPrefix(conf.RegistryUserVar()),
-			varsPrefix(conf.RegistryUrlVar()),
+			opts.outputPath(),
+			secretsPrefix(opts.KubeconfigSecret),
+			secretsPrefix(opts.RegistryPassSecret),
+			varsPrefix(opts.RegistryLoginUrlVar),
+			varsPrefix(opts.RegistryUserVar),
+			varsPrefix(opts.RegistryUrlVar),
 		)
 		return err
 	}
 
 	_, err := fmt.Fprintf(w, PostExportOnePlainText,
-		conf.OutputPath(),
-		secretsPrefix(conf.KubeconfigSecret()),
+		opts.outputPath(),
+		secretsPrefix(opts.KubeconfigSecret),
 	)
 	return err
 }

@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -10,10 +11,11 @@ import (
 
 	"github.com/ory/viper"
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/assert/cmp"
 	fnCmd "knative.dev/func/cmd"
-	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
 	cmdTest "knative.dev/func/cmd/testing"
+	"knative.dev/func/pkg/ci/github"
 	fn "knative.dev/func/pkg/functions"
 	fnTest "knative.dev/func/pkg/testing"
 )
@@ -70,7 +72,7 @@ func TestNewConfigCICmd_CreatesGitHubWorkflowDirectory(t *testing.T) {
 	err := runConfigCiCmdIntegration(t, opts)
 
 	assert.NilError(t, err)
-	_, statErr := os.Stat(filepath.Join(opts.withFunc.Root, ci.DefaultGitHubWorkflowDir))
+	_, statErr := os.Stat(filepath.Join(opts.withFunc.Root, github.DefaultGitHubWorkflowDir))
 	assert.NilError(t, statErr)
 }
 
@@ -81,7 +83,7 @@ func TestNewConfigCICmd_WritesWorkflowFileToFSWithCorrectYAMLStructure(t *testin
 	raw := readWorkflowFile(t, opts.withFunc.Root)
 
 	assert.NilError(t, err)
-	assertDefaultWorkflowWithBranch(t, raw, mainBranch)
+	assertDefaultWorkflow(t, raw)
 }
 
 func TestNewConfigCICmd_ForceFlagOverwritesExistingWorkflowOnFS(t *testing.T) {
@@ -106,7 +108,7 @@ func TestNewConfigCICmd_ForceFlagOverwritesExistingWorkflowOnFS(t *testing.T) {
 		err := runConfigCiCmdIntegration(t, opts)
 		content := readWorkflowFile(t, opts.withFunc.Root)
 
-		assert.ErrorIs(t, err, ci.ErrWorkflowExists)
+		assert.ErrorIs(t, err, github.ErrWorkflowExists)
 		assert.Assert(t, yamlContains(content, workflowName))
 		assert.Assert(t, !strings.Contains(content, changedWorkflowName))
 	})
@@ -131,6 +133,8 @@ func TestNewConfigCICmd_ForceFlagOverwritesExistingWorkflowOnFS(t *testing.T) {
 
 // START: Testing Framework
 // ------------------------
+const fnName = "github-ci-func"
+
 type optsIntegration struct {
 	withFunc *fn.Function
 	args     []string
@@ -165,7 +169,7 @@ func runConfigCiCmdIntegration(
 
 	// PRE-RUN PREP
 	// all options for "func config ci" command
-	t.Setenv(ci.ConfigCIFeatureFlag, "true")
+	t.Setenv(fnCmd.ConfigCIFeatureFlag, "true")
 
 	args := opts.args
 	if len(opts.args) == 0 {
@@ -176,9 +180,10 @@ func runConfigCiCmdIntegration(
 
 	cmd := fnCmd.NewConfigCmd(
 		common.DefaultLoaderSaver,
-		ci.DefaultWorkflowWriter,
+		github.DefaultWorkflowWriter,
 		common.DefaultCurrentBranch,
 		common.DefaultWorkDir,
+		fnCmd.NewCIGeneratorFactory(),
 		fnCmd.NewClient,
 	)
 	cmd.SetArgs(args)
@@ -190,11 +195,60 @@ func runConfigCiCmdIntegration(
 func readWorkflowFile(t *testing.T, root string) string {
 	t.Helper()
 
-	path := filepath.Join(root, ci.DefaultGitHubWorkflowDir, ci.DefaultGitHubWorkflowFilename)
+	path := filepath.Join(root, github.DefaultGitHubWorkflowDir, github.DefaultGitHubWorkflowFilename)
 	result, err := os.ReadFile(path)
 	assert.NilError(t, err)
 
 	return string(result)
+}
+
+func assertDefaultWorkflow(t *testing.T, actualGw string) {
+	t.Helper()
+
+	assert.Assert(t, yamlContains(actualGw, "Func Deploy"))
+	assert.Assert(t, yamlContains(actualGw, "- main"))
+
+	assert.Assert(t, yamlContains(actualGw, "ubuntu-latest"))
+
+	assert.Assert(t, strings.Count(actualGw, "- name:") == 6)
+
+	assert.Assert(t, yamlContains(actualGw, "Checkout code"))
+	assert.Assert(t, yamlContains(actualGw, "actions/checkout@v4"))
+
+	assert.Assert(t, yamlContains(actualGw, "Run tests"))
+	assert.Assert(t, yamlContains(actualGw, "go test ./..."))
+
+	assert.Assert(t, yamlContains(actualGw, "Setup Kubernetes context"))
+	assert.Assert(t, yamlContains(actualGw, "azure/k8s-set-context@v4"))
+	assert.Assert(t, yamlContains(actualGw, "method: kubeconfig"))
+	assert.Assert(t, yamlContains(actualGw, "kubeconfig: ${{ secrets.KUBECONFIG }}"))
+
+	assert.Assert(t, yamlContains(actualGw, "Login to container registry"))
+	assert.Assert(t, yamlContains(actualGw, "docker/login-action@v3"))
+	assert.Assert(t, yamlContains(actualGw, "registry: ${{ vars.REGISTRY_LOGIN_URL }}"))
+	assert.Assert(t, yamlContains(actualGw, "username: ${{ vars.REGISTRY_USERNAME }}"))
+	assert.Assert(t, yamlContains(actualGw, "password: ${{ secrets.REGISTRY_PASSWORD }}"))
+
+	assert.Assert(t, yamlContains(actualGw, "Install func cli"))
+	assert.Assert(t, yamlContains(actualGw, "functions-dev/action@main"))
+	assert.Assert(t, yamlContains(actualGw, "version: knative-v1.22.0"))
+	assert.Assert(t, yamlContains(actualGw, "name: func"))
+
+	assert.Assert(t, yamlContains(actualGw, "Deploy function"))
+	assert.Assert(t, yamlContains(actualGw, `FUNC_VERBOSE: "true"`))
+	assert.Assert(t, yamlContains(actualGw, "FUNC_REGISTRY: ${{ vars.REGISTRY_LOGIN_URL }}/${{ vars.REGISTRY_USERNAME }}"))
+	assert.Assert(t, yamlContains(actualGw, "func deploy"))
+}
+
+func yamlContains(yaml, substr string) cmp.Comparison {
+	return func() cmp.Result {
+		if strings.Contains(yaml, substr) {
+			return cmp.ResultSuccess
+		}
+		return cmp.ResultFailure(fmt.Sprintf(
+			"missing '%s' in:\n\n%s", substr, yaml,
+		))
+	}
 }
 
 // ----------------------

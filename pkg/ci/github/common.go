@@ -1,6 +1,28 @@
-package ci
+package github
 
 import "fmt"
+
+func determineBuilder(runtime string, remote bool) (string, error) {
+	switch runtime {
+	case "go":
+		if remote {
+			return "pack", nil
+		}
+		return "host", nil
+
+	case "node", "typescript", "rust", "quarkus", "springboot":
+		return "pack", nil
+
+	case "python":
+		if remote {
+			return "s2i", nil
+		}
+		return "host", nil
+
+	default:
+		return "", fmt.Errorf("no builder support for runtime: %s", runtime)
+	}
+}
 
 func determineRunner(selfHosted bool) string {
 	if selfHosted {

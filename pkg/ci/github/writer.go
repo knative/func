@@ -1,4 +1,4 @@
-package ci
+package github
 
 import (
 	"bytes"
@@ -11,15 +11,16 @@ const (
 	filePerm = 0644 // u: rw-, g: r--, o: r--
 )
 
-// DefaultWorkflowWriter is the default implementation for writing workflow files to disk.
-var DefaultWorkflowWriter = &fileWriter{}
-
-// WorkflowWriter defines the interface for writing workflow files.
+// WorkflowWriter defines the interface for writing workflow files to a given path.
 type WorkflowWriter interface {
 	Exist(path string) bool
 	Write(path string, raw []byte) error
 }
 
+// DefaultWorkflowWriter is the default implementation for writing workflow files to disk.
+var DefaultWorkflowWriter = &fileWriter{}
+
+// fileWriter implements WorkflowWriter
 type fileWriter struct{}
 
 // Write writes raw bytes to the specified path, creating directories as needed.
