@@ -150,83 +150,69 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 			defer cancel()
 
 			if err := ecrLookupSem.Acquire(ctx, 1); err != nil {
-				resErr := fmt.Errorf("ECR credential lookup timed out (queue full): %w", err)
-				ecrCache.Store(registry, ecrCacheEntry{
-					creds:     oci.Credentials{},
-					err:       resErr,
-					createdAt: time.Now(),
-				})
-				return oci.Credentials{}, resErr
-			}
-			defer ecrLookupSem.Release(1)
-
-			// Perform the lookup WITHOUT spawning a goroutine
-			// The semaphore limits concurrency, not a goroutine channel
-			res, err := name.NewRegistry(registry)
-			if err != nil {
-				errMsg := fmt.Errorf("parse registry: %w", err)
-				ecrCache.Store(registry, ecrCacheEntry{
-					creds:     oci.Credentials{},
-					err:       errMsg,
-					createdAt: time.Now(),
-				})
-				return oci.Credentials{}, errMsg
+				return oci.Credentials{}, fmt.Errorf("ECR credential lookup timed out (queue full): %w", err)
 			}
 
-			authenticator, err := ecrKeychain.Resolve(res)
-			if err != nil {
-				if isAWSCredentialsNotFound(err) {
+			type result struct {
+				creds oci.Credentials
+				err   error
+			}
+			resChan := make(chan result, 1)
+
+			go func() {
+				defer ecrLookupSem.Release(1)
+
+				res, err := name.NewRegistry(registry)
+				if err != nil {
+					resChan <- result{err: fmt.Errorf("parse registry: %w", err)}
+					return
+				}
+
+				authenticator, err := ecrKeychain.Resolve(res)
+				if err != nil {
+					if isAWSCredentialsNotFound(err) {
+						resChan <- result{err: creds.ErrCredentialsNotFound}
+						return
+					}
+					resChan <- result{err: fmt.Errorf("resolve ECR keychain: %w", err)}
+					return
+				}
+
+				authCfg, err := authenticator.Authorization()
+				if err != nil {
+					if isAWSCredentialsNotFound(err) {
+						resChan <- result{err: creds.ErrCredentialsNotFound}
+						return
+					}
+					resChan <- result{err: fmt.Errorf("get authorization: %w", err)}
+					return
+				}
+
+				if authCfg.Username == "" || authCfg.Password == "" {
+					resChan <- result{err: creds.ErrCredentialsNotFound}
+					return
+				}
+
+				resChan <- result{creds: oci.Credentials{
+					Username: authCfg.Username,
+					Password: authCfg.Password,
+				}}
+			}()
+
+			select {
+			case <-ctx.Done():
+				return oci.Credentials{}, fmt.Errorf("ECR credential lookup timed out: %w", ctx.Err())
+			case res := <-resChan:
+				if res.err != nil {
 					ecrCache.Store(registry, ecrCacheEntry{
 						creds:     oci.Credentials{},
-						err:       creds.ErrCredentialsNotFound,
+						err:       res.err,
 						createdAt: time.Now(),
 					})
-					return oci.Credentials{}, creds.ErrCredentialsNotFound
+					return oci.Credentials{}, res.err
 				}
-				errMsg := fmt.Errorf("resolve ECR keychain: %w", err)
-				ecrCache.Store(registry, ecrCacheEntry{
-					creds:     oci.Credentials{},
-					err:       errMsg,
-					createdAt: time.Now(),
-				})
-				return oci.Credentials{}, errMsg
+				return res.creds, nil
 			}
-
-			authCfg, err := authenticator.Authorization()
-			if err != nil {
-				if isAWSCredentialsNotFound(err) {
-					ecrCache.Store(registry, ecrCacheEntry{
-						creds:     oci.Credentials{},
-						err:       creds.ErrCredentialsNotFound,
-						createdAt: time.Now(),
-					})
-					return oci.Credentials{}, creds.ErrCredentialsNotFound
-				}
-				errMsg := fmt.Errorf("get authorization: %w", err)
-				ecrCache.Store(registry, ecrCacheEntry{
-					creds:     oci.Credentials{},
-					err:       errMsg,
-					createdAt: time.Now(),
-				})
-				return oci.Credentials{}, errMsg
-			}
-
-			if authCfg.Username == "" || authCfg.Password == "" {
-				ecrCache.Store(registry, ecrCacheEntry{
-					creds:     oci.Credentials{},
-					err:       creds.ErrCredentialsNotFound,
-					createdAt: time.Now(),
-				})
-				return oci.Credentials{}, creds.ErrCredentialsNotFound
-			}
-
-			creds := oci.Credentials{
-				Username: authCfg.Username,
-				Password: authCfg.Password,
-			}
-
-			// Don't cache success (tokens expire)
-			return creds, nil
 		},
 	}
 }

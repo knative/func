@@ -62,6 +62,9 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
 		t.Setenv("AWS_SHARED_CREDENTIALS_FILE", tmp+"/creds")
 		t.Setenv("AWS_CONFIG_FILE", tmp+"/config")
+		t.Setenv("AWS_ACCESS_KEY_ID", "")
+		t.Setenv("AWS_SECRET_ACCESS_KEY", "")
+		t.Setenv("AWS_SESSION_TOKEN", "")
 
 		_, err := loader("123456789012.dkr.ecr.us-east-1.amazonaws.com")
 		if !errors.Is(err, creds.ErrCredentialsNotFound) {
@@ -74,6 +77,11 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		tmp := t.TempDir()
 		t.Setenv("HOME", tmp)
 		t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+		t.Setenv("AWS_SHARED_CREDENTIALS_FILE", tmp+"/creds")
+		t.Setenv("AWS_CONFIG_FILE", tmp+"/config")
+		t.Setenv("AWS_ACCESS_KEY_ID", "")
+		t.Setenv("AWS_SECRET_ACCESS_KEY", "")
+		t.Setenv("AWS_SESSION_TOKEN", "")
 
 		// First call
 		start := time.Now()
