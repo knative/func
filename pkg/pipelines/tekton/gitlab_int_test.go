@@ -76,13 +76,14 @@ func TestInt_Gitlab(t *testing.T) {
 	funcImg := fmt.Sprintf("registry.default.svc.cluster.local:5000/fn-%s", uuid.NewUUID())
 
 	f := fn.Function{
-		Root:     projDir,
-		Name:     glabEnv.ProjectName,
-		Runtime:  "test-runtime",
-		Template: "test-template",
-		Image:    funcImg,
-		Created:  time.Now(),
-		Invoke:   "none",
+		Root:             projDir,
+		Name:             glabEnv.ProjectName,
+		Runtime:          "test-runtime",
+		Template:         "test-template",
+		RegistryInsecure: true,
+		Image:            funcImg,
+		Created:          time.Now(),
+		Invoke:           "none",
 		Build: fn.BuildSpec{
 			Git: fn.Git{
 				URL:      strings.TrimSuffix(glabEnv.HTTPProjectURL, ".git"),
@@ -161,7 +162,10 @@ func TestInt_Gitlab(t *testing.T) {
 	}
 
 	select {
-	case <-buildDoneCh:
+	case buildErr := <-buildDoneCh:
+		if buildErr != nil {
+			t.Fatalf("build failed: %v", buildErr)
+		}
 		t.Log("build done on time")
 	case <-time.After(time.Minute * 10):
 		t.Error("build has not been done in time (10 minute timeout)")
@@ -661,7 +665,7 @@ func usingNamespace(t *testing.T) string {
 	return name
 }
 
-func awaitBuildCompletion(t *testing.T, name, ns string) <-chan struct{} {
+func awaitBuildCompletion(t *testing.T, name, ns string) <-chan error {
 
 	clis, err := tekton.NewTektonClients()
 	if err != nil {
@@ -678,7 +682,7 @@ func awaitBuildCompletion(t *testing.T, name, ns string) <-chan struct{} {
 		t.Fatal(err)
 	}
 
-	ch := make(chan struct{}, 1)
+	ch := make(chan error, 1)
 
 	go func() {
 		defer w.Stop()
@@ -687,11 +691,19 @@ func awaitBuildCompletion(t *testing.T, name, ns string) <-chan struct{} {
 			if !ok {
 				continue
 			}
-			// No longer need to check name prefix since we're filtering by label
 			for _, condition := range taskRun.Status.Conditions {
-				if condition.Type == apis.ConditionSucceeded && condition.IsTrue() {
-					ch <- struct{}{}
-					break
+				if condition.Type != apis.ConditionSucceeded {
+					continue
+				}
+				if condition.IsTrue() {
+					ch <- nil
+					return
+				}
+				if condition.IsFalse() {
+					ch <- fmt.Errorf("TaskRun %s/%s: %s — %s",
+						taskRun.Namespace, taskRun.Name,
+						condition.Reason, condition.Message)
+					return
 				}
 			}
 		}
