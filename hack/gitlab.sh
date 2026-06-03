@@ -87,19 +87,41 @@ spec:
             nginx['listen_addresses'] = ["0.0.0.0", "[::]"]
             gitlab_rails['gitlab_shell_ssh_port'] = 30022
             gitlab_rails['gitlab_email_enabled'] = false
+            gitlab_rails['gravatar_enabled'] = false
+            gitlab_rails['usage_ping_enabled'] = false
+            gitlab_rails['gitlab_default_projects_features_builds'] = false
+            gitlab_rails['gitlab_default_projects_features_container_registry'] = false
+            gitlab_rails['gitlab_default_projects_features_snippets'] = false
+            gitlab_rails['gitlab_default_projects_features_wiki'] = false
+            postgresql['shared_buffers'] = '128MB'
+            postgresql['max_worker_processes'] = 2
             puma['worker_processes'] = 0
+            sidekiq['concurrency'] = 10
             prometheus_monitoring['enable'] = false
+            alertmanager['enable'] = false
+            gitlab_exporter['enable'] = false
+            gitlab_kas['enable'] = false
+            node_exporter['enable'] = false
+            postgres_exporter['enable'] = false
+            prometheus['enable'] = false
+            puma['exporter_enabled'] = false
+            redis_exporter['enable'] = false
+            sidekiq['metrics_enabled'] = false
+            registry['enable'] = false
+            gitlab_pages['enable'] = false
             gitlab_rails['env'] = {
               'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000'
             }
             gitaly['configuration'] = {
-              ruby_max_rss: 200_000_000,
               concurrency: [
                 {
                   rpc: "/gitaly.SmartHTTPService/PostReceivePack",
                   max_per_repo: 1
                 }, {
-                  rpc: "/gitaly.SSHService/SSHUploadPack",
+                  rpc: "/gitaly.SmartHTTPService/PostUploadPackWithSidechannel",
+                  max_per_repo: 1
+                }, {
+                  rpc: "/gitaly.SSHService/SSHUploadPackWithSidechannel",
                   max_per_repo: 1
                 }
               ]
