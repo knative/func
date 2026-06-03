@@ -48,6 +48,9 @@ export GOFLAGS
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
+# List tracked source files, excluding generated and vendored.
+LS_SOURCES := ./hack/vcs.sh ls-sources
+
 # Disable output buffering (stream)
 MAKEFLAGS += --output-sync=none
 
@@ -92,10 +95,7 @@ check-lint: $(BIN_GOLANGCI_LINT) ## Run golangci-lint
 .PHONY: check-goimports
 check-goimports: $(BIN_GOIMPORTS) ## Check Go import formatting
 	@echo "Checking Go import formatting..."
-	@git ls-files | \
-		git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
-		git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
-		grep -Ev '(vendor/|third_party/|\.git)' | \
+	@$(LS_SOURCES) | \
 		grep '\.go$$' | \
 		while IFS= read -r file; do [ -f "$$file" ] && echo "$$file"; done | \
 		xargs $(BIN_GOIMPORTS) -l | grep . && \
@@ -104,10 +104,7 @@ check-goimports: $(BIN_GOIMPORTS) ## Check Go import formatting
 .PHONY: check-misspell
 check-misspell: $(BIN_MISSPELL) ## Check for common misspellings
 	@echo "Checking for misspellings..."
-	@git ls-files | \
-		git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
-		git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
-		grep -Ev '(vendor/|third_party/|\.git)' | \
+	@$(LS_SOURCES) | \
 		grep -v '\.svg$$' | \
 		while IFS= read -r file; do [ -f "$$file" ] && echo "$$file"; done | \
 		xargs $(BIN_MISSPELL) -i importas -error
@@ -115,10 +112,7 @@ check-misspell: $(BIN_MISSPELL) ## Check for common misspellings
 .PHONY: check-whitespace
 check-whitespace: ## Check for trailing whitespace
 	@echo "Checking for trailing whitespace..."
-	@git ls-files | \
-		git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
-		git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
-		grep -Ev '(vendor/|third_party/|\.git)' | \
+	@$(LS_SOURCES) | \
 		grep -v '\.svg$$' | \
 		while IFS= read -r file; do [ -f "$$file" ] && echo "$$file"; done | \
 		xargs grep -nE " +$$" 2>&1 | grep -vi "binary file" && \
@@ -127,10 +121,7 @@ check-whitespace: ## Check for trailing whitespace
 .PHONY: check-eof
 check-eof: ## Check files end with newlines
 	@echo "Checking for missing EOF newlines..."
-	@git ls-files | \
-		git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
-		git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
-		grep -Ev '(vendor/|third_party/|\.git)' | \
+	@$(LS_SOURCES) | \
 		grep -Ev '\.(ai|svg|tar|tgz|zip)$$' | \
 		while IFS= read -r file; do \
 			if [ -f "$$file" ] && [ -n "$$(tail -c 1 "$$file" 2>/dev/null)" ]; then \
