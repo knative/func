@@ -25,6 +25,16 @@ import (
 // Parameter `metadata` is type `any` to not bring `pkg/pipelines` package dependency to `pkg/functions`,
 // this specific implementation expects the parameter to be a type `pipelines.PacMetada`.
 func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, metadata any) error {
+	// Derive Registry from the image when not explicitly set, so that
+	// downstream insecure-registry detection and template params work.
+	if f.Registry == "" {
+		if img := f.Deploy.Image; img != "" {
+			f.Registry, _ = docker.GetRegistry(img)
+		} else if f.Image != "" {
+			f.Registry, _ = docker.GetRegistry(f.Image)
+		}
+	}
+
 	// Use the new target namespace if specified, otherwise use the
 	// function's currently deployed namespace (if any)
 	namespace := f.Namespace
