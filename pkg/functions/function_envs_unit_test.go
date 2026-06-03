@@ -9,6 +9,8 @@ func Test_validateBuildEnvs(t *testing.T) {
 
 	name := "name"
 	name2 := "name2"
+	name3 := "name3"
+	name4 := "name4"
 	value := "value"
 	value2 := "value2"
 
@@ -110,11 +112,11 @@ func Test_validateBuildEnvs(t *testing.T) {
 					Value: &valueLocalEnv,
 				},
 				{
-					Name:  &name,
+					Name:  &name2,
 					Value: &valueLocalEnv2,
 				},
 				{
-					Name:  &name,
+					Name:  &name3,
 					Value: &valueLocalEnv3,
 				},
 			},
@@ -128,19 +130,33 @@ func Test_validateBuildEnvs(t *testing.T) {
 					Value: &valueLocalEnv,
 				},
 				{
-					Name:  &name,
+					Name:  &name2,
 					Value: &valueLocalEnvIncorrect,
 				},
 				{
-					Name:  &name,
+					Name:  &name3,
 					Value: &valueLocalEnvIncorrect2,
 				},
 				{
-					Name:  &name,
+					Name:  &name4,
 					Value: &valueLocalEnvIncorrect3,
 				},
 			},
 			3,
+		},
+		{
+			"incorrect entry - duplicate env names",
+			[]Env{
+				{
+					Name:  &name,
+					Value: &value,
+				},
+				{
+					Name:  &name,
+					Value: &value2,
+				},
+			},
+			1,
 		},
 	}
 
@@ -157,6 +173,13 @@ func Test_validateEnvs(t *testing.T) {
 
 	name := "name"
 	name2 := "name2"
+	name3 := "name3"
+	name4 := "name4"
+	name5 := "name5"
+	name6 := "name6"
+	name7 := "name7"
+	name8 := "name8"
+	name9 := "name9"
 	value := "value"
 	value2 := "value2"
 
@@ -293,11 +316,11 @@ func Test_validateEnvs(t *testing.T) {
 					Value: &valueLocalEnv,
 				},
 				{
-					Name:  &name,
+					Name:  &name2,
 					Value: &valueLocalEnv2,
 				},
 				{
-					Name:  &name,
+					Name:  &name3,
 					Value: &valueLocalEnv3,
 				},
 			},
@@ -311,15 +334,15 @@ func Test_validateEnvs(t *testing.T) {
 					Value: &valueLocalEnv,
 				},
 				{
-					Name:  &name,
+					Name:  &name2,
 					Value: &valueLocalEnvIncorrect,
 				},
 				{
-					Name:  &name,
+					Name:  &name3,
 					Value: &valueLocalEnvIncorrect2,
 				},
 				{
-					Name:  &name,
+					Name:  &name4,
 					Value: &valueLocalEnvIncorrect3,
 				},
 			},
@@ -353,31 +376,31 @@ func Test_validateEnvs(t *testing.T) {
 					Value: &valueConfigMapKey,
 				},
 				{
-					Name:  &name,
+					Name:  &name2,
 					Value: &valueConfigMapKey2,
 				},
 				{
-					Name:  &name,
+					Name:  &name3,
 					Value: &valueConfigMapKey3,
 				},
 				{
-					Name:  &name,
+					Name:  &name4,
 					Value: &valueConfigMapKey4,
 				},
 				{
-					Name:  &name,
+					Name:  &name5,
 					Value: &valueConfigMapKey5,
 				},
 				{
-					Name:  &name,
+					Name:  &name6,
 					Value: &valueConfigMapKey6,
 				},
 				{
-					Name:  &name,
+					Name:  &name7,
 					Value: &valueConfigMapKey7,
 				},
 				{
-					Name:  &name,
+					Name:  &name8,
 					Value: &valueConfigMapKey8,
 				},
 			},
@@ -391,31 +414,31 @@ func Test_validateEnvs(t *testing.T) {
 					Value: &valueSecretKey,
 				},
 				{
-					Name:  &name,
+					Name:  &name2,
 					Value: &valueSecretKey2,
 				},
 				{
-					Name:  &name,
+					Name:  &name3,
 					Value: &valueSecretKey3,
 				},
 				{
-					Name:  &name,
+					Name:  &name4,
 					Value: &valueSecretKey4,
 				},
 				{
-					Name:  &name,
+					Name:  &name5,
 					Value: &valueSecretKey5,
 				},
 				{
-					Name:  &name,
+					Name:  &name6,
 					Value: &valueSecretKey6,
 				},
 				{
-					Name:  &name,
+					Name:  &name7,
 					Value: &valueSecretKey7,
 				},
 				{
-					Name:  &name,
+					Name:  &name8,
 					Value: &valueSecretKey8,
 				},
 			},
@@ -429,7 +452,7 @@ func Test_validateEnvs(t *testing.T) {
 					Value: &valueSecretKey,
 				},
 				{
-					Name:  &name,
+					Name:  &name2,
 					Value: &valueConfigMapKey,
 				},
 			},
@@ -453,15 +476,15 @@ func Test_validateEnvs(t *testing.T) {
 					Value: &valueSecretKey,
 				},
 				{
-					Name:  &name,
+					Name:  &name2,
 					Value: &valueSecretKeyIncorrect,
 				},
 				{
-					Name:  &name,
+					Name:  &name3,
 					Value: &valueSecretKeyIncorrect2,
 				},
 				{
-					Name:  &name,
+					Name:  &name4,
 					Value: &valueSecretKeyIncorrect3,
 				},
 			},
@@ -563,15 +586,15 @@ func Test_validateEnvs(t *testing.T) {
 					Value: &value2,
 				},
 				{
-					Name:  &name,
+					Name:  &name3,
 					Value: &valueLocalEnv,
 				},
 				{
-					Name:  &name,
+					Name:  &name4,
 					Value: &valueLocalEnv2,
 				},
 				{
-					Name:  &name,
+					Name:  &name5,
 					Value: &valueLocalEnv3,
 				},
 				{
@@ -587,23 +610,37 @@ func Test_validateEnvs(t *testing.T) {
 					Value: &valueConfigMap,
 				},
 				{
-					Name:  &name,
+					Name:  &name6,
 					Value: &valueSecretKey,
 				},
 				{
-					Name:  &name,
+					Name:  &name7,
 					Value: &valueSecretKey2,
 				},
 				{
-					Name:  &name,
+					Name:  &name8,
 					Value: &valueSecretKey3,
 				},
 				{
-					Name:  &name,
+					Name:  &name9,
 					Value: &valueConfigMapKey,
 				},
 			},
 			0,
+		},
+		{
+			"incorrect entry - duplicate env names",
+			[]Env{
+				{
+					Name:  &name,
+					Value: &value,
+				},
+				{
+					Name:  &name,
+					Value: &value2,
+				},
+			},
+			1,
 		},
 	}
 

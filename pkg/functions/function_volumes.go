@@ -81,8 +81,17 @@ func (v Volume) String() string {
 //   - emptyDir: {}                                         # mount EmptyDir as Volume
 //     path: /etc/configMap-volume
 func validateVolumes(volumes []Volume) (errors []string) {
-
+	seenPaths := make(map[string]int)
 	for i, vol := range volumes {
+		if vol.Path != nil {
+			path := *vol.Path
+			if firstIdx, seen := seenPaths[path]; seen {
+				errors = append(errors, fmt.Sprintf("volume entry #%d has duplicate path %q (first defined at entry #%d)", i, path, firstIdx))
+			} else {
+				seenPaths[path] = i
+			}
+		}
+
 		numVolumes := 0
 		if vol.Secret != nil {
 			numVolumes++

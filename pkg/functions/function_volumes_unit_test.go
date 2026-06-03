@@ -173,6 +173,20 @@ func Test_validateVolumes(t *testing.T) {
 			},
 			2,
 		},
+		{
+			"incorrect entry - duplicate volume paths",
+			[]Volume{
+				{
+					Secret: &secret,
+					Path:   &path,
+				},
+				{
+					Secret: &secret2,
+					Path:   &path,
+				},
+			},
+			1,
+		},
 	}
 
 	for _, tt := range tests {
