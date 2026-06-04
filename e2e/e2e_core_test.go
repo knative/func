@@ -474,4 +474,46 @@ func TestCore_DeployWithCachedAuth(t *testing.T) {
 	if err := newCmd(t, "deploy", "--build=false", "--push=false").Run(); err != nil {
 		t.Fatalf("expected redeploy with cached auth to succeed, got: %v", err)
 	}
+
+	// Step 4: the pinned cluster and cached auth survive the broken-kubeconfig
+	// redeploy (the target did not silently follow the active kubeconfig).
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.Cluster == "" {
+		t.Fatal("expected Deploy.Cluster to remain pinned after redeploy with cached auth")
+	}
+	if f.Local.FindAuth(f.Deploy.Cluster) == nil {
+		t.Fatalf("expected cached auth for %q to persist after redeploy", f.Deploy.Cluster)
+	}
+}
+
+// TestCore_DeploySaveAuthFalse verifies that `deploy --save-cluster-auth=false` still
+// deploys via the active kubeconfig (the "old way") and pins the cluster, but
+// does NOT cache credentials into .func/local.yaml.
+func TestCore_DeploySaveAuthFalse(t *testing.T) {
+	name := "func-e2e-test-save-auth-false"
+	root := fromCleanEnv(t, name)
+	defer clean(t, name, Namespace)
+
+	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := newCmd(t, "deploy", "--save-cluster-auth=false").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if !waitFor(t, ksvcUrl(name)) {
+		t.Fatal("function did not deploy with --save-cluster-auth=false")
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.Cluster == "" {
+		t.Fatal("expected Deploy.Cluster to be pinned even with --save-cluster-auth=false")
+	}
+	if len(f.Local.Auth) != 0 {
+		t.Fatalf("expected no cached credentials with --save-cluster-auth=false, got %d entries", len(f.Local.Auth))
+	}
 }
