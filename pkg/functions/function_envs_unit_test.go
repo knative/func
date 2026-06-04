@@ -158,12 +158,21 @@ func Test_validateBuildEnvs(t *testing.T) {
 			},
 			1,
 		},
+		{
+			"incorrect entry - missing name",
+			[]Env{
+				{
+					Value: &value,
+				},
+			},
+			1,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ValidateEnvs(tt.envs); len(got) != tt.errs {
-				t.Errorf("validateEnvs() = %v\n got %d errors but want %d", got, len(got), tt.errs)
+			if got := ValidateBuildEnvs(tt.envs); len(got) != tt.errs {
+				t.Errorf("ValidateBuildEnvs() = %v\n got %d errors but want %d", got, len(got), tt.errs)
 			}
 		})
 	}

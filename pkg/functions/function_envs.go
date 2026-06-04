@@ -185,6 +185,8 @@ func ValidateBuildEnvs(envs []Env) (errors []string) {
 			errors = append(errors, fmt.Sprintf("env entry #%d is not properly set", i))
 		} else if env.Value == nil {
 			errors = append(errors, fmt.Sprintf("env entry #%d is missing value field, only name '%s' is set", i, *env.Name))
+		} else if env.Name == nil {
+			errors = append(errors, fmt.Sprintf("env entry #%d is missing name field, only value '%s' is set", i, *env.Value))
 		} else {
 
 			if err := utils.ValidateEnvVarName(*env.Name); err != nil {

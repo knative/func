@@ -10,6 +10,8 @@ func Test_validateVolumes(t *testing.T) {
 	path2 := "path2"
 	path3 := "path3"
 	path4 := "path4"
+	pathSlash := "/path/"
+	pathNoSlash := "/path"
 	secret := "secret"
 	secret2 := "secret2"
 	cm := "configMap"
@@ -183,6 +185,34 @@ func Test_validateVolumes(t *testing.T) {
 				{
 					Secret: &secret2,
 					Path:   &path,
+				},
+			},
+			1,
+		},
+		{
+			"incorrect entry - duplicate volume paths with trailing slash",
+			[]Volume{
+				{
+					Secret: &secret,
+					Path:   &pathSlash,
+				},
+				{
+					Secret: &secret2,
+					Path:   &pathNoSlash,
+				},
+			},
+			1,
+		},
+		{
+			"incorrect entry - duplicate volume paths both with trailing slash",
+			[]Volume{
+				{
+					Secret: &secret,
+					Path:   &pathSlash,
+				},
+				{
+					Secret: &secret2,
+					Path:   &pathSlash,
 				},
 			},
 			1,
