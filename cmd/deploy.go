@@ -396,6 +396,8 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 				user.Token = cfg.ClusterToken
 			}
 			f.Local.SetAuth(f.Deploy.Cluster, clusterTLS, user)
+			fmt.Fprintf(cmd.OutOrStderr(),
+				"Cached cluster credentials for '%s' for subsequent deployments\n", f.Deploy.Cluster)
 		}
 	} else if cfg.ClusterToken != "" {
 		// Merge explicit --cluster-token into existing stored auth

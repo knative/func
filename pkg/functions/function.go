@@ -569,6 +569,13 @@ func (f Function) Write() (err error) {
 	if err = os.WriteFile(localConfigPath, bb, 0600); err != nil {
 		return
 	}
+	// os.WriteFile does not tighten the mode of a pre-existing file, so enforce
+	// 0600 on every write.
+	// gauron99: for more security we could stat file -> chmod -> write instead
+	// or move the auth to a separate file (since remote flag is bundled up here)
+	if err = os.Chmod(localConfigPath, 0600); err != nil {
+		return
+	}
 
 	// Write built image to .func
 	err = f.WriteRuntimeBuiltImage(false)
