@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"encoding/base64"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -511,6 +512,99 @@ func TestBuildClientConfig_URLResolution_NoMatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for no matching context")
 	}
+}
+
+func TestBuildClientConfig_URLResolution_TrailingSlashNormalized(t *testing.T) {
+	writeTestKubeconfig(t, multiContextKubeconfig())
+
+	// target has a trailing slash; the kubeconfig server does not -> must match.
+	cc, err := BuildClientConfig("https://cluster-a.example.com:6443/", "", "", fn.Local{})
+	if err != nil {
+		t.Fatalf("trailing-slash target failed to resolve: %v", err)
+	}
+	cfg, err := cc.ClientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BearerToken != "token-a" {
+		t.Fatalf("expected token-a via trailing-slash match, got %q", cfg.BearerToken)
+	}
+}
+
+func TestBuildClientConfig_URLResolution_MultipleMatches_ErrorListsContexts(t *testing.T) {
+	writeTestKubeconfig(t, clientcmdapi.Config{
+		CurrentContext: "ctx-1",
+		Contexts: map[string]*clientcmdapi.Context{
+			"ctx-1": {Cluster: "cluster-x", AuthInfo: "user-1"},
+			"ctx-2": {Cluster: "cluster-y", AuthInfo: "user-2"},
+			"ctx-3": {Cluster: "cluster-z", AuthInfo: "user-3"},
+		},
+		Clusters: map[string]*clientcmdapi.Cluster{
+			"cluster-x": {Server: "https://active.example.com:6443"},
+			"cluster-y": {Server: "https://shared.example.com:6443"},
+			"cluster-z": {Server: "https://shared.example.com:6443"},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"user-1": {Token: "tok-1"},
+			"user-2": {Token: "tok-2"},
+			"user-3": {Token: "tok-3"},
+		},
+	})
+
+	_, err := BuildClientConfig("https://shared.example.com:6443", "", "", fn.Local{})
+	if err == nil {
+		t.Fatal("expected error for multiple matching contexts")
+	}
+	// The improved error names the ambiguous contexts and how to disambiguate.
+	for _, want := range []string{"ctx-2", "ctx-3", "disambiguate"} {
+		if !contains(err.Error(), want) {
+			t.Fatalf("multi-match error missing %q: %v", want, err)
+		}
+	}
+}
+
+func TestResolveKubeconfigAuth_NoteOnActiveMatch(t *testing.T) {
+	writeTestKubeconfig(t, multiContextKubeconfig())
+	out := captureStderr(t, func() {
+		if _, err := BuildClientConfig("https://cluster-a.example.com:6443", "", "", fn.Local{}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !contains(out, `Using active kubeconfig context "active-ctx"`) {
+		t.Fatalf("expected active-context note, got %q", out)
+	}
+}
+
+func TestResolveKubeconfigAuth_NoteOnNonActiveMatch(t *testing.T) {
+	writeTestKubeconfig(t, multiContextKubeconfig())
+	out := captureStderr(t, func() {
+		if _, err := BuildClientConfig("https://cluster-b.example.com:6443", "", "", fn.Local{}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !contains(out, `Using kubeconfig context "other-ctx"`) {
+		t.Fatalf("expected non-active-context note, got %q", out)
+	}
+}
+
+// captureStderr redirects os.Stderr for the duration of f and returns what was
+// written (resolveKubeconfigAuth prints its selection note to os.Stderr).
+func captureStderr(t *testing.T, f func()) string {
+	t.Helper()
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = w
+	defer func() { os.Stderr = old }()
+	f()
+	_ = w.Close()
+	b, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }
 
 // --- YAML round-trip tests for []byte fields ---

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -457,5 +458,97 @@ func TestLocalAuth_MultipleEntries(t *testing.T) {
 	}
 	if b == nil || b.User.Token != "tok-b" {
 		t.Fatal("cluster-b auth not found or wrong")
+	}
+}
+
+// TestLocalAuth_LocalYAMLMode0600 ensures the credential file is written 0600.
+func TestLocalAuth_LocalYAMLMode0600(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file mode bits are not meaningful on Windows")
+	}
+	root := FromTempDirectory(t)
+	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Local.SetAuth("https://cluster.example.com:6443", fn.ClusterTLS{}, fn.UserAuth{Token: "secret"})
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(filepath.Join(root, ".func", "local.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("local.yaml mode = %o, want 0600", perm)
+	}
+}
+
+// TestLocalAuth_TightensPreexisting0644 ensures a pre-existing, loosened
+// local.yaml is re-tightened to 0600 on every Write -- unconditionally, even
+// when the rewrite carries no credentials (os.WriteFile does not change the
+// mode of an already-existing file). local.yaml is private machine-local
+// state and must never be left group/world-readable.
+func TestLocalAuth_TightensPreexisting0644(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file mode bits are not meaningful on Windows")
+	}
+	root := FromTempDirectory(t)
+	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Write a local.yaml, then loosen it as an older func (or a stray umask)
+	// would have.
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	localPath := filepath.Join(root, ".func", "local.yaml")
+	if err := os.Chmod(localPath, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Reload and write again WITHOUT any credentials -> must still be
+	// re-tightened to 0600. The invariant holds regardless of auth content.
+	// (A non-auth change is needed to force a write, since Write() no-ops when
+	// the function is unmodified.)
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	f.Local.Remote = true
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(localPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("pre-existing local.yaml not tightened: mode = %o, want 0600", perm)
+	}
+}
+
+// TestLocalAuth_NotInFuncYAML ensures credentials never leak into the
+// source-controlled func.yaml, while the (non-secret) cluster URL is recorded.
+func TestLocalAuth_NotInFuncYAML(t *testing.T) {
+	root := FromTempDirectory(t)
+	f := fn.Function{Runtime: "go", Root: root,
+		Deploy: fn.DeploySpec{Cluster: "https://cluster.example.com:6443"}}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Local.SetAuth("https://cluster.example.com:6443", fn.ClusterTLS{}, fn.UserAuth{Token: "super-secret-token"})
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "super-secret-token") {
+		t.Fatalf("func.yaml leaked the stored token:\n%s", raw)
+	}
+	if !strings.Contains(string(raw), "https://cluster.example.com:6443") {
+		t.Fatalf("func.yaml should record the (non-secret) cluster URL:\n%s", raw)
 	}
 }
