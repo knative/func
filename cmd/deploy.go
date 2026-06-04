@@ -130,11 +130,12 @@ EXAMPLES
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
-			"base-image", "cluster", "cluster-token", "confirm", "domain", "env", "git-branch", "git-dir",
-			"git-url", "image", "image-pull-secret", "management-disabled", "namespace", "path", "platform", "push", "pvc-size",
-			"service-account", "deployer", "registry", "registry-insecure",
-			"registry-authfile", "remote", "username", "password", "token", "verbose",
-			"remote-storage-class"),
+			"base-image", "cluster", "cluster-token", "save-cluster-auth",
+			"confirm", "domain", "env", "git-branch", "git-dir", "git-url",
+			"image", "image-pull-secret", "management-disabled", "namespace",
+			"path", "platform", "push", "pvc-size", "service-account", "deployer",
+			"registry", "registry-insecure", "registry-authfile", "remote",
+			"username", "password", "token", "verbose", "remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -161,6 +162,8 @@ EXAMPLES
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().String("cluster", cfg.Cluster, "Specify a cluster api url for your function deployment. ($FUNC_CLUSTER)")
 	cmd.Flags().String("cluster-token", "", "Bearer token for cluster authentication. Persisted to .func/local.yaml on successful deploy. ($FUNC_CLUSTER_TOKEN)")
+	cmd.Flags().Bool("save-cluster-auth", true,
+		"Persist resolved cluster credentials to .func/local.yaml after a successful deploy so later deploys reach the same cluster regardless of the active kubeconfig context. Use --save-cluster-auth=false to deploy without storing credentials. ($FUNC_SAVE_CLUSTER_AUTH)")
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)")
@@ -385,21 +388,24 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 	}
 
-	// After successful deploy, extract and persist cluster auth only when
-	// no auth is already stored. Stored auth takes precedence over kubeconfig.
+	// After a successful deploy, pin the resolved cluster into func.yaml and —
+	// unless --save-cluster-auth=false — persist its creds to .func/local.yaml
+	// (never source-controlled) so later deploys reach the same cluster
+	// regardless of the active kubeconfig context.
 	if f.Local.FindAuth(f.Deploy.Cluster) == nil {
 		if url, clusterTLS, user, extractErr := kc.Auth(); extractErr == nil {
 			if f.Deploy.Cluster == "" {
-				f.Deploy.Cluster = url
+				f.Deploy.Cluster = url // pin the target cluster
 			}
-			if cfg.ClusterToken != "" {
-				user.Token = cfg.ClusterToken
+			if cfg.SaveClusterAuth {
+				if cfg.ClusterToken != "" {
+					user.Token = cfg.ClusterToken
+				}
+				f.Local.SetAuth(f.Deploy.Cluster, clusterTLS, user)
+				fmt.Fprintf(cmd.OutOrStderr(), "Cached cluster credentials for '%s' in .func/local.yaml (not source controlled).\n", f.Deploy.Cluster)
 			}
-			f.Local.SetAuth(f.Deploy.Cluster, clusterTLS, user)
-			fmt.Fprintf(cmd.OutOrStderr(),
-				"Cached cluster credentials for '%s' for subsequent deployments\n", f.Deploy.Cluster)
 		}
-	} else if cfg.ClusterToken != "" {
+	} else if cfg.SaveClusterAuth && cfg.ClusterToken != "" {
 		// Merge explicit --cluster-token into existing stored auth
 		if entry := f.Local.FindAuth(f.Deploy.Cluster); entry != nil {
 			clusterTLS := entry.Cluster
@@ -494,6 +500,11 @@ type deployConfig struct {
 	// ClusterToken is a bearer token for authenticating to the deployment
 	// cluster.  When set, it takes precedence over stored credentials.
 	ClusterToken string
+
+	// SaveClusterAuth controls whether resolved cluster credentials are
+	// persisted to .func/local.yaml after a successful deploy. Defaults to true;
+	// set flag to false (or FUNC_SAVE_CLUSTER_AUTH=false) to deploy without storing.
+	SaveClusterAuth bool
 
 	// Perform build using the settings from the embedded buildConfig struct.
 	// Acceptable values are the keyword 'auto', or a truthy value such as
@@ -590,6 +601,7 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 	cfg := deployConfig{
 		buildConfig:        newBuildConfig(),
 		ClusterToken:       viper.GetString("cluster-token"),
+		SaveClusterAuth:    viper.GetBool("save-cluster-auth"),
 		Build:              viper.GetString("build"),
 		Env:                viper.GetStringSlice("env"),
 		Domain:             viper.GetString("domain"),

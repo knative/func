@@ -142,6 +142,7 @@ func deploy
       --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)
   -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
       --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --save-cluster-auth             Persist resolved cluster credentials to .func/local.yaml after a successful deploy so later deploys reach the same cluster regardless of the active kubeconfig context. Use --save-cluster-auth=false to deploy without storing credentials. ($FUNC_SAVE_CLUSTER_AUTH) (default true)
       --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
       --token string                  Token to use when pushing to the registry. ($FUNC_TOKEN)
       --username string               Username to use when pushing to the registry. ($FUNC_USERNAME)
