@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
@@ -17,7 +16,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
-	"golang.org/x/sync/semaphore"
 
 	"knative.dev/func/pkg/creds"
 	"knative.dev/func/pkg/oci"
@@ -105,114 +103,48 @@ func isAWSCredentialsNotFound(err error) bool {
 		strings.Contains(errStr, "no AWS credentials")
 }
 
-type ecrCacheEntry struct {
-	creds     oci.Credentials
-	err       error
-	createdAt time.Time
-}
-
 func GetECRCredentialLoader() []creds.CredentialsCallback {
-	var (
-		ecrHelper        *ecr.ECRHelper
-		ecrKeychain      authn.Keychain
-		ecrInitOnce      sync.Once
-		ecrCache         sync.Map // registry (string) -> ecrCacheEntry
-		ecrLookupSem     *semaphore.Weighted
-		maxConcurrentECR = int64(2) // Limit to 2 concurrent lookups
-	)
-
-	initECR := func() {
-		ecrHelper = ecr.NewECRHelper(ecr.WithLogger(io.Discard))
-		ecrKeychain = authn.NewKeychainFromHelper(ecrHelper)
-		ecrLookupSem = semaphore.NewWeighted(maxConcurrentECR)
-	}
-
 	return []creds.CredentialsCallback{
 		func(registry string) (oci.Credentials, error) {
 			if !isECRRegistry(registry) {
 				return oci.Credentials{}, creds.ErrCredentialsNotFound
 			}
 
-			// Check cache first (TTL: 1 minute)
-			if val, ok := ecrCache.Load(registry); ok {
-				entry := val.(ecrCacheEntry)
-				if time.Since(entry.createdAt) < 1*time.Minute {
-					return entry.creds, entry.err
-				}
-				ecrCache.Delete(registry)
-			}
-
-			// Lazy initialize
-			ecrInitOnce.Do(initECR)
-
-			// Limit concurrent ECR lookups to prevent goroutine explosion
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			if err := ecrLookupSem.Acquire(ctx, 1); err != nil {
-				return oci.Credentials{}, fmt.Errorf("ECR credential lookup timed out (queue full): %w", err)
+			ecrHelper := ecr.NewECRHelper(ecr.WithLogger(io.Discard), ecr.WithContext(ctx))
+			ecrKeychain := authn.NewKeychainFromHelper(ecrHelper)
+
+			res, err := name.NewRegistry(registry)
+			if err != nil {
+				return oci.Credentials{}, fmt.Errorf("parse registry: %w", err)
 			}
 
-			type result struct {
-				creds oci.Credentials
-				err   error
+			authenticator, err := ecrKeychain.Resolve(res)
+			if err != nil {
+				if isAWSCredentialsNotFound(err) {
+					return oci.Credentials{}, creds.ErrCredentialsNotFound
+				}
+				return oci.Credentials{}, fmt.Errorf("resolve ECR keychain: %w", err)
 			}
-			resChan := make(chan result, 1)
 
-			go func() {
-				defer ecrLookupSem.Release(1)
-
-				res, err := name.NewRegistry(registry)
-				if err != nil {
-					resChan <- result{err: fmt.Errorf("parse registry: %w", err)}
-					return
+			authCfg, err := authenticator.Authorization()
+			if err != nil {
+				if isAWSCredentialsNotFound(err) {
+					return oci.Credentials{}, creds.ErrCredentialsNotFound
 				}
-
-				authenticator, err := ecrKeychain.Resolve(res)
-				if err != nil {
-					if isAWSCredentialsNotFound(err) {
-						resChan <- result{err: creds.ErrCredentialsNotFound}
-						return
-					}
-					resChan <- result{err: fmt.Errorf("resolve ECR keychain: %w", err)}
-					return
-				}
-
-				authCfg, err := authenticator.Authorization()
-				if err != nil {
-					if isAWSCredentialsNotFound(err) {
-						resChan <- result{err: creds.ErrCredentialsNotFound}
-						return
-					}
-					resChan <- result{err: fmt.Errorf("get authorization: %w", err)}
-					return
-				}
-
-				if authCfg.Username == "" || authCfg.Password == "" {
-					resChan <- result{err: creds.ErrCredentialsNotFound}
-					return
-				}
-
-				resChan <- result{creds: oci.Credentials{
-					Username: authCfg.Username,
-					Password: authCfg.Password,
-				}}
-			}()
-
-			select {
-			case <-ctx.Done():
-				return oci.Credentials{}, fmt.Errorf("ECR credential lookup timed out: %w", ctx.Err())
-			case res := <-resChan:
-				if res.err != nil {
-					ecrCache.Store(registry, ecrCacheEntry{
-						creds:     oci.Credentials{},
-						err:       res.err,
-						createdAt: time.Now(),
-					})
-					return oci.Credentials{}, res.err
-				}
-				return res.creds, nil
+				return oci.Credentials{}, fmt.Errorf("get authorization: %w", err)
 			}
+
+			if authCfg.Username == "" || authCfg.Password == "" {
+				return oci.Credentials{}, creds.ErrCredentialsNotFound
+			}
+
+			return oci.Credentials{
+				Username: authCfg.Username,
+				Password: authCfg.Password,
+			}, nil
 		},
 	}
 }
