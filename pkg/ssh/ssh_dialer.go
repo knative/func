@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/cli/cli/connhelper"
@@ -126,18 +127,36 @@ func (n contextDialerFn) DialContext(ctx context.Context, network, address strin
 	return n(ctx, network, address)
 }
 
+// connWithDone wraps a net.Conn and signals a channel when Close() is called,
+// allowing the context-cancellation goroutine to exit cleanly.
+type connWithDone struct {
+	net.Conn
+	done chan struct{}
+	once sync.Once
+}
+
+func (c *connWithDone) Close() error {
+	c.once.Do(func() { close(c.done) })
+	return c.Conn.Close()
+}
+
 func (d *dialer) DialContext(ctx context.Context, n, a string) (net.Conn, error) {
 	conn, err := d.Dial(d.network, d.addr)
 	if err != nil {
 		return nil, err
 	}
+	wrapped := &connWithDone{Conn: conn, done: make(chan struct{})}
 	go func() {
 		if ctx != nil {
-			<-ctx.Done()
-			conn.Close()
+			select {
+			case <-ctx.Done():
+				conn.Close()
+			case <-wrapped.done:
+				// Connection was closed by the caller; exit cleanly.
+			}
 		}
 	}()
-	return conn, nil
+	return wrapped, nil
 }
 
 func (d *dialer) Dial(n, a string) (net.Conn, error) {
