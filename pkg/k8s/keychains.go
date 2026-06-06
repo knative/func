@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
@@ -20,6 +21,17 @@ import (
 	"knative.dev/func/pkg/creds"
 	"knative.dev/func/pkg/oci"
 )
+
+const (
+	defaultECRTimeout  = 5 * time.Second
+	defaultECRCacheTTL = 1 * time.Minute
+)
+
+type cachedCredential struct {
+	creds  oci.Credentials
+	err    error
+	expiry time.Time
+}
 
 func GetGoogleCredentialLoader() []creds.CredentialsCallback {
 	return []creds.CredentialsCallback{
@@ -96,21 +108,26 @@ func isAWSCredentialsNotFound(err error) bool {
 		}
 	}
 
-	errStr := err.Error()
-	return strings.Contains(errStr, "credentials not found") ||
-		strings.Contains(errStr, "no valid providers in chain") ||
-		strings.Contains(errStr, "NoCredentialProviders") ||
-		strings.Contains(errStr, "no AWS credentials")
+	return false
 }
 
 func GetECRCredentialLoader() []creds.CredentialsCallback {
+	var cache sync.Map
+
 	return []creds.CredentialsCallback{
 		func(registry string) (oci.Credentials, error) {
 			if !isECRRegistry(registry) {
 				return oci.Credentials{}, creds.ErrCredentialsNotFound
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if val, ok := cache.Load(registry); ok {
+				cached := val.(cachedCredential)
+				if time.Now().Before(cached.expiry) {
+					return cached.creds, cached.err
+				}
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), defaultECRTimeout)
 			defer cancel()
 
 			ecrHelper := ecr.NewECRHelper(ecr.WithLogger(io.Discard), ecr.WithContext(ctx))
@@ -124,27 +141,49 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 			authenticator, err := ecrKeychain.Resolve(res)
 			if err != nil {
 				if isAWSCredentialsNotFound(err) {
-					return oci.Credentials{}, creds.ErrCredentialsNotFound
+					err = creds.ErrCredentialsNotFound
+				} else {
+					err = fmt.Errorf("resolve ECR keychain: %w", err)
 				}
-				return oci.Credentials{}, fmt.Errorf("resolve ECR keychain: %w", err)
+				cache.Store(registry, cachedCredential{
+					err:    err,
+					expiry: time.Now().Add(defaultECRCacheTTL),
+				})
+				return oci.Credentials{}, err
 			}
 
 			authCfg, err := authenticator.Authorization()
 			if err != nil {
 				if isAWSCredentialsNotFound(err) {
-					return oci.Credentials{}, creds.ErrCredentialsNotFound
+					err = creds.ErrCredentialsNotFound
+				} else {
+					err = fmt.Errorf("get authorization: %w", err)
 				}
-				return oci.Credentials{}, fmt.Errorf("get authorization: %w", err)
+				cache.Store(registry, cachedCredential{
+					err:    err,
+					expiry: time.Now().Add(defaultECRCacheTTL),
+				})
+				return oci.Credentials{}, err
 			}
 
 			if authCfg.Username == "" || authCfg.Password == "" {
-				return oci.Credentials{}, creds.ErrCredentialsNotFound
+				err = creds.ErrCredentialsNotFound
+				cache.Store(registry, cachedCredential{
+					err:    err,
+					expiry: time.Now().Add(defaultECRCacheTTL),
+				})
+				return oci.Credentials{}, err
 			}
 
-			return oci.Credentials{
+			credsVal := oci.Credentials{
 				Username: authCfg.Username,
 				Password: authCfg.Password,
-			}, nil
+			}
+			cache.Store(registry, cachedCredential{
+				creds:  credsVal,
+				expiry: time.Now().Add(defaultECRCacheTTL),
+			})
+			return credsVal, nil
 		},
 	}
 }

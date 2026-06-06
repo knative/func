@@ -47,7 +47,11 @@ func TestIsECRRegistry(t *testing.T) {
 }
 
 func TestGetECRCredentialLoader(t *testing.T) {
-	loader := GetECRCredentialLoader()[0]
+	loaders := GetECRCredentialLoader()
+	if len(loaders) == 0 {
+		t.Fatal("expected at least one ECR credential loader")
+	}
+	loader := loaders[0]
 
 	t.Run("non-ECR registry returns ErrCredentialsNotFound", func(t *testing.T) {
 		_, err := loader("gcr.io")
@@ -73,7 +77,11 @@ func TestGetECRCredentialLoader(t *testing.T) {
 	})
 
 	t.Run("caches failures for 1 minute", func(t *testing.T) {
-		loader := GetECRCredentialLoader()[0]
+		loaders := GetECRCredentialLoader()
+		if len(loaders) == 0 {
+			t.Fatal("expected at least one ECR credential loader")
+		}
+		loader := loaders[0]
 		tmp := t.TempDir()
 		t.Setenv("HOME", tmp)
 		t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
@@ -98,8 +106,8 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		}
 
 		// Cached call should be much faster
-		if elapsed2 > 10*time.Millisecond && elapsed1 > 100*time.Millisecond {
-			t.Errorf("cache not working: first=%v, second=%v", elapsed1, elapsed2)
+		if elapsed2 > 10*time.Millisecond {
+			t.Errorf("cache not working: second call took %v, want < 10ms (first call took %v)", elapsed2, elapsed1)
 		}
 	})
 }
