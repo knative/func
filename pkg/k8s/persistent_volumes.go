@@ -188,18 +188,34 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		return fmt.Errorf("cannot set up the watcher: %w", err)
 	}
 	defer watcher.Stop()
+
 	termCh := make(chan corev1.ContainerStateTerminated, 1)
+	errCh := make(chan error, 1)
+
 	go func() {
-		for event := range watcher.ResultChan() {
-			p, ok := event.Object.(*corev1.Pod)
-			if !ok {
-				continue
-			}
-			if len(p.Status.ContainerStatuses) > 0 {
-				termState := event.Object.(*corev1.Pod).Status.ContainerStatuses[0].State.Terminated
-				if termState != nil {
-					termCh <- *termState
-					break
+		defer close(termCh)
+		defer close(errCh)
+		for {
+			select {
+			case <-localCtx.Done():
+				return
+			case event, ok := <-watcher.ResultChan():
+				if !ok {
+					errCh <- errors.New("kubernetes pod watch channel closed unexpectedly")
+					return
+				}
+
+				p, ok := event.Object.(*corev1.Pod)
+				if !ok {
+					continue
+				}
+
+				if len(p.Status.ContainerStatuses) > 0 {
+					termState := p.Status.ContainerStatuses[0].State.Terminated
+					if termState != nil {
+						termCh <- *termState
+						return
+					}
 				}
 			}
 		}
@@ -211,7 +227,15 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		return fmt.Errorf("cannot attach stdio to the pod: %w", err)
 	}
 
-	termState := <-termCh
+	var termState corev1.ContainerStateTerminated
+	select {
+	case termState = <-termCh:
+	case err := <-errCh:
+		return fmt.Errorf("pod execution failed during watch: %w", err)
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	if termState.ExitCode != 0 {
 		cmdOut := strings.Trim(outBuff.String(), "\n")
 		err = fmt.Errorf("the command failed: exitcode=%d, out=%q", termState.ExitCode, cmdOut)
