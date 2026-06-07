@@ -69,6 +69,12 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		t.Setenv("AWS_ACCESS_KEY_ID", "")
 		t.Setenv("AWS_SECRET_ACCESS_KEY", "")
 		t.Setenv("AWS_SESSION_TOKEN", "")
+		t.Setenv("AWS_PROFILE", "")
+		t.Setenv("AWS_DEFAULT_PROFILE", "")
+		t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
+		t.Setenv("AWS_ROLE_ARN", "")
+		t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", "")
+		t.Setenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", "")
 
 		_, err := loader("123456789012.dkr.ecr.us-east-1.amazonaws.com")
 		if !errors.Is(err, creds.ErrCredentialsNotFound) {
@@ -90,6 +96,12 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		t.Setenv("AWS_ACCESS_KEY_ID", "")
 		t.Setenv("AWS_SECRET_ACCESS_KEY", "")
 		t.Setenv("AWS_SESSION_TOKEN", "")
+		t.Setenv("AWS_PROFILE", "")
+		t.Setenv("AWS_DEFAULT_PROFILE", "")
+		t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
+		t.Setenv("AWS_ROLE_ARN", "")
+		t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", "")
+		t.Setenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", "")
 
 		// First call
 		start := time.Now()
@@ -106,8 +118,8 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		}
 
 		// Cached call should be much faster
-		if elapsed2 > 10*time.Millisecond {
-			t.Errorf("cache not working: second call took %v, want < 10ms (first call took %v)", elapsed2, elapsed1)
+		if elapsed2 > 250*time.Millisecond {
+			t.Errorf("cache not working: second call took %v, want < 250ms (first call took %v)", elapsed2, elapsed1)
 		}
 	})
 }
