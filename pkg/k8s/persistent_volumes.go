@@ -1,4 +1,4 @@
-package k8s
+ package k8s
 
 import (
 	"bytes"
@@ -229,8 +229,14 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 
 	var termState corev1.ContainerStateTerminated
 	select {
-	case termState = <-termCh:
-	case err := <-errCh:
+	case termState, ok := <-termCh:
+		if !ok {
+			return errors.New("pod watcher exited without a termination state")
+		}
+	case err, ok := <-errCh:
+		if !ok || err == nil {
+			return errors.New("pod execution failed during watch")
+		}
 		return fmt.Errorf("pod execution failed during watch: %w", err)
 	case <-ctx.Done():
 		return ctx.Err()
