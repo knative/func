@@ -1,4 +1,4 @@
- package k8s
+package k8s
 
 import (
 	"bytes"
@@ -227,9 +227,13 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		return fmt.Errorf("cannot attach stdio to the pod: %w", err)
 	}
 
-	var termState corev1.ContainerStateTerminated
+	var (
+		termState corev1.ContainerStateTerminated
+		ok        bool
+	)
+
 	select {
-	case termState, ok := <-termCh:
+	case termState, ok = <-termCh:
 		if !ok {
 			return errors.New("pod watcher exited without a termination state")
 		}
