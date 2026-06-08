@@ -77,7 +77,7 @@ jobs:
       - name: Run Unit Tests
         run: make test
 
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           files: ./coverage.txt
           flags: unit ${{ matrix.os }}
@@ -175,7 +175,7 @@ jobs:
       - name: Run Integration Tests
         run: make test-integration
 
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           files: ./coverage.txt
           flags: integration
@@ -231,7 +231,7 @@ jobs:
       - name: Run Basic E2E Tests (core, metadata, remote)
         run: make test-e2e
 
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           files: ./coverage.txt
           flags: e2e
@@ -294,7 +294,7 @@ jobs:
       - name: Run E2E Podman Tests
         run: make test-e2e-podman
 
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           files: ./coverage.txt
           flags: e2e
@@ -384,7 +384,7 @@ jobs:
         run: make test-e2e-matrix
 
       # Coverage and Logs
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           files: ./coverage.txt
           flags: e2e ${{ matrix.runtime }}
@@ -439,7 +439,7 @@ jobs:
       - name: Run Config CI E2E Tests
         run: make test-e2e-config-ci
 
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           files: ./coverage.txt
           flags: e2e-config-ci
