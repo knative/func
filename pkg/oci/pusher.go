@@ -2,6 +2,7 @@ package oci
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,8 +13,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	progress "github.com/schollz/progressbar/v3"
 
 	fn "knative.dev/func/pkg/functions"
@@ -181,7 +184,6 @@ func getBuildDir(f fn.Function) (string, error) {
 func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.ImageIndex, creds Credentials) error {
 	oo := []remote.Option{
 		remote.WithContext(ctx),
-		remote.WithProgress(p.updates),
 		remote.WithTransport(p.transport),
 	}
 
@@ -189,5 +191,23 @@ func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.Image
 		oo = append(oo, remote.WithAuth(creds))
 	}
 
-	return remote.WriteIndex(ref, ii, oo...)
+	// Ensure the repository exists. Some registries (notably
+	// OpenShift's internal registry) return HTTP 500 for manifest
+	// HEAD requests by digest when the repository doesn't exist yet.
+	// WriteIndex checks child manifests by digest, so the repository
+	// must exist beforehand. A HEAD by tag returns a proper 404, so
+	// use that to detect the missing repository and create it by
+	// pushing an empty image. The tag is overwritten by the index.
+	if _, err := remote.Head(ref, oo...); err != nil {
+		var terr *transport.Error
+		if errors.As(err, &terr) && terr.StatusCode == http.StatusNotFound {
+			if err := remote.Write(ref, empty.Image, oo...); err != nil {
+				return fmt.Errorf("cannot create repo: %w", err)
+			}
+		} else {
+			return fmt.Errorf("cannot check repo existence: %w", err)
+		}
+	}
+
+	return remote.WriteIndex(ref, ii, append(oo, remote.WithProgress(p.updates))...)
 }
