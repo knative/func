@@ -7,43 +7,6 @@ import (
 	"knative.dev/func/pkg/creds"
 )
 
-func TestIsECRRegistry(t *testing.T) {
-	tests := []struct {
-		registry string
-		expected bool
-	}{
-		// ECR Public
-		{"public.ecr.aws", true},
-		// ECR Private (various regions and partitions)
-		{"123456789012.dkr.ecr.us-east-1.amazonaws.com", true},
-		{"123456789012.dkr.ecr-fips.us-gov-west-1.amazonaws.com", true},
-		{"123456789012.dkr.ecr.cn-north-1.amazonaws.com.cn", true},
-		{"123456789012.dkr.ecr.us-east-1.sc2s.sgov.gov", true},
-		{"123456789012.dkr.ecr.us-east-1.c2s.ic.gov", true},
-		// Non-ECR registries
-		{"123456789012.dkr.ecr.us-east-1.example.com", false},
-		{"123456789012.dkr.ecr.us-east-1.amazonaws.com.example.com", false},
-		{"gcr.io", false},
-		{"docker.io", false},
-		{"index.docker.io", false},
-		{"quay.io", false},
-		{"myregistry.azurecr.io", false},
-		{"", false},
-	}
-
-	for _, tt := range tests {
-		name := tt.registry
-		if name == "" {
-			name = "empty"
-		}
-		t.Run(name, func(t *testing.T) {
-			result := isECRRegistry(tt.registry)
-			if result != tt.expected {
-				t.Errorf("isECRRegistry(%q) = %v; want %v", tt.registry, result, tt.expected)
-			}
-		})
-	}
-}
 
 func TestGetECRCredentialLoader(t *testing.T) {
 	loaders := GetECRCredentialLoader()

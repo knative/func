@@ -63,20 +63,6 @@ func GetGoogleCredentialLoader() []creds.CredentialsCallback {
 	}
 }
 
-func isECRRegistry(registry string) bool {
-	if registry == "public.ecr.aws" {
-		return true
-	}
-	isKnownECRDomain := strings.HasSuffix(registry, ".amazonaws.com") ||
-		strings.HasSuffix(registry, ".amazonaws.com.cn") ||
-		strings.HasSuffix(registry, ".sc2s.sgov.gov") ||
-		strings.HasSuffix(registry, ".c2s.ic.gov")
-	if !isKnownECRDomain {
-		return false
-	}
-
-	return strings.Contains(registry, ".dkr.ecr.") || strings.Contains(registry, ".dkr.ecr-fips.")
-}
 
 func isAWSCredentialsNotFound(err error) bool {
 	if err == nil {
@@ -116,9 +102,6 @@ func GetECRCredentialLoader() []creds.CredentialsCallback {
 
 	return []creds.CredentialsCallback{
 		func(registry string) (oci.Credentials, error) {
-			if !isECRRegistry(registry) {
-				return oci.Credentials{}, creds.ErrCredentialsNotFound
-			}
 
 			if val, ok := cache.Load(registry); ok {
 				cached := val.(cachedCredential)
