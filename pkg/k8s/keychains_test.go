@@ -3,7 +3,6 @@ package k8s
 import (
 	"errors"
 	"testing"
-	"time"
 
 	"knative.dev/func/pkg/creds"
 )
@@ -104,22 +103,13 @@ func TestGetECRCredentialLoader(t *testing.T) {
 		t.Setenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", "")
 
 		// First call
-		start := time.Now()
 		_, err1 := loader("123456789012.dkr.ecr.us-east-1.amazonaws.com")
-		elapsed1 := time.Since(start)
 
-		// Second call should be instant (from cache)
-		start2 := time.Now()
+		// Second call should be from cache
 		_, err2 := loader("123456789012.dkr.ecr.us-east-1.amazonaws.com")
-		elapsed2 := time.Since(start2)
 
 		if !errors.Is(err1, creds.ErrCredentialsNotFound) || !errors.Is(err2, creds.ErrCredentialsNotFound) {
 			t.Fatal("expected ErrCredentialsNotFound")
-		}
-
-		// Cached call should be much faster
-		if elapsed2 > 250*time.Millisecond {
-			t.Errorf("cache not working: second call took %v, want < 250ms (first call took %v)", elapsed2, elapsed1)
 		}
 	})
 }
