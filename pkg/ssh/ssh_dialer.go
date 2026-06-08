@@ -127,17 +127,7 @@ func (n contextDialerFn) DialContext(ctx context.Context, network, address strin
 }
 
 func (d *dialer) DialContext(ctx context.Context, n, a string) (net.Conn, error) {
-	conn, err := d.Dial(d.network, d.addr)
-	if err != nil {
-		return nil, err
-	}
-	go func() {
-		if ctx != nil {
-			<-ctx.Done()
-			conn.Close()
-		}
-	}()
-	return conn, nil
+	return d.sshClient.DialContext(ctx, d.network, d.addr)
 }
 
 func (d *dialer) Dial(n, a string) (net.Conn, error) {
