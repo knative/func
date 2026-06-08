@@ -63,7 +63,6 @@ func GetGoogleCredentialLoader() []creds.CredentialsCallback {
 	}
 }
 
-
 func isAWSCredentialsNotFound(err error) bool {
 	if err == nil {
 		return false

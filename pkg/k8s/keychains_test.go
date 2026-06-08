@@ -7,7 +7,6 @@ import (
 	"knative.dev/func/pkg/creds"
 )
 
-
 func TestGetECRCredentialLoader(t *testing.T) {
 	loaders := GetECRCredentialLoader()
 	if len(loaders) == 0 {
