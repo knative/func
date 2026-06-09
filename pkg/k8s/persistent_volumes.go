@@ -192,33 +192,33 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 	termCh := make(chan corev1.ContainerStateTerminated, 1)
 	errCh := make(chan error, 1)
 
-    go func() {
-	    for {
-		    select {
-		    case <-localCtx.Done():
-			    return
+	go func() {
+		for {
+			select {
+			case <-localCtx.Done():
+				return
 
-		    case event, ok := <-watcher.ResultChan():
-			    if !ok {
-				    errCh <- errors.New("kubernetes pod watch channel closed unexpectedly")
-				    return
-			    }
+			case event, ok := <-watcher.ResultChan():
+				if !ok {
+					errCh <- errors.New("kubernetes pod watch channel closed unexpectedly")
+					return
+				}
 
-			    p, ok := event.Object.(*corev1.Pod)
-			    if !ok {
-				    continue
-			    }
+				p, ok := event.Object.(*corev1.Pod)
+				if !ok {
+					continue
+				}
 
-			    if len(p.Status.ContainerStatuses) > 0 {
-				    termState := p.Status.ContainerStatuses[0].State.Terminated
-				    if termState != nil {
-					    termCh <- *termState
-					    return
-				    }
-			    }
-		    }
-	    }
-    }()
+				if len(p.Status.ContainerStatuses) > 0 {
+					termState := p.Status.ContainerStatuses[0].State.Terminated
+					if termState != nil {
+						termCh <- *termState
+						return
+					}
+				}
+			}
+		}
+	}()
 
 	var outBuff tsBuff
 	err = attach(ctx, client.CoreV1().RESTClient(), restConf, podName, namespace, podInput, &outBuff, &outBuff)
@@ -228,18 +228,26 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 
 	var termState corev1.ContainerStateTerminated
 
-    select {
-    case termState = <-termCh:
+	select {
+	case termState = <-termCh:
 
-    case watchErr := <-errCh:
-	    if watchErr == nil {
-		    return errors.New("pod execution failed during watch")
-	    }
-	    return fmt.Errorf("pod execution failed during watch: %w", watchErr)
+	case watchErr := <-errCh:
+		if watchErr == nil {
+			return errors.New("pod execution failed during watch")
+		}
+		return fmt.Errorf("pod execution failed during watch: %w", watchErr)
 
-    case <-ctx.Done():
-	    return ctx.Err()
-    }
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	if termState.ExitCode != 0 {
+		cmdOut := strings.Trim(outBuff.String(), "\n")
+		err = fmt.Errorf("the command failed: exitcode=%d, out=%q", termState.ExitCode, cmdOut)
+	}
+
+	return err
+}
 
 // thread safe buffer for logging
 type tsBuff struct {
