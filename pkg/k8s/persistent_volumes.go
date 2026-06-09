@@ -192,34 +192,33 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 	termCh := make(chan corev1.ContainerStateTerminated, 1)
 	errCh := make(chan error, 1)
 
-	go func() {
-		defer close(termCh)
-		defer close(errCh)
-		for {
-			select {
-			case <-localCtx.Done():
-				return
-			case event, ok := <-watcher.ResultChan():
-				if !ok {
-					errCh <- errors.New("kubernetes pod watch channel closed unexpectedly")
-					return
-				}
+    go func() {
+	    for {
+		    select {
+		    case <-localCtx.Done():
+			    return
 
-				p, ok := event.Object.(*corev1.Pod)
-				if !ok {
-					continue
-				}
+		    case event, ok := <-watcher.ResultChan():
+			    if !ok {
+				    errCh <- errors.New("kubernetes pod watch channel closed unexpectedly")
+				    return
+			    }
 
-				if len(p.Status.ContainerStatuses) > 0 {
-					termState := p.Status.ContainerStatuses[0].State.Terminated
-					if termState != nil {
-						termCh <- *termState
-						return
-					}
-				}
-			}
-		}
-	}()
+			    p, ok := event.Object.(*corev1.Pod)
+			    if !ok {
+				    continue
+			    }
+
+			    if len(p.Status.ContainerStatuses) > 0 {
+				    termState := p.Status.ContainerStatuses[0].State.Terminated
+				    if termState != nil {
+					    termCh <- *termState
+					    return
+				    }
+			    }
+		    }
+	    }
+    }()
 
 	var outBuff tsBuff
 	err = attach(ctx, client.CoreV1().RESTClient(), restConf, podName, namespace, podInput, &outBuff, &outBuff)
@@ -227,32 +226,20 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		return fmt.Errorf("cannot attach stdio to the pod: %w", err)
 	}
 
-	var (
-		termState corev1.ContainerStateTerminated
-		ok        bool
-	)
+	var termState corev1.ContainerStateTerminated
 
-	select {
-	case termState, ok = <-termCh:
-		if !ok {
-			return errors.New("pod watcher exited without a termination state")
-		}
-	case err, ok := <-errCh:
-		if !ok || err == nil {
-			return errors.New("pod execution failed during watch")
-		}
-		return fmt.Errorf("pod execution failed during watch: %w", err)
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+    select {
+    case termState = <-termCh:
 
-	if termState.ExitCode != 0 {
-		cmdOut := strings.Trim(outBuff.String(), "\n")
-		err = fmt.Errorf("the command failed: exitcode=%d, out=%q", termState.ExitCode, cmdOut)
-	}
+    case watchErr := <-errCh:
+	    if watchErr == nil {
+		    return errors.New("pod execution failed during watch")
+	    }
+	    return fmt.Errorf("pod execution failed during watch: %w", watchErr)
 
-	return err
-}
+    case <-ctx.Done():
+	    return ctx.Err()
+    }
 
 // thread safe buffer for logging
 type tsBuff struct {
