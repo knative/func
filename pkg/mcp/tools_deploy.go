@@ -15,7 +15,7 @@ var deployTool = &mcp.Tool{
 		Title:           "Deploy Function",
 		ReadOnlyHint:    false,
 		DestructiveHint: ptr(false),
-		IdempotentHint:  true, // Deploying the same function configuration multiple times converges to the same desired state.
+		IdempotentHint:  true,
 	},
 }
 
@@ -24,14 +24,11 @@ func (s *Server) deployHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
 		return
 	}
-	out, err := s.executor.Execute(ctx, "deploy", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = DeployOutput{
-		Message: string(out),
-	}
+	output, err = svc.Deploy(ctx, input)
 	return
 }
 
@@ -57,33 +54,6 @@ type DeployInput struct {
 	BuildTimestamp     *bool   `json:"buildTimestamp,omitempty" jsonschema:"Use actual time in image metadata"`
 	Remote             *bool   `json:"remote,omitempty" jsonschema:"Trigger remote deployment"`
 	Verbose            *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
-}
-
-func (i DeployInput) Args() []string {
-	args := []string{"--path", i.Path}
-
-	args = appendStringFlag(args, "--builder", i.Builder)
-	args = appendStringFlag(args, "--registry", i.Registry)
-	args = appendStringFlag(args, "--image", i.Image)
-	args = appendStringFlag(args, "--namespace", i.Namespace)
-	args = appendStringFlag(args, "--git-url", i.GitURL)
-	args = appendStringFlag(args, "--git-branch", i.GitBranch)
-	args = appendStringFlag(args, "--git-dir", i.GitDir)
-	args = appendStringFlag(args, "--builder-image", i.BuilderImage)
-	args = appendStringFlag(args, "--domain", i.Domain)
-	args = appendStringFlag(args, "--platform", i.Platform)
-	args = appendStringFlag(args, "--build", i.Build)
-	args = appendStringFlag(args, "--pvc-size", i.PVCSize)
-	args = appendStringFlag(args, "--service-account", i.ServiceAccount)
-	args = appendStringFlag(args, "--remote-storage-class", i.RemoteStorageClass)
-
-	args = appendBoolFlag(args, "--push", i.Push)
-	args = appendBoolFlag(args, "--registry-insecure", i.RegistryInsecure)
-	args = appendBoolFlag(args, "--build-timestamp", i.BuildTimestamp)
-	args = appendBoolFlag(args, "--remote", i.Remote)
-	args = appendBoolFlag(args, "--verbose", i.Verbose)
-
-	return args
 }
 
 // DeployOutput defines the structured output returned by the deploy tool.

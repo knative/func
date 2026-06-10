@@ -1,60 +1,77 @@
 package cmd
 
 import (
+	"context"
 	"testing"
 
-	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/mock"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpkg "knative.dev/func/pkg/mcp"
 	. "knative.dev/func/pkg/testing"
 )
 
-// TestMCP_Start ensures the "mcp start" command starts the MCP server.
 func TestMCP_Start(t *testing.T) {
 	_ = FromTempDirectory(t)
 
-	server := mock.NewMCPServer()
+	serverTpt, clientTpt := mcp.NewInMemoryTransports()
+	testMCPOptions = []mcpkg.Option{mcpkg.WithTransport(serverTpt)}
+	t.Cleanup(func() { testMCPOptions = nil })
 
-	cmd := NewMCPCmd(NewTestClient(fn.WithMCPServer(server)))
+	cmd := NewMCPCmd(NewTestClient())
 	cmd.SetArgs([]string{"start"})
-	if err := cmd.Execute(); err != nil {
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	go func() { _ = cmd.ExecuteContext(ctx) }()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1.0"}, nil)
+	session, err := client.Connect(t.Context(), clientTpt, nil)
+	if err != nil {
+		cancel()
 		t.Fatal(err)
 	}
-
-	if !server.StartInvoked {
-		// Indicates a failure of the command to correctly map the request
-		// for "mcp start" to an actual invocation of the client's
-		// StartMCPServer method, or something more fundamental like failure
-		// to register the subcommand, etc.
-		t.Fatal("MCP server's start method not invoked")
-	}
+	session.Close()
+	cancel()
 }
 
-// TestMCP_StartWriteable ensures that the FUNC_ENABLE_MCP_WRITE environment
-// variable is correctly parsed and the server starts in both default
-// (readonly) and write-enabled modes.
 func TestMCP_StartWriteable(t *testing.T) {
 	_ = FromTempDirectory(t)
 
-	// Ensure it defaults to readonly (no env var set).
-	server := mock.NewMCPServer()
-	cmd := NewMCPCmd(NewTestClient(fn.WithMCPServer(server)))
-	cmd.SetArgs([]string{"start"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	if !server.StartInvoked {
-		t.Fatal("MCP server was not started in default mode")
-	}
+	// Readonly mode
+	serverTpt, clientTpt := mcp.NewInMemoryTransports()
+	testMCPOptions = []mcpkg.Option{mcpkg.WithTransport(serverTpt)}
+	t.Cleanup(func() { testMCPOptions = nil })
 
-	// Ensure it starts successfully with write mode enabled.
-	t.Setenv("FUNC_ENABLE_MCP_WRITE", "true")
-	server = mock.NewMCPServer()
-	cmd = NewMCPCmd(NewTestClient(fn.WithMCPServer(server)))
+	cmd := NewMCPCmd(NewTestClient())
 	cmd.SetArgs([]string{"start"})
-	if err := cmd.Execute(); err != nil {
+	ctx, cancel := context.WithCancel(t.Context())
+	go func() { _ = cmd.ExecuteContext(ctx) }()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1.0"}, nil)
+	session, err := client.Connect(t.Context(), clientTpt, nil)
+	if err != nil {
+		cancel()
 		t.Fatal(err)
 	}
-	if !server.StartInvoked {
-		t.Fatal("MCP server was not started with write mode enabled")
+	session.Close()
+	cancel()
+
+	// Write mode
+	t.Setenv("FUNC_ENABLE_MCP_WRITE", "true")
+	serverTpt2, clientTpt2 := mcp.NewInMemoryTransports()
+	testMCPOptions = []mcpkg.Option{mcpkg.WithTransport(serverTpt2)}
+
+	cmd = NewMCPCmd(NewTestClient())
+	cmd.SetArgs([]string{"start"})
+	ctx2, cancel2 := context.WithCancel(t.Context())
+	go func() { _ = cmd.ExecuteContext(ctx2) }()
+
+	client2 := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1.0"}, nil)
+	session2, err := client2.Connect(t.Context(), clientTpt2, nil)
+	if err != nil {
+		cancel2()
+		t.Fatal(err)
 	}
+	session2.Close()
+	cancel2()
 }

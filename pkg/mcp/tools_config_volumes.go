@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -36,12 +35,11 @@ type ConfigVolumesListOutput struct {
 }
 
 func (s *Server) configVolumesListHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesListInput) (result *mcp.CallToolResult, output ConfigVolumesListOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigVolumesListOutput{Message: string(out)}
+	output, err = svc.ConfigVolumesList(ctx, input)
 	return
 }
 
@@ -87,12 +85,11 @@ type ConfigVolumesAddOutput struct {
 }
 
 func (s *Server) configVolumesAddHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesAddInput) (result *mcp.CallToolResult, output ConfigVolumesAddOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigVolumesAddOutput{Message: string(out)}
+	output, err = svc.ConfigVolumesAdd(ctx, input)
 	return
 }
 
@@ -128,11 +125,10 @@ type ConfigVolumesRemoveOutput struct {
 }
 
 func (s *Server) configVolumesRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesRemoveInput) (result *mcp.CallToolResult, output ConfigVolumesRemoveOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigVolumesRemoveOutput{Message: string(out)}
+	output, err = svc.ConfigVolumesRemove(ctx, input)
 	return
 }
