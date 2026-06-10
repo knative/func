@@ -201,3 +201,77 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 		})
 	}
 }
+
+// TestSourcesAsTarStream_InjectsEffectiveConfig: the uploaded func.yaml is the
+// serialized in-memory (effective) config, not the on-disk copy, and the
+// on-disk file is left untouched.
+func TestSourcesAsTarStream_InjectsEffectiveConfig(t *testing.T) {
+	root := t.TempDir()
+	diskYaml := "specVersion: 0.36.0\nname: my-fn\nruntime: go\ncreated: 2026-01-01T00:00:00Z\n"
+	if err := os.WriteFile(filepath.Join(root, "func.yaml"), []byte(diskYaml), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Effective, not-yet-disk-persisted configuration, as set by deploy flags.
+	f.Namespace = "effective-ns"
+	f.Deploy.ServiceAccountName = "effective-sa"
+
+	rc := sourcesAsTarStream(f)
+	t.Cleanup(func() { _ = rc.Close() })
+
+	var uploaded []byte
+	entries := 0
+	tr := tar.NewReader(rc)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			t.Fatal(err)
+		}
+		if hdr.Name == "source/func.yaml" {
+			entries++
+			if uploaded, err = io.ReadAll(tr); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if entries != 1 {
+		t.Fatalf("expected exactly one func.yaml entry in the stream, got %d", entries)
+	}
+
+	want, err := f.MarshalFuncYaml()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(uploaded) != string(want) {
+		t.Errorf("uploaded func.yaml != f.MarshalFuncYaml()\n--- uploaded ---\n%s\n--- want ---\n%s", uploaded, want)
+	}
+
+	extract := t.TempDir()
+	if err := os.WriteFile(filepath.Join(extract, "func.yaml"), uploaded, 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := fn.NewFunction(extract)
+	if err != nil {
+		t.Fatalf("uploaded func.yaml does not parse: %v", err)
+	}
+	if got.Namespace != "effective-ns" || got.Deploy.ServiceAccountName != "effective-sa" {
+		t.Errorf("parsed uploaded func.yaml lost effective values: ns=%q sa=%q",
+			got.Namespace, got.Deploy.ServiceAccountName)
+	}
+
+	// The on-disk func.yaml must remain untouched.
+	disk, err := os.ReadFile(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(disk) != diskYaml {
+		t.Errorf("on-disk func.yaml was mutated by the upload:\n%s", disk)
+	}
+}

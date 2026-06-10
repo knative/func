@@ -1912,9 +1912,9 @@ func TestDeploy_ImagePullSecretFromEnv(t *testing.T) {
 	}
 }
 
-// TestDeploy_ImagePullSecretRemote ensures that when deploying remotely,
-// func.yaml is written to disk before the pipeline starts, so the on-cluster
-// deploy step picks up the --image-pull-secret value.
+// TestDeploy_ImagePullSecretRemote: a remote deploy hands the effective config
+// (here --image-pull-secret) to the pipeline and persists func.yaml only after
+// success — never mutating the working tree on a mere attempt.
 func TestDeploy_ImagePullSecretRemote(t *testing.T) {
 	root := FromTempDirectory(t)
 
@@ -1926,14 +1926,17 @@ func TestDeploy_ImagePullSecretRemote(t *testing.T) {
 
 	pipelinesProvider := mock.NewPipelinesProvider()
 	pipelinesProvider.RunFn = func(f fn.Function) (string, fn.Function, error) {
-		// Inside the pipeline Run, func.yaml on disk should already
-		// have the image pull secret written.
+		// The function handed to the pipeline carries the effective config...
+		if f.Deploy.ImagePullSecret != "my-remote-secret" {
+			t.Fatalf("expected effective config to have imagePullSecret 'my-remote-secret', got '%v'", f.Deploy.ImagePullSecret)
+		}
+		// ...while the working tree has not been mutated by a mere attempt to deploy
 		diskFn, err := fn.NewFunction(root)
 		if err != nil {
 			t.Fatalf("failed to load func.yaml during pipeline Run: %v", err)
 		}
-		if diskFn.Deploy.ImagePullSecret != "my-remote-secret" {
-			t.Fatalf("expected func.yaml on disk to have imagePullSecret 'my-remote-secret', got '%v'", diskFn.Deploy.ImagePullSecret)
+		if diskFn.Deploy.ImagePullSecret != "" {
+			t.Fatalf("func.yaml was written to disk before deployment success; got imagePullSecret '%v'", diskFn.Deploy.ImagePullSecret)
 		}
 		f.Deploy.Namespace = "default"
 		if f.Deploy.Image, err = f.ImageName(); err != nil {
@@ -1953,6 +1956,15 @@ func TestDeploy_ImagePullSecretRemote(t *testing.T) {
 
 	if !pipelinesProvider.RunInvoked {
 		t.Fatal("expected pipeline Run to be invoked")
+	}
+
+	// After the successful deploy, the configuration is persisted as usual.
+	diskFn, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diskFn.Deploy.ImagePullSecret != "my-remote-secret" {
+		t.Fatalf("expected func.yaml to have imagePullSecret persisted after success, got '%v'", diskFn.Deploy.ImagePullSecret)
 	}
 }
 
