@@ -93,6 +93,7 @@ func deployClientOptions(builder, deployer string, cfg ClientConfig, withTimesta
 	o = append(o, fn.WithPipelinesProvider(tekton.NewPipelinesProvider(
 		tekton.WithCredentialsProvider(credsProvider),
 		tekton.WithVerbose(cfg.Verbose),
+		tekton.WithPipelineDecorator(deployDecorator{}),
 		tekton.WithTransport(t),
 	)))
 
@@ -101,11 +102,20 @@ func deployClientOptions(builder, deployer string, cfg ClientConfig, withTimesta
 	}
 	switch deployer {
 	case knative.KnativeDeployerName:
-		o = append(o, fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(cfg.Verbose))))
+		o = append(o, fn.WithDeployer(knative.NewDeployer(
+			knative.WithDeployerVerbose(cfg.Verbose),
+			knative.WithDeployerDecorator(deployDecorator{}),
+		)))
 	case k8s.KubernetesDeployerName:
-		o = append(o, fn.WithDeployer(k8s.NewDeployer(k8s.WithDeployerVerbose(cfg.Verbose))))
+		o = append(o, fn.WithDeployer(k8s.NewDeployer(
+			k8s.WithDeployerVerbose(cfg.Verbose),
+			k8s.WithDeployerDecorator(deployDecorator{}),
+		)))
 	case keda.KedaDeployerName:
-		o = append(o, fn.WithDeployer(keda.NewDeployer(keda.WithDeployerVerbose(cfg.Verbose))))
+		o = append(o, fn.WithDeployer(keda.NewDeployer(
+			keda.WithDeployerVerbose(cfg.Verbose),
+			keda.WithDeployerDecorator(deployDecorator{}),
+		)))
 	default:
 		return nil, fmt.Errorf("unsupported deployer: %s (supported: %s, %s, %s)",
 			deployer, knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName)
@@ -172,4 +182,22 @@ func newCredentialsProvider(configPath string, t fnhttp.RoundTripCloser, authFil
 		options = append(options, creds.WithAuthFilePath(authFilePath))
 	}
 	return creds.NewCredentialsProvider(configPath, options...)
+}
+
+type deployDecorator struct {
+	oshDec k8s.OpenshiftMetadataDecorator
+}
+
+func (d deployDecorator) UpdateAnnotations(function fn.Function, annotations map[string]string) map[string]string {
+	if k8s.IsOpenShift() {
+		return d.oshDec.UpdateAnnotations(function, annotations)
+	}
+	return annotations
+}
+
+func (d deployDecorator) UpdateLabels(function fn.Function, labels map[string]string) map[string]string {
+	if k8s.IsOpenShift() {
+		return d.oshDec.UpdateLabels(function, labels)
+	}
+	return labels
 }

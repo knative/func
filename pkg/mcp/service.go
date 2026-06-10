@@ -51,6 +51,13 @@ func derefBool(p *bool) bool {
 	return p != nil && *p
 }
 
+func derefBoolDefault(p *bool, defaultVal bool) bool {
+	if p == nil {
+		return defaultVal
+	}
+	return *p
+}
+
 // Create initializes a new function project.
 func (s *Service) Create(ctx context.Context, input CreateInput) (CreateOutput, error) {
 	cfg := ClientConfig{Verbose: derefBool(input.Verbose)}
@@ -174,18 +181,18 @@ func (s *Service) Deploy(ctx context.Context, input DeployInput) (DeployOutput, 
 		builder = builders.Pack
 	}
 
+	f = applyDeployInput(f, input)
+
 	cfg := ClientConfig{
 		Verbose:            derefBool(input.Verbose),
 		InsecureSkipVerify: derefBool(input.RegistryInsecure),
 	}
-	clientOpts, err := deployClientOptions(builder, "", cfg, derefBool(input.BuildTimestamp))
+	clientOpts, err := deployClientOptions(builder, f.Deploy.Deployer, cfg, derefBool(input.BuildTimestamp))
 	if err != nil {
 		return DeployOutput{}, err
 	}
 	client, done := s.client(cfg, clientOpts...)
 	defer done()
-
-	f = applyDeployInput(f, input)
 
 	if derefBool(input.Remote) {
 		if err = f.Write(); err != nil {
@@ -241,7 +248,7 @@ func (s *Service) Deploy(ctx context.Context, input DeployInput) (DeployOutput, 
 				return DeployOutput{}, err
 			}
 		}
-		push := derefBool(input.Push)
+		push := derefBoolDefault(input.Push, true)
 		if push {
 			var pushed bool
 			if f, pushed, err = client.Push(ctx, f); err != nil {
