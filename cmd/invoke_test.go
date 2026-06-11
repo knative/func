@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -76,5 +77,28 @@ func TestInvoke(t *testing.T) {
 
 	if atomic.LoadInt32(&invoked) != 1 {
 		t.Fatal("function was not invoked")
+	}
+}
+
+// TestInvoke_WrapsNotInitalized ensures invoke wraps uninitialized errors
+// through the CLI error wrapping layer instead of inline fmt.Errorf.
+
+func TestInvoke_WrapsNotInitialized(t *testing.T) {
+	_ = FromTempDirectory(t) // empty dir, no function
+	cmd := NewInvokeCmd(NewTestClient())
+	cmd.SetArgs([]string{})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when invoking from empty directory")
+	}
+	var cliNotInit *ErrNotInitialized
+	if !errors.As(err, &cliNotInit) {
+		t.Fatalf("expected ErrNotInitialized, got %T: %v", err, err)
+	}
+	if cliNotInit.Cmd != "invoke" {
+		t.Fatalf("expected Cmd 'invoke', got '%v'", cliNotInit.Cmd)
+	}
+	if !strings.Contains(err.Error(), "func invoke") {
+		t.Fatalf("expected error to contain 'func invoke' guidance, got: %v", err)
 	}
 }

@@ -135,3 +135,30 @@ func TestDescribe_NameAndPathExclusivity(t *testing.T) {
 		t.Fatal("describer was invoked when conflicting flags were provided")
 	}
 }
+
+//TestDescribe_WrapsNotInitialized ensures that describe command wraps
+//ErrNotInitialized with CLI-specific guidance via wrapDescribeError.
+
+func TestDescribe_WrapsNotInitialized(t *testing.T) {
+	_ = FromTempDirectory(t)
+	describer := mock.NewDescriber()
+
+	cmd := NewDescribeCmd(NewTestClient(fn.WithDescribers(describer)))
+	cmd.SetArgs([]string{})
+	err := cmd.Execute()
+
+	if err == nil {
+		t.Fatal("expected an error when describing a non-existent function")
+	}
+	var cliNotInit *ErrNotInitialized
+	if !errors.As(err, &cliNotInit) {
+		t.Fatalf("expected ErrNotInitialized, got %T: %v", err, err)
+	}
+	if cliNotInit.Cmd != "describe" {
+		t.Fatalf("expected Cmd 'describe', got '%v'", cliNotInit.Cmd)
+	}
+	if !strings.Contains(err.Error(), "func describe") {
+		t.Fatalf("expected error to contain 'func describe' guidance, got: %v", err)
+	}
+
+}

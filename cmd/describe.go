@@ -36,7 +36,7 @@ the current directory or from the directory specified with --path.
 		Aliases:           []string{"info", "desc"},
 		PreRunE:           bindEnv("output", "path", "namespace", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDescribe(cmd, args, newClient)
+			return wrapDescribeError(runDescribe(cmd, args, newClient))
 		},
 	}
 
