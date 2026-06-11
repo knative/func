@@ -23,6 +23,12 @@ func config envs remove
   -v, --verbose       Print verbose logs ($FUNC_VERBOSE)
 ```
 
+### Options inherited from parent commands
+
+```
+      --json   Output results as JSON ($FUNC_JSON)
+```
+
 ### SEE ALSO
 
 * [func config envs](func_config_envs.md)	 - List and manage configured environment variable for a function

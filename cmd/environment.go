@@ -154,6 +154,10 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		environment.Instance = instance
 	}
 
+	if isJSONEnabled(cmd) {
+		return writeJSONSuccess(cmd.OutOrStdout(), environment)
+	}
+
 	var s []byte
 	switch cfg.Format {
 	case "json":

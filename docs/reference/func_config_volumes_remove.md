@@ -32,6 +32,12 @@ func config volumes remove --mount-path=/etc/config
   -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
 ```
 
+### Options inherited from parent commands
+
+```
+      --json   Output results as JSON ($FUNC_JSON)
+```
+
 ### SEE ALSO
 
 * [func config volumes](func_config_volumes.md)	 - List and manage configured volumes for a function

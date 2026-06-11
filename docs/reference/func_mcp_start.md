@@ -31,6 +31,12 @@ func mcp start
   -h, --help   help for start
 ```
 
+### Options inherited from parent commands
+
+```
+      --json   Output results as JSON ($FUNC_JSON)
+```
+
 ### SEE ALSO
 
 * [func mcp](func_mcp.md)	 - Model Context Protocol (MCP) server
