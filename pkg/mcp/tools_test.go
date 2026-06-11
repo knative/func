@@ -3,6 +3,8 @@ package mcp
 import (
 	"strings"
 	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // validateArgLength validates that the args slice has the expected length based on
@@ -59,6 +61,60 @@ func validateBoolFlags(t *testing.T, args []string, boolFlags map[string]string)
 		if _, ok := argsMap[flag]; !ok {
 			t.Fatalf("missing expected flag %q", flag)
 		}
+	}
+}
+
+// TestTool_RejectsRelativePath verifies that every tool handler wired to validatePath
+// returns an error result when given a relative path, not just the helper itself.
+func TestTool_RejectsRelativePath(t *testing.T) {
+	cases := []struct {
+		tool string
+		args map[string]any
+	}{
+		{"build", map[string]any{"path": "."}},
+		{"create", map[string]any{"path": ".", "language": "go"}},
+		{"deploy", map[string]any{"path": "."}},
+		{"delete", map[string]any{"path": "."}},
+		{"config_envs_list", map[string]any{"path": "."}},
+		{"config_envs_add", map[string]any{"path": "."}},
+		{"config_envs_remove", map[string]any{"path": "."}},
+		{"config_labels_list", map[string]any{"path": "."}},
+		{"config_labels_add", map[string]any{"path": "."}},
+		{"config_labels_remove", map[string]any{"path": "."}},
+		{"config_volumes_list", map[string]any{"path": "."}},
+		{"config_volumes_add", map[string]any{"path": "."}},
+		{"config_volumes_remove", map[string]any{"path": "."}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.tool, func(t *testing.T) {
+			client, _, err := newTestPair(t)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+				Name:      tc.tool,
+				Arguments: tc.args,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !result.IsError {
+				t.Fatalf("tool %q: expected error result for relative path, got success", tc.tool)
+			}
+		})
+	}
+}
+
+// TestValidatePath ensures validatePath accepts absolute paths and rejects relative ones.
+func TestValidatePath(t *testing.T) {
+	if err := validatePath(t.TempDir()); err != nil {
+		t.Fatalf("expected no error for absolute path, got: %v", err)
+	}
+	if err := validatePath("relative/path"); err == nil {
+		t.Fatal("expected error for relative path, got nil")
+	}
+	if err := validatePath("."); err == nil {
+		t.Fatal("expected error for '.', got nil")
 	}
 }
 

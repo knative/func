@@ -11,12 +11,13 @@ import (
 
 // TestTool_ConfigVolumesAdd ensures the config_volumes_add tool executes with all arguments.
 func TestTool_ConfigVolumesAdd(t *testing.T) {
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path":      {"path", "--path", "."},
+		"path":      {"path", "--path", path},
 		"type":      {"type", "--type", "secret"},
 		"mountPath": {"mountPath", "--mount-path", "/workspace/secret"},
 		"source":    {"source", "--source", "my-secret"},
@@ -77,13 +78,14 @@ func TestTool_ConfigVolumesAdd(t *testing.T) {
 
 // TestTool_ConfigVolumesList ensures the config_volumes_list tool lists volumes.
 func TestTool_ConfigVolumesList(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "config" {
 			t.Fatalf("expected subcommand 'config', got %q", subcommand)
 		}
 
-		// "volumes" + "--path" + "." = 3 args
+		// "volumes" + "--path" + path = 3 args
 		if len(args) != 3 {
 			t.Fatalf("expected 3 args, got %d: %v", len(args), args)
 		}
@@ -92,8 +94,8 @@ func TestTool_ConfigVolumesList(t *testing.T) {
 		}
 
 		argsMap := argsToMap(args[1:])
-		if val, ok := argsMap["--path"]; !ok || val != "." {
-			t.Fatalf("expected --path='.', got %q", val)
+		if val, ok := argsMap["--path"]; !ok || val != path {
+			t.Fatalf("expected --path=%q, got %q", path, val)
 		}
 
 		return []byte("secret:my-secret:/workspace/secret\n"), nil
@@ -106,7 +108,7 @@ func TestTool_ConfigVolumesList(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_volumes_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": path},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -121,12 +123,13 @@ func TestTool_ConfigVolumesList(t *testing.T) {
 
 // TestTool_ConfigVolumesRemove ensures the config_volumes_remove tool removes a volume.
 func TestTool_ConfigVolumesRemove(t *testing.T) {
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path":      {"path", "--path", "."},
+		"path":      {"path", "--path", path},
 		"mountPath": {"mountPath", "--mount-path", "/workspace/secret"},
 	}
 
@@ -189,7 +192,7 @@ func TestTool_ConfigVolumesList_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_volumes_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -213,7 +216,7 @@ func TestTool_ConfigVolumesAdd_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_volumes_add",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -237,7 +240,7 @@ func TestTool_ConfigVolumesRemove_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_volumes_remove",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)
