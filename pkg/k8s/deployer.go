@@ -922,6 +922,9 @@ func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 		}
 
 		if volumeName != "" {
+			if vol.Path == nil {
+				return nil, nil, fmt.Errorf("volume %q is missing required path field", volumeName)
+			}
 			if !usedPaths.Has(*vol.Path) {
 				newVolumeMounts = append(newVolumeMounts, corev1.VolumeMount{
 					Name:      volumeName,

@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -422,5 +423,69 @@ func TestGenerateTriggerName_DifferentBrokers(t *testing.T) {
 
 	if name1 == name2 || name2 == name3 || name1 == name3 {
 		t.Errorf("Different brokers should produce different names: %s, %s, %s", name1, name2, name3)
+	}
+}
+
+func Test_ProcessVolumes_NilPath(t *testing.T) {
+	secretName := "my-secret"
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVCs := sets.New[string]()
+
+	volumes := []fn.Volume{
+		{Secret: &secretName, Path: nil},
+	}
+
+	_, _, err := ProcessVolumes(volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	if err == nil {
+		t.Fatal("expected error for volume with nil path, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing required path") {
+		t.Fatalf("unexpected error message: %s", err.Error())
+	}
+}
+
+func Test_ProcessVolumes_NilPathConfigMap(t *testing.T) {
+	configMapName := "my-config"
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVCs := sets.New[string]()
+
+	volumes := []fn.Volume{
+		{ConfigMap: &configMapName, Path: nil},
+	}
+
+	_, _, err := ProcessVolumes(volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	if err == nil {
+		t.Fatal("expected error for volume with nil path, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing required path") {
+		t.Fatalf("unexpected error message: %s", err.Error())
+	}
+}
+
+func Test_ProcessVolumes_ValidPath(t *testing.T) {
+	secretName := "my-secret"
+	path := "/etc/secret"
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVCs := sets.New[string]()
+
+	volumes := []fn.Volume{
+		{Secret: &secretName, Path: &path},
+	}
+
+	vols, mounts, err := ProcessVolumes(volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(vols) != 1 {
+		t.Fatalf("expected 1 volume, got %d", len(vols))
+	}
+	if len(mounts) != 1 {
+		t.Fatalf("expected 1 mount, got %d", len(mounts))
+	}
+	if mounts[0].MountPath != "/etc/secret" {
+		t.Errorf("expected mount path /etc/secret, got %s", mounts[0].MountPath)
 	}
 }
