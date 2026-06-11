@@ -136,6 +136,10 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 }
 
 func (d *Deployer) httpScaledObject(f fn.Function, namespace string, deployment *v1.Deployment, service *corev1.Service, hosts []string) (*httpv1alpha1.HTTPScaledObject, error) {
+	if len(service.Spec.Ports) == 0 {
+		return nil, fmt.Errorf("service %s has no ports defined", service.Name)
+	}
+
 	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate common labels: %w", err)

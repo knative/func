@@ -227,3 +227,63 @@ func TestWithPrefix_Validation(t *testing.T) {
 		})
 	}
 }
+
+// TestAppendBoolFlag verifies that appendBoolFlag handles nil, true, and false correctly.
+func TestAppendBoolFlag(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	cases := []struct {
+		name  string
+		value *bool
+		want  []string
+	}{
+		{"nil omits flag", nil, []string{}},
+		{"true appends flag", &trueVal, []string{"--push"}},
+		{"false appends flag=false", &falseVal, []string{"--push=false"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := appendBoolFlag(nil, "--push", tc.value)
+			if len(got) != len(tc.want) {
+				t.Fatalf("appendBoolFlag(nil, --push, %v) = %v, want %v", tc.value, got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("result[%d] = %q, want %q", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestAppendStringFlag verifies that appendStringFlag handles nil, empty, and non-empty values.
+func TestAppendStringFlag(t *testing.T) {
+	empty := ""
+	val := "prod"
+
+	cases := []struct {
+		name  string
+		value *string
+		want  []string
+	}{
+		{"nil omits flag", nil, []string{}},
+		{"empty omits flag", &empty, []string{}},
+		{"non-empty appends flag and value", &val, []string{"--namespace", "prod"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := appendStringFlag(nil, "--namespace", tc.value)
+			if len(got) != len(tc.want) {
+				t.Fatalf("appendStringFlag(nil, --namespace, %v) = %v, want %v", tc.value, got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("result[%d] = %q, want %q", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}

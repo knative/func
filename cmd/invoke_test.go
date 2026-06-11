@@ -78,3 +78,40 @@ func TestInvoke(t *testing.T) {
 		t.Fatal("function was not invoked")
 	}
 }
+
+// TestInvokeExtensionsMapValid ensures well-formed key=value extensions are
+// parsed correctly, including values that themselves contain '='.
+func TestInvokeExtensionsMapValid(t *testing.T) {
+	c := invokeConfig{Extensions: []string{"key=value", "foo=bar=baz"}}
+	m, err := c.parseExtensions()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m["key"] != "value" {
+		t.Fatalf("expected key=value, got %q", m["key"])
+	}
+	if m["foo"] != "bar=baz" {
+		t.Fatalf("expected foo=bar=baz, got %q", m["foo"])
+	}
+}
+
+// TestInvokeExtensionsMapMalformed ensures that extension entries missing '='
+// or with an empty key return an error rather than being silently dropped.
+func TestInvokeExtensionsMapMalformed(t *testing.T) {
+	cases := []struct {
+		name string
+		exts []string
+	}{
+		{"missing equals", []string{"valid=ok", "badformat"}},
+		{"empty key", []string{"valid=ok", "=nokey"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := invokeConfig{Extensions: tc.exts}
+			_, err := c.parseExtensions()
+			if err == nil {
+				t.Fatalf("expected error for %v, got nil", tc.exts)
+			}
+		})
+	}
+}

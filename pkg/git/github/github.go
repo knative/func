@@ -26,7 +26,7 @@ func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadU
 		Config: &github.HookConfig{
 			URL:         github.Ptr(payloadURL),
 			ContentType: github.Ptr("json"),
-			InsecureSSL: github.Ptr("1"), // TODO fix insecure (default should be 0)
+			InsecureSSL: github.Ptr("0"),
 			Secret:      github.Ptr(webhookSecret),
 		},
 	}

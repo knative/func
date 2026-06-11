@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -19,15 +20,21 @@ var buildTool = &mcp.Tool{
 }
 
 func (s *Server) buildHandler(ctx context.Context, r *mcp.CallToolRequest, input BuildInput) (result *mcp.CallToolResult, output BuildOutput, err error) {
+	if s.readonly.Load() {
+		err = fmt.Errorf("the server is currently in read-only mode; to enable write operations, set FUNC_ENABLE_MCP_WRITE in the server environment and restart the server")
+		return
+	}
+
 	svc, err := s.requireService()
 	if err != nil {
 		return
 	}
+
 	output, err = svc.Build(ctx, input)
 	return
 }
 
-// BuildInput defines the input parameters for the build tool.
+ 
 type BuildInput struct {
 	Path             string  `json:"path" jsonschema:"required,Path to the function project directory"`
 	Builder          *string `json:"builder,omitempty" jsonschema:"Builder to use (pack, s2i, or host)"`
@@ -41,7 +48,6 @@ type BuildInput struct {
 	Verbose          *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
-// BuildOutput defines the structured output returned by the build tool.
 type BuildOutput struct {
 	Image   string `json:"image,omitempty" jsonschema:"The built image name"`
 	Message string `json:"message" jsonschema:"Output message from func command"`
