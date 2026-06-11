@@ -221,3 +221,193 @@ func TestWithPrefix_Validation(t *testing.T) {
 		})
 	}
 }
+
+// toolNames returns a map of tool names that are currently advertised by the
+// server, discovered via a real MCP ListTools protocol call.
+// This is implementation-agnostic: it validates what an MCP client would
+// actually observe, not any internal server state.
+func toolNames(t *testing.T, session *mcp.ClientSession) map[string]bool {
+	t.Helper()
+	res, err := session.ListTools(t.Context(), &mcp.ListToolsParams{})
+	if err != nil {
+		t.Fatalf("ListTools failed: %v", err)
+	}
+	names := make(map[string]bool, len(res.Tools))
+	for _, tool := range res.Tools {
+		names[tool.Name] = true
+	}
+	return names
+}
+
+// TestMCP_ToolsExposedViaProtocol verifies that all expected tools are
+// advertised through the MCP protocol in write mode.
+//
+// This is a regression test: if a tool registration is accidentally removed
+// from New(), this test will catch it through a real client/server protocol
+// interaction — not by inspecting internal server state.
+func TestMCP_ToolsExposedViaProtocol(t *testing.T) {
+	session, _, err := newTestPairWithReadonly(t, false) // write mode
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []string{
+		"healthcheck",
+		"create",
+		"build",
+		"deploy",
+		"list",
+		"delete",
+		"config_volumes_list",
+		"config_volumes_add",
+		"config_volumes_remove",
+		"config_labels_list",
+		"config_labels_add",
+		"config_labels_remove",
+		"config_envs_list",
+		"config_envs_add",
+		"config_envs_remove",
+	}
+
+	exposed := toolNames(t, session)
+	for _, name := range expected {
+		if !exposed[name] {
+			t.Errorf("expected tool %q to be advertised via MCP protocol, but it was not listed", name)
+		}
+	}
+}
+
+// TestMCP_AllToolsExposedInReadonlyMode verifies that all tools — including
+// deploy and delete — are advertised in readonly mode.
+//
+// Current upstream behavior: readonly enforcement is applied at handler
+// execution time (deploy/delete return an error when called), NOT by hiding
+// tools from the MCP tool list. This test validates that invariant.
+func TestMCP_AllToolsExposedInReadonlyMode(t *testing.T) {
+	session, _, err := newTestPairWithReadonly(t, true) // readonly mode
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	exposed := toolNames(t, session)
+
+	// Mutating tools must still appear in the tool list; readonly restricts
+	// execution, not advertisement. An MCP client relying on tool presence
+	// to detect capabilities must not be misled.
+	for _, name := range []string{"deploy", "delete"} {
+		if !exposed[name] {
+			t.Errorf("tool %q should be advertised even in readonly mode (enforcement is at execution time)", name)
+		}
+	}
+
+	// Safe read-only tools must also be present.
+	for _, name := range []string{"healthcheck", "list", "build", "create"} {
+		if !exposed[name] {
+			t.Errorf("tool %q should be advertised in readonly mode", name)
+		}
+	}
+}
+
+// TestMCP_ReadonlyEnforcedAtRuntime verifies that deploy and delete return a
+// protocol-level tool error when the server is in readonly mode.
+//
+// The enforcement is observable via the MCP CallTool response (IsError=true),
+// which is exactly what a real MCP client would see. This validates the
+// runtime guard behavior introduced alongside the readonly fix in #3758.
+func TestMCP_ReadonlyEnforcedAtRuntime(t *testing.T) {
+	session, _, err := newTestPairWithReadonly(t, true) // readonly mode
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		tool      string
+		arguments map[string]any
+	}{
+		{
+			tool:      "deploy",
+			arguments: map[string]any{"path": "."},
+		},
+		{
+			tool:      "delete",
+			arguments: map[string]any{"path": "."},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.tool, func(t *testing.T) {
+			result, err := session.CallTool(t.Context(), &mcp.CallToolParams{
+				Name:      tc.tool,
+				Arguments: tc.arguments,
+			})
+			if err != nil {
+				t.Fatalf("CallTool(%q) returned unexpected protocol error: %v", tc.tool, err)
+			}
+			if !result.IsError {
+				t.Errorf("tool %q: expected IsError=true in readonly mode, got IsError=false", tc.tool)
+			}
+		})
+	}
+}
+
+// TestMCP_WriteModePermitsExecution verifies that deploy and delete do NOT
+// return a readonly-mode error when the server is started in write mode.
+//
+// The executor is stubbed to prevent real shell execution. The test validates
+// only that the readonly guard is not triggered — the tool call itself may
+// fail for other reasons (e.g. no running cluster), and that is expected.
+func TestMCP_WriteModePermitsExecution(t *testing.T) {
+	// Stub executor: records invocations and returns a benign non-error output.
+	// This prevents real 'func deploy/delete' execution while allowing the
+	// readonly guard check to be validated in isolation.
+	stubExecutor := &stubExec{}
+
+	session, _, err := newTestPair(t, WithExecutor(stubExecutor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		tool      string
+		arguments map[string]any
+	}{
+		{
+			tool:      "deploy",
+			arguments: map[string]any{"path": "."},
+		},
+		{
+			tool:      "delete",
+			arguments: map[string]any{"path": "."},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.tool, func(t *testing.T) {
+			result, err := session.CallTool(t.Context(), &mcp.CallToolParams{
+				Name:      tc.tool,
+				Arguments: tc.arguments,
+			})
+			if err != nil {
+				t.Fatalf("CallTool(%q) returned unexpected protocol error: %v", tc.tool, err)
+			}
+			// In write mode the readonly guard must not fire.
+			// The stub executor returns success, so IsError should be false.
+			if result.IsError {
+				t.Errorf("tool %q: got IsError=true in write mode; readonly guard must not fire", tc.tool)
+			}
+		})
+	}
+}
+
+// stubExec is a minimal executor that records calls and returns empty output.
+// It satisfies the executor interface without invoking any real process.
+type stubExec struct {
+	Invoked    bool
+	Subcommand string
+}
+
+func (s *stubExec) Execute(_ context.Context, subcommand string, _ ...string) ([]byte, error) {
+	s.Invoked = true
+	s.Subcommand = subcommand
+	return []byte(""), nil
+}
