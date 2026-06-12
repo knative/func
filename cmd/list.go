@@ -67,7 +67,7 @@ Lists deployed functions.
 	// Flags
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace for which to list functions. ($FUNC_NAMESPACE)")
-	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) ($FUNC_OUTPUT)")
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|yaml) ($FUNC_OUTPUT)")
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
@@ -96,9 +96,7 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 		return
 	}
 
-	write(os.Stdout, listItems(items), cfg.Output)
-
-	return
+	return write(os.Stdout, listItems(items), cfg.Output)
 }
 
 // CLI Configuration (parameters)

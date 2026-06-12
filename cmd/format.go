@@ -24,25 +24,21 @@ type Formatter interface {
 	URL(io.Writer) error
 }
 
-// write to the output the output of the formatter's appropriate serilization function.
-// the command to exit with value 2.
-func write(out io.Writer, s Formatter, formatName string) {
-	var err error
+// write the output using the formatter's appropriate serialization function,
+// returning any errors to the caller for graceful handling.
+func write(out io.Writer, s Formatter, formatName string) error {
 	switch Format(formatName) {
 	case Human:
-		err = s.Human(out)
+		return s.Human(out)
 	case Plain:
-		err = s.Plain(out)
+		return s.Plain(out)
 	case JSON:
-		err = s.JSON(out)
+		return s.JSON(out)
 	case YAML:
-		err = s.YAML(out)
+		return s.YAML(out)
 	case URL:
-		err = s.URL(out)
+		return s.URL(out)
 	default:
-		err = fmt.Errorf("format not recognized: %v", formatName)
-	}
-	if err != nil {
-		panic(err)
+		return fmt.Errorf("format not recognized: %v", formatName)
 	}
 }
