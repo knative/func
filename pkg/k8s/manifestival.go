@@ -5,8 +5,8 @@ import (
 	"github.com/manifestival/manifestival"
 )
 
-func GetManifestivalClient() (manifestival.Client, error) {
-	config, err := GetClientConfig().ClientConfig()
+func GetManifestivalClient(kc *Client) (manifestival.Client, error) {
+	config, err := kc.ClientConfig()
 	if err != nil {
 		return nil, err
 	}

@@ -18,6 +18,7 @@ import (
 
 type Describer struct {
 	verbose   bool
+	k8sClient *k8s.Client
 	transport http.RoundTripper
 }
 
@@ -29,8 +30,8 @@ func WithDescriberTransport(transport http.RoundTripper) DescriberOpt {
 	}
 }
 
-func NewDescriber(verbose bool, opts ...DescriberOpt) *Describer {
-	d := &Describer{verbose: verbose}
+func NewDescriber(k8sClient *k8s.Client, verbose bool, opts ...DescriberOpt) *Describer {
+	d := &Describer{verbose: verbose, k8sClient: k8sClient}
 	for _, o := range opts {
 		o(d)
 	}
@@ -47,12 +48,12 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		return fn.Instance{}, fmt.Errorf("function namespace is required when describing %q", name)
 	}
 
-	servingClient, err := NewServingClient(namespace)
+	servingClient, err := NewServingClient(d.k8sClient, namespace)
 	if err != nil {
 		return fn.Instance{}, err
 	}
 
-	eventingClient, err := NewEventingClient(namespace)
+	eventingClient, err := NewEventingClient(d.k8sClient, namespace)
 	if err != nil {
 		return fn.Instance{}, err
 	}
@@ -116,7 +117,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	}
 
 	// get used image (including the sha)
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := d.k8sClient.Clientset()
 	if err != nil {
 		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %v", err)
 	}

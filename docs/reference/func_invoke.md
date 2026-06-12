@@ -96,21 +96,23 @@ func invoke
 ### Options
 
 ```
-  -c, --confirm               Prompt to confirm options interactively ($FUNC_CONFIRM)
-      --content-type string   Content Type of the data. ($FUNC_CONTENT_TYPE) (default "application/json")
-      --data string           Data to send in the request. ($FUNC_DATA) (default "{\"message\":\"Hello World\"}")
-  -e, --extension strings     Extensions as key=value pairs. Can be repeated. cloudevents only ($FUNC_EXTENSION)
-      --file string           Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. ($FUNC_FILE)
-  -f, --format string         Format of message to send, 'http' or 'cloudevent(s)'.  Default is to choose automatically. ($FUNC_FORMAT)
-  -h, --help                  help for invoke
-      --id string             ID for the request data. ($FUNC_ID)
-  -i, --insecure              Allow insecure server connections when using SSL. ($FUNC_INSECURE)
-  -p, --path string           Path to the function.  Default is current directory ($FUNC_PATH)
-      --request-type string   Type of request to use. Can be POST or GET. ($FUNC_REQUEST_TYPE) (default "POST")
-      --source string         Source value for the request data. ($FUNC_SOURCE) (default "/boson/fn")
-  -t, --target string         Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. ($FUNC_TARGET)
-      --type string           Type value for the request data. ($FUNC_TYPE) (default "boson.fn")
-  -v, --verbose               Print verbose logs ($FUNC_VERBOSE)
+      --cluster string         Specify a cluster api url. ($FUNC_CLUSTER)
+      --cluster-token string   Bearer token for cluster authentication. ($FUNC_CLUSTER_TOKEN)
+  -c, --confirm                Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --content-type string    Content Type of the data. ($FUNC_CONTENT_TYPE) (default "application/json")
+      --data string            Data to send in the request. ($FUNC_DATA) (default "{\"message\":\"Hello World\"}")
+  -e, --extension strings      Extensions as key=value pairs. Can be repeated. cloudevents only ($FUNC_EXTENSION)
+      --file string            Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. ($FUNC_FILE)
+  -f, --format string          Format of message to send, 'http' or 'cloudevent(s)'.  Default is to choose automatically. ($FUNC_FORMAT)
+  -h, --help                   help for invoke
+      --id string              ID for the request data. ($FUNC_ID)
+  -i, --insecure               Allow insecure server connections when using SSL. ($FUNC_INSECURE)
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+      --request-type string    Type of request to use. Can be POST or GET. ($FUNC_REQUEST_TYPE) (default "POST")
+      --source string          Source value for the request data. ($FUNC_SOURCE) (default "/boson/fn")
+  -t, --target string          Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. ($FUNC_TARGET)
+      --type string            Type value for the request data. ($FUNC_TYPE) (default "boson.fn")
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

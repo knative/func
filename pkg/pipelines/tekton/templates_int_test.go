@@ -9,6 +9,7 @@ import (
 	"github.com/manifestival/manifestival/fake"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -19,7 +20,7 @@ func TestInt_createAndApplyPipelineTemplate(t *testing.T) {
 			old := manifestivalClient
 			defer func() { manifestivalClient = old }()
 
-			manifestivalClient = func() (manifestival.Client, error) {
+			manifestivalClient = func(_ *k8s.Client) (manifestival.Client, error) {
 				return fake.New(), nil
 			}
 
@@ -36,7 +37,7 @@ func TestInt_createAndApplyPipelineTemplate(t *testing.T) {
 			f.Image = "docker.io/alice/" + f.Name
 			f.Registry = TestRegistry
 
-			if err := createAndApplyPipelineTemplate(f, tt.namespace, tt.labels); (err != nil) != tt.wantErr {
+			if err := createAndApplyPipelineTemplate(nil, f, tt.namespace, tt.labels); (err != nil) != tt.wantErr {
 				t.Errorf("createAndApplyPipelineTemplate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

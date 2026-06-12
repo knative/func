@@ -118,6 +118,8 @@ func deploy
       --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
   -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
       --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+      --cluster string                Specify a cluster api url for your function deployment. ($FUNC_CLUSTER)
+      --cluster-token string          Bearer token for cluster authentication. Persisted to .func/local.yaml on successful deploy. ($FUNC_CLUSTER_TOKEN)
   -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
       --deployer string               Type of deployment to use: 'knative' for Knative Service (default), 'raw' for Kubernetes Deployment or 'keda' for Deployment with a Keda HTTP scaler ($FUNC_DEPLOY_TYPE)
       --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
@@ -140,6 +142,7 @@ func deploy
       --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)
   -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
       --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+      --save-cluster-auth             Persist resolved cluster credentials to .func/local.yaml after a successful deploy so later deploys reach the same cluster regardless of the active kubeconfig context. Use --save-cluster-auth=false to deploy without storing credentials. ($FUNC_SAVE_CLUSTER_AUTH) (default true)
       --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
       --token string                  Token to use when pushing to the registry. ($FUNC_TOKEN)
       --username string               Username to use when pushing to the registry. ($FUNC_USERNAME)

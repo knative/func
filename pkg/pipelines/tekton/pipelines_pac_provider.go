@@ -63,7 +63,7 @@ func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, me
 			data.WebhookSecret = random.AlphaString(10)
 
 			// try to reuse existing Webhook Secret stored in the cluster
-			secret, err := k8s.GetSecret(ctx, getPipelineSecretName(f), namespace)
+			secret, err := k8s.GetSecret(ctx, pp.kc, getPipelineSecretName(f), namespace)
 			if err != nil {
 				if !k8serrors.IsNotFound(err) {
 					return err
@@ -157,7 +157,7 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 	}
 
 	// figure out pac installation namespace
-	installed, _, err := pac.DetectPACInstallation(ctx)
+	installed, _, err := pac.DetectPACInstallation(ctx, pp.kc)
 	if !installed {
 		errMsg := ""
 		if err != nil {
@@ -201,19 +201,19 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 	metadata.RegistryPassword = creds.Password
 	metadata.RegistryServer = registry
 
-	err = createPipelinePersistentVolumeClaim(ctx, f, namespace, labels)
+	err = createPipelinePersistentVolumeClaim(ctx, pp.kc, f, namespace, labels)
 	if err != nil {
 		return err
 	}
 	fmt.Printf(" ✅ Persistent Volume is present on the cluster with name %q\n", getPipelinePvcName(f))
 
-	err = ensurePACSecretExists(ctx, f, namespace, metadata, labels)
+	err = ensurePACSecretExists(ctx, pp.kc, f, namespace, metadata, labels)
 	if err != nil {
 		return err
 	}
 	fmt.Printf(" ✅ Credentials are present on the cluster in secret %q\n", getPipelineSecretName(f))
 
-	err = ensurePACRepositoryExists(ctx, f, namespace, metadata, labels)
+	err = ensurePACRepositoryExists(ctx, pp.kc, f, namespace, metadata, labels)
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 func (pp *PipelinesProvider) createRemotePACResources(ctx context.Context, f fn.Function, metadata pipelines.PacMetadata) error {
 
 	// figure out pac installation namespace
-	installed, installationNS, err := pac.DetectPACInstallation(ctx)
+	installed, installationNS, err := pac.DetectPACInstallation(ctx, pp.kc)
 	if !installed {
 		errMsg := ""
 		if err != nil {
@@ -241,14 +241,14 @@ func (pp *PipelinesProvider) createRemotePACResources(ctx context.Context, f fn.
 	}
 
 	// fetch configmap to get controller url
-	controllerURL, err := pac.GetPACInfo(ctx, installationNS)
+	controllerURL, err := pac.GetPACInfo(ctx, pp.kc, installationNS)
 	if err != nil {
 		return err
 	}
 
 	// check if info configmap has url then use that otherwise try to detect
 	if controllerURL == "" {
-		controllerURL, _ = pac.DetectPACOpenShiftRoute(ctx, installationNS)
+		controllerURL, _ = pac.DetectPACOpenShiftRoute(ctx, pp.kc, installationNS)
 	}
 
 	// we haven't been able to detect PAC controller public route, let's prompt:

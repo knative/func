@@ -130,11 +130,12 @@ EXAMPLES
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
-			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
-			"git-url", "image", "image-pull-secret", "management-disabled", "namespace", "path", "platform", "push", "pvc-size",
-			"service-account", "deployer", "registry", "registry-insecure",
-			"registry-authfile", "remote", "username", "password", "token", "verbose",
-			"remote-storage-class"),
+			"base-image", "cluster", "cluster-token", "save-cluster-auth",
+			"confirm", "domain", "env", "git-branch", "git-dir", "git-url",
+			"image", "image-pull-secret", "management-disabled", "namespace",
+			"path", "platform", "push", "pvc-size", "service-account", "deployer",
+			"registry", "registry-insecure", "registry-authfile", "remote",
+			"username", "password", "token", "verbose", "remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -159,6 +160,10 @@ EXAMPLES
 	// contextually relevant function; but sets are flattened via cfg.Apply(f)
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
+	cmd.Flags().String("cluster", cfg.Cluster, "Specify a cluster api url for your function deployment. ($FUNC_CLUSTER)")
+	cmd.Flags().String("cluster-token", "", "Bearer token for cluster authentication. Persisted to .func/local.yaml on successful deploy. ($FUNC_CLUSTER_TOKEN)")
+	cmd.Flags().Bool("save-cluster-auth", true,
+		"Persist resolved cluster credentials to .func/local.yaml after a successful deploy so later deploys reach the same cluster regardless of the active kubeconfig context. Use --save-cluster-auth=false to deploy without storing credentials. ($FUNC_SAVE_CLUSTER_AUTH)")
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)")
@@ -281,41 +286,33 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return wrapValidateError(err, "deploy")
 	}
 
-	// Warn if registry changed but registryInsecure is still true
+	// Informative warnings about config changes (must be before Configure
+	// which overwrites the old values on the function struct)
 	warnRegistryInsecureChange(cmd.OutOrStderr(), cfg.Registry, f)
+	warnDeployTargetChange(cmd.OutOrStderr(), cfg, f)
 
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
 	}
 
-	changingNamespace := func(f fn.Function) bool {
-		// We're changing namespace if:
-		return f.Deploy.Namespace != "" && // it's already deployed
-			f.Namespace != "" && // a specific (new) namespace is requested
-			(f.Namespace != f.Deploy.Namespace) // and it's different
-	}
-
-	// If we're changing namespace in an OpenShift cluster, we have to
-	// also update the registry because there is a registry per namespace,
-	// and their name includes the namespace.
-	// This saves needing a manual flag ``--registry={destination namespace registry}``
-	if changingNamespace(f) && k8s.IsOpenShift() && k8s.IsOpenShiftInternalRegistry(f.Registry) {
-		f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Namespace
-		if cfg.Verbose {
-			fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
-		}
-	}
-
-	// Informative non-error messages regarding the final deployment request
-	printDeployMessages(cmd.OutOrStdout(), f)
-
-	// Get options based on the value of the config such as concrete impls
-	// of builders and pushers based on the value of the --builder flag
-	clientOptions, err := cfg.clientOptions()
+	// construct k8s client to be used on every cluster interaction
+	kc, err := newK8sClientFromConfig(cfg.Cluster, cfg.ClusterToken, cfg.Namespace, f.Local)
 	if err != nil {
 		return
 	}
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.RegistryInsecure}, clientOptions...)
+
+	f.Registry = resolveRegistry(f.Registry, f.Namespace, kc)
+
+	// Informative non-error messages regarding the final deployment request
+	printDeployMessages(cmd.OutOrStdout(), f, kc)
+
+	// Get options based on the value of the config such as concrete impls
+	// of builders and pushers based on the value of the --builder flag
+	clientOptions, err := cfg.clientOptions(kc)
+	if err != nil {
+		return
+	}
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.RegistryInsecure, K8sClient: kc}, clientOptions...)
 	defer done()
 
 	// Deploy
@@ -388,6 +385,33 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return wrapDeploymentError(err)
+		}
+	}
+
+	// After a successful deploy, pin the resolved cluster into func.yaml and —
+	// unless --save-cluster-auth=false — persist its creds to .func/local.yaml
+	// (never source-controlled) so later deploys reach the same cluster
+	// regardless of the active kubeconfig context.
+	if f.Local.FindAuth(f.Deploy.Cluster) == nil {
+		if url, clusterTLS, user, extractErr := kc.Auth(); extractErr == nil {
+			if f.Deploy.Cluster == "" {
+				f.Deploy.Cluster = url // pin the target cluster
+			}
+			if cfg.SaveClusterAuth {
+				if cfg.ClusterToken != "" {
+					user.Token = cfg.ClusterToken
+				}
+				f.Local.SetAuth(f.Deploy.Cluster, clusterTLS, user)
+				fmt.Fprintf(cmd.OutOrStderr(), "Cached cluster credentials for '%s' in .func/local.yaml (not source controlled).\n", f.Deploy.Cluster)
+			}
+		}
+	} else if cfg.SaveClusterAuth && cfg.ClusterToken != "" {
+		// Merge explicit --cluster-token into existing stored auth
+		if entry := f.Local.FindAuth(f.Deploy.Cluster); entry != nil {
+			clusterTLS := entry.Cluster
+			user := entry.User
+			user.Token = cfg.ClusterToken
+			f.Local.SetAuth(f.Deploy.Cluster, clusterTLS, user)
 		}
 	}
 
@@ -473,6 +497,15 @@ func KnownBuilders() builders.Known {
 type deployConfig struct {
 	buildConfig // further embeds config.Global
 
+	// ClusterToken is a bearer token for authenticating to the deployment
+	// cluster.  When set, it takes precedence over stored credentials.
+	ClusterToken string
+
+	// SaveClusterAuth controls whether resolved cluster credentials are
+	// persisted to .func/local.yaml after a successful deploy. Defaults to true;
+	// set flag to false (or FUNC_SAVE_CLUSTER_AUTH=false) to deploy without storing.
+	SaveClusterAuth bool
+
 	// Perform build using the settings from the embedded buildConfig struct.
 	// Acceptable values are the keyword 'auto', or a truthy value such as
 	// 'true', 'false, '1' or '0'.
@@ -540,7 +573,7 @@ type deployConfig struct {
 	// ImagePullSecret is the name of a secret for pulling the function image
 	ImagePullSecret string
 
-	// Deployer specifies the type of deployment: "knative" or "raw"
+	// Deployer specifies the type of deployment: "knative","raw" or "keda"
 	Deployer string
 
 	// Remote indicates the deployment (and possibly build) process are to
@@ -567,6 +600,8 @@ type deployConfig struct {
 func newDeployConfig(cmd *cobra.Command) deployConfig {
 	cfg := deployConfig{
 		buildConfig:        newBuildConfig(),
+		ClusterToken:       viper.GetString("cluster-token"),
+		SaveClusterAuth:    viper.GetBool("save-cluster-auth"),
 		Build:              viper.GetString("build"),
 		Env:                viper.GetStringSlice("env"),
 		Domain:             viper.GetString("domain"),
@@ -790,19 +825,19 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 }
 
 // clientOptions returns client options specific to deploy, including the appropriate deployer
-func (c deployConfig) clientOptions() ([]fn.Option, error) {
+func (c deployConfig) clientOptions(kc *k8s.Client) ([]fn.Option, error) {
 	// Start with build config options
-	o, err := c.buildConfig.clientOptions()
+	o, err := c.buildConfig.clientOptions(kc)
 	if err != nil {
 		return o, err
 	}
 
-	t := newTransport(c.RegistryInsecure)
-	creds := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile, c.RegistryInsecure)
+	t := newTransport(kc, c.RegistryInsecure)
+	creds := newCredentialsProvider(kc, config.Dir(), t, c.RegistryAuthfile, c.RegistryInsecure)
 
 	// Override the pipelines provider to use custom credentials
 	// This is needed for remote builds (deploy --remote)
-	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(creds, c.Verbose, t)))
+	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(kc, creds, c.Verbose, t)))
 
 	// Add the appropriate deployer based on deploy type
 	deployer := c.Deployer
@@ -812,11 +847,11 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 
 	switch deployer {
 	case knative.KnativeDeployerName:
-		o = append(o, fn.WithDeployer(newKnativeDeployer(c.Verbose)))
+		o = append(o, fn.WithDeployer(newKnativeDeployer(kc, c.Verbose)))
 	case k8s.KubernetesDeployerName:
-		o = append(o, fn.WithDeployer(newK8sDeployer(c.Verbose)))
+		o = append(o, fn.WithDeployer(newK8sDeployer(kc, c.Verbose)))
 	case keda.KedaDeployerName:
-		o = append(o, fn.WithDeployer(newKedaDeployer(c.Verbose)))
+		o = append(o, fn.WithDeployer(newKedaDeployer(kc, c.Verbose)))
 	default:
 		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s, %s)", deployer, knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName)
 	}
@@ -825,34 +860,15 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 }
 
 // printDeployMessages to the output.  Non-error deployment messages.
-func printDeployMessages(out io.Writer, f fn.Function) {
+func printDeployMessages(out io.Writer, f fn.Function, cc *k8s.Client) {
+	// Always inform the user where the function is being deployed
+	if restCfg, err := cc.ClientConfig(); err == nil && restCfg.Host != "" {
+		fmt.Fprintf(out, "Deploying function to cluster '%s' in namespace '%s'\n", restCfg.Host, f.Namespace)
+	}
+
 	digest, err := isDigested(f.Image)
 	if err == nil && digest {
 		fmt.Fprintf(out, "Deploying image '%v', which has a digest. Build and push are disabled.\n", f.Image)
-	}
-
-	// Namespace
-	// ---------
-	currentNamespace := f.Deploy.Namespace // will be "" if no initialed f at path.
-	targetNamespace := f.Namespace
-	if targetNamespace == "" {
-		return
-	}
-
-	// If creating a duplicate deployed function in a different
-	// namespace.
-	if targetNamespace != currentNamespace && currentNamespace != "" {
-		fmt.Fprintf(out, "Info: chosen namespace has changed from '%s' to '%s'. Undeploying function from '%s' and deploying new in '%s'.\n", currentNamespace, targetNamespace, currentNamespace, targetNamespace)
-	}
-
-	// Namespace Changing
-	// -------------------
-	// If the target namespace is provided but differs from active, warn because
-	// the function won't be visible to other commands such as kubectl unless
-	// context namespace is switched.
-	activeNamespace, err := k8s.GetDefaultNamespace()
-	if err == nil && targetNamespace != "" && targetNamespace != activeNamespace {
-		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", targetNamespace, activeNamespace, targetNamespace)
 	}
 
 	// Git Args
@@ -891,6 +907,35 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 		} else if currentBranch != f.Build.Git.Revision {
 			fmt.Fprintf(out, "Warning: Local git branch '%s' does not match --git-branch '%s'. The local func.yaml will be used for function metadata (name, runtime, etc). Ensure your local branch matches the remote branch to avoid deployment issues.\n", currentBranch, f.Build.Git.Revision)
 		}
+	}
+}
+
+// resolveRegistry returns the registry to use for the function.
+//   - If no registry is set, checks for OpenShift and uses its internal registry.
+//   - If an OpenShift internal registry is set and namespace is provided,
+//     rewrites the registry to include the target namespace.
+//   - Otherwise returns the registry as-is.
+func resolveRegistry(registry, namespace string, c *k8s.Client) string {
+	if registry == "" {
+		if c.IsOpenshift() {
+			return k8s.GetDefaultOpenShiftRegistry(c)
+		}
+		return ""
+	}
+	if namespace != "" && c.IsOpenshift() && k8s.IsOpenShiftInternalRegistry(registry) {
+		return "image-registry.openshift-image-registry.svc:5000/" + namespace
+	}
+	return registry
+}
+
+// warnDeployTargetChange informs the user when the deploy target (cluster or
+// namespace) is changing from a previous deployment.
+func warnDeployTargetChange(w io.Writer, cfg deployConfig, f fn.Function) {
+	if cfg.Cluster != "" && f.Deploy.Cluster != "" && cfg.Cluster != f.Deploy.Cluster {
+		fmt.Fprintf(w, "Warning: Changing deployment cluster from '%s' to '%s'. Function will NOT be removed from the old cluster.\n", f.Deploy.Cluster, cfg.Cluster)
+	}
+	if f.Deploy.Namespace != "" && cfg.Namespace != f.Deploy.Namespace {
+		fmt.Fprintf(w, "Info: namespace changed from '%s' to '%s'. Function will be moved.\n", f.Deploy.Namespace, cfg.Namespace)
 	}
 }
 

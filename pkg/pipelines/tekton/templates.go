@@ -301,7 +301,7 @@ func getTaskSpec(taskYaml string) (string, error) {
 
 // createAndApplyPipelineTemplate creates and applies Pipeline template for a standard on-cluster build
 // all resources are created on the fly, if there's a Pipeline defined in the project directory, it is used instead
-func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[string]string) error {
+func createAndApplyPipelineTemplate(kc *k8s.Client, f fn.Function, namespace string, labels map[string]string) error {
 	// If Git is set up create fetch task and reference it from build task,
 	// otherwise sources have been already uploaded to workspace PVC.
 
@@ -344,12 +344,12 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
 
-	return createAndApplyResource(f.Root, pipelineFileName, template, "pipeline", getPipelineName(f), namespace, data)
+	return createAndApplyResource(kc, f.Root, pipelineFileName, template, "pipeline", getPipelineName(f), namespace, data)
 }
 
 // createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build
 // all resources are created on the fly, if there's a PipelineRun defined in the project directory, it is used instead
-func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string) error {
+func createAndApplyPipelineRunTemplate(kc *k8s.Client, f fn.Function, namespace string, labels map[string]string) error {
 	contextDir := f.Build.Git.ContextDir
 	if contextDir == "" && f.Build.Builder == builders.S2I {
 		// TODO(lkingland): could instead update S2I to interpret empty string
@@ -424,7 +424,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
 
-	return createAndApplyResource(f.Root, pipelineFileName, template, "pipelinerun", getPipelineRunGenerateName(f), namespace, data)
+	return createAndApplyResource(kc, f.Root, pipelineFileName, template, "pipelinerun", getPipelineRunGenerateName(f), namespace, data)
 }
 
 // allows simple mocking in unit tests
@@ -432,7 +432,7 @@ var manifestivalClient = k8s.GetManifestivalClient
 
 // createAndApplyResource tries to create and apply a resource to the k8s cluster from the input template and data,
 // if there's the same resource already created in the project directory, it is used instead
-func createAndApplyResource(projectRoot, fileName, fileTemplate, kind, resourceName, namespace string, data interface{}) error {
+func createAndApplyResource(kc *k8s.Client, projectRoot, fileName, fileTemplate, kind, resourceName, namespace string, data interface{}) error {
 	var source manifestival.Source
 
 	filePath := path.Join(projectRoot, resourcesDirectory, fileName)
@@ -452,7 +452,7 @@ func createAndApplyResource(projectRoot, fileName, fileTemplate, kind, resourceN
 		source = manifestival.Reader(&buf)
 	}
 
-	client, err := manifestivalClient()
+	client, err := manifestivalClient(kc)
 	if err != nil {
 		return fmt.Errorf("error generating template: %v", err)
 	}

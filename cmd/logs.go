@@ -40,7 +40,7 @@ specified with --path. Abstracts away the underlying service name and pod detail
 `,
 		SuggestFor:        []string{"log", "tail"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("name", "namespace", "path", "since", "verbose"),
+		PreRunE:           bindEnv("name", "namespace", "path", "since", "cluster", "cluster-token", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runLogs(cmd, newClient)
 		},
@@ -56,6 +56,8 @@ specified with --path. Abstracts away the underlying service name and pod detail
 	cmd.Flags().StringP("name", "", "", "Name of the function to get logs from ($FUNC_NAME)")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace of the function ($FUNC_NAMESPACE)")
 	cmd.Flags().StringP("since", "", "1m", "Return logs newer than a relative duration like 5s, 2m, or 3h ($FUNC_LOGS_SINCE)")
+	cmd.Flags().String("cluster", cfg.Cluster, "Specify a cluster api url. ($FUNC_CLUSTER)")
+	cmd.Flags().String("cluster-token", "", "Bearer token for cluster authentication. ($FUNC_CLUSTER_TOKEN)")
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
 
@@ -68,14 +70,16 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 		return err
 	}
 
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
-	defer done()
-
 	// Get function details and deployer type
 	var f fn.Function
 	var deployer string
 	if cfg.Name != "" {
-		// Get function by name
+		kc, err := newK8sClientFromConfig(cfg.Cluster, cfg.ClusterToken, cfg.Namespace, fn.Local{})
+		if err != nil {
+			return err
+		}
+		client, done := newClient(ClientConfig{Verbose: cfg.Verbose, K8sClient: kc})
+		defer done()
 		instance, err := client.Describe(cmd.Context(), cfg.Name, cfg.Namespace, fn.Function{})
 		if err != nil {
 			return fmt.Errorf("failed to get function details: %w", err)
@@ -85,7 +89,6 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 		f.Image = instance.Image
 		deployer = instance.Deployer
 	} else {
-		// Load function from path
 		f, err = fn.NewFunction(cfg.Path)
 		if err != nil {
 			return err
@@ -94,7 +97,16 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 			return NewErrNotInitializedFromPath(f.Root, "logs")
 		}
 
-		// Get deployed function details to ensure it exists
+		cluster := cfg.Cluster
+		if cluster == "" {
+			cluster = f.Deploy.Cluster
+		}
+		kc, err := newK8sClientFromConfig(cluster, cfg.ClusterToken, f.Deploy.Namespace, f.Local)
+		if err != nil {
+			return err
+		}
+		client, done := newClient(ClientConfig{Verbose: cfg.Verbose, K8sClient: kc})
+		defer done()
 		instance, err := client.Describe(cmd.Context(), "", "", f)
 		if err != nil {
 			return fmt.Errorf("function not deployed or not found: %w", err)
@@ -142,7 +154,15 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 	fmt.Fprintf(os.Stderr, "Streaming logs for function '%s' in namespace '%s'...\n", f.Name, f.Namespace)
 	fmt.Fprintf(os.Stderr, "Press Ctrl+C to stop.\n\n")
 
-	err = knative.GetKServiceLogs(ctx, f.Namespace, f.Name, f.Image, sinceTime, os.Stdout)
+	cluster := cfg.Cluster
+	if cluster == "" {
+		cluster = f.Deploy.Cluster
+	}
+	kc, err := newK8sClientFromConfig(cluster, cfg.ClusterToken, f.Namespace, f.Local)
+	if err != nil {
+		return err
+	}
+	err = knative.GetKServiceLogs(ctx, kc, f.Namespace, f.Name, f.Image, sinceTime, os.Stdout)
 	if err != nil && err != context.Canceled {
 		return fmt.Errorf("failed to stream logs: %w", err)
 	}
@@ -154,20 +174,24 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 // ------------------------------
 
 type logsConfig struct {
-	Name      string
-	Namespace string
-	Path      string
-	Since     string
-	Verbose   bool
+	Name         string
+	Namespace    string
+	Path         string
+	Since        string
+	Cluster      string
+	ClusterToken string
+	Verbose      bool
 }
 
 func newLogsConfig(cmd *cobra.Command) (cfg logsConfig, err error) {
 	cfg = logsConfig{
-		Name:      viper.GetString("name"),
-		Namespace: viper.GetString("namespace"),
-		Path:      viper.GetString("path"),
-		Since:     viper.GetString("since"),
-		Verbose:   viper.GetBool("verbose"),
+		Name:         viper.GetString("name"),
+		Namespace:    viper.GetString("namespace"),
+		Path:         viper.GetString("path"),
+		Cluster:      viper.GetString("cluster"),
+		ClusterToken: viper.GetString("cluster-token"),
+		Since:        viper.GetString("since"),
+		Verbose:      viper.GetBool("verbose"),
 	}
 
 	if cfg.Name != "" && cmd.Flags().Changed("path") {

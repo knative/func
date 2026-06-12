@@ -8,18 +8,21 @@ import (
 
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 const RemoveTimeout = 120 * time.Second
 
-func NewRemover(verbose bool) *Remover {
+func NewRemover(k8sClient *k8s.Client, verbose bool) *Remover {
 	return &Remover{
-		verbose: verbose,
+		verbose:   verbose,
+		k8sClient: k8sClient,
 	}
 }
 
 type Remover struct {
-	verbose bool
+	verbose   bool
+	k8sClient *k8s.Client
 }
 
 func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
@@ -28,7 +31,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 		return fn.ErrNamespaceRequired
 	}
 
-	client, err := NewServingClient(ns)
+	client, err := NewServingClient(remover.k8sClient, ns)
 	if err != nil {
 		return err
 	}

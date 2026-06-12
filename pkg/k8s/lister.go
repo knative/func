@@ -13,16 +13,18 @@ import (
 
 type Lister struct {
 	verbose bool
+	kc      *Client
 }
 
-func NewLister(verbose bool) fn.Lister {
+func NewLister(kc *Client, verbose bool) fn.Lister {
 	return &Lister{
+		kc:      kc,
 		verbose: verbose,
 	}
 }
 
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
-	clientset, err := NewKubernetesClientset()
+	clientset, err := l.kc.Clientset()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client: %v", err)
 	}

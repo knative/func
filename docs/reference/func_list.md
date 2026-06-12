@@ -31,11 +31,13 @@ func list --all-namespaces --output json
 ### Options
 
 ```
-  -A, --all-namespaces     List functions in all namespaces. If set, the --namespace flag is ignored.
-  -h, --help               help for list
-  -n, --namespace string   The namespace for which to list functions. ($FUNC_NAMESPACE) (default "default")
-  -o, --output string      Output format (human|plain|json|xml|yaml) ($FUNC_OUTPUT) (default "human")
-  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+  -A, --all-namespaces         List functions in all namespaces. If set, the --namespace flag is ignored.
+      --cluster string         Specify a cluster api url. ($FUNC_CLUSTER)
+      --cluster-token string   Bearer token for cluster authentication. ($FUNC_CLUSTER_TOKEN)
+  -h, --help                   help for list
+  -n, --namespace string       The namespace for which to list functions. ($FUNC_NAMESPACE) (default "default")
+  -o, --output string          Output format (human|plain|json|xml|yaml) ($FUNC_OUTPUT) (default "human")
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

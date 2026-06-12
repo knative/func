@@ -18,6 +18,7 @@ import (
 type Describer struct {
 	verbose   bool
 	transport http.RoundTripper
+	kc        *k8s.Client
 }
 
 type DescriberOpt func(*Describer)
@@ -28,8 +29,8 @@ func WithDescriberTransport(transport http.RoundTripper) DescriberOpt {
 	}
 }
 
-func NewDescriber(verbose bool, opts ...DescriberOpt) *Describer {
-	d := &Describer{verbose: verbose}
+func NewDescriber(kc *k8s.Client, verbose bool, opts ...DescriberOpt) *Describer {
+	d := &Describer{kc: kc, verbose: verbose}
 	for _, o := range opts {
 		o(d)
 	}
@@ -42,7 +43,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		return fn.Instance{}, fmt.Errorf("function namespace is required when describing %q", name)
 	}
 
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := d.kc.Clientset()
 	if err != nil {
 		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %v", err)
 	}
@@ -66,7 +67,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	// We're responsible, for this function --> proceed...
 
-	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
+	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset(d.kc)
 	if err != nil {
 		return fn.Instance{}, fmt.Errorf("unable to create HTTPScaledObject client: %v", err)
 	}

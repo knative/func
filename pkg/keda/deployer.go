@@ -29,11 +29,14 @@ type Deployer struct {
 
 	verbose   bool
 	decorator deployer.DeployDecorator
+	kc        *k8s.Client
 }
 
-func NewDeployer(opts ...DeployerOpt) *Deployer {
+func NewDeployer(kc *k8s.Client, opts ...DeployerOpt) *Deployer {
 	d := &Deployer{
+		kc: kc,
 		Deployer: *k8s.NewDeployer(
+			kc,
 			// init with the kedaDeployerDecorator to have the correct deployer labels&annotations
 			k8s.WithDeployerDecorator(&kedaDeployerDecorator{}),
 		),
@@ -100,7 +103,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	// create additional required keda resources
 	namespace := deployResult.Namespace
 
-	k8sClientset, err := k8s.NewKubernetesClientset()
+	k8sClientset, err := d.kc.Clientset()
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create K8sClientset: %v", err)
 	}
@@ -269,7 +272,7 @@ func (d *Deployer) ensureHTTPScaledObject(ctx context.Context, f fn.Function, na
 		return fmt.Errorf("failed to generate http scaled object: %w", err)
 	}
 
-	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
+	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset(d.kc)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTPScaledObject clientset: %v", err)
 	}

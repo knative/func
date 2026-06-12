@@ -10,9 +10,10 @@ import (
 )
 
 func TestInt_Describe(t *testing.T) {
+	kc := defaultKc()
 	describertesting.TestInt_Describe(t,
-		knative.NewDescriber(true),
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewRemover(true),
+		knative.NewDescriber(kc, true),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewRemover(kc, true),
 		knative.KnativeDeployerName)
 }

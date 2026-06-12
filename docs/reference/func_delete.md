@@ -32,12 +32,14 @@ func delete myfunc --namespace apps
 ### Options
 
 ```
-  -a, --all string         Delete all resources created for a function, eg. Pipelines, Secrets, etc. ($FUNC_ALL) (allowed values: "true", "false") (default "true")
-  -c, --confirm            Prompt to confirm options interactively ($FUNC_CONFIRM)
-  -h, --help               help for delete
-  -n, --namespace string   The namespace when deleting by name. ($FUNC_NAMESPACE) (default "default")
-  -p, --path string        Path to the function.  Default is current directory ($FUNC_PATH)
-  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+  -a, --all string             Delete all resources created for a function, eg. Pipelines, Secrets, etc. ($FUNC_ALL) (allowed values: "true", "false") (default "true")
+      --cluster string         Specify a cluster api url for your function deployment. ($FUNC_CLUSTER)
+      --cluster-token string   Bearer token for cluster authentication. ($FUNC_CLUSTER_TOKEN)
+  -c, --confirm                Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help                   help for delete
+  -n, --namespace string       The namespace when deleting by name. ($FUNC_NAMESPACE) (default "default")
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

@@ -17,7 +17,7 @@ import (
 )
 
 // ensurePACSecretExists checks that up-to-date secret holding credentials needed for PAC is on the cluster
-func ensurePACSecretExists(ctx context.Context, f fn.Function, namespace string, credentials pipelines.PacMetadata, labels map[string]string) error {
+func ensurePACSecretExists(ctx context.Context, kc *k8s.Client, f fn.Function, namespace string, credentials pipelines.PacMetadata, labels map[string]string) error {
 	dockerConfigJSONContent, err := k8s.HandleDockerCfgJSONContent(credentials.RegistryUsername, credentials.RegistryPassword, "", credentials.RegistryServer)
 	if err != nil {
 		return err
@@ -37,12 +37,12 @@ func ensurePACSecretExists(ctx context.Context, f fn.Function, namespace string,
 	secret.Data["provider.token"] = []byte(credentials.PersonalAccessToken)
 	secret.Data["webhook.secret"] = []byte(credentials.WebhookSecret)
 
-	return k8s.EnsureSecretExist(ctx, secret, namespace)
+	return k8s.EnsureSecretExist(ctx, kc, secret, namespace)
 }
 
 // ensurePACRepositoryExists checks that up-to-date Repository CR is present on the cluster
-func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace string, metadata pipelines.PacMetadata, labels map[string]string) error {
-	client, namespace, err := pac.NewTektonPacClientAndResolvedNamespace(namespace)
+func ensurePACRepositoryExists(ctx context.Context, kc *k8s.Client, f fn.Function, namespace string, metadata pipelines.PacMetadata, labels map[string]string) error {
+	client, namespace, err := pac.NewTektonPacClientAndResolvedNamespace(kc, namespace)
 	if err != nil {
 		return err
 	}
@@ -100,8 +100,8 @@ func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace str
 }
 
 // deletePACRepositories deletes all Repository resources present on the cluster that match input list options
-func deletePACRepositories(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) error {
-	client, namespace, err := pac.NewTektonPacClientAndResolvedNamespace(namespaceOverride)
+func deletePACRepositories(ctx context.Context, kc *k8s.Client, namespaceOverride string, listOptions metav1.ListOptions) error {
+	client, namespace, err := pac.NewTektonPacClientAndResolvedNamespace(kc, namespaceOverride)
 	if err != nil {
 		return err
 	}

@@ -10,10 +10,11 @@ import (
 )
 
 func TestInt_List(t *testing.T) {
+	kc := defaultKc()
 	listertesting.TestInt_List(t,
-		knative.NewLister(true),
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewDescriber(true),
-		knative.NewRemover(true),
+		knative.NewLister(kc, true),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewDescriber(kc, true),
+		knative.NewRemover(kc, true),
 		knative.KnativeDeployerName)
 }

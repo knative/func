@@ -4,6 +4,7 @@ import (
 	"context"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 
 	"knative.dev/func/pkg/docker"
 	funcgit "knative.dev/func/pkg/git"
@@ -14,10 +15,11 @@ type SyncerOpt func(*Syncer)
 
 type Syncer struct {
 	credentialsProvider oci.CredentialsProvider
+	kc                  *k8s.Client
 }
 
-func NewSyncer(opts ...SyncerOpt) *Syncer {
-	s := &Syncer{}
+func NewSyncer(kc *k8s.Client, opts ...SyncerOpt) *Syncer {
+	s := &Syncer{kc: kc}
 	for _, o := range opts {
 		o(s)
 	}
@@ -78,5 +80,5 @@ func (s *Syncer) Sync(ctx context.Context, f fn.Function) error {
 		RepoBranch:          repoBranch,
 		RepoPath:            repoPath,
 		RegistryCredentials: registryCredentials,
-	})
+	}, s.kc)
 }

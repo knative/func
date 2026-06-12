@@ -9,16 +9,16 @@ import (
 )
 
 // NewTektonPacClientAndResolvedNamespace returns PipelinesascodeV1alpha1Client,namespace,error
-func NewTektonPacClientAndResolvedNamespace(namespace string) (*pacv1alpha1.PipelinesascodeV1alpha1Client, string, error) {
+func NewTektonPacClientAndResolvedNamespace(kc *k8s.Client, namespace string) (*pacv1alpha1.PipelinesascodeV1alpha1Client, string, error) {
 	var err error
 	if namespace == "" {
-		namespace, err = k8s.GetDefaultNamespace()
+		namespace, err = kc.DefaultNamespace()
 		if err != nil {
 			return nil, "", err
 		}
 	}
 
-	restConfig, err := k8s.GetClientConfig().ClientConfig()
+	restConfig, err := kc.ClientConfig()
 	if err != nil {
 		return nil, namespace, fmt.Errorf("failed to create new tekton pac client: %w", err)
 	}

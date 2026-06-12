@@ -106,7 +106,7 @@ EXAMPLES
 			"onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
 		PreRunE: bindEnv("path", "format", "target", "id", "source", "type",
 			"data", "content-type", "request-type", "file", "insecure",
-			"confirm", "verbose", "extension"),
+			"confirm", "verbose", "extension", "cluster", "cluster-token"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInvoke(cmd, args, newClient)
 		},
@@ -130,6 +130,8 @@ EXAMPLES
 	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. ($FUNC_FILE)")
 	cmd.Flags().BoolP("insecure", "i", false, "Allow insecure server connections when using SSL. ($FUNC_INSECURE)")
 	cmd.Flags().StringSliceP("extension", "e", nil, "Extensions as key=value pairs. Can be repeated. cloudevents only ($FUNC_EXTENSION)")
+	cmd.Flags().String("cluster", cfg.Cluster, "Specify a cluster api url. ($FUNC_CLUSTER)")
+	cmd.Flags().String("cluster-token", "", "Bearer token for cluster authentication. ($FUNC_CLUSTER_TOKEN)")
 	addConfirmFlag(cmd, cfg.Confirm)
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
@@ -177,8 +179,16 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		}
 	}
 
-	// Client instance from env vars, flags, args and user prompts (if --confirm)
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
+	// Build k8s client for cluster access
+	cluster := cfg.Cluster
+	if cluster == "" {
+		cluster = f.Deploy.Cluster
+	}
+	kc, err := newK8sClientFromConfig(cluster, cfg.ClusterToken, f.Deploy.Namespace, f.Local)
+	if err != nil {
+		return err
+	}
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure, K8sClient: kc})
 	defer done()
 
 	// Message to send the running function built from parameters gathered
@@ -243,38 +253,42 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 }
 
 type invokeConfig struct {
-	Path        string
-	Target      string
-	Format      string
-	ID          string
-	Source      string
-	Type        string
-	Data        []byte
-	ContentType string
-	RequestType string
-	File        string
-	Confirm     bool
-	Verbose     bool
-	Insecure    bool
-	Extensions  []string
+	Path         string
+	Target       string
+	Format       string
+	ID           string
+	Source       string
+	Type         string
+	Data         []byte
+	ContentType  string
+	RequestType  string
+	File         string
+	Cluster      string
+	ClusterToken string
+	Confirm      bool
+	Verbose      bool
+	Insecure     bool
+	Extensions   []string
 }
 
 func newInvokeConfig() (cfg invokeConfig, err error) {
 	cfg = invokeConfig{
-		Path:        viper.GetString("path"),
-		Target:      viper.GetString("target"),
-		Format:      viper.GetString("format"),
-		ID:          viper.GetString("id"),
-		Source:      viper.GetString("source"),
-		Type:        viper.GetString("type"),
-		Data:        []byte(viper.GetString("data")),
-		ContentType: viper.GetString("content-type"),
-		RequestType: viper.GetString("request-type"),
-		File:        viper.GetString("file"),
-		Confirm:     viper.GetBool("confirm"),
-		Verbose:     viper.GetBool("verbose"),
-		Insecure:    viper.GetBool("insecure"),
-		Extensions:  viper.GetStringSlice("extension"),
+		Path:         viper.GetString("path"),
+		Target:       viper.GetString("target"),
+		Format:       viper.GetString("format"),
+		ID:           viper.GetString("id"),
+		Source:       viper.GetString("source"),
+		Type:         viper.GetString("type"),
+		Data:         []byte(viper.GetString("data")),
+		ContentType:  viper.GetString("content-type"),
+		RequestType:  viper.GetString("request-type"),
+		File:         viper.GetString("file"),
+		Cluster:      viper.GetString("cluster"),
+		ClusterToken: viper.GetString("cluster-token"),
+		Confirm:      viper.GetBool("confirm"),
+		Verbose:      viper.GetBool("verbose"),
+		Insecure:     viper.GetBool("insecure"),
+		Extensions:   viper.GetStringSlice("extension"),
 	}
 
 	// If file was passed, read it in as data

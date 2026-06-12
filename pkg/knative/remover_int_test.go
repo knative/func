@@ -10,10 +10,11 @@ import (
 )
 
 func TestInt_Remove(t *testing.T) {
+	kc := defaultKc()
 	removertesting.TestInt_Remove(t,
-		knative.NewRemover(true),
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewDescriber(true),
-		knative.NewLister(true),
+		knative.NewRemover(kc, true),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewDescriber(kc, true),
+		knative.NewLister(kc, true),
 		knative.KnativeDeployerName)
 }

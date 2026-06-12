@@ -39,7 +39,7 @@ func TestCustomCA(t *testing.T) {
 		backingAddr: inClusterAddr,
 	}
 
-	tr := fnhttp.NewRoundTripper(
+	tr := fnhttp.NewRoundTripper(nil,
 		fnhttp.WithSelectCA(mockSelectCA),
 		fnhttp.WithInClusterDialer(mockInCusterDialer))
 	defer tr.Close()

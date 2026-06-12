@@ -14,8 +14,8 @@ const (
 )
 
 // NewTektonClient returns TektonV1beta1Client for namespace
-func NewTektonClient(namespace string) (*v1.TektonV1Client, error) {
-	restConfig, err := k8s.GetClientConfig().ClientConfig()
+func NewTektonClient(kc *k8s.Client, namespace string) (*v1.TektonV1Client, error) {
+	restConfig, err := kc.ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new tekton client: %w", err)
 	}
@@ -28,8 +28,8 @@ func NewTektonClient(namespace string) (*v1.TektonV1Client, error) {
 	return client, nil
 }
 
-func NewTektonClients() (*cli.Clients, error) {
-	restConfig, err := k8s.GetClientConfig().ClientConfig()
+func NewTektonClients(kc *k8s.Client) (*cli.Clients, error) {
+	restConfig, err := kc.ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new tekton clientset: %v", err)
 	}

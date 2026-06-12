@@ -24,7 +24,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
@@ -48,9 +47,9 @@ var SocatImage = "ghcr.io/knative/func-utils:v2"
 //	var client = http.Client{
 //	    Transport: transport,
 //	}
-func NewInClusterDialer(ctx context.Context, clientConfig clientcmd.ClientConfig) (*contextDialer, error) {
+func NewInClusterDialer(ctx context.Context, kc *Client) (*contextDialer, error) {
 	c := &contextDialer{
-		clientConfig: clientConfig,
+		configClient: kc,
 		detachChan:   make(chan struct{}),
 	}
 	err := c.startDialerPod(ctx)
@@ -62,7 +61,7 @@ func NewInClusterDialer(ctx context.Context, clientConfig clientcmd.ClientConfig
 
 type contextDialer struct {
 	coreV1       v1.CoreV1Interface
-	clientConfig clientcmd.ClientConfig
+	configClient *Client
 	restConf     *restclient.Config
 	podName      string
 	namespace    string
@@ -252,7 +251,7 @@ func (c *contextDialer) Close() error {
 }
 
 func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
-	c.restConf, err = c.clientConfig.ClientConfig()
+	c.restConf, err = c.configClient.ClientConfig()
 	if err != nil {
 		return
 	}
@@ -269,7 +268,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 	}
 	c.coreV1 = client.CoreV1()
 
-	c.namespace, _, err = c.clientConfig.Namespace()
+	c.namespace, err = c.configClient.DefaultNamespace()
 	if err != nil {
 		return
 	}
@@ -291,7 +290,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 			Annotations: nil,
 		},
 		Spec: coreV1.PodSpec{
-			SecurityContext: defaultPodSecurityContext(),
+			SecurityContext: defaultPodSecurityContext(c.configClient),
 			Containers: []coreV1.Container{
 				{
 					Name:            c.podName,
@@ -308,7 +307,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 	}
 	creatOpts := metaV1.CreateOptions{}
 
-	ready := podReady(ctx, c.coreV1, c.podName, c.namespace)
+	ready := podReady(ctx, c.configClient, c.coreV1, c.podName, c.namespace)
 
 	_, err = pods.Create(ctx, pod, creatOpts)
 	if err != nil {
@@ -401,7 +400,7 @@ func attach(ctx context.Context, restClient restclient.Interface, restConf *rest
 	})
 }
 
-func podReady(ctx context.Context, core v1.CoreV1Interface, podName, namespace string) (errChan <-chan error) {
+func podReady(ctx context.Context, kc *Client, core v1.CoreV1Interface, podName, namespace string) (errChan <-chan error) {
 	d := make(chan error)
 	errChan = d
 
@@ -433,7 +432,7 @@ func podReady(ctx context.Context, core v1.CoreV1Interface, podName, namespace s
 						return
 					}
 					if status.State.Terminated != nil {
-						msg, _ := GetPodLogs(ctx, namespace, podName, podName)
+						msg, _ := GetPodLogs(ctx, kc, namespace, podName, podName)
 						d <- fmt.Errorf("pod prematurely exited (output: %q, exitcode: %d)", msg, status.State.Terminated.ExitCode)
 						return
 					}
@@ -555,14 +554,14 @@ func newConn() (*io.PipeReader, *io.PipeWriter, *conn) {
 	return pr1, pw0, rwc
 }
 
-func NewLazyInitInClusterDialer(clientConfig clientcmd.ClientConfig) *lazyInitInClusterDialer {
+func NewLazyInitInClusterDialer(kc *Client) *lazyInitInClusterDialer {
 	return &lazyInitInClusterDialer{
-		clientConfig: clientConfig,
+		kc: kc,
 	}
 }
 
 type lazyInitInClusterDialer struct {
-	clientConfig  clientcmd.ClientConfig
+	kc            *Client
 	contextDialer *contextDialer
 	initErr       error
 	o             sync.Once
@@ -570,7 +569,7 @@ type lazyInitInClusterDialer struct {
 
 func (l *lazyInitInClusterDialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
 	l.o.Do(func() {
-		l.contextDialer, l.initErr = NewInClusterDialer(ctx, l.clientConfig)
+		l.contextDialer, l.initErr = NewInClusterDialer(ctx, l.kc)
 	})
 	if l.initErr != nil {
 		return nil, l.initErr

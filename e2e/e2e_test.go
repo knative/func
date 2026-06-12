@@ -29,7 +29,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -859,11 +858,9 @@ func isAbnormalExit(t *testing.T, err error) bool {
 func setSecret(t *testing.T, name, ns string, data map[string][]byte) {
 	t.Helper()
 	ctx := t.Context()
-	config, err := k8s.GetClientConfig().ClientConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
-	clientset, err := kubernetes.NewForConfig(config)
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
+	clientset, err := kc.Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -882,11 +879,9 @@ func setSecret(t *testing.T, name, ns string, data map[string][]byte) {
 func setConfigMap(t *testing.T, name, ns string, data map[string]string) {
 	t.Helper()
 	ctx := t.Context()
-	config, err := k8s.GetClientConfig().ClientConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
-	clientset, err := kubernetes.NewForConfig(config)
+	cc, _ := k8s.BuildClientConfig("", "", "", fn.Local{})
+	kc := k8s.NewClient(cc)
+	clientset, err := kc.Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -10,10 +10,11 @@ import (
 )
 
 func TestInt_Remove(t *testing.T) {
+	kc := defaultKc()
 	removertesting.TestInt_Remove(t,
-		keda.NewRemover(true),
-		keda.NewDeployer(keda.WithDeployerVerbose(true)),
-		keda.NewDescriber(true),
-		keda.NewLister(true),
+		keda.NewRemover(kc, true),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(true)),
+		keda.NewDescriber(kc, true),
+		keda.NewLister(kc, true),
 		keda.KedaDeployerName)
 }

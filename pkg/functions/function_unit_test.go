@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -356,5 +357,198 @@ func Test_WarnIfLegacyS2IScaffolding(t *testing.T) {
 				t.Fatalf("unexpected warning about .s2i/bin/assemble: %q", buf.String())
 			}
 		})
+	}
+}
+
+// TestLocalAuth_SetFindPersist verifies that auth entries stored via SetAuth
+// are persisted to .func/local.yaml and survive a function reload.
+func TestLocalAuth_SetFindPersist(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	// Create and initialize a function
+	f := fn.Function{Runtime: "go", Root: root}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Store auth for a cluster
+	f.Local.SetAuth("https://cluster.example.com:6443", fn.ClusterTLS{
+		CertificateAuthorityData: "Y2EtZGF0YQ==",
+		InsecureSkipTLSVerify:    false,
+	}, fn.UserAuth{
+		Token:                 "my-token",
+		ClientCertificateData: "Y2VydC1kYXRh",
+		ClientKeyData:         "a2V5LWRhdGE=",
+	})
+
+	// Write to disk
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify local.yaml exists
+	localPath := filepath.Join(root, ".func", "local.yaml")
+	if _, err := os.Stat(localPath); err != nil {
+		t.Fatalf("expected local.yaml to exist: %v", err)
+	}
+
+	// Reload function from disk
+	f2, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// FindAuth should return the stored entry
+	entry := f2.Local.FindAuth("https://cluster.example.com:6443")
+	if entry == nil {
+		t.Fatal("expected auth entry after reload, got nil")
+	}
+	if entry.User.Token != "my-token" {
+		t.Fatalf("expected token 'my-token', got %q", entry.User.Token)
+	}
+	if entry.Cluster.CertificateAuthorityData != "Y2EtZGF0YQ==" {
+		t.Fatalf("expected CA data preserved, got %q", entry.Cluster.CertificateAuthorityData)
+	}
+	if entry.User.ClientCertificateData != "Y2VydC1kYXRh" {
+		t.Fatalf("expected cert data preserved, got %q", entry.User.ClientCertificateData)
+	}
+	if entry.User.ClientKeyData != "a2V5LWRhdGE=" {
+		t.Fatalf("expected key data preserved, got %q", entry.User.ClientKeyData)
+	}
+}
+
+// TestLocalAuth_FindMiss verifies FindAuth returns nil for unknown cluster URLs.
+func TestLocalAuth_FindMiss(t *testing.T) {
+	local := fn.Local{}
+	local.SetAuth("https://known.example.com", fn.ClusterTLS{}, fn.UserAuth{Token: "tok"})
+
+	if entry := local.FindAuth("https://unknown.example.com"); entry != nil {
+		t.Fatalf("expected nil for unknown URL, got %v", entry)
+	}
+}
+
+// TestLocalAuth_Upsert verifies SetAuth updates existing entries.
+func TestLocalAuth_Upsert(t *testing.T) {
+	local := fn.Local{}
+	local.SetAuth("https://cluster.example.com", fn.ClusterTLS{}, fn.UserAuth{Token: "old-token"})
+	local.SetAuth("https://cluster.example.com", fn.ClusterTLS{}, fn.UserAuth{Token: "new-token"})
+
+	if len(local.Auth) != 1 {
+		t.Fatalf("expected 1 entry after upsert, got %d", len(local.Auth))
+	}
+	if local.Auth[0].User.Token != "new-token" {
+		t.Fatalf("expected upserted token, got %q", local.Auth[0].User.Token)
+	}
+}
+
+// TestLocalAuth_MultipleEntries verifies multiple clusters can be stored.
+func TestLocalAuth_MultipleEntries(t *testing.T) {
+	local := fn.Local{}
+	local.SetAuth("https://cluster-a.example.com", fn.ClusterTLS{}, fn.UserAuth{Token: "tok-a"})
+	local.SetAuth("https://cluster-b.example.com", fn.ClusterTLS{}, fn.UserAuth{Token: "tok-b"})
+
+	if len(local.Auth) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(local.Auth))
+	}
+	a := local.FindAuth("https://cluster-a.example.com")
+	b := local.FindAuth("https://cluster-b.example.com")
+	if a == nil || a.User.Token != "tok-a" {
+		t.Fatal("cluster-a auth not found or wrong")
+	}
+	if b == nil || b.User.Token != "tok-b" {
+		t.Fatal("cluster-b auth not found or wrong")
+	}
+}
+
+// TestLocalAuth_LocalYAMLMode0600 ensures the credential file is written 0600.
+func TestLocalAuth_LocalYAMLMode0600(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file mode bits are not meaningful on Windows")
+	}
+	root := FromTempDirectory(t)
+	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Local.SetAuth("https://cluster.example.com:6443", fn.ClusterTLS{}, fn.UserAuth{Token: "secret"})
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(filepath.Join(root, ".func", "local.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("local.yaml mode = %o, want 0600", perm)
+	}
+}
+
+// TestLocalAuth_TightensPreexisting0644 ensures a pre-existing, loosened
+// local.yaml is re-tightened to 0600 on every Write -- unconditionally, even
+// when the rewrite carries no credentials (os.WriteFile does not change the
+// mode of an already-existing file). local.yaml is private machine-local
+// state and must never be left group/world-readable.
+func TestLocalAuth_TightensPreexisting0644(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file mode bits are not meaningful on Windows")
+	}
+	root := FromTempDirectory(t)
+	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Write a local.yaml, then loosen it as an older func (or a stray umask)
+	// would have.
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	localPath := filepath.Join(root, ".func", "local.yaml")
+	if err := os.Chmod(localPath, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Reload and write again WITHOUT any credentials -> must still be
+	// re-tightened to 0600. The invariant holds regardless of auth content.
+	// (A non-auth change is needed to force a write, since Write() no-ops when
+	// the function is unmodified.)
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	f.Local.Remote = true
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(localPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("pre-existing local.yaml not tightened: mode = %o, want 0600", perm)
+	}
+}
+
+// TestLocalAuth_NotInFuncYAML ensures credentials never leak into the
+// source-controlled func.yaml, while the (non-secret) cluster URL is recorded.
+func TestLocalAuth_NotInFuncYAML(t *testing.T) {
+	root := FromTempDirectory(t)
+	f := fn.Function{Runtime: "go", Root: root,
+		Deploy: fn.DeploySpec{Cluster: "https://cluster.example.com:6443"}}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Local.SetAuth("https://cluster.example.com:6443", fn.ClusterTLS{}, fn.UserAuth{Token: "super-secret-token"})
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "super-secret-token") {
+		t.Fatalf("func.yaml leaked the stored token:\n%s", raw)
+	}
+	if !strings.Contains(string(raw), "https://cluster.example.com:6443") {
+		t.Fatalf("func.yaml should record the (non-secret) cluster URL:\n%s", raw)
 	}
 }

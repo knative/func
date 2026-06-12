@@ -6,15 +6,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// Note: SetOpenShiftForTest mutates a package-level bool without a mutex.
-// These tests must not be run with t.Parallel() until that is addressed.
-// See openshift.go:SetOpenShiftForTest.
+func testClient(openshift bool) *Client {
+	return NewClientWithOpenShift(nil, openshift)
+}
 
 func TestDefaultPodSecurityContext_NonOpenShift(t *testing.T) {
-	cleanup := SetOpenShiftForTest(false)
-	defer cleanup()
+	kc := testClient(false)
 
-	sc := defaultPodSecurityContext()
+	sc := defaultPodSecurityContext(kc)
 	if sc == nil {
 		t.Fatal("expected non-nil PodSecurityContext on non-OpenShift")
 	}
@@ -36,10 +35,9 @@ func TestDefaultPodSecurityContext_NonOpenShift(t *testing.T) {
 }
 
 func TestDefaultPodSecurityContext_OpenShift(t *testing.T) {
-	cleanup := SetOpenShiftForTest(true)
-	defer cleanup()
+	kc := testClient(true)
 
-	sc := defaultPodSecurityContext()
+	sc := defaultPodSecurityContext(kc)
 	if sc == nil {
 		t.Fatal("expected non-nil PodSecurityContext on OpenShift")
 	}
@@ -52,7 +50,6 @@ func TestDefaultPodSecurityContext_OpenShift(t *testing.T) {
 	if sc.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
 		t.Errorf("expected SeccompProfile.Type=RuntimeDefault, got %v", sc.SeccompProfile.Type)
 	}
-	// On OpenShift SCCs manage UID/GID; these must not be set.
 	if sc.RunAsUser != nil {
 		t.Errorf("expected RunAsUser to be nil on OpenShift, got %d", *sc.RunAsUser)
 	}
@@ -92,13 +89,6 @@ func TestDefaultSecurityContext(t *testing.T) {
 	}
 }
 
-// TestRestrictedProfileCompliance verifies both security context helpers together
-// satisfy all four fields required by the Kubernetes "restricted" pod security
-// profile on both OpenShift and vanilla Kubernetes clusters.
-//
-// Note: this validates Go struct fields only. End-to-end admission validation
-// against a real restricted namespace is covered by the integration test suite
-// (make test-full).
 func TestRestrictedProfileCompliance(t *testing.T) {
 	for _, openshift := range []bool{false, true} {
 		openshift := openshift
@@ -107,17 +97,14 @@ func TestRestrictedProfileCompliance(t *testing.T) {
 			name = "openshift"
 		}
 		t.Run(name, func(t *testing.T) {
-			cleanup := SetOpenShiftForTest(openshift)
-			defer cleanup()
+			kc := testClient(openshift)
 
-			pod := defaultPodSecurityContext()
+			pod := defaultPodSecurityContext(kc)
 			ctr := defaultSecurityContext()
 
-			// restricted requires: allowPrivilegeEscalation=false (container level)
 			if ctr.AllowPrivilegeEscalation == nil || *ctr.AllowPrivilegeEscalation {
 				t.Error("restricted violation: AllowPrivilegeEscalation must be false")
 			}
-			// restricted requires: capabilities.drop must include ALL (container level)
 			hasDropAll := false
 			if ctr.Capabilities != nil {
 				for _, cap := range ctr.Capabilities.Drop {
@@ -130,17 +117,14 @@ func TestRestrictedProfileCompliance(t *testing.T) {
 			if !hasDropAll {
 				t.Error("restricted violation: capabilities.drop must include ALL")
 			}
-			// restricted requires: runAsNonRoot=true (pod or container level)
-			podHasRunAsNonRoot := pod != nil && pod.RunAsNonRoot != nil && *pod.RunAsNonRoot
-			ctrHasRunAsNonRoot := ctr.RunAsNonRoot != nil && *ctr.RunAsNonRoot
-			if !podHasRunAsNonRoot && !ctrHasRunAsNonRoot {
-				t.Error("restricted violation: runAsNonRoot must be true at pod or container level")
+			if pod.RunAsNonRoot == nil || !*pod.RunAsNonRoot {
+				t.Error("restricted violation: runAsNonRoot must be true")
 			}
-			// restricted requires: seccompProfile (pod or container level)
-			podHasSeccomp := pod != nil && pod.SeccompProfile != nil
-			ctrHasSeccomp := ctr.SeccompProfile != nil
-			if !podHasSeccomp && !ctrHasSeccomp {
-				t.Error("restricted violation: seccompProfile must be set at pod or container level")
+			if pod.SeccompProfile == nil {
+				t.Error("restricted violation: seccompProfile must be set at pod level")
+			}
+			if ctr.SeccompProfile == nil {
+				t.Error("restricted violation: seccompProfile must be set at container level")
 			}
 		})
 	}

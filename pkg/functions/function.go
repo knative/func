@@ -48,6 +48,66 @@ type Local struct {
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
 	Remote bool `yaml:"remote,omitempty"`
+
+	// Auth holds per-cluster authentication entries
+	Auth []AuthEntry `yaml:"auth,omitempty"`
+}
+
+// AuthEntry is the complete structure for verification on cluster side and
+// authentication on user side for cluster to deploy to.
+type AuthEntry struct {
+	ClusterURL string     `yaml:"cluster-url"`
+	Cluster    ClusterTLS `yaml:"cluster,omitempty"`
+	User       UserAuth   `yaml:"user,omitempty"`
+}
+
+type ClusterTLS struct {
+	CertificateAuthorityData string `yaml:"certificate-authority-data,omitempty"`
+	CertificateAuthority     string `yaml:"certificate-authority,omitempty"`
+	InsecureSkipTLSVerify    bool   `yaml:"insecure-skip-tls-verify,omitempty"`
+}
+
+// UserAuth holds user credentials for authenticating to a cluster.
+type UserAuth struct {
+	ClientCertificateData string `yaml:"client-certificate-data,omitempty"`
+	ClientKeyData         string `yaml:"client-key-data,omitempty"`
+	ClientCertificate     string `yaml:"client-certificate,omitempty"`
+	ClientKey             string `yaml:"client-key,omitempty"`
+	Token                 string `yaml:"token,omitempty"`
+}
+
+// FindAuth returns first AuthEntry matching the cluster URL it finds, or nil
+// if no entry matches.
+func (l Local) FindAuth(url string) *AuthEntry {
+	url = normalizeURL(url)
+	for i := range l.Auth {
+		if normalizeURL(l.Auth[i].ClusterURL) == url {
+			return &l.Auth[i]
+		}
+	}
+	return nil
+}
+
+// SetAuth upserts an auth entry for the given cluster URL. If an entry with the
+// same URL already exists it is updated; otherwise a new entry is appended.
+func (l *Local) SetAuth(clusterURL string, cluster ClusterTLS, user UserAuth) {
+	clusterURL = normalizeURL(clusterURL)
+	for i := range l.Auth {
+		if normalizeURL(l.Auth[i].ClusterURL) == clusterURL {
+			l.Auth[i].Cluster = cluster
+			l.Auth[i].User = user
+			return
+		}
+	}
+	l.Auth = append(l.Auth, AuthEntry{
+		ClusterURL: clusterURL,
+		Cluster:    cluster,
+		User:       user,
+	})
+}
+
+func normalizeURL(url string) string {
+	return strings.TrimRight(url, "/")
 }
 
 // Function
@@ -195,6 +255,9 @@ type RunSpec struct {
 type DeploySpec struct {
 	// Namespace into which the function was deployed on supported platforms.
 	Namespace string `yaml:"namespace,omitempty"`
+
+	// Cluster is the cluster server api URL where the function is deployed
+	Cluster string `yaml:"cluster,omitempty"`
 
 	// Image is the deployed image including sha256
 	Image string `yaml:"image,omitempty"`
@@ -503,7 +566,14 @@ func (f Function) Write() (err error) {
 	}
 	localConfigPath := filepath.Join(f.Root, RunDataDir, RunDataLocalFile)
 
-	if err = os.WriteFile(localConfigPath, bb, 0644); err != nil {
+	if err = os.WriteFile(localConfigPath, bb, 0600); err != nil {
+		return
+	}
+	// os.WriteFile does not tighten the mode of a pre-existing file, so enforce
+	// 0600 on every write.
+	// gauron99: for more security we could stat file -> chmod -> write instead
+	// or move the auth to a separate file (since remote flag is bundled up here)
+	if err = os.Chmod(localConfigPath, 0600); err != nil {
 		return
 	}
 

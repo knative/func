@@ -16,7 +16,7 @@ import (
 // The image must be the digest format since pods of Knative service use it.
 //
 // This function runs as long as the passed context is active (i.e. it is required cancel the context to stop log gathering).
-func GetKServiceLogs(ctx context.Context, namespace, kServiceName, image string, since *time.Time, out io.Writer) error {
+func GetKServiceLogs(ctx context.Context, kc *k8s.Client, namespace, kServiceName, image string, since *time.Time, out io.Writer) error {
 	selector := fmt.Sprintf("serving.knative.dev/service=%s", kServiceName)
-	return k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", image, since, out)
+	return k8s.GetPodLogsBySelector(ctx, kc, namespace, selector, "user-container", image, since, out)
 }

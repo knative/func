@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -18,6 +17,9 @@ import (
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/mock"
 	. "knative.dev/func/pkg/testing"
+
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // commandConstructor is used to share test implementations between commands
@@ -1065,6 +1067,84 @@ func TestDeploy_Namespace(t *testing.T) {
 	}
 }
 
+// writeKubeconfigNS points KUBECONFIG at a single-context kubeconfig whose
+// active context defaults to the given namespace -- i.e. simulates `kubens <ns>`.
+func writeKubeconfigNS(t *testing.T, namespace string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "kubeconfig")
+	cfg := clientcmdapi.Config{
+		CurrentContext: "test",
+		Contexts:       map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test", Namespace: namespace}},
+		Clusters:       map[string]*clientcmdapi.Cluster{"test": {Server: "https://cluster.example.com:6443", InsecureSkipTLSVerify: true}},
+		AuthInfos:      map[string]*clientcmdapi.AuthInfo{"test": {Token: "test-token"}},
+	}
+	if err := clientcmd.WriteToFile(cfg, path); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KUBECONFIG", path)
+}
+
+// TestDeploy_NamespacePinSurvivesContextSwitch is the headline guarantee: once a
+// function is deployed, switching the active kubeconfig context (the `kubens`
+// case) must NOT move where it deploys. Complements TestDeploy_Namespace, which
+// keeps the active context constant; here the active namespace actively changes
+// between deploys.
+func TestDeploy_NamespacePinSurvivesContextSwitch(t *testing.T) {
+	root := FromTempDirectory(t)
+	testClientFn := NewTestClient(fn.WithDeployer(mock.NewDeployer()))
+
+	f, err := fn.New().Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy pins the function to "team-a".
+	cmd := NewDeployCmd(testClientFn)
+	cmd.SetArgs([]string{"--namespace=team-a"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ = fn.NewFunction(root); f.Deploy.Namespace != "team-a" {
+		t.Fatalf("setup: expected deployed namespace 'team-a', got %q", f.Deploy.Namespace)
+	}
+
+	// kubens: switch the active context to a different namespace.
+	writeKubeconfigNS(t, "switched-ns")
+
+	// Redeploy with no --namespace: the function's pin must win over the now
+	// different active context, not follow it to 'switched-ns'.
+	cmd = NewDeployCmd(testClientFn)
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ = fn.NewFunction(root); f.Deploy.Namespace != "team-a" {
+		t.Fatalf("namespace pin did not survive context switch: got %q, want team-a", f.Deploy.Namespace)
+	}
+}
+
+// TestDeploy_NamespaceFromEnv verifies the env-var leg of namespace resolution
+// (FUNC_NAMESPACE), mirroring the env coverage cluster/token already have.
+func TestDeploy_NamespaceFromEnv(t *testing.T) {
+	root := FromTempDirectory(t)
+	t.Setenv("FUNC_NAMESPACE", "env-ns") // after FromTempDirectory, which clears FUNC_*
+	testClientFn := NewTestClient(fn.WithDeployer(mock.NewDeployer()))
+
+	f, err := fn.New().Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(testClientFn)
+	cmd.SetArgs([]string{}) // no --namespace; env should win over the active-context default
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ = fn.NewFunction(root); f.Deploy.Namespace != "env-ns" {
+		t.Fatalf("expected namespace from FUNC_NAMESPACE 'env-ns', got %q", f.Deploy.Namespace)
+	}
+}
+
 // TestDeploy_NamespaceDefaultsToK8sContext ensures that when not specified, a
 // users's active kubernetes context is used for the namespace if available.
 func TestDeploy_NamespaceDefaultsToK8sContext(t *testing.T) {
@@ -1165,18 +1245,8 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 	))
 	cmd.SetArgs([]string{})
-	stdout := strings.Builder{}
-	cmd.SetOut(&stdout)
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
-	}
-
-	expected := "Warning: namespace chosen is 'funcns', but currently active namespace is 'mynamespace'. Continuing with deployment to 'funcns'."
-
-	// Ensure output contained warning if changing namespace
-	if !strings.Contains(stdout.String(), expected) {
-		t.Log("STDOUT:\n" + stdout.String())
-		t.Fatalf("Expected warning not found:\n%v", expected)
 	}
 
 	// Ensure the function was saved as having been deployed to the correct ns
@@ -1193,15 +1263,22 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 // to a new namespace issues a warning.
 // Also implicitly checks that the --namespace flag takes precedence over
 // the namespace of a previously deployed Function.
-func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
+// TestDeploy_DeployTargetChangeWarning ensures that changing namespace or
+// cluster from a previous deployment issues an informational message.
+func TestDeploy_DeployTargetChangeWarning(t *testing.T) {
 	root := FromTempDirectory(t)
 
+	// Provide a kubeconfig so BuildClientConfig can resolve auth for the new cluster
+	writeDeployTestKubeconfig(t, "https://new-cluster:6443", "test-token")
+
 	// Create a Function which appears to have been deployed to 'myns'
+	// on cluster 'https://old-cluster:6443'
 	f := fn.Function{
 		Runtime: "go",
 		Root:    root,
 		Deploy: fn.DeploySpec{
 			Namespace: "myns",
+			Cluster:   "https://old-cluster:6443",
 		},
 	}
 	f, err := fn.New().Init(f)
@@ -1209,16 +1286,15 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Redeploy the function, specifying 'newns'
+	// Redeploy the function, specifying new namespace and cluster
 	cmd := NewDeployCmd(NewTestClient(
 		fn.WithDeployer(mock.NewDeployer()),
 		fn.WithBuilder(mock.NewBuilder()),
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 		fn.WithRegistry(TestRegistry),
 	))
-	cmd.SetArgs([]string{"--namespace=newns"})
+	cmd.SetArgs([]string{"--namespace=newns", "--cluster=https://new-cluster:6443"})
 	out := strings.Builder{}
-	fmt.Fprintln(&out, "Test error")
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
@@ -1226,28 +1302,357 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(1 * time.Second)
+	output := out.String()
 
-	activeNamespace, err := k8s.GetDefaultNamespace()
-	if err != nil {
-		t.Fatalf("Couldn't get active namespace, got error: %v", err)
+	// Ensure output contains namespace change info
+	expectedNS := "Info: namespace changed from 'myns' to 'newns'. Function will be moved."
+	if !strings.Contains(output, expectedNS) {
+		t.Log("OUTPUT:\n" + output)
+		t.Fatalf("Expected namespace change info not found:\n%v", expectedNS)
 	}
 
-	expected1 := "Info: chosen namespace has changed from 'myns' to 'newns'. Undeploying function from 'myns' and deploying new in 'newns'."
-	expected2 := fmt.Sprintf("Warning: namespace chosen is 'newns', but currently active namespace is '%s'. Continuing with deployment to 'newns'.", activeNamespace)
-	// Ensure output contained info and warning if changing namespace
-	if !strings.Contains(out.String(), expected1) || !strings.Contains(out.String(), expected2) {
-		t.Log("STDERR:\n" + out.String())
-		t.Fatalf("Expected Info and/or Warning not found:\n%v|%v", expected1, expected2)
+	// Ensure output contains cluster change info
+	expectedCluster := "Warning: Changing deployment cluster from 'https://old-cluster:6443' to 'https://new-cluster:6443'. Function will NOT be removed from the old cluster."
+	if !strings.Contains(output, expectedCluster) {
+		t.Log("OUTPUT:\n" + output)
+		t.Fatalf("Expected cluster change info not found:\n%v", expectedCluster)
 	}
 
-	// Ensure the function was saved as having been deployed to
+	// Ensure the function was saved with the new namespace
 	f, err = fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if f.Deploy.Namespace != "newns" {
-		t.Fatalf("expected function to be deployed into namespace 'newns'.  got '%v'", f.Deploy.Namespace)
+		t.Fatalf("expected function to be deployed into namespace 'newns'. got '%v'", f.Deploy.Namespace)
+	}
+	if f.Deploy.Cluster != "https://new-cluster:6443" {
+		t.Fatalf("expected function to be deployed to cluster 'https://new-cluster:6443'. got '%v'", f.Deploy.Cluster)
+	}
+}
+
+// TestDeploy_ClusterAuthPriorityFlow walks the full cluster/auth resolution
+// ladder and asserts which source wins at each step.
+// Priority, lowest first:
+//
+//  1. global config default
+//  2. stored credential (.func/local.yaml)
+//  3. FUNC_CLUSTER(_TOKEN) env
+//  4. --cluster/--cluster-token flag
+//
+// Each step is checked by reading back the pinned cluster (func.yaml
+// deploy.cluster) and the cached credential (.func/local.yaml). Auth resolution
+// uses the real k8s client, so the stored token proves which (url, token) resolved.
+func TestDeploy_ClusterAuthPriorityFlow(t *testing.T) {
+	root := FromTempDirectory(t)
+	// Global config default supplies cluster: https://cfg-cluster:6443 (+ registry)
+	t.Setenv("XDG_CONFIG_HOME", fmt.Sprintf("%s/testdata/TestDeploy_ClusterAuthPriorityFlow", cwd()))
+
+	clientFn := NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithPusher(mock.NewPusher()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry(TestRegistry),
+	)
+
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Name: "f"}); err != nil {
+		t.Fatal(err)
+	}
+
+	deploy := func(args ...string) {
+		t.Helper()
+		cmd := NewDeployCmd(clientFn) // fresh per step to avoid viper/flag carryover
+		cmd.SetArgs(args)
+		var out strings.Builder
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("deploy %v: %v\noutput:\n%s", args, err, out.String())
+		}
+	}
+	reload := func() fn.Function {
+		t.Helper()
+		f, err := fn.NewFunction(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+	tokenFor := func(f fn.Function, url string) string {
+		t.Helper()
+		e := f.Local.FindAuth(url)
+		if e == nil {
+			t.Fatalf("no stored auth entry for %q; entries=%+v", url, f.Local.Auth)
+		}
+		return e.User.Token
+	}
+
+	// Loopback URLs so the IsOpenshift discovery call is refused instantly
+	// (an unreachable hostname would wait on a multi-second DNS timeout).
+	const (
+		cfgCluster  = "https://127.0.0.1:6443"
+		envCluster  = "https://127.0.0.1:6444"
+		flagCluster = "https://127.0.0.1:6445"
+	)
+
+	// STEP 1 — global config default pins the cluster and caches kubeconfig auth.
+	writeDeployTestKubeconfig(t, cfgCluster, "cfg-token")
+	deploy()
+	if f := reload(); f.Deploy.Cluster != cfgCluster {
+		t.Fatalf("step1: pin = %q, want %q", f.Deploy.Cluster, cfgCluster)
+	} else if len(f.Local.Auth) != 1 || tokenFor(f, cfgCluster) != "cfg-token" {
+		t.Fatalf("step1: want 1 entry cfg-token, got %+v", f.Local.Auth)
+	}
+
+	// STEP 2 — redeploy, no flags, kubeconfig now serves a STALE token for the
+	// same cluster: the STORED credential must win (FindAuth short-circuits the
+	// kubeconfig search), the pin is unchanged, and no second entry is appended.
+	writeDeployTestKubeconfig(t, cfgCluster, "STALE")
+	deploy()
+	if f := reload(); f.Deploy.Cluster != cfgCluster {
+		t.Fatalf("step2: pin changed to %q, want %q", f.Deploy.Cluster, cfgCluster)
+	} else if len(f.Local.Auth) != 1 || tokenFor(f, cfgCluster) != "cfg-token" {
+		t.Fatalf("step2: stored creds did not beat kubeconfig; got %+v", f.Local.Auth)
+	}
+
+	// STEP 3 — FUNC_CLUSTER(_TOKEN) env wins over the stored func.yaml pin.
+	t.Setenv("FUNC_CLUSTER", envCluster)
+	t.Setenv("FUNC_CLUSTER_TOKEN", "env-token")
+	deploy()
+	if f := reload(); f.Deploy.Cluster != envCluster {
+		t.Fatalf("step3: env did not win; pin = %q, want %q", f.Deploy.Cluster, envCluster)
+	} else if len(f.Local.Auth) != 2 {
+		t.Fatalf("step3: want 2 entries, got %+v", f.Local.Auth)
+	} else if tokenFor(f, envCluster) != "env-token" {
+		t.Fatalf("step3: env token = %q, want env-token", tokenFor(f, envCluster))
+	} else if tokenFor(f, cfgCluster) != "cfg-token" {
+		t.Fatalf("step3: cfg entry mutated to %q", tokenFor(f, cfgCluster))
+	}
+
+	// STEP 4 — explicit --cluster/--cluster-token flag wins over env.
+	deploy("--cluster="+flagCluster, "--cluster-token=flag-token")
+	if f := reload(); f.Deploy.Cluster != flagCluster {
+		t.Fatalf("step4: flag did not win; pin = %q, want %q", f.Deploy.Cluster, flagCluster)
+	} else if len(f.Local.Auth) != 3 || tokenFor(f, flagCluster) != "flag-token" {
+		t.Fatalf("step4: want flag-token entry, got %+v", f.Local.Auth)
+	}
+}
+
+// authTestClient returns a deploy ClientFactory whose build/push/deploy are all
+// mocked so the deploy succeeds and the real credential-persistence block runs
+// without a cluster. (The k8s client used for auth resolution is still the real
+// one, so persisted .func/local.yaml reflects what was actually resolved.)
+func authTestClient() ClientFactory {
+	return NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithPusher(mock.NewPusher()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry(TestRegistry),
+	)
+}
+
+// TestDeploy_SaveAuthGate asserts --save-cluster-auth (and
+// FUNC_SAVE_CLUSTER_AUTH): the default caches credentials, while
+// --save-cluster-auth=false pins the cluster but writes none.
+func TestDeploy_SaveAuthGate(t *testing.T) {
+	const cluster = "https://127.0.0.1:6443"
+	run := func(root string, args ...string) fn.Function {
+		t.Helper()
+		cmd := NewDeployCmd(authTestClient())
+		cmd.SetArgs(args)
+		var out strings.Builder
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("deploy %v: %v\n%s", args, err, out.String())
+		}
+		f, err := fn.NewFunction(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+	initFn := func(root string) {
+		t.Helper()
+		writeDeployTestKubeconfig(t, cluster, "kube-token")
+		if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Name: "f"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// default: cluster pinned AND credentials cached
+	root := FromTempDirectory(t)
+	initFn(root)
+	if f := run(root, "--cluster="+cluster); f.Deploy.Cluster != cluster {
+		t.Fatalf("default: cluster not pinned, got %q", f.Deploy.Cluster)
+	} else if e := f.Local.FindAuth(cluster); e == nil || e.User.Token != "kube-token" {
+		t.Fatalf("default: want cached kube-token, got %+v", f.Local.Auth)
+	}
+
+	// --save-cluster-auth=false: cluster pinned, NO credentials written
+	root = FromTempDirectory(t)
+	initFn(root)
+	if f := run(root, "--cluster="+cluster, "--save-cluster-auth=false"); f.Deploy.Cluster != cluster {
+		t.Fatalf("flag-off: cluster not pinned, got %q", f.Deploy.Cluster)
+	} else if len(f.Local.Auth) != 0 {
+		t.Fatalf("flag-off: expected no stored auth, got %+v", f.Local.Auth)
+	}
+
+	// FUNC_SAVE_CLUSTER_AUTH=false behaves like the flag (set AFTER FromTempDirectory so
+	// it survives the helper's env clearing)
+	root = FromTempDirectory(t)
+	t.Setenv("FUNC_SAVE_CLUSTER_AUTH", "false")
+	initFn(root)
+	if f := run(root, "--cluster="+cluster); f.Deploy.Cluster != cluster {
+		t.Fatalf("env-off: cluster not pinned, got %q", f.Deploy.Cluster)
+	} else if len(f.Local.Auth) != 0 {
+		t.Fatalf("env-off: expected no stored auth, got %+v", f.Local.Auth)
+	}
+}
+
+// TestDeploy_KubeconfigFallback_PinsAndStores asserts the "old way": with no
+// --cluster/env/stored auth, the active kubeconfig is used, and the resolved
+// cluster + auth are then pinned/cached for subsequent deploys.
+func TestDeploy_KubeconfigFallback_PinsAndStores(t *testing.T) {
+	const cluster = "https://127.0.0.1:6443"
+	root := FromTempDirectory(t)
+	writeDeployTestKubeconfig(t, cluster, "kube-token") // the active-context source
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Name: "f"}); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(authTestClient()) // NO --cluster / FUNC_CLUSTER / stored auth
+	var out strings.Builder
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("deploy: %v\n%s", err, out.String())
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.Cluster != cluster {
+		t.Fatalf("expected cluster pinned from active kubeconfig %q, got %q", cluster, f.Deploy.Cluster)
+	}
+	if e := f.Local.FindAuth(cluster); e == nil || e.User.Token != "kube-token" {
+		t.Fatalf("expected active-context auth cached, got %+v", f.Local.Auth)
+	}
+}
+
+// writeTwoContextKubeconfig points KUBECONFIG at a kubeconfig with an active
+// context (activeServer/activeToken) and a second, non-active context
+// (otherServer/otherToken).
+func writeTwoContextKubeconfig(t *testing.T, activeServer, activeToken, otherServer, otherToken string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "kubeconfig")
+	cfg := clientcmdapi.Config{
+		CurrentContext: "active",
+		Contexts: map[string]*clientcmdapi.Context{
+			"active": {Cluster: "active-cluster", AuthInfo: "active-user"},
+			"other":  {Cluster: "other-cluster", AuthInfo: "other-user"},
+		},
+		Clusters: map[string]*clientcmdapi.Cluster{
+			"active-cluster": {Server: activeServer},
+			"other-cluster":  {Server: otherServer},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			"active-user": {Token: activeToken},
+			"other-user":  {Token: otherToken},
+		},
+	}
+	if err := clientcmd.WriteToFile(cfg, path); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KUBECONFIG", path)
+}
+
+// TestDeploy_ClusterFlagResolvesNonActiveContext covers the "exactly one
+// non-active match" rung of kubeconfig resolution at the cmd level: deploying
+// with --cluster pointing at a cluster that is NOT the active context, but is
+// targeted by exactly one other context, must resolve and persist THAT
+// context's token -- not the active context's. (The deploy itself is mocked;
+// kc.Auth() is a local read, so neither cluster needs to be reachable.)
+func TestDeploy_ClusterFlagResolvesNonActiveContext(t *testing.T) {
+	const (
+		activeCluster = "https://127.0.0.1:6443" // current-context
+		otherCluster  = "https://127.0.0.1:6444" // a non-active context targets this
+	)
+	root := FromTempDirectory(t)
+	writeTwoContextKubeconfig(t, activeCluster, "active-token", otherCluster, "other-token")
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Name: "f"}); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(authTestClient())
+	cmd.SetArgs([]string{"--cluster=" + otherCluster}) // non-active cluster, no token, no stored auth
+	var out strings.Builder
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("deploy: %v\n%s", err, out.String())
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.Cluster != otherCluster {
+		t.Fatalf("pin = %q, want %q", f.Deploy.Cluster, otherCluster)
+	}
+	e := f.Local.FindAuth(otherCluster)
+	if e == nil {
+		t.Fatalf("no stored auth for %q; entries=%+v", otherCluster, f.Local.Auth)
+	}
+	if e.User.Token != "other-token" {
+		t.Fatalf("stored token = %q, want other-token (the non-active matched context, not active-token)", e.User.Token)
+	}
+}
+
+// TestDeploy_ClusterTokenUpdatesStoredTokenPreservesCA asserts the merge branch:
+// redeploying with a new --cluster-token updates the stored token while leaving
+// the previously-stored cluster CA intact.
+func TestDeploy_ClusterTokenUpdatesStoredTokenPreservesCA(t *testing.T) {
+	const cluster = "https://127.0.0.1:6443"
+	root := FromTempDirectory(t)
+	writeDeployTestKubeconfig(t, cluster, "ignored")
+
+	f := fn.Function{Runtime: "go", Root: root, Name: "f", Deploy: fn.DeploySpec{Cluster: cluster}}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// seed a stored entry: token v1 + a cluster CA
+	f.Local.SetAuth(cluster, fn.ClusterTLS{CertificateAuthorityData: "CA-DATA"}, fn.UserAuth{Token: "tok-v1"})
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(authTestClient())
+	cmd.SetArgs([]string{"--cluster=" + cluster, "--cluster-token=tok-v2"})
+	var out strings.Builder
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("deploy: %v\n%s", err, out.String())
+	}
+
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := f.Local.FindAuth(cluster)
+	if e == nil {
+		t.Fatalf("stored entry disappeared; entries=%+v", f.Local.Auth)
+	}
+	if e.User.Token != "tok-v2" {
+		t.Fatalf("token not updated: want tok-v2, got %q", e.User.Token)
+	}
+	if e.Cluster.CertificateAuthorityData != "CA-DATA" {
+		t.Fatalf("stored CA not preserved across --cluster-token update: got %q", e.Cluster.CertificateAuthorityData)
 	}
 }
 
@@ -1340,72 +1745,32 @@ func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 // TestDeploy_NamespaceChangePreservesExternalRegistry ensures that changing
 // namespace on OpenShift does not overwrite an external registry (e.g.
 // docker.io/user) with the internal OpenShift registry.
-// Regression test for https://github.com/knative/func/issues/2172
-func TestDeploy_NamespaceChangePreservesExternalRegistry(t *testing.T) {
-	root := FromTempDirectory(t)
+//
+// If running full deploy cmd flow here is desired, we might consider changing
+// signature of NewTestClient() function (noted at the functions' constructor)
+func TestResolveRegistry_OpenShift(t *testing.T) {
+	fakeLocal := fn.Local{Auth: []fn.AuthEntry{{ClusterURL: "fake-cluster", User: fn.UserAuth{Token: "fake"}}}}
+	fakeCC, _ := k8s.BuildClientConfig("fake-cluster", "", "", fakeLocal)
+	cc := k8s.NewClientWithOpenShift(fakeCC, true)
 
-	cleanup := k8s.SetOpenShiftForTest(true)
-	defer cleanup()
-
-	// Create a function deployed to "ns1" with an external registry
-	f := fn.Function{
-		Runtime:  "go",
-		Root:     root,
-		Registry: "docker.io/user",
-		Deploy:   fn.DeploySpec{Namespace: "ns1"},
-	}
-	f, err := fn.New().Init(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Deploy to a different namespace
-	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
-	cmd.SetArgs([]string{"--namespace=ns2"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name      string
+		registry  string
+		namespace string
+		expected  string
+	}{
+		{"external registry preserved", "docker.io/user", "ns2", "docker.io/user"},
+		{"internal registry rewritten", "image-registry.openshift-image-registry.svc:5000/ns1", "ns2", "image-registry.openshift-image-registry.svc:5000/ns2"},
+		{"empty fallback to openshift", "", "", "image-registry.openshift-image-registry.svc:5000/default"},
 	}
 
-	// Reload and verify the external registry was preserved
-	f, _ = fn.NewFunction(root)
-	if f.Registry != "docker.io/user" {
-		t.Errorf("expected registry 'docker.io/user' to be preserved, got %q", f.Registry)
-	}
-}
-
-// TestDeploy_NamespaceChangeUpdatesInternalRegistry ensures that changing
-// namespace on OpenShift DOES update the registry when the function uses
-// the internal OpenShift registry (the namespace is part of the registry path).
-func TestDeploy_NamespaceChangeUpdatesInternalRegistry(t *testing.T) {
-	root := FromTempDirectory(t)
-
-	cleanup := k8s.SetOpenShiftForTest(true)
-	defer cleanup()
-
-	// Create a function deployed to "ns1" using the internal registry
-	f := fn.Function{
-		Runtime:  "go",
-		Root:     root,
-		Registry: "image-registry.openshift-image-registry.svc:5000/ns1",
-		Deploy:   fn.DeploySpec{Namespace: "ns1"},
-	}
-	f, err := fn.New().Init(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Deploy to a different namespace
-	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
-	cmd.SetArgs([]string{"--namespace=ns2"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Reload and verify the internal registry was updated to the new namespace
-	f, _ = fn.NewFunction(root)
-	expected := "image-registry.openshift-image-registry.svc:5000/ns2"
-	if f.Registry != expected {
-		t.Errorf("expected registry to update to %q, got %q", expected, f.Registry)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ret := resolveRegistry(tt.registry, tt.namespace, cc)
+			if ret != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, ret)
+			}
+		})
 	}
 }
 
@@ -2546,4 +2911,20 @@ func TestDeploy_ValidDomain(t *testing.T) {
 
 func TestDeploy_RegistryInsecurePersists(t *testing.T) {
 	testRegistryInsecurePersists(NewDeployCmd, t)
+}
+
+func writeDeployTestKubeconfig(t *testing.T, serverURL, token string) {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kubeconfig")
+	cfg := clientcmdapi.Config{
+		CurrentContext: "test",
+		Contexts:       map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test"}},
+		Clusters:       map[string]*clientcmdapi.Cluster{"test": {Server: serverURL}},
+		AuthInfos:      map[string]*clientcmdapi.AuthInfo{"test": {Token: token}},
+	}
+	if err := clientcmd.WriteToFile(cfg, path); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KUBECONFIG", path)
 }

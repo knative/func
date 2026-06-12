@@ -23,15 +23,15 @@ const (
 
 // DetectPACInstallation checks whether PAC is installed on the cluster
 // Taken and slightly modified from https://github.com/openshift-pipelines/pipelines-as-code/blob/6a7f043f9bb51d04ab729505b26446695595df1f/pkg/cmd/tknpac/bootstrap/bootstrap.go
-func DetectPACInstallation(ctx context.Context) (bool, string, error) {
+func DetectPACInstallation(ctx context.Context, kc *k8s.Client) (bool, string, error) {
 	var installed bool
 
-	clientPac, cns, err := NewTektonPacClientAndResolvedNamespace("")
+	clientPac, cns, err := NewTektonPacClientAndResolvedNamespace(kc, "")
 	if err != nil {
 		return false, "", err
 	}
 
-	clientK8s, _, err := k8s.NewClientAndResolvedNamespace("")
+	clientK8s, _, err := kc.ClientAndNamespace("")
 	if err != nil {
 		return false, "", err
 	}
@@ -68,12 +68,12 @@ func DetectPACInstallation(ctx context.Context) (bool, string, error) {
 
 // DetectPACOpenShiftRoute detect the openshift route where the pac controller is running
 // Taken and slightly modified from https://github.com/openshift-pipelines/pipelines-as-code/blob/0d63e6239f4a7f1fc90decde1e0a154ed56ed0e7/pkg/cmd/tknpac/bootstrap/route.go
-func DetectPACOpenShiftRoute(ctx context.Context, targetNamespace string) (string, error) {
+func DetectPACOpenShiftRoute(ctx context.Context, kc *k8s.Client, targetNamespace string) (string, error) {
 	gvr := schema.GroupVersionResource{
 		Group: openShiftRouteGroup, Version: openShiftRouteVersion, Resource: openShiftRouteResource,
 	}
 
-	client, err := k8s.NewDynamicClient()
+	client, err := kc.DynamicClient()
 	if err != nil {
 		return "", err
 	}
@@ -105,8 +105,8 @@ func DetectPACOpenShiftRoute(ctx context.Context, targetNamespace string) (strin
 
 // GetPACInfo returns the controller url that PAC controller is running
 // Taken and slightly modified from https://github.com/openshift-pipelines/pipelines-as-code/blob/0d63e6239f4a7f1fc90decde1e0a154ed56ed0e7/pkg/cli/info/configmap.go
-func GetPACInfo(ctx context.Context, namespace string) (string, error) {
-	client, namespace, err := k8s.NewClientAndResolvedNamespace(namespace)
+func GetPACInfo(ctx context.Context, kc *k8s.Client, namespace string) (string, error) {
+	client, namespace, err := kc.ClientAndNamespace(namespace)
 	if err != nil {
 		return "", err
 	}

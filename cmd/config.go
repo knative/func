@@ -97,14 +97,19 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return
 	}
+	// construct k8s client for some commands do cluster search
+	kc, err := newK8sClientFromConfig(function.Deploy.Cluster, "", function.Deploy.Namespace, function.Local)
+	if err != nil {
+		return
+	}
 
 	switch answers.SelectedOperation {
 	case "Add":
 		switch answers.SelectedConfig {
 		case "Volumes":
-			err = runAddVolumesPrompt(cmd.Context(), function)
+			err = runAddVolumesPrompt(cmd.Context(), kc, function)
 		case "Environment variables":
-			err = runAddEnvsPrompt(cmd.Context(), function)
+			err = runAddEnvsPrompt(cmd.Context(), kc, function)
 		case "Labels":
 			err = runAddLabelsPrompt(cmd.Context(), function, common.DefaultLoaderSaver)
 		case "Git":
