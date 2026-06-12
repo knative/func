@@ -21,7 +21,7 @@ var buildTool = &mcp.Tool{
 
 func (s *Server) buildHandler(ctx context.Context, r *mcp.CallToolRequest, input BuildInput) (result *mcp.CallToolResult, output BuildOutput, err error) {
 	if s.readonly.Load() && input.Push != nil && *input.Push {
-		err = fmt.Errorf("the server is in read-only mode; set FUNC_ENABLE_MCP_WRITE=true to push images")
+		err = fmt.Errorf("pushing images is not allowed in read-only mode; set %s=true to enable write operations", EnvMCPWrite)
 		return
 	}
 	out, err := s.executor.Execute(ctx, "build", input.Args()...)

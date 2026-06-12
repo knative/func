@@ -15,6 +15,11 @@ const (
 	name    = "func"
 	title   = "func"
 	version = "0.1.0"
+
+	// EnvMCPWrite is the environment variable that enables write operations
+	// (deploy, delete, and pushing built images) on the MCP server. Set to
+	// "true" to allow mutations; the server runs in read-only mode by default.
+	EnvMCPWrite = "FUNC_ENABLE_MCP_WRITE"
 )
 
 // NOTE: Invoking prompts in some interfaces (such as Claude Code) when all
@@ -25,7 +30,7 @@ const (
 type Server struct {
 	OnInit    func(context.Context) // Invoked when the server is initialized
 	prefix    string                // Command prefix ("func" or "kn func")
-	readonly  atomic.Bool           // disables deploy, delete, and build when true
+	readonly  atomic.Bool           // disables deploy, delete, and pushing built images when true
 	executor  executor
 	transport mcp.Transport // Transport to use (defaults to StdioTransport)
 	impl      *mcp.Server   // implements the protocol
