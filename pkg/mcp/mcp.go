@@ -14,6 +14,11 @@ const (
 	name    = "func"
 	title   = "func"
 	version = "0.1.0"
+
+	// EnvMCPWrite is the environment variable that enables write operations
+	// (build, deploy, delete) on the MCP server. Set to "true" to allow
+	// mutations; the server runs in read-only mode by default.
+	EnvMCPWrite = "FUNC_ENABLE_MCP_WRITE"
 )
 
 // NOTE: Invoking prompts in some interfaces (such as Claude Code) when all
