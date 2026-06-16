@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	fn "knative.dev/func/pkg/functions"
 )
 
 // The recorder is a tiny HTTP Function deployed into the cluster that
@@ -127,6 +129,18 @@ func deployRecorder(t *testing.T, name string) *recorder {
 		[]byte(recorderSource), 0644); err != nil {
 		t.Fatal(err)
 	}
+
+	// Keep the recorder scaled to at least 1 replica to avoid cold-start latency
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	minScale := int64(1)
+	f.Deploy.Options.Scale = &fn.ScaleOptions{Min: &minScale}
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
