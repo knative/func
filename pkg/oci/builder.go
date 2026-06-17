@@ -639,7 +639,7 @@ func newConfigFile(job buildJob, p v1.Platform, base v1.Image, imageLayers []ima
 			Volumes:      newConfigVolumes(job),
 			ExposedPorts: map[string]struct{}{"8080/tcp": {}},
 			WorkingDir:   "/func/",
-			StopSignal:   "SIGKILL",
+			StopSignal:   "SIGTERM",
 			User:         fmt.Sprintf("%v:%v", DefaultUid, DefaultGid),
 			Labels:       job.labels,
 		},
