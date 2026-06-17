@@ -31,6 +31,7 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -635,6 +636,35 @@ func TestDeploy_RejectsKafka(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not supported on the knative deployer") {
 		t.Errorf("expected an unsupported-on-knative-deployer error, got: %v", err)
+	}
+}
+
+func TestSetServiceOptions_ScaleAnnotationFormat(t *testing.T) {
+	target := 100.0
+	utilization := 70.0
+	template := &servingv1.RevisionTemplateSpec{
+		Spec: servingv1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{}},
+			},
+		},
+	}
+	scale := &fn.ScaleOptions{
+		KPA: &fn.KPAScaleOptions{
+			Target:      &target,
+			Utilization: &utilization,
+		},
+	}
+
+	if err := setServiceOptions(template, scale, fn.Options{}); err != nil {
+		t.Fatalf("setServiceOptions returned unexpected error: %v", err)
+	}
+
+	if got := template.Annotations[autoscaling.TargetAnnotationKey]; got != "100" {
+		t.Errorf("expected target annotation to be %q, got %q", "100", got)
+	}
+	if got := template.Annotations[autoscaling.TargetUtilizationPercentageKey]; got != "70" {
+		t.Errorf("expected utilization annotation to be %q, got %q", "70", got)
 	}
 }
 

@@ -613,13 +613,13 @@ func setServiceOptions(template *servingv1.RevisionTemplateSpec, scale *fn.Scale
 		}
 
 		if target != nil {
-			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%f", *target)
+			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%g", *target)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetAnnotationKey)
 		}
 
 		if utilization != nil {
-			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *utilization)
+			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%g", *utilization)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetUtilizationPercentageKey)
 		}
