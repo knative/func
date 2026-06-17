@@ -81,6 +81,93 @@ func TestSourcesAsTarStream(t *testing.T) {
 	}
 }
 
+// readFuncYamlFromStream returns the content of source/func.yaml from the
+// tar stream, or fails if it is absent.
+func readFuncYamlFromStream(t *testing.T, rc io.ReadCloser) []byte {
+	t.Helper()
+	tr := tar.NewReader(rc)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			t.Fatal(err)
+		}
+		if hdr.Name == "source/"+fn.FunctionFile {
+			b, err := io.ReadAll(tr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return b
+		}
+	}
+	t.Fatalf("source/%s missing from tar stream", fn.FunctionFile)
+	return nil
+}
+
+// TestSourcesAsTarStream_FuncYamlInjection reproduces the fix for issue
+// #3679: the func.yaml placed into the upload tar stream must reflect the
+// in-memory function (with CLI overrides applied), NOT the stale on-disk
+// file, and streaming must not mutate the on-disk file.
+func TestSourcesAsTarStream_FuncYamlInjection(t *testing.T) {
+	t.Run("overrides on-disk func.yaml", func(t *testing.T) {
+		root := t.TempDir()
+
+		// Stale on-disk func.yaml (as if from a previous deploy).
+		onDisk := fn.Function{Root: root, Runtime: "go", Name: "fn"}
+		onDisk.Deploy.ImagePullSecret = "stale-on-disk"
+		if err := onDisk.Write(); err != nil {
+			t.Fatal(err)
+		}
+		before, err := os.ReadFile(filepath.Join(root, fn.FunctionFile))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// In-memory function with a one-off CLI override.
+		f := fn.Function{Root: root, Runtime: "go", Name: "fn"}
+		f.Deploy.ImagePullSecret = "from-cli"
+
+		rc := sourcesAsTarStream(f)
+		t.Cleanup(func() { _ = rc.Close() })
+
+		streamed := readFuncYamlFromStream(t, rc)
+		if !strings.Contains(string(streamed), "imagePullSecret: from-cli") {
+			t.Fatalf("tar func.yaml did not reflect in-memory override; got:\n%s", streamed)
+		}
+		if strings.Contains(string(streamed), "stale-on-disk") {
+			t.Fatalf("tar func.yaml contains stale on-disk value; got:\n%s", streamed)
+		}
+
+		// The on-disk file must be untouched by streaming.
+		after, err := os.ReadFile(filepath.Join(root, fn.FunctionFile))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(before) != string(after) {
+			t.Fatalf("sourcesAsTarStream mutated on-disk func.yaml.\nbefore:\n%s\nafter:\n%s", before, after)
+		}
+	})
+
+	t.Run("injects when func.yaml absent on disk", func(t *testing.T) {
+		root := t.TempDir()
+		f := fn.Function{Root: root, Runtime: "go", Name: "fn"}
+		f.Deploy.ImagePullSecret = "from-cli"
+
+		rc := sourcesAsTarStream(f)
+		t.Cleanup(func() { _ = rc.Close() })
+
+		streamed := readFuncYamlFromStream(t, rc)
+		if !strings.Contains(string(streamed), "imagePullSecret: from-cli") {
+			t.Fatalf("tar func.yaml not injected for never-saved function; got:\n%s", streamed)
+		}
+		if _, err := os.Stat(filepath.Join(root, fn.FunctionFile)); !os.IsNotExist(err) {
+			t.Fatalf("sourcesAsTarStream created func.yaml on disk; err=%v", err)
+		}
+	})
+}
+
 func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 	type mockType func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error)
 

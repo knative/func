@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -1912,9 +1913,12 @@ func TestDeploy_ImagePullSecretFromEnv(t *testing.T) {
 	}
 }
 
-// TestDeploy_ImagePullSecretRemote ensures that when deploying remotely,
-// func.yaml is written to disk before the pipeline starts, so the on-cluster
-// deploy step picks up the --image-pull-secret value.
+// TestDeploy_ImagePullSecretRemote ensures that when deploying remotely the
+// --image-pull-secret value reaches the pipeline via the in-memory function,
+// and that func.yaml is NOT written to disk before the pipeline runs (the
+// on-disk invariant from issue #3679). The actual byte-level injection into
+// the upload tar stream is covered by TestSourcesAsTarStream; the mock
+// pipeline provider here bypasses sourcesAsTarStream entirely.
 func TestDeploy_ImagePullSecretRemote(t *testing.T) {
 	root := FromTempDirectory(t)
 
@@ -1926,14 +1930,19 @@ func TestDeploy_ImagePullSecretRemote(t *testing.T) {
 
 	pipelinesProvider := mock.NewPipelinesProvider()
 	pipelinesProvider.RunFn = func(f fn.Function) (string, fn.Function, error) {
-		// Inside the pipeline Run, func.yaml on disk should already
-		// have the image pull secret written.
+		// The in-memory function passed to the pipeline must carry the
+		// CLI override so the on-cluster deploy step picks it up.
+		if f.Deploy.ImagePullSecret != "my-remote-secret" {
+			t.Fatalf("expected in-memory function to have imagePullSecret 'my-remote-secret', got '%v'", f.Deploy.ImagePullSecret)
+		}
+		// func.yaml on disk must NOT have been mutated before the pipeline
+		// runs: it should still reflect the pristine init state.
 		diskFn, err := fn.NewFunction(root)
 		if err != nil {
 			t.Fatalf("failed to load func.yaml during pipeline Run: %v", err)
 		}
-		if diskFn.Deploy.ImagePullSecret != "my-remote-secret" {
-			t.Fatalf("expected func.yaml on disk to have imagePullSecret 'my-remote-secret', got '%v'", diskFn.Deploy.ImagePullSecret)
+		if diskFn.Deploy.ImagePullSecret != "" {
+			t.Fatalf("expected func.yaml on disk to be unmodified before the pipeline runs, but it has imagePullSecret '%v'", diskFn.Deploy.ImagePullSecret)
 		}
 		f.Deploy.Namespace = "default"
 		if f.Deploy.Image, err = f.ImageName(); err != nil {
@@ -1953,6 +1962,55 @@ func TestDeploy_ImagePullSecretRemote(t *testing.T) {
 
 	if !pipelinesProvider.RunInvoked {
 		t.Fatal("expected pipeline Run to be invoked")
+	}
+}
+
+// TestDeploy_RemoteDeployFailureKeepsWorkTreeClean reproduces issue #3679:
+// a failed `func deploy --remote` must NOT mutate func.yaml on disk. The
+// on-disk func.yaml is supposed to reflect deployed state only; a one-off
+// CLI flag (here --image-pull-secret) on a failed deploy should leave the
+// working tree clean so the user can retry with different flags.
+//
+// On current code this FAILS because cmd/deploy.go calls f.Write() before
+// the pipeline runs (regression introduced by #3663).
+func TestDeploy_RemoteDeployFailureKeepsWorkTreeClean(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+	if _, err := fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Snapshot func.yaml exactly as it sits on disk after init.
+	funcYamlPath := filepath.Join(root, fn.FunctionFile)
+	before, err := os.ReadFile(funcYamlPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A pipeline that fails, simulating any remote deploy failure.
+	pipelinesProvider := mock.NewPipelinesProvider()
+	pipelinesProvider.RunFn = func(f fn.Function) (string, fn.Function, error) {
+		return "", f, errors.New("simulated remote pipeline failure")
+	}
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithPipelinesProvider(pipelinesProvider),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--remote", "--image-pull-secret=my-remote-secret", "--namespace=default"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected the remote deploy to fail, but it succeeded")
+	}
+
+	after, err := os.ReadFile(funcYamlPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(before) != string(after) {
+		t.Fatalf("issue #3679 reproduced: func.yaml on disk was mutated by a FAILED "+
+			"remote deploy.\n--- before ---\n%s\n--- after ---\n%s", before, after)
 	}
 }
 

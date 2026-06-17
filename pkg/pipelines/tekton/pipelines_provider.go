@@ -299,7 +299,40 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 	go func() {
 		tw := tar.NewWriter(pw)
 
-		err := tw.WriteHeader(&tar.Header{
+		// Serialize the in-memory function (with any one-off CLI overrides
+		// applied) and inject it into the stream as func.yaml, rather than
+		// reading the on-disk file. This lets the on-cluster deploy step see
+		// the latest config without dirtying the user's working tree before
+		// the deploy succeeds (issue #3679).
+		funcYamlBytes, err := f.MarshalYAML()
+		if err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("error while serializing func.yaml for tar stream: %w", err))
+			return
+		}
+
+		writeFuncYaml := func(mode int64) error {
+			hdr := &tar.Header{
+				Typeflag: tar.TypeReg,
+				Name:     path.Join("source", fn.FunctionFile),
+				Size:     int64(len(funcYamlBytes)),
+				Mode:     mode,
+				ModTime:  time.Now(),
+				Uid:      nobodyID,
+				Gid:      nobodyID,
+				Uname:    "nobody",
+				Gname:    "nobody",
+			}
+			if err := tw.WriteHeader(hdr); err != nil {
+				return fmt.Errorf("cannot write func.yaml header to tar stream: %w", err)
+			}
+			if _, err := tw.Write(funcYamlBytes); err != nil {
+				return fmt.Errorf("cannot write func.yaml content to tar stream: %w", err)
+			}
+			return nil
+		}
+		funcYamlInjected := false
+
+		err = tw.WriteHeader(&tar.Header{
 			Typeflag: tar.TypeDir,
 			Name:     "source/",
 			Mode:     0777,
@@ -327,6 +360,16 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 			}
 
 			if ignored(relp) {
+				return nil
+			}
+
+			// Replace the on-disk func.yaml with the in-memory serialization
+			// so CLI overrides reach the on-cluster deploy step (issue #3679).
+			if relp == fn.FunctionFile && fi.Mode().IsRegular() {
+				if err := writeFuncYaml(int64(fi.Mode().Perm())); err != nil {
+					return err
+				}
+				funcYamlInjected = true
 				return nil
 			}
 
@@ -381,6 +424,10 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 			}
 			return nil
 		})
+		if err == nil && !funcYamlInjected {
+			// Function was never persisted to disk: inject func.yaml explicitly.
+			err = writeFuncYaml(0o644)
+		}
 		if err != nil {
 			_ = pw.CloseWithError(fmt.Errorf("error while creating tar stream from sources: %w", err))
 		} else {

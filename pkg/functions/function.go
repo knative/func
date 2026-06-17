@@ -464,9 +464,9 @@ func (f Function) Write() (err error) {
 		return
 	}
 
-	// Write
+	// Serialize the function to its on-disk func.yaml representation
 	var bb []byte
-	if bb, err = yaml.Marshal(&f); err != nil {
+	if bb, err = f.MarshalYAML(); err != nil {
 		return
 	}
 	// TODO: open existing file for writing, such that existing permissions
@@ -477,18 +477,7 @@ func (f Function) Write() (err error) {
 	}
 	defer rwFile.Close()
 
-	schemaURI := funcYamlSchemaURI()
-
-	// Write schema header
-	schemaHeader := fmt.Sprintf(`# $schema: %s
-# yaml-language-server: $schema=%s
-`, schemaURI, schemaURI)
-
-	if _, err = rwFile.WriteString(schemaHeader); err != nil {
-		return err
-	}
-
-	// Write function data
+	// Write function data (schema header + serialized struct)
 	if _, err = rwFile.Write(bb); err != nil {
 		return err
 	}
@@ -510,6 +499,26 @@ func (f Function) Write() (err error) {
 	// Write built image to .func
 	err = f.WriteRuntimeBuiltImage(false)
 	return
+}
+
+// MarshalYAML returns the function serialized into its on-disk func.yaml
+// representation: the schema header followed by the YAML-marshaled struct.
+// This is the single source of truth for func.yaml's byte content, shared
+// by Write (persisting to disk after a successful deploy) and by the remote
+// pipeline source upload (injecting the in-memory config into the tar stream
+// without dirtying the working tree).
+func (f Function) MarshalYAML() ([]byte, error) {
+	bb, err := yaml.Marshal(&f)
+	if err != nil {
+		return nil, err
+	}
+
+	schemaURI := funcYamlSchemaURI()
+	schemaHeader := fmt.Sprintf(`# $schema: %s
+# yaml-language-server: $schema=%s
+`, schemaURI, schemaURI)
+
+	return append([]byte(schemaHeader), bb...), nil
 }
 
 func funcYamlSchemaURI() string {
