@@ -281,14 +281,17 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 
 // Creates tar stream with the function sources as they were in "./source" directory.
 func sourcesAsTarStream(f fn.Function) *io.PipeReader {
-	ignored := func(p string) bool { return strings.HasPrefix(p, ".git") }
-	if gi, err := gitignore.CompileIgnoreFile(filepath.Join(f.Root, ".gitignore")); err == nil {
-		ignored = func(p string) bool {
-			if strings.HasPrefix(p, ".git") {
-				return true
-			}
-			return gi.MatchesPath(p)
+	// Apply the same ignore policy as local builds: fn.IsIgnored always excludes
+	// the DefaultIgnored plus the user's .funcignore patterns. This guarantees local
+	// runtime data under .func — scaffolding (regenerated on-cluster by the
+	// func-scaffold step)
+	userPatterns := fn.ParseFuncIgnore(f.Root)
+	gi, giErr := gitignore.CompileIgnoreFile(filepath.Join(f.Root, ".gitignore"))
+	ignored := func(p string) bool {
+		if fn.IsIgnored(p, userPatterns) {
+			return true
 		}
+		return giErr == nil && gi.MatchesPath(p)
 	}
 
 	pr, pw := io.Pipe()
@@ -327,6 +330,9 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 			}
 
 			if ignored(relp) {
+				if fi.IsDir() {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 

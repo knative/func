@@ -81,6 +81,54 @@ func TestSourcesAsTarStream(t *testing.T) {
 	}
 }
 
+// TestSourcesAsTarStream_ExcludesFuncDir ensures the local runtime directory
+// (.func) is never uploaded to the cluster — most importantly the credential
+// file .func/local.yaml — even when the function has NO .gitignore. The
+// exclusion must come from the authoritative DefaultIgnored policy, not from a
+// .gitignore happening to list it. Scaffolding under .func/build is regenerated
+// on-cluster by the func-scaffold step, so it is not needed in the upload.
+func TestSourcesAsTarStream_ExcludesFuncDir(t *testing.T) {
+	root := t.TempDir()
+	// deliberately NO .gitignore is written
+	mustWrite := func(rel, content string) {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mustWrite("app.js", "module.exports = () => {}\n") // a normal source file
+	mustWrite(".func/local.yaml", "auth:\n- cluster-url: https://secret\n  user:\n    token: SECRET\n")
+	mustWrite(".func/build/service/main.py", "# scaffolding\n")
+	mustWrite(".func/built-image", "example.com/img@sha256:deadbeef\n")
+
+	rc := sourcesAsTarStream(fn.Function{Root: root})
+	t.Cleanup(func() { _ = rc.Close() })
+
+	var appFound bool
+	tr := tar.NewReader(rc)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			t.Fatal(err)
+		}
+		if strings.HasPrefix(hdr.Name, "source/.func") {
+			t.Errorf(".func entry leaked into the upload stream: %q", hdr.Name)
+		}
+		if hdr.Name == "source/app.js" {
+			appFound = true
+		}
+	}
+	if !appFound {
+		t.Error("the app.js source file is missing from the stream")
+	}
+}
+
 func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 	type mockType func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error)
 
