@@ -374,6 +374,49 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// TestCore_StaticSignature_Python ensures backward compatibility with the
+// static (non-instanced) Python function signature. Python functions can
+// export either a `new()` constructor (instanced) or a plain `handle()`
+// function (static). The scaffolding imports `new` first and falls back
+// to `handle` on ImportError.
+func TestCore_StaticSignature_Python(t *testing.T) {
+	name := "func-e2e-test-core-static-py"
+	root := fromCleanEnv(t, name)
+
+	if err := newCmd(t, "init", "-l=python", "-t=http").Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	staticPy := `async def handle(scope, receive, send):
+    await send({
+        'type': 'http.response.start',
+        'status': 200,
+        'headers': [[b'content-type', b'text/plain']],
+    })
+    await send({
+        'type': 'http.response.body',
+        'body': b'OK',
+    })
+`
+	if err := os.WriteFile(filepath.Join(root, "function", "func.py"), []byte(staticPy), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "function", "__init__.py"), []byte("from .func import handle\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := newCmd(t, "deploy", "--builder", "host").Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		clean(t, name, Namespace)
+	}()
+
+	if !waitFor(t, ksvcUrl(name)) {
+		t.Fatal("static Python function did not deploy correctly")
+	}
+}
+
 // TestCore_Delete ensures that a function registered as deleted when deleted.
 // Also tests list as a side-effect.
 //
