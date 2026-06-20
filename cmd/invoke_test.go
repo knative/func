@@ -7,10 +7,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/ory/viper"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
 	. "knative.dev/func/pkg/testing"
@@ -77,4 +79,81 @@ func TestInvoke(t *testing.T) {
 	if atomic.LoadInt32(&invoked) != 1 {
 		t.Fatal("function was not invoked")
 	}
+}
+
+// TestInvokeExtensions tests the extensions parsing and validation on invoke command.
+func TestInvokeExtensions(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	// (a) running invoke with --extension foo=bar and --format http should return an error containing 'only valid with cloudevents'
+	t.Run("only valid with cloudevents", func(t *testing.T) {
+		viper.Reset()
+		t.Cleanup(viper.Reset)
+
+		root := FromTempDirectory(t)
+
+		// Create a test function to be invoked
+		if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := NewInvokeCmd(NewClient)
+		cmd.SetArgs([]string{"--extension", "foo=bar", "--format", "http"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "only valid with cloudevents") {
+			t.Fatalf("unexpected error message: %v", err)
+		}
+	})
+
+	// (b) running invoke with --extension foo (no equals sign) should return an error containing 'invalid extension format'
+	t.Run("invalid extension format", func(t *testing.T) {
+		viper.Reset()
+		t.Cleanup(viper.Reset)
+
+		root := FromTempDirectory(t)
+
+		// Create a test function to be invoked
+		if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := NewInvokeCmd(NewClient)
+		cmd.SetArgs([]string{"--extension", "foo", "--format", "cloudevent"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "invalid extension format") {
+			t.Fatalf("unexpected error message: %v", err)
+		}
+	})
+
+	// (c) extensionsMap() with --extension foo=bar --extension baz=qux returns a map with both keys.
+	t.Run("extensionsMap returns all keys", func(t *testing.T) {
+		viper.Reset()
+		t.Cleanup(viper.Reset)
+
+		cfg := invokeConfig{
+			Extensions: []string{"foo=bar", "baz=qux"},
+		}
+		m, err := cfg.extensionsMap()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m) != 2 {
+			t.Fatalf("expected map of size 2, got: %v", m)
+		}
+		if m["foo"] != "bar" {
+			t.Errorf("expected key 'foo' to be 'bar', got '%s'", m["foo"])
+		}
+		if m["baz"] != "qux" {
+			t.Errorf("expected key 'baz' to be 'qux', got '%s'", m["baz"])
+		}
+	})
 }
