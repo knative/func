@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -949,6 +950,64 @@ func logClusterCPU(t *testing.T) {
 			break
 		}
 	}
+	// Break the total down into pod count + the biggest CPU requesters, so we can
+	// see WHAT holds the CPU and whether pods/replicas accumulate across the run.
+	logTopPodsCPU(t)
+}
+
+// logTopPodsCPU logs the number of non-terminal pods (only those count toward
+// scheduling) and the top CPU requesters (namespace/name -> millicores). This
+// reveals which workloads make up the committed CPU and what grows over a run.
+func logTopPodsCPU(t *testing.T) {
+	t.Helper()
+	cmd := exec.Command("kubectl", "get", "pods", "-A",
+		"--field-selector=status.phase!=Succeeded,status.phase!=Failed",
+		"-o", `jsonpath={range .items[*]}{.metadata.namespace}/{.metadata.name}{range .spec.containers[*]}{" "}{.resources.requests.cpu}{end}{"\n"}{end}`)
+	cmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return
+	}
+	type pod struct {
+		name  string
+		milli int
+	}
+	var pods []pod
+	total := 0
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		f := strings.Fields(line)
+		if len(f) == 0 {
+			continue
+		}
+		sum := 0
+		for _, v := range f[1:] {
+			sum += parseMilliCPU(v)
+		}
+		pods = append(pods, pod{f[0], sum})
+		total += sum
+	}
+	sort.Slice(pods, func(i, j int) bool { return pods[i].milli > pods[j].milli })
+	t.Logf("[cluster-cpu] %d non-terminal pods, %dm requested (sum)", len(pods), total)
+	for i, p := range pods {
+		if i >= 10 || p.milli == 0 {
+			break
+		}
+		t.Logf("[cluster-cpu]   %4dm  %s", p.milli, p.name)
+	}
+}
+
+// parseMilliCPU parses a Kubernetes CPU quantity ("100m", "1", "0.5") to millicores.
+func parseMilliCPU(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	if strings.HasSuffix(s, "m") {
+		n, _ := strconv.Atoi(strings.TrimSuffix(s, "m"))
+		return n
+	}
+	f, _ := strconv.ParseFloat(s, 64)
+	return int(f * 1000)
 }
 
 // cleanImages removes container images and volumes created for a function during testing.
