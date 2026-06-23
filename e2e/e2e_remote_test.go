@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 // ---------------------------------------------------------------------------
@@ -184,5 +186,57 @@ func TestRemote_Deploy_InClusterRegistry(t *testing.T) {
 
 	if !waitFor(t, ksvcUrl(name)) {
 		t.Fatal("function did not deploy correctly")
+	}
+}
+
+// TestRemote_Update ensures that redeploying via the remote/Tekton path after
+// changing the function's source code actually serves the new code. This is the
+// remote analogue of TestCore_Update / TestCore_PythonUpdate, which only cover
+// the local build+deploy path.
+//
+//	func deploy --remote --builder=pack
+func TestRemote_Update(t *testing.T) {
+	name := "func-e2e-test-remote-update"
+	root := fromCleanEnv(t, name)
+
+	// create
+	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	// initial remote build + deploy
+	if err := newCmd(t, "deploy", "--remote", "--builder=pack", fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		clean(t, name, Namespace)
+	}()
+	if !waitFor(t, ksvcUrl(name), withWaitTimeout(5*time.Minute)) {
+		t.Fatal("function did not deploy correctly")
+	}
+
+	// update: rewrite the handler to return a new response body
+	update := `
+	package function
+	import "fmt"
+	import "net/http"
+	type Function struct{}
+	func New() *Function { return &Function{} }
+	func (f *Function) Handle(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintln(w, "UPDATED")
+	}
+	`
+	if err := os.WriteFile(filepath.Join(root, "function.go"), []byte(update), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// redeploy via the remote path
+	if err := newCmd(t, "deploy", "--remote", "--builder=pack", fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
+		t.Fatal(err)
+	}
+	if !waitFor(t, ksvcUrl(name),
+		withContentMatch("UPDATED"),
+		withWaitTimeout(5*time.Minute)) {
+		t.Fatal("function did not update correctly via remote redeploy")
 	}
 }

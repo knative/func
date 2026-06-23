@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -74,9 +75,24 @@ func sendRequest(t *testing.T, url string) string {
 	return string(body)
 }
 
-// TestInstanced_GoHTTP deploys a Go HTTP function using the instanced
+// requestCount issues one GET and parses the integer N from a "request:N" body.
+func requestCount(t *testing.T, url string) int {
+	t.Helper()
+	body := sendRequest(t, url)
+	_, num, ok := strings.Cut(body, "request:")
+	if !ok {
+		t.Fatalf("unexpected response (missing \"request:\" prefix): %q", body)
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(num))
+	if err != nil {
+		t.Fatalf("could not parse counter from response %q: %v", body, err)
+	}
+	return n
+}
+
+// TestCore_InstancedGoHTTP deploys a Go HTTP function using the instanced
 // signature and verifies that constructor state persists across requests.
-func TestInstanced_GoHTTP(t *testing.T) {
+func TestCore_InstancedGoHTTP(t *testing.T) {
 	name := "func-e2e-instanced-go-http"
 	root := fromCleanEnv(t, name)
 
@@ -94,19 +110,23 @@ func TestInstanced_GoHTTP(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name), withContentMatch("request:1")) {
-		t.Fatal("instanced Go HTTP function did not return request:1")
+	// Wait for readiness by matching the "request:" PREFIX
+	if !waitFor(t, ksvcUrl(name), withContentMatch("request:")) {
+		t.Fatal("instanced HTTP function did not become ready")
 	}
 
-	body := sendRequest(t, ksvcUrl(name))
-	if !strings.Contains(body, "request:2") {
-		t.Fatalf("expected request:2 on second call, got: %s", body)
+	// Dont check for exact match because we poll function first to check if
+	// its live + some health checks send requests too, this is simpler
+	first := requestCount(t, ksvcUrl(name))
+	second := requestCount(t, ksvcUrl(name))
+	if second <= first {
+		t.Fatalf("instanced counter did not increase across requests (state should persist): first=%d second=%d", first, second)
 	}
 }
 
-// TestInstanced_PythonHTTP deploys a Python HTTP function using the instanced
+// TestCore_InstancedPythonHTTP deploys a Python HTTP function using the instanced
 // signature and verifies constructor state persists across requests.
-func TestInstanced_PythonHTTP(t *testing.T) {
+func TestCore_InstancedPythonHTTP(t *testing.T) {
 	name := "func-e2e-instanced-py-http"
 	root := fromCleanEnv(t, name)
 
@@ -124,12 +144,13 @@ func TestInstanced_PythonHTTP(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name), withContentMatch("request:1")) {
-		t.Fatal("instanced Python HTTP function did not return request:1")
+	if !waitFor(t, ksvcUrl(name), withContentMatch("request:")) {
+		t.Fatal("instanced HTTP function did not become ready")
 	}
 
-	body := sendRequest(t, ksvcUrl(name))
-	if !strings.Contains(body, "request:2") {
-		t.Fatalf("expected request:2 on second call, got: %s", body)
+	first := requestCount(t, ksvcUrl(name))
+	second := requestCount(t, ksvcUrl(name))
+	if second <= first {
+		t.Fatalf("instanced counter did not increase across requests (state should persist): first=%d second=%d", first, second)
 	}
 }

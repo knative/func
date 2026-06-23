@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -915,12 +916,98 @@ func containsInstance(t *testing.T, list []fn.ListItem, name, namespace string) 
 // clean up by deleting the named function (via defers)
 func clean(t *testing.T, name, ns string) {
 	t.Helper()
+	// Log committed CPU before cleanup (this test's pods are still up), so the
+	// suite output carries a timeline of cluster load and we can see whether it
+	// creeps toward the node's allocatable and triggers "Insufficient cpu".
+	logClusterCPU(t)
 	if !Clean {
 		return
 	}
 	if err := newCmd(t, "delete", name, "--namespace", ns).Run(); err != nil {
 		t.Logf("Error deleting function. %v", err)
 	}
+}
+
+// logClusterCPU logs the cluster's committed CPU *requests* vs the node's
+// allocatable — the figure the scheduler uses for its "Insufficient cpu"
+// decision (not actual utilization). Best-effort; never fails a test.
+func logClusterCPU(t *testing.T) {
+	t.Helper()
+	cmd := exec.Command("kubectl", "describe", "node")
+	cmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return
+	}
+	inAlloc := false
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.Contains(line, "Allocated resources:") {
+			inAlloc = true
+			continue
+		}
+		if inAlloc && strings.HasPrefix(strings.TrimSpace(line), "cpu") {
+			t.Logf("[cluster-cpu] %s", strings.TrimSpace(line)) // e.g. "cpu  1500m (75%)  2 (100%)"
+			break
+		}
+	}
+	// Break the total down into pod count + the biggest CPU requesters, so we can
+	// see WHAT holds the CPU and whether pods/replicas accumulate across the run.
+	logTopPodsCPU(t)
+}
+
+// logTopPodsCPU logs the number of non-terminal pods (only those count toward
+// scheduling) and the top CPU requesters (namespace/name -> millicores). This
+// reveals which workloads make up the committed CPU and what grows over a run.
+func logTopPodsCPU(t *testing.T) {
+	t.Helper()
+	cmd := exec.Command("kubectl", "get", "pods", "-A",
+		"--field-selector=status.phase!=Succeeded,status.phase!=Failed",
+		"-o", `jsonpath={range .items[*]}{.metadata.namespace}/{.metadata.name}{range .spec.containers[*]}{" "}{.resources.requests.cpu}{end}{"\n"}{end}`)
+	cmd.Env = append(os.Environ(), "KUBECONFIG="+Kubeconfig)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return
+	}
+	type pod struct {
+		name  string
+		milli int
+	}
+	var pods []pod
+	total := 0
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		f := strings.Fields(line)
+		if len(f) == 0 {
+			continue
+		}
+		sum := 0
+		for _, v := range f[1:] {
+			sum += parseMilliCPU(v)
+		}
+		pods = append(pods, pod{f[0], sum})
+		total += sum
+	}
+	sort.Slice(pods, func(i, j int) bool { return pods[i].milli > pods[j].milli })
+	t.Logf("[cluster-cpu] %d non-terminal pods, %dm requested (sum)", len(pods), total)
+	for i, p := range pods {
+		if i >= 10 || p.milli == 0 {
+			break
+		}
+		t.Logf("[cluster-cpu]   %4dm  %s", p.milli, p.name)
+	}
+}
+
+// parseMilliCPU parses a Kubernetes CPU quantity ("100m", "1", "0.5") to millicores.
+func parseMilliCPU(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	if strings.HasSuffix(s, "m") {
+		n, _ := strconv.Atoi(strings.TrimSuffix(s, "m"))
+		return n
+	}
+	f, _ := strconv.ParseFloat(s, 64)
+	return int(f * 1000)
 }
 
 // cleanImages removes container images and volumes created for a function during testing.

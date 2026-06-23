@@ -90,7 +90,12 @@ allocate_cluster() {
   ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
   ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
   ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
-  ( set -o pipefail; (keda && keda_http_addon) 2>&1 | sed  -e 's/^/keda /')&
+  # KEDA is opt-out (default on). Skipped when FUNC_CLUSTER_KEDA=false to free
+  # CPU reservation for jobs that don't use it (e.g. Core/Metadata/Remote e2e).
+  # FUNC_CLUSTER_KEDA is the same env var bound by `func cluster create --keda`.
+  if [ "${FUNC_CLUSTER_KEDA:-true}" = "true" ]; then
+    ( set -o pipefail; (keda && keda_http_addon) 2>&1 | sed  -e 's/^/keda /')&
+  fi
   ( set -o pipefail; func_operator 2>&1 | sed  -e 's/^/fop /')&
 
   local job
