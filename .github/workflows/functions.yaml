@@ -208,6 +208,7 @@ jobs:
       FUNC_CLUSTER_RETRIES: 5
       FUNC_E2E_CLEAN: false # cluster only used once
       FUNC_E2E_VERBOSE: true
+      FUNC_CLUSTER_KEDA: "false" # these tests don't use KEDA; skip it to free cluster CPU (PR #3914 'Insufficient cpu')
     steps:
       - uses: actions/checkout@v4
       - uses: knative/actions/setup-go@main
