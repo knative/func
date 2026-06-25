@@ -21,7 +21,7 @@ var deleteTool = &mcp.Tool{
 
 func (s *Server) deleteHandler(ctx context.Context, r *mcp.CallToolRequest, input DeleteInput) (result *mcp.CallToolResult, output DeleteOutput, err error) {
 	if s.readonly.Load() {
-		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
+		err = fmt.Errorf("delete is not allowed in read-only mode; set %s=true to enable write operations", EnvMCPWrite)
 		return
 	}
 
