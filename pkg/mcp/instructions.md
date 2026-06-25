@@ -140,6 +140,23 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - Exactly ONE of 'path' or 'name' must be provided, not both
 - Deleting does not affect local files (source). Only cluster resources.
 
+### config_git_set, config_git_remove
+
+- **BEFORE calling:** Read `func://help/config/git/set` or `func://help/config/git/remove`
+- Both tools require the `path` parameter (absolute path to the Function directory)
+- `config_git_set` — configures Git source repository settings for pipeline-based builds:
+  - **REQUIRED:** `git_url` (repository URL) and `git_branch` (branch or tag, e.g. `main`)
+  - **OPTIONAL:** `git_dir` (subdirectory in the repo; defaults to repository root when omitted)
+  - **OPTIONAL:** `git_provider` (auto-detected from URL; override only if detection fails)
+  - **OPTIONAL:** `config_local`, `config_cluster`, `config_remote` (boolean flags to control which pipeline resources are created; defaults to local-only when none are specified)
+  - **OPTIONAL:** `gh_access_token` — required only when `config_remote` is true to create a GitHub webhook
+  - Changes are written to `func.yaml` and take effect on the next pipeline build
+- `config_git_remove` — removes Git settings and associated pipeline resources:
+  - **OPTIONAL:** `delete_local` — removes local pipeline template files
+  - **OPTIONAL:** `delete_cluster` — removes cluster credentials and pipeline resources
+  - When neither flag is provided, local resources are removed by default
+- **WARNING:** `config_git_remove` with `delete_cluster: true` is destructive — cluster pipeline resources are deleted permanently
+
 ### config_envs_list, config_envs_add, config_envs_remove
 
 - **BEFORE calling add/remove:** Consider reading `func://help/config/envs` for authoritative usage
