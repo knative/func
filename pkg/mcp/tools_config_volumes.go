@@ -3,8 +3,10 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 )
 
 // config_volumes_list
@@ -21,28 +23,86 @@ var configVolumesListTool = &mcp.Tool{
 }
 
 type ConfigVolumesListInput struct {
-	Path    string `json:"path" jsonschema:"required,Path to the function project directory"`
-	Verbose *bool  `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Path string `json:"path" jsonschema:"required,Path to the function project directory"`
 }
 
-func (i ConfigVolumesListInput) Args() []string {
-	args := []string{"volumes", "--path", i.Path}
-	args = appendBoolFlag(args, "--verbose", i.Verbose)
-	return args
+// VolumeMount is the MCP-facing representation of a configured volume mount.
+// It mirrors fn.Volume without the invopop/jsonschema struct tags, which the
+// MCP SDK's output-schema generator cannot parse.
+type VolumeMount struct {
+	Secret                *string         `json:"secret,omitempty" jsonschema:"Name of the Secret to mount"`
+	ConfigMap             *string         `json:"configMap,omitempty" jsonschema:"Name of the ConfigMap to mount"`
+	PersistentVolumeClaim *VolumePVC      `json:"persistentVolumeClaim,omitempty" jsonschema:"PersistentVolumeClaim mount"`
+	EmptyDir              *VolumeEmptyDir `json:"emptyDir,omitempty" jsonschema:"EmptyDir mount"`
+	Path                  *string         `json:"path,omitempty" jsonschema:"Mount path in the container"`
 }
 
+// VolumePVC mirrors fn.PersistentVolumeClaim for MCP output.
+type VolumePVC struct {
+	ClaimName *string `json:"claimName,omitempty" jsonschema:"Name of the PersistentVolumeClaim"`
+	ReadOnly  bool    `json:"readOnly,omitempty" jsonschema:"Mount the volume read-only"`
+}
+
+// VolumeEmptyDir mirrors fn.EmptyDir for MCP output.
+type VolumeEmptyDir struct {
+	Medium    string  `json:"medium,omitempty" jsonschema:"Storage medium (empty or 'Memory')"`
+	SizeLimit *string `json:"sizeLimit,omitempty" jsonschema:"Maximum size limit"`
+}
+
+// ConfigVolumesListOutput exposes the configured volume mounts as typed
+// structured data; Message is a human-readable summary for fallback display.
 type ConfigVolumesListOutput struct {
-	Message string `json:"message" jsonschema:"Output message"`
+	Volumes []VolumeMount `json:"volumes" jsonschema:"Configured volume mounts"`
+	Message string        `json:"message" jsonschema:"Human-readable summary"`
 }
 
-func (s *Server) configVolumesListHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesListInput) (result *mcp.CallToolResult, output ConfigVolumesListOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+// configVolumesListHandler loads the function at the given path and returns its
+// configured volume mounts directly from pkg/functions rather than shelling
+// out to `func config volumes`. Part of the migration tracked in
+// https://github.com/knative/func/issues/3771.
+func (s *Server) configVolumesListHandler(_ context.Context, _ *mcp.CallToolRequest, input ConfigVolumesListInput) (result *mcp.CallToolResult, output ConfigVolumesListOutput, err error) {
+	f, err := fn.NewFunction(input.Path)
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigVolumesListOutput{Message: string(out)}
+	volumes := make([]VolumeMount, len(f.Run.Volumes))
+	for i, v := range f.Run.Volumes {
+		vm := VolumeMount{
+			Secret:    v.Secret,
+			ConfigMap: v.ConfigMap,
+			Path:      v.Path,
+		}
+		if v.PersistentVolumeClaim != nil {
+			vm.PersistentVolumeClaim = &VolumePVC{
+				ClaimName: v.PersistentVolumeClaim.ClaimName,
+				ReadOnly:  v.PersistentVolumeClaim.ReadOnly,
+			}
+		}
+		if v.EmptyDir != nil {
+			vm.EmptyDir = &VolumeEmptyDir{
+				Medium:    v.EmptyDir.Medium,
+				SizeLimit: v.EmptyDir.SizeLimit,
+			}
+		}
+		volumes[i] = vm
+	}
+	output = ConfigVolumesListOutput{
+		Volumes: volumes,
+		Message: formatVolumes(f.Run.Volumes),
+	}
 	return
+}
+
+func formatVolumes(volumes []fn.Volume) string {
+	if len(volumes) == 0 {
+		return "There aren't any configured Volume mounts"
+	}
+	var b strings.Builder
+	b.WriteString("Configured Volumes mounts:\n")
+	for _, v := range volumes {
+		fmt.Fprintf(&b, " -  %s\n", v.String())
+	}
+	return b.String()
 }
 
 // config_volumes_add
