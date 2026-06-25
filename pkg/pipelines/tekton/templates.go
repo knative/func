@@ -93,6 +93,14 @@ type templateData struct {
 
 	// Git commit SHA of the function source
 	Commit string
+
+	// CLI overrides forwarded to the in-cluster func-deploy task step.
+	// For Git-based remote deploys the on-cluster func.yaml comes from the
+	// committed repo and never contains these values; they must be threaded
+	// through the pipeline run as discrete params.
+	ImagePullSecret    string
+	ServiceAccountName string
+	Deployer           string
 }
 
 // createPipelineTemplatePAC creates a Pipeline template used for PAC on-cluster build
@@ -412,6 +420,10 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 
 		RepoUrl:  f.Build.Git.URL,
 		Revision: pipelinesTargetBranch,
+
+		ImagePullSecret:    f.Deploy.ImagePullSecret,
+		ServiceAccountName: f.Deploy.ServiceAccountName,
+		Deployer:           f.Deploy.Deployer,
 	}
 
 	var template string
