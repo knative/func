@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -15,21 +14,16 @@ var createTool = &mcp.Tool{
 		Title:           "Create Function",
 		ReadOnlyHint:    false,
 		DestructiveHint: ptr(false),
-		IdempotentHint:  false, // Running create twice on the same path fails because function files already exist.
+		IdempotentHint:  false,
 	},
 }
 
 func (s *Server) createHandler(ctx context.Context, r *mcp.CallToolRequest, input CreateInput) (result *mcp.CallToolResult, output CreateOutput, err error) {
-	out, err := s.executor.Execute(ctx, "create", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = CreateOutput{
-		Runtime:  input.Language,
-		Template: input.Template,
-		Message:  string(out),
-	}
+	output, err = svc.Create(ctx, input)
 	return
 }
 
@@ -39,16 +33,6 @@ type CreateInput struct {
 	Template   *string `json:"template,omitempty" jsonschema:"Function template (e.g., http, cloudevents)"`
 	Repository *string `json:"repository,omitempty" jsonschema:"Git repository URI containing custom templates"`
 	Verbose    *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
-}
-
-func (i CreateInput) Args() []string {
-	args := []string{"-l", i.Language, "--path", i.Path}
-
-	// Optional
-	args = appendStringFlag(args, "--template", i.Template)
-	args = appendStringFlag(args, "--repository", i.Repository)
-	args = appendBoolFlag(args, "--verbose", i.Verbose)
-	return args
 }
 
 type CreateOutput struct {
