@@ -232,6 +232,38 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		cfg.BuildVolumes = append(cfg.BuildVolumes, fmt.Sprintf("%s:%s:ro,Z", m.Source, m.Destination))
 	}
 
+	// CA Certificate Bundle support for corporate proxies (build-time only)
+	if f.Build.BuildCACertFile != "" {
+		// Resolve to absolute path if relative
+		caBundlePath := f.Build.BuildCACertFile
+		if !filepath.IsAbs(caBundlePath) {
+			caBundlePath = filepath.Join(f.Root, caBundlePath)
+		}
+
+		// Validate that the CA bundle file exists
+		if _, err := os.Stat(caBundlePath); err != nil {
+			return fmt.Errorf("CA bundle file not found: %w", err)
+		}
+
+		// For S2I, we need to mount the CA bundle and set environment variables
+		// Mount the CA bundle into a standard location
+		caDestPath := "/tmp/ca-certificates.crt"
+		cfg.BuildVolumes = append(cfg.BuildVolumes,
+			fmt.Sprintf("%s:%s:ro,Z", caBundlePath, caDestPath))
+
+		// Set environment variables for various runtimes to use the CA bundle
+		cfg.Environment = append(cfg.Environment,
+			api.EnvironmentSpec{Name: "SSL_CERT_FILE", Value: caDestPath},
+			api.EnvironmentSpec{Name: "REQUESTS_CA_BUNDLE", Value: caDestPath},  // Python
+			api.EnvironmentSpec{Name: "NODE_EXTRA_CA_CERTS", Value: caDestPath}, // Node.js
+			api.EnvironmentSpec{Name: "CURL_CA_BUNDLE", Value: caDestPath},      // curl
+			api.EnvironmentSpec{Name: "GIT_SSL_CAINFO", Value: caDestPath},      // git
+			api.EnvironmentSpec{Name: "PIP_CERT", Value: caDestPath},            // pip (Python)
+			api.EnvironmentSpec{Name: "NPM_CONFIG_CAFILE", Value: caDestPath},   // npm (Node.js)
+			api.EnvironmentSpec{Name: "CARGO_HTTP_CAINFO", Value: caDestPath},   // cargo (Rust)
+		)
+	}
+
 	if runtime.GOOS == "linux" {
 		cfg.DockerNetworkMode = "host"
 	}
