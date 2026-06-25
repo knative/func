@@ -451,6 +451,26 @@ func nameFromPath(path string) string {
 	*/
 }
 
+// MarshalFuncYaml serializes the function in the exact form Write persists to
+// func.yaml: the schema header followed by the YAML document. Used by Write
+// and by direct-upload remote build which use this in-memory serialization
+// of func.yaml instead of the on-disk one (which can be outdated via flag
+// overrides, namespace/cluster resolution...).
+//
+// Unlike Write, this does not call Validate: the upload path must serialize
+// unconditionally. Caller is responsible for validation => f.Validate()
+func (f Function) MarshalFuncYaml() ([]byte, error) {
+	bb, err := yaml.Marshal(&f)
+	if err != nil {
+		return nil, err
+	}
+	schemaURI := funcYamlSchemaURI()
+	header := fmt.Sprintf(`# $schema: %s
+# yaml-language-server: $schema=%s
+`, schemaURI, schemaURI)
+	return append([]byte(header), bb...), nil
+}
+
 // Write Function struct (metadata) to Disk at f.Root
 func (f Function) Write() (err error) {
 	// Skip writing (and dirtying the work tree) if there were no modifications.
@@ -466,30 +486,12 @@ func (f Function) Write() (err error) {
 
 	// Write
 	var bb []byte
-	if bb, err = yaml.Marshal(&f); err != nil {
+	if bb, err = f.MarshalFuncYaml(); err != nil {
 		return
 	}
 	// TODO: open existing file for writing, such that existing permissions
 	// are preserved?
-	rwFile, err := os.OpenFile(filepath.Join(f.Root, FunctionFile), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	defer rwFile.Close()
-
-	schemaURI := funcYamlSchemaURI()
-
-	// Write schema header
-	schemaHeader := fmt.Sprintf(`# $schema: %s
-# yaml-language-server: $schema=%s
-`, schemaURI, schemaURI)
-
-	if _, err = rwFile.WriteString(schemaHeader); err != nil {
-		return err
-	}
-
-	// Write function data
-	if _, err = rwFile.Write(bb); err != nil {
+	if err = os.WriteFile(filepath.Join(f.Root, FunctionFile), bb, 0644); err != nil {
 		return err
 	}
 
