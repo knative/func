@@ -16,7 +16,7 @@ const kindConfigTemplate = `kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
-    image: kindest/node:%[1]s
+    image: kindest/node:%s
     extraPortMappings:
     - containerPort: 80
       hostPort: 80
@@ -29,14 +29,14 @@ nodes:
       listenAddress: "127.0.0.1"
 containerdConfigPatches:
 - |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:%[2]d"]
-    endpoint = ["http://%[3]s:%[4]d"]
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.default.svc.cluster.local:%[4]d"]
-    endpoint = ["http://%[3]s:%[4]d"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.localtest.me"]
+    endpoint = ["http://localhost:5000"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.default.svc.cluster.local:5000"]
+    endpoint = ["http://localhost:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."ghcr.io"]
-    endpoint = ["http://%[3]s:%[4]d"]
+    endpoint = ["http://localhost:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
-    endpoint = ["http://%[3]s:%[4]d"]
+    endpoint = ["http://localhost:5000"]
 `
 
 const metalLBPoolTemplate = `apiVersion: metallb.io/v1beta1
@@ -59,8 +59,7 @@ func installKubernetes(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 	start := time.Now()
 	status(out, "Allocating")
 
-	kindConfig := fmt.Sprintf(kindConfigTemplate,
-		kindNodeVersion, registryHostPort, registryContainerName, registryContainerPort)
+	kindConfig := fmt.Sprintf(kindConfigTemplate, kindNodeVersion)
 
 	err := run(ctx, out, kindConfig,
 		cfg.kind(), "create", "cluster",
