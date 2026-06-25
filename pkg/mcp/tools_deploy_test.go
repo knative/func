@@ -2,11 +2,36 @@ package mcp
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"knative.dev/func/pkg/mcp/mock"
 )
+
+// TestTool_Deploy_Readonly ensures the deploy tool returns the readonly-mode
+// error when the server is in readonly mode.
+func TestTool_Deploy_Readonly(t *testing.T) {
+	client, _, err := newTestPairWithReadonly(t, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "deploy",
+		Arguments: map[string]any{"path": "."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for readonly server, got success")
+	}
+	got := result.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
+	}
+}
 
 // TestTool_Deploy_Args ensures the deploy tool executes with all arguments passed correctly.
 func TestTool_Deploy_Args(t *testing.T) {
@@ -77,24 +102,5 @@ func TestTool_Deploy_Args(t *testing.T) {
 	}
 	if !executor.ExecuteInvoked {
 		t.Fatal("executor was not invoked")
-	}
-}
-
-// TestTool_Deploy_Readonly ensures the deploy tool rejects requests in readonly mode.
-func TestTool_Deploy_Readonly(t *testing.T) {
-	client, _, err := newTestPairWithReadonly(t, true) // readonly = true
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
-		Name:      "deploy",
-		Arguments: map[string]any{"path": "."},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.IsError {
-		t.Fatal("expected deploy to be rejected in readonly mode")
 	}
 }
