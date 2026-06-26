@@ -6,8 +6,10 @@ const (
 	UnknownSignature Signature = iota
 	InstancedHTTP
 	InstancedCloudevents
+	InstancedKafka
 	StaticHTTP
 	StaticCloudevents
+	StaticKafka
 )
 
 func (s Signature) String() string {
@@ -15,8 +17,10 @@ func (s Signature) String() string {
 		"unknown",
 		"instanced-http",
 		"instanced-cloudevents",
+		"instanced-kafka",
 		"static-http",
 		"static-cloudevents",
+		"static-kafka",
 	}[s]
 }
 
@@ -28,10 +32,12 @@ func (s Signature) String() string {
 var signatureMap = map[bool]map[string]Signature{
 	true: { // Instanced
 		"http":       InstancedHTTP,
-		"cloudevent": InstancedCloudevents},
-	false: { // !Instanced
+		"cloudevent": InstancedCloudevents,
+		"kafka":      InstancedKafka},
+	false: {
 		"http":       StaticHTTP,
-		"cloudevent": StaticCloudevents},
+		"cloudevent": StaticCloudevents,
+		"kafka":      StaticKafka},
 }
 
 // toSignature converts an instanced boolean and invocation hint into
