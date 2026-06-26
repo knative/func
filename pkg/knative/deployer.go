@@ -198,8 +198,10 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		out = os.Stderr
 	}
 	since := time.Now()
+	deployCtx, cancelDeploy := context.WithCancel(ctx)
+	defer cancelDeploy()
 	go func() {
-		_ = GetKServiceLogs(ctx, namespace, f.Name, f.Deploy.Image, &since, out)
+		_ = GetKServiceLogs(deployCtx, namespace, f.Name, f.Deploy.Image, &since, out)
 	}()
 
 	previousService, err := client.GetService(ctx, f.Name)
@@ -234,17 +236,17 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			if d.verbose {
 				fmt.Println("Waiting for Knative Service to become ready")
 			}
-			waitForService := func() error {
+			waitForService := func(ctx context.Context) error {
 				err, _ := client.WaitForService(ctx, f.Name,
 					clientservingv1.WaitConfig{Timeout: k8s.DefaultWaitingTimeout, ErrorWindow: k8s.DefaultErrorWindowTimeout},
 					wait.NoopMessageCallback())
 				return err
 			}
-			isPrivateRegistry := func() bool {
+			isPrivateRegistry := func(ctx context.Context) bool {
 				return d.isImageInPrivateRegistry(ctx, client, f)
 			}
 
-			err = waitForReadyOrPrivateRegistry(waitForService, isPrivateRegistry, 5*time.Second)
+			err = waitForReadyOrPrivateRegistry(deployCtx, waitForService, isPrivateRegistry, 5*time.Second)
 			if err != nil {
 				if stdErrors.Is(err, errPrivateRegistry) {
 					return fn.DeploymentResult{}, err
@@ -840,61 +842,35 @@ func wrapK8sConnectionError(err error) error {
 // waitForReadyOrPrivateRegistry handles polling for a private registry image pull error
 // or successfully waiting for the service to become ready.
 func waitForReadyOrPrivateRegistry(
-	waitForService func() error,
-	isPrivateRegistry func() bool,
+	ctx context.Context,
+	waitForService func(context.Context) error,
+	isPrivateRegistry func(context.Context) bool,
 	pollInterval time.Duration,
 ) error {
-	chprivate := make(chan bool)
+	waitCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
 	cherr := make(chan error, 1)
-	done := make(chan struct{})
 
 	go func() {
-		defer close(chprivate)
-		for {
-			select {
-			case <-time.After(pollInterval):
-			case <-done:
-				return
-			}
-			private := isPrivateRegistry()
-			select {
-			case chprivate <- private:
-				if private {
-					return
-				}
-			case <-done:
-				return
-			}
-		}
+		cherr <- waitForService(waitCtx)
 	}()
 
-	go func() {
-		cherr <- waitForService()
-		close(cherr)
-	}()
-
-	presumePrivate := false
-main:
 	for {
 		select {
-		case private := <-chprivate:
-			if private {
-				presumePrivate = true
-				break main
-			}
+		case <-ctx.Done():
+			return ctx.Err()
 		case err := <-cherr:
-			if err != nil {
-				close(done)
-				return err
+			cancel()
+			return err
+		case <-ticker.C:
+			if isPrivateRegistry(waitCtx) {
+				cancel()
+				return errPrivateRegistry
 			}
-			break main
 		}
 	}
-	close(done)
-
-	if presumePrivate {
-		return errPrivateRegistry
-	}
-
-	return nil
 }
