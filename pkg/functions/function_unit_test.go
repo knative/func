@@ -115,6 +115,11 @@ func TestFunction_ImageWithDigest(t *testing.T) {
 			fields: fields{Image: "image-registry.openshift-image-registry.svc.cluster.local:50000/default/bar@sha256:42", ImageDigest: ""},
 			want:   "image-registry.openshift-image-registry.svc.cluster.local:50000/default/bar@sha256:42",
 		},
+		{
+			name:   "Empty image with digest",
+			fields: fields{Image: "", ImageDigest: "sha256:42"},
+			want:   "",
+		},
 	}
 	//TODO: gauron99 - this is gonna need to be changed (probably) because:
 	// 1: imageDigest now doesn't have a dedicated structure member (resolved?)
