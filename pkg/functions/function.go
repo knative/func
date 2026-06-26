@@ -227,6 +227,12 @@ type DeploySpec struct {
 	// Defaults to "knative" for backwards compatibility
 	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw,enum=keda"`
 
+	// ClusterDomain specifies the cluster domain used for building internal service URLs.
+	// Defaults to "cluster.local" if not specified.
+	// This is particularly useful for KEDA deployments where the interceptor proxy
+	// service URL needs to match the cluster's actual domain configuration.
+	ClusterDomain string `yaml:"clusterDomain,omitempty"`
+
 	Subscriptions []KnativeSubscription `yaml:"subscriptions,omitempty"`
 
 	// ManagementDisabled disables automatic creation/update of a Function CR

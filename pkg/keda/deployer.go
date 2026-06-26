@@ -208,6 +208,14 @@ func (d *Deployer) interceptorBridgeServiceName(f fn.Function) string {
 }
 
 func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string, deployment *v1.Deployment) *corev1.Service {
+	// Use configured cluster domain, default to "cluster.local"
+	clusterDomain := f.Deploy.ClusterDomain
+	if clusterDomain == "" {
+		clusterDomain = "cluster.local"
+	}
+
+	externalName := fmt.Sprintf("keda-add-ons-http-interceptor-proxy.keda.svc.%s", clusterDomain)
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      d.interceptorBridgeServiceName(f),
@@ -224,7 +232,7 @@ func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string, dep
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: "keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local",
+			ExternalName: externalName,
 		},
 	}
 }
