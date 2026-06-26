@@ -307,6 +307,15 @@ func buildRunnerEnv(job *Job, extras map[string]string) ([]string, error) {
 		env = append(env, k+"="+v)
 	}
 
+	if k := job.Function.Run.Kafka; k != nil && k.Brokers != "" && k.Topic != "" && k.ConsumerGroup != "" {
+		env = append(env,
+			"FUNC_TRANSPORT=kafka",
+			"KAFKA_BROKERS="+k.Brokers,
+			"KAFKA_TOPIC="+k.Topic,
+			"KAFKA_CONSUMER_GROUP="+k.ConsumerGroup,
+		)
+	}
+
 	return env, nil
 }
 

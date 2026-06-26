@@ -428,6 +428,7 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInsta
 	if err != nil {
 		return nil, fmt.Errorf("failed to process environment variables: %w", err)
 	}
+	envVars = AppendKafkaEnvs(envVars, f.Run.Kafka)
 
 	volumes, volumeMounts, err := ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)
 	if err != nil {
@@ -729,6 +730,19 @@ func withOpenAddress(ee []fn.Env) []fn.Env {
 		ee = append(ee, fn.Env{Name: &k, Value: &v})
 	}
 	return ee
+}
+
+func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig) []corev1.EnvVar {
+	if kafka == nil || kafka.Brokers == "" || kafka.Topic == "" || kafka.ConsumerGroup == "" {
+		return envVars
+	}
+	envVars = append(envVars,
+		corev1.EnvVar{Name: "FUNC_TRANSPORT", Value: "kafka"},
+		corev1.EnvVar{Name: "KAFKA_BROKERS", Value: kafka.Brokers},
+		corev1.EnvVar{Name: "KAFKA_TOPIC", Value: kafka.Topic},
+		corev1.EnvVar{Name: "KAFKA_CONSUMER_GROUP", Value: kafka.ConsumerGroup},
+	)
+	return envVars
 }
 
 func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.EnvFromSource, error) {

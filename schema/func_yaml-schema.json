@@ -263,6 +263,30 @@
 			"type": "object",
 			"description": "HealthEndpoints specify the liveness and readiness endpoints for a Runtime"
 		},
+		"KafkaConfig": {
+			"required": [
+				"brokers",
+				"topic",
+				"consumerGroup"
+			],
+			"properties": {
+				"brokers": {
+					"type": "string",
+					"description": "Comma-separated list of Kafka broker addresses"
+				},
+				"topic": {
+					"type": "string",
+					"description": "Kafka topic to consume from"
+				},
+				"consumerGroup": {
+					"type": "string",
+					"description": "Kafka consumer group ID"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object",
+			"description": "KafkaConfig specifies the Kafka event source configuration."
+		},
 		"KnativeSubscription": {
 			"required": [
 				"source"
@@ -414,6 +438,11 @@
 				"startTimeout": {
 					"type": "integer",
 					"description": "StartTimeout specifies that this function should have a custom timeout\nwhen starting. This setting is currently respected by the host runner,\nwith containerized docker runner and deployed Knative service integration\nin development."
+				},
+				"kafka": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KafkaConfig",
+					"description": "Kafka configures a Kafka event source. When set, the function consumes\nmessages from the specified Kafka topic and receives them as CloudEvents."
 				}
 			},
 			"additionalProperties": false,

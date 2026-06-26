@@ -176,6 +176,35 @@ type MountSpec struct {
 	Destination string `yaml:"path"`
 }
 
+// KafkaConfig specifies the Kafka event source configuration.
+// When set, the runtime consumes messages from Kafka and delivers them
+// as CloudEvents to the function's handler.
+type KafkaConfig struct {
+	Brokers       string `yaml:"brokers" jsonschema:"description=Comma-separated list of Kafka broker addresses"`
+	Topic         string `yaml:"topic" jsonschema:"description=Kafka topic to consume from"`
+	ConsumerGroup string `yaml:"consumerGroup" jsonschema:"description=Kafka consumer group ID"`
+}
+
+func validateKafka(kafka *KafkaConfig, invoke string) (errors []string) {
+	if kafka == nil {
+		return
+	}
+	if invoke != "cloudevent" {
+		errors = append(errors, "run.kafka is only supported with invoke: cloudevent")
+		return
+	}
+	if kafka.Brokers == "" {
+		errors = append(errors, "run.kafka.brokers is required when Kafka is configured")
+	}
+	if kafka.Topic == "" {
+		errors = append(errors, "run.kafka.topic is required when Kafka is configured")
+	}
+	if kafka.ConsumerGroup == "" {
+		errors = append(errors, "run.kafka.consumerGroup is required when Kafka is configured")
+	}
+	return
+}
+
 // RunSpec
 type RunSpec struct {
 	// List of volumes to be mounted to the function
@@ -189,6 +218,10 @@ type RunSpec struct {
 	// with containerized docker runner and deployed Knative service integration
 	// in development.
 	StartTimeout time.Duration `yaml:"startTimeout,omitempty"`
+
+	// Kafka configures a Kafka event source. When set, the function consumes
+	// messages from the specified Kafka topic and receives them as CloudEvents.
+	Kafka *KafkaConfig `yaml:"kafka,omitempty"`
 }
 
 // DeploySpec
@@ -361,6 +394,7 @@ func (f Function) Validate() error {
 		validateOptions(f.Deploy.Options),
 		ValidateLabels(f.Deploy.Labels),
 		validateGit(f.Build.Git),
+		validateKafka(f.Run.Kafka, f.Invoke),
 	}
 
 	var b strings.Builder
