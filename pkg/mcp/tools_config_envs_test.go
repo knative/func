@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -648,6 +649,10 @@ func TestTool_ConfigEnvsAdd_Readonly(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("expected error result in readonly mode, got success")
 	}
+	got := resultToString(result)
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
+	}
 	if executor.ExecuteInvoked {
 		t.Fatal("executor should not be invoked in readonly mode")
 	}
@@ -672,6 +677,10 @@ func TestTool_ConfigEnvsRemove_Readonly(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected error result in readonly mode, got success")
+	}
+	got := resultToString(result)
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
 	}
 	if executor.ExecuteInvoked {
 		t.Fatal("executor should not be invoked in readonly mode")
