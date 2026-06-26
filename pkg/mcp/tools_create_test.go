@@ -141,7 +141,7 @@ func TestTool_Create_Readonly(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("expected create to be rejected in readonly mode")
 	}
-	if !strings.Contains(resultToString(result), "readonly mode") {
+	if !strings.Contains(resultToString(result), "read-only mode") {
 		t.Errorf("expected readonly error message, got: %s", resultToString(result))
 	}
 }
