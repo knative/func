@@ -88,7 +88,7 @@ type ConfigVolumesAddOutput struct {
 
 func (s *Server) configVolumesAddHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesAddInput) (result *mcp.CallToolResult, output ConfigVolumesAddOutput, err error) {
 	if s.readonly.Load() {
-		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
+		err = errReadOnlyMode
 		return
 	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
@@ -133,7 +133,7 @@ type ConfigVolumesRemoveOutput struct {
 
 func (s *Server) configVolumesRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesRemoveInput) (result *mcp.CallToolResult, output ConfigVolumesRemoveOutput, err error) {
 	if s.readonly.Load() {
-		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
+		err = errReadOnlyMode
 		return
 	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)

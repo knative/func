@@ -267,6 +267,9 @@ func TestTool_ConfigVolumesAdd_Readonly(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("expected error result in readonly mode, got success")
 	}
+	if got := resultToString(result); got != errReadOnlyMode.Error() {
+		t.Errorf("expected readonly error message %q, got %q", errReadOnlyMode.Error(), got)
+	}
 	if executor.ExecuteInvoked {
 		t.Fatal("executor should not be invoked in readonly mode")
 	}
@@ -291,6 +294,9 @@ func TestTool_ConfigVolumesRemove_Readonly(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected error result in readonly mode, got success")
+	}
+	if got := resultToString(result); got != errReadOnlyMode.Error() {
+		t.Errorf("expected readonly error message %q, got %q", errReadOnlyMode.Error(), got)
 	}
 	if executor.ExecuteInvoked {
 		t.Fatal("executor should not be invoked in readonly mode")
