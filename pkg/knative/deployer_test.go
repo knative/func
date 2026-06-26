@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
+	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/pkg/ptr"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -460,4 +462,112 @@ func assertAuth(uname, pwd string, w http.ResponseWriter, r *http.Request) bool 
 	w.WriteHeader(401)
 	_, _ = fmt.Fprintln(w, "Unauthorised.")
 	return false
+}
+
+func TestSyncKnativeTriggers_DeletesOwnedStaleTrigger(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	desired := map[string]*eventingv1.Trigger{
+		"my-func-function-trigger-0": newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "default"}, 0),
+	}
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old"}, 2)
+
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(&eventingv1.TriggerList{Items: []eventingv1.Trigger{*existing}}, nil)
+	client.Recorder().DeleteTrigger("my-func-function-trigger-2", nil)
+
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, desired); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	client.Recorder().Validate()
+}
+
+func TestSyncKnativeTriggers_UpdatesChangedDesiredTrigger(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old-broker"}, 0)
+	delete(existing.Annotations, knativeTriggerManagedByAnnotation)
+	desired := map[string]*eventingv1.Trigger{
+		"my-func-function-trigger-0": newKnativeTrigger(ksvc, fn.KnativeSubscription{
+			Source:  "new-broker",
+			Filters: map[string]string{"type": "dev.knative.func"},
+		}, 0),
+	}
+
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(&eventingv1.TriggerList{Items: []eventingv1.Trigger{*existing}}, nil)
+	client.Recorder().UpdateTrigger(func(t *testing.T, got any) {
+		trigger := got.(*eventingv1.Trigger)
+		if trigger.Name != "my-func-function-trigger-0" {
+			t.Fatalf("expected trigger name my-func-function-trigger-0, got %q", trigger.Name)
+		}
+		if trigger.Spec.Broker != "new-broker" {
+			t.Fatalf("expected broker new-broker, got %q", trigger.Spec.Broker)
+		}
+		if trigger.Spec.Filter.Attributes["type"] != "dev.knative.func" {
+			t.Fatalf("expected updated filter attributes, got %v", trigger.Spec.Filter.Attributes)
+		}
+		if trigger.Annotations[knativeTriggerManagedByAnnotation] != knativeTriggerManagedByValue {
+			t.Fatalf("expected managed annotation, got %v", trigger.Annotations)
+		}
+	}, nil)
+
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, desired); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	client.Recorder().Validate()
+}
+
+func TestSyncKnativeTriggers_SkipsUnownedSamePrefixTrigger(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old"}, 2)
+	existing.Annotations = nil
+	existing.OwnerReferences = nil
+
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(&eventingv1.TriggerList{Items: []eventingv1.Trigger{*existing}}, nil)
+
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, nil); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	client.Recorder().Validate()
+}
+
+func TestSyncKnativeTriggers_EventingUnavailable(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(nil, errors.New("no or newer Knative Eventing API found on the backend"))
+
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, nil); err != nil {
+		t.Fatalf("expected eventing unavailable to be ignored, got %v", err)
+	}
+	client.Recorder().Validate()
+}
+
+func TestSyncKnativeTriggers_DeleteError(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old"}, 5)
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(&eventingv1.TriggerList{Items: []eventingv1.Trigger{*existing}}, nil)
+	client.Recorder().DeleteTrigger("my-func-function-trigger-5", errors.New("connection refused"))
+
+	err := syncKnativeTriggers(t.Context(), client, ksvc, nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "connection refused") {
+		t.Fatalf("expected 'connection refused' in error, got: %v", err)
+	}
+	client.Recorder().Validate()
+}
+
+func testKnativeService(name string) *servingv1.Service {
+	return &servingv1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "serving.knative.dev/v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			UID:  "ksvc-uid",
+		},
+	}
 }
