@@ -24,7 +24,7 @@ const (
 type Server struct {
 	OnInit    func(context.Context) // Invoked when the server is initialized
 	prefix    string                // Command prefix ("func" or "kn func")
-	readonly  atomic.Bool           // disables deploy and delete when true
+	readonly  atomic.Bool           // disables mutation tools when true
 	executor  executor
 	transport mcp.Transport // Transport to use (defaults to StdioTransport)
 	impl      *mcp.Server   // implements the protocol
