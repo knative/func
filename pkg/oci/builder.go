@@ -86,6 +86,14 @@ func NewBuilder(name string, verbose bool) *Builder {
 //
 // Platforms are optional and default to fn.DefaultPlatforms.
 func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (err error) {
+	// LEGACY PYTHON: host builder can't build old parliament functions — reject.
+	if f.IsLegacyParliament() {
+		return ErrLegacyParliamentHost
+	}
+	// LEGACY PYTHON: other pre-v1.18 Procfile-based python layouts are rejected too.
+	if f.IsUnsupportedLegacyPython() {
+		return fn.ErrUnsupportedLegacyPython
+	}
 	if len(pp) == 0 {
 		pp = fn.DefaultPlatforms // Use Default platforms if not provided
 	}

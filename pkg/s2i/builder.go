@@ -101,6 +101,7 @@ func NewBuilder(options ...Option) *Builder {
 func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {
 
 	// Builder image from the function if defined, default otherwise.
+	// (LEGACY PYTHON image pin is applied inside BuilderImage.)
 	builderImage, err := BuilderImage(f, b.name)
 	if err != nil {
 		return
@@ -274,5 +275,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 // Builder Image chooses the correct builder image or defaults.
 func BuilderImage(f fn.Function, builderName string) (string, error) {
 	// delegate as the logic is shared amongst builders
-	return builders.Image(f, builderName, DefaultBuilderImages)
+	img, err := builders.Image(f, builderName, DefaultBuilderImages)
+	if err != nil {
+		return img, err
+	}
+	// LEGACY PYTHON: pin the s2i image (here, so local + remote pipeline-gen share it).
+	return legacyImageOverride(f, img), nil
 }
