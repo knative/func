@@ -147,7 +147,7 @@ func (d *Deployer) httpScaledObject(f fn.Function, namespace string, deployment 
 
 	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, false /*we don't care about dapr for the HttpScaledObject*/, KedaDeployerName)
 
-	minScale := int32(1)
+	minScale := int32(0)
 	maxScale := int32(10)
 	if scaleOptions := f.Deploy.Options.Scale; scaleOptions != nil {
 		if scaleOptions.Min != nil {
