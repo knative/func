@@ -34,6 +34,7 @@ func TestTemplates_List(t *testing.T) {
 	expected := []string{
 		"cloudevents",
 		"http",
+		"kafka",
 		"customTemplateRepo/customTemplate",
 	}
 

@@ -210,7 +210,8 @@
 				"invoke": {
 					"enum": [
 						"http",
-						"cloudevent"
+						"cloudevent",
+						"kafka"
 					],
 					"type": "string",
 					"description": "Invoke defines hints for use when invoking this function.\nSee Client.Invoke for usage."

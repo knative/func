@@ -26,6 +26,8 @@ func TestSignatures(t *testing.T) {
 		{false, "", StaticHTTP, "static-http"},
 		{false, "http", StaticHTTP, "static-http"},
 		{false, "cloudevent", StaticCloudevents, "static-cloudevents"},
+		{true, "kafka", InstancedKafka, "instanced-kafka"},
+		{false, "kafka", StaticKafka, "static-kafka"},
 		{true, "invalid", UnknownSignature, "unknown"},
 		{false, "invalid", UnknownSignature, "unknown"},
 	}

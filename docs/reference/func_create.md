@@ -31,6 +31,7 @@ DESCRIPTION
 	  --------     --------
 	  go           cloudevents
 	  go           http
+	  go           kafka
 	  node         cloudevents
 	  node         http
 	  python       cloudevents

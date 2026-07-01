@@ -2,7 +2,11 @@ package cmd
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"gopkg.in/yaml.v2"
 
 	. "knative.dev/func/pkg/testing"
 	"knative.dev/func/pkg/utils"
@@ -79,6 +83,33 @@ func TestCreate_ValidatesName(t *testing.T) {
 	var e utils.ErrInvalidFunctionName
 	if !errors.As(err, &e) {
 		t.Fatalf("Did not receive ErrInvalidFunctionName. Got %v", err)
+	}
+}
+
+// TestCreate_KafkaTemplate ensures that creating a function with the kafka
+// template succeeds and sets invoke to "kafka" in func.yaml.
+func TestCreate_KafkaTemplate(t *testing.T) {
+	_ = FromTempDirectory(t)
+
+	cmd := NewCreateCmd(NewClient)
+	cmd.SetArgs([]string{"--language", "go", "--template", "kafka", "myfunc"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join("myfunc", "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var funcYaml struct {
+		Invoke string `yaml:"invoke"`
+	}
+	if err := yaml.Unmarshal(data, &funcYaml); err != nil {
+		t.Fatal(err)
+	}
+	if funcYaml.Invoke != "kafka" {
+		t.Fatalf("expected invoke to be 'kafka', got '%s'", funcYaml.Invoke)
 	}
 }
 

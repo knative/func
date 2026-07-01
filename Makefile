@@ -206,8 +206,10 @@ check-templates: check-go check-rust check-typescript ## Run template source cod
 check-go: ## Check Go templates' source
 	cd templates/go/scaffolding/instanced-http && go vet ./... &&  $(BIN_GOLANGCI_LINT) run
 	cd templates/go/scaffolding/instanced-cloudevents && go vet && $(BIN_GOLANGCI_LINT) run
+	cd templates/go/scaffolding/instanced-kafka && go vet ./... && $(BIN_GOLANGCI_LINT) run
 	cd templates/go/scaffolding/static-http && go vet ./... && $(BIN_GOLANGCI_LINT) run
 	cd templates/go/scaffolding/static-cloudevents && go vet ./... && $(BIN_GOLANGCI_LINT) run
+	cd templates/go/scaffolding/static-kafka && go vet ./... && $(BIN_GOLANGCI_LINT) run
 
 .PHONY: check-rust
 check-rust: ## Check Rust templates' source
@@ -226,6 +228,7 @@ test-templates: test-go test-node test-python test-quarkus test-springboot test-
 test-go: ## Test Go templates
 	cd templates/go/cloudevents && go mod tidy && go test
 	cd templates/go/http && go mod tidy && go test
+	cd templates/go/kafka && go mod tidy && go test
 
 .PHONY: test-node
 test-node: ## Test Node templates
@@ -271,6 +274,8 @@ update-runtime-go:
 	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
 	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
+	cd templates/go/scaffolding/instanced-kafka && go get -u knative.dev/func-go/kafka
+	cd templates/go/scaffolding/static-kafka && go get -u knative.dev/func-go/kafka
 
 
 .PHONY: certs
