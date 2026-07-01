@@ -65,6 +65,24 @@ package f
 func Handle() { }
 	`},
 		{
+			Name: "Instanced Kafka",
+			Sig:  InstancedKafka,
+			Err:  nil,
+			Inv:  "kafka",
+			Src: `
+package f
+func New() { }
+	`},
+		{
+			Name: "Static Kafka",
+			Sig:  StaticKafka,
+			Err:  nil,
+			Inv:  "kafka",
+			Src: `
+package f
+func Handle() { }
+	`},
+		{
 			Name: "Static and Instanced - error",
 			Sig:  UnknownSignature,
 			Err:  errors.New("error expected"),
