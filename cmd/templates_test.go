@@ -24,6 +24,7 @@ func TestTemplates_Default(t *testing.T) {
 	expected := `LANGUAGE     TEMPLATE
 go           cloudevents
 go           http
+go           kafka
 node         cloudevents
 node         http
 python       cloudevents
@@ -57,7 +58,8 @@ func TestTemplates_JSON(t *testing.T) {
 	expected := `{
   "go": [
     "cloudevents",
-    "http"
+    "http",
+    "kafka"
   ],
   "node": [
     "cloudevents",
@@ -105,7 +107,8 @@ func TestTemplates_ByLanguage(t *testing.T) {
 	}
 
 	expected := `cloudevents
-http`
+http
+kafka`
 
 	output := buf()
 	if output != expected {
@@ -121,7 +124,8 @@ http`
 
 	expected = `[
   "cloudevents",
-  "http"
+  "http",
+  "kafka"
 ]`
 
 	output = buf()
