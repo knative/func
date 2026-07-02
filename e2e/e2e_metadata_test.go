@@ -610,25 +610,7 @@ func TestMetadata_Subscriptions(t *testing.T) {
 	// a reply CloudEvent just to satisfy waitForCloudevent.
 	waitForTriggerKnative(t, Namespace, subscriberName)
 
-	client := http.Client{Timeout: 30 * time.Second}
-	url := fmt.Sprintf("http://%s/%s/%s", BrokerHost, Namespace, brokerName)
-	req, _ := http.NewRequestWithContext(t.Context(), "POST", url, strings.NewReader(`{}`))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("ce-specversion", "1.0")
-	req.Header.Set("ce-type", "test.event")
-	req.Header.Set("ce-source", "producer")
-	req.Header.Set("ce-id", uniqueEventID)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatalf("Failed to invoke producer: %v", err)
-	}
-	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != 202 {
-		t.Fatalf("Broker rejected event: code: %d, body: %q", resp.StatusCode, body)
-	}
-	t.Logf("Broker accepted event %s", uniqueEventID)
+	postEventToBroker(t, fmt.Sprintf("http://%s/%s/%s", BrokerHost, Namespace, brokerName), uniqueEventID)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
@@ -693,25 +675,7 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 	// Wait for trigger to be created and ready
 	waitForTriggerRaw(t, Namespace, subscriberName)
 
-	client := http.Client{Timeout: 30 * time.Second}
-	url := fmt.Sprintf("http://%s/%s/%s", BrokerHost, Namespace, brokerName)
-	req, _ := http.NewRequestWithContext(t.Context(), "POST", url, strings.NewReader(`{}`))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("ce-specversion", "1.0")
-	req.Header.Set("ce-type", "test.event")
-	req.Header.Set("ce-source", "producer")
-	req.Header.Set("ce-id", uniqueEventID)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatalf("Failed to invoke producer: %v", err)
-	}
-	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if resp.StatusCode != 202 {
-		t.Fatalf("Broker rejected event: code: %d, body: %q", resp.StatusCode, body)
-	}
-	t.Logf("Broker accepted event %s", uniqueEventID)
+	postEventToBroker(t, fmt.Sprintf("http://%s/%s/%s", BrokerHost, Namespace, brokerName), uniqueEventID)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
@@ -719,6 +683,49 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 		t.Fatal("Timeout: recorder did not observe event from subscriber")
 	}
 	t.Logf("Event flow verified (id=%s)", uniqueEventID)
+}
+
+// postEventToBroker POSTs a CloudEvent with the given ID to the broker,
+// retrying until it is accepted (202) or a 60s deadline expires.
+// Deployment/trigger readiness does not guarantee the subscriber Service's
+// endpoints are programmed yet
+func postEventToBroker(t *testing.T, brokerURL, eventID string) {
+	t.Helper()
+
+	client := http.Client{Timeout: 30 * time.Second}
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer cancel()
+
+	var lastErr error
+	for {
+		req, _ := http.NewRequestWithContext(ctx, "POST", brokerURL, strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("ce-specversion", "1.0")
+		req.Header.Set("ce-type", "test.event")
+		req.Header.Set("ce-source", "producer")
+		req.Header.Set("ce-id", eventID)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			t.Logf("Failed to invoke producer: %v", err)
+		} else {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode == 202 {
+				t.Logf("Broker accepted event %s", eventID)
+				return
+			}
+			lastErr = fmt.Errorf("code: %d, body: %q", resp.StatusCode, body)
+			t.Logf("Broker rejected event: %v", lastErr)
+		}
+
+		select {
+		case <-ctx.Done():
+			t.Fatalf("Broker did not accept event %s: %v", eventID, lastErr)
+		case <-time.After(2 * time.Second):
+		}
+	}
 }
 
 // createBrokerWithCheck creates a Knative Broker
