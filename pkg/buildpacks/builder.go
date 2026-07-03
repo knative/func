@@ -218,10 +218,14 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// only trust our known builders
 	opts.TrustBuilder = TrustBuilder
 
-	// Python scaffolding via inline pre-buildpack.
-	// Injects a script that rearranges user code into fn/ and copies
-	// scaffolding from .func/build/ to the workspace root.
-	if f.Runtime == "python" {
+	// LEGACY PYTHON: old parliament functions build from their own Procfile +
+	// requirements.txt; point pip at the cloudevents<2 constraint.
+	if f.Runtime == "python" && f.IsLegacyParliament() {
+		legacyPackEnv(opts.Env)
+	} else if f.Runtime == "python" {
+		// Python scaffolding via inline pre-buildpack.
+		// Injects a script that rearranges user code into fn/ and copies
+		// scaffolding from .func/build/ to the workspace root.
 		opts.ProjectDescriptor.Build.Pre = types.GroupAddition{
 			Buildpacks: []types.Buildpack{
 				{

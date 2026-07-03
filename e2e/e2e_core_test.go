@@ -417,6 +417,77 @@ func TestCore_StaticSignature_Python(t *testing.T) {
 	}
 }
 
+// LEGACY PYTHON: old parliament functions (func.py def main(context) + parliament
+// Procfile) must build and serve via pack and s2i, built locally and in-cluster.
+func TestCore_LegacyParliamentSignature_Python(t *testing.T) {
+	// The fixtures in testdata/legacy-parliament were generated with func
+	// v1.17.0 (the last parliament-era release):
+	//
+	//	func create -l python -t http parliament-http
+	//	func create -l python -t cloudevents parliament-cloudevents
+	//
+	// The cells pair builders, flavors and localities so that each builder
+	// builds both locally and remotely (in-cluster, where scaffolding runs
+	// inside the Tekton pipeline) and each flavor passes through both builders.
+	for _, tc := range []struct {
+		builder  string
+		template string
+		remote   bool
+	}{
+		{"pack", "http", false},
+		{"s2i", "cloudevents", false},
+		{"pack", "cloudevents", true},
+		{"s2i", "http", true},
+	} {
+		cell := tc.builder
+		if tc.remote {
+			cell += "-remote"
+		}
+		t.Run(cell, func(t *testing.T) {
+			name := "func-e2e-parliament-" + cell
+			root := fromCleanEnv(t, name)
+
+			// Copy in the v1.17.0-generated fixture, renaming it for this run;
+			// the rest of the era func.yaml stays as generated.
+			fixture := "parliament-" + tc.template
+			if err := os.CopyFS(root, os.DirFS(filepath.Join(Testdata, "legacy-parliament", fixture))); err != nil {
+				t.Fatal(err)
+			}
+			yamlPath := filepath.Join(root, "func.yaml")
+			y, err := os.ReadFile(yamlPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			y = bytes.Replace(y, []byte("name: "+fixture), []byte("name: "+name), 1)
+			if err := os.WriteFile(yamlPath, y, 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			args := []string{"deploy", "--builder", tc.builder}
+			if tc.remote {
+				args = append(args, "--remote")
+			}
+			if err := newCmd(t, args...).Run(); err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				clean(t, name, Namespace)
+			}()
+
+			if tc.template == "cloudevents" {
+				if !waitFor(t, ksvcUrl(name), withTemplate("cloudevents")) {
+					t.Fatalf("legacy parliament cloudevents function did not deploy correctly with %s builder", tc.builder)
+				}
+			} else {
+				// The parliament http template echoes the query as JSON.
+				if !waitFor(t, ksvcUrl(name)+"?foo=bar", withContentMatch(`{"foo": "bar"}`)) {
+					t.Fatalf("legacy parliament http function did not deploy correctly with %s builder", tc.builder)
+				}
+			}
+		})
+	}
+}
+
 // TestCore_Delete ensures that a function registered as deleted when deleted.
 // Also tests list as a side-effect.
 //

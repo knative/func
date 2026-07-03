@@ -35,6 +35,16 @@ func (s Scaffolder) Scaffold(ctx context.Context, f fn.Function, path string) er
 		return nil
 	}
 
+	// LEGACY PYTHON: old parliament functions skip modern scaffolding.
+	if f.Runtime == "python" && f.IsLegacyParliament() {
+		return legacyScaffold(s.verbose, f)
+	}
+	// LEGACY PYTHON: other pre-v1.18 Procfile-based layouts (old flask/wsgi
+	// templates) are rejected.
+	if f.Runtime == "python" && f.IsUnsupportedLegacyPython() {
+		return fn.ErrUnsupportedLegacyPython
+	}
+
 	appRoot := path
 	if appRoot == "" {
 		appRoot = filepath.Join(f.Root, defaultPath)
