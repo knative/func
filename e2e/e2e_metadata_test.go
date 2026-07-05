@@ -680,7 +680,7 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 	}
 
 	// Deploy with raw deployer to test trigger creation
-	if err := newCmd(t, "deploy", "--deployer", "raw").Run(); err != nil {
+	if err := newCmd(t, "deploy", "--deployer", "raw", "--expose", "none").Run(); err != nil {
 		t.Fatal(err)
 	}
 	defer clean(t, subscriberName, Namespace)

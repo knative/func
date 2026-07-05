@@ -77,12 +77,17 @@ func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, name,
 		return fn.ListItem{}, fmt.Errorf("could not get service: %w", err)
 	}
 
+	url := fmt.Sprintf("http://%s.%s.svc", service.Name, service.Namespace) // TODO: use correct scheme
+	if hostname, ok := service.Annotations[RouteHostnameAnnotation]; ok && hostname != "" {
+		url = fmt.Sprintf("http://%s", hostname)
+	}
+
 	runtimeLabel := ""
 	listItem := fn.ListItem{
 		Name:      service.Name,
 		Namespace: service.Namespace,
 		Runtime:   runtimeLabel,
-		URL:       fmt.Sprintf("http://%s.%s.svc", service.Name, service.Namespace), // TODO: use correct scheme
+		URL:       url,
 		Ready:     string(ready),
 		Deployer:  KubernetesDeployerName,
 	}

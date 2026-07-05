@@ -130,6 +130,10 @@
 				"managementDisabled": {
 					"type": "boolean",
 					"description": "ManagementDisabled disables automatic creation/update of a Function CR\nfor operator management after deploy. The zero value (false) means\nthe function is managed by default when the func-operator is installed."
+				},
+				"expose": {
+					"type": "string",
+					"description": "Expose controls external access for the raw deployer (other deployers\nwarn and ignore it). Optional; default to exposure for raw deployer.\nValues: \"gateway\", \"gateway:\u003cns\u003e/\" (namespace-scope discovery),\n\"gateway:\u003cns\u003e/\u003cname\u003e\" (pinned), \"none\" (cluster-local only).\nfunc creates only HTTPRoute resource, failure to expose fails the deploy."
 				}
 			},
 			"additionalProperties": false,

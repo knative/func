@@ -233,6 +233,13 @@ type DeploySpec struct {
 	// for operator management after deploy. The zero value (false) means
 	// the function is managed by default when the func-operator is installed.
 	ManagementDisabled bool `yaml:"managementDisabled,omitempty"`
+
+	// Expose controls external access for the raw deployer (other deployers
+	// warn and ignore it). Optional; default to exposure for raw deployer.
+	// Values: "gateway", "gateway:<ns>/" (namespace-scope discovery),
+	// "gateway:<ns>/<name>" (pinned), "none" (cluster-local only).
+	// func creates only HTTPRoute resource, failure to expose fails the deploy.
+	Expose string `yaml:"expose,omitempty"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
@@ -361,6 +368,7 @@ func (f Function) Validate() error {
 		validateOptions(f.Deploy.Options),
 		ValidateLabels(f.Deploy.Labels),
 		validateGit(f.Build.Git),
+		validateExpose(f.Deploy.Expose),
 	}
 
 	var b strings.Builder

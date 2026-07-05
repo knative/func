@@ -78,7 +78,19 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		}
 	}
 
-	primaryRouteURL := fmt.Sprintf("http://%s.%s.svc", name, namespace) // TODO: get correct scheme?
+	internalURL := fmt.Sprintf("http://%s.%s.svc", name, namespace)
+	primaryRouteURL := internalURL
+
+	// External hostname (if exposed) was recorded on the Service by Deploy()
+	// at exposure time - no extra API call or client needed here.
+	if hostname, ok := service.Annotations[RouteHostnameAnnotation]; ok && hostname != "" {
+		primaryRouteURL = fmt.Sprintf("http://%s", hostname)
+	}
+	// an exposed function stays reachable in-cluster too
+	routes := []string{primaryRouteURL}
+	if primaryRouteURL != internalURL {
+		routes = append(routes, internalURL)
+	}
 
 	// get image
 	image := ""
@@ -104,7 +116,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Deployer:  KubernetesDeployerName,
 		Labels:    deployment.Labels,
 		Route:     primaryRouteURL,
-		Routes:    []string{primaryRouteURL},
+		Routes:    routes,
 		Image:     image,
 		Middleware: fn.Middleware{
 			Version: middlewareVersion,

@@ -121,6 +121,9 @@ type DeploymentResult struct {
 	Status    Status
 	URL       string
 	Namespace string
+	// Exposed is true when URL is externally reachable; false when it is
+	// only reachable in-cluster (e.g. the cluster-local Service URL).
+	Exposed bool
 }
 
 // Status of the function from the DeploymentResult
@@ -185,8 +188,8 @@ type Describer interface {
 type Instance struct {
 	// Route is the primary route of a function instance.
 	Route string
-	// Routes is the primary route plus any other route at which the function
-	// can be contacted.
+	// Routes is the primary route first (external when exposed), plus any
+	// other route at which the function can be contacted.
 	Routes        []string          `json:"routes" yaml:"routes"`
 	Name          string            `json:"name" yaml:"name"`
 	Image         string            `json:"image" yaml:"image"`
@@ -902,12 +905,8 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	// Update the function to reflect the new deployed state of the Function
 	f.Deploy.Namespace = result.Namespace
 
-	switch result.Status {
-	case Deployed:
-		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
-	case Updated:
-		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
-	default:
+	if result.Status == Deployed || result.Status == Updated {
+		fmt.Fprintln(os.Stderr, deployResultMessage(result))
 	}
 
 	if c.syncer != nil && !f.Deploy.ManagementDisabled {
@@ -917,6 +916,19 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	}
 
 	return f, nil
+}
+
+// deployResultMessage renders the deploy success message, distinguishing an
+// externally exposed function from one reachable in-cluster only.
+func deployResultMessage(result DeploymentResult) string {
+	verb := "deployed"
+	if result.Status == Updated {
+		verb = "updated"
+	}
+	if result.Exposed {
+		return fmt.Sprintf("✅ Function %s in namespace %q and exposed at URL: \n   %v", verb, result.Namespace, result.URL)
+	}
+	return fmt.Sprintf("✅ Function %s in namespace %q, reachable in-cluster only at: \n   %v", verb, result.Namespace, result.URL)
 }
 
 // RunPipeline runs a Pipeline to build and deploy the function.

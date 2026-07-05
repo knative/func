@@ -297,6 +297,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 				Status:    fn.Deployed,
 				URL:       route.Status.URL.String(),
 				Namespace: namespace,
+				Exposed:   true,
 			}, nil
 
 		} else {
@@ -358,6 +359,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			Status:    fn.Updated,
 			URL:       route.Status.URL.String(),
 			Namespace: namespace,
+			Exposed:   true,
 		}, nil
 	}
 }

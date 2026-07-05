@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -2546,4 +2547,215 @@ func TestDeploy_ValidDomain(t *testing.T) {
 
 func TestDeploy_RegistryInsecurePersists(t *testing.T) {
 	testRegistryInsecurePersists(NewDeployCmd, t)
+}
+
+// TestDeploy_ExposeExplicitEmptyClears: an explicitly empty --expose=""
+// clears the persisted deploy.expose key reverting to the default at deploy
+// time, while a deploy without the flag leaves the persisted value untouched.
+func TestDeploy_ExposeExplicitEmptyClears(t *testing.T) {
+	// newFn initializes a Go function in a temp directory (the cwd for the
+	// deploys below) and returns its root.
+	newFn := func(t *testing.T) string {
+		t.Helper()
+		root := FromTempDirectory(t)
+		if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+			t.Fatal(err)
+		}
+		return root
+	}
+
+	// deploy runs `func deploy` with args against mock builder/deployer,
+	// failing the test on error and returning the command's combined output.
+	deploy := func(t *testing.T, args ...string) string {
+		t.Helper()
+		cmd := NewDeployCmd(NewTestClient(
+			fn.WithBuilder(mock.NewBuilder()),
+			fn.WithDeployer(mock.NewDeployer()),
+			fn.WithRegistry(TestRegistry),
+		))
+		cmd.SetArgs(args)
+		var out strings.Builder
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		return out.String()
+	}
+
+	// loadFn re-reads the function from disk.
+	loadFn := func(t *testing.T, root string) fn.Function {
+		t.Helper()
+		f, err := fn.NewFunction(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+
+	t.Run(`--expose="" clears a previously-persisted "none"`, func(t *testing.T) {
+		root := newFn(t)
+
+		deploy(t, "--deployer", "raw", "--expose", "none")
+		if f := loadFn(t, root); f.Deploy.Expose != "none" {
+			t.Fatalf("setup: expected expose 'none' to be persisted, got %q", f.Deploy.Expose)
+		}
+
+		deploy(t, "--deployer", "raw", "--expose=")
+		// unmarshalled yaml would not be able to distinguish between the value
+		// being empty and gone (not in the file)
+		raw, err := os.ReadFile(filepath.Join(root, "func.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(raw), "expose") {
+			t.Errorf("expected NO expose key in func.yaml, got:\n%s", raw)
+		}
+	})
+
+	t.Run("plain deploy without the flag still works and leaves expose unpersisted", func(t *testing.T) {
+		root := newFn(t)
+		deploy(t, "--deployer", "raw")
+		if f := loadFn(t, root); f.Deploy.Expose != "" {
+			t.Errorf("expected expose to remain unpersisted (empty), got %q", f.Deploy.Expose)
+		}
+	})
+
+	t.Run("persisted none + no flag round-trips untouched", func(t *testing.T) {
+		root := newFn(t)
+
+		deploy(t, "--deployer", "raw", "--expose", "none")
+		if f := loadFn(t, root); f.Deploy.Expose != "none" {
+			t.Fatalf("expected expose 'none' to be persisted, got %q", f.Deploy.Expose)
+		}
+
+		// redeploy without changing the flag should keep it as is
+		deploy(t, "--deployer", "raw")
+		if f := loadFn(t, root); f.Deploy.Expose != "none" {
+			t.Errorf("expected persisted 'none' to round-trip untouched, got %q", f.Deploy.Expose)
+		}
+	})
+}
+
+// TestDeploy_ExposeInvalidValueError: a malformed --expose value fails the
+// deploy (any deployer) with the CLI's typed ErrInvalidExpose.
+func TestDeploy_ExposeInvalidValueError(t *testing.T) {
+	root := FromTempDirectory(t)
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--expose", "bogus"})
+	var want *ErrInvalidExpose
+	if err := cmd.Execute(); !errors.As(err, &want) {
+		t.Errorf("expected ErrInvalidExpose, got %v", err)
+	}
+}
+
+// TestDeploy_ExposeGatewayRefPersists ensures the union "gateway:<ns>/<name>"
+// form round-trips through --expose into f.Deploy.Expose end-to-end.
+func TestDeploy_ExposeGatewayRefPersists(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--deployer", "raw", "--expose=gateway:infra/gw"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.Expose != "gateway:infra/gw" {
+		t.Fatalf("expected expose 'gateway:infra/gw' to be persisted, got %q", f.Deploy.Expose)
+	}
+}
+
+// TestDeploy_ExposeIgnoredByDeployerNote: a deployer that ignores a set
+// deploy.expose warns and proceeds
+func TestDeploy_ExposeIgnoredByDeployerNote(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		wantWarning string // distinguishing substring of the warning; "" means silent
+	}{
+		{
+			name: "raw+gateway: silent",
+			args: []string{"--deployer", "raw", "--expose", "gateway"},
+		},
+		{
+			name: "knative+empty: silent",
+			args: []string{"--deployer", "knative"},
+		},
+		{
+			name:        "knative+gateway: warns, proceeds",
+			args:        []string{"--deployer", "knative", "--expose", "gateway"},
+			wantWarning: `deploy.expose "gateway" is ignored by the knative deployer`,
+		},
+		{
+			name:        "knative+none: privacy-specific warning, proceeds",
+			args:        []string{"--deployer", "knative", "--expose", "none"},
+			wantWarning: `networking.knative.dev/visibility=cluster-local`,
+		},
+		{
+			name:        "keda+gateway: warns, proceeds",
+			args:        []string{"--deployer", "keda", "--expose", "gateway"},
+			wantWarning: `deploy.expose "gateway" is ignored by the keda deployer`,
+		},
+		{
+			name: "keda+none: silent (intent already met, keda is cluster-local)",
+			args: []string{"--deployer", "keda", "--expose", "none"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+				t.Fatal(err)
+			}
+
+			builder := mock.NewBuilder()
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithBuilder(builder),
+				fn.WithDeployer(mock.NewDeployer()),
+				fn.WithRegistry(TestRegistry),
+			))
+			cmd.SetArgs(tt.args)
+			var stderr strings.Builder
+			cmd.SetOut(&stderr)
+			cmd.SetErr(&stderr)
+			err := cmd.Execute()
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !builder.BuildInvoked {
+				t.Error("expected the deploy to proceed to build")
+			}
+
+			if tt.wantWarning == "" {
+				if strings.Contains(stderr.String(), "deploy.expose") {
+					t.Errorf("expected no warning on stderr, got:\n%s", stderr.String())
+				}
+				return
+			}
+			if !strings.Contains(stderr.String(), tt.wantWarning) {
+				t.Errorf("expected stderr to contain:\n%s\ngot:\n%s", tt.wantWarning, stderr.String())
+			}
+		})
+	}
 }

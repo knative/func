@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1"
@@ -28,6 +29,7 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	gwclientset "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 )
 
 const (
@@ -36,6 +38,11 @@ const (
 	DefaultLivenessEndpoint  = "/health/liveness"
 	DefaultReadinessEndpoint = "/health/readiness"
 	DefaultHTTPPort          = 8080
+
+	// RouteHostnameAnnotation records the externally-exposed hostname (if
+	// any) on the function's Service, so lister/describer can read it back
+	// without re-deriving or re-querying the HTTPRoute.
+	RouteHostnameAnnotation = "function.knative.dev/route-hostname"
 
 	// managedByAnnotation identifies triggers managed by this deployer
 	managedByAnnotation = "func.knative.dev/managed-by"
@@ -47,6 +54,11 @@ type DeployerOpt func(*Deployer)
 type Deployer struct {
 	verbose   bool
 	decorator deployer.DeployDecorator
+
+	// exposureDisabled marks a Deployer embedded by another deployer (keda)
+	// whose functions must stay cluster-local: an HTTPRoute pointed at the
+	// raw ClusterIP Service would bypass keda's scale-to-zero interceptor.
+	exposureDisabled bool
 }
 
 func NewDeployer(opts ...DeployerOpt) *Deployer {
@@ -60,6 +72,14 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 func WithDeployerVerbose(verbose bool) DeployerOpt {
 	return func(d *Deployer) {
 		d.verbose = verbose
+	}
+}
+
+// WithDeployerExposureDisabled turns off Gateway API exposure; for deployers
+// that embed this Deployer but manage exposure themselves (eg. keda).
+func WithDeployerExposureDisabled() DeployerOpt {
+	return func(d *Deployer) {
+		d.exposureDisabled = true
 	}
 }
 
@@ -132,6 +152,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, err
 	}
 
+	// Get the Gateway clientset
+	gwClient, err := gwclientset.NewForConfig(config)
+	if err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("failed to create gateway-api client: %w", err)
+	}
+
 	// Check if Dapr is installed
 	daprInstalled := false
 	_, err = clientset.CoreV1().Namespaces().Get(ctx, "dapr-system", metav1.GetOptions{})
@@ -160,7 +186,15 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
-		svc, err := d.generateService(f, namespace, daprInstalled, existingDeployment)
+		existingService, svcGetErr := serviceClient.Get(ctx, f.Name, metav1.GetOptions{})
+		if svcGetErr != nil {
+			if !errors.IsNotFound(svcGetErr) {
+				return fn.DeploymentResult{}, fmt.Errorf("failed to get existing service: %w", svcGetErr)
+			}
+			existingService = nil
+		}
+
+		svc, err := d.generateService(f, namespace, daprInstalled, existingDeployment, existingService)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate service resources: %w", err)
 		}
@@ -172,19 +206,17 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to update deployment: %w", err)
 		}
 
-		existingService, err := serviceClient.Get(ctx, f.Name, metav1.GetOptions{})
-		if err == nil {
+		// update/create service
+		if svcGetErr == nil {
 			svc.ResourceVersion = existingService.ResourceVersion
 			if _, err = serviceClient.Update(ctx, svc, metav1.UpdateOptions{}); err != nil {
 				return fn.DeploymentResult{}, fmt.Errorf("failed to update service: %w", err)
 			}
-		} else if errors.IsNotFound(err) {
-			// Service doesn't exist, create it
+		} else {
+			// Confirmed IsNotFound above the generateService()
 			if _, err = serviceClient.Create(ctx, svc, metav1.CreateOptions{}); err != nil {
 				return fn.DeploymentResult{}, fmt.Errorf("failed to create service: %w", err)
 			}
-		} else {
-			return fn.DeploymentResult{}, fmt.Errorf("failed to get existing service: %w", err)
 		}
 
 		status = fn.Updated
@@ -214,7 +246,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to create deployment: %w", err)
 		}
 
-		svc, err := d.generateService(f, namespace, daprInstalled, deployment)
+		svc, err := d.generateService(f, namespace, daprInstalled, deployment, nil)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate service resources: %w", err)
 		}
@@ -233,6 +265,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("deployment did not become ready: %w", err)
 	}
 
+	// External exposure via Gateway API HTTPRoute; see reconcileExposure() for
+	// the create/attach vs remove decision.
+	url, exposed, err := d.reconcileExposure(ctx, f, namespace, clientset, gwClient)
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
+
 	// Sync triggers
 	eventingClient, err := newEventingClient(config, namespace)
 	if err != nil {
@@ -242,13 +281,179 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to sync triggers: %w", err)
 	}
 
-	url := fmt.Sprintf("http://%s.%s.svc", f.Name, namespace)
-
 	return fn.DeploymentResult{
 		Status:    status,
 		URL:       url,
 		Namespace: namespace,
+		Exposed:   exposed,
 	}, nil
+}
+
+// reconcileExposure keeps a raw-deployer function's external exposure (an
+// HTTPRoute attached to a Gateway) in sync with f.Deploy.Expose, symmetric
+// for both directions:
+//   - create/attach, when exposure is wanted (default or gateway* form)
+//   - remove, when it isn't - when Deployer has exposure disabled or the
+//     function explicitly opted out (expose:none).
+//
+// Removal is unconditional whenever exposure isn't currently wanted, so a
+// stale HTTPRoute from a prior raw deploy never survives a deployer switch.
+// The returned bool is true only when the exposure chain actually ran and
+// returned an externally-reachable URL (fn.DeploymentResult.Exposed).
+func (d *Deployer) reconcileExposure(ctx context.Context, f fn.Function, namespace string, clientset kubernetes.Interface, gwClient gwclientset.Interface) (string, bool, error) {
+	defaultURL := fmt.Sprintf("http://%s.%s.svc", f.Name, namespace)
+
+	tech, ref, err := fn.ParseExpose(f.Deploy.Expose)
+	if err != nil {
+		return "", false, err
+	}
+
+	if d.exposureDisabled {
+		if err := d.removeExposure(ctx, clientset, gwClient, namespace, f.Name, false); err != nil {
+			return "", false, err
+		}
+		return defaultURL, false, nil
+	}
+
+	if tech == "none" {
+		// enforce=true: the user explicitly demanded NONexposure
+		if err := d.removeExposure(ctx, clientset, gwClient, namespace, f.Name, true); err != nil {
+			return "", false, err
+		}
+		return defaultURL, false, nil
+	}
+
+	url, err := d.ensureExposure(ctx, f, namespace, clientset, gwClient, ref)
+	if err != nil {
+		return "", false, fmt.Errorf("external exposure failed: %w", err)
+	}
+	return url, true, nil
+}
+
+// removeExposure deletes the managed HTTPRoute (never a user-authored route
+// sharing the function's name) and clears the recorded exposure state.
+// Missing Gateway API CRDs need no special-casing: the GET reports NotFound
+// either way, meaning nothing to remove.
+//
+// enforce selects the failure posture:
+//   - true (expose:none): failing to verify/remove is a hard error;
+//   - false (deployer switched away from raw): an RBAC 403 on the route
+//     GET/DELETE prints a warning and the deploy continues, since keda
+//     users without Gateway API permissions must stay green.
+func (d *Deployer) removeExposure(ctx context.Context, clientset kubernetes.Interface, gwClient gwclientset.Interface, namespace, name string, enforce bool) error {
+	if _, err := RemoveManagedHTTPRoute(ctx, gwClient, namespace, name); err != nil {
+		if !enforce && errors.IsForbidden(err) {
+			fmt.Fprintf(os.Stderr, "⚠️  cannot remove HTTPRoute %q (forbidden) - leaving it in place\n", name)
+		} else {
+			return fmt.Errorf("failed to remove HTTPRoute: %w", err)
+		}
+	}
+
+	if err := writeRouteHostnameAnnotation(ctx, clientset, namespace, name, ""); err != nil {
+		if !enforce {
+			fmt.Fprintf(os.Stderr, "⚠️  failed to clear exposure state: %v\n", err)
+			return nil
+		}
+		return fmt.Errorf("failed to clear exposure state: %w", err)
+	}
+	return nil
+}
+
+func (d *Deployer) ensureExposure(ctx context.Context, f fn.Function, namespace string, clientset kubernetes.Interface, gwClient gwclientset.Interface, ref string) (string, error) {
+	available, err := GatewayAPIAvailable(clientset)
+	if err != nil {
+		return "", fmt.Errorf("failed to check Gateway API availability: %w\n\n%s", err, remediateNoGatewayController)
+	}
+	if !available {
+		return "", fmt.Errorf("the Gateway API is not installed on this cluster. %s", remediateNoGatewayController)
+	}
+
+	// One memoized getter shared by gateway resolution AND the minting-time
+	// listener selection below, so both decide on a single label snapshot.
+	getLabels := newNSLabelGetter(ctx, clientset, namespace)
+
+	gw, err := ResolveGateway(ctx, gwClient, namespace, ref, getLabels)
+	if err != nil {
+		return "", err
+	}
+
+	listener, err := selectListener(gw, namespace, getLabels)
+	if err != nil {
+		return "", err
+	}
+	if listener == nil {
+		// Unreachable while both passes share the one memoized getter above
+		// (same snapshot -> same admitting listener); this tripwire fires
+		// only if a future caller breaks that discipline.
+		return "", fmt.Errorf("gateway %s/%s no longer has a listener admitting namespace %q", gw.Namespace, gw.Name, namespace)
+	}
+
+	hostname, err := ResolveHostname(f, namespace, gw, listener)
+	if err != nil {
+		return "", err
+	}
+
+	// Get deployment for owner reference
+	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get deployment for owner reference: %w", err)
+	}
+
+	route, err := GenerateHTTPRoute(f, f.Name, 80, hostname, deployment, gw, d.decorator, KubernetesDeployerName)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate HTTPRoute: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "🌐 Creating HTTPRoute for Gateway %s/%s -> %s\n", gw.Namespace, gw.Name, hostname)
+
+	if err := EnsureHTTPRoute(ctx, gwClient, namespace, route); err != nil {
+		return "", err
+	}
+
+	// Wait for the Gateway to accept the route - enforced, never downgraded to a warning.
+	if err := WaitForRouteAccepted(ctx, gwClient, namespace, f.Name, gw.Name, gw.Namespace, 30*time.Second); err != nil {
+		return "", fmt.Errorf("HTTPRoute was not accepted: %w", err)
+	}
+
+	if err := writeRouteHostnameAnnotation(ctx, clientset, namespace, f.Name, hostname); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("http://%s", hostname), nil
+}
+
+// writeRouteHostnameAnnotation records (hostname != "") or clears
+// (hostname == "") the exposed hostname on the function's Service: no-op
+// when already current, retried on write conflicts. A missing Service is
+// tolerated only when clearing; recording against one that doesn't exist
+// is a real error.
+func writeRouteHostnameAnnotation(ctx context.Context, clientset kubernetes.Interface, namespace, name, hostname string) error {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		svc, err := clientset.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if svc.Annotations[RouteHostnameAnnotation] == hostname {
+			return nil
+		}
+		if hostname == "" {
+			delete(svc.Annotations, RouteHostnameAnnotation)
+		} else {
+			if svc.Annotations == nil {
+				svc.Annotations = map[string]string{}
+			}
+			svc.Annotations[RouteHostnameAnnotation] = hostname
+		}
+		_, err = clientset.CoreV1().Services(namespace).Update(ctx, svc, metav1.UpdateOptions{})
+		return err
+	})
+	if err != nil {
+		if hostname == "" && errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to update exposure state on service %q: %w", name, err)
+	}
+	return nil
 }
 
 // generateTriggerName creates a deterministic trigger name based on subscription content
@@ -453,13 +658,23 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInsta
 	return deployment, nil
 }
 
-func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalled bool, deployment *appsv1.Deployment) (*corev1.Service, error) {
+// generateService builds the function's Service; existingService is the
+// currently-deployed Service on update, nil on create.
+func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalled bool, deployment *appsv1.Deployment, existingService *corev1.Service) (*corev1.Service, error) {
 	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
 	if err != nil {
 		return nil, err
 	}
 
 	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, daprInstalled, KubernetesDeployerName)
+	// re-apply the hostname annotation, contrary to the rest of annotations
+	// which are "always regenerate" -- the hostname is cluster-derived, not
+	// in func.yaml - might come from Gateway discovery/its wildcard listener
+	// hostname so only the exposure step can recompute it, and it does so
+	// after this Service write.
+	if existingService != nil && existingService.Annotations[RouteHostnameAnnotation] != "" {
+		annotations[RouteHostnameAnnotation] = existingService.Annotations[RouteHostnameAnnotation]
+	}
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
