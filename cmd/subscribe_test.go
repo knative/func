@@ -286,3 +286,54 @@ func TestSubscribeWithDuplicated(t *testing.T) {
 	}
 
 }
+
+func TestSubscribeRejectsMalformedFilter(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewSubscribeCmd()
+	cmd.SetArgs([]string{"--filter", "badfilter"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected malformed filter error")
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Deploy.Subscriptions) != 0 {
+		t.Fatalf("expected no subscription to be written, got %d", len(f.Deploy.Subscriptions))
+	}
+}
+
+func TestSubscribeAllowsFilterValuesContainingEquals(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewSubscribeCmd()
+	cmd.SetArgs([]string{"--filter", "foo=bar=baz"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Deploy.Subscriptions) != 1 {
+		t.Fatalf("expected one subscription, got %d", len(f.Deploy.Subscriptions))
+	}
+	if f.Deploy.Subscriptions[0].Filters["foo"] != "bar=baz" {
+		t.Fatalf("expected filter value 'bar=baz', got %q", f.Deploy.Subscriptions[0].Filters["foo"])
+	}
+}
