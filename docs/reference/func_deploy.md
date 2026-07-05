@@ -122,6 +122,7 @@ func deploy
       --deployer string               Type of deployment to use: 'knative' for Knative Service, 'raw' for Kubernetes Deployment, or 'keda' for Deployment with a KEDA HTTP scaler ($FUNC_DEPLOYER) (default "knative")
       --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
   -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+      --expose string                 External exposure mode: 'route' (create a Route; OpenShift clusters only), 'none' (cluster-local opt-out). Raw and keda deployers only. Defaults to exposed on OpenShift, cluster-local elsewhere. An explicitly empty value (--expose="") clears the persisted deploy.expose key and returns to the default. ($FUNC_EXPOSE)
   -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
   -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
   -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)

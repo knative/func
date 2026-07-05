@@ -10,6 +10,7 @@ import (
 var (
 	ErrEnvironmentNotFound       = errors.New("environment not found")
 	ErrFunctionNotFound          = errors.New("function not found")
+	ErrInvalidExpose             = errors.New("invalid deploy.expose value")
 	ErrMismatchedName            = errors.New("name passed the function source")
 	ErrNameRequired              = errors.New("name required")
 	ErrNamespaceRequired         = errors.New("namespace required")

@@ -1603,6 +1603,42 @@ func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
 	}
 }
 
+// TestClient_Deploy_PrintsResultMessage asserts Deploy prints the deploy
+// status message (namespace + URL) to stderr on success.
+func TestClient_Deploy_PrintsResultMessage(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	f, err := fn.New().Init(fn.Function{Runtime: TestRuntime, Name: "f", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deployer := mock.NewDeployerWithResult(fn.DeploymentResult{
+		Status:    fn.Deployed,
+		Namespace: TestNamespace,
+		URL:       "http://f.example.com",
+	})
+	client := fn.New(fn.WithDeployer(deployer))
+
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	_, err = client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
+
+	w.Close()
+	os.Stderr = old
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var buf [4096]byte
+	n, _ := r.Read(buf[:])
+	if output := string(buf[:n]); !strings.Contains(output, "deployed in namespace") || !strings.Contains(output, "http://f.example.com") {
+		t.Errorf("expected stderr to contain the deploy message and URL, got: %q", output)
+	}
+}
+
 // TestClient_New_BuilderImagesPersisted Asserts that the client preserves user-
 // provided Builder Images
 func TestClient_New_BuildersPersisted(t *testing.T) {

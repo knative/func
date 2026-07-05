@@ -37,6 +37,11 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 		Deployer: *k8s.NewDeployer(
 			// init with the kedaDeployerDecorator to have the correct deployer labels&annotations
 			k8s.WithDeployerDecorator(&kedaDeployerDecorator{}),
+			// keda functions stay behind the interceptor; this deployer
+			// mints its own Route separately (see route.go) rather than
+			// letting the embedded raw deployer expose the function's own
+			// Service directly, which would bypass the interceptor entirely
+			k8s.WithDeployerExposureDisabled(),
 		),
 	}
 

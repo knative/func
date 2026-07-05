@@ -50,7 +50,7 @@ func TestMetadata_TriggerSync(t *testing.T) {
 		if err := f.Write(); err != nil {
 			t.Fatal(err)
 		}
-		if err := newCmd(t, "deploy", "--deployer", "raw").Run(); err != nil {
+		if err := newCmd(t, "deploy", "--deployer", "raw", "--expose", "none").Run(); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -109,7 +109,7 @@ func TestMetadata_TriggerSync(t *testing.T) {
 		t.Logf("Created manual trigger: %s", manualTriggerName)
 
 		// Redeploy (no changes to subscriptions)
-		if err := newCmd(t, "deploy", "--deployer", "raw").Run(); err != nil {
+		if err := newCmd(t, "deploy", "--deployer", "raw", "--expose", "none").Run(); err != nil {
 			t.Fatal(err)
 		}
 		time.Sleep(5 * time.Second)
@@ -171,7 +171,7 @@ func TestMetadata_TriggerSync(t *testing.T) {
 		// (AlreadyExists-tolerated) cluster path; trigger-name determinism is
 		// already exhaustively unit-tested (pkg/k8s/deployer_test.go:157-333),
 		// so the previous ×3 loop is reduced to ×1.
-		if err := newCmd(t, "deploy", "--deployer", "raw").Run(); err != nil {
+		if err := newCmd(t, "deploy", "--deployer", "raw", "--expose", "none").Run(); err != nil {
 			t.Fatal(err)
 		}
 		time.Sleep(3 * time.Second)
