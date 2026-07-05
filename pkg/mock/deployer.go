@@ -39,6 +39,9 @@ func NewDeployer() *Deployer {
 			} else {
 				result.Deployer = f.Deploy.Deployer // redeploy with current
 			}
+			if err == nil {
+				result.Status = fn.Deployed
+			}
 			return
 		},
 	}

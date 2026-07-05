@@ -19,8 +19,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1"
@@ -38,6 +40,11 @@ const (
 	DefaultReadinessEndpoint = "/health/readiness"
 	DefaultHTTPPort          = 8080
 
+	// RouteHostnameAnnotation records the externally-exposed hostname (if
+	// any) on the function's Service, so lister/describer can read it back
+	// without re-deriving or re-querying the Route.
+	RouteHostnameAnnotation = "function.knative.dev/route-hostname"
+
 	// managedByAnnotation identifies triggers managed by this deployer
 	managedByAnnotation = "func.knative.dev/managed-by"
 	managedByValue      = "func-raw-deployer"
@@ -48,6 +55,11 @@ type DeployerOpt func(*Deployer)
 type Deployer struct {
 	verbose   bool
 	decorator deployer.DeployDecorator
+
+	// exposureDisabled marks a Deployer embedded by another deployer (keda)
+	// whose functions must stay cluster-local: a Route pointed at the
+	// raw ClusterIP Service would bypass keda's scale-to-zero interceptor.
+	exposureDisabled bool
 }
 
 func NewDeployer(opts ...DeployerOpt) *Deployer {
@@ -61,6 +73,16 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 func WithDeployerVerbose(verbose bool) DeployerOpt {
 	return func(d *Deployer) {
 		d.verbose = verbose
+	}
+}
+
+// WithDeployerExposureDisabled turns off this Deployer's own OpenShift
+// Route exposure; for deployers that embed this Deployer but manage
+// exposure themselves (eg. keda, whose functions stay behind its own
+// interceptor and mint their own Route separately).
+func WithDeployerExposureDisabled() DeployerOpt {
+	return func(d *Deployer) {
+		d.exposureDisabled = true
 	}
 }
 
@@ -133,6 +155,11 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, err
 	}
 
+	dynClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
 	// Check if Dapr is installed
 	daprInstalled := false
 	_, err = clientset.CoreV1().Namespaces().Get(ctx, "dapr-system", metav1.GetOptions{})
@@ -161,7 +188,15 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
-		svc, err := d.generateService(f, namespace, daprInstalled, existingDeployment)
+		existingService, svcGetErr := serviceClient.Get(ctx, f.Name, metav1.GetOptions{})
+		if svcGetErr != nil {
+			if !errors.IsNotFound(svcGetErr) {
+				return fn.DeploymentResult{}, fmt.Errorf("failed to get existing service: %w", svcGetErr)
+			}
+			existingService = nil
+		}
+
+		svc, err := d.generateService(f, namespace, daprInstalled, existingDeployment, existingService)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate service resources: %w", err)
 		}
@@ -173,19 +208,17 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to update deployment: %w", err)
 		}
 
-		existingService, err := serviceClient.Get(ctx, f.Name, metav1.GetOptions{})
-		if err == nil {
+		// update/create service
+		if svcGetErr == nil {
 			svc.ResourceVersion = existingService.ResourceVersion
 			if _, err = serviceClient.Update(ctx, svc, metav1.UpdateOptions{}); err != nil {
 				return fn.DeploymentResult{}, fmt.Errorf("failed to update service: %w", err)
 			}
-		} else if errors.IsNotFound(err) {
-			// Service doesn't exist, create it
+		} else {
+			// Confirmed IsNotFound above the generateService()
 			if _, err = serviceClient.Create(ctx, svc, metav1.CreateOptions{}); err != nil {
 				return fn.DeploymentResult{}, fmt.Errorf("failed to create service: %w", err)
 			}
-		} else {
-			return fn.DeploymentResult{}, fmt.Errorf("failed to get existing service: %w", err)
 		}
 
 		status = fn.Updated
@@ -215,7 +248,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to create deployment: %w", err)
 		}
 
-		svc, err := d.generateService(f, namespace, daprInstalled, deployment)
+		svc, err := d.generateService(f, namespace, daprInstalled, deployment, nil)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate service resources: %w", err)
 		}
@@ -234,6 +267,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("deployment did not become ready: %w", err)
 	}
 
+	// External exposure via an OpenShift Route; see resolveExposure().
+	url, _, err := d.resolveExposure(ctx, f, namespace, clientset, dynClient)
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
+
 	// Sync triggers
 	eventingClient, err := newEventingClient(config, namespace)
 	if err != nil {
@@ -243,14 +282,166 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, err
 	}
 
-	url := fmt.Sprintf("http://%s.%s.svc", f.Name, namespace)
-
 	return fn.DeploymentResult{
 		Status:    status,
 		URL:       url,
 		Namespace: namespace,
 		Deployer:  KubernetesDeployerName,
 	}, nil
+}
+
+// resolveExposure keeps a raw-deployer function's external exposure (an
+// OpenShift Route) in sync with what's currently wanted. This is symmetric
+// for both directions: create/update the Route when exposure is wanted,
+// remove it when it isn't - so toggling expose:route on and off across
+// redeploys just works.
+// Removal is unconditional whenever exposure isn't currently wanted, so a
+// stale Route from a prior raw deploy never survives a raw -> keda deployer
+// switch (the only cross-deployer path that still runs this code, since
+// keda embeds this deployer with exposure disabled).
+// Functions are exposed BY DEFAULT: a deployed function being reachable is
+// the expected outcome, matching what a plain "func deploy" already implies
+// for every other deployer, so the unset value behaves the same as
+// explicit expose:route, not like expose:none. This is only meaningful on
+// OpenShift, since a Route is an OpenShift-only mechanism: IsOpenShift()
+// keeps plain-Kubernetes deploys safe without requiring any flag - an
+// explicit expose:route request off OpenShift is still a hard error (the
+// user asked for something impossible), but the unset default just quietly
+// degrades to cluster-local there rather than failing an ordinary deploy.
+func (d *Deployer) resolveExposure(ctx context.Context, f fn.Function, namespace string, clientset kubernetes.Interface, dynClient dynamic.Interface) (string, bool, error) {
+	defaultURL := fmt.Sprintf("http://%s.%s.svc", f.Name, namespace)
+
+	if err := fn.ValidateExpose(f.Deploy.Expose); err != nil {
+		return "", false, err
+	}
+	tech := f.Deploy.Expose
+
+	if tech == "route" && !IsOpenShift() {
+		return "", false, fmt.Errorf(
+			"expose:route requires an OpenShift cluster: route.openshift.io Routes are an " +
+				"OpenShift-specific resource, and this does not appear to be an OpenShift cluster")
+	}
+
+	if d.exposureDisabled {
+		if err := d.removeExposure(ctx, clientset, dynClient, namespace, f.Name, false); err != nil {
+			return "", false, err
+		}
+		return defaultURL, false, nil
+	}
+
+	wantsRoute := tech == "route" || (tech == "" && IsOpenShift())
+	if !wantsRoute {
+		// expose:none (explicit opt-out): enforce=true, a hard error if
+		// removal fails to verify/clear. Unset on a non-OpenShift cluster
+		// (default gracefully declined, not requested): enforce=false,
+		// since nothing was actually asked for here.
+		if err := d.removeExposure(ctx, clientset, dynClient, namespace, f.Name, tech == "none"); err != nil {
+			return "", false, err
+		}
+		return defaultURL, false, nil
+	}
+
+	url, err := d.ensureExposure(ctx, f, namespace, clientset, dynClient)
+	if err != nil {
+		return "", false, fmt.Errorf("external exposure failed: %w", err)
+	}
+	return url, true, nil
+}
+
+// removeExposure deletes the managed Route (never a user-authored route
+// sharing the function's name) and clears the recorded exposure state.
+// Missing Route API support needs no special-casing: the GET reports
+// NotFound either way, meaning nothing to remove.
+//
+// enforce selects the failure posture:
+//   - true (unset or expose:none): failing to verify/remove is a hard error;
+//   - false (deployer switched away from raw): an RBAC 403 on the route
+//     GET/DELETE prints a warning and the deploy continues, since keda
+//     users without Route permissions must stay green.
+func (d *Deployer) removeExposure(ctx context.Context, clientset kubernetes.Interface, dynClient dynamic.Interface, namespace, name string, enforce bool) error {
+	if _, err := RemoveManagedRoute(ctx, dynClient, namespace, name); err != nil {
+		if !enforce && errors.IsForbidden(err) {
+			fmt.Fprintf(os.Stderr, "⚠️  cannot remove Route %q (forbidden) - leaving it in place\n", name)
+		} else {
+			return fmt.Errorf("failed to remove Route: %w", err)
+		}
+	}
+
+	if err := writeRouteHostnameAnnotation(ctx, clientset, namespace, name, ""); err != nil {
+		if !enforce {
+			fmt.Fprintf(os.Stderr, "⚠️  failed to clear exposure state: %v\n", err)
+			return nil
+		}
+		return fmt.Errorf("failed to clear exposure state: %w", err)
+	}
+	return nil
+}
+
+// ensureExposure creates or updates the Route exposing f, waits for it to
+// be admitted by a router, and records the minted hostname.
+func (d *Deployer) ensureExposure(ctx context.Context, f fn.Function, namespace string, clientset kubernetes.Interface, dynClient dynamic.Interface) (string, error) {
+	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get deployment for owner reference: %w", err)
+	}
+
+	route, err := GenerateRoute(f, f.Name, deployment, d.decorator, KubernetesDeployerName)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate Route: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "🌐 Exposing function externally -> %s\n", f.Name)
+
+	if err := EnsureRoute(ctx, dynClient, namespace, route); err != nil {
+		return "", err
+	}
+
+	// Wait for a router to accept the route - enforced, never downgraded to a warning.
+	host, err := WaitForRouteAdmitted(ctx, dynClient, namespace, f.Name, 30*time.Second)
+	if err != nil {
+		return "", fmt.Errorf("route was not admitted: %w", err)
+	}
+
+	if err := writeRouteHostnameAnnotation(ctx, clientset, namespace, f.Name, host); err != nil {
+		return "", err
+	}
+
+	// The Route redirects http to https (see GenerateRoute's tls stanza).
+	return fmt.Sprintf("https://%s", host), nil
+}
+
+// writeRouteHostnameAnnotation records (hostname != "") or clears
+// (hostname == "") the exposed hostname on the function's Service: no-op
+// when already current, retried on write conflicts. A missing Service is
+// tolerated only when clearing; recording against one that doesn't exist
+// is a real error.
+func writeRouteHostnameAnnotation(ctx context.Context, clientset kubernetes.Interface, namespace, name, hostname string) error {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		svc, err := clientset.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if svc.Annotations[RouteHostnameAnnotation] == hostname {
+			return nil
+		}
+		if hostname == "" {
+			delete(svc.Annotations, RouteHostnameAnnotation)
+		} else {
+			if svc.Annotations == nil {
+				svc.Annotations = map[string]string{}
+			}
+			svc.Annotations[RouteHostnameAnnotation] = hostname
+		}
+		_, err = clientset.CoreV1().Services(namespace).Update(ctx, svc, metav1.UpdateOptions{})
+		return err
+	})
+	if err != nil {
+		if hostname == "" && errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to update exposure state on service %q: %w", name, err)
+	}
+	return nil
 }
 
 // generateTriggerName creates a deterministic trigger name based on subscription content
@@ -489,13 +680,23 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInsta
 	return deployment, nil
 }
 
-func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalled bool, deployment *appsv1.Deployment) (*corev1.Service, error) {
+// generateService builds the function's Service; existingService is the
+// currently-deployed Service on update, nil on create.
+func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalled bool, deployment *appsv1.Deployment, existingService *corev1.Service) (*corev1.Service, error) {
 	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
 	if err != nil {
 		return nil, err
 	}
 
 	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, daprInstalled, KubernetesDeployerName)
+	// re-apply the hostname annotation, contrary to the rest of annotations
+	// which are "always regenerate" -- the hostname is cluster-derived, not
+	// in func.yaml: the router mints it, and only the exposure step (after
+	// the Route is admitted) can write it, which happens after this
+	// Service write.
+	if existingService != nil && existingService.Annotations[RouteHostnameAnnotation] != "" {
+		annotations[RouteHostnameAnnotation] = existingService.Annotations[RouteHostnameAnnotation]
+	}
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

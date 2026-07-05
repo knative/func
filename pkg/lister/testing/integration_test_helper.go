@@ -39,6 +39,10 @@ func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describe
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
+		// Explicit opt-out: keeps this integration deploy cluster-local and
+		// platform-deterministic under exposed-by-default; ignored entirely
+		// by the knative deployer.
+		Deploy: fn.DeploySpec{Expose: "none"},
 	})
 	if err != nil {
 		t.Fatal(err)

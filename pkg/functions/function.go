@@ -277,6 +277,17 @@ type DeploySpec struct {
 	// for operator management after deploy. The zero value (false) means
 	// the function is managed by default when the func-operator is installed.
 	ManagementDisabled bool `yaml:"managementDisabled,omitempty"`
+
+	// Expose controls external access for the raw and keda deployers (the
+	// knative deployer manages its own exposure and ignores it). Optional.
+	// Values: "route" (create an OpenShift Route; OpenShift clusters only -
+	// a hard error elsewhere), "none" (cluster-local only, explicit
+	// opt-out). Defaults to "route" behavior on OpenShift - a deployed
+	// function being externally reachable is the expected outcome - and to
+	// cluster-local on any other cluster, since a Route is an
+	// OpenShift-only mechanism and the unset default must not impose a
+	// platform requirement.
+	Expose string `yaml:"expose,omitempty"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
