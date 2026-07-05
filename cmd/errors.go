@@ -31,6 +31,9 @@ Internal error during error-wrapping: specified cmd '%s' not supported`, cmd)
 	if errors.Is(err, fn.ErrPlatformNotSupported) {
 		return NewErrPlatformNotSupported(err, cmd)
 	}
+	if errors.Is(err, fn.ErrInvalidExpose) {
+		return NewErrInvalidExpose(err)
+	}
 	return err
 }
 
@@ -212,6 +215,32 @@ For more options, run 'func %s --help'`, e.Err, e.Cmd, e.Cmd, e.Cmd)
 }
 
 func (e *ErrInvalidDomain) Unwrap() error {
+	return e.Err
+}
+
+// -------------------------------------------------------------------------- //
+
+type ErrInvalidExpose struct {
+	Err error
+}
+
+func NewErrInvalidExpose(err error) error {
+	return &ErrInvalidExpose{Err: err}
+}
+
+func (e *ErrInvalidExpose) Error() string {
+	return fmt.Sprintf(`%v
+
+Try this:
+  func deploy --expose=route  Create an OpenShift Route (OpenShift clusters only)
+  func deploy --expose=none   Cluster-local opt-out, no external exposure
+
+deploy.expose takes effect with the raw and keda deployers only (--deployer=raw or --deployer=keda),
+which expose by default when the platform and deployer support it.
+For more options, run 'func deploy --help'`, e.Err)
+}
+
+func (e *ErrInvalidExpose) Unwrap() error {
 	return e.Err
 }
 

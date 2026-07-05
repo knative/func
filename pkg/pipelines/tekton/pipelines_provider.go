@@ -275,11 +275,14 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, fmt.Errorf("problem in retrieving status of deployed function: %v", err)
 	}
 
-	if obj.Generation == 1 {
-		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %s\n", obj.Namespace, obj.Route)
-	} else {
-		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %s\n", obj.Namespace, obj.Route)
+	verb := "deployed"
+	if obj.Generation != 1 {
+		verb = "updated"
 	}
+	// Mirrors the deploy status message in pkg/functions/client.go's Deploy -
+	// same neutral wording, no exposure claim (duplicated rather than
+	// exported+imported across packages for one format string).
+	fmt.Fprintf(os.Stderr, "✅ Function %s in namespace %q at URL: \n   %s\n", verb, obj.Namespace, obj.Route)
 
 	if obj.Namespace != namespace {
 		fmt.Fprintf(os.Stderr, "Warning: Final function namespace %q does not match expected %q", obj.Namespace, namespace)

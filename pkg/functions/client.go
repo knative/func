@@ -187,8 +187,8 @@ type Describer interface {
 type Instance struct {
 	// Route is the primary route of a function instance.
 	Route string
-	// Routes is the primary route plus any other route at which the function
-	// can be contacted.
+	// Routes is the primary route first (external when exposed), plus any
+	// other route at which the function can be contacted.
 	Routes        []string          `json:"routes" yaml:"routes"`
 	Name          string            `json:"name" yaml:"name"`
 	Image         string            `json:"image" yaml:"image"`
@@ -919,9 +919,9 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 
 	switch result.Status {
 	case Deployed:
-		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
+		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q at URL: \n   %v\n", result.Namespace, result.URL)
 	case Updated:
-		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
+		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q at URL: \n   %v\n", result.Namespace, result.URL)
 	default:
 	}
 
