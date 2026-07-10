@@ -489,11 +489,8 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 	}
 
 	// Patch the shared Gateway to add an HTTPS listener for this test.
-	gw, err := gwClient.GatewayV1().Gateways(gwNamespace).Get(ctx, gwName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	gw.Spec.Listeners = append(gw.Spec.Listeners, gatewayv1.Listener{
+	// Filter out any stale listener with the same name first (idempotent).
+	httpsListener := gatewayv1.Listener{
 		Name:     gatewayv1.SectionName(listenerName),
 		Protocol: gatewayv1.HTTPSProtocolType,
 		Port:     443,
@@ -509,7 +506,12 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 				From: ptr(gatewayv1.NamespacesFromAll),
 			},
 		},
-	})
+	}
+	gw, err := gwClient.GatewayV1().Gateways(gwNamespace).Get(ctx, gwName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gw.Spec.Listeners = replaceOrAppendListener(gw.Spec.Listeners, httpsListener)
 	_, err = gwClient.GatewayV1().Gateways(gwNamespace).Update(ctx, gw, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatal(err)
@@ -517,6 +519,7 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 	t.Cleanup(func() {
 		gw, err := gwClient.GatewayV1().Gateways(gwNamespace).Get(context.Background(), gwName, metav1.GetOptions{})
 		if err != nil {
+			t.Logf("warning: failed to get Gateway for listener cleanup: %v", err)
 			return
 		}
 		filtered := make([]gatewayv1.Listener, 0, len(gw.Spec.Listeners))
@@ -526,7 +529,9 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 			}
 		}
 		gw.Spec.Listeners = filtered
-		_, _ = gwClient.GatewayV1().Gateways(gwNamespace).Update(context.Background(), gw, metav1.UpdateOptions{})
+		if _, err := gwClient.GatewayV1().Gateways(gwNamespace).Update(context.Background(), gw, metav1.UpdateOptions{}); err != nil {
+			t.Logf("warning: failed to remove HTTPS listener from Gateway: %v", err)
+		}
 	})
 
 	// Create HTTPRoute pointing at the git-private service.
@@ -535,8 +540,9 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 		Spec: gatewayv1.HTTPRouteSpec{
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{
 				ParentRefs: []gatewayv1.ParentReference{{
-					Name:      gatewayv1.ObjectName(gwName),
-					Namespace: ptr(gatewayv1.Namespace(gwNamespace)),
+					Name:        gatewayv1.ObjectName(gwName),
+					Namespace:   ptr(gatewayv1.Namespace(gwNamespace)),
+					SectionName: ptr(gatewayv1.SectionName(listenerName)),
 				}},
 			},
 			Hostnames: []gatewayv1.Hostname{gatewayv1.Hostname(host)},
@@ -556,6 +562,19 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// replaceOrAppendListener replaces an existing listener with the same name,
+// or appends the new listener if no match is found. This makes the Gateway
+// update idempotent — safe if a previous test cleanup left a stale listener.
+func replaceOrAppendListener(listeners []gatewayv1.Listener, l gatewayv1.Listener) []gatewayv1.Listener {
+	for i, existing := range listeners {
+		if existing.Name == l.Name {
+			listeners[i] = l
+			return listeners
+		}
+	}
+	return append(listeners, l)
 }
 
 func ptr[T any](val T) *T {
