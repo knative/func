@@ -83,8 +83,8 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 	fmt.Fprintf(out, "Version: %s\n", contourVersion)
 
 	fmt.Fprintln(out, "Installing Gateway API CRDs.")
-	gatewayAPICRDsURL := fmt.Sprintf("https://github.com/kubernetes-sigs/gateway-api/releases/download/%s/standard-install.yaml", gatewayAPIVersion)
-	if err := run(ctx, out, "", cfg.kubectl(), "apply", "-f", gatewayAPICRDsURL); err != nil {
+	gatewayAPICRDsURL := fmt.Sprintf("https://github.com/kubernetes-sigs/gateway-api/releases/download/%s/experimental-install.yaml", gatewayAPIVersion)
+	if err := run(ctx, out, "", cfg.kubectl(), "apply", "--server-side", "-f", gatewayAPICRDsURL); err != nil {
 		return fmt.Errorf("applying Gateway API CRDs: %w", err)
 	}
 	if err := run(ctx, out, "", cfg.kubectl(), "wait", "--for=condition=Established", "--all", "crd", "--timeout=5m"); err != nil {
@@ -115,7 +115,18 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 		return fmt.Errorf("waiting for contour pods: %w", err)
 	}
 
-	fmt.Fprintln(out, "Creating shared Gateway.")
+	fmt.Fprintln(out, "Creating GatewayClass and shared Gateway.")
+	gatewayClass := `apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: contour
+spec:
+  controllerName: projectcontour.io/contour
+`
+	if err := applyManifest(ctx, out, cfg, gatewayClass); err != nil {
+		return fmt.Errorf("applying GatewayClass: %w", err)
+	}
+
 	gateway := fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -195,7 +206,8 @@ spec:
 }
 
 // addContourIPv6Args modifies the Contour deployment YAML to add
-// --envoy-service-http-address=:: and --envoy-service-https-address=:: args.
+// --envoy-service-http-address=:: and --envoy-service-https-address=:: args,
+// and patches the Contour ConfigMap to enable Gateway API via gatewayRef.
 // This replaces the yq pipeline from the shell script. The input is split
 // on the multi-document separator and each non-empty chunk is decoded
 // individually, which avoids the k8s YAML decoder's quirk of returning a
@@ -219,11 +231,21 @@ func addContourIPv6Args(yamlContent string) (string, error) {
 				args := append(argsRaw,
 					"--envoy-service-http-address=::",
 					"--envoy-service-https-address=::",
-					fmt.Sprintf("--gateway-ref=%s/%s", gatewayNamespace, gatewayName),
 				)
 				container["args"] = toAnySlice(args)
 				containers[0] = container
 				_ = unstructured.SetNestedSlice(obj.Object, containers, "spec", "template", "spec", "containers")
+			}
+		}
+
+		// Patch the Contour ConfigMap to add gatewayRef configuration.
+		if obj.GetKind() == "ConfigMap" && obj.GetName() == "contour" && obj.GetNamespace() == gatewayNamespace {
+			data, _, _ := unstructured.NestedStringMap(obj.Object, "data")
+			if data != nil {
+				contourYAML := data["contour.yaml"]
+				contourYAML += fmt.Sprintf("\ngateway:\n  gatewayRef:\n    namespace: %s\n    name: %s\n", gatewayNamespace, gatewayName)
+				data["contour.yaml"] = contourYAML
+				_ = unstructured.SetNestedStringMap(obj.Object, data, "data")
 			}
 		}
 

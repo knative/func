@@ -256,21 +256,30 @@ networking() {
   echo "Version: ${contour_version}"
 
   echo "Installing Gateway API CRDs."
-  $KUBECTL apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${gateway_api_version}/standard-install.yaml"
+  $KUBECTL apply --server-side -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${gateway_api_version}/experimental-install.yaml"
   $KUBECTL wait --for=condition=Established --all crd --timeout=5m
 
   echo "Installing a configured Contour."
   curl -sSL "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml" \
     | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args[] | select(. == "--xds-address=0.0.0.0")) = "--xds-address=::"' \
     | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args)
-          += ["--envoy-service-http-address=::", "--envoy-service-https-address=::", "--stats-address=::", "--gateway-ref=contour-external/contour-gateway"]' \
+          += ["--envoy-service-http-address=::", "--envoy-service-https-address=::", "--stats-address=::"]' \
+    | $YQ '(select(.kind == "ConfigMap" and .metadata.name == "contour" and .metadata.namespace == "contour-external").data."contour.yaml")
+          |= . + "\ngateway:\n  gatewayRef:\n    namespace: contour-external\n    name: contour-gateway\n"' \
     | $KUBECTL apply -f -
 
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
 
-  echo "Creating shared Gateway."
+  echo "Creating GatewayClass and shared Gateway."
   $KUBECTL apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: contour
+spec:
+  controllerName: projectcontour.io/contour
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
