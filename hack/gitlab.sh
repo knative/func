@@ -181,24 +181,20 @@ spec:
       nodePort: 30022
   type: NodePort
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: gitlab
   namespace: gitlab
 spec:
-  ingressClassName: contour-external
+  parentRefs:
+    - name: contour-gateway
+      namespace: contour-external
+  hostnames: ["${gitlab_host}"]
   rules:
-    - host: ${gitlab_host}
-      http:
-        paths:
-          - backend:
-              service:
-                name: gitlab-internal
-                port:
-                  number: 80
-            pathType: Prefix
-            path: /
+    - backendRefs:
+        - name: gitlab-internal
+          port: 80
 
 EOF
 

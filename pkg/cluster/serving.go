@@ -82,6 +82,15 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 	status(out, "Installing Ingress Controller (Contour)")
 	fmt.Fprintf(out, "Version: %s\n", contourVersion)
 
+	fmt.Fprintln(out, "Installing Gateway API CRDs.")
+	gatewayAPICRDsURL := fmt.Sprintf("https://github.com/kubernetes-sigs/gateway-api/releases/download/%s/standard-install.yaml", gatewayAPIVersion)
+	if err := run(ctx, out, "", cfg.kubectl(), "apply", "-f", gatewayAPICRDsURL); err != nil {
+		return fmt.Errorf("applying Gateway API CRDs: %w", err)
+	}
+	if err := run(ctx, out, "", cfg.kubectl(), "wait", "--for=condition=Established", "--all", "crd", "--timeout=5m"); err != nil {
+		return fmt.Errorf("waiting for Gateway API CRDs: %w", err)
+	}
+
 	fmt.Fprintln(out, "Installing a configured Contour.")
 	contourURL := fmt.Sprintf("https://github.com/knative/net-contour/releases/download/knative-%s/contour.yaml", contourVersion)
 	contourYAML, err := httpGet(ctx, contourURL)
@@ -104,6 +113,26 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 		"-n", "contour-external", "--timeout=10m")
 	if err != nil {
 		return fmt.Errorf("waiting for contour pods: %w", err)
+	}
+
+	fmt.Fprintln(out, "Creating shared Gateway.")
+	gateway := fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  gatewayClassName: contour
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+`, gatewayName, gatewayNamespace)
+	if err := applyManifest(ctx, out, cfg, gateway); err != nil {
+		return fmt.Errorf("applying Gateway: %w", err)
 	}
 
 	fmt.Fprintln(out, "Installing the Knative Contour controller.")
@@ -190,6 +219,7 @@ func addContourIPv6Args(yamlContent string) (string, error) {
 				args := append(argsRaw,
 					"--envoy-service-http-address=::",
 					"--envoy-service-https-address=::",
+					fmt.Sprintf("--gateway-ref=%s/%s", gatewayNamespace, gatewayName),
 				)
 				container["args"] = toAnySlice(args)
 				containers[0] = container

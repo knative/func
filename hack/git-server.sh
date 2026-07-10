@@ -28,11 +28,13 @@ git_server() {
   namespace="${namespace:-"default"}"
 
 
-  local ingress_class="contour-external"
+  local gateway_name="contour-gateway"
+  local gateway_namespace="contour-external"
   local cluster_domain="localtest.me"
   if kubectl api-versions | grep -q openshift.io; then
     cluster_domain="$(kubectl get ingresses.config/cluster -o jsonpath='{.spec.domain}')"
-    ingress_class="openshift-default"
+    gateway_name="openshift-default"
+    gateway_namespace="openshift-ingress"
   fi
 
 
@@ -69,24 +71,20 @@ spec:
       targetPort: http
   type: ClusterIP
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: "${name}"
   namespace: "${namespace}"
 spec:
-  ingressClassName: "${ingress_class}"
+  parentRefs:
+    - name: "${gateway_name}"
+      namespace: "${gateway_namespace}"
+  hostnames: ["${func_git_host}"]
   rules:
-    - host: "${func_git_host}"
-      http:
-        paths:
-          - backend:
-              service:
-                name: "${name}"
-                port:
-                  number: 80
-            pathType: Prefix
-            path: /
+    - backendRefs:
+        - name: "${name}"
+          port: 80
 EOF
 
   echo "starting func-git service at: ${func_git_host}"
