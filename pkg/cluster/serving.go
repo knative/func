@@ -74,15 +74,14 @@ func configureDNS(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	return fmt.Errorf("unable to set Knative domain after 10 attempts: %w", lastErr)
 }
 
-// installNetworking installs Contour ingress controller and configures Knative
-// to use it. The Contour YAML is modified in Go (replacing yq) to add IPv6
-// dual-stack support args.
-func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
+// installGatewayAPICRDs installs the Gateway API CRDs. This must run before
+// the parallel phase because multiple components (registry, eventing, tekton)
+// create HTTPRoute resources that require these CRDs to exist.
+func installGatewayAPICRDs(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	start := time.Now()
-	status(out, "Installing Ingress Controller (Contour)")
-	fmt.Fprintf(out, "Version: %s\n", contourVersion)
+	status(out, "Installing Gateway API CRDs")
+	fmt.Fprintf(out, "Version: %s\n", gatewayAPIVersion)
 
-	fmt.Fprintln(out, "Installing Gateway API CRDs.")
 	gatewayAPICRDsURL := fmt.Sprintf("https://github.com/kubernetes-sigs/gateway-api/releases/download/%s/experimental-install.yaml", gatewayAPIVersion)
 	if err := run(ctx, out, "", cfg.kubectl(), "apply", "--server-side", "-f", gatewayAPICRDsURL); err != nil {
 		return fmt.Errorf("applying Gateway API CRDs: %w", err)
@@ -90,6 +89,18 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 	if err := run(ctx, out, "", cfg.kubectl(), "wait", "--for=condition=Established", "--all", "crd", "--timeout=5m"); err != nil {
 		return fmt.Errorf("waiting for Gateway API CRDs: %w", err)
 	}
+
+	success(out, "Gateway API CRDs", time.Since(start))
+	return nil
+}
+
+// installNetworking installs Contour ingress controller and configures Knative
+// to use it. The Contour YAML is modified in Go (replacing yq) to add IPv6
+// dual-stack support args.
+func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
+	start := time.Now()
+	status(out, "Installing Ingress Controller (Contour)")
+	fmt.Fprintf(out, "Version: %s\n", contourVersion)
 
 	fmt.Fprintln(out, "Installing a configured Contour.")
 	contourURL := fmt.Sprintf("https://github.com/knative/net-contour/releases/download/knative-%s/contour.yaml", contourVersion)

@@ -85,6 +85,12 @@ allocate_cluster() {
   echo "fop:  Func Operator"
   echo ""
 
+  # Install Gateway API CRDs first — they must exist before any HTTPRoute
+  # can be created, so this runs before the parallel block.
+  echo "${blue}Installing Gateway API CRDs${reset}"
+  $KUBECTL apply --server-side -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${gateway_api_version}/experimental-install.yaml"
+  $KUBECTL wait --for=condition=Established --all crd --timeout=5m
+
   ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
   ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
   ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
@@ -254,10 +260,6 @@ EOF
 networking() {
   echo "${blue}Installing Ingress Controller (Contour)${reset}"
   echo "Version: ${contour_version}"
-
-  echo "Installing Gateway API CRDs."
-  $KUBECTL apply --server-side -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${gateway_api_version}/experimental-install.yaml"
-  $KUBECTL wait --for=condition=Established --all crd --timeout=5m
 
   echo "Installing a configured Contour."
   curl -sSL "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml" \
