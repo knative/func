@@ -13,6 +13,32 @@ const (
 	kedaVersion          = "v2.17.0"
 	kedaHTTPAddOnVersion = "v0.12.0"
 	metalLBVersion       = "v0.13.7"
+
+	// gatewayAPIVersion pins the Gateway API CRD bundle, applied from the
+	// EXPERIMENTAL channel (see installNetworking) because Contour's
+	// gatewayRef mode requires TLSRoute at startup even though the raw
+	// deployer's exposure path only uses the four standard CRDs
+	// (gatewayAPICRDs). v1.4.1 speaks v1 GA, compatible with func's
+	// gateway-api v1.5.1 Go client (the CRD manifest version and the Go
+	// client module version are independent).
+	gatewayAPIVersion = "v1.4.1"
+
+	// gatewayName and gatewayNamespace are the single shared Gateway that
+	// the existing net-contour Contour deployment is pointed at (see
+	// installNetworking's gatewayRef patch) - the raw deployer's
+	// cluster-wide Gateway auto-discovery finds it like any other Gateway.
+	gatewayName      = "contour-gateway"
+	gatewayNamespace = "contour-external"
+
+	// gatewayAPIUserClusterRole grants the Gateway API rules the raw
+	// deployer's exposure path actually calls (see pkg/k8s/httproute.go).
+	// Gateway API ships no ClusterRole of its own, so the built-in "admin"
+	// role Tekton's pipeline ServiceAccount is bound to (see installTekton)
+	// has zero gateway.networking.k8s.io rules on a fresh cluster - this is
+	// aggregated into "admin" via its label (see installNetworking) AND
+	// bound directly to that ServiceAccount (see installTekton) as
+	// belt-and-suspenders, matching the existing per-dependency bindings.
+	gatewayAPIUserClusterRole = "func-gateway-api-user"
 )
 
 // Tool versions — only tools we download and manage.

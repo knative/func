@@ -294,7 +294,7 @@ test-integration: ## Run integration tests using an available cluster.
 .PHONY: test-e2e
 test-e2e: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
 	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
-	go test -tags e2e -timeout 60m ./e2e -v -run "TestCore_|TestMetadata_|TestRemote_|TestLifecycle_"
+	go test -tags e2e -timeout 60m ./e2e -v -run "TestGateway_|TestCore_|TestMetadata_|TestRemote_|TestLifecycle_"
 	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
 
 .PHONY: test-e2e-podman
