@@ -122,23 +122,29 @@ func EnsureRoute(ctx context.Context, dynClient dynamic.Interface, ns string, ro
 	return nil
 }
 
-// isManagedRoute reports whether route was created by GenerateRoute() - as
+// isManagedRoute reports whether route was created by func's own
+// deployerName (GenerateRoute(), or the keda-specific equivalent that
+// targets the interceptor rather than the function's own Service) - as
 // opposed to a user-authored or third-party Route that happens to share the
-// function's name, which must never be deleted out from under the user.
-// Both signals are required: a bare boson.dev/function label, or a
-// deployer annotation written by some other component, alone does not
-// prove func's raw deployer owns the route.
-func isManagedRoute(route *unstructured.Unstructured) bool {
+// same name, which must never be deleted out from under the user. Both
+// signals are required: a bare boson.dev/function label, or a deployer
+// annotation written by some other component, alone does not prove func
+// owns the route. deployerName is checked exactly (not "any func
+// deployer"): a raw deploy must never delete a Route keda's own deployer
+// manages, or vice versa, since the two live under different lifecycle
+// rules (ownerRef GC vs explicit label-based cleanup - see
+// RemoveManagedRoute).
+func isManagedRoute(route *unstructured.Unstructured, deployerName string) bool {
 	return route.GetLabels()["boson.dev/function"] == "true" &&
-		route.GetAnnotations()[deployer.DeployerNameAnnotation] == KubernetesDeployerName
+		route.GetAnnotations()[deployer.DeployerNameAnnotation] == deployerName
 }
 
-// RemoveManagedRoute deletes the Route named 'name' in 'ns' only if func
-// owns it (isManagedRoute()). Returns (removed, error):
+// RemoveManagedRoute deletes the Route named 'name' in 'ns' only if
+// deployerName owns it (isManagedRoute()). Returns (removed, error):
 //   - not found (route absent, or the Route API isn't installed) -> (false, nil)
-//   - found but not managed -> (false, nil), warning printed, route kept
+//   - found but not managed by deployerName -> (false, nil), warning printed, route kept
 //   - found and managed, deleted -> (true, nil)
-func RemoveManagedRoute(ctx context.Context, dynClient dynamic.Interface, ns, name string) (bool, error) {
+func RemoveManagedRoute(ctx context.Context, dynClient dynamic.Interface, ns, name, deployerName string) (bool, error) {
 	client := dynClient.Resource(routeGVR).Namespace(ns)
 
 	route, err := client.Get(ctx, name, metav1.GetOptions{})
@@ -149,10 +155,15 @@ func RemoveManagedRoute(ctx context.Context, dynClient dynamic.Interface, ns, na
 		return false, fmt.Errorf("failed to check for existing Route %q: %w", name, err)
 	}
 
-	if !isManagedRoute(route) {
+	if !isManagedRoute(route, deployerName) {
+		// Not "not managed by func": isManagedRoute checks ownership by THIS
+		// deployerName, so a Route func created under a different deployer
+		// (raw vs keda) lands here too, and saying otherwise would be wrong in
+		// exactly the raw/keda switch this check exists to protect.
 		fmt.Fprintf(os.Stderr,
-			"⚠️  a Route named %q exists in namespace %q but is not managed by func - leaving it in place\n",
-			name, ns)
+			"⚠️  a Route named %q exists in namespace %q but func's %q deployer does not own it "+
+				"(user-authored, or created by a different deployer) - leaving it in place\n",
+			name, ns, deployerName)
 		return false, nil
 	}
 

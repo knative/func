@@ -295,7 +295,8 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Warn if registry changed but registryInsecure is still true
 	warnRegistryInsecureChange(cmd.OutOrStderr(), cfg.Registry, f)
 
-	// Warn if expose flag is used with deployer where it has no effect
+	// Warn if deploy.expose is set (by flag or persisted in func.yaml) for a
+	// deployer that ignores it
 	warnExposeIgnore(cmd.OutOrStderr(), cfg.Expose, cfg.Deployer)
 
 	// Back-compat: a function deployed before the deployer was recorded has a
@@ -935,9 +936,11 @@ func isDigested(v string) (validDigest bool, err error) {
 	return ok, nil
 }
 
-// warnExposeIgnore warns when non raw|keda deployer is used with Expose flag
-// where it is simply ignored and has no effect. An empty deployer means the
-// default (knative), which also ignores expose.
+// warnExposeIgnore warns when a non-empty deploy.expose is paired with a
+// deployer that ignores it. The value is the RESOLVED one, not just what the
+// user typed: the --expose flag registers f.Deploy.Expose as its own default,
+// so a value persisted in func.yaml warns on its own with no flag present.
+// An empty deployer means the default (knative), which also ignores expose.
 func warnExposeIgnore(w io.Writer, expose, deployer string) {
 	if expose != "" && deployer != k8s.KubernetesDeployerName &&
 		deployer != keda.KedaDeployerName {

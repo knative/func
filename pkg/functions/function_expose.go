@@ -4,18 +4,24 @@ import (
 	"fmt"
 )
 
-// ValidateExpose reports whether expose is a valid deploy.expose value: ""
-// (default - exposed via an OpenShift Route, since a deployed function
-// being reachable is the expected outcome; cluster-local on non-OpenShift
-// clusters, since a Route is an OpenShift-only mechanism), "none"
-// (cluster-local, explicit opt-out), or "route" (explicit request for an
-// OpenShift Route). There is no ref suffix: an OpenShift Route has no
-// concept of "which ingress controller to attach to" - the cluster's
-// IngressController picks the router, and the Route object doesn't
-// reference one. Any other value is rejected.
+// ValidateExpose checks a deploy.expose value. Valid are "route" for an
+// OpenShift Route, "none" for cluster-local only, and "" which means route on
+// OpenShift and none anywhere else. Anything else is an error.
 func ValidateExpose(expose string) error {
 	if expose == "" || expose == "none" || expose == "route" {
 		return nil
 	}
 	return fmt.Errorf("%w: %q", ErrInvalidExpose, expose)
+}
+
+// validateExpose is the Function.Validate() form: messages rather than an
+// error. It is the only check callers get when they never run the CLI's own
+// flag validation - the --remote path, and library callers building a
+// Function directly.
+func validateExpose(expose string) (errors []string) {
+	if err := ValidateExpose(expose); err != nil {
+		errors = append(errors, fmt.Sprintf(
+			"specified option \"deploy.expose=%s\" is not valid, allowed values are \"route\", \"none\" or empty", expose))
+	}
+	return
 }

@@ -68,7 +68,7 @@ func Test_GenerateRoute(t *testing.T) {
 	if insecurePolicy != "Redirect" {
 		t.Errorf("expected spec.tls.insecureEdgeTerminationPolicy Redirect, got %q", insecurePolicy)
 	}
-	if !isManagedRoute(route) {
+	if !isManagedRoute(route, KubernetesDeployerName) {
 		t.Error("expected a freshly generated Route to be self-managed")
 	}
 	owners := route.GetOwnerReferences()
@@ -114,7 +114,7 @@ func Test_RemoveManagedRoute(t *testing.T) {
 
 	t.Run("not found: no-op", func(t *testing.T) {
 		client := newFakeDynamicClient()
-		removed, err := RemoveManagedRoute(ctx, client, "ns", "f")
+		removed, err := RemoveManagedRoute(ctx, client, "ns", "f", KubernetesDeployerName)
 		if err != nil || removed {
 			t.Errorf("expected (false, nil), got (%v, %v)", removed, err)
 		}
@@ -130,7 +130,7 @@ func Test_RemoveManagedRoute(t *testing.T) {
 		route.SetNamespace("ns")
 		client := newFakeDynamicClient(route)
 
-		removed, err := RemoveManagedRoute(ctx, client, "ns", "f")
+		removed, err := RemoveManagedRoute(ctx, client, "ns", "f", KubernetesDeployerName)
 		if err != nil || !removed {
 			t.Fatalf("expected (true, nil), got (%v, %v)", removed, err)
 		}
@@ -150,7 +150,7 @@ func Test_RemoveManagedRoute(t *testing.T) {
 		}}
 		client := newFakeDynamicClient(foreign)
 
-		removed, err := RemoveManagedRoute(ctx, client, "ns", "f")
+		removed, err := RemoveManagedRoute(ctx, client, "ns", "f", KubernetesDeployerName)
 		if err != nil || removed {
 			t.Fatalf("expected (false, nil) for a foreign Route, got (%v, %v)", removed, err)
 		}

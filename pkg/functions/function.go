@@ -287,7 +287,7 @@ type DeploySpec struct {
 	// cluster-local on any other cluster, since a Route is an
 	// OpenShift-only mechanism and the unset default must not impose a
 	// platform requirement.
-	Expose string `yaml:"expose,omitempty"`
+	Expose string `yaml:"expose,omitempty" jsonschema:"enum=route,enum=none"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
@@ -414,6 +414,7 @@ func (f Function) Validate() error {
 		ValidateBuildEnvs(f.Build.BuildEnvs),
 		ValidateEnvs(f.Run.Envs),
 		validateOptions(f.Deploy.Options),
+		validateExpose(f.Deploy.Expose),
 		ValidateLabels(f.Deploy.Labels),
 		validateGit(f.Build.Git),
 		validateKafka(f.Run.Kafka, f.Invoke, f.Runtime),

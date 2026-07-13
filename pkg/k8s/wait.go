@@ -50,7 +50,7 @@ func WaitForDeploymentAvailableBySelector(ctx context.Context, clientset *kubern
 	})
 }
 
-func WaitForServiceRemoved(ctx context.Context, clientset *kubernetes.Clientset, namespace, name string, timeout time.Duration) error {
+func WaitForServiceRemoved(ctx context.Context, clientset kubernetes.Interface, namespace, name string, timeout time.Duration) error {
 	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		_, err := clientset.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {

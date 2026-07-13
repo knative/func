@@ -3,6 +3,7 @@ package keda
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
@@ -37,10 +38,10 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 		Deployer: *k8s.NewDeployer(
 			// init with the kedaDeployerDecorator to have the correct deployer labels&annotations
 			k8s.WithDeployerDecorator(&kedaDeployerDecorator{}),
-			// keda functions stay behind the interceptor; this deployer
-			// mints its own Route separately (see route.go) rather than
-			// letting the embedded raw deployer expose the function's own
-			// Service directly, which would bypass the interceptor entirely
+			// Traffic has to reach the function through the interceptor, so
+			// the embedded raw deployer must not expose the function's own
+			// Service. This deployer creates its own Route to the
+			// interceptor instead, in route.go.
 			k8s.WithDeployerExposureDisabled(),
 		),
 	}
@@ -130,13 +131,64 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		d.interceptorBridgeServiceName(f),
 	}
 
+	tech := f.Deploy.Expose
+
+	dynClient, err := k8s.NewDynamicClient()
+	if err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
+	exposedURL := fmt.Sprintf("http://%s:8080", hosts[0])
+	removeStaleRoute := false
+
+	// "route" is an explicit request; unset means yes on OpenShift, no anywhere
+	// else. Otherwise remove any Route an earlier deploy created. Both branches are
+	// OpenShift-only because Routes exist nowhere else.
+	// An explicit expose:route on non-OpenShift cluster never reaches here, it
+	// would have been rejected in the embedded raw deployer - k8s.Deployer.resolveExposure()
+	if tech == "route" || (tech == "" && k8s.IsOpenShift()) {
+		host, err := ensureInterceptorRoute(ctx, dynClient, f, namespace, d.decorator)
+		if err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to ensure interceptor Route: %w", err)
+		}
+		// The interceptor matches on the literal Host header, so the Route's
+		// hostname has to be in hosts as well.
+		if !slices.Contains(hosts, host) {
+			hosts = append(hosts, host)
+		}
+		// The Route redirects http to https (see generateInterceptorRoute).
+		exposedURL = fmt.Sprintf("https://%s", host)
+	} else if k8s.IsOpenShift() {
+		// Not exposed, so a Route from an earlier deploy must go. Deferred until
+		// after the scaler exists: see the removal below.
+		removeStaleRoute = true
+	}
+
 	if err := d.ensureHTTPScaledObject(ctx, f, namespace, deployment, appService, hosts); err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to ensure http scaled object exists: %w", err)
 	}
 
+	// Removing the stale Route runs LAST, after the HTTPScaledObject exists, for the
+	// same reason remove() deletes it last: the call needs Route permissions in the
+	// interceptor namespace, and a Forbidden there must not leave the function
+	// deployed but unscaled. Ordered this way, the error is still fatal - an
+	// explicit expose:none that cannot be honoured has to be reported - but the
+	// function it leaves behind is complete rather than half-configured.
+	//
+	// A Route that outlives this call is inert, not a leak of exposure: the
+	// interceptor matches the literal Host header against the hosts registered by
+	// an HTTPScaledObject, and expose:none registers only the cluster-local bridge
+	// hosts. Verified on OpenShift with the interceptor's own Route recreated by
+	// hand: that hostname answers 404 while the bridge answers 200.
+	if removeStaleRoute {
+		if err := removeInterceptorRoute(ctx, dynClient, f.Name, namespace); err != nil {
+			return fn.DeploymentResult{}, err
+		}
+	}
+
 	return fn.DeploymentResult{
 		Status:    deployResult.Status,
-		URL:       fmt.Sprintf("http://%s:8080", hosts[0]), // TODO: check on HTTPS too
+		URL:       exposedURL,
 		Namespace: deployResult.Namespace,
 		Deployer:  KedaDeployerName,
 	}, nil
@@ -231,7 +283,7 @@ func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string, dep
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: "keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local",
+			ExternalName: fmt.Sprintf("%s.%s.svc.cluster.local", interceptorServiceName, interceptorNamespace()),
 		},
 	}
 }

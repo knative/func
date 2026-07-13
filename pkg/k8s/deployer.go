@@ -359,7 +359,7 @@ func (d *Deployer) resolveExposure(ctx context.Context, f fn.Function, namespace
 //     GET/DELETE prints a warning and the deploy continues, since keda
 //     users without Route permissions must stay green.
 func (d *Deployer) removeExposure(ctx context.Context, clientset kubernetes.Interface, dynClient dynamic.Interface, namespace, name string, enforce bool) error {
-	if _, err := RemoveManagedRoute(ctx, dynClient, namespace, name); err != nil {
+	if _, err := RemoveManagedRoute(ctx, dynClient, namespace, name, KubernetesDeployerName); err != nil {
 		if !enforce && errors.IsForbidden(err) {
 			fmt.Fprintf(os.Stderr, "⚠️  cannot remove Route %q (forbidden) - leaving it in place\n", name)
 		} else {
@@ -725,52 +725,55 @@ func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalle
 	return service, nil
 }
 
+// referenceCheckMessage returns the message for a failed reference check: a
+// Forbidden error means the resource could not be checked, any other error
+// that it is not there. Both still fail the deploy, so this picks the wording
+// only.
+func referenceCheckMessage(kind, name, namespace string, err error) string {
+	if errors.IsForbidden(err) {
+		return fmt.Sprintf("  referenced %s %q in namespace %q could not be checked: access is denied. "+
+			"Ensure the service account has permission to get it.\n", kind, name, namespace)
+	}
+	return fmt.Sprintf("  referenced %s %q is not present in namespace %q\n", kind, name, namespace)
+}
+
 // CheckResourcesArePresent returns error if Secrets or ConfigMaps
 // referenced in input sets are not deployed on the cluster in the specified namespace
 func CheckResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount, imagePullSecret string) error {
-	errMsg := ""
+	var msgs strings.Builder
 	for s := range *referencedSecrets {
-		_, err := GetSecret(ctx, s, namespace)
-		if err != nil {
-			if errors.IsForbidden(err) {
-				errMsg += " Ensure that the service account has the necessary permissions to access the secret.\n"
-			} else {
-				errMsg += fmt.Sprintf("  referenced Secret \"%s\" is not present in namespace \"%s\"\n", s, namespace)
-			}
+		if _, err := GetSecret(ctx, s, namespace); err != nil {
+			msgs.WriteString(referenceCheckMessage("Secret", s, namespace, err))
 		}
 	}
 
 	for cm := range *referencedConfigMaps {
-		_, err := GetConfigMap(ctx, cm, namespace)
-		if err != nil {
-			errMsg += fmt.Sprintf("  referenced ConfigMap \"%s\" is not present in namespace \"%s\"\n", cm, namespace)
+		if _, err := GetConfigMap(ctx, cm, namespace); err != nil {
+			msgs.WriteString(referenceCheckMessage("ConfigMap", cm, namespace, err))
 		}
 	}
 
 	for pvc := range *referencedPVCs {
-		_, err := GetPersistentVolumeClaim(ctx, pvc, namespace)
-		if err != nil {
-			errMsg += fmt.Sprintf("  referenced PersistentVolumeClaim \"%s\" is not present in namespace \"%s\"\n", pvc, namespace)
+		if _, err := GetPersistentVolumeClaim(ctx, pvc, namespace); err != nil {
+			msgs.WriteString(referenceCheckMessage("PersistentVolumeClaim", pvc, namespace, err))
 		}
 	}
 
 	// check if referenced ServiceAccount is present in the namespace if it is not default
 	if referencedServiceAccount != "" && referencedServiceAccount != "default" {
-		err := GetServiceAccount(ctx, referencedServiceAccount, namespace)
-		if err != nil {
-			errMsg += fmt.Sprintf("  referenced ServiceAccount \"%s\" is not present in namespace \"%s\"\n", referencedServiceAccount, namespace)
+		if err := GetServiceAccount(ctx, referencedServiceAccount, namespace); err != nil {
+			msgs.WriteString(referenceCheckMessage("ServiceAccount", referencedServiceAccount, namespace, err))
 		}
 	}
 
 	if imagePullSecret != "" {
-		_, err := GetSecret(ctx, imagePullSecret, namespace)
-		if err != nil {
-			errMsg += fmt.Sprintf("  referenced image pull Secret \"%s\" is not present in namespace \"%s\"\n", imagePullSecret, namespace)
+		if _, err := GetSecret(ctx, imagePullSecret, namespace); err != nil {
+			msgs.WriteString(referenceCheckMessage("image pull Secret", imagePullSecret, namespace, err))
 		}
 	}
 
-	if errMsg != "" {
-		return fmt.Errorf("error(s) while validating resources:\n%s", errMsg)
+	if msgs.Len() > 0 {
+		return fmt.Errorf("error(s) while validating resources:\n%s", msgs.String())
 	}
 
 	return nil

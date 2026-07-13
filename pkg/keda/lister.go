@@ -74,10 +74,17 @@ func (l *Lister) get(ctx context.Context, httpScaledObjectClientset *versioned.C
 		ready = v1.ConditionFalse
 	}
 
-	url := ""
-	if len(httpScaledObject.Spec.Hosts) > 0 {
-		url = fmt.Sprintf("http://%s:8080", httpScaledObject.Spec.Hosts[0])
+	// Prefer the external OpenShift Route's URL when one exists - identified
+	// by name (interceptorRouteName is deterministic), not by guessing at
+	// Spec.Hosts array position (see describer.go for the same reasoning).
+	var routeHost string
+	var routeFound bool
+	if k8s.IsOpenShift() {
+		if dynClient, err := k8s.NewDynamicClient(); err == nil {
+			routeHost, routeFound, _ = k8s.GetAdmittedRouteHost(ctx, dynClient, interceptorNamespace(), interceptorRouteName(name, namespace))
+		}
 	}
+	url, _ := selectRouteURLs(httpScaledObject.Spec.Hosts, routeHost, routeFound)
 
 	runtimeLabel := ""
 	listItem := fn.ListItem{
