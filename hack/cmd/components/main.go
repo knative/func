@@ -118,7 +118,7 @@ func main() {
 		// regenerate .sh to keep up to date if changed
 		err = writeScript(componentList, fileScript)
 		if err != nil {
-			err = fmt.Errorf("failed to re-generate script: %v", err)
+			err = fmt.Errorf("failed to re-generate script: %w", err)
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -127,7 +127,7 @@ func main() {
 	}
 
 	if err := writeFiles(componentList, fileScript, fileJson); err != nil {
-		err = fmt.Errorf("failed to write files: %v", err)
+		err = fmt.Errorf("failed to write files: %w", err)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -147,7 +147,7 @@ func update(ctx context.Context, client *github.Client, cl *ComponentList) (bool
 
 		newV, err := getLatestVersion(ctx, client, c.Owner, c.Repo)
 		if err != nil {
-			err = fmt.Errorf("error while getting latest v of %s/%s: %v", c.Owner, c.Repo, err)
+			err = fmt.Errorf("error while getting latest v of %s/%s: %w", c.Owner, c.Repo, err)
 			return false, err
 		}
 
@@ -183,12 +183,12 @@ func writeFiles(cl ComponentList, script, json string) error {
 	// write to json
 	err := writeSource(cl, json)
 	if err != nil {
-		return fmt.Errorf("failed to write to json: %v", err)
+		return fmt.Errorf("failed to write to json: %w", err)
 	}
 	// write to script file
 	err = writeScript(cl, script)
 	if err != nil {
-		return fmt.Errorf("failed to generate script: %v", err)
+		return fmt.Errorf("failed to generate script: %w", err)
 	}
 	return nil
 }
@@ -197,7 +197,7 @@ func writeFiles(cl ComponentList, script, json string) error {
 func writeSource(cl ComponentList, file string) error {
 	vB, err := json.MarshalIndent(cl, "", "	")
 	if err != nil {
-		return fmt.Errorf("can't Marshal versions: %v", err)
+		return fmt.Errorf("can't Marshal versions: %w", err)
 	}
 	f, err := os.Create(file)
 	if err != nil {
@@ -232,7 +232,7 @@ func writeScript(cl ComponentList, file string) error {
 func getLatestVersion(ctx context.Context, client *github.Client, owner string, repo string) (v string, err error) {
 	rr, res, err := client.Repositories.GetLatestRelease(ctx, owner, repo)
 	if err != nil {
-		err = fmt.Errorf("error: request for latest %s release: %v", owner+"/"+repo, err)
+		err = fmt.Errorf("error: request for latest %s release: %w", owner+"/"+repo, err)
 		return
 	}
 	if res.StatusCode < 200 && res.StatusCode > 299 {

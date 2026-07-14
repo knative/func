@@ -97,7 +97,7 @@ func NewDefault() (cfg Global, err error) {
 func Load(path string) (c Global, err error) {
 	bb, err := os.ReadFile(path)
 	if err != nil {
-		return c, fmt.Errorf("error reading global config: %v", err)
+		return c, fmt.Errorf("error reading global config: %w", err)
 	}
 	err = yaml.Unmarshal(bb, &c)
 	return
@@ -219,10 +219,10 @@ func RepositoriesPath() string {
 // ~/.config/func/repositories
 func CreatePaths() (err error) {
 	if err = os.MkdirAll(Dir(), 0755); err != nil { // rwxr-xr-x for directories
-		return fmt.Errorf("error creating global config path: %v", err)
+		return fmt.Errorf("error creating global config path: %w", err)
 	}
 	if err = os.MkdirAll(RepositoriesPath(), 0755); err != nil { // rwxr-xr-x for directories
-		return fmt.Errorf("error creating global config repositories path: %v", err)
+		return fmt.Errorf("error creating global config repositories path: %w", err)
 	}
 	return
 }

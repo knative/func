@@ -151,7 +151,7 @@ func ServeRepo(name string, t *testing.T) string {
 
 		relp, err := filepath.Rel("./testdata", path)
 		if err != nil {
-			return fmt.Errorf("cannot get relpath: %v", err)
+			return fmt.Errorf("cannot get relpath: %w", err)
 		}
 
 		dest := filepath.Join(gitRoot, relp)
@@ -161,22 +161,22 @@ func ServeRepo(name string, t *testing.T) string {
 			var in, out *os.File
 			in, err = os.Open(path)
 			if err != nil {
-				return fmt.Errorf("cannot open source file: %v", err)
+				return fmt.Errorf("cannot open source file: %w", err)
 			}
 			defer in.Close()
 			out, err = os.OpenFile(dest, os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				return fmt.Errorf("cannot open destination file: %v", err)
+				return fmt.Errorf("cannot open destination file: %w", err)
 			}
 			defer out.Close()
 			_, err = io.Copy(out, in)
 			if err != nil {
-				return fmt.Errorf("cannot copy data: %v", err)
+				return fmt.Errorf("cannot copy data: %w", err)
 			}
 		case fi.IsDir():
 			err = os.MkdirAll(dest, 0755)
 			if err != nil {
-				return fmt.Errorf("cannot mkdir: %v", err)
+				return fmt.Errorf("cannot mkdir: %w", err)
 			}
 		default:
 			return fmt.Errorf("unsupported file type")

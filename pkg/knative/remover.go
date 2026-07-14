@@ -57,7 +57,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 
 	err = client.DeleteService(ctx, name, RemoveTimeout)
 	if err != nil {
-		return fmt.Errorf("knative remover failed to delete the service: %v", err)
+		return fmt.Errorf("knative remover failed to delete the service: %w", err)
 	}
 
 	return nil

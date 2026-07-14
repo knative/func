@@ -102,17 +102,17 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 	k8sClientset, err := k8s.NewKubernetesClientset()
 	if err != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("failed to create K8sClientset: %v", err)
+		return fn.DeploymentResult{}, fmt.Errorf("failed to create K8sClientset: %w", err)
 	}
 
 	deployment, err := k8sClientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
 	if err != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("failed to get deployment %s/%s: %v", namespace, f.Name, err)
+		return fn.DeploymentResult{}, fmt.Errorf("failed to get deployment %s/%s: %w", namespace, f.Name, err)
 	}
 
 	appService, err := k8sClientset.CoreV1().Services(namespace).Get(ctx, f.Name, metav1.GetOptions{})
 	if err != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("failed to get service %s/%s: %v", namespace, f.Name, err)
+		return fn.DeploymentResult{}, fmt.Errorf("failed to get service %s/%s: %w", namespace, f.Name, err)
 	}
 
 	if err := d.ensureInterceptorBridgeService(ctx, k8sClientset, f, namespace, deployment); err != nil {
@@ -271,7 +271,7 @@ func (d *Deployer) ensureHTTPScaledObject(ctx context.Context, f fn.Function, na
 
 	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
 	if err != nil {
-		return fmt.Errorf("failed to create HTTPScaledObject clientset: %v", err)
+		return fmt.Errorf("failed to create HTTPScaledObject clientset: %w", err)
 	}
 
 	existing, err := httpScaledObjectClientset.HttpV1alpha1().HTTPScaledObjects(expected.Namespace).Get(ctx, expected.Name, metav1.GetOptions{})

@@ -25,7 +25,7 @@ func NewTektonPacClientAndResolvedNamespace(namespace string) (*pacv1alpha1.Pipe
 
 	client, err := pacv1alpha1.NewForConfig(restConfig)
 	if err != nil {
-		return nil, namespace, fmt.Errorf("failed to create new tekton pac client: %v", err)
+		return nil, namespace, fmt.Errorf("failed to create new tekton pac client: %w", err)
 	}
 
 	return client, namespace, nil

@@ -122,7 +122,7 @@ func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
 	} {
 		ts, err := getTaskSpec(val.ref)
 		if err != nil {
-			return fmt.Errorf("failed to get task spec: %v", err)
+			return fmt.Errorf("failed to get task spec: %w", err)
 		}
 		*val.field = ts
 	}
@@ -225,11 +225,11 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 func createResource(projectRoot, fileName, fileTemplate string, data interface{}) error {
 	tmpl, err := template.New(fileName).Parse(fileTemplate)
 	if err != nil {
-		return fmt.Errorf("error parsing pipeline template: %v", err)
+		return fmt.Errorf("error parsing pipeline template: %w", err)
 	}
 
 	if err = os.MkdirAll(path.Join(projectRoot, resourcesDirectory), os.ModePerm); err != nil {
-		return fmt.Errorf("error creating pipeline resources path: %v", err)
+		return fmt.Errorf("error creating pipeline resources path: %w", err)
 	}
 
 	filePath := path.Join(projectRoot, resourcesDirectory, fileName)
@@ -248,7 +248,7 @@ func createResource(projectRoot, fileName, fileTemplate string, data interface{}
 
 	file, err := os.Create(filePath)
 	if err != nil {
-		return fmt.Errorf("error creating pipeline resources: %v", err)
+		return fmt.Errorf("error creating pipeline resources: %w", err)
 	}
 	defer file.Close()
 
@@ -280,7 +280,7 @@ func getTaskSpec(taskYaml string) (string, error) {
 	dec := yaml.NewDecoder(strings.NewReader(taskYaml))
 	err = dec.Decode(&data)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode task yaml: %v", err)
+		return "", fmt.Errorf("failed to decode task yaml: %w", err)
 	}
 	data = map[string]any{
 		"taskSpec": data["spec"],
@@ -290,11 +290,11 @@ func getTaskSpec(taskYaml string) (string, error) {
 	enc.SetIndent(2)
 	err = enc.Encode(data)
 	if err != nil {
-		return "", fmt.Errorf("failed to encode task yaml: %v", err)
+		return "", fmt.Errorf("failed to encode task yaml: %w", err)
 	}
 	err = enc.Close()
 	if err != nil {
-		return "", fmt.Errorf("failed to close task yaml encoder: %v", err)
+		return "", fmt.Errorf("failed to close task yaml encoder: %w", err)
 	}
 	return strings.ReplaceAll(buff.String(), "\n", "\n      "), nil
 }
@@ -329,7 +329,7 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	} {
 		ts, err := getTaskSpec(val.ref)
 		if err != nil {
-			return fmt.Errorf("failed to get task spec: %v", err)
+			return fmt.Errorf("failed to get task spec: %w", err)
 		}
 		*val.field = ts
 	}
@@ -441,25 +441,25 @@ func createAndApplyResource(projectRoot, fileName, fileTemplate, kind, resourceN
 	} else {
 		tmpl, err := template.New("template").Parse(fileTemplate)
 		if err != nil {
-			return fmt.Errorf("error parsing template: %v", err)
+			return fmt.Errorf("error parsing template: %w", err)
 		}
 
 		var buf bytes.Buffer
 		err = tmpl.Execute(&buf, data)
 		if err != nil {
-			return fmt.Errorf("error executing template: %v", err)
+			return fmt.Errorf("error executing template: %w", err)
 		}
 		source = manifestival.Reader(&buf)
 	}
 
 	client, err := manifestivalClient()
 	if err != nil {
-		return fmt.Errorf("error generating template: %v", err)
+		return fmt.Errorf("error generating template: %w", err)
 	}
 
 	m, err := manifestival.ManifestFrom(source, manifestival.UseClient(client))
 	if err != nil {
-		return fmt.Errorf("error generating template: %v", err)
+		return fmt.Errorf("error generating template: %w", err)
 	}
 
 	resources := m.Resources()

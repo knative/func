@@ -55,11 +55,11 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 		if apiErrors.IsNotFound(err) {
 			return fn.ErrFunctionNotFound
 		}
-		return fmt.Errorf("k8s remover failed to delete the deployment: %v", err)
+		return fmt.Errorf("k8s remover failed to delete the deployment: %w", err)
 	}
 
 	if err := WaitForServiceRemoved(ctx, clientset, ns, name, DefaultWaitingTimeout); err != nil {
-		return fmt.Errorf("k8s remover failed to propagate service deletion: %v", err)
+		return fmt.Errorf("k8s remover failed to propagate service deletion: %w", err)
 	}
 
 	return nil

@@ -213,19 +213,19 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 
 			service, err := generateNewService(f, d.decorator, daprInstalled, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 			if err != nil {
-				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
+				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %w", err)
 				return fn.DeploymentResult{}, err
 			}
 
 			err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 			if err != nil {
-				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
+				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %w", err)
 				return fn.DeploymentResult{}, err
 			}
 
 			err = client.CreateService(ctx, service)
 			if err != nil {
-				err = fmt.Errorf("knative deployer failed to deploy the Knative Service: %v", err)
+				err = fmt.Errorf("knative deployer failed to deploy the Knative Service: %w", err)
 				return fn.DeploymentResult{}, err
 			}
 
@@ -270,7 +270,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 				return fn.DeploymentResult{}, err
 			}
 			if err != nil {
-				err = fmt.Errorf("knative deployer failed to wait for the Knative Service to become ready: %v", err)
+				err = fmt.Errorf("knative deployer failed to wait for the Knative Service to become ready: %w", err)
 				if !d.verbose {
 					fmt.Fprintln(os.Stderr, "\nService output:")
 					_, _ = io.Copy(os.Stderr, &outBuff)
@@ -281,7 +281,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 
 			route, err := client.GetRoute(ctx, f.Name)
 			if err != nil {
-				err = fmt.Errorf("knative deployer failed to get the Route: %v", err)
+				err = fmt.Errorf("knative deployer failed to get the Route: %w", err)
 				return fn.DeploymentResult{}, err
 			}
 
@@ -300,7 +300,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			}, nil
 
 		} else {
-			err = fmt.Errorf("knative deployer failed to get the Knative Service: %v", err)
+			err = fmt.Errorf("knative deployer failed to get the Knative Service: %w", err)
 			return fn.DeploymentResult{}, err
 		}
 	} else {
@@ -321,13 +321,13 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 
 		err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 		if err != nil {
-			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
+			err = fmt.Errorf("knative deployer failed to update the Knative Service: %w", err)
 			return fn.DeploymentResult{}, err
 		}
 
 		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, previousService, newEnv, newEnvFrom, newVolumes, newVolumeMounts, d.decorator, daprInstalled), 3)
 		if err != nil {
-			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
+			err = fmt.Errorf("knative deployer failed to update the Knative Service: %w", err)
 			return fn.DeploymentResult{}, err
 		}
 
@@ -345,7 +345,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 
 		route, err := client.GetRoute(ctx, f.Name)
 		if err != nil {
-			err = fmt.Errorf("knative deployer failed to get the Route: %v", err)
+			err = fmt.Errorf("knative deployer failed to get the Route: %w", err)
 			return fn.DeploymentResult{}, err
 		}
 
@@ -365,7 +365,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.KnServingClient, eventingClient clienteventingv1.KnEventingClient) error {
 	ksvc, err := client.GetService(ctx, f.Name)
 	if err != nil {
-		err = fmt.Errorf("knative deployer failed to get the Service for Trigger: %v", err)
+		err = fmt.Errorf("knative deployer failed to get the Service for Trigger: %w", err)
 		return err
 	}
 
@@ -406,7 +406,7 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 			},
 		})
 		if err != nil && !errors.IsAlreadyExists(err) {
-			err = fmt.Errorf("knative deployer failed to create the Trigger: %v", err)
+			err = fmt.Errorf("knative deployer failed to create the Trigger: %w", err)
 			return err
 		}
 	}
@@ -827,13 +827,13 @@ func wrapDeployerClientError(err error) error {
 
 	// Missing kubeconfig file
 	if strings.Contains(errMsg, "kubeconfig file does not exist at path") {
-		return fmt.Errorf("%w: %v", fn.ErrInvalidKubeconfig, err)
+		return fmt.Errorf("%w: %w", fn.ErrInvalidKubeconfig, err)
 	}
 
 	// Empty config or cluster not accessible
 	if strings.Contains(errMsg, "no configuration has been provided") ||
 		strings.Contains(errMsg, "invalid configuration") {
-		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
+		return fmt.Errorf("%w: %w", fn.ErrClusterNotAccessible, err)
 	}
 
 	return err
@@ -852,7 +852,7 @@ func wrapK8sConnectionError(err error) error {
 		strings.Contains(errMsg, "dial tcp") ||
 		strings.Contains(errMsg, "i/o timeout") ||
 		strings.Contains(errMsg, "x509:") {
-		return fmt.Errorf("%w: %v", fn.ErrClusterNotAccessible, err)
+		return fmt.Errorf("%w: %w", fn.ErrClusterNotAccessible, err)
 	}
 
 	return nil
