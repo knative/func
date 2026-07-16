@@ -2,8 +2,11 @@ package knative
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"knative.dev/pkg/apis"
 
 	fn "knative.dev/func/pkg/functions"
@@ -30,6 +33,17 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 	if err != nil {
 		if IsCRDNotFoundError(err) {
 			// no services found --> nothing to return
+			return nil, nil
+		}
+		if errors.IsForbidden(err) {
+			// namespace is empty when listing across all namespaces (--all-namespaces)
+			grant := fmt.Sprintf("access to services.serving.knative.dev in namespace %q", namespace)
+			if namespace == "" {
+				grant = "cluster-wide access to services.serving.knative.dev"
+			}
+			fmt.Fprintf(os.Stderr, "Warning: cannot access Knative services (permission denied) - skipping; "+
+				"grant %s to include functions deployed by the Knative deployer; "+
+				"if you do not use the Knative deployer you can safely ignore this message\n", grant)
 			return nil, nil
 		}
 		return nil, err
