@@ -68,7 +68,7 @@ func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describe
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		err := client.Remove(ctx, "", "", f, true)
+		_, err := client.Remove(ctx, "", "", f, true)
 		if err != nil {
 			t.Logf("error removing Function: %v", err)
 		}

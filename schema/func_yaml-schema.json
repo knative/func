@@ -118,7 +118,7 @@
 						"keda"
 					],
 					"type": "string",
-					"description": "Deployer specifies the type of deployment to use: \"knative\", \"raw\" or \"keda\"\nDefaults to \"knative\" for backwards compatibility"
+					"description": "Deployer records the deployer the Function is CURRENTLY DEPLOYED:\nobserved state, written after successful deployment, and cleared on\nundeploy alongside Namespace."
 				},
 				"subscriptions": {
 					"items": {
@@ -201,6 +201,15 @@
 				"namespace": {
 					"type": "string",
 					"description": "Namespace in which to deploy the Function"
+				},
+				"deployer": {
+					"enum": [
+						"knative",
+						"raw",
+						"keda"
+					],
+					"type": "string",
+					"description": "Deployer with which to deploy the Function: the requested (intended)\ndeployer. This is the user's choice and persists across undeploy.\nThe deployer a Function is CURRENTLY deployed with is recorded separately\nin .Deploy.Deployer, which is cleared on undeploy."
 				},
 				"created": {
 					"type": "string",

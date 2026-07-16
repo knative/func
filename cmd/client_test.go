@@ -27,7 +27,7 @@ func Test_NewTestClient(t *testing.T) {
 
 	// Trigger an invocation of the mocks by running the associated client
 	// methods which depend on them
-	err := client.Remove(t.Context(), "myfunc", "myns", fn.Function{}, true)
+	_, err := client.Remove(t.Context(), "myfunc", "myns", fn.Function{}, true)
 	if err != nil {
 		t.Fatal(err)
 	}

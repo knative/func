@@ -25,13 +25,14 @@ import (
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1"
 	"knative.dev/func/pkg/deployer"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 const (
-	KubernetesDeployerName = "raw"
+	KubernetesDeployerName = deployers.Kubernetes
 
 	DefaultLivenessEndpoint  = "/health/liveness"
 	DefaultReadinessEndpoint = "/health/readiness"
@@ -248,6 +249,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		Status:    status,
 		URL:       url,
 		Namespace: namespace,
+		Deployer:  KubernetesDeployerName,
 	}, nil
 }
 

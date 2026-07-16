@@ -67,7 +67,7 @@ func TestInt_Describe(t *testing.T, describer fn.Describer, deployer fn.Deployer
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		err := client.Remove(ctx, "", "", f, true)
+		_, err := client.Remove(ctx, "", "", f, true)
 		if err != nil {
 			t.Logf("error removing Function: %v", err)
 		}

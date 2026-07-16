@@ -37,12 +37,13 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	"knative.dev/func/pkg/deployer"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
 
 const (
-	KnativeDeployerName = "knative"
+	KnativeDeployerName = deployers.Knative
 )
 
 type DeployerOpt func(*Deployer)
@@ -297,6 +298,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 				Status:    fn.Deployed,
 				URL:       route.Status.URL.String(),
 				Namespace: namespace,
+				Deployer:  KnativeDeployerName,
 			}, nil
 
 		} else {
@@ -359,6 +361,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			Status:    fn.Updated,
 			URL:       route.Status.URL.String(),
 			Namespace: namespace,
+			Deployer:  KnativeDeployerName,
 		}, nil
 	}
 }

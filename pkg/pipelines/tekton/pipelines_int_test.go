@@ -180,7 +180,7 @@ func TestInt_Remote_Default(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer func() {
-				_ = client.Remove(ctx, "", "", f, true)
+				_, _ = client.Remove(ctx, "", "", f, true)
 			}()
 
 			httpClient := httpClientForDeployer(t, ctx, d)
