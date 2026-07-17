@@ -67,7 +67,12 @@ metadata:
 spec:
   containers:
     - name: gitlab
-      image: gitlab/gitlab-ce:latest
+      # Pinned: latest jumped 19.1.x -> 19.2.0 on 2026-07-16, when TestInt_Gitlab's
+      # getAPIToken (pkg/pipelines/tekton/gitlab_int_test.go) started hitting a
+      # deterministic 422 scraping the sign-in/PAT web UI. Likely cause, unconfirmed:
+      # 19.2.0 reworked legacy-PAT/sudo-scope validation. Long-term fix: create the
+      # token via a supported mechanism instead of scraping (e.g. gitlab-rails runner).
+      image: gitlab/gitlab-ce:19.1.2-ce.0
       volumeMounts:
         - name: gitlab
           subPath: config
