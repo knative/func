@@ -44,7 +44,14 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 			// Service doesn't exist as a Knative service - we don't handle this
 			return fn.ErrNotHandled
 		}
-		// Some other error (permissions, network, etc.) - this is a real error
+		if apiErrors.IsForbidden(err) {
+			fmt.Fprintf(os.Stderr, "Warning: cannot access Knative services (permission denied) - skipping; "+
+				"deleting function %q will fail if it is Knative-managed; "+
+				"grant access to services.serving.knative.dev in namespace %q to allow it; "+
+				"if you do not use the Knative deployer you can safely ignore this message\n", name, ns)
+			return fn.ErrNotHandled
+		}
+		// Some other error (network, API server, etc.) - this is a real error
 		// We can't determine if we should handle it, so propagate it
 		return fmt.Errorf("failed to get knative service: %w", err)
 	}
