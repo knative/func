@@ -107,7 +107,7 @@ type Function struct {
 
 	// Invoke defines hints for use when invoking this function.
 	// See Client.Invoke for usage.
-	Invoke string `yaml:"invoke,omitempty" jsonschema:"enum=http,enum=cloudevent"`
+	Invoke string `yaml:"invoke,omitempty" jsonschema:"enum=http,enum=cloudevent,enum=kafka"`
 
 	// Build defines the build properties for a function
 	Build BuildSpec `yaml:"build,omitempty"`
