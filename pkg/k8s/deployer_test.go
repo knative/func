@@ -489,3 +489,14 @@ func Test_ProcessVolumes_ValidPath(t *testing.T) {
 		t.Errorf("expected mount path /etc/secret, got %s", mounts[0].MountPath)
 	}
 }
+
+// Test_WithDeployerExposureDisabled: exposure is on by default (raw) and off
+// with others
+func Test_WithDeployerExposureDisabled(t *testing.T) {
+	if NewDeployer().exposureDisabled {
+		t.Error("expected exposure enabled on a default Deployer")
+	}
+	if !NewDeployer(WithDeployerExposureDisabled()).exposureDisabled {
+		t.Error("expected exposure disabled with WithDeployerExposureDisabled")
+	}
+}

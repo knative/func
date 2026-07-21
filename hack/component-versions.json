@@ -12,6 +12,9 @@
 	"FuncOperator": {
 		"version": "v0.2.1"
 	},
+	"GatewayAPI": {
+		"version": "v1.4.1"
+	},
 	"Keda": {
 		"version": "v2.17.0"
 	},

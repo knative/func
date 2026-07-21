@@ -66,6 +66,9 @@ func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 	if err != nil {
 		t.Fatal(err)
 	}
+	// expose:none on a Gateway-less test cluster - not necessary
+	f.Deploy.Deployer = deployerName
+	f.Deploy.Expose = exposeNoneForRawOrKeda(deployerName)
 	// Not really necessary, but it allows us to reuse the "invoke" method:
 	handlerPath := filepath.Join(root, "function.go")
 	if err := os.WriteFile(handlerPath, []byte(testHandler), 0644); err != nil {
@@ -169,6 +172,9 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Explicit, not blank - see TestInt_Deploy for why.
+	f.Deploy.Deployer = deployerName
+	f.Deploy.Expose = exposeNoneForRawOrKeda(deployerName)
 	handlerPath := filepath.Join(root, "function.go")
 
 	if err := os.WriteFile(handlerPath, []byte(testHandler), 0644); err != nil {
@@ -324,6 +330,9 @@ func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Explicit, not blank - see TestInt_Deploy for why.
+	f.Deploy.Deployer = deployerName
+	f.Deploy.Expose = exposeNoneForRawOrKeda(deployerName)
 
 	// Trigger
 	// -------
@@ -407,6 +416,9 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Explicit, not blank - see TestInt_Deploy for why.
+	f.Deploy.Deployer = deployerName
+	f.Deploy.Expose = exposeNoneForRawOrKeda(deployerName)
 	// Note: There is no reason for all these being pointers:
 	minScale := int64(2)
 	maxScale := int64(100)
@@ -522,6 +534,9 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Explicit, not blank - see TestInt_Deploy for why.
+	f.Deploy.Deployer = deployerName
+	f.Deploy.Expose = exposeNoneForRawOrKeda(deployerName)
 
 	// Write custom test handler
 	handlerPath := filepath.Join(root, "function.go")
@@ -731,11 +746,14 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		//   * application also prints the same info to stderr on startup
 		Created: now,
 		Deploy: fn.DeploySpec{
-			// TODO: gauron99 - is it okay to have this explicitly set to deploy.image already?
-			// With this I skip the logic of setting the .Deploy.Image field but it should be fine for this test
+			// pinned prebuilt image: these tests exercise deployment, not the
+			// build/image-resolution flow
 			Image:     "quay.io/mvasek/func-test-service@sha256:2eca4de00d7569c8791634bdbb0c4d5ec8fb061b001549314591e839dabd5269",
 			Namespace: namespace,
-			Labels:    []fn.Label{{Key: ptr("my-label"), Value: ptr("my-label-value")}},
+			// Explicit, not blank - see TestInt_Deploy for why.
+			Deployer: deployerName,
+			Expose:   exposeNoneForRawOrKeda(deployerName),
+			Labels:   []fn.Label{{Key: ptr("my-label"), Value: ptr("my-label-value")}},
 			Options: fn.Options{
 				Scale: &fn.ScaleOptions{
 					Min: &minScale,
@@ -931,6 +949,9 @@ func TestInt_ResourceValidationOnFirstDeploy(t *testing.T, deployer fn.Deployer,
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Explicit, not blank - see TestInt_Deploy for why.
+	f.Deploy.Deployer = deployerName
+	f.Deploy.Expose = exposeNoneForRawOrKeda(deployerName)
 
 	handlerPath := filepath.Join(root, "function.go")
 	if err := os.WriteFile(handlerPath, []byte(testHandler), 0644); err != nil {
@@ -1237,6 +1258,9 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Explicit, not blank - see TestInt_Deploy for why.
+	f.Deploy.Deployer = deployerName
+	f.Deploy.Expose = exposeNoneForRawOrKeda(deployerName)
 
 	f.Build.Git.URL = repoURL
 	f.Build.Git.Revision = repoBranch
@@ -1385,6 +1409,20 @@ func postText(ctx context.Context, url, reqBody, deployer string) (respBody stri
 
 func ptr[T interface{}](s T) *T {
 	return &s
+}
+
+// exposeNoneForRawOrKeda returns the fixtures' explicit external-exposure
+// opt-out ("none") for the raw and keda deployers. Knative gets "" (unset):
+// knative+none is a hard error (Knative always exposes functions per the
+// cluster configuration), so leaving expose unset is knative's legitimate
+// fixture state here, not an oversight.
+func exposeNoneForRawOrKeda(deployerName string) string {
+	switch deployerName {
+	case k8s.KubernetesDeployerName, keda.KedaDeployerName:
+		return "none"
+	default:
+		return ""
+	}
 }
 
 func getHttpClient(ctx context.Context, deployer string) (*http.Client, func(), error) {

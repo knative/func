@@ -255,15 +255,90 @@ networking() {
   echo "${blue}Installing Ingress Controller (Contour)${reset}"
   echo "Version: ${contour_version}"
 
+  echo "Installing Gateway API CRDs."
+  # experimental-install.yaml, not standard: Contour's gatewayRef mode
+  # crashes at startup without it - it unconditionally informers on
+  # TLSRoute (gateway.networking.k8s.io/v1alpha2), which only the
+  # experimental channel provides, even though our own code only uses the
+  # four standard CRDs waited on below.
+  $KUBECTL apply --server-side -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${gateway_api_version}/experimental-install.yaml"
+  # Waited on by name (the four CRDs the raw deployer's exposure path
+  # actually uses - see pkg/k8s/httproute.go) rather than "--all crd", so a
+  # failure names exactly which one didn't Establish.
+  $KUBECTL wait --for=condition=Established --timeout=5m \
+    crd/gatewayclasses.gateway.networking.k8s.io \
+    crd/gateways.gateway.networking.k8s.io \
+    crd/httproutes.gateway.networking.k8s.io \
+    crd/referencegrants.gateway.networking.k8s.io
+
+  echo "Granting Gateway API access to the admin ClusterRole."
+  # Gateway API ships no ClusterRole and no aggregation labels of its own,
+  # so the built-in "admin" ClusterRole has zero gateway.networking.k8s.io
+  # rules - this is a property of the Gateway API install, not of Tekton
+  # (see tekton(), which also binds this role directly to the pipeline
+  # ServiceAccount as belt-and-suspenders).
+  $KUBECTL apply -f - <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: func-gateway-api-user
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["gateways"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["httproutes"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+EOF
+
   echo "Installing a configured Contour."
   curl -sSL "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml" \
     | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args[] | select(. == "--xds-address=0.0.0.0")) = "--xds-address=::"' \
     | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args)
           += ["--envoy-service-http-address=::", "--envoy-service-https-address=::", "--stats-address=::"]' \
+    | $YQ '(select(.kind == "ConfigMap" and .metadata.name == "contour" and .metadata.namespace == "contour-external").data."contour.yaml")
+          |= . + "\ngateway:\n  gatewayRef:\n    namespace: contour-external\n    name: contour-gateway\n"' \
     | $KUBECTL apply -f -
 
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
+
+  echo "Creating GatewayClass and shared Gateway."
+  $KUBECTL apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: contour
+spec:
+  controllerName: projectcontour.io/contour
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: contour-gateway
+  namespace: contour-external
+spec:
+  gatewayClassName: contour
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+EOF
+  # No GatewayClass wait: Contour's static gatewayRef mode serves the one
+  # referenced Gateway directly and never reconciles GatewayClass status
+  # (verified live - the Gateway itself reaches Programmed=True with the
+  # waits below while GatewayClass.status.conditions stays "Pending:
+  # Waiting for controller" indefinitely). Two waits, not three.
+  $KUBECTL wait gateway/contour-gateway --for=condition=Programmed --namespace contour-external --timeout=5m
+  # Programmed=True should imply an address was assigned, but consumers
+  # (e.g. the raw deployer's hostname minting) read status.addresses[0]
+  # directly - verify it explicitly rather than assume the implication holds.
+  $KUBECTL wait gateway/contour-gateway --for=jsonpath='{.status.addresses[0].value}' --namespace contour-external --timeout=30s
 
   echo "Installing the Knative Contour controller."
   $KUBECTL apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/net-contour.yaml"
@@ -598,6 +673,8 @@ tekton() {
   $KUBECTL create clusterrolebinding "${namespace}:admin" --clusterrole=admin --serviceaccount="${namespace}:default"
   # Grant permissions for HTTPScaledObject Keda resources needed by keda deployer
   $KUBECTL create clusterrolebinding "${namespace}:keda-add-ons-http-operator" --clusterrole=keda-add-ons-http-operator --serviceaccount="${namespace}:default"
+  # Gateway API resources needed by raw deployer exposure
+  $KUBECTL create clusterrolebinding "${namespace}:func-gateway-api-user" --clusterrole=func-gateway-api-user --serviceaccount="${namespace}:default"
 
   echo "${green}✅ Tekton${reset}"
 }

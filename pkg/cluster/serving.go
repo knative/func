@@ -74,13 +74,73 @@ func configureDNS(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	return fmt.Errorf("unable to set Knative domain after 10 attempts: %w", lastErr)
 }
 
+// gatewayAPICRDs are the standard-channel CRDs the raw deployer's exposure
+// path (pkg/k8s/httproute.go) actually uses. Waited on by name rather than
+// "--all crd", so a failure names exactly which one didn't Establish.
+var gatewayAPICRDs = []string{
+	"gatewayclasses.gateway.networking.k8s.io",
+	"gateways.gateway.networking.k8s.io",
+	"httproutes.gateway.networking.k8s.io",
+	"referencegrants.gateway.networking.k8s.io",
+}
+
+// crdArgs renders gatewayAPICRDs as "crd/<name>" kubectl resource args.
+func crdArgs() []string {
+	args := make([]string, len(gatewayAPICRDs))
+	for i, name := range gatewayAPICRDs {
+		args[i] = "crd/" + name
+	}
+	return args
+}
+
 // installNetworking installs Contour ingress controller and configures Knative
 // to use it. The Contour YAML is modified in Go (replacing yq) to add IPv6
-// dual-stack support args.
+// dual-stack support args and to point Contour at a shared Gateway (below),
+// so the raw deployer's Gateway API exposure path has something to attach
+// HTTPRoutes to on every cluster with Serving installed.
 func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	start := time.Now()
 	status(out, "Installing Ingress Controller (Contour)")
 	fmt.Fprintf(out, "Version: %s\n", contourVersion)
+
+	fmt.Fprintln(out, "Installing Gateway API CRDs.")
+	// experimental-install.yaml, not standard: Contour's gatewayRef mode
+	// crashes at startup without it - it unconditionally informers on
+	// TLSRoute (gateway.networking.k8s.io/v1alpha2), which only the
+	// experimental channel provides, even though our own code only uses
+	// the four standard CRDs (gatewayAPICRDs below).
+	crdsURL := fmt.Sprintf("https://github.com/kubernetes-sigs/gateway-api/releases/download/%s/experimental-install.yaml", gatewayAPIVersion)
+	if err := run(ctx, out, "", cfg.kubectl(), "apply", "--server-side", "-f", crdsURL); err != nil {
+		return fmt.Errorf("applying gateway API CRDs: %w", err)
+	}
+	waitArgs := append([]string{"wait", "--for=condition=Established", "--timeout=5m"}, crdArgs()...)
+	if err := run(ctx, out, "", cfg.kubectl(), waitArgs...); err != nil {
+		return fmt.Errorf("waiting for gateway API CRDs (%s) to Establish: %w", strings.Join(gatewayAPICRDs, ", "), err)
+	}
+
+	fmt.Fprintln(out, "Granting Gateway API access to the admin ClusterRole.")
+	// Gateway API ships no ClusterRole and no aggregation labels of its own,
+	// so the built-in "admin" ClusterRole has zero gateway.networking.k8s.io
+	// rules - this is a property of the Gateway API install, not of Tekton
+	// (see installTekton, which also binds this role directly to the
+	// pipeline ServiceAccount as belt-and-suspenders).
+	gatewayAPIUserRole := fmt.Sprintf(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: %s
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["gateways"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["httproutes"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+`, gatewayAPIUserClusterRole)
+	if err := applyManifest(ctx, out, cfg, gatewayAPIUserRole); err != nil {
+		return fmt.Errorf("applying %s ClusterRole: %w", gatewayAPIUserClusterRole, err)
+	}
 
 	fmt.Fprintln(out, "Installing a configured Contour.")
 	contourURL := fmt.Sprintf("https://github.com/knative/net-contour/releases/download/knative-%s/contour.yaml", contourVersion)
@@ -104,6 +164,55 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 		"-n", "contour-external", "--timeout=10m")
 	if err != nil {
 		return fmt.Errorf("waiting for contour pods: %w", err)
+	}
+
+	fmt.Fprintln(out, "Creating GatewayClass and shared Gateway.")
+	gatewayClass := `apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: contour
+spec:
+  controllerName: projectcontour.io/contour
+`
+	if err := applyManifest(ctx, out, cfg, gatewayClass); err != nil {
+		return fmt.Errorf("applying GatewayClass: %w", err)
+	}
+	gateway := fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  gatewayClassName: contour
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+`, gatewayName, gatewayNamespace)
+	if err := applyManifest(ctx, out, cfg, gateway); err != nil {
+		return fmt.Errorf("applying Gateway: %w", err)
+	}
+	// No GatewayClass wait: Contour's static gatewayRef mode serves the one
+	// referenced Gateway directly and never reconciles GatewayClass status
+	// (verified live - the Gateway itself reaches Programmed=True with the
+	// waits below while GatewayClass.status.conditions stays "Pending:
+	// Waiting for controller" indefinitely). Two waits, not three.
+	if err := run(ctx, out, "",
+		cfg.kubectl(), "wait", fmt.Sprintf("gateway/%s", gatewayName),
+		"--for=condition=Programmed", "--namespace", gatewayNamespace, "--timeout=5m"); err != nil {
+		return fmt.Errorf("waiting for Gateway %s/%s to become Programmed: %w", gatewayNamespace, gatewayName, err)
+	}
+	// Programmed=True should imply an address was assigned, but consumers
+	// (e.g. the raw deployer's hostname minting) read status.addresses[0]
+	// directly - verify it explicitly rather than assume the implication
+	// holds.
+	if err := run(ctx, out, "",
+		cfg.kubectl(), "wait", fmt.Sprintf("gateway/%s", gatewayName),
+		"--for=jsonpath={.status.addresses[0].value}", "--namespace", gatewayNamespace, "--timeout=30s"); err != nil {
+		return fmt.Errorf("waiting for Gateway %s/%s to report a status.addresses: %w", gatewayNamespace, gatewayName, err)
 	}
 
 	fmt.Fprintln(out, "Installing the Knative Contour controller.")
@@ -166,11 +275,13 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 }
 
 // addContourIPv6Args modifies the Contour deployment YAML to add
-// --envoy-service-http-address=:: and --envoy-service-https-address=:: args.
-// This replaces the yq pipeline from the shell script. The input is split
-// on the multi-document separator and each non-empty chunk is decoded
-// individually, which avoids the k8s YAML decoder's quirk of returning a
-// string-compared "Object 'Kind' is missing" error for empty documents.
+// --envoy-service-http-address=:: and --envoy-service-https-address=:: args,
+// and patches the Contour ConfigMap to point it at the shared Gateway via
+// gatewayRef. This replaces the yq pipeline from the shell script. The
+// input is split on the multi-document separator and each non-empty chunk
+// is decoded individually, which avoids the k8s YAML decoder's quirk of
+// returning a string-compared "Object 'Kind' is missing" error for empty
+// documents.
 func addContourIPv6Args(yamlContent string) (string, error) {
 	var docs []unstructured.Unstructured
 	for _, chunk := range splitYAMLDocs(yamlContent) {
@@ -194,6 +305,14 @@ func addContourIPv6Args(yamlContent string) (string, error) {
 				container["args"] = toAnySlice(args)
 				containers[0] = container
 				_ = unstructured.SetNestedSlice(obj.Object, containers, "spec", "template", "spec", "containers")
+			}
+		}
+
+		if obj.GetKind() == "ConfigMap" && obj.GetName() == "contour" && obj.GetNamespace() == gatewayNamespace {
+			data, _, _ := unstructured.NestedStringMap(obj.Object, "data")
+			if data != nil {
+				data["contour.yaml"] += fmt.Sprintf("\ngateway:\n  gatewayRef:\n    namespace: %s\n    name: %s\n", gatewayNamespace, gatewayName)
+				_ = unstructured.SetNestedStringMap(obj.Object, data, "data")
 			}
 		}
 

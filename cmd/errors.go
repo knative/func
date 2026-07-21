@@ -31,6 +31,9 @@ Internal error during error-wrapping: specified cmd '%s' not supported`, cmd)
 	if errors.Is(err, fn.ErrPlatformNotSupported) {
 		return NewErrPlatformNotSupported(err, cmd)
 	}
+	if errors.Is(err, fn.ErrInvalidExpose) {
+		return NewErrInvalidExpose(err, cmd)
+	}
 	return err
 }
 
@@ -212,6 +215,40 @@ For more options, run 'func %s --help'`, e.Err, e.Cmd, e.Cmd, e.Cmd)
 }
 
 func (e *ErrInvalidDomain) Unwrap() error {
+	return e.Err
+}
+
+// -------------------------------------------------------------------------- //
+
+type ErrInvalidExpose struct {
+	Err error
+	Cmd string
+}
+
+func NewErrInvalidExpose(err error, cmd string) error {
+	return &ErrInvalidExpose{Err: err, Cmd: cmd}
+}
+
+func (e *ErrInvalidExpose) Error() string {
+	switch e.Cmd {
+	case "deploy":
+		return fmt.Sprintf(`%v
+
+Try this:
+  func deploy --expose=gateway              Exposed, enforced, cluster-wide Gateway auto-discovery (default)
+  func deploy --expose=gateway:<ns>/<name>  Pin an exact Gateway
+  func deploy --expose=gateway:<ns>/        Restrict discovery to a namespace
+  func deploy --expose=none                 Cluster-local opt-out, no external exposure
+
+deploy.expose takes effect with the raw deployer only (--deployer=raw).
+For more options, run 'func deploy --help'`, e.Err)
+
+	default:
+		return e.Err.Error()
+	}
+}
+
+func (e *ErrInvalidExpose) Unwrap() error {
 	return e.Err
 }
 

@@ -36,6 +36,8 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 		Deployer: *k8s.NewDeployer(
 			// init with the kedaDeployerDecorator to have the correct deployer labels&annotations
 			k8s.WithDeployerDecorator(&kedaDeployerDecorator{}),
+			// keda functions stay behind the interceptor, never a Gateway
+			k8s.WithDeployerExposureDisabled(),
 		),
 	}
 
@@ -132,6 +134,9 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		Status:    deployResult.Status,
 		URL:       fmt.Sprintf("http://%s:8080", hosts[0]), // TODO: check on HTTPS too
 		Namespace: deployResult.Namespace,
+		// The URL above is the in-cluster interceptor-bridge service, never
+		// externally reachable.
+		Exposed: false,
 	}, nil
 }
 

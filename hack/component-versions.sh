@@ -19,4 +19,5 @@ set_versions() {
 	keda_version="v2.17.0"
 	keda_http_addon_version="v0.12.0"
 	func_operator_version="v0.2.1"
+	gateway_api_version="v1.4.1"
 }

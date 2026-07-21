@@ -40,6 +40,10 @@ func installTekton(ctx context.Context, cfg ClusterConfig, out io.Writer) error 
 		{namespace + ":knative-serving-namespaced-admin", "knative-serving-namespaced-admin"},
 		{namespace + ":admin", "admin"},
 		{namespace + ":keda-add-ons-http-operator", "keda-add-ons-http-operator"},
+		// Gateway API resources needed by raw deployer exposure - belt-and-
+		// suspenders alongside the admin binding above, which already
+		// absorbs these rules via aggregation (see installNetworking).
+		{namespace + ":" + gatewayAPIUserClusterRole, gatewayAPIUserClusterRole},
 	}
 	for _, rb := range rbacBindings {
 		manifest := fmt.Sprintf(`apiVersion: rbac.authorization.k8s.io/v1

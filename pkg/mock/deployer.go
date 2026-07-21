@@ -31,6 +31,9 @@ func NewDeployer() *Deployer {
 			} else {
 				err = errors.New("namespace required for initial deployment")
 			}
+			if err == nil {
+				result.Status = fn.Deployed
+			}
 			return
 		},
 	}

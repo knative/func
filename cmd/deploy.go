@@ -131,10 +131,10 @@ EXAMPLES
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
 			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
-			"git-url", "image", "image-pull-secret", "management-disabled", "namespace", "path", "platform", "push", "pvc-size",
-			"service-account", "deployer", "registry", "registry-insecure",
-			"registry-authfile", "remote", "username", "password", "token", "verbose",
-			"remote-storage-class"),
+			"git-url", "image", "image-pull-secret", "management-disabled",
+			"namespace", "path", "platform", "push", "pvc-size", "service-account",
+			"deployer", "expose", "registry", "registry-insecure", "registry-authfile",
+			"remote", "username", "password", "token", "verbose", "remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -199,6 +199,12 @@ EXAMPLES
 		"Image pull secret to use when the function's image is in a private registry ($FUNC_IMAGE_PULL_SECRET)")
 	cmd.Flags().String("deployer", f.Deploy.Deployer,
 		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service (default), '%s' for Kubernetes Deployment or '%s' for Deployment with a Keda HTTP scaler ($FUNC_DEPLOY_TYPE)", knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName))
+	cmd.Flags().String("expose", f.Deploy.Expose,
+		"External exposure mode: 'gateway' (exposed, enforced, cluster-wide Gateway auto-discovery "+
+			"- the default), 'gateway:<ns>/<name>' (pin an exact Gateway), 'gateway:<ns>/' "+
+			"(restrict discovery to a namespace), 'none' (cluster-local opt-out). Raw deployer only. "+
+			"An explicitly empty value (--expose=\"\") clears the persisted deploy.expose key and "+
+			"returns to the default. ($FUNC_EXPOSE)")
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
@@ -236,6 +242,10 @@ EXAMPLES
 	}
 
 	if err := cmd.RegisterFlagCompletionFunc("deployer", CompleteDeployerList); err != nil {
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
+	}
+
+	if err := cmd.RegisterFlagCompletionFunc("expose", CompleteExposeList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 
@@ -560,6 +570,10 @@ type deployConfig struct {
 
 	// ManagementDisabled disables automatic Function CR sync after deploy.
 	ManagementDisabled bool
+
+	// Expose controls external access - how/if the function should be exposed
+	// externally, defaults to gateway (exposed).
+	Expose string
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
@@ -582,6 +596,7 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		ImagePullSecret:    viper.GetString("image-pull-secret"),
 		Deployer:           viper.GetString("deployer"),
 		ManagementDisabled: viper.GetBool("management-disabled"),
+		Expose:             viper.GetString("expose"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
@@ -619,6 +634,8 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Deploy.ImagePullSecret = c.ImagePullSecret
 	f.Deploy.Deployer = c.Deployer
 	f.Deploy.ManagementDisabled = c.ManagementDisabled
+	// The effective value always lands on f; explicitly-empty flags are rejected in Validate.
+	f.Deploy.Expose = c.Expose
 	f.Local.Remote = c.Remote
 
 	// PVCSize
@@ -735,6 +752,51 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	if c.Namespace != "" {
 		if err = utils.ValidateNamespace(c.Namespace); err != nil {
 			return fn.ErrInvalidNamespace
+		}
+	}
+
+	// Validate expose format here (mirroring domain/namespace above) so a
+	// malformed value is rejected with CLI guidance before it ever reaches
+	// f.Write's Function.Validate, whose bundled error loses the sentinel.
+	if _, _, err = fn.ParseExpose(c.Expose); err != nil {
+		return err
+	}
+
+	// deploy.expose only takes effect for the raw deployer. For knative/keda
+	// a set value is ignored, so warn (fired here so it precedes any build
+	// work on both the local and remote deploy paths) and proceed - except
+	// where the deployer's fixed behavior already matches the user's intent
+	// (keda+none: keda is cluster-local already), which stays silent.
+	// Effective deployer is c.Deployer as configured; empty defaults to
+	// knative.
+	if c.Expose != "" {
+		effectiveDeployer := c.Deployer
+		if effectiveDeployer == "" {
+			effectiveDeployer = knative.KnativeDeployerName
+		}
+		switch effectiveDeployer {
+		case knative.KnativeDeployerName:
+			if c.Expose == "none" {
+				// Knative exposes externally by default regardless of this
+				// field, so "none" leaves the user's privacy intent unmet -
+				// unlike the other combos below, this warrants the stronger,
+				// privacy-specific wording naming the actual remedy.
+				fmt.Fprintln(cmd.OutOrStderr(), fmt.Sprintf(
+					"warning: deploy.expose %q is ignored by the knative deployer - "+
+						"Knative exposes this function externally by default; label the Service "+
+						"networking.knative.dev/visibility=cluster-local to keep it private.", c.Expose))
+			} else {
+				fmt.Fprintln(cmd.OutOrStderr(), fmt.Sprintf(
+					"warning: deploy.expose %q is ignored by the knative deployer - "+
+						"Knative manages exposure itself.", c.Expose))
+			}
+		case keda.KedaDeployerName:
+			if c.Expose != "none" {
+				fmt.Fprintln(cmd.OutOrStderr(), fmt.Sprintf(
+					"warning: deploy.expose %q is ignored by the keda deployer - "+
+						"external exposure for keda functions is not yet supported.", c.Expose))
+			}
+			// keda + none: silence - the user's intent is already met.
 		}
 	}
 

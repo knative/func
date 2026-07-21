@@ -190,3 +190,23 @@ func CompleteDeployerList(cmd *cobra.Command, args []string, complete string) (m
 
 	return
 }
+
+func CompleteExposeList(cmd *cobra.Command, args []string, complete string) (matches []string, d cobra.ShellCompDirective) {
+	values := []string{"none", "gateway", "gateway:"}
+
+	d = cobra.ShellCompDirectiveNoFileComp
+	matches = []string{}
+
+	if len(complete) == 0 {
+		matches = values
+		return
+	}
+
+	for _, v := range values {
+		if strings.HasPrefix(v, complete) {
+			matches = append(matches, v)
+		}
+	}
+
+	return
+}
