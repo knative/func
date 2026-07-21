@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/semver"
 	"knative.dev/func/pkg/filesystem"
 )
 
@@ -146,8 +147,15 @@ func patchGoMod(dir, moduleName string, goDirective *modfile.Go, funcRequires []
 	}
 
 	if goDirective != nil && goDirective.Version != "" {
-		if err := f.AddGoStmt(goDirective.Version); err != nil {
-			return fmt.Errorf("cannot set go version: %w", err)
+		funcV := goVersionToSemver(goDirective.Version)
+		scaffoldV := "v0.0.0"
+		if f.Go != nil {
+			scaffoldV = goVersionToSemver(f.Go.Version)
+		}
+		if semver.Compare(funcV, scaffoldV) > 0 {
+			if err := f.AddGoStmt(goDirective.Version); err != nil {
+				return fmt.Errorf("cannot set go version: %w", err)
+			}
 		}
 	}
 	if err := f.DropReplace("function", ""); err != nil {
@@ -184,6 +192,10 @@ func patchGoMod(dir, moduleName string, goDirective *modfile.Go, funcRequires []
 		return fmt.Errorf("cannot format scaffolding go.mod: %w", err)
 	}
 	return os.WriteFile(path, formatted, 0644)
+}
+
+func goVersionToSemver(v string) string {
+	return "v" + v
 }
 
 // mergeGoSum appends the function's go.sum entries into the scaffolding's
