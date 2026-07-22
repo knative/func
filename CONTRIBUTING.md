@@ -53,8 +53,8 @@ To run core unit tests, use `make test`.
 ### Fork CI (GitHub Actions)
 
 Pull requests **on a fork** (e.g. provisional PRs used in development) do not
-have Knative org secrets. Codecov upload steps in `.github/workflows/functions.yaml`
-run only when `CODECOV_TOKEN` is set; without it they are skipped so unit,
+have Knative org secrets. Coverage upload uses the local composite action
+`.github/actions/codecov`, which no-ops when `CODECOV_TOKEN` is empty so unit,
 integration, and e2e results stay the CI signal. Upstream `knative/func` still
 uploads coverage when the secret is present.
 

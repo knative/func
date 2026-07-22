@@ -1,0 +1,42 @@
+name: codecov
+description: >
+  Upload coverage to Codecov when a token is available. No-ops when the token
+  is empty so fork PRs (no CODECOV_TOKEN secret) stay green after tests pass.
+
+# Callers pass secrets.CODECOV_TOKEN as inputs.token — secrets cannot be used
+# in step-level if: expressions, so the empty-token check lives here once.
+
+inputs:
+  token:
+    description: Codecov upload token; empty skips the upload
+    required: false
+    default: ""
+  files:
+    description: Coverage file path(s) for codecov-action
+    required: false
+    default: ./coverage.txt
+  flags:
+    description: Codecov flags (e.g. unit, integration, e2e)
+    required: false
+    default: ""
+  fail_ci_if_error:
+    description: Fail the job if Codecov upload errors (only when uploading)
+    required: false
+    default: "true"
+  verbose:
+    description: Verbose codecov-action logging
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Upload coverage to Codecov
+      if: ${{ inputs.token != '' }}
+      uses: codecov/codecov-action@v7
+      with:
+        files: ${{ inputs.files }}
+        flags: ${{ inputs.flags }}
+        fail_ci_if_error: ${{ inputs.fail_ci_if_error }}
+        verbose: ${{ inputs.verbose }}
+        token: ${{ inputs.token }}

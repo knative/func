@@ -2,10 +2,9 @@ name: Functions
 
 # To run this workflow's tests locally, see ./hack/test-full.sh
 #
-# Fork CI note (#395 external-dev / Functions#57): Codecov upload steps run only
-# when CODECOV_TOKEN is set (workflow env from the secret). On forks without that secret they are skipped
-# so unit/integration/e2e signal is not painted red by tokenless Codecov 400s.
-# knative/func (upstream) continues to upload when the org secret is present.
+# Fork CI note (Hamr#395 external-dev / Functions#57): coverage upload goes through
+# ./.github/actions/codecov — no-ops when CODECOV_TOKEN is empty so forks without
+# the secret stay green after tests. Upstream knative/func still uploads when set.
 
 
 permissions:
@@ -33,9 +32,6 @@ env:
   NODE_VERSION: "20"
   JAVA_VERSION: "21"
   JAVA_DISTRIBUTION: "temurin"
-  # Mapped so step-level if: can gate Codecov (secrets context is not allowed in if).
-  # Empty on forks without the secret → Codecov steps skip (actionlint-clean).
-  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
 jobs:
   # --------
@@ -86,16 +82,10 @@ jobs:
       - name: Run Unit Tests
         run: make test
 
-      # Skip when CODECOV_TOKEN is empty (forks without the secret). Gated via env
-      # (secrets cannot appear in step if: — actionlint). Upstream keeps the secret.
-      - uses: codecov/codecov-action@v7
-        if: ${{ env.CODECOV_TOKEN != '' }}
+      - uses: ./.github/actions/codecov
         with:
-          files: ./coverage.txt
-          flags: unit ${{ matrix.os }}
-          fail_ci_if_error: true
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unit ${{ matrix.os }}
 
   # --------------
   # TEMPLATE TESTS
@@ -187,16 +177,10 @@ jobs:
       - name: Run Integration Tests
         run: make test-integration
 
-      # Skip when CODECOV_TOKEN is empty (forks without the secret). Gated via env
-      # (secrets cannot appear in step if: — actionlint). Upstream keeps the secret.
-      - uses: codecov/codecov-action@v7
-        if: ${{ env.CODECOV_TOKEN != '' }}
+      - uses: ./.github/actions/codecov
         with:
-          files: ./coverage.txt
-          flags: integration
-          fail_ci_if_error: true
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: integration
 
       # Preserve Cluster Logs
       - name: Dump Cluster Logs
@@ -247,16 +231,10 @@ jobs:
       - name: Run Basic E2E Tests (core, metadata, remote)
         run: make test-e2e
 
-      # Skip when CODECOV_TOKEN is empty (forks without the secret). Gated via env
-      # (secrets cannot appear in step if: — actionlint). Upstream keeps the secret.
-      - uses: codecov/codecov-action@v7
-        if: ${{ env.CODECOV_TOKEN != '' }}
+      - uses: ./.github/actions/codecov
         with:
-          files: ./coverage.txt
-          flags: e2e
-          fail_ci_if_error: true
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: e2e
 
       # Preserve Cluster Logs
       - name: Dump Cluster Logs
@@ -313,16 +291,10 @@ jobs:
       - name: Run E2E Podman Tests
         run: make test-e2e-podman
 
-      # Skip when CODECOV_TOKEN is empty (forks without the secret). Gated via env
-      # (secrets cannot appear in step if: — actionlint). Upstream keeps the secret.
-      - uses: codecov/codecov-action@v7
-        if: ${{ env.CODECOV_TOKEN != '' }}
+      - uses: ./.github/actions/codecov
         with:
-          files: ./coverage.txt
-          flags: e2e
-          fail_ci_if_error: true
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: e2e
 
       # Preserve Cluster Logs
       - name: Dump Cluster Logs
@@ -406,16 +378,10 @@ jobs:
         run: make test-e2e-matrix
 
       # Coverage and Logs
-      # Skip when CODECOV_TOKEN is empty (forks without the secret). Gated via env
-      # (secrets cannot appear in step if: — actionlint). Upstream keeps the secret.
-      - uses: codecov/codecov-action@v7
-        if: ${{ env.CODECOV_TOKEN != '' }}
+      - uses: ./.github/actions/codecov
         with:
-          files: ./coverage.txt
-          flags: e2e ${{ matrix.runtime }}
-          fail_ci_if_error: true
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: e2e ${{ matrix.runtime }}
 
       # Preserve Cluster Logs
       - name: Dump Cluster Logs
@@ -464,16 +430,10 @@ jobs:
       - name: Run Config CI E2E Tests
         run: make test-e2e-config-ci
 
-      # Skip when CODECOV_TOKEN is empty (forks without the secret). Gated via env
-      # (secrets cannot appear in step if: — actionlint). Upstream keeps the secret.
-      - uses: codecov/codecov-action@v7
-        if: ${{ env.CODECOV_TOKEN != '' }}
+      - uses: ./.github/actions/codecov
         with:
-          files: ./coverage.txt
-          flags: e2e-config-ci
-          fail_ci_if_error: true
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: e2e-config-ci
 
       # Preserve Cluster Logs
       - name: Dump Cluster Logs
