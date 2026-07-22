@@ -585,6 +585,7 @@ func TestValidateKafka(t *testing.T) {
 	tests := []struct {
 		name      string
 		kafka     *fn.KafkaConfig
+		runtime   string
 		invoke    string
 		wantErrs  int
 		wantSubst string
@@ -604,6 +605,18 @@ func TestValidateKafka(t *testing.T) {
 			},
 			invoke:   "cloudevent",
 			wantErrs: 0,
+		},
+		{
+			name: "non-go runtime",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+			},
+			runtime:   "python",
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "only supported for the Go runtime",
 		},
 		{
 			name: "wrong invoke type",
@@ -656,10 +669,14 @@ func TestValidateKafka(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			runtime := tt.runtime
+			if runtime == "" {
+				runtime = "go"
+			}
 			f := fn.Function{
 				Root:    t.TempDir(),
 				Name:    "test",
-				Runtime: "go",
+				Runtime: runtime,
 				Invoke:  tt.invoke,
 				Run:     fn.RunSpec{Kafka: tt.kafka},
 			}

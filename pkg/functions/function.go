@@ -185,8 +185,12 @@ type KafkaConfig struct {
 	ConsumerGroup string `yaml:"consumerGroup" jsonschema:"description=Kafka consumer group ID"`
 }
 
-func validateKafka(kafka *KafkaConfig, invoke string) (errors []string) {
+func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string) {
 	if kafka == nil {
+		return
+	}
+	if runtime != "go" {
+		errors = append(errors, "run.kafka is currently only supported for the Go runtime")
 		return
 	}
 	if invoke != "cloudevent" {
@@ -394,7 +398,7 @@ func (f Function) Validate() error {
 		validateOptions(f.Deploy.Options),
 		ValidateLabels(f.Deploy.Labels),
 		validateGit(f.Build.Git),
-		validateKafka(f.Run.Kafka, f.Invoke),
+		validateKafka(f.Run.Kafka, f.Invoke, f.Runtime),
 	}
 
 	var b strings.Builder
