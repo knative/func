@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -43,6 +44,9 @@ import (
 
 const (
 	KnativeDeployerName = "knative"
+
+	knativeTriggerManagedByAnnotation = "func.knative.dev/managed-by"
+	knativeTriggerManagedByValue      = "func-knative-deployer"
 )
 
 type DeployerOpt func(*Deployer)
@@ -372,46 +376,126 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 
 	fmt.Fprintf(os.Stderr, "🎯 Creating Triggers on the cluster\n")
 
+	desiredTriggers := make(map[string]*eventingv1.Trigger, len(f.Deploy.Subscriptions))
 	for i, sub := range f.Deploy.Subscriptions {
-		// create the filter:
-		attributes := make(map[string]string)
-		for key, value := range sub.Filters {
-			attributes[key] = value
-		}
+		trigger := newKnativeTrigger(ksvc, sub, i)
+		desiredTriggers[trigger.Name] = trigger
 
-		err := eventingClient.CreateTrigger(ctx, &eventingv1.Trigger{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("%s-function-trigger-%d", ksvc.GetName(), i),
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: ksvc.APIVersion,
-						Kind:       ksvc.Kind,
-						Name:       ksvc.GetName(),
-						UID:        ksvc.GetUID(),
-					},
-				},
-			},
-			Spec: eventingv1.TriggerSpec{
-				Broker: sub.Source,
-
-				Subscriber: duckv1.Destination{
-					Ref: &duckv1.KReference{
-						APIVersion: ksvc.APIVersion,
-						Kind:       ksvc.Kind,
-						Name:       ksvc.GetName(),
-					}},
-
-				Filter: &eventingv1.TriggerFilter{
-					Attributes: attributes,
-				},
-			},
-		})
+		err := eventingClient.CreateTrigger(ctx, trigger)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			err = fmt.Errorf("knative deployer failed to create the Trigger: %v", err)
 			return err
 		}
 	}
+
+	return syncKnativeTriggers(ctx, eventingClient, ksvc, desiredTriggers)
+}
+
+func newKnativeTrigger(ksvc *servingv1.Service, sub fn.KnativeSubscription, index int) *eventingv1.Trigger {
+	attributes := make(map[string]string)
+	for key, value := range sub.Filters {
+		attributes[key] = value
+	}
+
+	return &eventingv1.Trigger{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%s-function-trigger-%d", ksvc.GetName(), index),
+			Annotations: map[string]string{
+				knativeTriggerManagedByAnnotation: knativeTriggerManagedByValue,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: ksvc.APIVersion,
+					Kind:       ksvc.Kind,
+					Name:       ksvc.GetName(),
+					UID:        ksvc.GetUID(),
+				},
+			},
+		},
+		Spec: eventingv1.TriggerSpec{
+			Broker: sub.Source,
+			Subscriber: duckv1.Destination{
+				Ref: &duckv1.KReference{
+					APIVersion: ksvc.APIVersion,
+					Kind:       ksvc.Kind,
+					Name:       ksvc.GetName(),
+				},
+			},
+			Filter: &eventingv1.TriggerFilter{
+				Attributes: attributes,
+			},
+		},
+	}
+}
+
+func syncKnativeTriggers(ctx context.Context, eventingClient clienteventingv1.KnEventingClient, ksvc *servingv1.Service, desiredTriggers map[string]*eventingv1.Trigger) error {
+	existingTriggers, err := eventingClient.ListTriggers(ctx)
+	if err != nil {
+		if errors.IsNotFound(err) || isEventingUnavailable(err) {
+			return nil
+		}
+		return fmt.Errorf("knative deployer failed to list triggers for cleanup: %v", err)
+	}
+	if existingTriggers == nil {
+		return nil
+	}
+
+	triggerPrefix := fmt.Sprintf("%s-function-trigger-", ksvc.GetName())
+	for _, trigger := range existingTriggers.Items {
+		if !strings.HasPrefix(trigger.Name, triggerPrefix) || !isOwnedKnativeTrigger(trigger, ksvc) {
+			continue
+		}
+
+		desiredTrigger, ok := desiredTriggers[trigger.Name]
+		if !ok {
+			fmt.Fprintf(os.Stderr, "Deleting stale trigger: %s\n", trigger.Name)
+			delErr := eventingClient.DeleteTrigger(ctx, trigger.Name)
+			if delErr != nil && !errors.IsNotFound(delErr) {
+				return fmt.Errorf("knative deployer failed to delete stale trigger %s: %v", trigger.Name, delErr)
+			}
+			continue
+		}
+
+		if triggerNeedsUpdate(trigger, desiredTrigger, ksvc) {
+			updated := trigger.DeepCopy()
+			updated.Spec = desiredTrigger.Spec
+			updated.OwnerReferences = desiredTrigger.OwnerReferences
+			if updated.Annotations == nil {
+				updated.Annotations = make(map[string]string)
+			}
+			updated.Annotations[knativeTriggerManagedByAnnotation] = knativeTriggerManagedByValue
+			if err := eventingClient.UpdateTrigger(ctx, updated); err != nil {
+				return fmt.Errorf("knative deployer failed to update trigger %s: %v", trigger.Name, err)
+			}
+		}
+	}
 	return nil
+}
+
+func isEventingUnavailable(err error) bool {
+	return strings.HasPrefix(err.Error(), "no or newer Knative Eventing API found on the backend")
+}
+
+func isOwnedKnativeTrigger(trigger eventingv1.Trigger, ksvc *servingv1.Service) bool {
+	if trigger.Annotations[knativeTriggerManagedByAnnotation] == knativeTriggerManagedByValue {
+		return true
+	}
+	return hasKnativeOwnerReference(trigger, ksvc)
+}
+
+func hasKnativeOwnerReference(trigger eventingv1.Trigger, ksvc *servingv1.Service) bool {
+	for _, owner := range trigger.OwnerReferences {
+		if owner.APIVersion == ksvc.APIVersion && owner.Kind == ksvc.Kind && owner.Name == ksvc.GetName() {
+			return ksvc.GetUID() == "" || owner.UID == ksvc.GetUID()
+		}
+	}
+	return false
+}
+
+func triggerNeedsUpdate(existing eventingv1.Trigger, desired *eventingv1.Trigger, ksvc *servingv1.Service) bool {
+	return !reflect.DeepEqual(existing.Spec, desired.Spec) ||
+		existing.Annotations[knativeTriggerManagedByAnnotation] != knativeTriggerManagedByValue ||
+		!hasKnativeOwnerReference(existing, ksvc)
 }
 
 func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprInstalled bool, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string]) (*servingv1.Service, error) {
