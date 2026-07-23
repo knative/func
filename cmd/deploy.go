@@ -287,6 +287,9 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
 	}
+	if err = f.Validate(); err != nil {
+		return
+	}
 
 	changingNamespace := func(f fn.Function) bool {
 		// We're changing namespace if:

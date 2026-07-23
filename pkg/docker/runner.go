@@ -299,6 +299,14 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	if verbose {
 		c.Env = append(c.Env, "VERBOSE=true")
 	}
+	if k := f.Run.Kafka; k != nil && k.Brokers != "" && k.Topic != "" && k.ConsumerGroup != "" {
+		c.Env = append(c.Env,
+			"FUNC_TRANSPORT=kafka",
+			"KAFKA_BROKERS="+k.Brokers,
+			"KAFKA_TOPIC="+k.Topic,
+			"KAFKA_CONSUMER_GROUP="+k.ConsumerGroup,
+		)
+	}
 
 	return
 }

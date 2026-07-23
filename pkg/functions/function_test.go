@@ -13,6 +13,7 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/go-cmp/cmp"
+	"gopkg.in/yaml.v2"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
@@ -540,5 +541,177 @@ func TestFunction_LocalTransient(t *testing.T) {
 
 	if newFunc.Local.Remote {
 		t.Fatal("Remote not supposed to be set")
+	}
+}
+
+func TestKafkaConfig_YAMLRoundTrip(t *testing.T) {
+	original := fn.Function{
+		Name:    "test-kafka",
+		Runtime: "go",
+		Run: fn.RunSpec{
+			Kafka: &fn.KafkaConfig{
+				Brokers:       "broker1:9092,broker2:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+			},
+		},
+	}
+
+	data, err := yaml.Marshal(original)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	var loaded fn.Function
+	if err := yaml.Unmarshal(data, &loaded); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if loaded.Run.Kafka == nil {
+		t.Fatal("expected Run.Kafka to be non-nil after round-trip")
+	}
+	if loaded.Run.Kafka.Brokers != "broker1:9092,broker2:9092" {
+		t.Errorf("Brokers: expected %q, got %q", "broker1:9092,broker2:9092", loaded.Run.Kafka.Brokers)
+	}
+	if loaded.Run.Kafka.Topic != "my-topic" {
+		t.Errorf("Topic: expected %q, got %q", "my-topic", loaded.Run.Kafka.Topic)
+	}
+	if loaded.Run.Kafka.ConsumerGroup != "my-group" {
+		t.Errorf("ConsumerGroup: expected %q, got %q", "my-group", loaded.Run.Kafka.ConsumerGroup)
+	}
+}
+
+func TestValidateKafka(t *testing.T) {
+	tests := []struct {
+		name      string
+		kafka     *fn.KafkaConfig
+		runtime   string
+		invoke    string
+		wantErrs  int
+		wantSubst string
+	}{
+		{
+			name:     "nil kafka config is valid",
+			kafka:    nil,
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
+		{
+			name: "valid complete config",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
+		{
+			name: "non-go runtime",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+			},
+			runtime:   "python",
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "only supported for the Go runtime",
+		},
+		{
+			name: "wrong invoke type",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+			},
+			invoke:    "http",
+			wantErrs:  1,
+			wantSubst: "only supported with invoke: cloudevent",
+		},
+		{
+			name: "missing brokers",
+			kafka: &fn.KafkaConfig{
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "brokers is required",
+		},
+		{
+			name: "missing topic",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				ConsumerGroup: "my-group",
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "topic is required",
+		},
+		{
+			name: "missing consumer group",
+			kafka: &fn.KafkaConfig{
+				Brokers: "broker:9092",
+				Topic:   "my-topic",
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "consumerGroup is required",
+		},
+		{
+			name:      "all fields missing",
+			kafka:     &fn.KafkaConfig{},
+			invoke:    "cloudevent",
+			wantErrs:  3,
+			wantSubst: "required",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runtime := tt.runtime
+			if runtime == "" {
+				runtime = "go"
+			}
+			f := fn.Function{
+				Root:    t.TempDir(),
+				Name:    "test",
+				Runtime: runtime,
+				Invoke:  tt.invoke,
+				Run:     fn.RunSpec{Kafka: tt.kafka},
+			}
+			err := f.Validate()
+			if tt.wantErrs == 0 {
+				if err != nil {
+					t.Errorf("unexpected error: %s", err)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("expected errors containing %q, got nil", tt.wantSubst)
+				}
+				errStr := err.Error()
+				count := strings.Count(errStr, tt.wantSubst)
+				if count < tt.wantErrs {
+					t.Errorf("expected %d occurrences of %q, got %d (error: %s)", tt.wantErrs, tt.wantSubst, count, errStr)
+				}
+			}
+		})
+	}
+}
+
+func TestKafkaConfig_YAMLOmitEmpty(t *testing.T) {
+	f := fn.Function{
+		Name:    "test-func",
+		Runtime: "go",
+	}
+
+	data, err := yaml.Marshal(f)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	output := string(data)
+	if strings.Contains(output, "kafka:") {
+		t.Errorf("expected YAML output to omit 'kafka:' key when nil, got:\n%s", output)
 	}
 }
