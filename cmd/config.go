@@ -157,7 +157,7 @@ func initConfigCommand(loader common.FunctionLoader) (fn.Function, error) {
 
 	function, err := loader.Load(config.Path)
 	if err != nil {
-		return fn.Function{}, err
+		return fn.Function{}, wrapConfigError(err)
 	}
 
 	return function, nil
