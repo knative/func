@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 )
 
 const (
@@ -28,6 +29,11 @@ type Server struct {
 	executor  executor
 	transport mcp.Transport // Transport to use (defaults to StdioTransport)
 	impl      *mcp.Server   // implements the protocol
+
+	// clientProvider returns a *fn.Client for direct library calls.
+	// Set via WithClientProvider; nil for tool handlers that still shell out.
+	// Tracks the migration in https://github.com/knative/func/issues/3771.
+	clientProvider func() *fn.Client
 }
 
 type executor interface {
@@ -72,6 +78,16 @@ func WithTransport(transport mcp.Transport) Option {
 func WithReadonly(readonly bool) Option {
 	return func(s *Server) {
 		s.readonly.Store(readonly)
+	}
+}
+
+// WithClientProvider sets a provider that returns the functions Client used
+// for direct library calls (replacing the executor subprocess path).
+// The provider is called lazily per tool invocation so it can capture a
+// client that is constructed after the MCP server.
+func WithClientProvider(p func() *fn.Client) Option {
+	return func(s *Server) {
+		s.clientProvider = p
 	}
 }
 
