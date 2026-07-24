@@ -21,7 +21,7 @@ var deployTool = &mcp.Tool{
 
 func (s *Server) deployHandler(ctx context.Context, r *mcp.CallToolRequest, input DeployInput) (result *mcp.CallToolResult, output DeployOutput, err error) {
 	if s.readonly.Load() {
-		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
+		err = fmt.Errorf("deploy is not allowed in read-only mode; set %s=true to enable write operations", EnvMCPWrite)
 		return
 	}
 	out, err := s.executor.Execute(ctx, "deploy", input.Args()...)
