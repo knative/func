@@ -46,6 +46,8 @@ const (
 	KnativeDeployerName = deployers.Knative
 )
 
+var errPrivateRegistry = stdErrors.New("your function image is unreachable. It is possible that your docker registry is private. If so, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
+
 type DeployerOpt func(*Deployer)
 
 type Deployer struct {
@@ -197,8 +199,10 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		out = os.Stderr
 	}
 	since := time.Now()
+	deployCtx, cancelDeploy := context.WithCancel(ctx)
+	defer cancelDeploy()
 	go func() {
-		_ = GetKServiceLogs(ctx, namespace, f.Name, f.Deploy.Image, &since, out)
+		_ = GetKServiceLogs(deployCtx, namespace, f.Name, f.Deploy.Image, &since, out)
 	}()
 
 	previousService, err := client.GetService(ctx, f.Name)
@@ -233,44 +237,21 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			if d.verbose {
 				fmt.Println("Waiting for Knative Service to become ready")
 			}
-			chprivate := make(chan bool)
-			cherr := make(chan error)
-			go func() {
-				private := false
-				for !private {
-					time.Sleep(5 * time.Second)
-					private = d.isImageInPrivateRegistry(ctx, client, f)
-					chprivate <- private
-				}
-				close(chprivate)
-			}()
-			go func() {
+			waitForService := func(ctx context.Context) error {
 				err, _ := client.WaitForService(ctx, f.Name,
 					clientservingv1.WaitConfig{Timeout: k8s.DefaultWaitingTimeout, ErrorWindow: k8s.DefaultErrorWindowTimeout},
 					wait.NoopMessageCallback())
-				cherr <- err
-				close(cherr)
-			}()
+				return err
+			}
+			isPrivateRegistry := func(ctx context.Context) bool {
+				return d.isImageInPrivateRegistry(ctx, client, f)
+			}
 
-			presumePrivate := false
-		main:
-			// Wait for either a timeout or a container condition signaling the image is unreachable
-			for {
-				select {
-				case private := <-chprivate:
-					if private {
-						presumePrivate = true
-						break main
-					}
-				case err = <-cherr:
-					break main
-				}
-			}
-			if presumePrivate {
-				err := fmt.Errorf("your function image is unreachable. It is possible that your docker registry is private. If so, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
-				return fn.DeploymentResult{}, err
-			}
+			err = waitForReadyOrPrivateRegistry(deployCtx, waitForService, isPrivateRegistry, 5*time.Second)
 			if err != nil {
+				if stdErrors.Is(err, errPrivateRegistry) {
+					return fn.DeploymentResult{}, err
+				}
 				err = fmt.Errorf("knative deployer failed to wait for the Knative Service to become ready: %v", err)
 				if !d.verbose {
 					fmt.Fprintln(os.Stderr, "\nService output:")
@@ -860,4 +841,40 @@ func wrapK8sConnectionError(err error) error {
 	}
 
 	return nil
+}
+
+// waitForReadyOrPrivateRegistry handles polling for a private registry image pull error
+// or successfully waiting for the service to become ready.
+func waitForReadyOrPrivateRegistry(
+	ctx context.Context,
+	waitForService func(context.Context) error,
+	isPrivateRegistry func(context.Context) bool,
+	pollInterval time.Duration,
+) error {
+	waitCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	cherr := make(chan error, 1)
+
+	go func() {
+		cherr <- waitForService(waitCtx)
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-cherr:
+			cancel()
+			return err
+		case <-ticker.C:
+			if isPrivateRegistry(waitCtx) {
+				cancel()
+				return errPrivateRegistry
+			}
+		}
+	}
 }
