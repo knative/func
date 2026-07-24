@@ -3,8 +3,10 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 )
 
 // config_labels_list
@@ -21,28 +23,54 @@ var configLabelsListTool = &mcp.Tool{
 }
 
 type ConfigLabelsListInput struct {
-	Path    string `json:"path" jsonschema:"required,Path to the function project directory"`
-	Verbose *bool  `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Path string `json:"path" jsonschema:"required,Path to the function project directory"`
 }
 
-func (i ConfigLabelsListInput) Args() []string {
-	args := []string{"labels", "--path", i.Path}
-	args = appendBoolFlag(args, "--verbose", i.Verbose)
-	return args
+// LabelPair is the MCP-facing representation of a configured label. It
+// mirrors fn.Label without the invopop/jsonschema struct tags, which the MCP
+// SDK's output-schema generator cannot parse.
+type LabelPair struct {
+	Key   *string `json:"key,omitempty" jsonschema:"Label key"`
+	Value *string `json:"value,omitempty" jsonschema:"Label value or template expression"`
 }
 
+// ConfigLabelsListOutput exposes the configured labels as typed structured
+// data; Message is a human-readable summary for fallback display.
 type ConfigLabelsListOutput struct {
-	Message string `json:"message" jsonschema:"Output message"`
+	Labels  []LabelPair `json:"labels" jsonschema:"Configured labels"`
+	Message string      `json:"message" jsonschema:"Human-readable summary"`
 }
 
-func (s *Server) configLabelsListHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigLabelsListInput) (result *mcp.CallToolResult, output ConfigLabelsListOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+// configLabelsListHandler loads the function at the given path and returns its
+// configured labels directly from pkg/functions rather than shelling out to
+// `func config labels`. Part of the migration tracked in
+// https://github.com/knative/func/issues/3771.
+func (s *Server) configLabelsListHandler(_ context.Context, _ *mcp.CallToolRequest, input ConfigLabelsListInput) (result *mcp.CallToolResult, output ConfigLabelsListOutput, err error) {
+	f, err := fn.NewFunction(input.Path)
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigLabelsListOutput{Message: string(out)}
+	labels := make([]LabelPair, len(f.Deploy.Labels))
+	for i, l := range f.Deploy.Labels {
+		labels[i] = LabelPair{Key: l.Key, Value: l.Value}
+	}
+	output = ConfigLabelsListOutput{
+		Labels:  labels,
+		Message: formatLabels(f.Deploy.Labels),
+	}
 	return
+}
+
+func formatLabels(labels []fn.Label) string {
+	if len(labels) == 0 {
+		return "No labels defined"
+	}
+	var b strings.Builder
+	b.WriteString("Labels:\n")
+	for _, l := range labels {
+		fmt.Fprintf(&b, " -  %s\n", l.String())
+	}
+	return b.String()
 }
 
 // config_labels_add
