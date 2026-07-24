@@ -419,6 +419,18 @@ test-hack:
 __update-builder: # Used in automation
 	cd hack && go run ./cmd/update-builder
 
+.PHONY: update-quarkus-platform
+update-quarkus-platform: ## Update Quarkus platform version in templates
+	go run ./hack/cmd/update-quarkus-platform
+
+.PHONY: update-springboot-platform
+update-springboot-platform: ## Update Spring Boot platform version in templates
+	go run ./hack/cmd/update-springboot-platform
+
+.PHONY: update-ca-bundle
+update-ca-bundle: ## Update CA bundle in templates
+	go run ./hack/cmd/update-ca-bundle
+
 .PHONY: setup-githooks
 setup-githooks:
 	git config --local core.hooksPath .githooks/
