@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/mock"
 	. "knative.dev/func/pkg/testing"
 )
@@ -338,5 +340,181 @@ func TestDelete_NoFunctionAtPath(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "No function found in provided path") {
 		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+// TestDelete_ByProjectClearsDeployedMarker ensures that a successful
+// path-based delete persists a cleared function on disk so we have the
+// function locally and on-cluster synced.
+func TestDelete_ByProjectClearsDeployedMarker(t *testing.T) {
+	root := FromTempDirectory(t)
+	f := fn.Function{
+		Root:     root,
+		Runtime:  "go",
+		Registry: TestRegistry,
+		Deployer: keda.KedaDeployerName, // intent - how to deploy
+		Deploy:   fn.DeploySpec{Namespace: "myns", Deployer: keda.KedaDeployerName},
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	remover := mock.NewRemover()
+	remover.RemoveFn = func(_, _ string) error { return nil }
+
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !remover.RemoveInvoked {
+		t.Fatal("fn.Remover not invoked")
+	}
+
+	loaded, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Deploy.Namespace != "" {
+		t.Fatalf("expected Deploy.Namespace cleared after a successful undeploy, got %q", loaded.Deploy.Namespace)
+	}
+	if loaded.Deploy.Deployer != "" {
+		t.Fatalf("expected Deploy.Deployer cleared after a successful undeploy, got %q", loaded.Deploy.Deployer)
+	}
+	if loaded.Deployer != keda.KedaDeployerName {
+		t.Fatalf("expected the intended Deployer preserved as a remembered choice, got %q", loaded.Deployer)
+	}
+}
+
+// TestDelete_ByNameLeavesLocalFunctionUntouched ensures delete-by-name does NOT
+// modify the local function's deployed state, even when a local function
+// exists in the working directory. This is the distinction we make, its the
+// caller's responsibility (of client.Remove) to deal with this.
+func TestDelete_ByNameLeavesLocalFunctionUntouched(t *testing.T) {
+	root := FromTempDirectory(t)
+	f := fn.Function{
+		Root:     root,
+		Runtime:  "go",
+		Registry: TestRegistry,
+		Name:     "localfn",
+		Deploy:   fn.DeploySpec{Namespace: "myns", Deployer: keda.KedaDeployerName},
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	remover := mock.NewRemover()
+	remover.RemoveFn = func(n, _ string) error {
+		if n != "otherfn" {
+			t.Fatalf("expected delete-by-name target %q, got %q", "otherfn", n)
+		}
+		return nil
+	}
+
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
+	cmd.SetArgs([]string{"otherfn"}) // explicit name, distinct from the local function
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !remover.RemoveInvoked {
+		t.Fatal("fn.Remover not invoked")
+	}
+
+	loaded, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Deploy.Namespace != "myns" {
+		t.Fatalf("expected delete-by-name to leave the local function untouched, Deploy.Namespace changed to %q", loaded.Deploy.Namespace)
+	}
+}
+
+// TestDelete_ByProjectPreservesDeployerForRedeploy ensures that redeploying
+// after removal keeps the INTENT deployer intact and functional.
+func TestDelete_ByProjectPreservesDeployerForRedeploy(t *testing.T) {
+	root := FromTempDirectory(t)
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy with keda
+	deployCmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
+	deployCmd.SetArgs([]string{"--deployer", keda.KedaDeployerName, "--namespace", "myns"})
+	if err := deployCmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Undeploy by project
+	remover := mock.NewRemover()
+	remover.RemoveFn = func(_, _ string) error { return nil }
+	deleteCmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
+	deleteCmd.SetArgs([]string{})
+	if err := deleteCmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Flag-less redeploy: must reuse the persisted keda deployer.
+	deployer := mock.NewDeployer()
+	redeployCmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+	redeployCmd.SetArgs([]string{})
+	if err := redeployCmd.Execute(); err != nil {
+		t.Fatalf("expected a flag-less redeploy after delete to succeed, got: %v", err)
+	}
+	if !deployer.DeployInvoked {
+		t.Fatal("expected the deployer to be invoked on the redeploy")
+	}
+
+	loaded, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Deploy.Deployer != keda.KedaDeployerName {
+		t.Fatalf("expected the flag-less redeploy to reuse the persisted %q deployer, got %q", keda.KedaDeployerName, loaded.Deploy.Deployer)
+	}
+}
+
+// TestDelete_ByProjectThenRedeployWithDifferentDeployerNotBlocked ensures that
+// undeploy removes "deployed status" effectively unblocking the subsequent
+// re-deployment with different deployer
+func TestDelete_ByProjectThenRedeployWithDifferentDeployerNotBlocked(t *testing.T) {
+	root := FromTempDirectory(t)
+	f := fn.Function{
+		Root:     root,
+		Runtime:  "go",
+		Registry: TestRegistry,
+		Deploy:   fn.DeploySpec{Namespace: "myns", Deployer: keda.KedaDeployerName},
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	remover := mock.NewRemover()
+	remover.RemoveFn = func(_, _ string) error { return nil }
+	deleteCmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
+	deleteCmd.SetArgs([]string{})
+	if err := deleteCmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	deployer := mock.NewDeployer()
+	deployCmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+	deployCmd.SetArgs([]string{"--deployer", deployers.Kubernetes})
+	if err := deployCmd.Execute(); err != nil {
+		t.Fatalf("expected the redeploy with a different deployer to succeed after undeploy, got: %v", err)
+	}
+	if !deployer.DeployInvoked {
+		t.Fatal("expected the deployer to be invoked - the guard must not fire on an undeployed function")
 	}
 }

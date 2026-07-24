@@ -11,6 +11,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 	"knative.dev/func/pkg/builders"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -27,12 +28,16 @@ const (
 
 	// DefaultBuilder is statically defined by the builders package.
 	DefaultBuilder = builders.Default
+
+	// DefaultDeployer is statically defined by the deployers package.
+	DefaultDeployer = deployers.Default
 )
 
 // Global configuration settings.
 type Global struct {
 	Builder   string `yaml:"builder,omitempty"`
 	Confirm   bool   `yaml:"confirm,omitempty"`
+	Deployer  string `yaml:"deployer,omitempty"`
 	Language  string `yaml:"language,omitempty"`
 	Namespace string `yaml:"namespace,omitempty"`
 	Registry  string `yaml:"registry,omitempty"`
@@ -49,12 +54,13 @@ type Global struct {
 func New() Global {
 	return Global{
 		Builder:  DefaultBuilder,
+		Deployer: DefaultDeployer,
 		Language: DefaultLanguage,
 		// ...
 	}
 }
 
-// RegistyDefault is a convenience method for deferred calculation of a
+// RegistryDefault is a convenience method for deferred calculation of a
 // default registry taking into account both the global config file and cluster
 // detection.
 func (c Global) RegistryDefault() string {
@@ -126,6 +132,14 @@ func (c Global) Apply(f fn.Function) Global {
 	if f.Build.Builder != "" {
 		c.Builder = f.Build.Builder
 	}
+	// opt 1: last deployed deployer
+	if f.Deploy.Deployer != "" {
+		c.Deployer = f.Deploy.Deployer
+	}
+	// opt 2: intent to deploy deployer
+	if f.Deployer != "" {
+		c.Deployer = f.Deployer
+	}
 	if f.Runtime != "" {
 		c.Language = f.Runtime
 	}
@@ -150,6 +164,9 @@ func (c Global) Apply(f fn.Function) Global {
 func (c Global) Configure(f fn.Function) fn.Function {
 	if c.Builder != "" {
 		f.Build.Builder = c.Builder
+	}
+	if c.Deployer != "" {
+		f.Deployer = c.Deployer
 	}
 	if c.Language != "" {
 		f.Runtime = c.Language

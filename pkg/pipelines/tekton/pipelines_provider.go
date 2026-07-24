@@ -150,6 +150,15 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 	}
 	f.Deploy.Image = image
 
+	// Deployer is either the intended deployer (f.Deployer) or the one it was
+	// last deployed with (f.Deploy.Deployer). Recorded so a remote deploy is
+	// remembered in func.yaml, mirroring Namespace and Image above.
+	deployer := f.Deployer
+	if deployer == "" {
+		deployer = f.Deploy.Deployer
+	}
+	f.Deploy.Deployer = deployer
+
 	// Client for the given namespace
 	client, err := NewTektonClient(namespace)
 	if err != nil {

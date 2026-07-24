@@ -100,6 +100,12 @@ type Function struct {
 	// Namespace in which to deploy the Function
 	Namespace string `yaml:"namespace,omitempty"`
 
+	// Deployer with which to deploy the Function: the requested (intended)
+	// deployer. This is the user's choice and persists across undeploy.
+	// The deployer a Function is CURRENTLY deployed with is recorded separately
+	// in .Deploy.Deployer, which is cleared on undeploy.
+	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw,enum=keda"`
+
 	// Created time is the moment that creation was successfully completed
 	// according to the client which is in charge of what constitutes being
 	// fully "Created" (aka initialized)
@@ -260,8 +266,9 @@ type DeploySpec struct {
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 	ImagePullSecret string `yaml:"imagePullSecret,omitempty"`
 
-	// Deployer specifies the type of deployment to use: "knative", "raw" or "keda"
-	// Defaults to "knative" for backwards compatibility
+	// Deployer records the deployer the Function is CURRENTLY DEPLOYED:
+	// observed state, written after successful deployment, and cleared on
+	// undeploy alongside Namespace.
 	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw,enum=keda"`
 
 	Subscriptions []KnativeSubscription `yaml:"subscriptions,omitempty"`

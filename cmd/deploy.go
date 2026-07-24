@@ -16,6 +16,7 @@ import (
 	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/keda"
@@ -159,6 +160,8 @@ EXAMPLES
 	// contextually relevant function; but sets are flattened via cfg.Apply(f)
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
+	cmd.Flags().String("deployer", cfg.Deployer,
+		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service, '%s' for Kubernetes Deployment, or '%s' for Deployment with a KEDA HTTP scaler ($FUNC_DEPLOYER)", deployers.Knative, deployers.Kubernetes, deployers.Keda))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)")
@@ -197,8 +200,6 @@ EXAMPLES
 		"Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)")
 	cmd.Flags().String("image-pull-secret", f.Deploy.ImagePullSecret,
 		"Image pull secret to use when the function's image is in a private registry ($FUNC_IMAGE_PULL_SECRET)")
-	cmd.Flags().String("deployer", f.Deploy.Deployer,
-		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service (default), '%s' for Kubernetes Deployment or '%s' for Deployment with a Keda HTTP scaler ($FUNC_DEPLOY_TYPE)", knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName))
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
@@ -283,6 +284,12 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Warn if registry changed but registryInsecure is still true
 	warnRegistryInsecureChange(cmd.OutOrStderr(), cfg.Registry, f)
+
+	// Back-compat: a function deployed before the deployer was recorded has a
+	// namespace but no deployer, which historically could only mean knative.
+	if f.Deploy.Namespace != "" && f.Deploy.Deployer == "" {
+		f.Deploy.Deployer = deployers.Knative
+	}
 
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
@@ -620,7 +627,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Build.RemoteStorageClass = c.RemoteStorageClass
 	f.Deploy.ServiceAccountName = c.ServiceAccountName
 	f.Deploy.ImagePullSecret = c.ImagePullSecret
-	f.Deploy.Deployer = c.Deployer
+	f.Deployer = c.Deployer
 	f.Deploy.ManagementDisabled = c.ManagementDisabled
 	f.Local.Remote = c.Remote
 
@@ -807,13 +814,8 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 	// This is needed for remote builds (deploy --remote)
 	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(creds, c.Verbose, t)))
 
-	// Add the appropriate deployer based on deploy type
-	deployer := c.Deployer
-	if deployer == "" {
-		deployer = knative.KnativeDeployerName // default to knative for backwards compatibility
-	}
-
-	switch deployer {
+	// Add the appropriate deployer based on deploy type.
+	switch c.Deployer {
 	case knative.KnativeDeployerName:
 		o = append(o, fn.WithDeployer(newKnativeDeployer(c.Verbose)))
 	case k8s.KubernetesDeployerName:
@@ -821,7 +823,7 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 	case keda.KedaDeployerName:
 		o = append(o, fn.WithDeployer(newKedaDeployer(c.Verbose)))
 	default:
-		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s, %s)", deployer, knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName)
+		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s, %s)", c.Deployer, knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName)
 	}
 
 	return o, nil

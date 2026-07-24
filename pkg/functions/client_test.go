@@ -20,6 +20,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"knative.dev/func/pkg/builders"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
 	"knative.dev/func/pkg/oci"
@@ -1091,7 +1092,7 @@ func TestClient_Remove_ByPath(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(t.Context(), "", "", f, false); err != nil {
+	if _, err := client.Remove(t.Context(), "", "", f, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1134,7 +1135,7 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(t.Context(), "", "", f, deleteAll); err != nil {
+	if _, err := client.Remove(t.Context(), "", "", f, deleteAll); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1181,7 +1182,7 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(t.Context(), "", "", f, deleteAll); err != nil {
+	if _, err := client.Remove(t.Context(), "", "", f, deleteAll); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1223,12 +1224,12 @@ func TestClient_Remove_ByName(t *testing.T) {
 	}
 
 	// Run remove with name (and namespace in .Deploy to simulate deployed function)
-	if err := client.Remove(t.Context(), "", "", fn.Function{Name: expectedName, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
+	if _, err := client.Remove(t.Context(), "", "", fn.Function{Name: expectedName, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 
 	// Run remove with a name and a root, which should be ignored in favor of the name.
-	if err := client.Remove(t.Context(), "", "", fn.Function{Name: expectedName, Root: root, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
+	if _, err := client.Remove(t.Context(), "", "", fn.Function{Name: expectedName, Root: root, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1259,9 +1260,71 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 		fn.WithRemovers(remover))
 
 	// Attempt to remove by path (uninitialized), expecting an error.
-	if err := client.Remove(t.Context(), "", "", fn.Function{Root: root}, false); err == nil {
+	if _, err := client.Remove(t.Context(), "", "", fn.Function{Root: root}, false); err == nil {
 		t.Fatalf("did not received expected error removing an uninitialized func")
 	}
+}
+
+// TestClient_Remove_ReturnsReconciledFunction asserts both halves of Remove's
+// (Function, error) contract: on success the returned function has its observed
+// STATE cleared (Deploy.Namespace and Deploy.Deployer) while the user's INTENT
+// (top-level Deployer/Namespace) survives; on a remover error nothing is touched
+// and the error propagates. The clear is guarded to happen only on success.
+func TestClient_Remove_ReturnsReconciledFunction(t *testing.T) {
+	const deployer = "keda" // arbitrary; never interpreted
+
+	newFn := func() fn.Function {
+		return fn.Function{
+			Name:     "fn",
+			Deployer: deployer,                                           // intent
+			Deploy:   fn.DeploySpec{Namespace: "ns", Deployer: deployer}, // state
+		}
+	}
+
+	t.Run("success clears deployed state and preserves intent", func(t *testing.T) {
+		remover := mock.NewRemover()
+		remover.RemoveFn = func(_, _ string) error { return nil }
+		client := fn.New(fn.WithRemovers(remover))
+
+		//remove by-project
+		got, err := client.Remove(t.Context(), "", "", newFn(), false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// removes the deployed markers
+		if got.Deploy.Namespace != "" {
+			t.Fatalf("expected Deploy.Namespace cleared on success, got %q", got.Deploy.Namespace)
+		}
+		if got.Deploy.Deployer != "" {
+			t.Fatalf("expected Deploy.Deployer cleared on success, got %q", got.Deploy.Deployer)
+		}
+		// keeps the intent
+		if got.Deployer != deployer {
+			t.Fatalf("expected the intended Deployer preserved as %q, got %q", deployer, got.Deployer)
+		}
+	})
+
+	t.Run("remover error leaves the function untouched and propagates", func(t *testing.T) {
+		remover := mock.NewRemover()
+		// simulate an error
+		remover.RemoveFn = func(_, _ string) error { return fmt.Errorf("remover boom") }
+		client := fn.New(fn.WithRemovers(remover))
+
+		got, err := client.Remove(t.Context(), "", "", newFn(), false)
+		if err == nil {
+			t.Fatal("expected the remover error to propagate, got nil")
+		}
+		// expect unchanged deployed markers
+		if got.Deploy.Namespace != "ns" {
+			t.Fatalf("expected Deploy.Namespace preserved on failure, got %q", got.Deploy.Namespace)
+		}
+		if got.Deploy.Deployer != deployer {
+			t.Fatalf("expected Deploy.Deployer untouched on failure, got %q", got.Deploy.Deployer)
+		}
+		if got.Deployer != deployer {
+			t.Fatalf("expected the intended Deployer untouched on failure, got %q", got.Deployer)
+		}
+	})
 }
 
 // TestClient_List merely ensures that the client invokes the configured lister.
@@ -2512,4 +2575,105 @@ func absPath(p string) string {
 		panic(err)
 	}
 	return abs
+}
+
+// TestClient_Deploy_BlocksDeployerSwitch ensures the deployer-switch guard is
+// enforced by the client itself, so every API consumer is protected, not only
+// the CLI. Redeploying an already-deployed function with a different deployer
+// would strand the previous deployer's resources; raw -> keda is the one safe
+// change because the keda deployer embeds the raw one.
+//
+// A blocked switch must also fail BEFORE the deployer runs: the point of the
+// guard is that nothing on the cluster is touched.
+func TestClient_Deploy_BlocksDeployerSwitch(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		deployedWith string // observed state: Deploy.Deployer
+		requested    string // intent: Deployer
+		deployedNS   string // observed state: Deploy.Namespace ("" = not deployed)
+		wantBlocked  bool
+	}{
+		{"keda2raw blocked", deployers.Keda, deployers.Kubernetes, "ns", true},
+		{"knative2keda blocked", deployers.Knative, deployers.Keda, "ns", true},
+		{"raw2keda is safe switch", deployers.Kubernetes, deployers.Keda, "ns", false},
+		{"same deployer is not a switch", deployers.Keda, deployers.Keda, "ns", false},
+
+		{"undeployed is never blocked", "", deployers.Keda, "", false},
+		// It is the client's caller's responsibility to make sure the deployer
+		// is set (stated specifically for the legacy unpersisted deployer key)
+		{"unknown deployed-with is not blocked", "", deployers.Kubernetes, "ns", false},
+		{"unknown requested is not blocked", deployers.Keda, "", "ns", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			deployer := mock.NewDeployer()
+			client := fn.New(fn.WithDeployer(deployer))
+
+			f := fn.Function{
+				Name: "f",
+				// Target ns (intent) and it is Deploy.Namespace (state) below
+				// that decides whether the guard considers f already deployed.
+				Namespace: "ns",
+				Deployer:  tt.requested,
+				Deploy: fn.DeploySpec{
+					Namespace: tt.deployedNS,
+					Deployer:  tt.deployedWith,
+				},
+			}
+
+			_, err := client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
+
+			if tt.wantBlocked {
+				if err == nil {
+					t.Fatalf("expected %q -> %q to be blocked, got nil", tt.deployedWith, tt.requested)
+				}
+				if deployer.DeployInvoked {
+					t.Fatal("expected the deployer NOT to run on a blocked switch")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected %q -> %q to be allowed, got: %v", tt.deployedWith, tt.requested, err)
+			}
+			if !deployer.DeployInvoked {
+				t.Fatal("expected the deployer to run when the switch is allowed")
+			}
+		})
+	}
+}
+
+// TestClient_Deploy_PersistsSelfReportedDeployer ensures the deployer recorded
+// as state is the one the implementation reports having used, not the one that
+// was requested. Deploy.Deployer must describe what actually happened, exactly
+// as Deploy.Namespace is taken from the result rather than from the request -
+// otherwise the switch guard would compare against a value the cluster never
+// confirmed.
+func TestClient_Deploy_PersistsSelfReportedDeployer(t *testing.T) {
+	const reported = "reported-by-implementation"
+
+	deployer := mock.NewDeployer()
+	deployer.DeployFn = func(_ context.Context, _ fn.Function) (fn.DeploymentResult, error) {
+		return fn.DeploymentResult{
+			Status:    fn.Deployed,
+			Namespace: "reported-ns",
+			Deployer:  reported,
+		}, nil
+	}
+
+	client := fn.New(fn.WithDeployer(deployer))
+	f := fn.Function{Name: "f", Deployer: deployers.Knative}
+
+	f, err := client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f.Deploy.Deployer != reported {
+		t.Fatalf("expected the self-reported deployer %q persisted as state, got %q", reported, f.Deploy.Deployer)
+	}
+	if f.Deployer != deployers.Knative {
+		t.Fatalf("expected the requested deployer %q preserved as intent, got %q", deployers.Knative, f.Deployer)
+	}
+	if f.Deploy.Namespace != "reported-ns" {
+		t.Fatalf("expected the self-reported namespace persisted as state, got %q", f.Deploy.Namespace)
+	}
 }
