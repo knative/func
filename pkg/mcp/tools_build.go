@@ -15,7 +15,7 @@ var buildTool = &mcp.Tool{
 		Title:           "Build Function",
 		ReadOnlyHint:    false,
 		DestructiveHint: ptr(false),
-		IdempotentHint:  true, // Building the same source code multiple times produces the same container image.
+		IdempotentHint:  true,
 	},
 }
 
@@ -25,18 +25,16 @@ func (s *Server) buildHandler(ctx context.Context, r *mcp.CallToolRequest, input
 		return
 	}
 
-	out, err := s.executor.Execute(ctx, "build", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = BuildOutput{
-		Message: string(out),
-	}
+
+	output, err = svc.Build(ctx, input)
 	return
 }
 
-// BuildInput defines the input parameters for the build tool.
+ 
 type BuildInput struct {
 	Path             string  `json:"path" jsonschema:"required,Path to the function project directory"`
 	Builder          *string `json:"builder,omitempty" jsonschema:"Builder to use (pack, s2i, or host)"`
@@ -50,27 +48,6 @@ type BuildInput struct {
 	Verbose          *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
-func (i BuildInput) Args() []string {
-	// Required
-	args := []string{"--path", i.Path}
-
-	// String flags
-	args = appendStringFlag(args, "--builder", i.Builder)
-	args = appendStringFlag(args, "--registry", i.Registry)
-	args = appendStringFlag(args, "--builder-image", i.BuilderImage)
-	args = appendStringFlag(args, "--image", i.Image)
-	args = appendStringFlag(args, "--platform", i.Platform)
-
-	// Boolean flags
-	args = appendBoolFlag(args, "--push", i.Push)
-	args = appendBoolFlag(args, "--registry-insecure", i.RegistryInsecure)
-	args = appendBoolFlag(args, "--build-timestamp", i.BuildTimestamp)
-	args = appendBoolFlag(args, "--verbose", i.Verbose)
-
-	return args
-}
-
-// BuildOutput defines the structured output returned by the build tool.
 type BuildOutput struct {
 	Image   string `json:"image,omitempty" jsonschema:"The built image name"`
 	Message string `json:"message" jsonschema:"Output message from func command"`
