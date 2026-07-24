@@ -34,9 +34,8 @@ __pycache__
 
 # AI
 AGENTS.override.md
-.claude/*.local.*
-.claude/pr/*
-.claude/plans/*
+.ai/*
+.claude/*
 .roo/*
 .mcp*
 
