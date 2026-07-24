@@ -330,12 +330,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Deploy
 	if cfg.Remote {
-		// Write func.yaml before the pipeline uploads sources to the PVC,
-		// so that the on-cluster deploy step sees the latest config
-		// (e.g. --image-pull-secret, --service-account, --deployer).
-		if err = f.Write(); err != nil {
-			return
-		}
 		var url string
 		// Invoke a remote build/push/deploy pipeline
 		// Returned is the function with fields like Registry, f.Deploy.Image &
