@@ -38,6 +38,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
 
       - name: Check and Lint
@@ -72,6 +74,8 @@ jobs:
         run: git config --global core.autocrlf false
 
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
 
       - name: Run Unit Tests
@@ -109,6 +113,8 @@ jobs:
         run: git config --global core.autocrlf false
 
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
 
         # Toolchains
@@ -150,6 +156,8 @@ jobs:
       KUBECONFIG: ${{github.workspace}}/hack/bin/kubeconfig.yaml
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -211,6 +219,8 @@ jobs:
       FUNC_CLUSTER_KEDA: "false" # these tests don't use KEDA; skip it to free cluster CPU (PR #3914 'Insufficient cpu')
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -272,6 +282,8 @@ jobs:
       FUNC_E2E_VERBOSE: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
 
       - uses: endersonmenezes/free-disk-space@v3
@@ -341,6 +353,8 @@ jobs:
       FUNC_E2E_MATRIX_RUNTIMES: ${{ matrix.runtime }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -419,6 +433,8 @@ jobs:
       FUNC_E2E_VERBOSE: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -476,6 +492,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
       - name: Build Platform Binaries
         run: make cross-platform
@@ -522,6 +540,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
       - uses: docker/setup-qemu-action@v3
       - name: Login to GitHub Container Registry
@@ -565,6 +585,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: knative/actions/setup-go@main
       - uses: imjasonh/setup-ko@v0.6
       - run: ko build --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 -B ./cmd/func
