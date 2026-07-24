@@ -4,6 +4,9 @@
 		"owner": "knative-extensions",
 		"repo": "net-contour"
 	},
+	"GatewayAPI": {
+		"version": "v1.4.1"
+	},
 	"Eventing": {
 		"version": "v1.22.2",
 		"owner": "knative",

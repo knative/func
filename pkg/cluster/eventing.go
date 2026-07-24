@@ -57,30 +57,26 @@ func installEventing(ctx context.Context, cfg ClusterConfig, out io.Writer) erro
 		return fmt.Errorf("waiting for mt-channel-broker: %w", err)
 	}
 
-	// Broker ingress
+	// Broker HTTPRoute
 	fmt.Fprintf(out, "Exposing broker at broker.%s\n", cfg.Domain)
-	brokerIngress := fmt.Sprintf(`apiVersion: networking.k8s.io/v1
-kind: Ingress
+	brokerRoute := fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: broker-ingress
   namespace: knative-eventing
 spec:
-  ingressClassName: contour-external
+  parentRefs:
+    - name: %s
+      namespace: %s
+  hostnames: ["broker.%s"]
   rules:
-    - host: broker.%s
-      http:
-        paths:
-          - backend:
-              service:
-                name: broker-ingress
-                port:
-                  number: 80
-            pathType: Prefix
-            path: /
-`, cfg.Domain)
+    - backendRefs:
+        - name: broker-ingress
+          port: 80
+`, gatewayName, gatewayNamespace, cfg.Domain)
 
-	if err := applyManifest(ctx, out, cfg, brokerIngress); err != nil {
-		return fmt.Errorf("applying broker ingress: %w", err)
+	if err := applyManifest(ctx, out, cfg, brokerRoute); err != nil {
+		return fmt.Errorf("applying broker HTTPRoute: %w", err)
 	}
 
 	success(out, "Eventing", time.Since(start))

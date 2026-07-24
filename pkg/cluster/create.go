@@ -74,6 +74,12 @@ func allocateCluster(ctx context.Context, cfg ClusterConfig, out io.Writer) (err
 		return err
 	}
 
+	// Phase 1.5: Install Gateway API CRDs before the parallel block — all
+	// components that create HTTPRoute resources depend on these CRDs.
+	if err := installGatewayAPICRDs(ctx, cfg, out); err != nil {
+		return err
+	}
+
 	// Phase 2: Parallel component installation
 	status(out, "Beginning Cluster Configuration")
 	fmt.Fprintln(out, "Tasks will be executed in parallel.  Logs will be prefixed:")
