@@ -111,14 +111,13 @@ var configVolumesRemoveTool = &mcp.Tool{
 }
 
 type ConfigVolumesRemoveInput struct {
-	Path      string  `json:"path" jsonschema:"required,Path to the function project directory"`
-	MountPath *string `json:"mountPath,omitempty" jsonschema:"Mount path of the volume to remove"`
-	Verbose   *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Path      string `json:"path" jsonschema:"required,Path to the function project directory"`
+	MountPath string `json:"mountPath" jsonschema:"required,Mount path of the volume to remove"`
+	Verbose   *bool  `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
 func (i ConfigVolumesRemoveInput) Args() []string {
-	args := []string{"volumes", "remove", "--path", i.Path}
-	args = appendStringFlag(args, "--mount-path", i.MountPath)
+	args := []string{"volumes", "remove", "--path", i.Path, "--mount-path", i.MountPath}
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
 	return args
 }
@@ -128,6 +127,10 @@ type ConfigVolumesRemoveOutput struct {
 }
 
 func (s *Server) configVolumesRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigVolumesRemoveInput) (result *mcp.CallToolResult, output ConfigVolumesRemoveOutput, err error) {
+	if input.MountPath == "" {
+		err = fmt.Errorf("'mountPath' must not be empty")
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
