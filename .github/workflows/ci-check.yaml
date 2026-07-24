@@ -1,0 +1,46 @@
+name: Check
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**/*.md'
+      - '*.md'
+      - 'OWNERS'
+      - 'OWNERS_ALIASES'
+      - 'LICENSE'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**/*.md'
+      - '*.md'
+      - 'OWNERS'
+      - 'OWNERS_ALIASES'
+      - 'LICENSE'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  precheck:
+    name: Precheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+
+      - name: Check and Lint
+        run: make check
+      - name: Check Generated Schema File
+        run: make check-schema
+      - name: Check Templates
+        run: make check-templates
+      - name: Check Embedded FS
+        run: make check-embedded-fs
