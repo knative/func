@@ -645,7 +645,10 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, labels, a
 	if err != nil {
 		return nil, fmt.Errorf("failed to process environment variables: %w", err)
 	}
-	envVars = AppendKafkaEnvs(envVars, f.Run.Kafka)
+	envVars, err = AppendKafkaEnvs(envVars, f.Run.Kafka, referencedSecrets, referencedConfigMaps)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process Kafka environment variables: %w", err)
+	}
 
 	volumes, volumeMounts, err := ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)
 	if err != nil {
@@ -994,9 +997,9 @@ func withOpenAddress(ee []fn.Env) []fn.Env {
 	return ee
 }
 
-func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig) []corev1.EnvVar {
+func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, error) {
 	if kafka == nil || kafka.Brokers == "" || kafka.Topic == "" || kafka.ConsumerGroup == "" {
-		return envVars
+		return envVars, nil
 	}
 	envVars = append(envVars,
 		corev1.EnvVar{Name: "FUNC_TRANSPORT", Value: "kafka"},
@@ -1004,7 +1007,61 @@ func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig) []corev1.En
 		corev1.EnvVar{Name: "KAFKA_TOPIC", Value: kafka.Topic},
 		corev1.EnvVar{Name: "KAFKA_CONSUMER_GROUP", Value: kafka.ConsumerGroup},
 	)
-	return envVars
+
+	if kafka.SecurityProtocol != "" && kafka.SecurityProtocol != "PLAINTEXT" {
+		envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_SECURITY_PROTOCOL", Value: kafka.SecurityProtocol})
+	}
+
+	if kafka.TLS != nil {
+		if kafka.TLS.CACert != "" {
+			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_CA_CERT", Value: kafka.TLS.CACert})
+		}
+		if kafka.TLS.ClientCert != "" {
+			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_CLIENT_CERT", Value: kafka.TLS.ClientCert})
+		}
+		if kafka.TLS.ClientKey != "" {
+			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_CLIENT_KEY", Value: kafka.TLS.ClientKey})
+		}
+		if kafka.TLS.SkipVerify {
+			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_SKIP_VERIFY", Value: "true"})
+		}
+	}
+
+	if kafka.SASL != nil {
+		if kafka.SASL.Mechanism != "" {
+			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_SASL_MECHANISM", Value: kafka.SASL.Mechanism})
+		}
+		var err error
+		if kafka.SASL.User != "" {
+			envVars, err = appendKafkaEnvValue(envVars, "KAFKA_SASL_USER", kafka.SASL.User, referencedSecrets, referencedConfigMaps)
+			if err != nil {
+				return nil, fmt.Errorf("processing run.kafka.sasl.user: %w", err)
+			}
+		}
+		if kafka.SASL.Password != "" {
+			envVars, err = appendKafkaEnvValue(envVars, "KAFKA_SASL_PASSWORD", kafka.SASL.Password, referencedSecrets, referencedConfigMaps)
+			if err != nil {
+				return nil, fmt.Errorf("processing run.kafka.sasl.password: %w", err)
+			}
+		}
+	}
+
+	return envVars, nil
+}
+
+func appendKafkaEnvValue(envVars []corev1.EnvVar, name, value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, error) {
+	if strings.HasPrefix(value, "{{") {
+		slices := strings.Split(strings.Trim(value, "{} "), ":")
+		if len(slices) == 3 {
+			valueFrom, err := createEnvVarSource(slices, referencedSecrets, referencedConfigMaps)
+			if err != nil {
+				return nil, err
+			}
+			return append(envVars, corev1.EnvVar{Name: name, ValueFrom: valueFrom}), nil
+		}
+		return nil, fmt.Errorf("invalid reference format %q, expected {{ secret:name:key }} or {{ configMap:name:key }}", value)
+	}
+	return append(envVars, corev1.EnvVar{Name: name, Value: value}), nil
 }
 
 func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.EnvFromSource, error) {
