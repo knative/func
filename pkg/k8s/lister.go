@@ -24,7 +24,7 @@ func NewLister(verbose bool) fn.Lister {
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
 	clientset, err := NewKubernetesClientset()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client: %v", err)
+		return nil, fmt.Errorf("unable to create k8s client: %w", err)
 	}
 
 	serviceClient := clientset.CoreV1().Services(namespace)
@@ -33,7 +33,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 		LabelSelector: "function.knative.dev/name",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to list services: %v", err)
+		return nil, fmt.Errorf("unable to list services: %w", err)
 	}
 
 	listItems := make([]fn.ListItem, 0, len(services.Items))
@@ -44,7 +44,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 
 		item, err := l.get(ctx, clientset, service.Name, service.Namespace)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get details about function: %v", err)
+			return nil, fmt.Errorf("unable to get details about function: %w", err)
 		}
 
 		listItems = append(listItems, item)

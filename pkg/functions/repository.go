@@ -305,7 +305,7 @@ func templates(fs filesystem.Filesystem, repoCfg repoConfig, runtimeCfg runtimeC
 	// Validate runtime path
 	runtimePath := path.Join(repoCfg.TemplatesPath, runtimeName)
 	if err = checkDir(fs, runtimePath); err != nil {
-		err = fmt.Errorf("runtime path '%v' not found. %v", runtimePath, err)
+		err = fmt.Errorf("runtime path '%v' not found. %w", runtimePath, err)
 		return
 	}
 

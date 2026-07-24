@@ -193,15 +193,15 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
 			if k8serrors.IsNotFound(err) {
-				return "", f, fmt.Errorf("problem creating pipeline, missing tekton?: %v", err)
+				return "", f, fmt.Errorf("problem creating pipeline, missing tekton?: %w", err)
 			}
-			return "", f, fmt.Errorf("problem creating pipeline: %v", err)
+			return "", f, fmt.Errorf("problem creating pipeline: %w", err)
 		}
 	}
 
 	registry, err := docker.GetRegistry(image)
 	if err != nil {
-		return "", f, fmt.Errorf("problem in resolving image registry name: %v", err)
+		return "", f, fmt.Errorf("problem in resolving image registry name: %w", err)
 	}
 
 	creds, err := pp.credentialsProvider(ctx, image)
@@ -223,12 +223,12 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 
 	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), namespace, labels, f.Deploy.Annotations, creds.Username, creds.Password, registry)
 	if err != nil {
-		return "", f, fmt.Errorf("problem in creating secret: %v", err)
+		return "", f, fmt.Errorf("problem in creating secret: %w", err)
 	}
 
 	err = createAndApplyPipelineRunTemplate(f, namespace, labels)
 	if err != nil {
-		return "", f, fmt.Errorf("problem in creating pipeline run: %v", err)
+		return "", f, fmt.Errorf("problem in creating pipeline run: %w", err)
 	}
 
 	// we need to give k8s time to actually create the Pipeline Run
@@ -236,13 +236,13 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 
 	newestPipelineRun, err := findNewestPipelineRunWithRetry(ctx, f, namespace, client)
 	if err != nil {
-		return "", f, fmt.Errorf("problem in listing pipeline runs: %v", err)
+		return "", f, fmt.Errorf("problem in listing pipeline runs: %w", err)
 	}
 
 	err = pp.watchPipelineRunProgress(ctx, newestPipelineRun, namespace)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
-			return "", f, fmt.Errorf("problem in watching started pipeline run: %v", err)
+			return "", f, fmt.Errorf("problem in watching started pipeline run: %w", err)
 		}
 		// TODO replace deletion with pipeline-run cancellation
 		_ = client.PipelineRuns(namespace).Delete(context.TODO(), newestPipelineRun.Name, metav1.DeleteOptions{})
@@ -251,7 +251,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 
 	newestPipelineRun, err = client.PipelineRuns(namespace).Get(ctx, newestPipelineRun.Name, metav1.GetOptions{})
 	if err != nil {
-		return "", f, fmt.Errorf("problem in retrieving pipeline run status: %v", err)
+		return "", f, fmt.Errorf("problem in retrieving pipeline run status: %w", err)
 	}
 
 	if newestPipelineRun.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
@@ -272,7 +272,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 
 	obj, err := describer.Describe(ctx, f.Name, f.Namespace)
 	if err != nil {
-		return "", f, fmt.Errorf("problem in retrieving status of deployed function: %v", err)
+		return "", f, fmt.Errorf("problem in retrieving status of deployed function: %w", err)
 	}
 
 	if obj.Generation == 1 {
@@ -567,7 +567,7 @@ func findNewestPipelineRunWithRetry(ctx context.Context, f fn.Function, namespac
 	for attempt := 1; attempt <= 3; attempt++ {
 		prs, err := client.PipelineRuns(namespace).List(ctx, listOptions)
 		if err != nil {
-			return nil, fmt.Errorf("problem in listing pipeline runs: %v", err)
+			return nil, fmt.Errorf("problem in listing pipeline runs: %w", err)
 		}
 
 		for _, pr := range prs.Items {
@@ -604,7 +604,7 @@ func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, nam
 	}
 	err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return fmt.Errorf("problem creating persistent volume claim: %v", err)
+		return fmt.Errorf("problem creating persistent volume claim: %w", err)
 	}
 	return nil
 }

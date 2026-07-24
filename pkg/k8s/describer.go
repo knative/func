@@ -42,7 +42,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	clientset, err := NewKubernetesClientset()
 	if err != nil {
-		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %v", err)
+		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %w", err)
 	}
 
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
@@ -67,7 +67,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	deployment, err := deploymentClient.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return fn.Instance{}, fmt.Errorf("unable to get deployment %q: %v", name, err)
+		return fn.Instance{}, fmt.Errorf("unable to get deployment %q: %w", name, err)
 	}
 
 	ready := corev1.ConditionUnknown
