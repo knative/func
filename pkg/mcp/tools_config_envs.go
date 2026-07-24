@@ -142,6 +142,10 @@ type ConfigEnvsAddOutput struct {
 }
 
 func (s *Server) configEnvsAddHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsAddInput) (result *mcp.CallToolResult, output ConfigEnvsAddOutput, err error) {
+	if s.readonly.Load() {
+		err = errReadOnlyMode
+		return
+	}
 	if err = input.validate(); err != nil {
 		return
 	}
@@ -186,6 +190,10 @@ type ConfigEnvsRemoveOutput struct {
 }
 
 func (s *Server) configEnvsRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsRemoveInput) (result *mcp.CallToolResult, output ConfigEnvsRemoveOutput, err error) {
+	if s.readonly.Load() {
+		err = errReadOnlyMode
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
