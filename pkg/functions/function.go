@@ -180,9 +180,25 @@ type MountSpec struct {
 // When set, the runtime consumes messages from Kafka and delivers them
 // as CloudEvents to the function's handler.
 type KafkaConfig struct {
-	Brokers       string `yaml:"brokers" jsonschema:"description=Comma-separated list of Kafka broker addresses"`
-	Topic         string `yaml:"topic" jsonschema:"description=Kafka topic to consume from"`
-	ConsumerGroup string `yaml:"consumerGroup" jsonschema:"description=Kafka consumer group ID"`
+	Brokers          string     `yaml:"brokers" jsonschema:"description=Comma-separated list of Kafka broker addresses"`
+	Topic            string     `yaml:"topic" jsonschema:"description=Kafka topic to consume from"`
+	ConsumerGroup    string     `yaml:"consumerGroup" jsonschema:"description=Kafka consumer group ID"`
+	SecurityProtocol string     `yaml:"securityProtocol,omitempty" jsonschema:"description=Security protocol: PLAINTEXT SSL SASL_PLAINTEXT or SASL_SSL,enum=PLAINTEXT,enum=SSL,enum=SASL_PLAINTEXT,enum=SASL_SSL"`
+	TLS              *KafkaTLS  `yaml:"tls,omitempty" jsonschema:"description=TLS configuration for SSL or SASL_SSL"`
+	SASL             *KafkaSASL `yaml:"sasl,omitempty" jsonschema:"description=SASL authentication for SASL_PLAINTEXT or SASL_SSL"`
+}
+
+type KafkaTLS struct {
+	CACert     string `yaml:"caCert,omitempty" jsonschema:"description=Path to CA certificate PEM file for verifying broker certificate"`
+	ClientCert string `yaml:"clientCert,omitempty" jsonschema:"description=Path to client certificate PEM file for mutual TLS"`
+	ClientKey  string `yaml:"clientKey,omitempty" jsonschema:"description=Path to client private key PEM file for mutual TLS"`
+	SkipVerify bool   `yaml:"skipVerify,omitempty" jsonschema:"description=Skip broker certificate verification (development only)"`
+}
+
+type KafkaSASL struct {
+	Mechanism string `yaml:"mechanism,omitempty" jsonschema:"description=SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512,enum=PLAIN,enum=SCRAM-SHA-256,enum=SCRAM-SHA-512"`
+	User      string `yaml:"user,omitempty" jsonschema:"description=SASL username. Supports {{ secret:name:key }} syntax"`
+	Password  string `yaml:"password,omitempty" jsonschema:"description=SASL password. Supports {{ secret:name:key }} syntax"`
 }
 
 func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string) {
@@ -206,6 +222,28 @@ func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string)
 	if kafka.ConsumerGroup == "" {
 		errors = append(errors, "run.kafka.consumerGroup is required when Kafka is configured")
 	}
+
+	validProtocols := map[string]bool{"": true, "PLAINTEXT": true, "SSL": true, "SASL_PLAINTEXT": true, "SASL_SSL": true}
+	if !validProtocols[kafka.SecurityProtocol] {
+		errors = append(errors, "run.kafka.securityProtocol must be one of: PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL")
+	}
+
+	if kafka.TLS != nil {
+		if kafka.SecurityProtocol != "SSL" && kafka.SecurityProtocol != "SASL_SSL" {
+			errors = append(errors, "run.kafka.tls requires securityProtocol SSL or SASL_SSL")
+		}
+	}
+
+	if kafka.SASL != nil {
+		if kafka.SecurityProtocol != "SASL_PLAINTEXT" && kafka.SecurityProtocol != "SASL_SSL" {
+			errors = append(errors, "run.kafka.sasl requires securityProtocol SASL_PLAINTEXT or SASL_SSL")
+		}
+		validMechanisms := map[string]bool{"": true, "PLAIN": true, "SCRAM-SHA-256": true, "SCRAM-SHA-512": true}
+		if !validMechanisms[kafka.SASL.Mechanism] {
+			errors = append(errors, "run.kafka.sasl.mechanism must be one of: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512")
+		}
+	}
+
 	return
 }
 

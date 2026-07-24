@@ -430,7 +430,12 @@ func TestAppendKafkaEnvs_Nil(t *testing.T) {
 	base := []corev1.EnvVar{
 		{Name: "EXISTING", Value: "value"},
 	}
-	got := AppendKafkaEnvs(base, nil)
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(base, nil, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 1 {
 		t.Fatalf("expected 1 env var, got %d", len(got))
 	}
@@ -448,7 +453,12 @@ func TestAppendKafkaEnvs_AllFields(t *testing.T) {
 		Topic:         "my-topic",
 		ConsumerGroup: "my-group",
 	}
-	got := AppendKafkaEnvs(base, kafka)
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(base, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 5 {
 		t.Fatalf("expected 5 env vars (1 existing + 4 kafka), got %d", len(got))
 	}
@@ -479,7 +489,12 @@ func TestAppendKafkaEnvs_MissingBrokers(t *testing.T) {
 		Topic:         "my-topic",
 		ConsumerGroup: "my-group",
 	}
-	got := AppendKafkaEnvs(base, kafka)
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(base, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 1 {
 		t.Fatalf("expected 1 env var (unchanged), got %d", len(got))
 	}
@@ -494,9 +509,95 @@ func TestAppendKafkaEnvs_MissingTopic(t *testing.T) {
 		Topic:         "",
 		ConsumerGroup: "my-group",
 	}
-	got := AppendKafkaEnvs(base, kafka)
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(base, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 1 {
 		t.Fatalf("expected 1 env var (unchanged), got %d", len(got))
+	}
+}
+
+func TestAppendKafkaEnvs_SASL_SSL(t *testing.T) {
+	kafka := &fn.KafkaConfig{
+		Brokers:          "broker:9093",
+		Topic:            "my-topic",
+		ConsumerGroup:    "my-group",
+		SecurityProtocol: "SASL_SSL",
+		TLS:              &fn.KafkaTLS{CACert: "/etc/kafka/ca/ca.crt"},
+		SASL:             &fn.KafkaSASL{Mechanism: "SCRAM-SHA-512", User: "alice", Password: "s3cret"},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(nil, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envMap := make(map[string]string)
+	for _, ev := range got {
+		envMap[ev.Name] = ev.Value
+	}
+	if envMap["KAFKA_SECURITY_PROTOCOL"] != "SASL_SSL" {
+		t.Errorf("KAFKA_SECURITY_PROTOCOL = %q", envMap["KAFKA_SECURITY_PROTOCOL"])
+	}
+	if envMap["KAFKA_TLS_CA_CERT"] != "/etc/kafka/ca/ca.crt" {
+		t.Errorf("KAFKA_TLS_CA_CERT = %q", envMap["KAFKA_TLS_CA_CERT"])
+	}
+	if envMap["KAFKA_SASL_MECHANISM"] != "SCRAM-SHA-512" {
+		t.Errorf("KAFKA_SASL_MECHANISM = %q", envMap["KAFKA_SASL_MECHANISM"])
+	}
+	if envMap["KAFKA_SASL_USER"] != "alice" {
+		t.Errorf("KAFKA_SASL_USER = %q", envMap["KAFKA_SASL_USER"])
+	}
+	if envMap["KAFKA_SASL_PASSWORD"] != "s3cret" {
+		t.Errorf("KAFKA_SASL_PASSWORD = %q", envMap["KAFKA_SASL_PASSWORD"])
+	}
+}
+
+func TestAppendKafkaEnvs_SecretRef(t *testing.T) {
+	kafka := &fn.KafkaConfig{
+		Brokers:          "broker:9093",
+		Topic:            "my-topic",
+		ConsumerGroup:    "my-group",
+		SecurityProtocol: "SASL_SSL",
+		SASL: &fn.KafkaSASL{
+			Mechanism: "PLAIN",
+			User:      "{{ secret:my-kafka-user:username }}",
+			Password:  "{{ secret:my-kafka-user:password }}",
+		},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(nil, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, ev := range got {
+		if ev.Name == "KAFKA_SASL_USER" {
+			if ev.ValueFrom == nil || ev.ValueFrom.SecretKeyRef == nil {
+				t.Fatal("KAFKA_SASL_USER should have ValueFrom with SecretKeyRef")
+			}
+			if ev.ValueFrom.SecretKeyRef.Name != "my-kafka-user" {
+				t.Errorf("secret name = %q, want my-kafka-user", ev.ValueFrom.SecretKeyRef.Name)
+			}
+			if ev.ValueFrom.SecretKeyRef.Key != "username" {
+				t.Errorf("secret key = %q, want username", ev.ValueFrom.SecretKeyRef.Key)
+			}
+		}
+		if ev.Name == "KAFKA_SASL_PASSWORD" {
+			if ev.ValueFrom == nil || ev.ValueFrom.SecretKeyRef == nil {
+				t.Fatal("KAFKA_SASL_PASSWORD should have ValueFrom with SecretKeyRef")
+			}
+			if ev.ValueFrom.SecretKeyRef.Key != "password" {
+				t.Errorf("secret key = %q, want password", ev.ValueFrom.SecretKeyRef.Key)
+			}
+		}
+	}
+	if !secrets.Has("my-kafka-user") {
+		t.Error("secret my-kafka-user should be tracked in referencedSecrets")
 	}
 }
 
