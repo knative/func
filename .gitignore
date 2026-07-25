@@ -32,6 +32,9 @@ __pycache__
 /templates/python/cloudevents/.venv
 /templates/python/http/.venv
 
+# Java
+/templates/**/.mvn/wrapper/maven-wrapper.jar
+
 # AI
 AGENTS.override.md
 .claude/*.local.*
