@@ -191,7 +191,7 @@ func TestRemote_Deploy_InClusterRegistry(t *testing.T) {
 
 // TestRemote_Update ensures that redeploying via the remote/Tekton path after
 // changing the function's source code actually serves the new code. This is the
-// remote analogue of TestCore_Update / TestCore_PythonUpdate, which only cover
+// remote analogue of TestCore_Update / TestMatrix_Python_Update, which only cover
 // the local build+deploy path.
 //
 //	func deploy --remote --builder=pack

@@ -166,6 +166,24 @@ func forEachPermutation(t *testing.T, group string, do func(t *testing.T, name, 
 	}
 }
 
+// requireMatrixRuntime skips unless matrix mode is enabled and the given
+// runtime is selected via FUNC_E2E_MATRIX_RUNTIMES. Use for language-specific
+// matrix scenarios (TestMatrix_Python_*, etc.) that are not full
+// builder×template permutations — so Core stays go-centric and CI's
+// per-runtime matrix jobs only pay for their own language extras.
+func requireMatrixRuntime(t *testing.T, runtime string) {
+	t.Helper()
+	if !Matrix {
+		t.Skip("Matrix tests not enabled. Enable with FUNC_E2E_MATRIX=true")
+	}
+	for _, r := range MatrixRuntimes {
+		if r == runtime {
+			return
+		}
+	}
+	t.Skipf("runtime %q not in FUNC_E2E_MATRIX_RUNTIMES=%v", runtime, MatrixRuntimes)
+}
+
 // matrixExceptionsLocal adds language-specific arguments or skips matrix tests as
 // necessary to match current levels of supported combinations for local
 // tasks such as run, build and deploy
