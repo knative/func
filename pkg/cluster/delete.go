@@ -12,17 +12,28 @@ import (
 // container and the host's insecure-registries entry are removed only when
 // the *last* func-managed cluster is being torn down — other surviving
 // clusters keep using the shared registry.
+//
+// Delete is safe when nothing is tracked (empty List / no kubeconfig): it
+// still runs the empty-list shared-resource teardown and returns nil
+// (idempotent, rm -f style). kind-delete failures are only warned when a
+// kubeconfig was present — otherwise every empty-system delete would print
+// a scary "failed to delete cluster" for a cluster that never existed.
 func Delete(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	// Set KUBECONFIG for child processes; restore the caller's value on return.
 	defer setKubeconfig(cfg.Kubeconfig())()
 
 	status(out, "Deleting Cluster")
 
+	_, kubeconfigErr := os.Stat(cfg.Kubeconfig())
+	kubeconfigPresent := kubeconfigErr == nil
+
 	if err := run(ctx, out, "",
 		cfg.kind(), "delete", "cluster",
 		"--name="+cfg.Name,
 		"--kubeconfig="+cfg.Kubeconfig()); err != nil {
-		warnf(out, "failed to delete cluster %q: %v", cfg.Name, err)
+		if kubeconfigPresent {
+			warnf(out, "failed to delete cluster %q: %v", cfg.Name, err)
+		}
 	}
 
 	// Remove this cluster's kubeconfig dir so the "last cluster?" check
