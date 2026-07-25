@@ -37,8 +37,8 @@ function build_release() {
       go_module_version="v0.$(( $(minor_version "$TAG") + 27 )).$(patch_version "$TAG")"
     fi
   else
-    knative_version="$(git describe --tags --match 'knative-*')"
-    go_module_version="$(git describe --tags --match 'v*')"
+    knative_version="$(git describe --tags --match 'knative-*' 2>/dev/null || git rev-parse --short HEAD)"
+    go_module_version="$(git describe --tags --match 'v*' 2>/dev/null || git rev-parse --short HEAD)"
   fi
   VERS="${go_module_version}" KVER="${knative_version}" make cross-platform
 

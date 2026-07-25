@@ -33,8 +33,8 @@ BIN_GOIMPORTS     ?= "$(PWD)/bin/goimports"
 HASH         := $(shell git rev-parse --short HEAD 2>/dev/null)
 VTAG         := $(shell git tag --points-at HEAD | head -1)
 VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
-VERS         ?= $(shell git describe --tags --match 'v*')
-KVER         ?= $(shell git describe --tags --match 'knative-*')
+VERS         ?= $(shell git describe --tags --match 'v*' 2>/dev/null || echo "v0.0.0")
+KVER         ?= $(shell git describe --tags --match 'knative-*' 2>/dev/null || echo "knative-v0.0.0")
 
 LDFLAGS      := -X knative.dev/func/pkg/version.Vers=$(VERS) -X knative.dev/func/pkg/version.Kver=$(KVER) -X knative.dev/func/pkg/version.Hash=$(HASH)
 
