@@ -56,7 +56,7 @@ require (
 	gitlab.com/gitlab-org/api/client-go v0.150.0
 	go.podman.io/image/v5 v5.39.2-0.20260306124909-d48bc74146d6
 	golang.org/x/crypto v0.54.0
-	golang.org/x/mod v0.37.0
+	golang.org/x/mod v0.38.0
 	golang.org/x/net v0.57.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.22.0
@@ -70,11 +70,11 @@ require (
 	k8s.io/client-go v0.35.7
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
-	knative.dev/client/pkg v0.0.0-20260727023356-00c078d88aff
-	knative.dev/eventing v0.49.1-0.20260724130631-defbb5343203
+	knative.dev/client/pkg v0.0.0-20260727144603-7663461ee08e
+	knative.dev/eventing v0.49.1-0.20260727153458-6cdaf81c52e4
 	knative.dev/hack v0.0.0-20260428014158-b2a37f1b6e7b
-	knative.dev/pkg v0.0.0-20260727095757-76601dd085d0
-	knative.dev/serving v0.49.1-0.20260724135632-cef8d7e092bf
+	knative.dev/pkg v0.0.0-20260727151759-521cb33b33dd
+	knative.dev/serving v0.49.1-0.20260727151504-3c9c1c3fedcf
 	sigs.k8s.io/controller-runtime v0.23.3
 )
 
