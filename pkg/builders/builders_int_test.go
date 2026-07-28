@@ -26,9 +26,10 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/moby/moby/client"
 	coreV1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	"knative.dev/func/pkg/buildpacks"
 	fn "knative.dev/func/pkg/functions"
@@ -369,12 +370,26 @@ func buildPatchedBuilder(ctx context.Context, t *testing.T, tag, dockerfile, cer
 // The credentials are developer:nbusr123.
 func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 	const (
-		name  = "git-private"
-		host  = "git-private.localtest.me"
-		image = "ghcr.io/matejvasek/git-private:latest"
+		name         = "git-private"
+		host         = "git-private.localtest.me"
+		image        = "ghcr.io/matejvasek/git-private:latest"
+		gwName       = "contour-gateway"
+		gwNamespace  = "contour-external"
+		listenerName = "https-git-private"
 	)
 
+	tlsSecretName := name + "-tls"
+
 	k8sClient, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	restConfig, err := k8s.GetClientConfig().ClientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gwClient, err := gatewayclient.NewForConfig(restConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,10 +416,11 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 		t.Fatal(err)
 	}
 
-	secret := coreV1.Secret{
+	// Create TLS secret in the Gateway namespace so the HTTPS listener can reference it.
+	gwSecret := coreV1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: name,
+			Name:      tlsSecretName,
+			Namespace: gwNamespace,
 		},
 		Immutable: ptr(true),
 		Data: map[string][]byte{
@@ -413,11 +429,13 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 		},
 		Type: coreV1.SecretTypeTLS,
 	}
-
-	_, err = k8sClient.CoreV1().Secrets(name).Create(ctx, &secret, metav1.CreateOptions{})
+	_, err = k8sClient.CoreV1().Secrets(gwNamespace).Create(ctx, &gwSecret, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		_ = k8sClient.CoreV1().Secrets(gwNamespace).Delete(context.Background(), tlsSecretName, metav1.DeleteOptions{})
+	})
 
 	pod := coreV1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -470,47 +488,93 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 		t.Fatal(err)
 	}
 
-	ingress := v1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: name,
-		},
-		Spec: v1.IngressSpec{
-			IngressClassName: ptr("contour-external"),
-			DefaultBackend:   nil,
-			TLS: []v1.IngressTLS{
-				{
-					Hosts:      []string{host},
-					SecretName: name,
-				},
+	// Patch the shared Gateway to add an HTTPS listener for this test.
+	// Filter out any stale listener with the same name first (idempotent).
+	httpsListener := gatewayv1.Listener{
+		Name:     gatewayv1.SectionName(listenerName),
+		Protocol: gatewayv1.HTTPSProtocolType,
+		Port:     443,
+		Hostname: ptr(gatewayv1.Hostname(host)),
+		TLS: &gatewayv1.ListenerTLSConfig{
+			Mode: ptr(gatewayv1.TLSModeTerminate),
+			CertificateRefs: []gatewayv1.SecretObjectReference{
+				{Name: gatewayv1.ObjectName(tlsSecretName)},
 			},
-			Rules: []v1.IngressRule{
-				{
-					Host: host,
-					IngressRuleValue: v1.IngressRuleValue{
-						HTTP: &v1.HTTPIngressRuleValue{Paths: []v1.HTTPIngressPath{
-							{
-								Path:     "/",
-								PathType: ptr(v1.PathTypePrefix),
-								Backend: v1.IngressBackend{
-									Service: &v1.IngressServiceBackend{
-										Name: name,
-										Port: v1.ServiceBackendPort{
-											Name: "http",
-										},
-									},
-								},
-							},
-						}},
-					},
-				},
+		},
+		AllowedRoutes: &gatewayv1.AllowedRoutes{
+			Namespaces: &gatewayv1.RouteNamespaces{
+				From: ptr(gatewayv1.NamespacesFromAll),
 			},
 		},
 	}
-	_, err = k8sClient.NetworkingV1().Ingresses(name).Create(ctx, &ingress, metav1.CreateOptions{})
+	gw, err := gwClient.GatewayV1().Gateways(gwNamespace).Get(ctx, gwName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
+	gw.Spec.Listeners = replaceOrAppendListener(gw.Spec.Listeners, httpsListener)
+	_, err = gwClient.GatewayV1().Gateways(gwNamespace).Update(ctx, gw, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		gw, err := gwClient.GatewayV1().Gateways(gwNamespace).Get(context.Background(), gwName, metav1.GetOptions{})
+		if err != nil {
+			t.Logf("warning: failed to get Gateway for listener cleanup: %v", err)
+			return
+		}
+		filtered := make([]gatewayv1.Listener, 0, len(gw.Spec.Listeners))
+		for _, l := range gw.Spec.Listeners {
+			if l.Name != gatewayv1.SectionName(listenerName) {
+				filtered = append(filtered, l)
+			}
+		}
+		gw.Spec.Listeners = filtered
+		if _, err := gwClient.GatewayV1().Gateways(gwNamespace).Update(context.Background(), gw, metav1.UpdateOptions{}); err != nil {
+			t.Logf("warning: failed to remove HTTPS listener from Gateway: %v", err)
+		}
+	})
+
+	// Create HTTPRoute pointing at the git-private service.
+	route := &gatewayv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: name},
+		Spec: gatewayv1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayv1.CommonRouteSpec{
+				ParentRefs: []gatewayv1.ParentReference{{
+					Name:        gatewayv1.ObjectName(gwName),
+					Namespace:   ptr(gatewayv1.Namespace(gwNamespace)),
+					SectionName: ptr(gatewayv1.SectionName(listenerName)),
+				}},
+			},
+			Hostnames: []gatewayv1.Hostname{gatewayv1.Hostname(host)},
+			Rules: []gatewayv1.HTTPRouteRule{{
+				BackendRefs: []gatewayv1.HTTPBackendRef{{
+					BackendRef: gatewayv1.BackendRef{
+						BackendObjectReference: gatewayv1.BackendObjectReference{
+							Name: gatewayv1.ObjectName(name),
+							Port: ptr(gatewayv1.PortNumber(80)),
+						},
+					},
+				}},
+			}},
+		},
+	}
+	_, err = gwClient.GatewayV1().HTTPRoutes(name).Create(ctx, route, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// replaceOrAppendListener replaces an existing listener with the same name,
+// or appends the new listener if no match is found. This makes the Gateway
+// update idempotent — safe if a previous test cleanup left a stale listener.
+func replaceOrAppendListener(listeners []gatewayv1.Listener, l gatewayv1.Listener) []gatewayv1.Listener {
+	for i, existing := range listeners {
+		if existing.Name == l.Name {
+			listeners[i] = l
+			return listeners
+		}
+	}
+	return append(listeners, l)
 }
 
 func ptr[T any](val T) *T {

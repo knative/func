@@ -5,6 +5,7 @@ package cluster
 // hack/component-versions.json and hardcoded values in hack/cluster.sh.
 const (
 	kindNodeVersion      = "v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a"
+	gatewayAPIVersion    = "v1.4.1"
 	servingVersion       = "v1.21.2"
 	eventingVersion      = "v1.21.2"
 	contourVersion       = "v1.21.1"
@@ -13,6 +14,9 @@ const (
 	kedaVersion          = "v2.17.0"
 	kedaHTTPAddOnVersion = "v0.12.0"
 	metalLBVersion       = "v0.13.7"
+
+	gatewayName      = "contour-gateway"
+	gatewayNamespace = "contour-external"
 )
 
 // Tool versions — only tools we download and manage.

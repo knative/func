@@ -82,28 +82,24 @@ func installPAC(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 		return fmt.Errorf("waiting for PAC: %w", err)
 	}
 
-	pacIngress := fmt.Sprintf(`apiVersion: networking.k8s.io/v1
-kind: Ingress
+	pacRoute := fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: pipelines-as-code
   namespace: pipelines-as-code
 spec:
-  ingressClassName: contour-external
+  parentRefs:
+    - name: %s
+      namespace: %s
+  hostnames: ["%s"]
   rules:
-  - host: %s
-    http:
-      paths:
-      - backend:
-          service:
-            name: pipelines-as-code-controller
-            port:
-              number: 8080
-        pathType: Prefix
-        path: /
-`, cfg.PacHost)
+    - backendRefs:
+        - name: pipelines-as-code-controller
+          port: 8080
+`, gatewayName, gatewayNamespace, cfg.PacHost)
 
-	if err := applyManifest(ctx, out, cfg, pacIngress); err != nil {
-		return fmt.Errorf("applying PAC ingress: %w", err)
+	if err := applyManifest(ctx, out, cfg, pacRoute); err != nil {
+		return fmt.Errorf("applying PAC HTTPRoute: %w", err)
 	}
 
 	fmt.Fprintf(out, "the Pipeline as Code controller is available at: http://%s\n", cfg.PacHost)

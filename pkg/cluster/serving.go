@@ -74,6 +74,26 @@ func configureDNS(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	return fmt.Errorf("unable to set Knative domain after 10 attempts: %w", lastErr)
 }
 
+// installGatewayAPICRDs installs the Gateway API CRDs. This must run before
+// the parallel phase because multiple components (registry, eventing, tekton)
+// create HTTPRoute resources that require these CRDs to exist.
+func installGatewayAPICRDs(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
+	start := time.Now()
+	status(out, "Installing Gateway API CRDs")
+	fmt.Fprintf(out, "Version: %s\n", gatewayAPIVersion)
+
+	gatewayAPICRDsURL := fmt.Sprintf("https://github.com/kubernetes-sigs/gateway-api/releases/download/%s/experimental-install.yaml", gatewayAPIVersion)
+	if err := run(ctx, out, "", cfg.kubectl(), "apply", "--server-side", "-f", gatewayAPICRDsURL); err != nil {
+		return fmt.Errorf("applying Gateway API CRDs: %w", err)
+	}
+	if err := run(ctx, out, "", cfg.kubectl(), "wait", "--for=condition=Established", "--all", "crd", "--timeout=5m"); err != nil {
+		return fmt.Errorf("waiting for Gateway API CRDs: %w", err)
+	}
+
+	success(out, "Gateway API CRDs", time.Since(start))
+	return nil
+}
+
 // installNetworking installs Contour ingress controller and configures Knative
 // to use it. The Contour YAML is modified in Go (replacing yq) to add IPv6
 // dual-stack support args.
@@ -104,6 +124,37 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 		"-n", "contour-external", "--timeout=10m")
 	if err != nil {
 		return fmt.Errorf("waiting for contour pods: %w", err)
+	}
+
+	fmt.Fprintln(out, "Creating GatewayClass and shared Gateway.")
+	gatewayClass := `apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: contour
+spec:
+  controllerName: projectcontour.io/contour
+`
+	if err := applyManifest(ctx, out, cfg, gatewayClass); err != nil {
+		return fmt.Errorf("applying GatewayClass: %w", err)
+	}
+
+	gateway := fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  gatewayClassName: contour
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+`, gatewayName, gatewayNamespace)
+	if err := applyManifest(ctx, out, cfg, gateway); err != nil {
+		return fmt.Errorf("applying Gateway: %w", err)
 	}
 
 	fmt.Fprintln(out, "Installing the Knative Contour controller.")
@@ -166,7 +217,8 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 }
 
 // addContourIPv6Args modifies the Contour deployment YAML to add
-// --envoy-service-http-address=:: and --envoy-service-https-address=:: args.
+// --envoy-service-http-address=:: and --envoy-service-https-address=:: args,
+// and patches the Contour ConfigMap to enable Gateway API via gatewayRef.
 // This replaces the yq pipeline from the shell script. The input is split
 // on the multi-document separator and each non-empty chunk is decoded
 // individually, which avoids the k8s YAML decoder's quirk of returning a
@@ -194,6 +246,17 @@ func addContourIPv6Args(yamlContent string) (string, error) {
 				container["args"] = toAnySlice(args)
 				containers[0] = container
 				_ = unstructured.SetNestedSlice(obj.Object, containers, "spec", "template", "spec", "containers")
+			}
+		}
+
+		// Patch the Contour ConfigMap to add gatewayRef configuration.
+		if obj.GetKind() == "ConfigMap" && obj.GetName() == "contour" && obj.GetNamespace() == gatewayNamespace {
+			data, _, _ := unstructured.NestedStringMap(obj.Object, "data")
+			if data != nil {
+				contourYAML := data["contour.yaml"]
+				contourYAML += fmt.Sprintf("\ngateway:\n  gatewayRef:\n    namespace: %s\n    name: %s\n", gatewayNamespace, gatewayName)
+				data["contour.yaml"] = contourYAML
+				_ = unstructured.SetNestedStringMap(obj.Object, data, "data")
 			}
 		}
 

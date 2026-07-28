@@ -85,6 +85,12 @@ allocate_cluster() {
   echo "fop:  Func Operator"
   echo ""
 
+  # Install Gateway API CRDs first — they must exist before any HTTPRoute
+  # can be created, so this runs before the parallel block.
+  echo "${blue}Installing Gateway API CRDs${reset}"
+  $KUBECTL apply --server-side -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${gateway_api_version}/experimental-install.yaml"
+  $KUBECTL wait --for=condition=Established --all crd --timeout=5m
+
   ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
   ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
   ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
@@ -260,10 +266,37 @@ networking() {
     | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args[] | select(. == "--xds-address=0.0.0.0")) = "--xds-address=::"' \
     | $YQ '(select(.kind == "Deployment" and .metadata.name == "contour").spec.template.spec.containers[0].args)
           += ["--envoy-service-http-address=::", "--envoy-service-https-address=::", "--stats-address=::"]' \
+    | $YQ '(select(.kind == "ConfigMap" and .metadata.name == "contour" and .metadata.namespace == "contour-external").data."contour.yaml")
+          |= . + "\ngateway:\n  gatewayRef:\n    namespace: contour-external\n    name: contour-gateway\n"' \
     | $KUBECTL apply -f -
 
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
+
+  echo "Creating GatewayClass and shared Gateway."
+  $KUBECTL apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: contour
+spec:
+  controllerName: projectcontour.io/contour
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: contour-gateway
+  namespace: contour-external
+spec:
+  gatewayClassName: contour
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+EOF
 
   echo "Installing the Knative Contour controller."
   $KUBECTL apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/net-contour.yaml"
@@ -314,24 +347,20 @@ eventing() {
   local -r broker_host="${FUNC_E2E_BROKER_HOST:-broker.localtest.me}"
   echo "Exposing broker at ${broker_host}"
   $KUBECTL apply -f - <<EOF
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: broker-ingress
   namespace: knative-eventing
 spec:
-  ingressClassName: contour-external
+  parentRefs:
+    - name: contour-gateway
+      namespace: contour-external
+  hostnames: ["${broker_host}"]
   rules:
-    - host: ${broker_host}
-      http:
-        paths:
-          - backend:
-              service:
-                name: broker-ingress
-                port:
-                  number: 80
-            pathType: Prefix
-            path: /
+    - backendRefs:
+        - name: broker-ingress
+          port: 80
 EOF
 
   echo "${green}✅ Eventing${reset}"
@@ -382,24 +411,20 @@ spec:
   - port: 5000
     targetPort: 5000
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: registry
   namespace: default
 spec:
-  ingressClassName: contour-external
+  parentRefs:
+    - name: contour-gateway
+      namespace: contour-external
+  hostnames: ["registry.localtest.me"]
   rules:
-  - host: registry.localtest.me
-    http:
-      paths:
-      - backend:
-          service:
-            name: registry
-            port:
-              number: 5000
-        pathType: Prefix
-        path: /
+    - backendRefs:
+        - name: registry
+          port: 5000
 EOF
 
   $KUBECTL apply -f - <<EOF
@@ -612,26 +637,22 @@ pac() {
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n pipelines-as-code --timeout=5m
 
-  # Install ingress for the PaC controller. This is used by VCS Webhooks.
+  # Install HTTPRoute for the PaC controller. This is used by VCS Webhooks.
   $KUBECTL apply -f - << EOF
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: pipelines-as-code
   namespace: pipelines-as-code
 spec:
-  ingressClassName: contour-external
+  parentRefs:
+    - name: contour-gateway
+      namespace: contour-external
+  hostnames: ["${pac_ctr_host}"]
   rules:
-  - host: ${pac_ctr_host}
-    http:
-      paths:
-      - backend:
-          service:
-            name: pipelines-as-code-controller
-            port:
-              number: 8080
-        pathType: Prefix
-        path: /
+    - backendRefs:
+        - name: pipelines-as-code-controller
+          port: 8080
 EOF
   echo "the Pipeline as Code controller is available at: http://${pac_ctr_host}"
   echo "${green}✅ PAC${reset}"
