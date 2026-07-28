@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+
+	"knative.dev/func/pkg/config"
 )
 
 func TestConfigCI_DeployFuncViaGeneratedGitHubWorkflow(t *testing.T) {
@@ -93,13 +95,23 @@ func runGitHubWorkflow(t *testing.T, dir string) {
 	if strings.Contains(Registry, "registry.localtest.me") {
 		args = append(args, "--env", "FUNC_REGISTRY_INSECURE=true")
 	}
-	cmd := exec.Command("act", args...)
+	// Prefer act installed by `func cluster create` ($XDG…/func/bin) over bare PATH.
+	act := "act"
+	if managed := filepath.Join(config.Dir(), "bin", "act"); fileExists(managed) {
+		act = managed
+	}
+	cmd := exec.Command(act, args...)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func fileExists(path string) bool {
+	st, err := os.Stat(path)
+	return err == nil && !st.IsDir()
 }
 
 // patchWorkflowWithLocalBinary replaces the "Install func cli" step in the
