@@ -15,18 +15,19 @@ const (
 	Default = Knative
 )
 
-// ValidateSwitch reports an error if redeploying an already-deployed function
-// with deployer 'to' would strand the previous deployer's resources on the
-// cluster. The only safe cross-deployer change is raw -> keda, because the keda
-// deployer embeds the raw one; same-deployer redeploys are always allowed.
+// ValidateSwitch reports an error if an already-deployed function is being
+// redeployed with a different deployer. Any change of deployer is refused
+// because switching is not supported: nothing reconciles one deployer's
+// resources into another's, so the user has to run func delete first and then
+// redeploy. Same-deployer redeploys are allowed.
 // 'from' is the deployer the function is currently deployed with. 'to' is the
 // one to deploy to. An empty value on either side means "not known" -> returns nil.
 func ValidateSwitch(from, to string) error {
 	if from == "" || to == "" {
 		return nil
 	}
-	if from == to || (from == Kubernetes && to == Keda) {
+	if from == to {
 		return nil
 	}
-	return fmt.Errorf("function was deployed with the %q deployer; redeploying with %q would orphan the old deployer's resources on the cluster - run func delete first to remove them, then redeploy", from, to)
+	return fmt.Errorf("function was deployed with the %q deployer; redeploying with %q is not supported. Run func delete first, then redeploy", from, to)
 }

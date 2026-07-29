@@ -2673,26 +2673,27 @@ func TestDeploy_DeployerGlobalConfig(t *testing.T) {
 	}
 }
 
-// TestDeploy_DeployerSwitch pins the CLI-only part of the switch guard.
+// TestDeploy_DeployerSwitch pins two things no lower-level test reaches: that a
+// blocked switch surfaces its error through the whole CLI path, and the CLI's
+// own resolution of a deployer ValidateSwitch would call unknown.
 func TestDeploy_DeployerSwitch(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
-		deployedDep string // Deploy.Deployer already deployed ("" = legacy)
-		requested   string // --deployer flag value
+		deployedDep string // Deploy.Deployer already deployed ("" = unrecorded)
+		requested   string // --deployer flag value ("" = flag omitted)
 		wantBlocked bool
 	}{
-		// A blocked and an allowed switch, proving the guard is reached and its
-		// error surfaced through the full CLI path (flag -> config -> client).
-		{"keda2raw blocked", keda.KedaDeployerName, k8s.KubernetesDeployerName, true},
-		{"raw2keda safe switch", k8s.KubernetesDeployerName, keda.KedaDeployerName, false},
-		// Legacy (deployed before the deployer was persisted, so empty): the CLI
-		// treats it as knative, so an explicit knative is allowed but any other
-		// deployer is blocked. This normalization is the CLI-only bit here.
-		{"legacy empty is treated as knative", "", deployers.Knative, false},
-		{"legacy empty to raw is blocked", "", k8s.KubernetesDeployerName, true},
-		// A function deployed by an older binary has its deployer only in state,
-		// not intent. A flag-less redeploy must reuse it.
-		{"legacy keda reused on flag-less redeploy", keda.KedaDeployerName, "", false},
+		// the policy is pinned in pkg/deployers. We test that the guard is
+		// reached at all through flag -> config -> client, and that its error
+		// reaches the user.
+		{"cross-deployer switch is blocked", keda.KedaDeployerName, k8s.KubernetesDeployerName, true},
+		// ValidateSwitch treats an empty deployer as "not known" and allows it.
+		// The CLI never lets one through: a deployed function without a recorded
+		// deployer is resolved to knative, and an omitted flag is resolved to
+		// whatever is already deployed.
+		{"unrecorded deployer is treated as knative", "", deployers.Knative, false},
+		{"unrecorded deployer to raw is blocked", "", k8s.KubernetesDeployerName, true},
+		{"omitted flag reuses the deployed one", keda.KedaDeployerName, "", false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			root := FromTempDirectory(t)
