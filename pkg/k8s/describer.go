@@ -83,8 +83,10 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	// External hostname (if exposed) was recorded on the Service by Deploy()
 	// at exposure time - no extra API call or client needed here.
+	expose := ""
 	if hostname, ok := service.Annotations[RouteHostnameAnnotation]; ok && hostname != "" {
 		primaryRouteURL = fmt.Sprintf("https://%s", hostname)
+		expose = fn.ExposeRoute
 	}
 	// an exposed function stays reachable in-cluster too
 	routes := []string{primaryRouteURL}
@@ -114,6 +116,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Name:      name,
 		Namespace: namespace,
 		Deployer:  KubernetesDeployerName,
+		Expose:    expose,
 		Labels:    deployment.Labels,
 		Route:     primaryRouteURL,
 		Routes:    routes,

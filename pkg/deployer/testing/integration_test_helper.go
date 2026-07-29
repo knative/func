@@ -887,7 +887,8 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		t.Error("environment variable was not set from config-map")
 	}
 
-	if err = remover.Remove(ctx, functionName, namespace); err != nil {
+	// Removal by name, as the CLI does with --name: no local record.
+	if err = remover.Remove(ctx, functionName, namespace, fn.Function{}); err != nil {
 		t.Fatal(err)
 	}
 

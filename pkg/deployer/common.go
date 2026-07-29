@@ -1,11 +1,19 @@
 package deployer
 
 import (
+	"maps"
+
 	fn "knative.dev/func/pkg/functions"
 )
 
 const (
 	DeployerNameAnnotation = "function.knative.dev/deployer"
+
+	// DomainLabel records the custom domain a function was deployed with.
+	// On a Route it is the domain spec.host was built from, which ensure()
+	// compares to detect a domain change (host updates are permission-gated,
+	// so a change means recreating the Route).
+	DomainLabel = "func.domain"
 
 	// Dapr constants
 	DaprEnabled          = "true"
@@ -32,7 +40,7 @@ func GenerateCommonLabels(f fn.Function, decorator DeployDecorator) (map[string]
 	ll["function.knative.dev/runtime"] = f.Runtime
 
 	if f.Domain != "" {
-		ll["func.domain"] = f.Domain
+		ll[DomainLabel] = f.Domain
 	}
 
 	if decorator != nil {
@@ -40,6 +48,19 @@ func GenerateCommonLabels(f fn.Function, decorator DeployDecorator) (map[string]
 	}
 
 	return ll, nil
+}
+
+// SelectorLabels returns the subset of ll usable as a pod selector.
+//
+// Deployment.spec.selector is immutable, so a selector may only carry values
+// fixed for the lifetime of the function. The domain is not one: it changes
+// whenever the user redeploys with a different --domain, and including it
+// makes the API server reject that update outright. It stays on the object's
+// metadata and on the Route, which is where it is read from.
+func SelectorLabels(ll map[string]string) map[string]string {
+	sl := maps.Clone(ll)
+	delete(sl, DomainLabel)
+	return sl
 }
 
 // GenerateCommonAnnotations creates annotations common to both Knative and K8s deployments

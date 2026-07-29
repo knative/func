@@ -1,6 +1,10 @@
 package mock
 
-import "context"
+import (
+	"context"
+
+	fn "knative.dev/func/pkg/functions"
+)
 
 type Remover struct {
 	RemoveInvoked bool
@@ -11,7 +15,7 @@ func NewRemover() *Remover {
 	return &Remover{RemoveFn: func(string, string) error { return nil }}
 }
 
-func (r *Remover) Remove(ctx context.Context, name, ns string) error {
+func (r *Remover) Remove(ctx context.Context, name, ns string, _ fn.Function) error {
 	r.RemoveInvoked = true
 	return r.RemoveFn(name, ns)
 }

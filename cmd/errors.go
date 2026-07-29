@@ -233,10 +233,10 @@ func (e *ErrInvalidExpose) Error() string {
 
 Try this:
   func deploy --expose=route  Create an OpenShift Route (OpenShift clusters only)
-  func deploy --expose=none   Cluster-local opt-out, no external exposure
+  func deploy --expose=none   Cluster-local, no external exposure
 
-deploy.expose takes effect with the raw and keda deployers only (--deployer=raw or --deployer=keda),
-which expose by default when the platform and deployer support it.
+deploy.expose takes effect with the raw and keda deployers only (--deployer=raw or --deployer=keda).
+Functions are cluster-local by default; external exposure is opt-in.
 For more options, run 'func deploy --help'`, e.Err)
 }
 

@@ -113,7 +113,8 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 // definition, sending it to the cluster to be run via Tekton.
 // Progress is by default piped to stdtout.
 // Returned is the final url, and the input Function with the final results of the run populated
-// (f.Deploy.Image and f.Deploy.Namespace) or an error.
+// (f.Deploy.Image, f.Deploy.Namespace, f.Deploy.Deployer and f.Deploy.Expose)
+// or an error.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn.Function, error) {
 	var err error
 
@@ -158,6 +159,12 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		deployer = f.Deploy.Deployer
 	}
 	f.Deploy.Deployer = deployer
+
+	// Applied exposure is deliberately NOT derived from intent here: the
+	// pipeline runs a published func-util image this build does not compile,
+	// so what it did with expose is established by looking. Recorded after
+	// the run from the describer, which reads the annotation the on-cluster
+	// deployer wrote at exposure time.
 
 	// Client for the given namespace
 	client, err := NewTektonClient(namespace)
@@ -274,6 +281,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 	if err != nil {
 		return "", f, fmt.Errorf("problem in retrieving status of deployed function: %v", err)
 	}
+	f.Deploy.Expose = obj.Expose
 
 	verb := "deployed"
 	if obj.Generation != 1 {

@@ -90,6 +90,13 @@ DESCRIPTION
 	  selectors. Note that the domain specified must be one of those configured
 	  or the flag will be ignored.
 
+	  With '--expose=route' (raw and keda deployers on OpenShift) the domain
+	  is used verbatim as the Route's hostname. DNS (pointing the name at the
+	  cluster's router) and the TLS certificate (e.g. via cert-manager, whose
+	  injected certificate deploys preserve) are the user's responsibility;
+	  until both exist the name does not resolve or serves the router's
+	  default certificate.
+
 EXAMPLES
 
 	o Deploy the function
@@ -200,9 +207,15 @@ EXAMPLES
 		"Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)")
 	cmd.Flags().String("image-pull-secret", f.Deploy.ImagePullSecret,
 		"Image pull secret to use when the function's image is in a private registry ($FUNC_IMAGE_PULL_SECRET)")
-	cmd.Flags().String("expose", f.Deploy.Expose,
-		"External exposure mode: 'route' (create a Route; OpenShift cluster only), "+
-			"'none' (cluster-local opt-out). Raw and keda deployers only. ")
+	cmd.Flags().String("expose", f.Expose,
+		fmt.Sprintf("External exposure mode: '%s' for an OpenShift Route (OpenShift clusters only), "+
+			"'%s' for cluster-local. Default: no exposure. Raw and keda deployers only. ($FUNC_EXPOSE)",
+			fn.ExposeRoute, fn.ExposeNone))
+	cmd.Flags().StringP("namespace", "n", defaultNamespace(f, false),
+		"Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE)")
+	cmd.Flags().Bool("management-disabled", f.Deploy.ManagementDisabled,
+		"Disable operator management of this function ($FUNC_MANAGEMENT_DISABLED)")
+
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
@@ -220,10 +233,6 @@ EXAMPLES
 	cmd.Flags().StringP("token", "", "",
 		"Token to use when pushing to the registry. ($FUNC_TOKEN)")
 	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
-	cmd.Flags().Bool("management-disabled", f.Deploy.ManagementDisabled,
-		"Disable operator management of this function ($FUNC_MANAGEMENT_DISABLED)")
-	cmd.Flags().StringP("namespace", "n", defaultNamespace(f, false),
-		"Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE)")
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
@@ -308,6 +317,25 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 
+	// A Route is an OpenShift-only resource, so refuse before anything is
+	// created rather than failing once the function is already running.
+	// Knative ignores the field entirely (warnExposeIgnore above).
+	if f.Expose == fn.ExposeRoute && f.Deployer != deployers.Knative {
+		// This refusal states a fact about the user's cluster, so a probe error
+		// is quoted rather than read as "not OpenShift".
+		ok, probeErr := k8s.DetectOpenShift()
+		if probeErr != nil {
+			return fmt.Errorf("--expose=route requires an OpenShift cluster, and this one "+
+				"could not be reached to check: %w. Fix the connection, or use --expose=none "+
+				"to deploy cluster-local", probeErr)
+		}
+		if !ok {
+			return fmt.Errorf("--expose=route requires an OpenShift cluster: " +
+				"route.openshift.io Routes are an OpenShift-specific resource. " +
+				"Use --expose=none to deploy cluster-local")
+		}
+	}
+
 	changingNamespace := func(f fn.Function) bool {
 		// We're changing namespace if:
 		return f.Deploy.Namespace != "" && // it's already deployed
@@ -329,8 +357,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Informative non-error messages regarding the final deployment request
 	printDeployMessages(cmd.OutOrStdout(), f)
 
-	// Get options based on the value of the config such as concrete impls
-	// of builders and pushers based on the value of the --builder flag
+	// create client with options from cfg
 	clientOptions, err := cfg.clientOptions()
 	if err != nil {
 		return
@@ -354,6 +381,14 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return wrapDeploymentError(err)
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Function Deployed at %v\n", url)
+
+		// Deploy.Expose was recorded from the cluster by RunPipeline. Intent
+		// the pipeline did not honour means its func-util predates expose.
+		if fn.ActiveExpose(f.Expose) && f.Deploy.Expose == "" &&
+			f.Deploy.Deployer != deployers.Knative {
+			fmt.Fprintf(cmd.OutOrStderr(), "Warning: expose %q was requested but the cluster's "+
+				"func-util image applied no external exposure; the function is running cluster-local\n", f.Expose)
+		}
 	} else {
 		var buildOptions []fn.BuildOption
 		if buildOptions, err = cfg.buildOptions(); err != nil {
@@ -581,9 +616,9 @@ type deployConfig struct {
 	// ManagementDisabled disables automatic Function CR sync after deploy.
 	ManagementDisabled bool
 
-	// Expose controls external access - how/if the function should be
-	// exposed externally. Defaults to exposed on OpenShift, cluster-local
-	// elsewhere; "none" opts out explicitly.
+	// Expose is the intended external exposure mode from --expose / FUNC_EXPOSE
+	// (maps to Function.Expose). Defaults to cluster-local; "none" is explicit;
+	// "route" is OpenShift-only.
 	Expose string
 }
 
@@ -645,7 +680,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Deploy.ImagePullSecret = c.ImagePullSecret
 	f.Deployer = c.Deployer
 	f.Deploy.ManagementDisabled = c.ManagementDisabled
-	f.Deploy.Expose = c.Expose
+	f.Expose = c.Expose
 	f.Local.Remote = c.Remote
 
 	// PVCSize
@@ -821,7 +856,8 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	return
 }
 
-// clientOptions returns client options specific to deploy, including the appropriate deployer
+// clientOptions returns client options specific to deploy, including the
+// appropriate deployer
 func (c deployConfig) clientOptions() ([]fn.Option, error) {
 	// Start with build config options
 	o, err := c.buildConfig.clientOptions()
@@ -836,18 +872,31 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 	// This is needed for remote builds (deploy --remote)
 	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(creds, c.Verbose, t)))
 
-	// Add the appropriate deployer based on deploy type.
+	depl, err := deployerOption(c)
+	if err != nil {
+		return o, err
+	}
+
+	o = append(o, depl)
+	return o, nil
+}
+
+// deployerOption builds the deployer named by cfg. Deployers that support
+// external exposure are always given an Exposer, since only the cluster can say
+// whether one is needed.
+func deployerOption(c deployConfig) (fn.Option, error) {
+	var o fn.Option
+
 	switch c.Deployer {
 	case knative.KnativeDeployerName:
-		o = append(o, fn.WithDeployer(newKnativeDeployer(c.Verbose)))
+		o = fn.WithDeployer(newKnativeDeployer(c.Verbose))
 	case k8s.KubernetesDeployerName:
-		o = append(o, fn.WithDeployer(newK8sDeployer(c.Verbose)))
+		o = fn.WithDeployer(newK8sDeployer(c.Verbose))
 	case keda.KedaDeployerName:
-		o = append(o, fn.WithDeployer(newKedaDeployer(c.Verbose)))
+		o = fn.WithDeployer(newKedaDeployer(c.Verbose))
 	default:
 		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s, %s)", c.Deployer, knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName)
 	}
-
 	return o, nil
 }
 
@@ -939,7 +988,7 @@ func isDigested(v string) (validDigest bool, err error) {
 func warnExposeIgnore(w io.Writer, expose, deployer string) {
 	if expose != "" && deployer != k8s.KubernetesDeployerName &&
 		deployer != keda.KedaDeployerName {
-		fmt.Fprintf(w, "warning: deploy.expose %q is ignored - only the raw and keda deployers "+
+		fmt.Fprintf(w, "warning: expose %q is ignored - only the raw and keda deployers "+
 			"support external exposure via this field.\n", expose)
 	}
 }

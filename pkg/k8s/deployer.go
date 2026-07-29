@@ -45,6 +45,14 @@ const (
 	// without re-deriving or re-querying the Route.
 	RouteHostnameAnnotation = "function.knative.dev/route-hostname"
 
+	// RouteNamespaceAnnotation records where the exposing Route was created,
+	// written by the code that created it; removal reads it instead of
+	// guessing. It exists because keda's Route lives with the interceptor,
+	// whose namespace depends on how keda was installed.
+	//
+	// Written and cleared together with RouteHostnameAnnotation.
+	RouteNamespaceAnnotation = "function.knative.dev/route-namespace"
+
 	// managedByAnnotation identifies triggers managed by this deployer
 	managedByAnnotation = "func.knative.dev/managed-by"
 	managedByValue      = "func-raw-deployer"
@@ -56,10 +64,7 @@ type Deployer struct {
 	verbose   bool
 	decorator deployer.DeployDecorator
 
-	// exposureDisabled marks a Deployer embedded by another deployer (keda)
-	// whose functions must stay cluster-local: a Route pointed at the
-	// raw ClusterIP Service would bypass keda's scale-to-zero interceptor.
-	exposureDisabled bool
+	exposer deployer.Exposer
 }
 
 func NewDeployer(opts ...DeployerOpt) *Deployer {
@@ -70,19 +75,15 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 	return d
 }
 
-func WithDeployerVerbose(verbose bool) DeployerOpt {
+func WithExposer(exposer deployer.Exposer) DeployerOpt {
 	return func(d *Deployer) {
-		d.verbose = verbose
+		d.exposer = exposer
 	}
 }
 
-// WithDeployerExposureDisabled turns off this Deployer's own OpenShift
-// Route exposure; for deployers that embed this Deployer but manage
-// exposure themselves (eg. keda, whose functions stay behind its own
-// interceptor and mint their own Route separately).
-func WithDeployerExposureDisabled() DeployerOpt {
+func WithDeployerVerbose(verbose bool) DeployerOpt {
 	return func(d *Deployer) {
-		d.exposureDisabled = true
+		d.verbose = verbose
 	}
 }
 
@@ -126,12 +127,9 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	// effective namespace is not logic for the deployer implementation, which
 	// should have a minimum of logic.  In this case limited to "new ns or
 	// existing namespace?
-	namespace := f.Namespace
-	if namespace == "" {
-		namespace = f.Deploy.Namespace
-	}
-	if namespace == "" {
-		return fn.DeploymentResult{}, fmt.Errorf("deployer requires either a target namespace or that the function be already deployed")
+	namespace, err := DeployNamespace(f)
+	if err != nil {
+		return fn.DeploymentResult{}, err
 	}
 
 	// Choosing an image to deploy:
@@ -173,6 +171,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	existingDeployment, err := deploymentClient.Get(ctx, f.Name, metav1.GetOptions{})
 
 	var status fn.Status
+	var svc *corev1.Service
 	if err == nil {
 		// Update the existing function
 		referencedSecrets := sets.New[string]()
@@ -196,7 +195,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			existingService = nil
 		}
 
-		svc, err := d.generateService(f, namespace, daprInstalled, existingDeployment, existingService)
+		svc, err = d.generateService(f, namespace, daprInstalled, existingDeployment, existingService)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate service resources: %w", err)
 		}
@@ -208,15 +207,16 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to update deployment: %w", err)
 		}
 
-		// update/create service
+		// update/create service; keep the returned object, its UID owns the
+		// exposure and trigger satellites below
 		if svcGetErr == nil {
 			svc.ResourceVersion = existingService.ResourceVersion
-			if _, err = serviceClient.Update(ctx, svc, metav1.UpdateOptions{}); err != nil {
+			if svc, err = serviceClient.Update(ctx, svc, metav1.UpdateOptions{}); err != nil {
 				return fn.DeploymentResult{}, fmt.Errorf("failed to update service: %w", err)
 			}
 		} else {
 			// Confirmed IsNotFound above the generateService()
-			if _, err = serviceClient.Create(ctx, svc, metav1.CreateOptions{}); err != nil {
+			if svc, err = serviceClient.Create(ctx, svc, metav1.CreateOptions{}); err != nil {
 				return fn.DeploymentResult{}, fmt.Errorf("failed to create service: %w", err)
 			}
 		}
@@ -248,12 +248,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to create deployment: %w", err)
 		}
 
-		svc, err := d.generateService(f, namespace, daprInstalled, deployment, nil)
+		svc, err = d.generateService(f, namespace, daprInstalled, deployment, nil)
 		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate service resources: %w", err)
 		}
 
-		if _, err = serviceClient.Create(ctx, svc, metav1.CreateOptions{}); err != nil {
+		if svc, err = serviceClient.Create(ctx, svc, metav1.CreateOptions{}); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to create service: %w", err)
 		}
 
@@ -267,8 +267,9 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("deployment did not become ready: %w", err)
 	}
 
-	// External exposure via an OpenShift Route; see resolveExposure().
-	url, _, err := d.resolveExposure(ctx, f, namespace, clientset, dynClient)
+	// Reconcile external exposure after Service/Deployment exists on cluster
+	// (backend + owner reference for the exposing object).
+	url, appliedExpose, err := d.resolveExposure(ctx, f, namespace, svc, clientset, dynClient)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
@@ -287,150 +288,155 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		URL:       url,
 		Namespace: namespace,
 		Deployer:  KubernetesDeployerName,
+		Expose:    appliedExpose,
 	}, nil
 }
 
-// resolveExposure keeps a raw-deployer function's external exposure (an
-// OpenShift Route) in sync with what's currently wanted. This is symmetric
-// for both directions: create/update the Route when exposure is wanted,
-// remove it when it isn't - so toggling expose:route on and off across
-// redeploys just works.
-// Removal is unconditional whenever exposure isn't currently wanted, so a
-// stale Route from a prior raw deploy never survives a raw -> keda deployer
-// switch (the only cross-deployer path that still runs this code, since
-// keda embeds this deployer with exposure disabled).
-// Functions are exposed BY DEFAULT: a deployed function being reachable is
-// the expected outcome, matching what a plain "func deploy" already implies
-// for every other deployer, so the unset value behaves the same as
-// explicit expose:route, not like expose:none. This is only meaningful on
-// OpenShift, since a Route is an OpenShift-only mechanism: IsOpenShift()
-// keeps plain-Kubernetes deploys safe without requiring any flag - an
-// explicit expose:route request off OpenShift is still a hard error (the
-// user asked for something impossible), but the unset default just quietly
-// degrades to cluster-local there rather than failing an ordinary deploy.
-func (d *Deployer) resolveExposure(ctx context.Context, f fn.Function, namespace string, clientset kubernetes.Interface, dynClient dynamic.Interface) (string, bool, error) {
+// DeployNamespace is where a function will be deployed: the requested
+// namespace, or the one it is already deployed in.
+//
+// Exported and shared rather than copied because callers outside this package
+// need the answer BEFORE the deploy runs. pkg/keda checks the name its Route
+// would take, and that check has to happen before the embedded raw deploy
+// creates anything, or a refusal leaves a half-built function behind. A copy of
+// this rule in keda would validate against a namespace this deployer might
+// stop choosing.
+//
+// The wider arbitration between kube context, flags, environment and global
+// defaults is not done here; it happens before a Function reaches a deployer.
+func DeployNamespace(f fn.Function) (string, error) {
+	if f.Namespace != "" {
+		return f.Namespace, nil
+	}
+	if f.Deploy.Namespace != "" {
+		return f.Deploy.Namespace, nil
+	}
+	return "", fmt.Errorf("deployer requires either a target namespace or that the function be already deployed")
+}
+
+// resolveExposure reconciles external exposure. Route's location is referenced
+// as annotations on function's Service on successful exposure.
+// Returns the final url(1), applied exposure mechanism name(2) and error(3)
+//
+// A nil exposer means no exposure at all: creates nothing, removes nothing,
+// leaves the record alone, reports cluster-local -> this is used for keda depl.
+// because it embeds this raw deployer BUT uses it only for Deployment and
+// Service, it has its own exposure mechanism
+func (d *Deployer) resolveExposure(ctx context.Context, f fn.Function,
+	namespace string, svc *corev1.Service, clientset kubernetes.Interface,
+	dynClient dynamic.Interface) (url string, appliedExpose string, err error) {
+
 	defaultURL := fmt.Sprintf("http://%s.%s.svc", f.Name, namespace)
 
-	if err := fn.ValidateExpose(f.Deploy.Expose); err != nil {
-		return "", false, err
-	}
-	tech := f.Deploy.Expose
-
-	if tech == "route" && !IsOpenShift() {
-		return "", false, fmt.Errorf(
-			"expose:route requires an OpenShift cluster: route.openshift.io Routes are an " +
-				"OpenShift-specific resource, and this does not appear to be an OpenShift cluster")
+	// do nothing with nil exposer - cluster-local exposure
+	if d.exposer == nil {
+		return defaultURL, "", nil
 	}
 
-	if d.exposureDisabled {
-		if err := d.removeExposure(ctx, clientset, dynClient, namespace, f.Name, false); err != nil {
-			return "", false, err
+	// Route ns from function svc annotation
+	recordedNS := svc.Annotations[RouteNamespaceAnnotation]
+
+	switch {
+	case fn.ActiveExpose(f.Expose): // want a Route: create or update it
+		url, err = d.ensureExposure(ctx, f, namespace, svc, clientset, dynClient)
+		if err != nil {
+			return "", "", fmt.Errorf("external exposure failed: %w", err)
 		}
-		return defaultURL, false, nil
-	}
+		return url, f.Expose, nil
 
-	wantsRoute := tech == "route" || (tech == "" && IsOpenShift())
-	if !wantsRoute {
-		// expose:none (explicit opt-out): enforce=true, a hard error if
-		// removal fails to verify/clear. Unset on a non-OpenShift cluster
-		// (default gracefully declined, not requested): enforce=false,
-		// since nothing was actually asked for here.
-		if err := d.removeExposure(ctx, clientset, dynClient, namespace, f.Name, tech == "none"); err != nil {
-			return "", false, err
+	// since we have the svc fetched, use its annotation - cluster-side info
+	case recordedNS != "": // f.Deploy.Expose != ""
+		ref := deployer.ExposureRef{
+			FunctionName:      f.Name,
+			FunctionNamespace: namespace,
+			Namespace:         recordedNS,
 		}
-		return defaultURL, false, nil
-	}
+		if err := d.exposer.Unexpose(ctx, dynClient, ref); err != nil {
+			return "", "", fmt.Errorf("failed to remove external exposure: %w", err)
+		}
+		if err := SetRouteHostname(ctx, clientset, namespace, f.Name, "", ""); err != nil {
+			return "", "", err
+		}
+		return defaultURL, "", nil
 
-	url, err := d.ensureExposure(ctx, f, namespace, clientset, dynClient)
-	if err != nil {
-		return "", false, fmt.Errorf("external exposure failed: %w", err)
+	default: // nothing wanted, nothing recorded: Route API untouched
+		return defaultURL, "", nil
 	}
-	return url, true, nil
 }
 
-// removeExposure deletes the managed Route (never a user-authored route
-// sharing the function's name) and clears the recorded exposure state.
-// Missing Route API support needs no special-casing: the GET reports
-// NotFound either way, meaning nothing to remove.
-//
-// enforce selects the failure posture:
-//   - true (unset or expose:none): failing to verify/remove is a hard error;
-//   - false (deployer switched away from raw): an RBAC 403 on the route
-//     GET/DELETE prints a warning and the deploy continues, since keda
-//     users without Route permissions must stay green.
-func (d *Deployer) removeExposure(ctx context.Context, clientset kubernetes.Interface, dynClient dynamic.Interface, namespace, name string, enforce bool) error {
-	if _, err := RemoveManagedRoute(ctx, dynClient, namespace, name); err != nil {
-		if !enforce && errors.IsForbidden(err) {
-			fmt.Fprintf(os.Stderr, "⚠️  cannot remove Route %q (forbidden) - leaving it in place\n", name)
-		} else {
-			return fmt.Errorf("failed to remove Route: %w", err)
-		}
+// ensureExposure builds an Exposure for the function's own Service, calls
+// the configured Exposer, and records the admitted hostname on svc.
+func (d *Deployer) ensureExposure(ctx context.Context, f fn.Function, namespace string, svc *corev1.Service, clientset kubernetes.Interface, dynClient dynamic.Interface) (string, error) {
+	controller := true
+	e := deployer.Exposure{
+		Function: f,
+		// The raw deployer's Route sits beside its function, so these two
+		// are the same namespace. They diverge for keda.
+		FunctionNamespace: namespace,
+		Name:              f.Name,
+		Namespace:         namespace,
+		TargetService:     f.Name,
+		TargetPort:        "http",
+		Owner: &metav1.OwnerReference{
+			APIVersion: "v1",
+			Kind:       "Service",
+			Name:       svc.Name,
+			UID:        svc.UID,
+			Controller: &controller,
+		},
+		Decorator: d.decorator,
 	}
 
-	if err := writeRouteHostnameAnnotation(ctx, clientset, namespace, name, ""); err != nil {
-		if !enforce {
-			fmt.Fprintf(os.Stderr, "⚠️  failed to clear exposure state: %v\n", err)
-			return nil
-		}
-		return fmt.Errorf("failed to clear exposure state: %w", err)
+	if d.verbose {
+		fmt.Fprintf(os.Stderr, "🌐 Exposing function externally -> %s\n", f.Name)
 	}
-	return nil
-}
 
-// ensureExposure creates or updates the Route exposing f, waits for it to
-// be admitted by a router, and records the minted hostname.
-func (d *Deployer) ensureExposure(ctx context.Context, f fn.Function, namespace string, clientset kubernetes.Interface, dynClient dynamic.Interface) (string, error) {
-	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
+	host, err := d.exposer.Expose(ctx, dynClient, e)
 	if err != nil {
-		return "", fmt.Errorf("failed to get deployment for owner reference: %w", err)
-	}
-
-	route, err := GenerateRoute(f, f.Name, deployment, d.decorator, KubernetesDeployerName)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate Route: %w", err)
-	}
-
-	fmt.Fprintf(os.Stderr, "🌐 Exposing function externally -> %s\n", f.Name)
-
-	if err := EnsureRoute(ctx, dynClient, namespace, route); err != nil {
 		return "", err
 	}
 
-	// Wait for a router to accept the route - enforced, never downgraded to a warning.
-	host, err := WaitForRouteAdmitted(ctx, dynClient, namespace, f.Name, 30*time.Second)
-	if err != nil {
-		return "", fmt.Errorf("route was not admitted: %w", err)
-	}
-
-	if err := writeRouteHostnameAnnotation(ctx, clientset, namespace, f.Name, host); err != nil {
+	// The raw deployer's Route sits in the function's own namespace, so the
+	// recorded location is that namespace. Unchanged behaviour: its Route is
+	// garbage collected through an owner reference and its removal never had to
+	// guess.
+	if err := SetRouteHostname(ctx, clientset, namespace, f.Name, host, namespace); err != nil {
 		return "", err
 	}
 
-	// The Route redirects http to https (see GenerateRoute's tls stanza).
+	// ocproute uses edge TLS with redirect; other exposers may differ later.
 	return fmt.Sprintf("https://%s", host), nil
 }
 
-// writeRouteHostnameAnnotation records (hostname != "") or clears
-// (hostname == "") the exposed hostname on the function's Service: no-op
-// when already current, retried on write conflicts. A missing Service is
-// tolerated only when clearing; recording against one that doesn't exist
-// is a real error.
-func writeRouteHostnameAnnotation(ctx context.Context, clientset kubernetes.Interface, namespace, name, hostname string) error {
+// SetRouteHostname updates the Route record on the function's Service.
+// A non-empty hostname writes the hostname and routeNamespace annotations; an
+// empty hostname removes them. Does nothing when the annotations are already
+// current, retries on write conflicts. A missing Service is fine when
+// clearing and an error when recording.
+//
+// Exported so keda can publish its Route's hostname here too, where Describe
+// and List read it (pkg/keda/deployer.go).
+func SetRouteHostname(ctx context.Context, clientset kubernetes.Interface, namespace, name, hostname, routeNamespace string) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		svc, err := clientset.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
-		if svc.Annotations[RouteHostnameAnnotation] == hostname {
+		if svc.Annotations[RouteHostnameAnnotation] == hostname &&
+			svc.Annotations[RouteNamespaceAnnotation] == routeNamespace {
 			return nil
 		}
+		// Both annotations together, always: a half record would leave
+		// teardown or describe reading incomplete information.
 		if hostname == "" {
 			delete(svc.Annotations, RouteHostnameAnnotation)
+			delete(svc.Annotations, RouteNamespaceAnnotation)
 		} else {
 			if svc.Annotations == nil {
 				svc.Annotations = map[string]string{}
 			}
 			svc.Annotations[RouteHostnameAnnotation] = hostname
+			svc.Annotations[RouteNamespaceAnnotation] = routeNamespace
 		}
 		_, err = clientset.CoreV1().Services(namespace).Update(ctx, svc, metav1.UpdateOptions{})
 		return err
@@ -512,11 +518,6 @@ func syncTriggers(ctx context.Context, f fn.Function, namespace string, eventing
 			return fmt.Errorf("failed to get service: %w", err)
 		}
 
-		deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to get deployment: %w", err)
-		}
-
 		fmt.Fprintf(os.Stderr, "🎯 Syncing Triggers on the cluster\n")
 
 		for _, sub := range f.Deploy.Subscriptions {
@@ -533,10 +534,10 @@ func syncTriggers(ctx context.Context, f fn.Function, namespace string, eventing
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: "apps/v1",
-							Kind:       "Deployment",
-							Name:       deployment.Name,
-							UID:        deployment.UID,
+							APIVersion: "v1",
+							Kind:       "Service",
+							Name:       svc.Name,
+							UID:        svc.UID,
 						},
 					},
 				},
@@ -660,7 +661,7 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInsta
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: deployer.SelectorLabels(labels),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -689,14 +690,28 @@ func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalle
 	}
 
 	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, daprInstalled, KubernetesDeployerName)
-	// re-apply the hostname annotation, contrary to the rest of annotations
-	// which are "always regenerate" -- the hostname is cluster-derived, not
-	// in func.yaml: the router mints it, and only the exposure step (after
-	// the Route is admitted) can write it, which happens after this
-	// Service write.
+	// Unlike the annotations above, which always regenerate, the exposure
+	// record is re-applied: it is cluster-derived, written only once the Route
+	// is admitted, and this Update replaces the whole annotation map. Carry
+	// both halves over or the write drops the record.
 	if existingService != nil && existingService.Annotations[RouteHostnameAnnotation] != "" {
 		annotations[RouteHostnameAnnotation] = existingService.Annotations[RouteHostnameAnnotation]
+		// No key means no record; never write it empty.
+		if recordedNS := existingService.Annotations[RouteNamespaceAnnotation]; recordedNS != "" {
+			annotations[RouteNamespaceAnnotation] = recordedNS
+		}
 	}
+
+	// Built by hand rather than with metav1.NewControllerRef, which also sets
+	// BlockOwnerDeletion. That flag takes effect only during foreground
+	// cascading deletion, which nothing here requests; deletion defaults to
+	// background, where it does nothing. Setting it does, however, make the
+	// OwnerReferencesPermissionEnforcement admission plugin require update on
+	// the owner's finalizers subresource - a grant neither a plain func user
+	// nor the Tekton pipeline ServiceAccount holds by default, so the Service
+	// create is rejected outright. OpenShift enables that plugin; KinD does
+	// not, so the failure never appears in upstream CI.
+	controller := true
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -705,12 +720,22 @@ func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalle
 			Labels:      labels,
 			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(deployment, appsv1.SchemeGroupVersion.WithKind("Deployment")),
+				{
+					APIVersion: appsv1.SchemeGroupVersion.String(),
+					Kind:       "Deployment",
+					Name:       deployment.Name,
+					UID:        deployment.UID,
+					Controller: &controller,
+				},
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     corev1.ServiceTypeClusterIP,
-			Selector: labels,
+			Type: corev1.ServiceTypeClusterIP,
+			// Same selector as the Deployment: a Service selecting on the
+			// domain would stop matching the running pods the moment the
+			// domain changed, blacking the function out until the rollout
+			// caught up.
+			Selector: deployer.SelectorLabels(labels),
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "http",

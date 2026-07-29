@@ -174,6 +174,12 @@ var (
 	// Can be set with FUNC_E2E_NAMESPACE
 	Namespace string
 
+	// namespaceExplicit records whether FUNC_E2E_NAMESPACE was set, as opposed
+	// to Namespace holding its default. setupEnv forces the CLI's namespace
+	// only when it was, so an unset run keeps deploying wherever the
+	// kubeconfig's current context points.
+	namespaceExplicit bool
+
 	// Plugin indicates func is being run as a plugin within Bin, and
 	// the value of this argument is the subcommand.  For example, when
 	// running e2e tests as a plugin to `kn`, Bin will be /path/to/kn and
@@ -375,6 +381,9 @@ func readEnvs() {
 
 	// Namespace - the Kubernetes namespace where functions will be deployed
 	Namespace = getEnv("FUNC_E2E_NAMESPACE", "", DefaultNamespace)
+	// Whether the operator named it, as opposed to taking the default. Only an
+	// explicit value is forced on the CLI; see setupEnv.
+	namespaceExplicit = os.Getenv("FUNC_E2E_NAMESPACE") != ""
 
 	// Plugin - if set, func is a plugin and Bin is the one plugging. The value
 	// is the name of the subcommand.
@@ -495,6 +504,15 @@ func setupEnv(t *testing.T) {
 	// global config, or already defaulted by the user via environment variable.
 	os.Setenv("FUNC_REGISTRY", Registry)
 
+	// The CLI reads FUNC_NAMESPACE through viper's "func" env prefix, so this
+	// is what makes FUNC_E2E_NAMESPACE reach the deploy. Set only when the
+	// operator named a namespace: without it the CLI falls back to the
+	// kubeconfig's current context, which is the long-standing behaviour and
+	// what CI relies on.
+	if namespaceExplicit {
+		os.Setenv("FUNC_NAMESPACE", Namespace)
+	}
+
 	// When using the default registry (registry.localtest.me), mark it as
 	// insecure since it serves plain HTTP.
 	if strings.Contains(Registry, "registry.localtest.me") {
@@ -597,6 +615,16 @@ func newCmd(t *testing.T, args ...string) *exec.Cmd {
 	cmd := exec.Command(bin, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	return cmd
+}
+
+// newCmdOutput is newCmd for tests that read the output: CombinedOutput
+// refuses a command whose streams are already set, so leave them unset.
+func newCmdOutput(t *testing.T, args ...string) *exec.Cmd {
+	t.Helper()
+	cmd := newCmd(t, args...)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
 	return cmd
 }
 

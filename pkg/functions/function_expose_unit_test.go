@@ -28,3 +28,12 @@ func Test_ValidateExpose(t *testing.T) {
 		})
 	}
 }
+
+func Test_ActiveExpose(t *testing.T) {
+	if ActiveExpose("") || ActiveExpose("none") {
+		t.Error("empty and none must not be active")
+	}
+	if !ActiveExpose("route") {
+		t.Error("route must be active")
+	}
+}
