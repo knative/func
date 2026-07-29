@@ -867,8 +867,6 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	// deployed would leave stranded resources on cluster. We error clearly
 	// and expect the user to undeploy first, which removes the resources
 	// correctly.
-	// One special case is raw -> keda switch which works because keda embeds
-	// 'raw' deployer, working with the same resources.
 	if f.Deploy.Namespace != "" {
 		if err := deployers.ValidateSwitch(f.Deploy.Deployer, f.Deployer); err != nil {
 			return f, fmt.Errorf("function %q: %w", f.Name, err)

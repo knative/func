@@ -2580,8 +2580,8 @@ func absPath(p string) string {
 // TestClient_Deploy_BlocksDeployerSwitch ensures the deployer-switch guard is
 // enforced by the client itself, so every API consumer is protected, not only
 // the CLI. Redeploying an already-deployed function with a different deployer
-// would strand the previous deployer's resources; raw -> keda is the one safe
-// change because the keda deployer embeds the raw one.
+// would strand the previous deployer's resources, so every change of deployer
+// is refused and the user is told to run func delete first.
 //
 // A blocked switch must also fail BEFORE the deployer runs: the point of the
 // guard is that nothing on the cluster is touched.
@@ -2595,7 +2595,7 @@ func TestClient_Deploy_BlocksDeployerSwitch(t *testing.T) {
 	}{
 		{"keda2raw blocked", deployers.Keda, deployers.Kubernetes, "ns", true},
 		{"knative2keda blocked", deployers.Knative, deployers.Keda, "ns", true},
-		{"raw2keda is safe switch", deployers.Kubernetes, deployers.Keda, "ns", false},
+		{"raw2keda blocked", deployers.Kubernetes, deployers.Keda, "ns", true},
 		{"same deployer is not a switch", deployers.Keda, deployers.Keda, "ns", false},
 
 		{"undeployed is never blocked", "", deployers.Keda, "", false},
