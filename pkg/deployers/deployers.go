@@ -16,12 +16,8 @@ const (
 )
 
 // ValidateSwitch reports an error if an already-deployed function is being
-// redeployed with a different deployer. Any change of deployer is refused
-// because switching is not supported: nothing reconciles one deployer's
-// resources into another's, so the user has to run func delete first and then
-// redeploy. Same-deployer redeploys are allowed.
-// 'from' is the deployer the function is currently deployed with. 'to' is the
-// one to deploy to. An empty value on either side means "not known" -> returns nil.
+// redeployed with a different deployer. 'from' is the already deployed deployer
+// and 'to' is the new deployer "to deploy with"
 func ValidateSwitch(from, to string) error {
 	if from == "" || to == "" {
 		return nil

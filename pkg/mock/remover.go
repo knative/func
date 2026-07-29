@@ -1,6 +1,8 @@
 package mock
 
-import "context"
+import (
+	"context"
+)
 
 type Remover struct {
 	RemoveInvoked bool

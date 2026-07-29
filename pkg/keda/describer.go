@@ -87,11 +87,15 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		return fn.Instance{}, fmt.Errorf("HTTPScaledObject %q does not have any hosts", name)
 	}
 
-	routes := make([]string, 0, len(httpScaledObject.Spec.Hosts))
-	for _, host := range httpScaledObject.Spec.Hosts {
-		routes = append(routes, fmt.Sprintf("http://%s:8080", host))
+	// Deploy recorded the externally exposed hostname on the function's own
+	// Service, so no second lookup is needed to tell the exposed host apart
+	// from the bridge hosts it sits beside in Spec.Hosts.
+	hostname := service.Annotations[k8s.RouteHostnameAnnotation]
+	primaryRouteURL, routes := functionURLs(httpScaledObject.Spec.Hosts, hostname)
+	expose := ""
+	if hostname != "" {
+		expose = fn.ExposeRoute
 	}
-	primaryRouteURL := routes[0]
 
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
 	deployment, err := deploymentClient.Get(ctx, name, metav1.GetOptions{})
@@ -121,6 +125,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		Name:      name,
 		Namespace: namespace,
 		Deployer:  KedaDeployerName,
+		Expose:    expose,
 		Labels:    deployment.Labels,
 		Route:     primaryRouteURL,
 		Routes:    routes,

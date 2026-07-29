@@ -1576,6 +1576,32 @@ func TestClient_Pipelines_Deploy_Namespace(t *testing.T) {
 	}
 }
 
+// TestClient_Deploy_InvalidExposeErrors ensures Deploy rejects an exposure
+// mode this build does not recognize, before any deployer runs. The check
+// lives here rather than per-deployer, so this is the only place that proves
+// every deployer rejects the same set.
+func TestClient_Deploy_InvalidExposeErrors(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
+
+	f, err := client.Init(fn.Function{Runtime: TestRuntime, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Expose = "fake-exposer" // not a mode this build knows
+
+	// The built check fires first and is not what this pins.
+	_, err = client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
+	if err == nil {
+		t.Fatal("expected an unrecognized exposure mode to be refused")
+	}
+	if !errors.Is(err, fn.ErrInvalidExpose) {
+		t.Fatalf("expected ErrInvalidExpose, got %v", err)
+	}
+}
+
 // TestClient_Deploy_UnbuiltErrors ensures that a call to deploy a function
 // which was not fully created (ie. was only initialized, not actually built
 // or deployed) yields the expected error.

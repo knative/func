@@ -193,7 +193,7 @@ func CompleteDeployerList(cmd *cobra.Command, args []string, complete string) (m
 }
 
 func CompleteExposeList(cmd *cobra.Command, args []string, complete string) (matches []string, d cobra.ShellCompDirective) {
-	values := []string{"none", "route"}
+	values := fn.ExposeModes
 
 	d = cobra.ShellCompDirectiveNoFileComp
 	matches = []string{}

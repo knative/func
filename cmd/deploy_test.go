@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -1354,7 +1355,7 @@ func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 func TestDeploy_NamespaceChangePreservesExternalRegistry(t *testing.T) {
 	root := FromTempDirectory(t)
 
-	cleanup := k8s.SetOpenShiftForTest(true)
+	cleanup := k8s.SetOpenShiftForTest(true, nil)
 	defer cleanup()
 
 	// Create a function deployed to "ns1" with an external registry
@@ -1389,7 +1390,7 @@ func TestDeploy_NamespaceChangePreservesExternalRegistry(t *testing.T) {
 func TestDeploy_NamespaceChangeUpdatesInternalRegistry(t *testing.T) {
 	root := FromTempDirectory(t)
 
-	cleanup := k8s.SetOpenShiftForTest(true)
+	cleanup := k8s.SetOpenShiftForTest(true, nil)
 	defer cleanup()
 
 	// Create a function deployed to "ns1" using the internal registry
@@ -2784,12 +2785,12 @@ func TestDeploy_ExposeEmptyVsUnset(t *testing.T) {
 		return f
 	}
 
-	t.Run(`--expose="" clears a previously-persisted "none"`, func(t *testing.T) {
+	t.Run(`--expose="" clears a previously-persisted "none" intent`, func(t *testing.T) {
 		root := newFn(t)
 
 		deploy(t, "--deployer", "raw", "--expose", "none")
-		if f := loadFn(t, root); f.Deploy.Expose != "none" {
-			t.Fatalf("setup: expected expose 'none' to be persisted, got %q", f.Deploy.Expose)
+		if f := loadFn(t, root); f.Expose != "none" {
+			t.Fatalf("setup: expected intent expose 'none' to be persisted, got %q", f.Expose)
 		}
 
 		deploy(t, "--deployer", "raw", "--expose=")
@@ -2804,26 +2805,34 @@ func TestDeploy_ExposeEmptyVsUnset(t *testing.T) {
 		}
 	})
 
-	t.Run("plain deploy without the flag still works and leaves expose unpersisted", func(t *testing.T) {
+	t.Run("plain deploy without the flag leaves intent and status empty", func(t *testing.T) {
 		root := newFn(t)
 		deploy(t, "--deployer", "raw")
-		if f := loadFn(t, root); f.Deploy.Expose != "" {
-			t.Errorf("expected expose to remain unpersisted (empty), got %q", f.Deploy.Expose)
+		f := loadFn(t, root)
+		if f.Expose != "" {
+			t.Errorf("expected intent expose empty, got %q", f.Expose)
+		}
+		if f.Deploy.Expose != "" {
+			t.Errorf("expected status expose empty, got %q", f.Deploy.Expose)
 		}
 	})
 
-	t.Run("persisted none + no flag round-trips untouched", func(t *testing.T) {
+	t.Run("persisted none intent + no flag round-trips", func(t *testing.T) {
 		root := newFn(t)
 
 		deploy(t, "--deployer", "raw", "--expose", "none")
-		if f := loadFn(t, root); f.Deploy.Expose != "none" {
-			t.Fatalf("expected expose 'none' to be persisted, got %q", f.Deploy.Expose)
+		if f := loadFn(t, root); f.Expose != "none" {
+			t.Fatalf("expected intent expose 'none', got %q", f.Expose)
+		}
+		// status is observed applied mode; "none"/empty both mean cluster-local
+		if f := loadFn(t, root); f.Deploy.Expose != "" {
+			t.Fatalf("expected status expose empty for cluster-local, got %q", f.Deploy.Expose)
 		}
 
-		// redeploy without changing the flag should keep it as is
+		// redeploy without the flag should keep intent via flag default
 		deploy(t, "--deployer", "raw")
-		if f := loadFn(t, root); f.Deploy.Expose != "none" {
-			t.Errorf("expected persisted 'none' to round-trip untouched, got %q", f.Deploy.Expose)
+		if f := loadFn(t, root); f.Expose != "none" {
+			t.Errorf("expected intent 'none' to round-trip, got %q", f.Expose)
 		}
 	})
 }
@@ -2847,10 +2856,13 @@ func TestDeploy_ExposeInvalidValueError(t *testing.T) {
 	}
 }
 
-// TestDeploy_ExposeRoutePersists ensures "route" round-trips through
-// --expose into f.Deploy.Expose end-to-end.
+// TestDeploy_ExposeRoutePersists ensures "route" round-trips as intent
+// (Function.Expose) and observed status (Deploy.Expose) end-to-end.
 func TestDeploy_ExposeRoutePersists(t *testing.T) {
 	root := FromTempDirectory(t)
+	// CLI gates route on OpenShift; tests run without a cluster.
+	cleanup := k8s.SetOpenShiftForTest(true, nil)
+	defer cleanup()
 
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -2870,8 +2882,11 @@ func TestDeploy_ExposeRoutePersists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if f.Expose != "route" {
+		t.Fatalf("expected intent expose 'route', got %q", f.Expose)
+	}
 	if f.Deploy.Expose != "route" {
-		t.Fatalf("expected expose 'route' to be persisted, got %q", f.Deploy.Expose)
+		t.Fatalf("expected status expose 'route', got %q", f.Deploy.Expose)
 	}
 }
 
@@ -2894,12 +2909,12 @@ func TestDeploy_ExposeIgnoredByDeployerNote(t *testing.T) {
 		{
 			name:        "knative+route: warns, proceeds",
 			args:        []string{"--deployer", "knative", "--expose", "route"},
-			wantWarning: `deploy.expose "route" is ignored - only the raw and keda deployers support external exposure via this field.`,
+			wantWarning: `expose "route" is ignored - only the raw and keda deployers support external exposure via this field.`,
 		},
 		{
 			name:        "knative+none: warns, proceeds",
 			args:        []string{"--deployer", "knative", "--expose", "none"},
-			wantWarning: `deploy.expose "none" is ignored - only the raw and keda deployers support external exposure via this field.`,
+			wantWarning: `expose "none" is ignored - only the raw and keda deployers support external exposure via this field.`,
 		},
 		{
 			name: "keda+route: silent, keda supports expose too",
@@ -2914,6 +2929,9 @@ func TestDeploy_ExposeIgnoredByDeployerNote(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			root := FromTempDirectory(t)
+			// route cases need OpenShift gate open; none/empty do not care.
+			cleanup := k8s.SetOpenShiftForTest(true, nil)
+			defer cleanup()
 			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 				t.Fatal(err)
 			}
@@ -2938,7 +2956,7 @@ func TestDeploy_ExposeIgnoredByDeployerNote(t *testing.T) {
 			}
 
 			if tt.wantWarning == "" {
-				if strings.Contains(stderr.String(), "deploy.expose") {
+				if strings.Contains(stderr.String(), "expose") && strings.Contains(stderr.String(), "ignored") {
 					t.Errorf("expected no warning on stderr, got:\n%s", stderr.String())
 				}
 				return
@@ -2947,5 +2965,111 @@ func TestDeploy_ExposeIgnoredByDeployerNote(t *testing.T) {
 				t.Errorf("expected stderr to contain:\n%s\ngot:\n%s", tt.wantWarning, stderr.String())
 			}
 		})
+	}
+}
+
+// TestDeploy_RemoteExposeRecordsObservation: after a remote deploy the
+// recorded exposure is what the pipeline's describer observed on the cluster,
+// not just passed along from f.Expose. A pipeline whose func-util predates
+// expose leaves no record, and that mismatch is warned about rather than
+// papered over with a record of a Route that does not exist.
+func TestDeploy_RemoteExposeRecordsObservation(t *testing.T) {
+	tests := []struct {
+		name string
+		// observed is what the pipeline run leaves in Deploy.Expose, standing
+		// in for what the on-cluster deployer recorded on the Service.
+		observed    string
+		wantRecord  string
+		wantWarning bool
+	}{
+		{name: "pipeline honoured the intent", observed: fn.ExposeRoute, wantRecord: fn.ExposeRoute},
+		{name: "stale func-util ignored the intent", observed: "", wantRecord: "", wantWarning: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			cleanup := k8s.SetOpenShiftForTest(true, nil)
+			defer cleanup()
+
+			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+				t.Fatal(err)
+			}
+
+			pipeliner := mock.NewPipelinesProvider()
+			// Wrap the stock RunFn: run it, then stamp Deploy.Expose with what
+			// the describer would have read off the cluster. base snapshots the
+			// stock func value; stamping after the call mirrors the real provider,
+			// which records exposure only after the pipeline finishes.
+			base := pipeliner.RunFn
+			pipeliner.RunFn = func(f fn.Function) (string, fn.Function, error) {
+				// add exposure tracking to the base RunFn
+				url, f, err := base(f)
+				f.Deploy.Expose = tt.observed
+				return url, f, err
+			}
+
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithPipelinesProvider(pipeliner),
+				fn.WithRegistry(TestRegistry),
+			))
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(&out)
+			cmd.SetArgs([]string{"--remote",
+				"--git-url=https://example.com/user/repo",
+				"--deployer=raw", "--expose=route"})
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+
+			f, err := fn.NewFunction(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if f.Deploy.Expose != tt.wantRecord {
+				t.Errorf("Deploy.Expose = %q, want %q", f.Deploy.Expose, tt.wantRecord)
+			}
+			warned := strings.Contains(out.String(), "applied no external exposure")
+			if warned != tt.wantWarning {
+				t.Errorf("warning present = %v, want %v; output:\n%s", warned, tt.wantWarning, out.String())
+			}
+		})
+	}
+}
+
+// TestDeploy_ExposeRouteUnreachableClusterIsNotAPlatformClaim: when the
+// OpenShift probe gets no answer the deploy is still refused, since a Route
+// on a cluster that may not serve Routes is what the gate prevents. But the
+// error must name the connection as the cause. "Not OpenShift" is a claim
+// about the cluster, and an unanswered probe cannot support it.
+func TestDeploy_ExposeRouteUnreachableClusterIsNotAPlatformClaim(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	cleanup := k8s.SetOpenShiftForTest(false, errors.New("dial tcp 127.0.0.1:6443: connect: connection refused"))
+	defer cleanup()
+
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--deployer", "raw", "--expose=route"})
+	var out strings.Builder
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected the deploy to be refused when the platform could not be determined")
+	}
+	if strings.Contains(err.Error(), "requires an OpenShift cluster: ") {
+		t.Errorf("the refusal asserts the cluster is not OpenShift, which was never established:\n%v", err)
+	}
+	if !strings.Contains(err.Error(), "could not be reached") {
+		t.Errorf("expected the refusal to name the real reason, got:\n%v", err)
 	}
 }

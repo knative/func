@@ -1,6 +1,8 @@
 package k8s
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestIsOpenShiftInternalRegistry(t *testing.T) {
 	tests := []struct {

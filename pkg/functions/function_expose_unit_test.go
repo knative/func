@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"knative.dev/func/pkg/deployers"
 )
 
 func Test_ValidateExpose(t *testing.T) {
@@ -24,6 +26,37 @@ func Test_ValidateExpose(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), fmt.Sprintf("%q", v)) {
 				t.Errorf("ValidateExpose(%q): expected error to quote the bad value, got %v", v, err)
+			}
+		})
+	}
+}
+
+func Test_ActiveExpose(t *testing.T) {
+	if ActiveExpose("") || ActiveExpose("none") {
+		t.Error("empty and none must not be active")
+	}
+	if !ActiveExpose("route") {
+		t.Error("route must be active")
+	}
+}
+
+func Test_ExposureRecordMissing(t *testing.T) {
+	tests := []struct {
+		intent, applied, deployer string
+		want                      bool
+	}{
+		{ExposeRoute, "", deployers.Kubernetes, true},
+		{ExposeRoute, "", deployers.Keda, true},
+		{ExposeRoute, "", deployers.Knative, false},
+		{ExposeRoute, ExposeRoute, deployers.Kubernetes, false},
+		{ExposeNone, "", deployers.Kubernetes, false},
+		{"", "", deployers.Kubernetes, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.intent+"/"+tt.applied+"/"+tt.deployer, func(t *testing.T) {
+			if got := ExposureRecordMissing(tt.intent, tt.applied, tt.deployer); got != tt.want {
+				t.Errorf("ExposureRecordMissing(%q, %q, %q) = %v, want %v",
+					tt.intent, tt.applied, tt.deployer, got, tt.want)
 			}
 		})
 	}

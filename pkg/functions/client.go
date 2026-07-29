@@ -123,6 +123,7 @@ type DeploymentResult struct {
 	URL       string
 	Namespace string
 	Deployer  string
+	Expose    string
 }
 
 // Status of the function from the DeploymentResult
@@ -145,9 +146,10 @@ type Runner interface {
 
 // Remover of deployed services.
 type Remover interface {
-	// Remove the function from remote.
-	// It should only return nil, when the Function was removed.
-	// In case the remover is not responsible for a Function, it should return a ErrNotHandled error.
+	// Remove the named function from the cluster. Returns nil only when the
+	// function was actually removed. A remover that does not recognize the
+	// function as its own returns ErrNotHandled so the next remover in the
+	// client's list can try.
 	Remove(ctx context.Context, name string, namespace string) error
 }
 
@@ -195,6 +197,7 @@ type Instance struct {
 	Image         string            `json:"image" yaml:"image"`
 	Namespace     string            `json:"namespace" yaml:"namespace"`
 	Deployer      string            `json:"deployer" yaml:"deployer"`
+	Expose        string            `json:"expose,omitempty" yaml:"expose,omitempty"`
 	Subscriptions []Subscription    `json:"subscriptions" yaml:"subscriptions"`
 	Labels        map[string]string `json:"labels" yaml:"labels" xml:"-"`
 	Middleware    Middleware        `json:"middleware,omitempty" yaml:"middleware,omitempty"`
@@ -864,6 +867,13 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 		return f, ErrNameRequired
 	}
 
+	// Checked here rather than per-deployer so every deployer rejects the same
+	// set: a mode this build does not recognize can neither be applied nor
+	// torn down.
+	if err := ValidateExpose(f.Expose); err != nil {
+		return f, err
+	}
+
 	// Deployer switch gate - changing deployers when function is currently
 	// deployed would leave stranded resources on cluster. We error clearly
 	// and expect the user to undeploy first, which removes the resources
@@ -874,7 +884,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 		}
 	}
 
-	// Warn if moving
+	// Warn if moving namespaces
 	changingNamespace := func(f Function) bool {
 		// We're changing namespace if:
 		return f.Deploy.Namespace != "" && // it's already deployed
@@ -886,7 +896,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	// On forced namespace change (using --namespace flag)
 	if changingNamespace(f) {
 		if c.verbose {
-			fmt.Fprintf(os.Stderr, "Moving Function from %q to %q \n", f.Deploy.Namespace, f.Namespace)
+			fmt.Fprintf(os.Stderr, "Moving Function namespace from '%q' to '%q' \n", f.Deploy.Namespace, f.Namespace)
 		}
 
 		// c.Remove removes a Function in f.Deploy.Namespace which removes the OLD Function
@@ -915,6 +925,14 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	// Update the function to reflect the new deployed state of the Function
 	f.Deploy.Namespace = result.Namespace
 	f.Deploy.Deployer = result.Deployer
+	f.Deploy.Expose = result.Expose
+
+	// Raw/keda with a nil exposer (library) applied nothing. Knative ignores
+	// expose by design; the CLI already warned.
+	if ExposureRecordMissing(f.Expose, result.Expose, result.Deployer) {
+		fmt.Fprintf(os.Stderr, "Warning: expose %q was requested but the %q deployer applied no external exposure\n",
+			f.Expose, result.Deployer)
+	}
 
 	switch result.Status {
 	case Deployed:
@@ -1244,10 +1262,11 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 
 	if combinedErr == nil {
 		// Function was undeployed successfully. The user's INTENT (the top-level
-		// Function.Deployer and Function.Namespace) is untouched and is what a
-		// subsequent deploy reuses.
+		// Function.Deployer, Function.Expose, Function.Namespace) is untouched
+		// and is what a subsequent deploy reuses.
 		f.Deploy.Namespace = ""
 		f.Deploy.Deployer = ""
+		f.Deploy.Expose = ""
 	}
 	return f, combinedErr
 }

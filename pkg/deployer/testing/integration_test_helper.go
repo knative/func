@@ -65,7 +65,7 @@ func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		// Explicit opt-out: keeps this integration deploy cluster-local and
 		// platform-deterministic under exposed-by-default; ignored entirely
 		// by the knative deployer.
-		Deploy: fn.DeploySpec{Expose: "none"},
+		Expose: fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -169,7 +169,7 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy:    fn.DeploySpec{Expose: "none"},
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -325,7 +325,7 @@ func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy:    fn.DeploySpec{Expose: "none"},
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -409,7 +409,7 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy:    fn.DeploySpec{Expose: "none"},
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -525,7 +525,7 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy:    fn.DeploySpec{Expose: "none"},
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -887,6 +887,7 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		t.Error("environment variable was not set from config-map")
 	}
 
+	// Removal by name, as the CLI does with --name: no local record.
 	if err = remover.Remove(ctx, functionName, namespace); err != nil {
 		t.Fatal(err)
 	}
@@ -936,7 +937,7 @@ func TestInt_ResourceValidationOnFirstDeploy(t *testing.T, deployer fn.Deployer,
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy:    fn.DeploySpec{Expose: "none"},
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1244,7 +1245,7 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
-		Deploy:    fn.DeploySpec{Expose: "none"},
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
