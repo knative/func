@@ -198,8 +198,14 @@ SYNOPSIS
 	             [--skip-registry-config]
 
 DESCRIPTION
-	Deletes a local development cluster and its associated registry
-	container. If no name is given, the default cluster "func" is deleted.
+	Deletes a local development cluster. The in-cluster registry is removed
+	with the Kind cluster; host registry trust is reverted only when this is
+	the last func-managed cluster. If no name is given, the default cluster
+	"func" is deleted.
+
+	When no func-managed clusters are tracked, delete still runs the cleanup
+	path (no error) so host registry trust can be cleared. A name that does
+	not match any tracked cluster is an error when others exist.
 
 	When multiple func-managed clusters exist, specify which one by name.
 	Use '{{rootCmdUse}} cluster list' to see existing clusters.
@@ -252,7 +258,7 @@ func runClusterDelete(cmd *cobra.Command, args []string) error {
 	// If clusters are tracked and a non-matching name was given, refuse with
 	// a clear message — otherwise hand off to Delete, which handles both
 	// "delete the matched cluster" and "nothing tracked" (idempotent cleanup
-	// of shared resources Delete already owns when List() is empty).
+	// of host registry trust when List() is empty).
 	clusters := cluster.List()
 	if len(clusters) > 0 {
 		matched := false
