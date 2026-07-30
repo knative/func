@@ -180,6 +180,7 @@ func newClusterCreateConfig() cluster.ClusterConfig {
 		ContainerEngineOverride: viper.GetString("container-engine"),
 		KubectlOverride:         os.Getenv("FUNC_TEST_KUBECTL"),        // override binary path
 		KindOverride:            os.Getenv("FUNC_TEST_KIND"),           // override binary path
+		ActOverride:             os.Getenv("FUNC_TEST_ACT"),            // override binary path
 		GitHubActions:           os.Getenv("GITHUB_ACTIONS") == "true", // detect CI environments
 	}
 }
@@ -239,6 +240,7 @@ func newClusterDeleteConfig() cluster.ClusterConfig {
 		SkipRegistryConfig:      viper.GetBool("skip-registry-config"),
 		KubectlOverride:         os.Getenv("FUNC_TEST_KUBECTL"),
 		KindOverride:            os.Getenv("FUNC_TEST_KIND"),
+		ActOverride:             os.Getenv("FUNC_TEST_ACT"),
 		GitHubActions:           os.Getenv("GITHUB_ACTIONS") == "true",
 	}
 }
