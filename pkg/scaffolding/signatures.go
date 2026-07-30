@@ -29,7 +29,7 @@ var signatureMap = map[bool]map[string]Signature{
 	true: { // Instanced
 		"http":       InstancedHTTP,
 		"cloudevent": InstancedCloudevents},
-	false: { // !Instanced
+	false: {
 		"http":       StaticHTTP,
 		"cloudevent": StaticCloudevents},
 }

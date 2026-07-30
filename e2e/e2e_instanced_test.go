@@ -15,10 +15,8 @@ import (
 // ---------------------------------------------------------------------------
 // INSTANCED SIGNATURE TESTS
 // Dedicated tests proving the instanced function pattern (New() constructor +
-// struct-based Handle) works end-to-end for Go and Python. Each test deploys
-// a function with a counter in the constructor, sends two requests, and
-// asserts the counter increments — proving the instance persists across
-// requests.
+// struct-based Handle) works end-to-end. Go lives in Core; Python is under
+// TestMatrix_Python_InstancedHTTP (language-specific matrix scenarios).
 // ---------------------------------------------------------------------------
 
 const goHTTPInstancedSource = `package function
@@ -39,6 +37,7 @@ func (f *Function) Handle(w http.ResponseWriter, r *http.Request) {
 }
 `
 
+// pythonHTTPInstancedSource is shared with TestMatrix_Python_InstancedHTTP.
 const pythonHTTPInstancedSource = `def new():
     return Function()
 
@@ -117,37 +116,6 @@ func TestCore_InstancedGoHTTP(t *testing.T) {
 
 	// Dont check for exact match because we poll function first to check if
 	// its live + some health checks send requests too, this is simpler
-	first := requestCount(t, ksvcUrl(name))
-	second := requestCount(t, ksvcUrl(name))
-	if second <= first {
-		t.Fatalf("instanced counter did not increase across requests (state should persist): first=%d second=%d", first, second)
-	}
-}
-
-// TestCore_InstancedPythonHTTP deploys a Python HTTP function using the instanced
-// signature and verifies constructor state persists across requests.
-func TestCore_InstancedPythonHTTP(t *testing.T) {
-	name := "func-e2e-instanced-py-http"
-	root := fromCleanEnv(t, name)
-
-	if err := newCmd(t, "init", "-l=python", "-t=http").Run(); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "function", "func.py"), []byte(pythonHTTPInstancedSource), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := newCmd(t, "deploy", "--builder", "host").Run(); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		clean(t, name, Namespace)
-	}()
-
-	if !waitFor(t, ksvcUrl(name), withContentMatch("request:")) {
-		t.Fatal("instanced HTTP function did not become ready")
-	}
-
 	first := requestCount(t, ksvcUrl(name))
 	second := requestCount(t, ksvcUrl(name))
 	if second <= first {

@@ -96,7 +96,7 @@ func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		err := client.Remove(ctx, "", "", f, true)
+		_, err := client.Remove(ctx, "", "", f, true)
 		if err != nil {
 			t.Logf("error removing Function: %v", err)
 		}
@@ -236,7 +236,7 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		err := client.Remove(ctx, "", "", f, true)
+		_, err := client.Remove(ctx, "", "", f, true)
 		if err != nil {
 			t.Logf("error removing Function: %v", err)
 		}
@@ -357,7 +357,7 @@ func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		err := client.Remove(ctx, "", "", f, true)
+		_, err := client.Remove(ctx, "", "", f, true)
 		if err != nil {
 			t.Logf("error removing Function: %v", err)
 		}
@@ -441,7 +441,7 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		err := client.Remove(ctx, "", "", f, true)
+		_, err := client.Remove(ctx, "", "", f, true)
 		if err != nil {
 			t.Logf("error removing Function: %v", err)
 		}
@@ -560,7 +560,7 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		err := client.Remove(ctx, "", "", f, true)
+		_, err := client.Remove(ctx, "", "", f, true)
 		if err != nil {
 			t.Logf("error removing Function: %v", err)
 		}
@@ -976,7 +976,8 @@ func TestInt_ResourceValidationOnFirstDeploy(t *testing.T, deployer fn.Deployer,
 		t.Fatalf("expected deploy to succeed after Secret was created, got: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := client.Remove(ctx, "", "", f, true); err != nil {
+		_, err = client.Remove(ctx, "", "", f, true)
+		if err != nil {
 			t.Logf("error removing Function: %v", err)
 		}
 	})
@@ -1263,7 +1264,7 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		err := client.Remove(ctx, "", "", f, true)
+		_, err := client.Remove(ctx, "", "", f, true)
 		if err != nil {
 			t.Logf("error removing Function: %v", err)
 		}

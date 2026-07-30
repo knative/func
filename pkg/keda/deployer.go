@@ -14,12 +14,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 	"knative.dev/func/pkg/deployer"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
 
 const (
-	KedaDeployerName = "keda"
+	KedaDeployerName = deployers.Keda
 )
 
 type DeployerOpt func(*Deployer)
@@ -132,6 +133,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		Status:    deployResult.Status,
 		URL:       fmt.Sprintf("http://%s:8080", hosts[0]), // TODO: check on HTTPS too
 		Namespace: deployResult.Namespace,
+		Deployer:  KedaDeployerName,
 	}, nil
 }
 

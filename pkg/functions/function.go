@@ -100,6 +100,12 @@ type Function struct {
 	// Namespace in which to deploy the Function
 	Namespace string `yaml:"namespace,omitempty"`
 
+	// Deployer with which to deploy the Function: the requested (intended)
+	// deployer. This is the user's choice and persists across undeploy.
+	// The deployer a Function is CURRENTLY deployed with is recorded separately
+	// in .Deploy.Deployer, which is cleared on undeploy.
+	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw,enum=keda"`
+
 	// Created time is the moment that creation was successfully completed
 	// according to the client which is in charge of what constitutes being
 	// fully "Created" (aka initialized)
@@ -176,6 +182,39 @@ type MountSpec struct {
 	Destination string `yaml:"path"`
 }
 
+// KafkaConfig specifies the Kafka event source configuration.
+// When set, the runtime consumes messages from Kafka and delivers them
+// as CloudEvents to the function's handler.
+type KafkaConfig struct {
+	Brokers       string `yaml:"brokers" jsonschema:"description=Comma-separated list of Kafka broker addresses"`
+	Topic         string `yaml:"topic" jsonschema:"description=Kafka topic to consume from"`
+	ConsumerGroup string `yaml:"consumerGroup" jsonschema:"description=Kafka consumer group ID"`
+}
+
+func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string) {
+	if kafka == nil {
+		return
+	}
+	if runtime != "go" {
+		errors = append(errors, "run.kafka is currently only supported for the Go runtime")
+		return
+	}
+	if invoke != "cloudevent" {
+		errors = append(errors, "run.kafka is only supported with invoke: cloudevent")
+		return
+	}
+	if kafka.Brokers == "" {
+		errors = append(errors, "run.kafka.brokers is required when Kafka is configured")
+	}
+	if kafka.Topic == "" {
+		errors = append(errors, "run.kafka.topic is required when Kafka is configured")
+	}
+	if kafka.ConsumerGroup == "" {
+		errors = append(errors, "run.kafka.consumerGroup is required when Kafka is configured")
+	}
+	return
+}
+
 // RunSpec
 type RunSpec struct {
 	// List of volumes to be mounted to the function
@@ -189,6 +228,10 @@ type RunSpec struct {
 	// with containerized docker runner and deployed Knative service integration
 	// in development.
 	StartTimeout time.Duration `yaml:"startTimeout,omitempty"`
+
+	// Kafka configures a Kafka event source. When set, the function consumes
+	// messages from the specified Kafka topic and receives them as CloudEvents.
+	Kafka *KafkaConfig `yaml:"kafka,omitempty"`
 }
 
 // DeploySpec
@@ -223,8 +266,9 @@ type DeploySpec struct {
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 	ImagePullSecret string `yaml:"imagePullSecret,omitempty"`
 
-	// Deployer specifies the type of deployment to use: "knative", "raw" or "keda"
-	// Defaults to "knative" for backwards compatibility
+	// Deployer records the deployer the Function is CURRENTLY DEPLOYED:
+	// observed state, written after successful deployment, and cleared on
+	// undeploy alongside Namespace.
 	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw,enum=keda"`
 
 	Subscriptions []KnativeSubscription `yaml:"subscriptions,omitempty"`
@@ -361,6 +405,7 @@ func (f Function) Validate() error {
 		validateOptions(f.Deploy.Options),
 		ValidateLabels(f.Deploy.Labels),
 		validateGit(f.Build.Git),
+		validateKafka(f.Run.Kafka, f.Invoke, f.Runtime),
 	}
 
 	var b strings.Builder

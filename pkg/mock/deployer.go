@@ -22,6 +22,9 @@ type Deployer struct {
 func NewDeployer() *Deployer {
 	return &Deployer{
 		DeployFn: func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+			// Both namespace and deployer self-report their identity in this
+			// mock deployer.
+
 			// the minimum necessary logic for a deployer, which should be
 			// confirmed by tests in the respective implementations.
 			if f.Namespace != "" {
@@ -30,6 +33,11 @@ func NewDeployer() *Deployer {
 				result.Namespace = f.Deploy.Namespace // redeploy to current
 			} else {
 				err = errors.New("namespace required for initial deployment")
+			}
+			if f.Deployer != "" {
+				result.Deployer = f.Deployer // deployed with that requested
+			} else {
+				result.Deployer = f.Deploy.Deployer // redeploy with current
 			}
 			return
 		},

@@ -559,7 +559,7 @@ func (f *Function) Handle(w http.ResponseWriter, req *http.Request) {
 	if route, f, err = client2.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = client2.Remove(ctx, "", "", f, true) }()
+	defer func() { _, _ = client2.Remove(ctx, "", "", f, true) }()
 
 	resp, err := http.Get(route)
 	if err != nil {
@@ -710,7 +710,8 @@ func del(t *testing.T, c *fn.Client, name, namespace string) {
 	t.Helper()
 	waitFor(t, c, name, namespace)
 	f := fn.Function{Name: name, Deploy: fn.DeploySpec{Namespace: DefaultIntTestNamespace}}
-	if err := c.Remove(t.Context(), "", "", f, false); err != nil {
+	_, err := c.Remove(t.Context(), "", "", f, false)
+	if err != nil {
 		t.Fatal(err)
 	}
 

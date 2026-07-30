@@ -60,6 +60,10 @@ func gitInit(t *testing.T, dir string) {
 		{"init", "-b", "main"},
 		{"config", "user.email", "test@test.com"},
 		{"config", "user.name", "test"},
+		// Host global commit.gpgsign=true would otherwise fail the commit:
+		// the test identity has no signing key. Local-scope only (cmd.Dir=dir).
+		{"config", "commit.gpgsign", "false"},
+		{"config", "tag.gpgsign", "false"},
 		{"add", "."},
 		{"commit", "-m", "init"},
 	}

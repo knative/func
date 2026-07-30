@@ -19,6 +19,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
+	"knative.dev/func/pkg/deployers"
 	"knative.dev/func/pkg/utils"
 )
 
@@ -121,6 +122,7 @@ type DeploymentResult struct {
 	Status    Status
 	URL       string
 	Namespace string
+	Deployer  string
 }
 
 // Status of the function from the DeploymentResult
@@ -861,6 +863,18 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 		return f, ErrNameRequired
 	}
 
+	// Deployer switch gate - changing deployers when function is currently
+	// deployed would leave stranded resources on cluster. We error clearly
+	// and expect the user to undeploy first, which removes the resources
+	// correctly.
+	// One special case is raw -> keda switch which works because keda embeds
+	// 'raw' deployer, working with the same resources.
+	if f.Deploy.Namespace != "" {
+		if err := deployers.ValidateSwitch(f.Deploy.Deployer, f.Deployer); err != nil {
+			return f, fmt.Errorf("function %q: %w", f.Name, err)
+		}
+	}
+
 	// Warn if moving
 	changingNamespace := func(f Function) bool {
 		// We're changing namespace if:
@@ -878,7 +892,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 
 		// c.Remove removes a Function in f.Deploy.Namespace which removes the OLD Function
 		// because its not updated yet (see few lines below)
-		err := c.Remove(ctx, "", "", f, true)
+		_, err := c.Remove(ctx, "", "", f, true)
 		if err != nil {
 			// Warn when service is not found and set err to nil to continue. Function's
 			// service might have been manually deleted prior to the subsequent deploy or the
@@ -901,6 +915,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	}
 	// Update the function to reflect the new deployed state of the Function
 	f.Deploy.Namespace = result.Namespace
+	f.Deploy.Deployer = result.Deployer
 
 	switch result.Status {
 	case Deployed:
@@ -1150,8 +1165,12 @@ func (c *Client) List(ctx context.Context, namespace string) ([]ListItem, error)
 // function defined at root is used if it exists. If calling this directly
 // namespace must be provided in .Deploy.Namespace field except when using mocks
 // in which case empty namespace is accepted because its existence is checked
-// in the sub functions remover.Remove and pipelines.Remove
-func (c *Client) Remove(ctx context.Context, name, namespace string, f Function, all bool) error {
+// in the sub functions remover.Remove and pipelines.Remove.
+//
+// Returns structure 'f' with f.Deploy.Namespace & f.Deploy.Deployer cleared if
+// the removal was successful and error returned is nil. If error was
+// encountered, returns 'f' unmodified.
+func (c *Client) Remove(ctx context.Context, name, namespace string, f Function, all bool) (Function, error) {
 	// Default to name/namespace, fallback to passed Function
 	if name == "" {
 		name = f.Name
@@ -1160,10 +1179,10 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 
 	// Preconditions
 	if name == "" {
-		return ErrNameRequired
+		return f, ErrNameRequired
 	}
 	if namespace == "" {
-		return ErrNamespaceRequired
+		return f, ErrNamespaceRequired
 	}
 
 	// Logging
@@ -1183,8 +1202,6 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 	serviceRemovalErrGroup := &errgroup.Group{}
 	var removeHandled atomic.Bool
 	for _, remover := range c.removers {
-		remover := remover
-
 		serviceRemovalErrGroup.Go(func() error {
 			err := remover.Remove(ctx, name, namespace)
 			if err != nil {
@@ -1209,11 +1226,11 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 	serviceRemovalError := serviceRemovalErrGroup.Wait()
 	if serviceRemovalError == nil && resourceRemovalError == nil && !removeHandled.Load() {
 		// no error, but resource was not handled by any of the removers
-		return fmt.Errorf("no remover handled %s in %s", name, namespace)
+		return f, fmt.Errorf("no remover handled %s in %s", name, namespace)
 	}
 
 	// Return a combined error
-	return func(e1, e2 error) error {
+	combinedErr := func(e1, e2 error) error {
 		if e1 == nil && e2 == nil {
 			return nil
 		}
@@ -1225,6 +1242,15 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 		}
 		return e2
 	}(serviceRemovalError, resourceRemovalError)
+
+	if combinedErr == nil {
+		// Function was undeployed successfully. The user's INTENT (the top-level
+		// Function.Deployer and Function.Namespace) is untouched and is what a
+		// subsequent deploy reuses.
+		f.Deploy.Namespace = ""
+		f.Deploy.Deployer = ""
+	}
+	return f, combinedErr
 }
 
 // Invoke is a convenience method for triggering the execution of a function

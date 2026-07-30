@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/mod/modfile"
 	"knative.dev/func/pkg/filesystem"
 
 	. "knative.dev/func/pkg/testing"
@@ -169,6 +170,111 @@ func TestNewScaffoldingError(t *testing.T) {
 	}
 	t.Logf("ok: %v", err)
 
+}
+
+func TestGoVersionToSemver(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"1.21", "v1.21"},
+		{"1.25.0", "v1.25.0"},
+		{"1.26.3", "v1.26.3"},
+		{"1.25", "v1.25"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			got := goVersionToSemver(tt.in)
+			if got != tt.want {
+				t.Errorf("goVersionToSemver(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPatchGoMod_GoVersionSelection(t *testing.T) {
+	tests := []struct {
+		name        string
+		scaffoldVer string
+		funcVer     string
+		wantVer     string
+	}{
+		{
+			name:        "function lower than scaffolding keeps scaffolding version",
+			scaffoldVer: "1.25.0",
+			funcVer:     "1.21",
+			wantVer:     "1.25.0",
+		},
+		{
+			name:        "function higher than scaffolding updates to function version",
+			scaffoldVer: "1.21",
+			funcVer:     "1.25.0",
+			wantVer:     "1.25.0",
+		},
+		{
+			name:        "equal versions stays unchanged",
+			scaffoldVer: "1.25.0",
+			funcVer:     "1.25.0",
+			wantVer:     "1.25.0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir, done := Mktemp(t)
+			defer done()
+
+			scaffoldMod := "module s\n\ngo " + tt.scaffoldVer + "\n\nrequire function v0.0.0\n\nreplace function => ./f\n"
+			if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(scaffoldMod), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			goDir := &modfile.Go{Version: tt.funcVer}
+			if err := patchGoMod(dir, "mymod", goDir, nil); err != nil {
+				t.Fatal(err)
+			}
+
+			data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			f, err := modfile.Parse("go.mod", data, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if f.Go == nil || f.Go.Version != tt.wantVer {
+				got := ""
+				if f.Go != nil {
+					got = f.Go.Version
+				}
+				t.Errorf("go version = %q, want %q", got, tt.wantVer)
+			}
+		})
+	}
+}
+
+func TestPatchGoMod_NilGoDirective(t *testing.T) {
+	dir, done := Mktemp(t)
+	defer done()
+
+	scaffoldMod := "module s\n\ngo 1.25.0\n\nrequire function v0.0.0\n\nreplace function => ./f\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(scaffoldMod), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := patchGoMod(dir, "mymod", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := modfile.Parse("go.mod", data, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Go == nil || f.Go.Version != "1.25.0" {
+		t.Errorf("go version should remain 1.25.0 when function has no go directive")
+	}
 }
 
 // TestMergeGoSum ensures that the function's go.sum entries are appended

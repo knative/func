@@ -249,17 +249,24 @@ func runClusterDelete(cmd *cobra.Command, args []string) error {
 		cfg.Name = args[0]
 	}
 
+	// If clusters are tracked and a non-matching name was given, refuse with
+	// a clear message — otherwise hand off to Delete, which handles both
+	// "delete the matched cluster" and "nothing tracked" (idempotent cleanup
+	// of shared resources Delete already owns when List() is empty).
 	clusters := cluster.List()
-	for _, c := range clusters {
-		if c == cfg.Name {
-			return cluster.Delete(cmd.Context(), cfg, cmd.OutOrStderr())
+	if len(clusters) > 0 {
+		matched := false
+		for _, c := range clusters {
+			if c == cfg.Name {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return fmt.Errorf("cluster %q not found; existing clusters: %v\nUse 'func cluster create' to create one", cfg.Name, clusters)
 		}
 	}
-
-	if len(clusters) == 0 {
-		return fmt.Errorf("no clusters exist; use 'func cluster create' to create one")
-	}
-	return fmt.Errorf("cluster %q not found; existing clusters: %v\nUse 'func cluster create' to create one", cfg.Name, clusters)
+	return cluster.Delete(cmd.Context(), cfg, cmd.OutOrStderr())
 }
 
 // NewClusterListCmd creates the 'func cluster list' command.
