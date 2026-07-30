@@ -7,41 +7,50 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/yaml"
 )
 
-const (
-	// registryContainerName is the fixed name of the shared local registry
-	// container. All func-managed dev clusters on the host share this
-	// single registry.
-	registryContainerName = "func-registry"
-	// registryHostPort is the TCP port the registry is published on to the
-	// host; it also appears in the host container engine's
-	// insecure-registries list.
-	registryHostPort = 50000
-	// registryContainerPort is the port the `registry:2` image listens on
-	// inside the container.
-	registryContainerPort = 5000
-)
+const registryAddr = "registry.localtest.me"
 
-// registryAddr is the host-side address used in daemon.json /
-// registries.conf and in the in-cluster `local-registry-hosting` ConfigMap.
-// Derived from registryHostPort so the two can't drift apart.
-var registryAddr = fmt.Sprintf("localhost:%d", registryHostPort)
+// registryHTTPReadyURL is the hostPort path into the in-cluster registry.
+// Contour + registry.localtest.me install in parallel with this goroutine, so
+// readiness must not depend on Ingress being up yet — hostPort:5000 is live as
+// soon as the Deployment is Available (same endpoint containerd mirrors use).
+const registryHTTPReadyURL = "http://127.0.0.1:5000/v2/"
 
-// installRegistry starts the shared local container registry, configures
-// host-side trust for it, and applies the in-cluster ConfigMap + Service
-// the kind cluster uses to reach it.
+// installRegistry deploys the container registry as in-cluster Kubernetes
+// resources (Deployment + ClusterIP Service + Contour Ingress), configures
+// host-side trust, and applies the local-registry-hosting ConfigMap.
 func installRegistry(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	start := time.Now()
 	status(out, "Creating Registry")
 
-	if err := ensureRegistry(ctx, cfg, out); err != nil {
+	if err := applyObjects(ctx, out, cfg, registryDeployment(), registryService(), registryIngress()); err != nil {
+		return fmt.Errorf("applying registry resources: %w", err)
+	}
+
+	if err := run(ctx, out, "",
+		cfg.kubectl(), "wait",
+		"--for=condition=Available", "deployment/registry",
+		"-n", "default", "--timeout=5m"); err != nil {
+		return fmt.Errorf("waiting for registry deployment: %w", err)
+	}
+
+	if err := waitForRegistryHTTP(ctx, out); err != nil {
 		return err
 	}
 
@@ -51,112 +60,170 @@ func installRegistry(ctx context.Context, cfg ClusterConfig, out io.Writer) erro
 		}
 	}
 
-	// ConfigMap for local registry hosting
-	registryConfigMap := fmt.Sprintf(`apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: local-registry-hosting
-  namespace: kube-public
-data:
-  localRegistryHosting.v1: |
-    host: "localhost:%d"
-    help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
-`, registryHostPort)
-
-	if err := applyManifest(ctx, out, cfg, registryConfigMap); err != nil {
+	if err := applyObjects(ctx, out, cfg, registryHostingConfigMap()); err != nil {
 		return fmt.Errorf("applying registry configmap: %w", err)
-	}
-
-	// ExternalName service for in-cluster access
-	registrySvc := fmt.Sprintf(`apiVersion: v1
-kind: Service
-metadata:
-  name: registry
-  namespace: default
-spec:
-  type: ExternalName
-  externalName: %s
-`, registryContainerName)
-
-	if err := applyManifest(ctx, out, cfg, registrySvc); err != nil {
-		return fmt.Errorf("applying registry service: %w", err)
 	}
 
 	success(out, "Registry", time.Since(start))
 	return nil
 }
 
-// ensureRegistry makes sure the shared func-registry container exists, is
-// running, and is attached to the `kind` docker network. Idempotent; safe
-// to call whether or not another func-managed cluster has already
-// provisioned it.
-//
-// Scope is intentionally just the container lifecycle — host-side trust
-// config is the orchestrator's responsibility (see installRegistry).
-// TODO: should we rename the kind network to "kind-func" to avoid collision
-// with a developer's own kind usage?
-func ensureRegistry(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
-	exists, running, networked, err := registryStatus(ctx, cfg)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		portMap := fmt.Sprintf("127.0.0.1:%d:%d", registryHostPort, registryContainerPort)
-		// --net=kind attaches at creation time, so no separate network
-		// connect is needed on this path.
-		return run(ctx, out, "",
-			cfg.ContainerEngine(), "run",
-			"-d",
-			"--restart=always",
-			"-p", portMap,
-			"--net=kind",
-			"--name", registryContainerName,
-			"registry:2")
-	}
-	if !running {
-		if err := run(ctx, out, "", cfg.ContainerEngine(), "start", registryContainerName); err != nil {
-			return fmt.Errorf("starting registry: %w", err)
+// applyObjects marshals typed Kubernetes objects to multi-doc YAML and applies
+// them via kubectl (same path as the string manifests elsewhere in this package).
+func applyObjects(ctx context.Context, out io.Writer, cfg ClusterConfig, objs ...k8sruntime.Object) error {
+	var docs []string
+	for _, obj := range objs {
+		b, err := yaml.Marshal(obj)
+		if err != nil {
+			return fmt.Errorf("marshaling %T: %w", obj, err)
 		}
+		docs = append(docs, string(b))
 	}
-	if !networked {
-		if err := run(ctx, out, "", cfg.ContainerEngine(), "network", "connect", "kind", registryContainerName); err != nil {
-			return fmt.Errorf("connecting registry to kind network: %w", err)
-		}
-	}
-	return nil
+	return applyManifest(ctx, out, cfg, strings.Join(docs, "---\n"))
 }
 
-// registryStatus inspects the shared registry container. A non-nil err
-// means the engine itself errored in a way that isn't "no such object";
-// callers should surface it. A (false, false, false, nil) return means
-// "container is absent" or the inspect was unparseable — either way,
-// treated as fresh state.
-func registryStatus(ctx context.Context, cfg ClusterConfig) (exists, running, networked bool, err error) {
-	output, inspectErr := runOutput(ctx, cfg.ContainerEngine(), "container", "inspect", registryContainerName)
-	if inspectErr != nil {
-		// `container inspect <missing>` exits non-zero; so does any real
-		// engine failure. Treat both as "not present" — a real failure
-		// resurfaces on the next engine command.
-		return false, false, false, nil
+func registryLabels() map[string]string {
+	return map[string]string{"app": "registry"}
+}
+
+func registryDeployment() *appsv1.Deployment {
+	replicas := int32(1)
+	labels := registryLabels()
+	return &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{APIVersion: "apps/v1", Kind: "Deployment"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "registry",
+			Namespace: "default",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{MatchLabels: labels},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "registry",
+						Image: "registry:2",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 5000,
+							HostPort:      5000,
+						}},
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      "registry-data",
+							MountPath: "/var/lib/registry",
+						}},
+					}},
+					Volumes: []corev1.Volume{{
+						Name: "registry-data",
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
+						},
+					}},
+				},
+			},
+		},
 	}
-	var results []struct {
-		State struct {
-			Running bool `json:"Running"`
-		} `json:"State"`
-		NetworkSettings struct {
-			Networks map[string]json.RawMessage `json:"Networks"`
-		} `json:"NetworkSettings"`
+}
+
+func registryService() *corev1.Service {
+	return &corev1.Service{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Service"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "registry",
+			Namespace: "default",
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: registryLabels(),
+			Ports: []corev1.ServicePort{{
+				Port:       5000,
+				TargetPort: intstr.FromInt(5000),
+			}},
+		},
 	}
-	if err := json.Unmarshal([]byte(output), &results); err != nil {
-		return false, false, false, fmt.Errorf("parsing inspect output: %w", err)
+}
+
+func registryIngress() *networkingv1.Ingress {
+	pathType := networkingv1.PathTypePrefix
+	ingressClass := "contour-external"
+	return &networkingv1.Ingress{
+		TypeMeta: metav1.TypeMeta{APIVersion: "networking.k8s.io/v1", Kind: "Ingress"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "registry",
+			Namespace: "default",
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: &ingressClass,
+			Rules: []networkingv1.IngressRule{{
+				Host: registryAddr,
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{{
+							Path:     "/",
+							PathType: &pathType,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: "registry",
+									Port: networkingv1.ServiceBackendPort{Number: 5000},
+								},
+							},
+						}},
+					},
+				},
+			}},
+		},
 	}
-	if len(results) == 0 {
-		return false, false, false, nil
+}
+
+func registryHostingConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "ConfigMap"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "local-registry-hosting",
+			Namespace: "kube-public",
+		},
+		Data: map[string]string{
+			"localRegistryHosting.v1": fmt.Sprintf(
+				"host: %q\nhelp: \"https://kind.sigs.k8s.io/docs/user/local-registry/\"\n",
+				registryAddr,
+			),
+		},
 	}
-	exists = true
-	running = results[0].State.Running
-	_, networked = results[0].NetworkSettings.Networks["kind"]
-	return
+}
+
+// waitForRegistryHTTP polls the registry Distribution API until it answers 200
+// or the context / timeout expires (matejvasek review on knative/func#3856).
+func waitForRegistryHTTP(ctx context.Context, out io.Writer) error {
+	status(out, "Waiting for Registry HTTP")
+	client := &http.Client{Timeout: 2 * time.Second}
+	deadline := time.Now().Add(2 * time.Minute)
+	var last error
+	for {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("waiting for registry HTTP: %w", err)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, registryHTTPReadyURL, nil)
+		if err != nil {
+			return err
+		}
+		resp, err := client.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+			last = fmt.Errorf("status %s", resp.Status)
+		} else {
+			last = err
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("waiting for registry HTTP at %s: last error: %w", registryHTTPReadyURL, last)
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for registry HTTP: %w", ctx.Err())
+		case <-time.After(2 * time.Second):
+		}
+	}
 }
 
 // configureHostRegistry configures the host's container engine(s) to
@@ -265,7 +332,6 @@ func configurePodmanHTTP(out io.Writer) error {
 			return fmt.Errorf("writing config: %w", err)
 		}
 		fmt.Fprintf(out, "Successfully created Podman registry configuration for %s\n", registryAddr)
-		setupPodmanMacOSForwarding(out)
 		return nil
 	}
 
@@ -304,32 +370,7 @@ func configurePodmanHTTP(out io.Writer) error {
 		return err
 	}
 
-	setupPodmanMacOSForwarding(out)
 	return nil
-}
-
-// setupPodmanMacOSForwarding sets up SSH port forwarding on macOS so the
-// Podman VM can access the host's local registry. Idempotent: detects an
-// existing backgrounded ssh forwarder and skips rather than spawning
-// another (which would leak or fail to bind).
-func setupPodmanMacOSForwarding(out io.Writer) {
-	if runtime.GOOS != "darwin" {
-		return
-	}
-	forward := fmt.Sprintf("-L %d:localhost:%d", registryHostPort, registryHostPort)
-	if err := exec.Command("pgrep", "-f", forward).Run(); err == nil {
-		fmt.Fprintln(out, "Podman VM port forwarding already active; skipping")
-		return
-	}
-	fmt.Fprintln(out, "Setting up port forwarding for Podman VM to access registry...")
-	port := fmt.Sprintf("%d", registryHostPort)
-	cmd := exec.Command("podman", "machine", "ssh", "--",
-		"-L", port+":localhost:"+port, "-N", "-f")
-	cmd.Stdout = out
-	cmd.Stderr = out
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(out, "Warning: port forwarding setup failed: %v\n", err)
-	}
 }
 
 // warnNix detects Nix and emits configuration guidance.
@@ -363,17 +404,6 @@ The configuration required is adding the following to registries.conf:
   location = %q
   insecure = true
 `, registryAddr)
-	}
-}
-
-// Teardowns
-// ---------
-
-// teardownRegistry stops and removes the shared registry container. Called
-// from Delete when the last func-managed cluster is being removed.
-func teardownRegistry(ctx context.Context, cfg ClusterConfig, out io.Writer) {
-	if err := run(ctx, out, "", cfg.ContainerEngine(), "rm", "-f", registryContainerName); err != nil {
-		fmt.Fprintf(out, "Warning: failed to remove registry container %q: %v\n", registryContainerName, err)
 	}
 }
 
