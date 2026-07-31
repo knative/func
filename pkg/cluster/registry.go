@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,12 +25,6 @@ import (
 
 const registryAddr = "registry.localtest.me"
 
-// registryHTTPReadyURL is the hostPort path into the in-cluster registry.
-// Contour + registry.localtest.me install in parallel with this goroutine, so
-// readiness must not depend on Ingress being up yet — hostPort:5000 is live as
-// soon as the Deployment is Available (same endpoint containerd mirrors use).
-const registryHTTPReadyURL = "http://127.0.0.1:5000/v2/"
-
 // installRegistry deploys the container registry as in-cluster Kubernetes
 // resources (Deployment + ClusterIP Service + Contour Ingress), configures
 // host-side trust, and applies the local-registry-hosting ConfigMap.
@@ -43,15 +36,14 @@ func installRegistry(ctx context.Context, cfg ClusterConfig, out io.Writer) erro
 		return fmt.Errorf("applying registry resources: %w", err)
 	}
 
+	// Wait for the Deployment only — hostPort:5000 is on the Kind node network
+	// (containerd mirrors), not forwarded to the host loopback, so host HTTP
+	// probes would get connection refused. Matches hack/cluster.sh.
 	if err := run(ctx, out, "",
 		cfg.kubectl(), "wait",
 		"--for=condition=Available", "deployment/registry",
 		"-n", "default", "--timeout=5m"); err != nil {
 		return fmt.Errorf("waiting for registry deployment: %w", err)
-	}
-
-	if err := waitForRegistryHTTP(ctx, out); err != nil {
-		return err
 	}
 
 	if !cfg.SkipRegistryConfig {
@@ -187,42 +179,6 @@ func registryHostingConfigMap() *corev1.ConfigMap {
 				registryAddr,
 			),
 		},
-	}
-}
-
-// waitForRegistryHTTP polls the registry Distribution API until it answers 200
-// or the context / timeout expires (matejvasek review on knative/func#3856).
-func waitForRegistryHTTP(ctx context.Context, out io.Writer) error {
-	status(out, "Waiting for Registry HTTP")
-	client := &http.Client{Timeout: 2 * time.Second}
-	deadline := time.Now().Add(2 * time.Minute)
-	var last error
-	for {
-		if err := ctx.Err(); err != nil {
-			return fmt.Errorf("waiting for registry HTTP: %w", err)
-		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, registryHTTPReadyURL, nil)
-		if err != nil {
-			return err
-		}
-		resp, err := client.Do(req)
-		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
-			}
-			last = fmt.Errorf("status %s", resp.Status)
-		} else {
-			last = err
-		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("waiting for registry HTTP at %s: last error: %w", registryHTTPReadyURL, last)
-		}
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("waiting for registry HTTP: %w", ctx.Err())
-		case <-time.After(2 * time.Second):
-		}
 	}
 }
 
