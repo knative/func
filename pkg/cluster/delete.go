@@ -8,16 +8,16 @@ import (
 	"path/filepath"
 )
 
-// Delete removes a single func-managed dev cluster. The shared registry
-// container and the host's insecure-registries entry are removed only when
-// the *last* func-managed cluster is being torn down — other surviving
-// clusters keep using the shared registry.
+// Delete removes a func-managed dev cluster. The in-cluster registry is
+// destroyed automatically with the Kind cluster. Host-side trust config
+// (insecure-registries) is only reverted when this is the last func cluster,
+// since other surviving clusters share the same host entry.
 //
 // Delete is safe when nothing is tracked (empty List / no kubeconfig): it
-// still runs the empty-list shared-resource teardown and returns nil
-// (idempotent, rm -f style). kind-delete failures are only warned when a
-// kubeconfig was present — otherwise every empty-system delete would print
-// a scary "failed to delete cluster" for a cluster that never existed.
+// still runs empty-list host-trust teardown and returns nil (idempotent,
+// rm -f style). kind-delete failures are only warned when a kubeconfig was
+// present — otherwise every empty-system delete would print a scary
+// "failed to delete cluster" for a cluster that never existed.
 func Delete(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	// Set KUBECONFIG for child processes; restore the caller's value on return.
 	defer setKubeconfig(cfg.Kubeconfig())()
@@ -40,16 +40,12 @@ func Delete(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	// below reflects the post-delete state.
 	_ = os.RemoveAll(filepath.Dir(cfg.Kubeconfig()))
 
-	remaining := List()
-	if len(remaining) == 0 {
-		status(out, "Last func cluster removed; tearing down shared registry")
-		teardownRegistry(ctx, cfg, out)
-		if !cfg.SkipRegistryConfig {
-			revertHostRegistry(out)
-		}
-	} else {
-		fmt.Fprintf(out, "Registry left running; shared with %d other func-managed cluster(s): %v\n",
-			len(remaining), remaining)
+	if remaining := List(); len(remaining) > 0 {
+		fmt.Fprintf(out, "Other func-managed cluster(s) still running: %v; leaving host registry config in place.\n",
+			remaining)
+	} else if !cfg.SkipRegistryConfig {
+		status(out, "Last func cluster removed; reverting host registry trust")
+		revertHostRegistry(out)
 	}
 
 	fmt.Fprintf(out, "%s  Downloaded container images are not automatically removed.\n", red("NOTE:"))
