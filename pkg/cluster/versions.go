@@ -19,6 +19,7 @@ const (
 const (
 	kubectlVersion = "1.33.1"
 	kindVersion    = "0.31.0"
+	actVersion     = "0.2.88"
 )
 
 // kubectlChecksums pins the expected SHA-256 of the kubectl binary for each
@@ -39,4 +40,14 @@ var kindChecksums = map[string]string{
 	"linux/arm64":  "8e1014e87c34901cc422a1445866835d1e666f2a61301c27e722bdeab5a1f7e4",
 	"darwin/amd64": "a8b3cf77b2ad77aec5bf710d1a2589d9117576132af812885cad41e9dede4d4e",
 	"darwin/arm64": "88bf554fe9da6311c9f8c2d082613c002911a476f6b5090e9420b35d84e70c5c",
+}
+
+// actChecksums pins the expected SHA-256 of the act release tarball for each
+// supported os/arch at actVersion. Update in lockstep with actVersion.
+// Sourced from https://github.com/nektos/act/releases/download/v<version>/checksums.txt.
+var actChecksums = map[string]string{
+	"linux/amd64":  "1eb9996682dfcc053ac8f3f90f2ec50376f0cdfc229712d82da03d673c63a2b3",
+	"linux/arm64":  "94d87738f7ea6650782c8505366c758c99db54cc67bd8c711583478c93305d78",
+	"darwin/amd64": "887cd13013fdd866f80872ef2b473b7d34af6c2e366cc77542c9b75dceea7a82",
+	"darwin/arm64": "5f52aa4151c1cc762b246534a7f5633ae2b4b89aa036fbba7d9ccf04ca37acd9",
 }

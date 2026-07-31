@@ -38,12 +38,13 @@ type ClusterConfig struct {
 	SkipRegistryConfig bool // Skip host registry configuration
 	NoCleanup          bool // Don't delete cluster on failure
 
-	// Optional tool path overrides. When non-empty, the kubectl/kind
+	// Optional tool path overrides. When non-empty, the kubectl/kind/act
 	// accessors return the override verbatim; otherwise they resolve via
 	// BinDir then PATH. The CLI samples FUNC_TEST_<TOOL> env vars into
 	// these fields; the library itself never reads the environment.
 	KubectlOverride string
 	KindOverride    string
+	ActOverride     string
 
 	// CI detection
 	GitHubActions bool // Auto-detected from GITHUB_ACTIONS env
@@ -106,6 +107,16 @@ func (c ClusterConfig) kind() string {
 		return c.KindOverride
 	}
 	return findTool("kind", c.BinDir())
+}
+
+// Act returns the resolved path to the act binary (nektos/act).
+// Prefer managed BinDir (func cluster create install), then PATH.
+// Exported so callers outside this package (e.g. e2e) share resolution.
+func (c ClusterConfig) Act() string {
+	if c.ActOverride != "" {
+		return c.ActOverride
+	}
+	return findTool("act", c.BinDir())
 }
 
 // findTool resolves a tool path by checking the managed BinDir first,

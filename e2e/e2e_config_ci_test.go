@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+
+	"knative.dev/func/pkg/cluster"
 )
 
 func TestConfigCI_DeployFuncViaGeneratedGitHubWorkflow(t *testing.T) {
@@ -93,7 +95,9 @@ func runGitHubWorkflow(t *testing.T, dir string) {
 	if strings.Contains(Registry, "registry.localtest.me") {
 		args = append(args, "--env", "FUNC_REGISTRY_INSECURE=true")
 	}
-	cmd := exec.Command("act", args...)
+	// Resolve act via cluster.Act() (managed BinDir, then PATH; FUNC_TEST_ACT override).
+	act := cluster.ClusterConfig{ActOverride: os.Getenv("FUNC_TEST_ACT")}.Act()
+	cmd := exec.Command(act, args...)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
