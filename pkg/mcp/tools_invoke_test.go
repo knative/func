@@ -71,16 +71,18 @@ func TestTool_Invoke_Args(t *testing.T) {
 	}
 }
 
-// TestTool_Invoke_NoArgs ensures the invoke tool can be called with no
-// arguments, relying on defaults (path defaults to cwd, target auto-discovers).
-func TestTool_Invoke_NoArgs(t *testing.T) {
+// TestTool_Invoke_MinimalArgs ensures the invoke tool can be called with only
+// the required 'path' argument, relying on defaults for everything else
+// (target auto-discovers between local and remote).
+func TestTool_Invoke_MinimalArgs(t *testing.T) {
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "invoke" {
 			t.Fatalf("expected subcommand 'invoke', got %q", subcommand)
 		}
-		if len(args) != 0 {
-			t.Fatalf("expected no args, got %v", args)
+		want := []string{"--path", "."}
+		if len(args) != len(want) || args[0] != want[0] || args[1] != want[1] {
+			t.Fatalf("expected args %v, got %v", want, args)
 		}
 		return []byte("OK\n"), nil
 	}
@@ -92,7 +94,7 @@ func TestTool_Invoke_NoArgs(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "invoke",
-		Arguments: map[string]any{},
+		Arguments: map[string]any{"path": "."},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -102,6 +104,51 @@ func TestTool_Invoke_NoArgs(t *testing.T) {
 	}
 	if !executor.ExecuteInvoked {
 		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_Invoke_MissingPath ensures the invoke tool rejects a call that
+// omits the required 'path' argument, since the MCP server's own working
+// directory is unrelated to the Function being tested.
+func TestTool_Invoke_MissingPath(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		t.Fatal("executor should not be invoked when 'path' is missing")
+		return nil, nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "invoke",
+		Arguments: map[string]any{},
+	})
+	if err == nil {
+		t.Fatal("expected error when 'path' argument is missing")
+	}
+}
+
+// TestTool_Invoke_Readonly ensures the invoke tool rejects requests in
+// readonly mode, since invoking a Function may trigger arbitrary side
+// effects in its handler.
+func TestTool_Invoke_Readonly(t *testing.T) {
+	client, _, err := newTestPairWithReadonly(t, true) // readonly = true
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "invoke",
+		Arguments: map[string]any{"path": "."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invoke to be rejected in readonly mode")
 	}
 }
 

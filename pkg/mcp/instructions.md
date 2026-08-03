@@ -130,9 +130,10 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 
 - **FIRST:** Read `func://help/invoke` for authoritative usage information
 - Sends a test request to a running Function instance, either local or remote
-- **Optional** `path` parameter: directory containing the Function (defaults to the MCP server's current working directory)
+- **REQUIRED parameters:**
+  - `path` (directory containing the Function to invoke)
 - **Optional** `target` parameter: "local", "remote", or a URL. Defaults to preferring a locally running instance over remote
-- **AGENT USE-CASE:** After deploying a Function, call `invoke` to verify it is live and responding before reporting success to the user (e.g. call with `target: "remote"` immediately after `deploy`)
+- **CAUTION:** Invoking a Function executes its handler and may trigger arbitrary, real side effects (e.g. sending an email, charging a payment, writing to a database) — this is especially true with `target: "remote"`, which hits the live deployed instance. Do not invoke automatically without considering whether the Function's handler is safe to run; when in doubt, confirm with the user first, particularly before invoking a remote/production instance
 - An error is returned if the invocation fails (e.g. non-2xx HTTP response), so a successful call without an error confirms the Function responded correctly
 
 ### list

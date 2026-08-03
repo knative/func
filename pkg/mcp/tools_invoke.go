@@ -12,13 +12,19 @@ var invokeTool = &mcp.Tool{
 	Title:       "Invoke Function",
 	Description: "Invoke a local or remote Function with a test request.",
 	Annotations: &mcp.ToolAnnotations{
-		Title:          "Invoke Function",
-		ReadOnlyHint:   false,
-		IdempotentHint: false, // Invoking a Function may trigger arbitrary side effects in the Function's handler.
+		Title:           "Invoke Function",
+		ReadOnlyHint:    false,
+		DestructiveHint: ptr(true), // Invoking a Function may trigger arbitrary, unrepeatable side effects in the Function's handler (e.g. sending an email, charging a payment).
+		IdempotentHint:  false,     // Invoking a Function may trigger arbitrary side effects in the Function's handler.
 	},
 }
 
 func (s *Server) invokeHandler(ctx context.Context, r *mcp.CallToolRequest, input InvokeInput) (result *mcp.CallToolResult, output InvokeOutput, err error) {
+	if s.readonly.Load() {
+		err = fmt.Errorf("the server is currently in readonly mode.  Please set FUNC_ENABLE_MCP_WRITE and restart the client")
+		return
+	}
+
 	out, err := s.executor.Execute(ctx, "invoke", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
@@ -32,7 +38,7 @@ func (s *Server) invokeHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 
 // InvokeInput defines the input parameters for the invoke tool.
 type InvokeInput struct {
-	Path        *string `json:"path,omitempty" jsonschema:"Path to the function project directory (default: current working directory)"`
+	Path        string  `json:"path" jsonschema:"required,Path to the function project directory"`
 	Target      *string `json:"target,omitempty" jsonschema:"Function instance to invoke: local, remote, or a URL (default: local)"`
 	Format      *string `json:"format,omitempty" jsonschema:"Format of message to send: http or cloudevent (default: auto-detected)"`
 	ID          *string `json:"id,omitempty" jsonschema:"CloudEvent id for the request data"`
@@ -47,9 +53,8 @@ type InvokeInput struct {
 }
 
 func (i InvokeInput) Args() []string {
-	args := []string{}
+	args := []string{"--path", i.Path}
 
-	args = appendStringFlag(args, "--path", i.Path)
 	args = appendStringFlag(args, "--target", i.Target)
 	args = appendStringFlag(args, "--format", i.Format)
 	args = appendStringFlag(args, "--id", i.ID)
