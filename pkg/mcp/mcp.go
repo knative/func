@@ -107,6 +107,7 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, createTool, s.createHandler)
 	mcp.AddTool(i, buildTool, s.buildHandler)
 	mcp.AddTool(i, deployTool, s.deployHandler)
+	mcp.AddTool(i, invokeTool, s.invokeHandler)
 	mcp.AddTool(i, listTool, s.listHandler)
 	mcp.AddTool(i, deleteTool, s.deleteHandler)
 	mcp.AddTool(i, configVolumesListTool, s.configVolumesListHandler)
@@ -137,6 +138,7 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Create Help", "help for 'create'", "create"))
 	i.AddResource(newHelpResource(s, "Build Help", "help for 'build'", "build"))
 	i.AddResource(newHelpResource(s, "Deploy Help", "help for 'deploy'", "deploy"))
+	i.AddResource(newHelpResource(s, "Invoke Help", "help for 'invoke'", "invoke"))
 	i.AddResource(newHelpResource(s, "List Help", "help for 'list'", "list"))
 	i.AddResource(newHelpResource(s, "Delete Help", "help for delete", "delete"))
 

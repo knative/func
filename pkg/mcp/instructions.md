@@ -33,6 +33,7 @@ This is essential because:
 - `create` tool: path = absolute path to directory where Function will be created
 - `deploy` tool: path = absolute path to Function directory (where func.yaml exists)
 - `build` tool: path = absolute path to Function directory (where func.yaml exists)
+- `invoke` tool: path = absolute path to Function directory (where func.yaml exists)
 - `config_*_list`, `config_*_add`, `config_*_remove` tools: path = absolute path to Function directory (where func.yaml exists)
 
 **IMPORTANT:** You must use absolute paths (e.g., `/Users/name/myproject/myfunc`), NOT relative paths (e.g., `.` or `myfunc`). The MCP server process runs in a different directory than your current working directory, so relative paths will not resolve correctly.
@@ -56,6 +57,7 @@ This is essential because:
 - Before 'create' → Read `func://help/create`
 - Before 'deploy' → Read `func://help/deploy`
 - Before 'build' → Read `func://help/build`
+- Before 'invoke' → Read `func://help/invoke`
 - Before 'list' → Read `func://help/list`
 - Before 'delete' → Read `func://help/delete`
 
@@ -123,6 +125,15 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - Useful for creating custom deployments using .yaml files or integrating with other systems which expect containers
 - Uses same builder settings as deploy would use
 - The user should be notified this is an unnecessary step if they intend to deploy, as building is handled as part of deployment
+
+### invoke
+
+- **FIRST:** Read `func://help/invoke` for authoritative usage information
+- Sends a test request to a running Function instance, either local or remote
+- **Optional** `path` parameter: directory containing the Function (defaults to the MCP server's current working directory)
+- **Optional** `target` parameter: "local", "remote", or a URL. Defaults to preferring a locally running instance over remote
+- **AGENT USE-CASE:** After deploying a Function, call `invoke` to verify it is live and responding before reporting success to the user (e.g. call with `target: "remote"` immediately after `deploy`)
+- An error is returned if the invocation fails (e.g. non-2xx HTTP response), so a successful call without an error confirms the Function responded correctly
 
 ### list
 
