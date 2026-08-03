@@ -195,7 +195,7 @@ NAME
 	{{rootCmdUse}} cluster delete - Delete a local development cluster
 
 SYNOPSIS
-	{{rootCmdUse}} cluster delete [name] [--container-engine]
+	{{rootCmdUse}} cluster delete [name]
 	             [--skip-registry-config]
 
 DESCRIPTION
@@ -225,14 +225,11 @@ EXAMPLES
 
 `,
 
-		PreRunE: bindEnv("container-engine", "skip-registry-config"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runClusterDelete(cmd, args)
 		},
 	}
 
-	cmd.Flags().String("container-engine", "",
-		"Container engine: docker or podman; auto-detected if unset, preferring docker when both are installed ($FUNC_CONTAINER_ENGINE)")
 	cmd.Flags().Bool("skip-registry-config", false,
 		"Skip host registry configuration revert ($FUNC_SKIP_REGISTRY_CONFIG)")
 
@@ -241,13 +238,12 @@ EXAMPLES
 
 func newClusterDeleteConfig() cluster.ClusterConfig {
 	return cluster.ClusterConfig{
-		Name:                    "func",
-		ContainerEngineOverride: viper.GetString("container-engine"),
-		SkipRegistryConfig:      viper.GetBool("skip-registry-config"),
-		KubectlOverride:         os.Getenv("FUNC_TEST_KUBECTL"),
-		KindOverride:            os.Getenv("FUNC_TEST_KIND"),
-		ActOverride:             os.Getenv("FUNC_TEST_ACT"),
-		GitHubActions:           os.Getenv("GITHUB_ACTIONS") == "true",
+		Name:               "func",
+		SkipRegistryConfig: viper.GetBool("skip-registry-config"),
+		KubectlOverride:    os.Getenv("FUNC_TEST_KUBECTL"),
+		KindOverride:       os.Getenv("FUNC_TEST_KIND"),
+		ActOverride:        os.Getenv("FUNC_TEST_ACT"),
+		GitHubActions:      os.Getenv("GITHUB_ACTIONS") == "true",
 	}
 }
 

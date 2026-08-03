@@ -24,7 +24,6 @@ func cluster delete [name]
 ### Options
 
 ```
-      --container-engine string   Container engine: docker or podman ($FUNC_CONTAINER_ENGINE) (default "docker")
   -h, --help                      help for delete
   -n, --name string               Cluster name ($FUNC_CLUSTER_NAME) (default "func")
   -v, --verbose                   Print verbose logs ($FUNC_VERBOSE)
