@@ -75,6 +75,11 @@ func allocateCluster(ctx context.Context, cfg ClusterConfig, out io.Writer) (err
 	}
 
 	// Phase 2: Parallel component installation
+	// Mirrors hack/cluster.sh: (serving && dns && networking) || registry || …
+	// in parallel. Shell always installs Serving; Go allows --serving=false
+	// (e.g. future KEDA-only). Registry Ingress needs Contour (contour-external)
+	// for host access to registry.localtest.me — when Serving is off we still
+	// install Contour on the reg path so the Ingress is not inert.
 	status(out, "Beginning Cluster Configuration")
 	fmt.Fprintln(out, "Tasks will be executed in parallel.  Logs will be prefixed:")
 	if cfg.Serving {
@@ -95,6 +100,7 @@ func allocateCluster(ctx context.Context, cfg ClusterConfig, out io.Writer) (err
 	g, gctx := errgroup.WithContext(ctx)
 
 	// svr: serving -> dns -> networking (sequential within goroutine)
+	// networking = Contour + net-contour + Serving config (hack/cluster.sh networking)
 	if cfg.Serving {
 		g.Go(func() error {
 			w := newPrefixedWriter(out, "svr  ")
@@ -121,10 +127,16 @@ func allocateCluster(ctx context.Context, cfg ClusterConfig, out io.Writer) (err
 		})
 	}
 
-	// reg: registry (always)
+	// reg: registry (always). Shell always has Contour via the svr job;
+	// with --serving=false install Contour first so registry Ingress works.
 	g.Go(func() error {
 		w := newPrefixedWriter(out, "reg  ")
 		defer w.Flush()
+		if !cfg.Serving {
+			if err := installContour(gctx, cfg, w); err != nil {
+				return fmt.Errorf("contour (registry host ingress): %w", err)
+			}
+		}
 		return installRegistry(gctx, cfg, w)
 	})
 
