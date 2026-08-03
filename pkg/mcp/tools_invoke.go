@@ -39,7 +39,7 @@ func (s *Server) invokeHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 // InvokeInput defines the input parameters for the invoke tool.
 type InvokeInput struct {
 	Path        string  `json:"path" jsonschema:"required,Path to the function project directory"`
-	Target      *string `json:"target,omitempty" jsonschema:"Function instance to invoke: local, remote, or a URL (default: local)"`
+	Target      *string `json:"target,omitempty" jsonschema:"Function instance to invoke: local, remote, or a URL (default: auto-discovery; prefers local when both local and remote are running)"`
 	Format      *string `json:"format,omitempty" jsonschema:"Format of message to send: http or cloudevent (default: auto-detected)"`
 	ID          *string `json:"id,omitempty" jsonschema:"CloudEvent id for the request data"`
 	Source      *string `json:"source,omitempty" jsonschema:"CloudEvent source for the request data"`
