@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -38,18 +39,19 @@ func (s *Server) invokeHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 
 // InvokeInput defines the input parameters for the invoke tool.
 type InvokeInput struct {
-	Path        string  `json:"path" jsonschema:"required,Path to the function project directory"`
-	Target      *string `json:"target,omitempty" jsonschema:"Function instance to invoke: local, remote, or a URL (default: auto-discovery; prefers local when both local and remote are running)"`
-	Format      *string `json:"format,omitempty" jsonschema:"Format of message to send: http or cloudevent (default: auto-detected)"`
-	ID          *string `json:"id,omitempty" jsonschema:"CloudEvent id for the request data"`
-	Source      *string `json:"source,omitempty" jsonschema:"CloudEvent source for the request data"`
-	Type        *string `json:"type,omitempty" jsonschema:"CloudEvent type for the request data"`
-	Data        *string `json:"data,omitempty" jsonschema:"Data (content) to send in the request"`
-	ContentType *string `json:"contentType,omitempty" jsonschema:"MIME type of the data"`
-	RequestType *string `json:"requestType,omitempty" jsonschema:"HTTP method override (e.g., GET, POST)"`
-	File        *string `json:"file,omitempty" jsonschema:"Path to a file whose content is used as the request data (overrides data)"`
-	Insecure    *bool   `json:"insecure,omitempty" jsonschema:"Skip TLS verification when invoking over SSL"`
-	Verbose     *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Path        string            `json:"path" jsonschema:"required,Path to the function project directory"`
+	Target      *string           `json:"target,omitempty" jsonschema:"Function instance to invoke: local, remote, or a URL (default: auto-discovery; prefers local when both local and remote are running)"`
+	Format      *string           `json:"format,omitempty" jsonschema:"Format of message to send: http or cloudevent (default: auto-detected)"`
+	ID          *string           `json:"id,omitempty" jsonschema:"CloudEvent id for the request data"`
+	Source      *string           `json:"source,omitempty" jsonschema:"CloudEvent source for the request data"`
+	Type        *string           `json:"type,omitempty" jsonschema:"CloudEvent type for the request data"`
+	Data        *string           `json:"data,omitempty" jsonschema:"Data (content) to send in the request"`
+	ContentType *string           `json:"contentType,omitempty" jsonschema:"MIME type of the data"`
+	RequestType *string           `json:"requestType,omitempty" jsonschema:"HTTP method override (e.g., GET, POST)"`
+	File        *string           `json:"file,omitempty" jsonschema:"Path to a file whose content is used as the request data (overrides data)"`
+	Extensions  map[string]string `json:"extensions,omitempty" jsonschema:"CloudEvent extension attributes as key-value pairs (cloudevent format only)"`
+	Insecure    *bool             `json:"insecure,omitempty" jsonschema:"Skip TLS verification when invoking over SSL"`
+	Verbose     *bool             `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
 func (i InvokeInput) Args() []string {
@@ -64,6 +66,17 @@ func (i InvokeInput) Args() []string {
 	args = appendStringFlag(args, "--content-type", i.ContentType)
 	args = appendStringFlag(args, "--request-type", i.RequestType)
 	args = appendStringFlag(args, "--file", i.File)
+
+	if len(i.Extensions) > 0 {
+		keys := make([]string, 0, len(i.Extensions))
+		for k := range i.Extensions {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			args = append(args, "--extension", fmt.Sprintf("%s=%s", k, i.Extensions[k]))
+		}
+	}
 
 	args = appendBoolFlag(args, "--insecure", i.Insecure)
 	args = appendBoolFlag(args, "--verbose", i.Verbose)

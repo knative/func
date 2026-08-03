@@ -71,6 +71,56 @@ func TestTool_Invoke_Args(t *testing.T) {
 	}
 }
 
+// TestTool_Invoke_Extensions ensures CloudEvent extension attributes are
+// passed as repeated, deterministically-ordered '--extension key=value' flags.
+func TestTool_Invoke_Extensions(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		if subcommand != "invoke" {
+			t.Fatalf("expected subcommand 'invoke', got %q", subcommand)
+		}
+		want := []string{
+			"--path", ".",
+			"--extension", "priority=high",
+			"--extension", "region=us-east",
+		}
+		if len(args) != len(want) {
+			t.Fatalf("expected args %v, got %v", want, args)
+		}
+		for i := range want {
+			if args[i] != want[i] {
+				t.Fatalf("expected args %v, got %v", want, args)
+			}
+		}
+		return []byte("OK\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "invoke",
+		Arguments: map[string]any{
+			"path": ".",
+			"extensions": map[string]any{
+				"region":   "us-east",
+				"priority": "high",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
+	}
+}
+
 // TestTool_Invoke_MinimalArgs ensures the invoke tool can be called with only
 // the required 'path' argument, relying on defaults for everything else
 // (target auto-discovers between local and remote).
