@@ -2,6 +2,9 @@ package functions_test
 
 import (
 	"errors"
+	"net"
+	"os"
+	"path/filepath"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -56,6 +59,74 @@ func TestJob_New(t *testing.T) {
 		}
 	}
 
+}
+
+func TestJob_NewCleansAllOrphanedDirectories(t *testing.T) {
+	root, rm := Mktemp(t)
+	t.Cleanup(rm)
+	client := fn.New()
+
+	f, err := client.Init(fn.Function{Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	listeners := make([]net.Listener, 4)
+	ports := make([]string, len(listeners))
+	seen := make(map[string]struct{}, len(listeners))
+	for i := range listeners {
+		listener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		listeners[i] = listener
+		t.Cleanup(func() { _ = listener.Close() })
+
+		_, port, err := net.SplitHostPort(listener.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := seen[port]; ok {
+			t.Fatalf("listener reused port %s", port)
+		}
+		seen[port] = struct{}{}
+		ports[i] = port
+	}
+
+	runsDir := filepath.Join(root, fn.RunDataDir, "runs")
+	for _, port := range ports[:3] {
+		if err := os.MkdirAll(filepath.Join(runsDir, port), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, listener := range listeners[1:] {
+		if err := listener.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	j, err := fn.NewJob(f, "127.0.0.1", ports[3], nil, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := j.Stop(); err != nil {
+			t.Error(err)
+		}
+	})
+
+	for _, port := range ports[1:3] {
+		dir := filepath.Join(runsDir, port)
+		if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("stale job directory %s was not removed: %v", dir, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(runsDir, ports[0])); err != nil {
+		t.Errorf("active job directory was removed: %v", err)
+	}
+	if _, err := os.Stat(j.Dir()); err != nil {
+		t.Errorf("new job directory was not created: %v", err)
+	}
 }
 
 // TestJob_Stop ensures that stopping a local job results in the API no longer
