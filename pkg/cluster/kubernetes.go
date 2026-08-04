@@ -27,6 +27,10 @@ nodes:
     - containerPort: 30022
       hostPort: 30022
       listenAddress: "127.0.0.1"
+    - containerPort: 5000
+      hostPort: 5000
+      listenAddress: "127.0.0.1"
+
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.localtest.me"]
