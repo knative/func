@@ -4,7 +4,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-FUNC_UTILS_IMG="registry.localtest.me/knative/func-utils:v2"
+# Push the locally built func-util image under the reference the func binary
+# embeds (see docs/func-utils-image.md), with the local registry in place of
+# the registry host. The kind cluster mirrors ghcr.io and quay.io to the local
+# registry (hack/cluster.sh), so in-cluster pulls of that reference find it.
+EMBEDDED_IMG="$(make -C "$(dirname "$0")/.." -s --no-print-directory func-utils-image)"
+FUNC_UTILS_IMG="registry.localtest.me/${EMBEDDED_IMG#*/}"
 
 CGO_ENABLED=0 go build -o "func-util" -trimpath -ldflags '-w -s' ./cmd/func-util
 

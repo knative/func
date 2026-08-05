@@ -536,7 +536,9 @@ jobs:
       - test-e2e-podman
       - test-e2e-runtimes
       - test-e2e-config-ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -595,8 +597,31 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Derive Image Tag
+        id: image-tag
+        # Publish the tag the source embeds: the next minor on main, X.Y on
+        # release-X.Y (see docs/func-utils-image.md). Once release-X.Y is cut,
+        # main skips the publish until it moves to the next minor, unless its
+        # commit is the branch head (the cut commit's own run).
+        run: |
+          ref="$(make -s --no-print-directory func-utils-image)"
+          tag="${ref##*:}"
+          if [[ "${GITHUB_REF_NAME}" == release-* && "${GITHUB_REF_NAME}" != "release-${tag}" ]]; then
+            echo "::error::${GITHUB_REF_NAME} embeds ${ref}; it must embed its own minor"
+            exit 1
+          fi
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            head="$(git ls-remote origin "refs/heads/release-${tag}")"
+            head="${head%%$'\t'*}"
+            if [[ -n "${head}" && "${head}" != "${GITHUB_SHA}" ]]; then
+              echo "::notice::release-${tag} is cut, so only that branch publishes ${ref}; merge the PR that moves main to the next minor"
+              exit 0
+            fi
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
       - name: Build and push
         id: build-images
+        if: steps.image-tag.outputs.tag != ''
         run: |
           for a in amd64 arm64 ppc64le s390x; do
             CGO_ENABLED=0 GOARCH="${a}" go build -buildvcs=false -o "func-util-$a" -trimpath -ldflags '-w -s' ./cmd/func-util
@@ -608,7 +633,7 @@ jobs:
             --provenance=false --sbom=false \
             --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
             --push \
-            -t "ghcr.io/knative/func-utils:v2" \
+            -t "ghcr.io/knative/func-utils:${{ steps.image-tag.outputs.tag }}" \
             --annotation index:org.opencontainers.image.description="Knative Func Utils Image" \
             --annotation index:org.opencontainers.image.source="https://github.com/knative/func" \
             --annotation index:org.opencontainers.image.vendor="https://github.com/knative/func" \
@@ -617,6 +642,7 @@ jobs:
           DIGEST="$(jq -r '."containerimage.digest"' build-metadata.json)"
           echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
       - name: Attest Build Provenance
+        if: steps.image-tag.outputs.tag != ''
         uses: actions/attest-build-provenance@v3
         with:
           subject-name: "ghcr.io/knative/func-utils"
@@ -626,6 +652,7 @@ jobs:
   publish-image:
     name: Publish as Image
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
