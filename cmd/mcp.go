@@ -98,10 +98,10 @@ DESCRIPTION
 func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory) error {
 	// Configure write mode
 	writeEnabled := false
-	if val := os.Getenv("FUNC_ENABLE_MCP_WRITE"); val != "" {
+	if val := os.Getenv(mcp.EnvMCPWrite); val != "" {
 		parsed, err := strconv.ParseBool(val)
 		if err != nil {
-			return fmt.Errorf("FUNC_ENABLE_MCP_WRITE should be a boolean (true/false, 1/0, etc). Received %q", val)
+			return fmt.Errorf("%s should be a boolean (true/false, 1/0, etc). Received %q", mcp.EnvMCPWrite, val)
 		}
 		writeEnabled = parsed
 	}
