@@ -2,11 +2,87 @@ package mcp
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"knative.dev/func/pkg/mcp/mock"
 )
+
+// TestTool_Delete_Readonly ensures the delete tool returns the readonly-mode
+// error when the server is in readonly mode.
+func TestTool_Delete_Readonly(t *testing.T) {
+	client, _, err := newTestPairWithReadonly(t, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "delete",
+		Arguments: map[string]any{"name": "my-function"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for readonly server, got success")
+	}
+	got := result.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
+	}
+}
+
+// TestTool_Delete_BothPathAndName ensures the delete tool returns a mutual-
+// exclusion validation error when both path and name are provided.
+func TestTool_Delete_BothPathAndName(t *testing.T) {
+	client, _, err := newTestPair(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "delete",
+		Arguments: map[string]any{
+			"path": "/some/path",
+			"name": "my-function",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when both path and name are provided, got success")
+	}
+	got := result.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(got, "exactly one of 'path' or 'name'") {
+		t.Fatalf("expected mutual-exclusion validation error, got: %q", got)
+	}
+}
+
+// TestTool_Delete_NeitherPathNorName ensures the delete tool returns a mutual-
+// exclusion validation error when neither path nor name is provided.
+func TestTool_Delete_NeitherPathNorName(t *testing.T) {
+	client, _, err := newTestPair(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "delete",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when neither path nor name is provided, got success")
+	}
+	got := result.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(got, "exactly one of 'path' or 'name'") {
+		t.Fatalf("expected mutual-exclusion validation error, got: %q", got)
+	}
+}
 
 // TestTool_Delete_Args ensures the delete tool executes with all arguments passed correctly.
 func TestTool_Delete_Args(t *testing.T) {
@@ -74,24 +150,5 @@ func TestTool_Delete_Args(t *testing.T) {
 	}
 	if !executor.ExecuteInvoked {
 		t.Fatal("executor was not invoked")
-	}
-}
-
-// TestTool_Delete_Readonly ensures the delete tool rejects requests in readonly mode.
-func TestTool_Delete_Readonly(t *testing.T) {
-	client, _, err := newTestPairWithReadonly(t, true) // readonly = true
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
-		Name:      "delete",
-		Arguments: map[string]any{"name": "my-function"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.IsError {
-		t.Fatal("expected delete to be rejected in readonly mode")
 	}
 }
