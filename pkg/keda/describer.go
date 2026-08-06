@@ -87,11 +87,18 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 		return fn.Instance{}, fmt.Errorf("HTTPScaledObject %q does not have any hosts", name)
 	}
 
-	routes := make([]string, 0, len(httpScaledObject.Spec.Hosts))
-	for _, host := range httpScaledObject.Spec.Hosts {
-		routes = append(routes, fmt.Sprintf("http://%s:8080", host))
+	// Identify the external OpenShift Route by name (interceptorRouteName is
+	// deterministic), not by guessing at Spec.Hosts array position - the
+	// Route host is appended there alongside the internal bridge hosts,
+	// which are indistinguishable from it by shape alone.
+	var routeHost string
+	var routeFound bool
+	if k8s.IsOpenShift() {
+		if dynClient, err := k8s.NewDynamicClient(); err == nil {
+			routeHost, routeFound, _ = k8s.GetAdmittedRouteHost(ctx, dynClient, interceptorNamespace(), interceptorRouteName(name, namespace))
+		}
 	}
-	primaryRouteURL := routes[0]
+	primaryRouteURL, routes := selectRouteURLs(httpScaledObject.Spec.Hosts, routeHost, routeFound)
 
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
 	deployment, err := deploymentClient.Get(ctx, name, metav1.GetOptions{})

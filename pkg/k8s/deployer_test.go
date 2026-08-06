@@ -6,7 +6,12 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	dynamicfakeclient "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/kubernetes/fake"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -562,4 +567,143 @@ func Test_ProcessVolumes_ValidPath(t *testing.T) {
 	if mounts[0].MountPath != "/etc/secret" {
 		t.Errorf("expected mount path /etc/secret, got %s", mounts[0].MountPath)
 	}
+}
+
+// Test_WithDeployerExposureDisabled: exposure is on by default (raw) and off
+// with others
+func Test_WithDeployerExposureDisabled(t *testing.T) {
+	if NewDeployer().exposureDisabled {
+		t.Error("expected exposure enabled on a default Deployer")
+	}
+	if !NewDeployer(WithDeployerExposureDisabled()).exposureDisabled {
+		t.Error("expected exposure disabled with WithDeployerExposureDisabled")
+	}
+}
+
+// Test_ResolveExposure_RouteGatedOnOpenShift: functions are exposed by
+// default, so an explicit expose:route request hard-errors off OpenShift
+// (the user asked for something impossible), and expose:none (explicit
+// opt-out) never requires OpenShift or touches the Route API at all, on
+// either platform - removeExposure's Get against an empty fake dynamic
+// client returns NotFound immediately. The unset/empty value off OpenShift
+// also stays cluster-local, but silently (no error): the default degrading
+// gracefully rather than failing an ordinary deploy is exactly the point.
+//
+// The "route on OpenShift" and "empty on OpenShift" cases are NOT exercised
+// here: both fall through to ensureExposure, which waits up to 30s
+// (hardcoded) for a router to admit the Route - a real wait against a fake
+// client with no controller to populate status would either hang the test
+// for 30s or require simulating async status writes, disproportionate for
+// this table. That deeper path (EnsureRoute, WaitForRouteAdmitted,
+// GenerateRoute) is covered directly and fast in route_test.go instead,
+// each with its own short timeout.
+//
+// Note: SetOpenShiftForTest mutates a package-level bool without a mutex -
+// this test must not run with t.Parallel() (see openshift.go).
+func Test_ResolveExposure_RouteGatedOnOpenShift(t *testing.T) {
+	d := NewDeployer()
+	f := fn.Function{Name: "f", Deploy: fn.DeploySpec{Namespace: "ns"}}
+	ctx := t.Context()
+	clientset := fake.NewClientset()
+	dynClient := dynamicfakeclient.NewSimpleDynamicClient(runtime.NewScheme())
+
+	tests := []struct {
+		name       string
+		expose     string
+		openShift  bool
+		wantErr    bool
+		wantExpose bool
+	}{
+		{name: "route off OpenShift: hard error", expose: "route", openShift: false, wantErr: true},
+		{name: "none off OpenShift: fine", expose: "none", openShift: false},
+		{name: "none on OpenShift: fine", expose: "none", openShift: true},
+		{name: "empty off OpenShift: fine, cluster-local, no error", expose: "", openShift: false},
+		// "empty on OpenShift" is NOT in this table: functions are exposed
+		// by default now, so unset+OpenShift takes the same real
+		// Route-creation path as explicit expose:route does - excluded
+		// here for the same reason "route on OpenShift" already is (see
+		// the comment above this test).
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanup := SetOpenShiftForTest(tt.openShift)
+			defer cleanup()
+
+			f.Deploy.Expose = tt.expose
+			url, exposed, err := d.resolveExposure(ctx, f, "ns", clientset, dynClient)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("resolveExposure(%q) on OpenShift=%v: expected an error, got nil", tt.expose, tt.openShift)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("resolveExposure(%q) on OpenShift=%v: unexpected error: %v", tt.expose, tt.openShift, err)
+			}
+			if exposed != tt.wantExpose {
+				t.Errorf("resolveExposure(%q) on OpenShift=%v: exposed = %v, want %v", tt.expose, tt.openShift, exposed, tt.wantExpose)
+			}
+			if url == "" {
+				t.Errorf("resolveExposure(%q) on OpenShift=%v: expected a non-empty URL", tt.expose, tt.openShift)
+			}
+		})
+	}
+}
+
+// Test_referenceCheckMessage asserts that, for every resource kind, a Forbidden
+// error yields the access-denied wording and any other error the not-present
+// wording, and that both name the kind, the resource and the namespace.
+func Test_referenceCheckMessage(t *testing.T) {
+	kinds := []struct {
+		kind     string
+		resource string
+	}{
+		{"Secret", "secrets"},
+		{"ConfigMap", "configmaps"},
+		{"PersistentVolumeClaim", "persistentvolumeclaims"},
+		{"ServiceAccount", "serviceaccounts"},
+		{"image pull Secret", "secrets"},
+	}
+
+	for _, k := range kinds {
+		gr := schema.GroupResource{Resource: k.resource}
+
+		t.Run(k.kind+"/forbidden", func(t *testing.T) {
+			msg := referenceCheckMessage(k.kind, "my-res", "my-ns", apierrors.NewForbidden(gr, "my-res", nil))
+
+			if strings.Contains(msg, "is not present") {
+				t.Errorf("a forbidden GET must not claim the resource is absent, got %q", msg)
+			}
+			if !strings.Contains(msg, "denied") {
+				t.Errorf("expected the message to say access was denied, got %q", msg)
+			}
+			if !strings.Contains(msg, k.kind) || !strings.Contains(msg, "my-res") || !strings.Contains(msg, "my-ns") {
+				t.Errorf("expected the message to name kind, resource and namespace, got %q", msg)
+			}
+		})
+
+		t.Run(k.kind+"/absent", func(t *testing.T) {
+			msg := referenceCheckMessage(k.kind, "my-res", "my-ns", apierrors.NewNotFound(gr, "my-res"))
+
+			if !strings.Contains(msg, "is not present") {
+				t.Errorf("a genuinely absent resource must be reported as not present, got %q", msg)
+			}
+			if strings.Contains(msg, "denied") {
+				t.Errorf("an absent resource must not be reported as a permissions problem, got %q", msg)
+			}
+			if !strings.Contains(msg, k.kind) || !strings.Contains(msg, "my-res") || !strings.Contains(msg, "my-ns") {
+				t.Errorf("expected the message to name kind, resource and namespace, got %q", msg)
+			}
+		})
+	}
+
+	// A timeout or a conflict must not be reported as a permissions problem.
+	t.Run("other errors read as absent", func(t *testing.T) {
+		msg := referenceCheckMessage("Secret", "my-res", "my-ns",
+			apierrors.NewTimeoutError("too slow", 1))
+		if !strings.Contains(msg, "is not present") || strings.Contains(msg, "denied") {
+			t.Errorf("expected the not-present wording for a non-forbidden error, got %q", msg)
+		}
+	})
+
 }
