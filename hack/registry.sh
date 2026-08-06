@@ -148,14 +148,19 @@ set_registry_insecure_podman() {
         fi
     fi
 
-    # Detect config format (v1 or v2)
+    # Detect config format (v1 or v2). A v2 file is not always marked by a
+    # [[registry]] table: podman 5's default config carries only top-level v2
+    # fields such as unqualified-search-registries, and appending v1 syntax to
+    # such a file makes containers/image refuse it entirely ("mixing
+    # sysregistry v1/v2 is not supported").
+    V2_MARKER="^\[\[registry\]\]|^unqualified-search-registries|^short-name-mode|^credential-helpers"
     IS_V2_FORMAT=false
     if [ "$NEED_SUDO" = true ]; then
-        if sudo grep -q "^\[\[registry\]\]" "$CONFIG_FILE" 2>/dev/null; then
+        if sudo grep -Eq "$V2_MARKER" "$CONFIG_FILE" 2>/dev/null; then
             IS_V2_FORMAT=true
         fi
     else
-        if grep -q "^\[\[registry\]\]" "$CONFIG_FILE" 2>/dev/null; then
+        if grep -Eq "$V2_MARKER" "$CONFIG_FILE" 2>/dev/null; then
             IS_V2_FORMAT=true
         fi
     fi
