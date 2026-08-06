@@ -181,6 +181,12 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 
 	if f.Build.Git.URL == "" {
 		// Use direct upload to PVC if Git is not set up.
+
+		// The uploaded func.yaml is synthesized from this in-memory f (see
+		// sourcesAsTarStream) so we validate it first
+		if err = f.Validate(); err != nil {
+			return "", f, fmt.Errorf("function is invalid: %w", err)
+		}
 		content := sourcesAsTarStream(f)
 		defer content.Close()
 		err = k8s.UploadToVolume(ctx, content, getPipelinePvcName(f), namespace)
@@ -324,6 +330,30 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 			_ = pw.CloseWithError(fmt.Errorf("error while creating tar stream from sources: %w", err))
 		}
 
+		// The uploaded func.yaml is synthesized from the in-memory 'f'
+		fy, err := f.MarshalFuncYaml()
+		if err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("error serializing function config for upload: %w", err))
+			return
+		}
+		err = tw.WriteHeader(&tar.Header{
+			Typeflag: tar.TypeReg,
+			Name:     "source/" + fn.FunctionFile,
+			Mode:     0644,
+			Size:     int64(len(fy)),
+			Uid:      nobodyID,
+			Gid:      nobodyID,
+			Uname:    "nobody",
+			Gname:    "nobody",
+		})
+		if err == nil {
+			_, err = tw.Write(fy)
+		}
+		if err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("error writing function config to tar stream: %w", err))
+			return
+		}
+
 		err = filepath.Walk(f.Root, func(p string, fi fs.FileInfo, err error) error {
 			if err != nil {
 				return fmt.Errorf("error traversing function directory: %w", err)
@@ -335,6 +365,12 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 			}
 
 			if relp == "." {
+				return nil
+			}
+
+			// func.yaml was already written into the stream above, from the
+			// in-memory function; skip the on-disk copy.
+			if relp == fn.FunctionFile {
 				return nil
 			}
 
