@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
@@ -460,4 +461,71 @@ func assertAuth(uname, pwd string, w http.ResponseWriter, r *http.Request) bool 
 	w.WriteHeader(401)
 	_, _ = fmt.Fprintln(w, "Unauthorised.")
 	return false
+}
+
+func TestWaitForReadyOrPrivateRegistry_Success(t *testing.T) {
+	waitForService := func(context.Context) error {
+		return nil // returns immediately with success
+	}
+	isPrivateRegistry := func(context.Context) bool {
+		return false
+	}
+	err := waitForReadyOrPrivateRegistry(t.Context(), waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_WaitError(t *testing.T) {
+	expectedErr := errors.New("timeout waiting for service")
+	waitForService := func(context.Context) error {
+		return expectedErr // returns immediately with error
+	}
+	isPrivateRegistry := func(context.Context) bool {
+		return false
+	}
+	err := waitForReadyOrPrivateRegistry(t.Context(), waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected error %v, got %v", expectedErr, err)
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_PrivateRegistry(t *testing.T) {
+	waitCanceled := make(chan struct{})
+	waitForService := func(ctx context.Context) error {
+		<-ctx.Done()
+		close(waitCanceled)
+		return ctx.Err()
+	}
+	isPrivate := false
+	isPrivateRegistry := func(context.Context) bool {
+		isPrivate = true
+		return true // instantly return true
+	}
+	err := waitForReadyOrPrivateRegistry(t.Context(), waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if !errors.Is(err, errPrivateRegistry) {
+		t.Fatalf("expected errPrivateRegistry, got %v", err)
+	}
+	if !isPrivate {
+		t.Fatalf("expected isPrivateRegistry to be called")
+	}
+	select {
+	case <-waitCanceled:
+	case <-time.After(time.Second):
+		t.Fatal("expected waitForService context to be canceled")
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_DelayedSuccess(t *testing.T) {
+	waitForService := func(context.Context) error {
+		time.Sleep(50 * time.Millisecond)
+		return nil
+	}
+	isPrivateRegistry := func(context.Context) bool {
+		return false // never private
+	}
+	err := waitForReadyOrPrivateRegistry(t.Context(), waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
 }
