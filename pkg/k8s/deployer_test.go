@@ -563,3 +563,57 @@ func Test_ProcessVolumes_ValidPath(t *testing.T) {
 		t.Errorf("expected mount path /etc/secret, got %s", mounts[0].MountPath)
 	}
 }
+
+func Test_ProcessEnvs_ErrorCheckBeforeAppend(t *testing.T) {
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+
+	name := "MY_VAR"
+	// empty secret name in the template should cause an error
+	value := "{{ secret::key }}"
+	envs := []fn.Env{{Name: &name, Value: &value}}
+
+	envVars, _, err := ProcessEnvs(envs, &referencedSecrets, &referencedConfigMaps)
+	if err == nil {
+		t.Fatal("expected error for empty secret name")
+	}
+	if envVars != nil {
+		t.Fatalf("expected nil envVars on error, got %d entries", len(envVars))
+	}
+}
+
+func Test_createEnvFromSource_EmptyName(t *testing.T) {
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+
+	_, err := createEnvFromSource("{{ secret: }}", &referencedSecrets, &referencedConfigMaps)
+	if err == nil {
+		t.Fatal("expected error for empty source name")
+	}
+	if referencedSecrets.Has("") {
+		t.Fatal("empty string was inserted into referencedSecrets before validation")
+	}
+}
+
+func Test_createEnvVarSource_EmptyName(t *testing.T) {
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+
+	_, err := createEnvVarSource([]string{"secret", "", "key"}, &referencedSecrets, &referencedConfigMaps)
+	if err == nil {
+		t.Fatal("expected error for empty source name")
+	}
+	if referencedSecrets.Has("") {
+		t.Fatal("empty string was inserted into referencedSecrets before validation")
+	}
+}
+
+func Test_createEnvVarSource_EmptyKey(t *testing.T) {
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+
+	_, err := createEnvVarSource([]string{"secret", "my-secret", ""}, &referencedSecrets, &referencedConfigMaps)
+	if err == nil {
+		t.Fatal("expected error for empty source key")
+	}
+}
