@@ -118,6 +118,8 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, configEnvsListTool, s.configEnvsListHandler)
 	mcp.AddTool(i, configEnvsAddTool, s.configEnvsAddHandler)
 	mcp.AddTool(i, configEnvsRemoveTool, s.configEnvsRemoveHandler)
+	mcp.AddTool(i, configGitSetTool, s.configGitSetHandler)
+	mcp.AddTool(i, configGitRemoveTool, s.configGitRemoveHandler)
 
 	// Resources
 	// ---------
@@ -151,6 +153,10 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Envs Help", "general help for environment variables", "config", "envs"))
 	i.AddResource(newHelpResource(s, "Envs Add Help", "help for 'config envs add'", "config", "envs", "add"))
 	i.AddResource(newHelpResource(s, "Envs Remove Help", "help for 'config envs remove'", "config", "envs", "remove"))
+
+	i.AddResource(newHelpResource(s, "Git Help", "general help for Git pipeline config", "config", "git"))
+	i.AddResource(newHelpResource(s, "Git Set Help", "help for 'config git set'", "config", "git", "set"))
+	i.AddResource(newHelpResource(s, "Git Remove Help", "help for 'config git remove'", "config", "git", "remove"))
 
 	s.impl = i
 
