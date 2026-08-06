@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	name    = "func"
-	title   = "func"
-	version = "0.1.0"
+	serverName = "func"
+	title      = "func"
+	version    = "0.1.0"
 )
 
 // NOTE: Invoking prompts in some interfaces (such as Claude Code) when all
@@ -25,9 +25,11 @@ type Server struct {
 	OnInit    func(context.Context) // Invoked when the server is initialized
 	prefix    string                // Command prefix ("func" or "kn func")
 	readonly  atomic.Bool           // disables deploy and delete when true
-	executor  executor
-	transport mcp.Transport // Transport to use (defaults to StdioTransport)
-	impl      *mcp.Server   // implements the protocol
+	factory   ClientFactory         // constructs functions clients for tool handlers
+	service   *Service              // native API integration layer
+	executor  executor              // used for help text resources only
+	transport mcp.Transport         // Transport to use (defaults to StdioTransport)
+	impl      *mcp.Server           // implements the protocol
 }
 
 type executor interface {
@@ -54,7 +56,16 @@ func WithPrefix(prefix string) Option {
 	}
 }
 
-// WithExecutor sets a custom executor for running commands; used in tests.
+// WithClientFactory sets the factory used to construct functions clients.
+// Tool handlers invoke the functions client API directly via the service layer.
+func WithClientFactory(factory ClientFactory) Option {
+	return func(s *Server) {
+		s.factory = factory
+		s.service = NewService(factory)
+	}
+}
+
+// WithExecutor sets a custom executor for help resources and legacy tests.
 func WithExecutor(executor executor) Option {
 	return func(s *Server) {
 		s.executor = executor
@@ -89,7 +100,7 @@ func New(options ...Option) *Server {
 
 	i := mcp.NewServer(
 		&mcp.Implementation{
-			Name:    name,
+			Name:    serverName,
 			Title:   title,
 			Version: version},
 		&mcp.ServerOptions{
@@ -101,14 +112,16 @@ func New(options ...Option) *Server {
 		})
 
 	// Tools
-	// -----
-	// One for each command or command group
 	mcp.AddTool(i, healthCheckTool, s.healthcheckHandler)
 	mcp.AddTool(i, createTool, s.createHandler)
 	mcp.AddTool(i, buildTool, s.buildHandler)
 	mcp.AddTool(i, deployTool, s.deployHandler)
 	mcp.AddTool(i, listTool, s.listHandler)
 	mcp.AddTool(i, deleteTool, s.deleteHandler)
+	mcp.AddTool(i, describeTool, s.describeHandler)
+	mcp.AddTool(i, invokeTool, s.invokeHandler)
+	mcp.AddTool(i, runTool, s.runHandler)
+	mcp.AddTool(i, logsTool, s.logsHandler)
 	mcp.AddTool(i, configVolumesListTool, s.configVolumesListHandler)
 	mcp.AddTool(i, configVolumesAddTool, s.configVolumesAddHandler)
 	mcp.AddTool(i, configVolumesRemoveTool, s.configVolumesRemoveHandler)
@@ -120,25 +133,20 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, configEnvsRemoveTool, s.configEnvsRemoveHandler)
 
 	// Resources
-	// ---------
-	// Current Function state
 	i.AddResource(functionStateResource, s.functionStateHandler)
-
-	// Available languages (output of the languages subcommand)
 	i.AddResource(languagesResource, s.languagesHandler)
-
-	// Available templates
 	i.AddResource(templatesResource, s.templatesHandler)
 
-	// Help
-	// A resource for each command which returns its help
-	// eg. "config volumes add" -> "func://help/config/volumes/add")
 	i.AddResource(newHelpResource(s, "Help", "help for the command root"))
 	i.AddResource(newHelpResource(s, "Create Help", "help for 'create'", "create"))
 	i.AddResource(newHelpResource(s, "Build Help", "help for 'build'", "build"))
 	i.AddResource(newHelpResource(s, "Deploy Help", "help for 'deploy'", "deploy"))
 	i.AddResource(newHelpResource(s, "List Help", "help for 'list'", "list"))
 	i.AddResource(newHelpResource(s, "Delete Help", "help for delete", "delete"))
+	i.AddResource(newHelpResource(s, "Describe Help", "help for 'describe'", "describe"))
+	i.AddResource(newHelpResource(s, "Invoke Help", "help for 'invoke'", "invoke"))
+	i.AddResource(newHelpResource(s, "Run Help", "help for 'run'", "run"))
+	i.AddResource(newHelpResource(s, "Logs Help", "help for 'logs'", "logs"))
 
 	i.AddResource(newHelpResource(s, "Volumes Help", "general help for volumes", "config", "volumes"))
 	i.AddResource(newHelpResource(s, "Volumes Add Help", "help for 'config volumes add'", "config", "volumes", "add"))
@@ -157,16 +165,19 @@ func New(options ...Option) *Server {
 	return s
 }
 
+func (s *Server) requireService() (*Service, error) {
+	if s.service == nil {
+		return nil, fmt.Errorf("mcp server not configured with a client factory")
+	}
+	return s.service, nil
+}
+
 // Start the MCP server using the configured transport.
-// The server's readonly mode is determined at construction time via
-// WithReadonly; it cannot be changed after the server is created.
 func (s *Server) Start(ctx context.Context) error {
 	return s.impl.Run(ctx, s.transport)
 }
 
-// For now the executor is a simple run of the command "func" or "kn func"
-// etc.  This should be replaced with a direct integration with the functions
-// client API.
+// defaultExecutor shells out to the func CLI for help resources.
 type defaultExecutor struct {
 	s *Server
 }
@@ -174,13 +185,10 @@ type defaultExecutor struct {
 func (e defaultExecutor) Execute(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 	cmdParts := buildArgs(e.s.prefix, subcommand, args)
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
-	// cmd.Dir not set - inherits process working directory which is the current working directory
 	return cmd.CombinedOutput()
 }
 
 // buildArgs constructs the ordered argument list for execution.
-// An empty subcommand is omitted so that commands like "func --help" are
-// built correctly rather than "func  --help" with a spurious empty argument.
 func buildArgs(prefix, subcommand string, args []string) []string {
 	parts := strings.Fields(prefix)
 	if subcommand != "" {

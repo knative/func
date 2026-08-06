@@ -15,7 +15,7 @@ var deleteTool = &mcp.Tool{
 		Title:           "Delete Function",
 		ReadOnlyHint:    false,
 		DestructiveHint: ptr(true),
-		IdempotentHint:  true, // Deleting the same function multiple times results in the same end state (function doesn't exist).
+		IdempotentHint:  true,
 	},
 }
 
@@ -25,48 +25,26 @@ func (s *Server) deleteHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 		return
 	}
 
-	// Validate: exactly one of Path or Name must be provided
 	if (input.Path != nil && input.Name != nil) || (input.Path == nil && input.Name == nil) {
 		err = fmt.Errorf("exactly one of 'path' or 'name' must be provided")
 		return
 	}
 
-	// Execute
-	out, err := s.executor.Execute(ctx, "delete", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = DeleteOutput{
-		Message: string(out),
-	}
+	output, err = svc.Delete(ctx, input)
 	return
 }
 
 // DeleteInput defines the input parameters for the delete tool.
-// Exactly one of Path or Name must be provided.
 type DeleteInput struct {
 	Path      *string `json:"path,omitempty" jsonschema:"Path to the function project directory (mutually exclusive with name)"`
 	Name      *string `json:"name,omitempty" jsonschema:"Name of the function to delete (mutually exclusive with path)"`
 	Namespace *string `json:"namespace,omitempty" jsonschema:"Kubernetes namespace to delete from (default: current or active namespace)"`
 	All       *bool   `json:"all,omitempty" jsonschema:"Delete all related resources like Pipelines, Secrets"`
 	Verbose   *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
-}
-
-func (i DeleteInput) Args() []string {
-	args := []string{}
-
-	// Either path flag or positional name argument
-	if i.Path != nil {
-		args = append(args, "--path", *i.Path)
-	} else if i.Name != nil {
-		args = append(args, *i.Name)
-	}
-
-	args = appendStringFlag(args, "--namespace", i.Namespace)
-	args = appendBoolFlag(args, "--all", i.All)
-	args = appendBoolFlag(args, "--verbose", i.Verbose)
-	return args
 }
 
 // DeleteOutput defines the structured output returned by the delete tool.

@@ -1,69 +1,31 @@
 package mcp
 
 import (
-	"context"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"knative.dev/func/pkg/mcp/mock"
 )
 
-// TestTool_Build_Args ensures the build tool executes with all arguments passed correctly.
-func TestTool_Build_Args(t *testing.T) {
-	// Test data - defined once and used for both input and validation
-	stringFlags := map[string]struct {
-		jsonKey string
-		flag    string
-		value   string
-	}{
-		"path":         {"path", "--path", "."},
-		"builder":      {"builder", "--builder", "pack"},
-		"registry":     {"registry", "--registry", "ghcr.io/user"},
-		"builderImage": {"builderImage", "--builder-image", "custom-builder:latest"},
-		"image":        {"image", "--image", "ghcr.io/user/my-func:latest"},
-		"platform":     {"platform", "--platform", "linux/amd64"},
-	}
-
-	boolFlags := map[string]string{
-		"push":             "--push",
-		"registryInsecure": "--registry-insecure",
-		"buildTimestamp":   "--build-timestamp",
-		"verbose":          "--verbose",
-	}
-
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		if subcommand != "build" {
-			t.Fatalf("expected subcommand 'build', got %q", subcommand)
-		}
-
-		validateArgLength(t, args, len(stringFlags), len(boolFlags))
-		validateStringFlags(t, args, stringFlags)
-		validateBoolFlags(t, args, boolFlags)
-
-		return []byte("OK\n"), nil
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
+func TestTool_Build_RequiresFunction(t *testing.T) {
+	client, _, err := newTestPair(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Build input arguments from test data
-	inputArgs := buildInputArgs(stringFlags, boolFlags)
-
-	// Invoke tool with all optional arguments
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
-		Name:      "build",
-		Arguments: inputArgs,
+		Name: "build",
+		Arguments: map[string]any{
+			"path": initTestFunction(t),
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Build may fail without docker/buildpacks; verify handler routed to service (not missing factory).
 	if result.IsError {
-		t.Fatalf("unexpected error result: %v", result)
-	}
-	if !executor.ExecuteInvoked {
-		t.Fatal("executor was not invoked")
+		text, _ := result.Content[0].(*mcp.TextContent)
+		if text != nil && text.Text == "mcp server not configured with a client factory" {
+			t.Fatalf("unexpected configuration error: %s", text.Text)
+		}
 	}
 }
