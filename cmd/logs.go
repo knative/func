@@ -52,6 +52,12 @@ specified with --path. Abstracts away the underlying service name and pod detail
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
+	// Function Context
+	f, _ := fn.NewFunction(effectivePath())
+	if f.Initialized() {
+		cfg = cfg.Apply(f)
+	}
+
 	// Flags
 	cmd.Flags().StringP("name", "", "", "Name of the function to get logs from ($FUNC_NAME)")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace of the function ($FUNC_NAMESPACE)")
