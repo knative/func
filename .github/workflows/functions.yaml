@@ -251,6 +251,69 @@ jobs:
           retention-days: 7
 
   # ----------------
+  # E2E EXPOSE TESTS
+  # ----------------
+  # External exposure (--expose). The cluster here is KinD, which has no
+  # route.openshift.io API, so the tests that assert a Route skip themselves via
+  # IsOpenShift(), and the ones that assert func REFUSES a Route are the ones
+  # that run. Pointing the same target at an OpenShift cluster runs the other
+  # half; see records/test-plan-exposure.md.
+  test-e2e-expose:
+    name: E2E - Expose
+    needs: precheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FUNC_CLUSTER_RETRIES: 5
+      FUNC_E2E_CLEAN: false # cluster only used once
+      FUNC_E2E_VERBOSE: true
+      # The keda cases needing keda on the cluster are all Route cases, and
+      # those skip here. The one keda test that does run refuses a too-long
+      # name before reaching the cluster at all. Flip to "true" if a keda test
+      # is added that needs the operator; see PR #3914 ('Insufficient cpu') for
+      # why it is off by default.
+      FUNC_CLUSTER_KEDA: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - uses: endersonmenezes/free-disk-space@v3
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_haskell: true
+          remove_swap: true
+          rm_cmd: "rmz" # Faster than rm
+
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/cluster.sh
+      - name: Start Local Registry
+        run: ./hack/registry.sh
+      - name: Prepare Images
+        run: ./hack/images.sh
+
+      - name: Run Expose E2E Tests
+        run: make test-e2e-expose
+
+      - uses: ./.github/actions/codecov
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: e2e
+
+      # Preserve Cluster Logs
+      - name: Dump Cluster Logs
+        if: always()
+        run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Archive Cluster Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs-e2e-expose
+          path: ./cluster_log.txt
+          retention-days: 7
+
+  # ----------------
   # E2E PODMAN TESTS
   # ----------------
   test-e2e-podman:
@@ -457,6 +520,7 @@ jobs:
       - test-integration
       - test-templates
       - test-e2e
+      - test-e2e-expose
       - test-e2e-podman
       - test-e2e-runtimes
       - test-e2e-config-ci

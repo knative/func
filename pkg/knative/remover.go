@@ -22,7 +22,7 @@ type Remover struct {
 	verbose bool
 }
 
-func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
+func (remover *Remover) Remove(ctx context.Context, name, ns string, _ fn.Function) error {
 	if ns == "" {
 		fmt.Fprintf(os.Stderr, "no namespace defined when trying to delete a function in knative remover\n")
 		return fn.ErrNamespaceRequired

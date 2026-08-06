@@ -123,6 +123,7 @@ type DeploymentResult struct {
 	URL       string
 	Namespace string
 	Deployer  string
+	Expose    string
 }
 
 // Status of the function from the DeploymentResult
@@ -148,7 +149,13 @@ type Remover interface {
 	// Remove the function from remote.
 	// It should only return nil, when the Function was removed.
 	// In case the remover is not responsible for a Function, it should return a ErrNotHandled error.
-	Remove(ctx context.Context, name string, namespace string) error
+	//
+	// f carries the local record where there is one, and is the zero Function
+	// for a removal by name, where no func.yaml was read. Treat it as a hint,
+	// never an authority: it says what the last deploy from this machine
+	// recorded, which can be stale and is empty whenever the caller had
+	// nothing to read.
+	Remove(ctx context.Context, name string, namespace string, f Function) error
 }
 
 // Lister of deployed functions.
@@ -187,13 +194,14 @@ type Describer interface {
 type Instance struct {
 	// Route is the primary route of a function instance.
 	Route string
-	// Routes is the primary route plus any other route at which the function
-	// can be contacted.
+	// Routes is the primary route first (external when exposed), plus any
+	// other route at which the function can be contacted.
 	Routes        []string          `json:"routes" yaml:"routes"`
 	Name          string            `json:"name" yaml:"name"`
 	Image         string            `json:"image" yaml:"image"`
 	Namespace     string            `json:"namespace" yaml:"namespace"`
 	Deployer      string            `json:"deployer" yaml:"deployer"`
+	Expose        string            `json:"expose,omitempty" yaml:"expose,omitempty"`
 	Subscriptions []Subscription    `json:"subscriptions" yaml:"subscriptions"`
 	Labels        map[string]string `json:"labels" yaml:"labels" xml:"-"`
 	Middleware    Middleware        `json:"middleware,omitempty" yaml:"middleware,omitempty"`
@@ -863,12 +871,17 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 		return f, ErrNameRequired
 	}
 
+	// Checked here rather than per-deployer so every deployer rejects the same
+	// set: a mode this build does not recognize can neither be applied nor
+	// torn down, and the CLI is not the only caller.
+	if err := ValidateExpose(f.Expose); err != nil {
+		return f, err
+	}
+
 	// Deployer switch gate - changing deployers when function is currently
 	// deployed would leave stranded resources on cluster. We error clearly
 	// and expect the user to undeploy first, which removes the resources
 	// correctly.
-	// One special case is raw -> keda switch which works because keda embeds
-	// 'raw' deployer, working with the same resources.
 	if f.Deploy.Namespace != "" {
 		if err := deployers.ValidateSwitch(f.Deploy.Deployer, f.Deployer); err != nil {
 			return f, fmt.Errorf("function %q: %w", f.Name, err)
@@ -916,12 +929,21 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	// Update the function to reflect the new deployed state of the Function
 	f.Deploy.Namespace = result.Namespace
 	f.Deploy.Deployer = result.Deployer
+	f.Deploy.Expose = result.Expose
+
+	// A deployer with no support for the requested mechanism reports applying
+	// none. The function is running but unreachable from outside the cluster,
+	// which is otherwise indistinguishable from a successful exposure.
+	if ActiveExpose(f.Expose) && result.Expose == "" {
+		fmt.Fprintf(os.Stderr, "Warning: expose %q was requested but the %q deployer applied no external exposure\n",
+			f.Expose, result.Deployer)
+	}
 
 	switch result.Status {
 	case Deployed:
-		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
+		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q at URL: \n   %v\n", result.Namespace, result.URL)
 	case Updated:
-		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
+		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q at URL: \n   %v\n", result.Namespace, result.URL)
 	default:
 	}
 
@@ -1203,7 +1225,7 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 	var removeHandled atomic.Bool
 	for _, remover := range c.removers {
 		serviceRemovalErrGroup.Go(func() error {
-			err := remover.Remove(ctx, name, namespace)
+			err := remover.Remove(ctx, name, namespace, f)
 			if err != nil {
 				if errors.Is(err, ErrNotHandled) {
 					// remover didn't need to handle it
@@ -1245,10 +1267,11 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 
 	if combinedErr == nil {
 		// Function was undeployed successfully. The user's INTENT (the top-level
-		// Function.Deployer and Function.Namespace) is untouched and is what a
-		// subsequent deploy reuses.
+		// Function.Deployer, Function.Expose, Function.Namespace) is untouched
+		// and is what a subsequent deploy reuses.
 		f.Deploy.Namespace = ""
 		f.Deploy.Deployer = ""
+		f.Deploy.Expose = ""
 	}
 	return f, combinedErr
 }
@@ -1641,7 +1664,7 @@ func (n *noopDeployer) Deploy(ctx context.Context, f Function) (DeploymentResult
 // Remover
 type noopRemover struct{ output io.Writer }
 
-func (n *noopRemover) Remove(context.Context, string, string) error { return nil }
+func (n *noopRemover) Remove(context.Context, string, string, Function) error { return nil }
 
 // Lister
 type noopLister struct{ output io.Writer }

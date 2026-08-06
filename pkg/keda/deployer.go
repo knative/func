@@ -3,6 +3,7 @@ package keda
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
@@ -11,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 	"knative.dev/func/pkg/deployer"
@@ -30,6 +32,7 @@ type Deployer struct {
 
 	verbose   bool
 	decorator deployer.DeployDecorator
+	exposer   deployer.Exposer
 }
 
 func NewDeployer(opts ...DeployerOpt) *Deployer {
@@ -50,6 +53,12 @@ func WithDeployerVerbose(verbose bool) DeployerOpt {
 	return func(d *Deployer) {
 		d.verbose = verbose
 		k8s.WithDeployerVerbose(verbose)(&d.Deployer)
+	}
+}
+
+func WithExposer(exposer deployer.Exposer) DeployerOpt {
+	return func(d *Deployer) {
+		d.exposer = exposer
 	}
 }
 
@@ -92,6 +101,57 @@ func (k *kedaDeployerDecorator) UpdateLabels(function fn.Function, labels map[st
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+	// Refuse an unbuildable name before the raw deployer creates a Deployment
+	// and a Service the failure would leave behind. The Route's name is checked
+	// the same way below, once the exposure conditions are known.
+	if err := d.validateBridgeName(f); err != nil {
+		return fn.DeploymentResult{}, err
+	}
+
+	k8sClientset, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("failed to create K8sClientset: %v", err)
+	}
+
+	// Resolved once per deploy and threaded down: every caller wants the same
+	// answer, and it is needed before the raw deploy so the refusal below can
+	// run before anything is created.
+	interceptorNS, interceptorSeen := interceptorNamespace(ctx, k8sClientset)
+
+	// Refuse rather than build a Route to a Service that may not be there:
+	// such a Route is admitted and then serves nothing. Refusing before the
+	// raw deploy leaves nothing half-built. The two refusals share the NO but
+	// not the WHY: "not found" and "could not look" send an operator to
+	// different fixes.
+	if d.exposer != nil && fn.ActiveExpose(f.Expose) {
+		// The Route's name needs the namespace the function will land in;
+		// k8s.DeployNamespace is the same rule the raw deployer uses, so this
+		// cannot validate a name the deploy will not use.
+		exposeNS, err := k8s.DeployNamespace(f)
+		if err != nil {
+			return fn.DeploymentResult{}, err
+		}
+		if err := validateExposureName(f, exposeNS); err != nil {
+			return fn.DeploymentResult{}, err
+		}
+
+		switch interceptorSeen {
+		case interceptorAbsent:
+			return fn.DeploymentResult{}, fmt.Errorf(
+				"cannot expose function %q: the keda interceptor Service %q was not found in %s, "+
+					"so its Route would point at nothing",
+				f.Name, interceptorServiceName,
+				strings.Join(interceptorNamespaceCandidates(), " or "))
+		case interceptorUndetermined:
+			return fn.DeploymentResult{}, fmt.Errorf(
+				"cannot expose function %q: could not determine whether the keda interceptor Service %q "+
+					"exists in %s, so its Route might point at nothing; this is usually a permissions "+
+					"problem rather than a missing interceptor, and needs read access to that namespace",
+				f.Name, interceptorServiceName,
+				strings.Join(interceptorNamespaceCandidates(), " or "))
+		}
+	}
+
 	// execute raw deployment deployer
 	deployResult, err := d.Deployer.Deploy(ctx, f)
 	if err != nil {
@@ -100,11 +160,6 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 	// create additional required keda resources
 	namespace := deployResult.Namespace
-
-	k8sClientset, err := k8s.NewKubernetesClientset()
-	if err != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("failed to create K8sClientset: %v", err)
-	}
 
 	deployment, err := k8sClientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
 	if err != nil {
@@ -116,7 +171,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to get service %s/%s: %v", namespace, f.Name, err)
 	}
 
-	if err := d.ensureInterceptorBridgeService(ctx, k8sClientset, f, namespace, deployment); err != nil {
+	if err := d.ensureInterceptorBridgeService(ctx, k8sClientset, f, namespace, interceptorNS, deployment); err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to ensure proxy service exists: %w", err)
 	}
 
@@ -124,16 +179,73 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		fmt.Sprintf("%s.%s.svc", d.interceptorBridgeServiceName(f), namespace),
 		d.interceptorBridgeServiceName(f),
 	}
+	url := fmt.Sprintf("http://%s:8080", hosts[0]) // TODO: check on HTTPS too
+
+	// External exposure is reconciled around the HTTPScaledObject: creating
+	// comes first, because the interceptor 404s any Host header the HSO does
+	// not register; removing comes last, so a Forbidden in the interceptor's
+	// namespace cannot leave a function deployed but unscaled. A nil exposer
+	// means cluster-local, and neither half runs.
+	var dynClient dynamic.Interface
+	var exposedHost, appliedExpose string
+	if d.exposer != nil {
+		if dynClient, err = k8s.NewDynamicClient(); err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to create dynamic client: %w", err)
+		}
+		if fn.ActiveExpose(f.Expose) {
+			// The interceptor refusal is NOT here. It is hoisted above the raw
+			// deploy, since a refusal at this point leaves the function
+			// half-built. Only the Route's name is checked here, because it is
+			// the one check that needs the resolved namespace.
+			exposedHost, err = d.exposer.Expose(ctx, dynClient, d.interceptorExposure(f, namespace, interceptorNS))
+			if err != nil {
+				return fn.DeploymentResult{}, fmt.Errorf("failed to expose function externally: %w", err)
+			}
+			hosts = append(hosts, exposedHost)
+			// ocproute terminates TLS at the edge and redirects http.
+			url = fmt.Sprintf("https://%s", exposedHost)
+			appliedExpose = f.Expose
+		}
+	}
 
 	if err := d.ensureHTTPScaledObject(ctx, f, namespace, deployment, appService, hosts); err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to ensure http scaled object exists: %w", err)
 	}
 
+	if d.exposer != nil {
+		// Switching exposure off removes the Route BEFORE clearing the record,
+		// so a failed removal leaves the record for the retry to act on; the
+		// reverse order stranded the Route until delete. The record outlives
+		// the Route, matching the raw deployer and the remover, at the price
+		// of a dead hostname in describe until the retry lands. recordedNS is
+		// read from appService, fetched before the exposure work above.
+		if appliedExpose == "" {
+			if recordedNS := appService.Annotations[k8s.RouteNamespaceAnnotation]; recordedNS != "" {
+				if err := d.exposer.Unexpose(ctx, dynClient, interceptorExposureRef(f.Name, namespace, recordedNS)); err != nil {
+					return fn.DeploymentResult{}, fmt.Errorf("failed to remove external exposure: %w", err)
+				}
+			}
+		}
+
+		// The location is recorded together with the hostname, by the code
+		// that just created the Route and is certain where it went; removal
+		// reads it instead of resolving the interceptor again. Cleared only
+		// once the Route above is gone.
+		routeNS := ""
+		if exposedHost != "" {
+			routeNS = interceptorNS
+		}
+		if err := k8s.SetRouteHostname(ctx, k8sClientset, namespace, f.Name, exposedHost, routeNS); err != nil {
+			return fn.DeploymentResult{}, err
+		}
+	}
+
 	return fn.DeploymentResult{
 		Status:    deployResult.Status,
-		URL:       fmt.Sprintf("http://%s:8080", hosts[0]), // TODO: check on HTTPS too
+		URL:       url,
 		Namespace: deployResult.Namespace,
 		Deployer:  KedaDeployerName,
+		Expose:    appliedExpose,
 	}, nil
 }
 
@@ -206,10 +318,10 @@ func (d *Deployer) httpScaledObject(f fn.Function, namespace string, deployment 
 }
 
 func (d *Deployer) interceptorBridgeServiceName(f fn.Function) string {
-	return fmt.Sprintf("%s-interceptor-bridge", f.Name)
+	return f.Name + interceptorBridgeSuffix
 }
 
-func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string, deployment *v1.Deployment) *corev1.Service {
+func (d *Deployer) interceptorBridgeService(f fn.Function, namespace, interceptorNS string, deployment *v1.Deployment) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      d.interceptorBridgeServiceName(f),
@@ -226,7 +338,7 @@ func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string, dep
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: "keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local",
+			ExternalName: fmt.Sprintf("%s.%s.svc.cluster.local", interceptorServiceName, interceptorNS),
 		},
 	}
 }
@@ -235,8 +347,8 @@ func (d *Deployer) interceptorBridgeService(f fn.Function, namespace string, dep
 // this service will server as an external-name service and forward the request to the keda interceptor-proxy by
 // preserving the host name. This service name is also used in the HTTPScaledObject as host name to allow the
 // interceptor to match the request with the correct target/scaledObject.
-func (d *Deployer) ensureInterceptorBridgeService(ctx context.Context, clientset *kubernetes.Clientset, f fn.Function, namespace string, deployment *v1.Deployment) error {
-	expected := d.interceptorBridgeService(f, namespace, deployment)
+func (d *Deployer) ensureInterceptorBridgeService(ctx context.Context, clientset *kubernetes.Clientset, f fn.Function, namespace, interceptorNS string, deployment *v1.Deployment) error {
+	expected := d.interceptorBridgeService(f, namespace, interceptorNS, deployment)
 	existing, err := clientset.CoreV1().Services(expected.Namespace).Get(ctx, expected.Name, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
