@@ -40,7 +40,27 @@ KVER         ?= $(shell git describe --tags --match 'knative-*' 2>/dev/null)
 
 LDFLAGS      := -X knative.dev/func/pkg/version.Vers=$(VERS) -X knative.dev/func/pkg/version.Kver=$(KVER) -X knative.dev/func/pkg/version.Hash=$(HASH)
 
-FUNC_UTILS_IMG ?= ghcr.io/knative/func-utils:v2
+# func-utils image (multi-call binary for on-cluster tasks; see
+# docs/func-utils-image.md for the tag and compatibility policy).
+#
+# Release builds pin to a per-minor tag "X.Y" so released CLIs are not
+# broken by later changes on main; everything else (main, nightly, PR,
+# local dev) floats on "v2". Pinning triggers when either:
+#   - KVER is an exact release version ("v1.24.0" as passed by Prow via
+#     hack/release.sh, or "knative-v1.24.0" when HEAD is exactly tagged), or
+#   - the current git branch is a release branch ("release-X.Y").
+# Nightly KVERs ("vYYYYMMDD-hash") and git-describe suffixes
+# ("knative-v1.24.0-3-gabc") intentionally do not match.
+# An explicitly provided FUNC_UTILS_IMG always wins (used downstream).
+FUNC_UTILS_TAG := $(shell \
+	if echo "$(KVER)" | grep -qE '^(knative-)?v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		echo "$(KVER)" | sed -E 's/^(knative-)?v([0-9]+\.[0-9]+)\.[0-9]+$$/\2/'; \
+	elif git branch --show-current 2>/dev/null | grep -qE '^release-[0-9]+\.[0-9]+$$'; then \
+		git branch --show-current | sed -e 's/^release-//'; \
+	else \
+		echo v2; \
+	fi)
+FUNC_UTILS_IMG ?= ghcr.io/knative/func-utils:$(FUNC_UTILS_TAG)
 LDFLAGS += -X knative.dev/func/pkg/k8s.SocatImage=$(FUNC_UTILS_IMG)
 LDFLAGS += -X knative.dev/func/pkg/k8s.TarImage=$(FUNC_UTILS_IMG)
 LDFLAGS += -X knative.dev/func/pkg/pipelines/tekton.FuncUtilImage=$(FUNC_UTILS_IMG)
@@ -340,6 +360,10 @@ func-instrumented-bin: # func binary instrumented with coverage reporting
 ######################
 ##@ Release Artifacts
 ######################
+
+.PHONY: func-utils-image
+func-utils-image: ## Print the func-utils image reference embedded into builds
+	@echo "$(FUNC_UTILS_IMG)"
 
 .PHONY: cross-platform
 cross-platform: darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 linux-ppc64le linux-s390x windows ## Build all distributable (cross-platform) binaries
