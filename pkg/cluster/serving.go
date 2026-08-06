@@ -74,11 +74,11 @@ func configureDNS(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	return fmt.Errorf("unable to set Knative domain after 10 attempts: %w", lastErr)
 }
 
-// installNetworking installs Contour ingress controller and configures Knative
-// to use it. The Contour YAML is modified in Go (replacing yq) to add IPv6
-// dual-stack support args.
-func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
-	start := time.Now()
+// installContour installs the Contour ingress controller (contour-external)
+// used by standard Kubernetes Ingress objects (registry.localtest.me, broker
+// host, etc.). Mirrors the Contour half of hack/cluster.sh networking().
+// Does not install knative net-contour or patch Serving — that is installNetworking.
+func installContour(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
 	status(out, "Installing Ingress Controller (Contour)")
 	fmt.Fprintf(out, "Version: %s\n", contourVersion)
 
@@ -106,13 +106,42 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 		return fmt.Errorf("waiting for contour pods: %w", err)
 	}
 
+	fmt.Fprintln(out, "Patching contour to prefer dual-stack")
+	err = run(ctx, out, "",
+		cfg.kubectl(), "patch", "-n", "contour-external", "svc/envoy",
+		"--type", "merge",
+		"--patch", `{"spec":{"ipFamilyPolicy":"PreferDualStack"}}`)
+	if err != nil {
+		return fmt.Errorf("patching contour dual-stack: %w", err)
+	}
+
+	err = run(ctx, out, "",
+		cfg.kubectl(), "wait", "pod", "--for=condition=Ready", "-l", "!job-name",
+		"-n", "contour-external", "--timeout=10m")
+	if err != nil {
+		return fmt.Errorf("waiting for contour: %w", err)
+	}
+	return nil
+}
+
+// installNetworking installs Contour and configures Knative Serving to use it.
+// Mirrors hack/cluster.sh networking() (Contour + net-contour + Serving patches).
+// Callers that need Contour without Serving (e.g. --serving=false + registry
+// host Ingress) should use installContour only.
+func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) error {
+	start := time.Now()
+
+	if err := installContour(ctx, cfg, out); err != nil {
+		return err
+	}
+
 	fmt.Fprintln(out, "Installing the Knative Contour controller.")
 	netContourURL := fmt.Sprintf("https://github.com/knative/net-contour/releases/download/knative-%s/net-contour.yaml", contourVersion)
 	if err := run(ctx, out, "", cfg.kubectl(), "apply", "-f", netContourURL); err != nil {
 		return fmt.Errorf("applying net-contour: %w", err)
 	}
 
-	err = run(ctx, out, "",
+	err := run(ctx, out, "",
 		cfg.kubectl(), "wait", "pod",
 		"--for=condition=Ready", "-l", "!job-name",
 		"-n", "knative-serving", "--timeout=10m")
@@ -136,22 +165,6 @@ func installNetworking(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 		"--patch", `{"data":{"domain-template":"{{.Name}}-{{.Namespace}}-ksvc.{{.Domain}}"}}`)
 	if err != nil {
 		return fmt.Errorf("patching domain-template: %w", err)
-	}
-
-	fmt.Fprintln(out, "Patching contour to prefer dual-stack")
-	err = run(ctx, out, "",
-		cfg.kubectl(), "patch", "-n", "contour-external", "svc/envoy",
-		"--type", "merge",
-		"--patch", `{"spec":{"ipFamilyPolicy":"PreferDualStack"}}`)
-	if err != nil {
-		return fmt.Errorf("patching contour dual-stack: %w", err)
-	}
-
-	err = run(ctx, out, "",
-		cfg.kubectl(), "wait", "pod", "--for=condition=Ready", "-l", "!job-name",
-		"-n", "contour-external", "--timeout=10m")
-	if err != nil {
-		return fmt.Errorf("waiting for contour: %w", err)
 	}
 
 	err = run(ctx, out, "",
