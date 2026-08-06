@@ -34,10 +34,9 @@ func configureMagicDNS(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 		return err
 	}
 	if err := run(ctx, out, "",
-		cfg.kubectl(), "wait", "pod",
-		"--for=condition=Ready", "-l", "!job-name",
+		cfg.kubectl(), "rollout", "status", "deploy/coredns",
 		"-n", "kube-system", "--timeout=60s"); err != nil {
-		return fmt.Errorf("waiting for coredns: %w", err)
+		return fmt.Errorf("waiting for coredns rollout: %w", err)
 	}
 
 	success(out, "Magic DNS", time.Since(start))
