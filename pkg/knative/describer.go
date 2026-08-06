@@ -126,7 +126,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	// get used image (including the sha)
 	clientset, err := k8s.NewKubernetesClientset()
 	if err != nil {
-		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %v", err)
+		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %w", err)
 	}
 
 	deploymentClient := clientset.AppsV1().Deployments(namespace)

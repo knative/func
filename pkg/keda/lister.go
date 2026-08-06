@@ -26,12 +26,12 @@ func NewLister(verbose bool) fn.Lister {
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
 	clientset, err := k8s.NewKubernetesClientset()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client: %v", err)
+		return nil, fmt.Errorf("unable to create k8s client: %w", err)
 	}
 
 	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create HTTPScaledObject client: %v", err)
+		return nil, fmt.Errorf("unable to create HTTPScaledObject client: %w", err)
 	}
 
 	serviceClient := clientset.CoreV1().Services(namespace)
@@ -40,7 +40,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 		LabelSelector: "function.knative.dev/name",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to list services: %v", err)
+		return nil, fmt.Errorf("unable to list services: %w", err)
 	}
 
 	listItems := make([]fn.ListItem, 0, len(services.Items))
@@ -51,7 +51,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 
 		item, err := l.get(ctx, httpScaledObjectClientset, service.Name, service.Namespace)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get details about function: %v", err)
+			return nil, fmt.Errorf("unable to get details about function: %w", err)
 		}
 
 		listItems = append(listItems, item)
@@ -64,7 +64,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 func (l *Lister) get(ctx context.Context, httpScaledObjectClientset *versioned.Clientset, name, namespace string) (fn.ListItem, error) {
 	httpScaledObject, err := httpScaledObjectClientset.HttpV1alpha1().HTTPScaledObjects(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return fn.ListItem{}, fmt.Errorf("unable to get HTTPScaledObject: %v", err)
+		return fn.ListItem{}, fmt.Errorf("unable to get HTTPScaledObject: %w", err)
 	}
 
 	ready := v1.ConditionUnknown
