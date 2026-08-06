@@ -14,7 +14,7 @@ func TestGetECRCredentialLoader(t *testing.T) {
 	}
 	loader := loaders[0]
 
-	t.Run("non-ECR registry returns ErrCredentialsNotFound", func(t *testing.T) {
+	t.Run("non-ECR registry returns ErrCredentialsNotFound error", func(t *testing.T) {
 		_, err := loader("gcr.io")
 		if !errors.Is(err, creds.ErrCredentialsNotFound) {
 			t.Errorf("expected ErrCredentialsNotFound, got %v", err)
