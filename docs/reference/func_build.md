@@ -58,6 +58,7 @@ func build
 
 ```
       --base-image string          Override the base image for your function (host builder only)
+      --build-ca-file string       Path to CA certificate file for SSL verification during build (build-time only). Useful when building behind corporate proxies with SSL inspection. ($FUNC_BUILD_CA_FILE)
       --build-timestamp            Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
   -b, --builder string             Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
       --builder-image string       Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
