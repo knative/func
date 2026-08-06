@@ -152,6 +152,10 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Envs Add Help", "help for 'config envs add'", "config", "envs", "add"))
 	i.AddResource(newHelpResource(s, "Envs Remove Help", "help for 'config envs remove'", "config", "envs", "remove"))
 
+	// Prompts
+	// -------
+	i.AddPrompt(funcWorkflowPrompt, funcWorkflowHandler)
+
 	s.impl = i
 
 	return s
