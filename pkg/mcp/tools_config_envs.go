@@ -86,6 +86,9 @@ type ConfigEnvsAddInput struct {
 // constructed and forwarded to the CLI. Character-set validation is deferred to
 // func's own parser, keeping this layer as a thin pass-through.
 func (i ConfigEnvsAddInput) validate() error {
+	if i.Value == nil && i.SecretName == nil && i.ConfigMapName == nil {
+		return fmt.Errorf("at least one of value, secretName, or configMapName must be provided")
+	}
 	if i.Value != nil && (i.SecretName != nil || i.ConfigMapName != nil) {
 		return fmt.Errorf("value is mutually exclusive with secretName/configMapName; provide one or the other")
 	}
@@ -169,14 +172,13 @@ var configEnvsRemoveTool = &mcp.Tool{
 }
 
 type ConfigEnvsRemoveInput struct {
-	Path    string  `json:"path" jsonschema:"required,Path to the function project directory"`
-	Name    *string `json:"name,omitempty" jsonschema:"Name of the environment variable to remove"`
-	Verbose *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
+	Path    string `json:"path" jsonschema:"required,Path to the function project directory"`
+	Name    string `json:"name" jsonschema:"required,Name of the environment variable to remove"`
+	Verbose *bool  `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
 func (i ConfigEnvsRemoveInput) Args() []string {
-	args := []string{"envs", "remove", "--path", i.Path}
-	args = appendStringFlag(args, "--name", i.Name)
+	args := []string{"envs", "remove", "--path", i.Path, "--name", i.Name}
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
 	return args
 }
@@ -186,6 +188,10 @@ type ConfigEnvsRemoveOutput struct {
 }
 
 func (s *Server) configEnvsRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsRemoveInput) (result *mcp.CallToolResult, output ConfigEnvsRemoveOutput, err error) {
+	if input.Name == "" {
+		err = fmt.Errorf("'name' must not be empty")
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
