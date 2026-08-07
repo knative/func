@@ -15,6 +15,7 @@ The Functions MCP server is currently running in **read-only mode**.
 **Disabled operations:**
 - Deploy to cluster
 - Delete from cluster
+- Run/stop Functions locally
 
 These write operations are disabled to prevent unintended cluster modifications.
 
