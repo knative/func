@@ -26,8 +26,8 @@ type Server struct {
 	prefix    string                // Command prefix ("func" or "kn func")
 	readonly  atomic.Bool           // disables deploy and delete when true
 	executor  executor
-	transport mcp.Transport // Transport to use (defaults to StdioTransport)
-	impl      *mcp.Server   // implements the protocol
+	transport mcp.Transport  // Transport to use (defaults to StdioTransport)
+	impl      *mcp.Server    // implements the protocol
 	starter   processStarter // starts long-lived "func run" subprocesses
 	runs      *runRegistry   // tracks active local runs, keyed by function path
 }
