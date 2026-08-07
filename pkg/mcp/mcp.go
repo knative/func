@@ -118,6 +118,7 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, configEnvsListTool, s.configEnvsListHandler)
 	mcp.AddTool(i, configEnvsAddTool, s.configEnvsAddHandler)
 	mcp.AddTool(i, configEnvsRemoveTool, s.configEnvsRemoveHandler)
+	mcp.AddTool(i, configCITool, s.configCIHandler)
 
 	// Resources
 	// ---------
@@ -151,6 +152,8 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Envs Help", "general help for environment variables", "config", "envs"))
 	i.AddResource(newHelpResource(s, "Envs Add Help", "help for 'config envs add'", "config", "envs", "add"))
 	i.AddResource(newHelpResource(s, "Envs Remove Help", "help for 'config envs remove'", "config", "envs", "remove"))
+
+	i.AddResource(newHelpResource(s, "CI Help", "help for 'config ci'", "config", "ci"))
 
 	s.impl = i
 
