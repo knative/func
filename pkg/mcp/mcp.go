@@ -29,6 +29,8 @@ type Server struct {
 	executor  executor
 	transport mcp.Transport // Transport to use (defaults to StdioTransport)
 	impl      *mcp.Server   // implements the protocol
+	starter   processStarter // starts long-lived "func run" subprocesses
+	runs      *runRegistry   // tracks active local runs, keyed by function path
 }
 
 type executor interface {
@@ -70,6 +72,14 @@ func WithExecutor(executor executor) Option {
 	}
 }
 
+// WithProcessStarter sets a custom process starter for the "run" tool; used
+// in tests.
+func WithProcessStarter(starter processStarter) Option {
+	return func(s *Server) {
+		s.starter = starter
+	}
+}
+
 // WithTransport sets a custom transport for the server; used in tests.
 func WithTransport(transport mcp.Transport) Option {
 	return func(s *Server) {
@@ -92,6 +102,8 @@ func New(options ...Option) *Server {
 		OnInit:    func(_ context.Context) {},
 	}
 	s.executor = defaultExecutor{s}
+	s.starter = defaultProcessStarter{s}
+	s.runs = newRunRegistry()
 	for _, o := range options {
 		o(s)
 	}
@@ -121,6 +133,8 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, listTool, s.listHandler)
 	mcp.AddTool(i, describeTool, s.describeHandler)
 	mcp.AddTool(i, deleteTool, s.deleteHandler)
+	mcp.AddTool(i, runTool, s.runHandler)
+	mcp.AddTool(i, runStopTool, s.runStopHandler)
 	mcp.AddTool(i, configVolumesListTool, s.configVolumesListHandler)
 	mcp.AddTool(i, configVolumesAddTool, s.configVolumesAddHandler)
 	mcp.AddTool(i, configVolumesRemoveTool, s.configVolumesRemoveHandler)
