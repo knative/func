@@ -34,6 +34,8 @@ This is essential because:
 - `deploy` tool: path = absolute path to Function directory (where func.yaml exists)
 - `build` tool: path = absolute path to Function directory (where func.yaml exists)
 - `config_*_list`, `config_*_add`, `config_*_remove` tools: path = absolute path to Function directory (where func.yaml exists)
+- `run` tool: path = absolute path to Function directory (where func.yaml exists)
+- `run_stop` tool: path = the SAME absolute path passed to `run` when starting it
 
 **IMPORTANT:** You must use absolute paths (e.g., `/Users/name/myproject/myfunc`), NOT relative paths (e.g., `.` or `myfunc`). The MCP server process runs in a different directory than your current working directory, so relative paths will not resolve correctly.
 
@@ -58,6 +60,7 @@ This is essential because:
 - Before 'build' → Read `func://help/build`
 - Before 'list' → Read `func://help/list`
 - Before 'delete' → Read `func://help/delete`
+- Before 'run' → Read `func://help/run`
 
 The help text provides authoritative parameter information and usage context.
 
@@ -139,6 +142,25 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
   2. **Delete by NAME:** Provide 'name' parameter (deletes named function from cluster)
 - Exactly ONE of 'path' or 'name' must be provided, not both
 - Deleting does not affect local files (source). Only cluster resources.
+
+### run
+
+- **FIRST:** Read `func://help/run` for authoritative usage information
+- **OPTIONAL parameters:**
+  - `path` (directory containing the Function to run; ALWAYS pass the absolute path explicitly — omitting it defaults to the MCP server's own working directory, not yours)
+  - `registry` (container registry; only needed if the Function's image must be named/built)
+  - `build` (force a rebuild before running; omit to let func build automatically only when out of date)
+  - `port` (host port to bind; omit to use 8080 or the first available port)
+- Builds the Function locally if needed, starts it, and returns once it is up: `pid` (process ID) and `url`
+- The Function keeps running in the background after the tool call returns
+- Only ONE run may be active per Function path at a time — calling `run` again for a path that is already running fails with a clear error; call `run_stop` first
+- ALWAYS call `run_stop` with the matching `path` when finished, to free the port and clean up
+
+### run_stop
+
+- Stops a Function previously started with `run`
+- **REQUIRED:** `path` must match (resolve to) the same absolute path used to start it with `run`
+- Returns a clear error if no active run is found for that path
 
 ### config_envs_list, config_envs_add, config_envs_remove
 
