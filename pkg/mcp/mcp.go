@@ -104,6 +104,7 @@ func New(options ...Option) *Server {
 	// -----
 	// One for each command or command group
 	mcp.AddTool(i, healthCheckTool, s.healthcheckHandler)
+	mcp.AddTool(i, versionTool, s.versionHandler)
 	mcp.AddTool(i, createTool, s.createHandler)
 	mcp.AddTool(i, buildTool, s.buildHandler)
 	mcp.AddTool(i, deployTool, s.deployHandler)
