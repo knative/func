@@ -105,10 +105,10 @@ func writeTestScript(t *testing.T, preSleep time.Duration, stdoutLines ...string
 	b.WriteString("#!/bin/sh\n")
 	b.WriteString("trap 'exit 0' TERM\n")
 	if preSleep > 0 {
-		b.WriteString(fmt.Sprintf("sleep %f\n", preSleep.Seconds()))
+		fmt.Fprintf(&b, "sleep %f\n", preSleep.Seconds())
 	}
 	for _, line := range stdoutLines {
-		b.WriteString(fmt.Sprintf("echo '%s'\n", line))
+		fmt.Fprintf(&b, "echo '%s'\n", line)
 	}
 	b.WriteString("while true; do sleep 1; done\n")
 
