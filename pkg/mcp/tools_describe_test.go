@@ -194,3 +194,49 @@ func TestTool_Describe_MalformedJSON(t *testing.T) {
 		t.Fatal("expected describe to return an error result for malformed JSON output")
 	}
 }
+
+// TestTool_Describe_LeadingStderrWarning ensures the handler still parses
+// the JSON payload when the executor's combined stdout+stderr output has
+// leading non-JSON noise (e.g. a warning printed to stderr before the CLI
+// writes its JSON payload to stdout).
+func TestTool_Describe_LeadingStderrWarning(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		return []byte("Warning: unable to determine cluster permissions\n" + `{
+			"name": "my-function",
+			"namespace": "prod",
+			"ready": "true"
+		}`), nil
+	}
+
+	client, server, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly.Store(false)
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "describe",
+		Arguments: map[string]any{"name": "my-function"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+
+	var output DescribeOutput
+	if err := unmarshalStructuredContent(result, &output); err != nil {
+		t.Fatal(err)
+	}
+	if output.Name != "my-function" {
+		t.Errorf("expected name %q, got %q", "my-function", output.Name)
+	}
+	if output.Namespace != "prod" {
+		t.Errorf("expected namespace %q, got %q", "prod", output.Namespace)
+	}
+	if output.Ready != "true" {
+		t.Errorf("expected ready %q, got %q", "true", output.Ready)
+	}
+}

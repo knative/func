@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -33,8 +34,8 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 		return
 	}
 
-	var instance fn.Instance
-	if err = json.Unmarshal(out, &instance); err != nil {
+	instance, err := parseDescribeOutput(out)
+	if err != nil {
 		err = fmt.Errorf("failed to parse describe output: %w\n%s", err, string(out))
 		return
 	}
@@ -52,6 +53,30 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 		Revision:      instance.Revision,
 	}
 	return
+}
+
+// parseDescribeOutput extracts and parses the JSON object emitted by
+// `func describe --output json`. The executor captures combined
+// stdout+stderr (see defaultExecutor.Execute), so warnings written to
+// stderr (e.g. cluster permission notices) may precede the JSON payload
+// on success. This skips any leading non-JSON noise by scanning for the
+// first '{' that begins a successfully-parseable JSON object.
+func parseDescribeOutput(out []byte) (fn.Instance, error) {
+	var instance fn.Instance
+	rest := out
+	offset := 0
+	for {
+		idx := bytes.IndexByte(rest, '{')
+		if idx == -1 {
+			return instance, fmt.Errorf("no JSON object found in output")
+		}
+		offset += idx
+		if err := json.Unmarshal(out[offset:], &instance); err == nil {
+			return instance, nil
+		}
+		offset++
+		rest = out[offset:]
+	}
 }
 
 // DescribeInput defines the input parameters for the describe tool.
