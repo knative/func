@@ -9,6 +9,9 @@ import (
 type Executor struct {
 	ExecuteInvoked bool
 	ExecuteFn      func(context.Context, string, ...string) ([]byte, error)
+
+	ExecuteSplitInvoked bool
+	ExecuteSplitFn      func(context.Context, string, ...string) (stdout, stderr []byte, err error)
 }
 
 // NewExecutor creates a new mock executor
@@ -26,4 +29,16 @@ func (m *Executor) Execute(ctx context.Context, subcommand string, args ...strin
 	}
 
 	return []byte(""), nil
+}
+
+// ExecuteSplit implements the executor interface, recording invocation
+// details and delegating to ExecuteSplitFn if provided.
+func (m *Executor) ExecuteSplit(ctx context.Context, subcommand string, args ...string) ([]byte, []byte, error) {
+	m.ExecuteSplitInvoked = true
+
+	if m.ExecuteSplitFn != nil {
+		return m.ExecuteSplitFn(ctx, subcommand, args...)
+	}
+
+	return []byte(""), []byte(""), nil
 }
