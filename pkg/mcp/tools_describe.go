@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,7 +12,7 @@ import (
 var describeTool = &mcp.Tool{
 	Name:        "describe",
 	Title:       "Describe Function",
-	Description: "Describe a deployed Function: URL, image, namespace, labels, readiness, and event subscriptions.",
+	Description: "Describe a deployed Function: URL, routes, image, namespace, deployer, labels, revision, readiness, and event subscriptions.",
 	Annotations: &mcp.ToolAnnotations{
 		Title:          "Describe Function",
 		ReadOnlyHint:   true,
@@ -28,15 +27,21 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 		return
 	}
 
-	out, err := s.executor.Execute(ctx, "describe", input.Args()...)
+	// ExecuteSplit (rather than Execute/CombinedOutput) is required here:
+	// the CLI can write warnings to stderr on an otherwise-successful call
+	// (e.g. permission warnings from the knative describer), and stdout and
+	// stderr copied via CombinedOutput have no guaranteed relative ordering.
+	// Parsing JSON only ever out of a clean, unmixed stdout avoids that
+	// entirely rather than relying on any heuristic about stream ordering.
+	stdout, stderr, err := s.executor.ExecuteSplit(ctx, "describe", input.Args()...)
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
+		err = fmt.Errorf("%w\nstdout: %s\nstderr: %s", err, string(stdout), string(stderr))
 		return
 	}
 
-	instance, err := parseDescribeOutput(out)
-	if err != nil {
-		err = fmt.Errorf("failed to parse describe output: %w\n%s", err, string(out))
+	var instance fn.Instance
+	if err = json.Unmarshal(stdout, &instance); err != nil {
+		err = fmt.Errorf("failed to parse describe output: %w\n%s", err, string(stdout))
 		return
 	}
 
@@ -53,30 +58,6 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 		Revision:      instance.Revision,
 	}
 	return
-}
-
-// parseDescribeOutput extracts and parses the JSON object emitted by
-// `func describe --output json`. The executor captures combined
-// stdout+stderr (see defaultExecutor.Execute), so warnings written to
-// stderr (e.g. cluster permission notices) may precede the JSON payload
-// on success. This skips any leading non-JSON noise by scanning for the
-// first '{' that begins a successfully-parseable JSON object.
-func parseDescribeOutput(out []byte) (fn.Instance, error) {
-	var instance fn.Instance
-	rest := out
-	offset := 0
-	for {
-		idx := bytes.IndexByte(rest, '{')
-		if idx == -1 {
-			return instance, fmt.Errorf("no JSON object found in output")
-		}
-		offset += idx
-		if err := json.Unmarshal(out[offset:], &instance); err == nil {
-			return instance, nil
-		}
-		offset++
-		rest = out[offset:]
-	}
 }
 
 // DescribeInput defines the input parameters for the describe tool.
@@ -117,5 +98,5 @@ type DescribeOutput struct {
 	Deployer      string            `json:"deployer,omitempty" jsonschema:"Deployer backend (knative, k8s, keda)"`
 	Labels        map[string]string `json:"labels,omitempty" jsonschema:"Function labels"`
 	Subscriptions []fn.Subscription `json:"subscriptions,omitempty" jsonschema:"Active event subscriptions"`
-	Revision      string            `json:"revision,omitempty" jsonschema:"Source commit SHA embedded in the image"`
+	Revision      string            `json:"revision,omitempty" jsonschema:"Source commit SHA, read from the OCI revision label baked into the built image"`
 }

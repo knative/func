@@ -27,7 +27,7 @@ func TestTool_Describe_Args(t *testing.T) {
 	name := "my-function"
 
 	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+	executor.ExecuteSplitFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, []byte, error) {
 		if subcommand != "describe" {
 			t.Fatalf("expected subcommand 'describe', got %q", subcommand)
 		}
@@ -53,10 +53,14 @@ func TestTool_Describe_Args(t *testing.T) {
 			"output": {"output", "--output", "json"},
 		})
 
+		// NOTE: fn.Instance.Route has no json tag (unlike its sibling
+		// fields), so real `func describe --output json` output emits
+		// "Route" capitalized. Using that exact casing here (rather than
+		// "route") keeps this test honest about the real CLI wire format.
 		return []byte(`{
 			"name": "my-function",
 			"namespace": "prod",
-			"route": "https://my-function.prod.example.com",
+			"Route": "https://my-function.prod.example.com",
 			"routes": ["https://my-function.prod.example.com"],
 			"image": "docker.io/alice/my-function:latest",
 			"deployer": "knative",
@@ -64,7 +68,7 @@ func TestTool_Describe_Args(t *testing.T) {
 			"subscriptions": [{"source": "src", "type": "type", "broker": "default"}],
 			"revision": "abc123",
 			"ready": "true"
-		}`), nil
+		}`), nil, nil
 	}
 
 	client, server, err := newTestPair(t, WithExecutor(executor))
@@ -86,7 +90,7 @@ func TestTool_Describe_Args(t *testing.T) {
 	if result.IsError {
 		t.Fatalf("unexpected error result: %v", result)
 	}
-	if !executor.ExecuteInvoked {
+	if !executor.ExecuteSplitInvoked {
 		t.Fatal("executor was not invoked")
 	}
 
@@ -174,8 +178,8 @@ func TestTool_Describe_RequiresPathOrName(t *testing.T) {
 // (rather than panicking) when the CLI output cannot be parsed as JSON.
 func TestTool_Describe_MalformedJSON(t *testing.T) {
 	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		return []byte("not json"), nil
+	executor.ExecuteSplitFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, []byte, error) {
+		return []byte("not json"), nil, nil
 	}
 
 	client, _, err := newTestPair(t, WithExecutor(executor))
@@ -195,18 +199,24 @@ func TestTool_Describe_MalformedJSON(t *testing.T) {
 	}
 }
 
-// TestTool_Describe_LeadingStderrWarning ensures the handler still parses
-// the JSON payload when the executor's combined stdout+stderr output has
-// leading non-JSON noise (e.g. a warning printed to stderr before the CLI
-// writes its JSON payload to stdout).
-func TestTool_Describe_LeadingStderrWarning(t *testing.T) {
+// TestTool_Describe_StderrWarningDoesNotBreakParsing ensures the handler
+// parses the JSON payload correctly even when the CLI writes a warning to
+// stderr on an otherwise-successful call (e.g. the knative describer's
+// permission warnings, see pkg/knative/describer.go). This is exactly the
+// scenario ExecuteSplit exists for: stdout and stderr are captured into
+// independent buffers by the executor, so stderr content can never corrupt
+// the JSON parse regardless of how the two streams would have interleaved
+// under CombinedOutput.
+func TestTool_Describe_StderrWarningDoesNotBreakParsing(t *testing.T) {
 	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		return []byte("Warning: unable to determine cluster permissions\n" + `{
+	executor.ExecuteSplitFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, []byte, error) {
+		stdout := []byte(`{
 			"name": "my-function",
 			"namespace": "prod",
 			"ready": "true"
-		}`), nil
+		}`)
+		stderr := []byte("Warning: cannot list eventing triggers (permission denied) - skipping\n")
+		return stdout, stderr, nil
 	}
 
 	client, server, err := newTestPair(t, WithExecutor(executor))

@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os/exec"
@@ -32,6 +33,14 @@ type Server struct {
 
 type executor interface {
 	Execute(ctx context.Context, subcommand string, args ...string) ([]byte, error)
+	// ExecuteSplit runs the command and returns stdout and stderr captured
+	// into separate buffers. Unlike Execute (which uses CombinedOutput and
+	// therefore offers no guarantee about the relative ordering of stdout
+	// and stderr bytes - they're copied by two independently-scheduled
+	// goroutines), ExecuteSplit gives each stream its own buffer, so callers
+	// that need to parse structured output (e.g. JSON) from stdout can do so
+	// without risk of stderr content (warnings, etc.) corrupting the parse.
+	ExecuteSplit(ctx context.Context, subcommand string, args ...string) (stdout, stderr []byte, err error)
 }
 
 type Option func(*Server)
@@ -178,6 +187,17 @@ func (e defaultExecutor) Execute(ctx context.Context, subcommand string, args ..
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
 	// cmd.Dir not set - inherits process working directory which is the current working directory
 	return cmd.CombinedOutput()
+}
+
+func (e defaultExecutor) ExecuteSplit(ctx context.Context, subcommand string, args ...string) (stdout, stderr []byte, err error) {
+	cmdParts := buildArgs(e.s.prefix, subcommand, args)
+	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
+	// cmd.Dir not set - inherits process working directory which is the current working directory
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	err = cmd.Run()
+	return outBuf.Bytes(), errBuf.Bytes(), err
 }
 
 // buildArgs constructs the ordered argument list for execution.
