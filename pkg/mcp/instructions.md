@@ -166,3 +166,12 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - `config_volumes_add` — adds a volume; accepts `type` (configmap, secret, pvc, emptydir), `mountPath`, `source`, `medium`, `size`, `readOnly`
 - `config_volumes_remove` — removes a volume by `mountPath`
 - add/remove modify local func.yaml only (changes take effect on next deploy)
+
+### config_ci
+
+- **BEFORE calling:** Consider reading `func://help/config/ci` for authoritative usage
+- Requires the `path` parameter (absolute path to the Function directory)
+- Generates a GitHub Actions workflow (`.github/workflows/func-deploy.yaml` by default) that builds, tests, and deploys the Function on every push to `branch`
+- This is the last step of the production lifecycle: create → build/deploy → **config_ci** to wire up continuous deployment
+- Fails if a workflow file already exists at that path unless `force` is set to `true`
+- **IMPORTANT:** This command is gated behind an experimental feature flag. If it fails with an error like `unknown command "ci" for "config"`, the `func` binary backing this MCP server does not have `FUNC_ENABLE_CI_CONFIG=true` set in its environment — inform the user they need to set that environment variable when starting the MCP server (e.g. in their MCP client's server config) and restart it
