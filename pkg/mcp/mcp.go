@@ -135,6 +135,7 @@ func New(options ...Option) *Server {
 	// A resource for each command which returns its help
 	// eg. "config volumes add" -> "func://help/config/volumes/add")
 	i.AddResource(newHelpResource(s, "Help", "help for the command root"))
+	i.AddResource(newHelpResource(s, "Version Help", "help for 'version'", "version"))
 	i.AddResource(newHelpResource(s, "Create Help", "help for 'create'", "create"))
 	i.AddResource(newHelpResource(s, "Build Help", "help for 'build'", "build"))
 	i.AddResource(newHelpResource(s, "Deploy Help", "help for 'deploy'", "deploy"))
