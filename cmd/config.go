@@ -8,17 +8,18 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"knative.dev/func/cmd/ci"
 	"knative.dev/func/cmd/common"
+	"knative.dev/func/pkg/ci/github"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
 
 func NewConfigCmd(
 	loaderSaver common.FunctionLoaderSaver,
-	writer ci.WorkflowWriter,
+	workflowWriter github.WorkflowWriter,
 	currentBranch common.CurrentBranchFunc,
 	workingDir common.WorkDirFunc,
+	newCIGenerator ciGeneratorFactory,
 	newClient ClientFactory,
 ) *cobra.Command {
 	cmd := &cobra.Command{
@@ -47,8 +48,15 @@ or from the directory specified with --path.
 	cmd.AddCommand(NewConfigEnvsCmd(loaderSaver))
 	cmd.AddCommand(NewConfigVolumesCmd())
 
-	if os.Getenv(ci.ConfigCIFeatureFlag) == "true" {
-		cmd.AddCommand(NewConfigCICmd(loaderSaver, writer, currentBranch, workingDir))
+	if os.Getenv(ConfigCIFeatureFlag) == "true" {
+		cmd.AddCommand(NewConfigCICmd(
+			loaderSaver,
+			workflowWriter,
+			currentBranch,
+			workingDir,
+			newCIGenerator,
+			newClient,
+		))
 	}
 
 	return cmd

@@ -1,7 +1,9 @@
-package ci
+package github
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -26,47 +28,55 @@ func (fw *failWriter) Write(p []byte) (int, error) {
 func TestPrintConfigurationFail(t *testing.T) {
 	t.Run("main layout write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 1, err: errWrite}
-		conf := CIConfig{fnRuntime: "go"}
 
-		err := PrintConfiguration(w, conf)
+		err := PrintConfiguration(WorkflowConfig{}, "go", w)
 
 		assert.Error(t, err, errWrite.Error())
 	})
 
 	t.Run("registry secrets write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 2, err: errWrite}
-		conf := CIConfig{registryLogin: true, fnRuntime: "go"}
+		opts := WorkflowConfig{RegistryLogin: true}
 
-		err := PrintConfiguration(w, conf)
+		err := PrintConfiguration(opts, "go", w)
 
 		assert.Error(t, err, errWrite.Error())
 	})
 
 	t.Run("single secret write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 2, err: errWrite}
-		conf := CIConfig{registryLogin: false, fnRuntime: "go"}
+		opts := WorkflowConfig{RegistryLogin: false}
 
-		err := PrintConfiguration(w, conf)
+		err := PrintConfiguration(opts, "go", w)
 
 		assert.Error(t, err, errWrite.Error())
+	})
+
+	t.Run("unsupported runtime fails", func(t *testing.T) {
+		runtime := "ruby"
+		expectedErr := fmt.Errorf("no builder support for runtime: %s", runtime)
+
+		err := PrintConfiguration(WorkflowConfig{}, runtime, &bytes.Buffer{})
+
+		assert.Error(t, err, expectedErr.Error())
 	})
 }
 
 func TestPrintPostExportMessageFail(t *testing.T) {
 	t.Run("with registry login write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 1, err: errWrite}
-		conf := CIConfig{registryLogin: true}
+		opts := WorkflowConfig{RegistryLogin: true}
 
-		err := PrintPostExportMessage(w, conf)
+		err := PrintPostExportMessage(opts, w)
 
 		assert.Error(t, err, errWrite.Error())
 	})
 
 	t.Run("without registry login write fails", func(t *testing.T) {
 		w := &failWriter{failOnCall: 1, err: errWrite}
-		conf := CIConfig{registryLogin: false}
+		opts := WorkflowConfig{RegistryLogin: false}
 
-		err := PrintPostExportMessage(w, conf)
+		err := PrintPostExportMessage(opts, w)
 
 		assert.Error(t, err, errWrite.Error())
 	})

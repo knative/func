@@ -1,12 +1,20 @@
 package k8s
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
+	"sync"
+	"time"
 
+	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
+	dockercreds "github.com/docker/docker-credential-helpers/credentials"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 
@@ -14,11 +22,22 @@ import (
 	"knative.dev/func/pkg/oci"
 )
 
+const (
+	defaultECRTimeout  = 5 * time.Second
+	defaultECRCacheTTL = 1 * time.Minute
+)
+
+type cachedCredential struct {
+	creds  oci.Credentials
+	err    error
+	expiry time.Time
+}
+
 func GetGoogleCredentialLoader() []creds.CredentialsCallback {
 	return []creds.CredentialsCallback{
 		func(registry string) (oci.Credentials, error) {
 			if registry != "gcr.io" {
-				return oci.Credentials{}, creds.ErrCredentialsNotFound // skip if not GCR
+				return oci.Credentials{}, creds.ErrCredentialsNotFound
 			}
 
 			res, err := name.NewRegistry(registry)
@@ -44,8 +63,111 @@ func GetGoogleCredentialLoader() []creds.CredentialsCallback {
 	}
 }
 
+func isAWSCredentialsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if dockercreds.IsErrCredentialsNotFound(err) {
+		return true
+	}
+
+	type awsError interface {
+		Code() string
+		Message() string
+	}
+	var awsErr awsError
+	if errors.As(err, &awsErr) {
+		if awsErr.Code() == "NoCredentialProviders" {
+			return true
+		}
+	}
+
+	type smithyAPIError interface {
+		ErrorCode() string
+		ErrorMessage() string
+	}
+	var smithyErr smithyAPIError
+	if errors.As(err, &smithyErr) {
+		if smithyErr.ErrorCode() == "NoCredentialProviders" {
+			return true
+		}
+	}
+
+	return false
+}
+
 func GetECRCredentialLoader() []creds.CredentialsCallback {
-	return []creds.CredentialsCallback{} // TODO: Implement ECR credentials loader
+	var cache sync.Map
+
+	return []creds.CredentialsCallback{
+		func(registry string) (oci.Credentials, error) {
+
+			if val, ok := cache.Load(registry); ok {
+				cached := val.(cachedCredential)
+				if time.Now().Before(cached.expiry) {
+					return cached.creds, cached.err
+				}
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), defaultECRTimeout)
+			defer cancel()
+
+			ecrHelper := ecr.NewECRHelper(ecr.WithLogger(io.Discard), ecr.WithContext(ctx))
+			ecrKeychain := authn.NewKeychainFromHelper(ecrHelper)
+
+			res, err := name.NewRegistry(registry)
+			if err != nil {
+				return oci.Credentials{}, fmt.Errorf("parse registry: %w", err)
+			}
+
+			authenticator, err := ecrKeychain.Resolve(res)
+			if err != nil {
+				if isAWSCredentialsNotFound(err) {
+					err = creds.ErrCredentialsNotFound
+				} else {
+					err = fmt.Errorf("resolve ECR keychain: %w", err)
+				}
+				cache.Store(registry, cachedCredential{
+					err:    err,
+					expiry: time.Now().Add(defaultECRCacheTTL),
+				})
+				return oci.Credentials{}, err
+			}
+
+			authCfg, err := authenticator.Authorization()
+			if err != nil {
+				if isAWSCredentialsNotFound(err) {
+					err = creds.ErrCredentialsNotFound
+				} else {
+					err = fmt.Errorf("get authorization: %w", err)
+				}
+				cache.Store(registry, cachedCredential{
+					err:    err,
+					expiry: time.Now().Add(defaultECRCacheTTL),
+				})
+				return oci.Credentials{}, err
+			}
+
+			if authCfg.Username == "" || authCfg.Password == "" {
+				err = creds.ErrCredentialsNotFound
+				cache.Store(registry, cachedCredential{
+					err:    err,
+					expiry: time.Now().Add(defaultECRCacheTTL),
+				})
+				return oci.Credentials{}, err
+			}
+
+			credsVal := oci.Credentials{
+				Username: authCfg.Username,
+				Password: authCfg.Password,
+			}
+			cache.Store(registry, cachedCredential{
+				creds:  credsVal,
+				expiry: time.Now().Add(defaultECRCacheTTL),
+			})
+			return credsVal, nil
+		},
+	}
 }
 
 func GetACRCredentialLoader() []creds.CredentialsCallback {

@@ -21,7 +21,8 @@ This command undeploys a function from the cluster. By default the function from
 the project in the current directory is undeployed. Alternatively either the name
 of the function can be given as argument or the project path provided with --path.
 
-No local files are deleted.
+No local files are deleted. When undeploying by project (not by name), on success
+the local func.yaml is updated to reflect that the function is no longer deployed.
 `,
 		Example: `
 # Undeploy the function defined in the local directory
@@ -82,13 +83,19 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	defer done()
 
 	if cfg.Name != "" { // Delete by name if provided
-		return client.Remove(cmd.Context(), cfg.Name, cfg.Namespace, fn.Function{}, cfg.All)
+		_, err = client.Remove(cmd.Context(), cfg.Name, cfg.Namespace, fn.Function{}, cfg.All)
+		return err
 	} else { // Otherwise; delete the function at path (cwd by default)
 		f, err := fn.NewFunction(cfg.Path)
 		if err != nil {
 			return err
 		}
-		return client.Remove(cmd.Context(), "", "", f, cfg.All)
+		// updates f.Deploy.<Deployer|Namespace> (clears them on success)
+		f, err = client.Remove(cmd.Context(), "", "", f, cfg.All)
+		if err != nil {
+			return err
+		}
+		return f.Write()
 	}
 }
 

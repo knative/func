@@ -175,9 +175,6 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		if effectiveFormat != "cloudevent" {
 			return fmt.Errorf("--extension (-e) is only valid with cloudevents")
 		}
-		if effectiveFormat != "" && effectiveFormat != "cloudevent" {
-			return fmt.Errorf("--extension flag is only valid with cloudevent format")
-		}
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
@@ -186,6 +183,10 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 
 	// Message to send the running function built from parameters gathered
 	// from the user (or defaults)
+	exts, err := cfg.parseExtensions()
+	if err != nil {
+		return err
+	}
 	m := fn.InvokeMessage{
 		ID:          cfg.ID,
 		Source:      cfg.Source,
@@ -194,7 +195,7 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		RequestType: strings.ToUpper(cfg.RequestType),
 		Data:        cfg.Data,
 		Format:      cfg.Format,
-		Extensions:  cfg.extensionsMap(),
+		Extensions:  exts,
 	}
 
 	// If --file was specified, use its content for message data
@@ -315,15 +316,16 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 	return
 }
 
-func (c invokeConfig) extensionsMap() map[string]string {
-	extensionsMap := make(map[string]string)
+func (c invokeConfig) parseExtensions() (map[string]string, error) {
+	result := make(map[string]string)
 	for _, ext := range c.Extensions {
 		parts := strings.SplitN(ext, "=", 2)
-		if len(parts) == 2 {
-			extensionsMap[parts[0]] = parts[1]
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
+			return nil, fmt.Errorf("invalid --extension %q: must be in key=value format", ext)
 		}
+		result[parts[0]] = parts[1]
 	}
-	return extensionsMap
+	return result, nil
 }
 
 func (c invokeConfig) prompt() (invokeConfig, error) {

@@ -1,6 +1,9 @@
 package functions
 
-import "fmt"
+import (
+	"fmt"
+	"path"
+)
 
 type Volume struct {
 	Secret                *string                `yaml:"secret,omitempty" jsonschema:"oneof_required=secret"`
@@ -81,8 +84,17 @@ func (v Volume) String() string {
 //   - emptyDir: {}                                         # mount EmptyDir as Volume
 //     path: /etc/configMap-volume
 func validateVolumes(volumes []Volume) (errors []string) {
-
+	seenPaths := make(map[string]int)
 	for i, vol := range volumes {
+		if vol.Path != nil {
+			cleanedPath := path.Clean(*vol.Path)
+			if firstIdx, seen := seenPaths[cleanedPath]; seen {
+				errors = append(errors, fmt.Sprintf("volume entry #%d has duplicate path %q (first defined at entry #%d)", i, *vol.Path, firstIdx))
+			} else {
+				seenPaths[cleanedPath] = i
+			}
+		}
+
 		numVolumes := 0
 		if vol.Secret != nil {
 			numVolumes++

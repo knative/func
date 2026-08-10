@@ -19,6 +19,32 @@ curl -v -X POST -d '{"message": "hello"}' \
   http://localhost:8080/
 ```
 
+## Consuming from Kafka
+
+This function can also consume messages from Apache Kafka. Kafka messages are
+automatically converted to CloudEvents and delivered to the same `Handle`
+method -- no code changes required.
+
+To enable Kafka, ensure `invoke` is set to `cloudevent` and add a `run.kafka`
+section to your `func.yaml`:
+
+```yaml
+invoke: cloudevent
+run:
+  kafka:
+    brokers: "my-cluster-kafka-bootstrap.kafka:9092"
+    topic: "my-topic"
+    consumerGroup: "my-function-group"
+```
+
+When deployed (or run locally with `func run`), the runtime will consume from
+the configured Kafka topic instead of listening for CloudEvents over HTTP. The
+HTTP server still runs for health checks.
+
+Messages that already carry CloudEvents headers (`ce_specversion`, `ce_type`,
+etc.) are passed through as-is. Plain Kafka messages are wrapped in a
+CloudEvent with type `dev.knative.kafka.event` and the message value as data.
+
 ### Import Private Go Modules
 If you want to use a module that is in a private `git` repository,
 you can do it by mounting credentials and by setting appropriate environment variable.

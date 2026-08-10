@@ -153,11 +153,17 @@ func deploy(ctx context.Context) error {
 	if f.Deploy.Image == "" {
 		f.Deploy.Image = f.Image
 	}
-	if f.Deploy.Deployer == "" {
-		f.Deploy.Deployer = knative.KnativeDeployerName
+	// Resolve the deployer. Mirrors config.Apply on the CLI so a remote deploy
+	// honors --deployer, which travels in func.yaml as intent.
+	deployer := f.Deployer
+	if deployer == "" {
+		deployer = f.Deploy.Deployer
+	}
+	if deployer == "" {
+		deployer = knative.KnativeDeployerName
 	}
 	var d fn.Deployer
-	switch f.Deploy.Deployer {
+	switch deployer {
 	case knative.KnativeDeployerName:
 		d = knative.NewDeployer(
 			knative.WithDeployerDecorator(deployDecorator{}),
@@ -174,7 +180,7 @@ func deploy(ctx context.Context) error {
 			keda.WithDeployerVerbose(true),
 		)
 	default:
-		return fmt.Errorf("unknown deployer: %s", f.Deploy.Deployer)
+		return fmt.Errorf("unknown deployer: %s", deployer)
 	}
 
 	client := fn.New(fn.WithDeployer(d))

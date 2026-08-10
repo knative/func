@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+
+	"knative.dev/func/pkg/cluster"
 )
 
 func TestConfigCI_DeployFuncViaGeneratedGitHubWorkflow(t *testing.T) {
@@ -60,6 +62,10 @@ func gitInit(t *testing.T, dir string) {
 		{"init", "-b", "main"},
 		{"config", "user.email", "test@test.com"},
 		{"config", "user.name", "test"},
+		// Host global commit.gpgsign=true would otherwise fail the commit:
+		// the test identity has no signing key. Local-scope only (cmd.Dir=dir).
+		{"config", "commit.gpgsign", "false"},
+		{"config", "tag.gpgsign", "false"},
 		{"add", "."},
 		{"commit", "-m", "init"},
 	}
@@ -89,7 +95,9 @@ func runGitHubWorkflow(t *testing.T, dir string) {
 	if strings.Contains(Registry, "registry.localtest.me") {
 		args = append(args, "--env", "FUNC_REGISTRY_INSECURE=true")
 	}
-	cmd := exec.Command("act", args...)
+	// Resolve act via cluster.Act() (managed BinDir, then PATH; FUNC_TEST_ACT override).
+	act := cluster.ClusterConfig{ActOverride: os.Getenv("FUNC_TEST_ACT")}.Act()
+	cmd := exec.Command(act, args...)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

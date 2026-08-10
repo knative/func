@@ -205,6 +205,14 @@ spec:
           echo "===> Python scaffolding complete"
         fi
 
+        # LEGACY PYTHON begin: the scaffolder writes constraints.txt (cloudevents<2)
+        # for old parliament functions; point the remote pip-install at it.
+        if [ -f "$src_path/constraints.txt" ]; then
+          echo "--> Legacy parliament function detected, setting PIP_CONSTRAINT"
+          echo -n "constraints.txt" > "${ENV_DIR}/PIP_CONSTRAINT"
+        fi
+        # LEGACY PYTHON end
+
         ############################################
       volumeMounts:
         - name: layers-dir

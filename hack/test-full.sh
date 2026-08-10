@@ -14,14 +14,14 @@
 # replicate what is run in GitHub CI, but locally and without
 # parallelization.
 #
-# This script presumes a local testing environment set up using the
-# helper scripts in ./hack and performs some precondition checks to ensure
-# resources are available for the features enabled (nonexhaustive).
-#     hack/binaries.sh   - Installs necessary binaries in ./hack/bin
-#     hack/registry.sh   - Starts and configures a local container registry
-#     hack/cluster.sh    - Start test cluster with Knative Serving/Eventing
-#     hack/gitlab.sh     - Installs GitLab in-cluster
-#     hack/git-server.sh - Starts a git server in-cluster
+# This script presumes a local testing environment set up using:
+#     func cluster create        - Creates test cluster with Knative, registry, etc.
+#     func cluster create --dapr - Also installs Dapr (needed for some integration tests)
+#     hack/gitlab.sh             - Installs GitLab in-cluster
+#     hack/git-server.sh         - Starts a git server in-cluster
+#
+# Binaries (kubectl, kind, etc.) and kubeconfig are managed by
+# `func cluster create` at $XDG_CONFIG_HOME/func/ (typically ~/.config/func/).
 #
 # Also note that when run with all default options, the "Matrix"
 # test will run, requiring that all supported language toolchains are
@@ -36,7 +36,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source "$(cd "$(dirname "$0")" && pwd)/common.sh"
+source "$(cd "$(dirname "$0")" && pwd)/common-func.sh"
 
 # Enable Optional Tests
 # ---------------------
@@ -79,22 +79,24 @@ setup() {
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-    # Set PATH and KUBECONFIG
-    export PATH="${PROJECT_ROOT}/hack/bin:${PATH}"
-    export KUBECONFIG="${KUBECONFIG:-${PROJECT_ROOT}/hack/bin/kubeconfig.yaml}"
+    # KUBECONFIG is set by common-func.sh using func-managed paths:
+    #   $XDG_CONFIG_HOME/func/clusters/{name}.local/kubeconfig.yaml
+
+    # Point the E2E and integration tests at the managed kubeconfig and tools.
+    # These tests deliberately ignore KUBECONFIG and installed bins, using
+    # their own, with a fallback to the old hack/bin/.
+    export FUNC_E2E_TOOLS="${FUNC_E2E_TOOLS:-${BIN_DIR}}"
+    export FUNC_E2E_KUBECONFIG="${FUNC_E2E_KUBECONFIG:-${KUBECONFIG}}"
+    export FUNC_INT_KUBECONFIG="${FUNC_INT_KUBECONFIG:-${KUBECONFIG}}"
 
     # GitLab test configuration
-    # This is the default set by ./hack/gitlab.sh, and is overridden in CI, and
-    # a warning is issued that users should not only use ./hack/gitlab.sh for
-    # configuring test cluster available locally, such as that created by
-    # hack/cluster.sh
     export FUNC_TEST_GITLAB_PASS="${FUNC_TEST_GITLAB_PASS:-test-password-123}"
 
     # Generate a timestamp for use setting things which require uniqueness
     TIMESTAMP=$(date +%Y%m%d%H%M%S 2>/dev/null || date +%s 2>/dev/null || echo "$(date)")
 
     # Initialize coverage file
-    echo "mode: atomic" > coverage.txt
+    echo "mode: atomic" >coverage.txt
 }
 
 # -------------
@@ -104,45 +106,32 @@ preconditions() {
     echo ""
     echo "${blue}Preconditions${reset}"
 
-    # Check if binaries are installed
-    if [ ! -d "${PROJECT_ROOT}/hack/bin" ]; then
-        echo "ERROR: hack/bin directory not found!"
-        echo "Please run ./hack/binaries.sh first to install required tools."
-        exit 1
-    fi
-    MISSING_BINS=""
-    for bin in kubectl kind jq stern dapr helm kn act; do
-        # Check with and without .exe for Windows compatibility
-        if [ ! -f "${PROJECT_ROOT}/hack/bin/${bin}" ] && [ ! -f "${PROJECT_ROOT}/hack/bin/${bin}.exe" ]; then
-            MISSING_BINS="${MISSING_BINS} ${bin}"
-        fi
-    done
-
-    if [ -n "${MISSING_BINS}" ]; then
-        echo "ERROR: Required binaries not found:${MISSING_BINS}"
-        echo "Please run ./hack/binaries.sh to install required tools."
+    # Check that kubectl is available (installed by func cluster create)
+    if [[ -z "$KUBECTL" ]]; then
+        echo "ERROR: kubectl not found"
+        echo "Please run 'func cluster create' to set up a test cluster."
         exit 1
     fi
 
     # Check if cluster is allocated
     if [ ! -f "${KUBECONFIG}" ]; then
         echo "ERROR: KUBECONFIG not found at ${KUBECONFIG}"
-        echo "Please run ./hack/cluster.sh to set up a test cluster."
+        echo "Please run 'func cluster create' to set up a test cluster."
         exit 1
     fi
 
     # Verify cluster connectivity
-    if ! kubectl cluster-info &>/dev/null; then
+    if ! $KUBECTL cluster-info &>/dev/null; then
         echo "ERROR: Cannot connect to Kubernetes cluster"
         echo "KUBECONFIG: ${KUBECONFIG}"
         echo "Please ensure your cluster is running and KUBECONFIG is valid."
-        echo "You may need to run ./hack/cluster.sh"
+        echo "You may need to run 'func cluster create'"
         exit 1
     fi
 
     # Check if GitLab is installed (if GitLab tests are enabled)
     if [ "${FUNC_INT_GITLAB_ENABLED}" = "1" ]; then
-        if ! kubectl get namespace gitlab &>/dev/null; then
+        if ! $KUBECTL get namespace gitlab &>/dev/null; then
             echo "ERROR: GitLab namespace not found"
             echo "Please run ./hack/gitlab.sh to install GitLab"
             exit 1

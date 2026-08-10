@@ -72,47 +72,6 @@ func DeletePersistentVolumeClaims(ctx context.Context, namespaceOverride string,
 	return client.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-// DeletePersistentVolumeClaim deletes a single PVC by name
-func DeletePersistentVolumeClaim(ctx context.Context, name, namespaceOverride string) error {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
-	if err != nil {
-		return err
-	}
-
-	err = client.CoreV1().PersistentVolumeClaims(namespace).Delete(ctx, name, metav1.DeleteOptions{})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete PVC %s: %w", name, err)
-	}
-	return nil
-}
-
-// WaitForPVCDeletion waits for a PVC to be fully deleted (not just in Terminating state)
-func WaitForPVCDeletion(ctx context.Context, name, namespaceOverride string) error {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
-	if err != nil {
-		return err
-	}
-
-	// Poll until PVC is gone
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			_, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				// PVC is fully deleted
-				return nil
-			}
-			if err != nil {
-				return fmt.Errorf("error checking PVC deletion status: %w", err)
-			}
-			// PVC still exists (possibly Terminating), wait and retry
-			time.Sleep(time.Second)
-		}
-	}
-}
-
 var TarImage = "ghcr.io/knative/func-utils:v2"
 
 // UploadToVolume uploads files (passed in form of tar stream) into volume.
@@ -229,18 +188,33 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		return fmt.Errorf("cannot set up the watcher: %w", err)
 	}
 	defer watcher.Stop()
+
 	termCh := make(chan corev1.ContainerStateTerminated, 1)
+	errCh := make(chan error, 1)
+
 	go func() {
-		for event := range watcher.ResultChan() {
-			p, ok := event.Object.(*corev1.Pod)
-			if !ok {
-				continue
-			}
-			if len(p.Status.ContainerStatuses) > 0 {
-				termState := event.Object.(*corev1.Pod).Status.ContainerStatuses[0].State.Terminated
-				if termState != nil {
-					termCh <- *termState
-					break
+		for {
+			select {
+			case <-localCtx.Done():
+				return
+
+			case event, ok := <-watcher.ResultChan():
+				if !ok {
+					errCh <- errors.New("kubernetes pod watch channel closed unexpectedly")
+					return
+				}
+
+				p, ok := event.Object.(*corev1.Pod)
+				if !ok {
+					continue
+				}
+
+				if len(p.Status.ContainerStatuses) > 0 {
+					termState := p.Status.ContainerStatuses[0].State.Terminated
+					if termState != nil {
+						termCh <- *termState
+						return
+					}
 				}
 			}
 		}
@@ -252,7 +226,21 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		return fmt.Errorf("cannot attach stdio to the pod: %w", err)
 	}
 
-	termState := <-termCh
+	var termState corev1.ContainerStateTerminated
+
+	select {
+	case termState = <-termCh:
+
+	case watchErr := <-errCh:
+		if watchErr == nil {
+			return errors.New("pod execution failed during watch")
+		}
+		return fmt.Errorf("pod execution failed during watch: %w", watchErr)
+
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	if termState.ExitCode != 0 {
 		cmdOut := strings.Trim(outBuff.String(), "\n")
 		err = fmt.Errorf("the command failed: exitcode=%d, out=%q", termState.ExitCode, cmdOut)

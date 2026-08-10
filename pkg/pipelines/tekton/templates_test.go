@@ -1,13 +1,16 @@
 package tekton
 
 import (
-	"os"
+	"bytes"
 	"path/filepath"
-	"strings"
 	"testing"
+	"text/template"
 
 	"github.com/manifestival/manifestival"
 	"github.com/manifestival/manifestival/fake"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
@@ -325,80 +328,130 @@ func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 	}
 }
 
-func Test_PipelineRunHasPodTemplateSecurityContext(t *testing.T) {
+// strictTektonDecoder returns a strict deserializer that rejects unknown fields
+// in Tekton v1 resources (Pipeline, PipelineRun, etc.).
+func strictTektonDecoder(t *testing.T) runtime.Decoder {
+	t.Helper()
+	myScheme := runtime.NewScheme()
+	if err := tektonv1.AddToScheme(myScheme); err != nil {
+		t.Fatal(err)
+	}
+	codecs := serializer.NewCodecFactory(myScheme, serializer.EnableStrict)
+	return codecs.UniversalDeserializer()
+}
+
+// renderTemplate renders a Go text/template with the given data and returns the result.
+func renderTemplate(t *testing.T, name, tmplStr string, data any) []byte {
+	t.Helper()
+	tmpl, err := template.New(name).Parse(tmplStr)
+	if err != nil {
+		t.Fatalf("failed to parse template: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		t.Fatalf("failed to execute template: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// TestPipelineTemplatesValidate renders each Pipeline template with real
+// inline task specs and decodes it into a typed tektonv1.Pipeline using a
+// strict deserializer that rejects unknown fields.
+func TestPipelineTemplatesValidate(t *testing.T) {
+	buildpacksTaskRef, err := getTaskSpec(getBuildpackTask())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2iTaskRef, err := getTaskSpec(getS2ITask())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := templateData{
+		FunctionName:          "myfunc",
+		Annotations:           map[string]string{"test": "val"},
+		Labels:                map[string]string{"test": "val"},
+		PipelineName:          "myfunc-pipeline",
+		TlsVerify:             "true",
+		Registry:              "docker.io/alice",
+		FuncBuildpacksTaskRef: buildpacksTaskRef,
+		FuncS2iTaskRef:        s2iTaskRef,
+	}
+
 	tests := []struct {
 		name    string
-		root    string
-		builder string
-		runtime string
+		tmplStr string
 	}{
-		{
-			name:    "pack builder with quarkus",
-			root:    "testdata/testCreatePipelinePackQuarkus",
-			builder: builders.Pack,
-			runtime: "quarkus",
-		},
-		{
-			name:    "s2i builder with quarkus",
-			root:    "testdata/testCreatePipelineS2IQuarkus",
-			builder: builders.S2I,
-			runtime: "quarkus",
-		},
+		{"packPipelineTemplate", packPipelineTemplate},
+		{"s2iPipelineTemplate", s2iPipelineTemplate},
 	}
+
+	decode := strictTektonDecoder(t)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			root := tt.root + "Run"
-			defer Using(t, root)()
-
-			f, err := fn.NewFunction(root)
+			rendered := renderTemplate(t, tt.name, tt.tmplStr, data)
+			obj, _, err := decode.Decode(rendered, nil, nil)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("failed to decode Pipeline: %v", err)
 			}
+			if _, ok := obj.(*tektonv1.Pipeline); !ok {
+				t.Fatalf("expected *Pipeline, got %T", obj)
+			}
+		})
+	}
+}
 
-			f.Build.Builder = tt.builder
-			f.Runtime = tt.runtime
-			f.Image = "docker.io/alice/" + f.Name
-			f.Registry = TestRegistry
+// TestPipelineRunTemplatesValidate renders each PipelineRun template with sample
+// data and decodes it into a typed tektonv1.PipelineRun using a strict
+// deserializer. This catches unknown/misplaced fields (e.g. spec.podTemplate
+// instead of spec.taskRunTemplate.podTemplate) that string-based tests miss.
+func TestPipelineRunTemplatesValidate(t *testing.T) {
+	data := templateData{
+		FunctionName:  "myfunc",
+		Annotations:   map[string]string{"test": "val"},
+		Labels:        map[string]string{"test": "val"},
+		ContextDir:    ".",
+		FunctionImage: "docker.io/alice/myfunc",
+		Registry:      "docker.io/alice",
+		BuilderImage:  "gcr.io/paketo-buildpacks/builder:base",
+		BuildEnvs:     []string{"="},
 
-			// Create the PipelineRun template
-			err = createPipelineRunTemplatePAC(f, make(map[string]string))
+		PipelineName:    "myfunc-pipeline",
+		PipelineRunName: "myfunc-pipeline-run-",
+		PvcName:         "myfunc-pvc",
+		SecretName:      "myfunc-secret",
+
+		PipelinesTargetBranch: "main",
+		PipelineYamlURL:       ".tekton/pipeline-pac.yaml",
+		S2iImageScriptsUrl:    "image:///usr/libexec/s2i",
+		TlsVerify:             "true",
+		RepoUrl:               "https://example.com/repo",
+		Revision:              "main",
+		Commit:                "abc123",
+	}
+
+	tests := []struct {
+		name    string
+		tmplStr string
+	}{
+		{"packRunTemplate", packRunTemplate},
+		{"packRunTemplatePAC", packRunTemplatePAC},
+		{"s2iRunTemplate", s2iRunTemplate},
+		{"s2iRunTemplatePAC", s2iRunTemplatePAC},
+	}
+
+	decode := strictTektonDecoder(t)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rendered := renderTemplate(t, tt.name, tt.tmplStr, data)
+			obj, _, err := decode.Decode(rendered, nil, nil)
 			if err != nil {
-				t.Fatalf("createPipelineRunTemplatePAC() error = %v", err)
+				t.Fatalf("failed to decode PipelineRun: %v", err)
 			}
-
-			// Read the generated file and verify it contains podTemplate with securityContext
-			fp := filepath.Join(root, resourcesDirectory, pipelineRunFilenamePAC)
-			content, err := os.ReadFile(fp)
-			if err != nil {
-				t.Fatalf("failed to read generated PipelineRun: %v", err)
-			}
-
-			contentStr := string(content)
-
-			// Verify podTemplate is present
-			if !strings.Contains(contentStr, "podTemplate:") {
-				t.Error("podTemplate not found in generated PipelineRun")
-			}
-
-			// Verify securityContext is present
-			if !strings.Contains(contentStr, "securityContext:") {
-				t.Error("securityContext not found in podTemplate")
-			}
-
-			// Verify fsGroup is set
-			if !strings.Contains(contentStr, "fsGroup: 1002") {
-				t.Error("fsGroup not set to 1002 in securityContext")
-			}
-
-			// Verify runAsUser is set
-			if !strings.Contains(contentStr, "runAsUser: 1001") {
-				t.Error("runAsUser not set to 1001 in securityContext")
-			}
-
-			// Verify runAsGroup is set
-			if !strings.Contains(contentStr, "runAsGroup: 0") {
-				t.Error("runAsGroup not set to 0 in securityContext")
+			if _, ok := obj.(*tektonv1.PipelineRun); !ok {
+				t.Fatalf("expected *PipelineRun, got %T", obj)
 			}
 		})
 	}

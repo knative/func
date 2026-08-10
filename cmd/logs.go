@@ -71,8 +71,9 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
 
-	// Get function details
+	// Get function details and deployer type
 	var f fn.Function
+	var deployer string
 	if cfg.Name != "" {
 		// Get function by name
 		instance, err := client.Describe(cmd.Context(), cfg.Name, cfg.Namespace, fn.Function{})
@@ -82,6 +83,7 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 		f.Name = instance.Name
 		f.Namespace = instance.Namespace
 		f.Image = instance.Image
+		deployer = instance.Deployer
 	} else {
 		// Load function from path
 		f, err = fn.NewFunction(cfg.Path)
@@ -100,6 +102,17 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 		f.Name = instance.Name
 		f.Namespace = instance.Namespace
 		f.Image = instance.Image
+		deployer = instance.Deployer
+	}
+
+	// Guard: the knative log streamer uses a serving.knative.dev/service
+	// label selector that only matches pods created by the Knative deployer.
+	// For other deployer types, return a clear error rather than silently
+	// producing no output.
+	if deployer != "" && deployer != "knative" {
+		return fmt.Errorf("'func logs' is not yet supported for the %q deployer.\n"+
+			"Currently only functions deployed with the default Knative deployer are supported.\n"+
+			"You can use 'kubectl logs' directly to view logs for %s-deployed functions", deployer, deployer)
 	}
 
 	// Parse since duration
@@ -126,7 +139,6 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 		cancel()
 	}()
 
-	// Stream logs
 	fmt.Fprintf(os.Stderr, "Streaming logs for function '%s' in namespace '%s'...\n", f.Name, f.Namespace)
 	fmt.Fprintf(os.Stderr, "Press Ctrl+C to stop.\n\n")
 

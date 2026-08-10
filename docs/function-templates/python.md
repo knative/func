@@ -377,3 +377,26 @@ func deploy --builder=host --registry docker.io/myuser
 
 
 For all deploy options, see `func deploy --help`
+
+## Legacy parliament functions (deprecated)
+
+Before func v1.18, Python functions used the "parliament" style: a bare `func.py`
+exposing `def main(context)`, a `requirements.txt` depending on
+`parliament-functions`, and a `Procfile` (`web: python -m parliament .`).
+
+These functions still build and deploy with the `pack` and `s2i` builders, locally
+and remotely. func builds them the pre-v1.18 way, from the function's own `Procfile`
+and `requirements.txt`, pinning `cloudevents` below 2.0 during the build (the
+parliament stack requires the 1.x line; with the `pack` builder the pin is written
+to a `constraints.txt` file at the function root). The `host` builder does not
+support them. This support is deprecated and will be removed in a future release;
+every build prints a deprecation warning.
+
+The other pre-v1.18 Procfile-based layouts (the old `flask` and `wsgi` templates)
+are not supported and are rejected with an error.
+
+To migrate, recreate the function with the current layout (`func create -l python`)
+and move your logic into the `function` package: `def main(context)` becomes the
+ASGI `handle` (or an instanced `new()`) described above, where the Flask request
+object is replaced by the `scope`/`receive`/`send` interface. Functions that work
+with CloudEvents must also adopt the cloudevents 2.x API.

@@ -6,6 +6,8 @@
 package function
 
 import (
+	"fmt"
+
 	"github.com/cloudevents/sdk-go/v2/event"
 )
 
@@ -47,6 +49,9 @@ func (f *MyFunction) Handle(e event.Event) (*event.Event, error) {
 	 *
 	 * Try running `go test`.  Add more tests as you code in `function_test.go`.
 	 */
+	fmt.Println("Received event")
+	fmt.Println(e) // echo to local output
+
 	ret := event.New()
 	ret.SetType("function.response")
 	ret.SetID("response-" + e.ID())

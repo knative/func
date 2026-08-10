@@ -10,7 +10,8 @@ This command undeploys a function from the cluster. By default the function from
 the project in the current directory is undeployed. Alternatively either the name
 of the function can be given as argument or the project path provided with --path.
 
-No local files are deleted.
+No local files are deleted. When undeploying by project (not by name), on success
+the local func.yaml is updated to reflect that the function is no longer deployed.
 
 
 ```

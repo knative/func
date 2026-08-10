@@ -1,0 +1,5 @@
+specVersion: 0.36.0
+name: parliament-cloudevents
+runtime: python
+created: 2026-07-02T14:07:38.971733295+02:00
+invoke: cloudevent

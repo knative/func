@@ -180,6 +180,7 @@ func newClusterCreateConfig() cluster.ClusterConfig {
 		ContainerEngineOverride: viper.GetString("container-engine"),
 		KubectlOverride:         os.Getenv("FUNC_TEST_KUBECTL"),        // override binary path
 		KindOverride:            os.Getenv("FUNC_TEST_KIND"),           // override binary path
+		ActOverride:             os.Getenv("FUNC_TEST_ACT"),            // override binary path
 		GitHubActions:           os.Getenv("GITHUB_ACTIONS") == "true", // detect CI environments
 	}
 }
@@ -198,8 +199,14 @@ SYNOPSIS
 	             [--skip-registry-config]
 
 DESCRIPTION
-	Deletes a local development cluster and its associated registry
-	container. If no name is given, the default cluster "func" is deleted.
+	Deletes a local development cluster. The in-cluster registry is removed
+	with the Kind cluster; host registry trust is reverted only when this is
+	the last func-managed cluster. If no name is given, the default cluster
+	"func" is deleted.
+
+	When no func-managed clusters are tracked, delete still runs the cleanup
+	path (no error) so host registry trust can be cleared. A name that does
+	not match any tracked cluster is an error when others exist.
 
 	When multiple func-managed clusters exist, specify which one by name.
 	Use '{{rootCmdUse}} cluster list' to see existing clusters.
@@ -239,6 +246,7 @@ func newClusterDeleteConfig() cluster.ClusterConfig {
 		SkipRegistryConfig:      viper.GetBool("skip-registry-config"),
 		KubectlOverride:         os.Getenv("FUNC_TEST_KUBECTL"),
 		KindOverride:            os.Getenv("FUNC_TEST_KIND"),
+		ActOverride:             os.Getenv("FUNC_TEST_ACT"),
 		GitHubActions:           os.Getenv("GITHUB_ACTIONS") == "true",
 	}
 }
@@ -249,17 +257,24 @@ func runClusterDelete(cmd *cobra.Command, args []string) error {
 		cfg.Name = args[0]
 	}
 
+	// If clusters are tracked and a non-matching name was given, refuse with
+	// a clear message — otherwise hand off to Delete, which handles both
+	// "delete the matched cluster" and "nothing tracked" (idempotent cleanup
+	// of host registry trust when List() is empty).
 	clusters := cluster.List()
-	for _, c := range clusters {
-		if c == cfg.Name {
-			return cluster.Delete(cmd.Context(), cfg, cmd.OutOrStderr())
+	if len(clusters) > 0 {
+		matched := false
+		for _, c := range clusters {
+			if c == cfg.Name {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return fmt.Errorf("cluster %q not found; existing clusters: %v\nUse 'func cluster create' to create one", cfg.Name, clusters)
 		}
 	}
-
-	if len(clusters) == 0 {
-		return fmt.Errorf("no clusters exist; use 'func cluster create' to create one")
-	}
-	return fmt.Errorf("cluster %q not found; existing clusters: %v\nUse 'func cluster create' to create one", cfg.Name, clusters)
+	return cluster.Delete(cmd.Context(), cfg, cmd.OutOrStderr())
 }
 
 // NewClusterListCmd creates the 'func cluster list' command.

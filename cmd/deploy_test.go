@@ -14,8 +14,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"knative.dev/func/pkg/builders"
+	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/mock"
 	. "knative.dev/func/pkg/testing"
 )
@@ -2546,4 +2549,183 @@ func TestDeploy_ValidDomain(t *testing.T) {
 
 func TestDeploy_RegistryInsecurePersists(t *testing.T) {
 	testRegistryInsecurePersists(NewDeployCmd, t)
+}
+
+// TestDeploy_DeployerPersists ensures the effective deployer is always
+// persisted as a concrete value, static-default aware: read deployers.Default
+func TestDeploy_DeployerPersists(t *testing.T) {
+	t.Run("no --deployer on a fresh function persists the concrete default", func(t *testing.T) {
+		root := FromTempDirectory(t)
+		f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+		if _, err := fn.New().Init(f); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
+		dflt := cmd.Flags().Lookup("deployer").DefValue
+		if dflt != deployers.Default {
+			t.Fatalf("expected flag default value %q, got %q", deployers.Default, dflt)
+		}
+
+		cmd.SetArgs([]string{"--namespace", "myns"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+
+		loaded, err := fn.NewFunction(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.Deploy.Deployer != deployers.Default {
+			t.Fatalf("expected persisted deployer %q, got %q", deployers.Default, loaded.Deploy.Deployer)
+		}
+	})
+
+	t.Run("explicit non-default deployer persists and survives a flag-less redeploy unblocked", func(t *testing.T) {
+		root := FromTempDirectory(t)
+		f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+		if _, err := fn.New().Init(f); err != nil {
+			t.Fatal(err)
+		}
+
+		// Choose the deployer that is not the default
+		var other string
+		if deployers.Default == deployers.Knative {
+			other = deployers.Kubernetes
+		} else {
+			other = deployers.Knative
+		}
+
+		cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
+		cmd.SetArgs([]string{"--deployer", other, "--namespace", "myns"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+
+		loaded, err := fn.NewFunction(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.Deploy.Deployer != other {
+			t.Fatalf("expected persisted deployer %q, got %q", other, loaded.Deploy.Deployer)
+		}
+
+		// no --deployer flag: the flag defaults to the persisted value
+		deployer := mock.NewDeployer()
+		cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+		cmd.SetArgs([]string{})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("expected a flag-less redeploy to retain the persisted deployer unblocked, got: %v", err)
+		}
+		if !deployer.DeployInvoked {
+			t.Fatal("expected the deployer to be invoked for the flag-less redeploy")
+		}
+
+		loaded, err = fn.NewFunction(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.Deploy.Deployer != other {
+			t.Fatalf("expected deployer to remain %q after a flag-less redeploy, got %q", other, loaded.Deploy.Deployer)
+		}
+	})
+}
+
+// TestDeploy_DeployerGlobalConfig ensures the deployer flag's
+// default is sourced from the global config chain, same as builder.
+func TestDeploy_DeployerGlobalConfig(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	if err := config.CreatePaths(); err != nil {
+		t.Fatal(err)
+	}
+	globalCfg := config.Global{Deployer: k8s.KubernetesDeployerName}
+	if err := globalCfg.Write(config.File()); err != nil {
+		t.Fatal(err)
+	}
+
+	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+	if _, err := fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
+	cmd.SetArgs([]string{"--namespace", "myns"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Deploy.Deployer != k8s.KubernetesDeployerName {
+		t.Fatalf("expected the global config's deployer %q to seed the flagless deploy, got %q", k8s.KubernetesDeployerName, loaded.Deploy.Deployer)
+	}
+}
+
+// TestDeploy_DeployerSwitch pins the CLI-only part of the switch guard.
+func TestDeploy_DeployerSwitch(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		deployedDep string // Deploy.Deployer already deployed ("" = legacy)
+		requested   string // --deployer flag value
+		wantBlocked bool
+	}{
+		// A blocked and an allowed switch, proving the guard is reached and its
+		// error surfaced through the full CLI path (flag -> config -> client).
+		{"keda2raw blocked", keda.KedaDeployerName, k8s.KubernetesDeployerName, true},
+		{"raw2keda safe switch", k8s.KubernetesDeployerName, keda.KedaDeployerName, false},
+		// Legacy (deployed before the deployer was persisted, so empty): the CLI
+		// treats it as knative, so an explicit knative is allowed but any other
+		// deployer is blocked. This normalization is the CLI-only bit here.
+		{"legacy empty is treated as knative", "", deployers.Knative, false},
+		{"legacy empty to raw is blocked", "", k8s.KubernetesDeployerName, true},
+		// A function deployed by an older binary has its deployer only in state,
+		// not intent. A flag-less redeploy must reuse it.
+		{"legacy keda reused on flag-less redeploy", keda.KedaDeployerName, "", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			f := fn.Function{
+				Runtime:  "go",
+				Root:     root,
+				Registry: TestRegistry,
+				// Namespace set == already deployed, which is what the guard gates on.
+				Deploy: fn.DeploySpec{Namespace: "myns", Deployer: tt.deployedDep},
+			}
+			if _, err := fn.New().Init(f); err != nil {
+				t.Fatal(err)
+			}
+
+			deployer := mock.NewDeployer()
+			cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+			args := []string{}
+			if tt.requested != "" {
+				args = append(args, "--deployer", tt.requested)
+			}
+			cmd.SetArgs(args)
+
+			err := cmd.Execute()
+
+			if tt.wantBlocked {
+				if err == nil {
+					t.Fatalf("expected switch %q -> %q to be blocked", tt.deployedDep, tt.requested)
+				}
+				if !strings.Contains(err.Error(), "func delete") {
+					t.Fatalf("expected the error to point at 'func delete', got: %v", err)
+				}
+				if deployer.DeployInvoked {
+					t.Fatal("expected the deployer NOT to run on a blocked switch")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected switch %q -> %q to be allowed, got: %v", tt.deployedDep, tt.requested, err)
+			}
+			if !deployer.DeployInvoked {
+				t.Fatal("expected the deployer to run when the switch is allowed")
+			}
+		})
+	}
 }

@@ -86,6 +86,14 @@ func NewBuilder(name string, verbose bool) *Builder {
 //
 // Platforms are optional and default to fn.DefaultPlatforms.
 func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (err error) {
+	// LEGACY PYTHON: host builder can't build old parliament functions — reject.
+	if f.IsLegacyParliament() {
+		return ErrLegacyParliamentHost
+	}
+	// LEGACY PYTHON: other pre-v1.18 Procfile-based python layouts are rejected too.
+	if f.IsUnsupportedLegacyPython() {
+		return fn.ErrUnsupportedLegacyPython
+	}
 	if len(pp) == 0 {
 		pp = fn.DefaultPlatforms // Use Default platforms if not provided
 	}
@@ -639,7 +647,7 @@ func newConfigFile(job buildJob, p v1.Platform, base v1.Image, imageLayers []ima
 			Volumes:      newConfigVolumes(job),
 			ExposedPorts: map[string]struct{}{"8080/tcp": {}},
 			WorkingDir:   "/func/",
-			StopSignal:   "SIGKILL",
+			StopSignal:   "SIGTERM",
 			User:         fmt.Sprintf("%v:%v", DefaultUid, DefaultGid),
 			Labels:       job.labels,
 		},

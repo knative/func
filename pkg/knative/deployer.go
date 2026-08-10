@@ -37,12 +37,13 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	"knative.dev/func/pkg/deployer"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
 
 const (
-	KnativeDeployerName = "knative"
+	KnativeDeployerName = deployers.Knative
 )
 
 type DeployerOpt func(*Deployer)
@@ -297,6 +298,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 				Status:    fn.Deployed,
 				URL:       route.Status.URL.String(),
 				Namespace: namespace,
+				Deployer:  KnativeDeployerName,
 			}, nil
 
 		} else {
@@ -313,6 +315,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
+		newEnv = k8s.AppendKafkaEnvs(newEnv, f.Run.Kafka)
 
 		newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 		if err != nil {
@@ -358,6 +361,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			Status:    fn.Updated,
 			URL:       route.Status.URL.String(),
 			Namespace: namespace,
+			Deployer:  KnativeDeployerName,
 		}, nil
 	}
 }
@@ -425,7 +429,7 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 	if err != nil {
 		return nil, err
 	}
-	container.Env = newEnv
+	container.Env = k8s.AppendKafkaEnvs(newEnv, f.Run.Kafka)
 	container.EnvFrom = newEnvFrom
 
 	newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)

@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -422,5 +423,143 @@ func TestGenerateTriggerName_DifferentBrokers(t *testing.T) {
 
 	if name1 == name2 || name2 == name3 || name1 == name3 {
 		t.Errorf("Different brokers should produce different names: %s, %s, %s", name1, name2, name3)
+	}
+}
+
+func TestAppendKafkaEnvs_Nil(t *testing.T) {
+	base := []corev1.EnvVar{
+		{Name: "EXISTING", Value: "value"},
+	}
+	got := AppendKafkaEnvs(base, nil)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 env var, got %d", len(got))
+	}
+	if got[0].Name != "EXISTING" || got[0].Value != "value" {
+		t.Errorf("expected existing env var unchanged, got %v", got[0])
+	}
+}
+
+func TestAppendKafkaEnvs_AllFields(t *testing.T) {
+	base := []corev1.EnvVar{
+		{Name: "EXISTING", Value: "value"},
+	}
+	kafka := &fn.KafkaConfig{
+		Brokers:       "broker1:9092,broker2:9092",
+		Topic:         "my-topic",
+		ConsumerGroup: "my-group",
+	}
+	got := AppendKafkaEnvs(base, kafka)
+	if len(got) != 5 {
+		t.Fatalf("expected 5 env vars (1 existing + 4 kafka), got %d", len(got))
+	}
+	expected := map[string]string{
+		"FUNC_TRANSPORT":       "kafka",
+		"KAFKA_BROKERS":        "broker1:9092,broker2:9092",
+		"KAFKA_TOPIC":          "my-topic",
+		"KAFKA_CONSUMER_GROUP": "my-group",
+	}
+	for _, ev := range got[1:] {
+		want, ok := expected[ev.Name]
+		if !ok {
+			t.Errorf("unexpected env var: %s", ev.Name)
+			continue
+		}
+		if ev.Value != want {
+			t.Errorf("env var %s: expected %q, got %q", ev.Name, want, ev.Value)
+		}
+	}
+}
+
+func TestAppendKafkaEnvs_MissingBrokers(t *testing.T) {
+	base := []corev1.EnvVar{
+		{Name: "EXISTING", Value: "value"},
+	}
+	kafka := &fn.KafkaConfig{
+		Brokers:       "",
+		Topic:         "my-topic",
+		ConsumerGroup: "my-group",
+	}
+	got := AppendKafkaEnvs(base, kafka)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 env var (unchanged), got %d", len(got))
+	}
+}
+
+func TestAppendKafkaEnvs_MissingTopic(t *testing.T) {
+	base := []corev1.EnvVar{
+		{Name: "EXISTING", Value: "value"},
+	}
+	kafka := &fn.KafkaConfig{
+		Brokers:       "broker1:9092",
+		Topic:         "",
+		ConsumerGroup: "my-group",
+	}
+	got := AppendKafkaEnvs(base, kafka)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 env var (unchanged), got %d", len(got))
+	}
+}
+
+func Test_ProcessVolumes_NilPath(t *testing.T) {
+	secretName := "my-secret"
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVCs := sets.New[string]()
+
+	volumes := []fn.Volume{
+		{Secret: &secretName, Path: nil},
+	}
+
+	_, _, err := ProcessVolumes(volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	if err == nil {
+		t.Fatal("expected error for volume with nil path, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing required path") {
+		t.Fatalf("unexpected error message: %s", err.Error())
+	}
+}
+
+func Test_ProcessVolumes_NilPathConfigMap(t *testing.T) {
+	configMapName := "my-config"
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVCs := sets.New[string]()
+
+	volumes := []fn.Volume{
+		{ConfigMap: &configMapName, Path: nil},
+	}
+
+	_, _, err := ProcessVolumes(volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	if err == nil {
+		t.Fatal("expected error for volume with nil path, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing required path") {
+		t.Fatalf("unexpected error message: %s", err.Error())
+	}
+}
+
+func Test_ProcessVolumes_ValidPath(t *testing.T) {
+	secretName := "my-secret"
+	path := "/etc/secret"
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVCs := sets.New[string]()
+
+	volumes := []fn.Volume{
+		{Secret: &secretName, Path: &path},
+	}
+
+	vols, mounts, err := ProcessVolumes(volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(vols) != 1 {
+		t.Fatalf("expected 1 volume, got %d", len(vols))
+	}
+	if len(mounts) != 1 {
+		t.Fatalf("expected 1 mount, got %d", len(mounts))
+	}
+	if mounts[0].MountPath != "/etc/secret" {
+		t.Errorf("expected mount path /etc/secret, got %s", mounts[0].MountPath)
 	}
 }

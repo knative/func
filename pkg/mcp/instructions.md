@@ -39,7 +39,7 @@ This is essential because:
 
 **Exceptions:**
 - The `list` tool operates on the cluster, not local files, so it does NOT use a path parameter (it uses namespace instead)
-- The `delete` tool can accept an optional named Function to delete, in which case the path is not necessary (no named parameter indicates 'delete the Function in my cwd')
+- The `delete` tool requires exactly one of `path` or `name`; it does NOT support a no-argument CWD mode (the MCP server process has its own working directory unrelated to the Function being managed)
 
 ## Deployment Behavior
 

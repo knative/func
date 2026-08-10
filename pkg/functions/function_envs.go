@@ -119,7 +119,16 @@ func (e Env) KeyValuePair() string {
 //     value: {{ configMap:configMapName:key }}   	# ENV from a key in configMap
 //   - value: {{ configMap:configMapName }}          	# all key-pair values from configMap are set as ENV
 func ValidateEnvs(envs []Env) (errors []string) {
+	seenNames := make(map[string]int)
 	for i, env := range envs {
+		if env.Name != nil {
+			name := *env.Name
+			if firstIdx, seen := seenNames[name]; seen {
+				errors = append(errors, fmt.Sprintf("env entry #%d has duplicate name %q (first defined at entry #%d)", i, name, firstIdx))
+			} else {
+				seenNames[name] = i
+			}
+		}
 		if env.Name == nil && env.Value == nil {
 			errors = append(errors, fmt.Sprintf("env entry #%d is not properly set", i))
 		} else if env.Value == nil {
@@ -162,11 +171,22 @@ func ValidateEnvs(envs []Env) (errors []string) {
 //   - name: EXAMPLE2                 				# ENV from the local ENV var
 //     value: {{ env:MY_ENV }}
 func ValidateBuildEnvs(envs []Env) (errors []string) {
+	seenNames := make(map[string]int)
 	for i, env := range envs {
+		if env.Name != nil {
+			name := *env.Name
+			if firstIdx, seen := seenNames[name]; seen {
+				errors = append(errors, fmt.Sprintf("env entry #%d has duplicate name %q (first defined at entry #%d)", i, name, firstIdx))
+			} else {
+				seenNames[name] = i
+			}
+		}
 		if env.Name == nil && env.Value == nil {
 			errors = append(errors, fmt.Sprintf("env entry #%d is not properly set", i))
 		} else if env.Value == nil {
 			errors = append(errors, fmt.Sprintf("env entry #%d is missing value field, only name '%s' is set", i, *env.Name))
+		} else if env.Name == nil {
+			errors = append(errors, fmt.Sprintf("env entry #%d is missing name field, only value '%s' is set", i, *env.Value))
 		} else {
 
 			if err := utils.ValidateEnvVarName(*env.Name); err != nil {

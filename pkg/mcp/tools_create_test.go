@@ -75,7 +75,7 @@ func TestTool_Create_Args(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result.IsError {
-		t.Fatal(err)
+		t.Fatalf("unexpected error result: %v", result)
 	}
 	if !executor.ExecuteInvoked {
 		t.Fatal("executor was not invoked")

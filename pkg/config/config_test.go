@@ -373,6 +373,7 @@ func TestList(t *testing.T) {
 	expected := []string{
 		"builder",
 		"confirm",
+		"deployer",
 		"language",
 		"namespace",
 		"registry",

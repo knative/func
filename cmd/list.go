@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -68,7 +67,7 @@ Lists deployed functions.
 	// Flags
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace for which to list functions. ($FUNC_NAMESPACE)")
-	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) ($FUNC_OUTPUT)")
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|yaml) ($FUNC_OUTPUT)")
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
@@ -93,35 +92,11 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 	}
 
 	if len(items) == 0 {
-		if cfg.Namespace != "" {
-			fmt.Printf(`no functions found in namespace '%v'
-
-'func list' shows functions that have been deployed to your cluster.
-
-To see functions here:
-  func create --language go myfunction    Create a function
-  func deploy --registry <registry>       Deploy to cluster
-  func list                               See it listed
-
-Or check other namespaces:
-  func list --all-namespaces             List functions in all namespaces
-`, cfg.Namespace)
-		} else {
-			fmt.Println(`no functions found
-
-'func list' shows functions that have been deployed to your cluster.
-
-To see functions here:
-  func create --language go myfunction    Create a function
-  func deploy --registry <registry>       Deploy to cluster
-  func list                               See it listed`)
-		}
+		printNoFunctionsFound(cmd, cfg.Namespace)
 		return
 	}
 
-	write(os.Stdout, listItems(items), cfg.Output)
-
-	return
+	return write(os.Stdout, listItems(items), cfg.Output)
 }
 
 // CLI Configuration (parameters)
@@ -145,12 +120,36 @@ func newListConfig(cmd *cobra.Command) (cfg listConfig, err error) {
 		cfg.Namespace = ""
 	}
 
-	// specifying both -A and --namespace is logically inconsistent
 	if cmd.Flags().Changed("namespace") && viper.GetBool("all-namespaces") {
-		err = errors.New("both --namespace and --all-namespaces specified")
+		err = NewErrListConflictingNamespaceFlags()
 	}
 
 	return
+}
+
+func printNoFunctionsFound(cmd *cobra.Command, namespace string) {
+	msg := "no functions found"
+	if namespace != "" {
+		msg = fmt.Sprintf("no functions found in namespace '%v'", namespace)
+	}
+
+	msg += `
+
+'func list' shows functions that have been deployed to your cluster.
+
+To see functions here:
+  func create --language go myfunction    Create a function
+  func deploy --registry <registry>       Deploy to cluster
+  func list                               See it listed`
+
+	if namespace != "" {
+		msg += `
+
+Or check other namespaces:
+  func list --all-namespaces             List functions in all namespaces`
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), msg)
 }
 
 // Output Formatting (serializers)

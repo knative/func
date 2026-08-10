@@ -34,6 +34,17 @@ func (s Scaffolder) Scaffold(ctx context.Context, f fn.Function, path string) er
 	if appRoot == "" {
 		appRoot = filepath.Join(f.Root, defaultPath)
 	}
+
+	// LEGACY PYTHON: old parliament functions get the legacy assemble, not scaffolding.
+	if f.IsLegacyParliament() {
+		return writeLegacyAssemble(s.verbose, f, appRoot)
+	}
+	// LEGACY PYTHON: other pre-v1.18 Procfile-based layouts (old flask/wsgi
+	// templates) are rejected.
+	if f.IsUnsupportedLegacyPython() {
+		return fn.ErrUnsupportedLegacyPython
+	}
+
 	if s.verbose {
 		fmt.Printf("Writing s2i scaffolding at path '%v'\n", appRoot)
 	}

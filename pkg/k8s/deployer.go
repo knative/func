@@ -25,13 +25,14 @@ import (
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1"
 	"knative.dev/func/pkg/deployer"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 const (
-	KubernetesDeployerName = "raw"
+	KubernetesDeployerName = deployers.Kubernetes
 
 	DefaultLivenessEndpoint  = "/health/liveness"
 	DefaultReadinessEndpoint = "/health/readiness"
@@ -238,8 +239,8 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create eventing client: %w", err)
 	}
-	if err := syncTriggers(ctx, f, namespace, eventingClient, clientset); err != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("failed to sync triggers: %w", err)
+	if err := warnOrFailOnTriggerSync(syncTriggers(ctx, f, namespace, eventingClient, clientset), namespace, len(f.Deploy.Subscriptions) > 0); err != nil {
+		return fn.DeploymentResult{}, err
 	}
 
 	url := fmt.Sprintf("http://%s.%s.svc", f.Name, namespace)
@@ -248,6 +249,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		Status:    status,
 		URL:       url,
 		Namespace: namespace,
+		Deployer:  KubernetesDeployerName,
 	}, nil
 }
 
@@ -269,6 +271,39 @@ func generateTriggerName(functionName, broker string, filters map[string]string)
 	hashStr := fmt.Sprintf("%x", hash[:4])
 
 	return fmt.Sprintf("%s-trigger-%s", functionName, hashStr)
+}
+
+// TODO: gauron: this is a quick fix, not every deployment should be dependent
+// on knative eventing. For a proper fix we should make sure we only touch
+// resources that are required for a specific deployer. It might be the case
+// that we will gate the incompatible deployer switch with a "delete current
+// function first to remove its resources before switching..."
+//
+// warnOrFailOnTriggerSync is the ONLY place trigger-sync errors are checked
+// for Forbidden - syncTriggers/deleteStaleTriggers just propagate whatever
+// they get. Trigger sync is unconditional (runs even with no subscriptions
+// or Eventing installed) and RBAC precedes existence, so a 403 can hit a
+// deploy that already succeeded and never touched eventing. Internal calls
+// already fail fast, so the first 403 aborts the whole sync immediately -
+// checking once here gives exactly one warning and no further doomed
+// calls. Any other error still fails the deploy. Forbidden is only
+// tolerated when hasSubscriptions is false - a function that declares
+// subscriptions is genuinely dependent on eventing, so a forbidden trigger
+// sync must fail its deploy rather than silently no-op.
+func warnOrFailOnTriggerSync(syncErr error, namespace string, hasSubscriptions bool) error {
+	if syncErr == nil {
+		return nil
+	}
+	if errors.IsForbidden(syncErr) {
+		if hasSubscriptions {
+			return fmt.Errorf("function declares eventing subscriptions but access to triggers.eventing.knative.dev is denied in namespace %q: %w", namespace, syncErr)
+		}
+		fmt.Fprintf(os.Stderr, "Warning: cannot sync eventing triggers (permission denied) - skipping; "+
+			"grant access to triggers.eventing.knative.dev in namespace %q to manage function subscriptions; "+
+			"if you are not using func subscriptions, you can safely ignore this message\n", namespace)
+		return nil
+	}
+	return fmt.Errorf("failed to sync triggers: %w", syncErr)
 }
 
 func syncTriggers(ctx context.Context, f fn.Function, namespace string, eventingClient clienteventingv1.KnEventingClient, clientset kubernetes.Interface) error {
@@ -395,6 +430,7 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, daprInsta
 	if err != nil {
 		return nil, fmt.Errorf("failed to process environment variables: %w", err)
 	}
+	envVars = AppendKafkaEnvs(envVars, f.Run.Kafka)
 
 	volumes, volumeMounts, err := ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)
 	if err != nil {
@@ -698,6 +734,19 @@ func withOpenAddress(ee []fn.Env) []fn.Env {
 	return ee
 }
 
+func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig) []corev1.EnvVar {
+	if kafka == nil || kafka.Brokers == "" || kafka.Topic == "" || kafka.ConsumerGroup == "" {
+		return envVars
+	}
+	envVars = append(envVars,
+		corev1.EnvVar{Name: "FUNC_TRANSPORT", Value: "kafka"},
+		corev1.EnvVar{Name: "KAFKA_BROKERS", Value: kafka.Brokers},
+		corev1.EnvVar{Name: "KAFKA_TOPIC", Value: kafka.Topic},
+		corev1.EnvVar{Name: "KAFKA_CONSUMER_GROUP", Value: kafka.ConsumerGroup},
+	)
+	return envVars
+}
+
 func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.EnvFromSource, error) {
 	slices := strings.Split(strings.Trim(value, "{} "), ":")
 	if len(slices) != 2 {
@@ -922,6 +971,9 @@ func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 		}
 
 		if volumeName != "" {
+			if vol.Path == nil {
+				return nil, nil, fmt.Errorf("volume %q is missing required path field", volumeName)
+			}
 			if !usedPaths.Has(*vol.Path) {
 				newVolumeMounts = append(newVolumeMounts, corev1.VolumeMount{
 					Name:      volumeName,

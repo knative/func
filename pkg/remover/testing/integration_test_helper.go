@@ -91,7 +91,8 @@ func TestInt_Remove(t *testing.T, remover fn.Remover, deployer fn.Deployer, desc
 	}
 
 	// Remove it
-	if err := client.Remove(ctx, "", "", f, true); err != nil {
+	_, err = client.Remove(ctx, "", "", f, true)
+	if err != nil {
 		t.Logf("error removing Function: %v", err)
 	}
 

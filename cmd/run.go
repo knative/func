@@ -175,6 +175,15 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	container := f.Build.Builder != "host"
 
+	// LEGACY PYTHON: host runner can't run old parliament functions — reject.
+	if !container && f.IsLegacyParliament() {
+		return oci.ErrLegacyParliamentHost
+	}
+	// LEGACY PYTHON: other pre-v1.18 Procfile-based python layouts are rejected too.
+	if !container && f.IsUnsupportedLegacyPython() {
+		return fn.ErrUnsupportedLegacyPython
+	}
+
 	// Ignore the verbose flag if JSON output
 	if cfg.JSON {
 		cfg.Verbose = false

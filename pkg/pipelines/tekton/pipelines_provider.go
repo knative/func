@@ -42,7 +42,7 @@ import (
 const DefaultNamespace = "default"
 
 // DefaultPersistentVolumeClaimSize to allocate for the function.
-var DefaultPersistentVolumeClaimSize = resource.MustParse("256Mi")
+var DefaultPersistentVolumeClaimSize = resource.MustParse("750Mi")
 
 type PipelineDecorator interface {
 	UpdateLabels(fn.Function, map[string]string) map[string]string
@@ -149,6 +149,15 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		}
 	}
 	f.Deploy.Image = image
+
+	// Deployer is either the intended deployer (f.Deployer) or the one it was
+	// last deployed with (f.Deploy.Deployer). Recorded so a remote deploy is
+	// remembered in func.yaml, mirroring Namespace and Image above.
+	deployer := f.Deployer
+	if deployer == "" {
+		deployer = f.Deploy.Deployer
+	}
+	f.Deploy.Deployer = deployer
 
 	// Client for the given namespace
 	client, err := NewTektonClient(namespace)
@@ -281,14 +290,17 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 
 // Creates tar stream with the function sources as they were in "./source" directory.
 func sourcesAsTarStream(f fn.Function) *io.PipeReader {
-	ignored := func(p string) bool { return strings.HasPrefix(p, ".git") }
-	if gi, err := gitignore.CompileIgnoreFile(filepath.Join(f.Root, ".gitignore")); err == nil {
-		ignored = func(p string) bool {
-			if strings.HasPrefix(p, ".git") {
-				return true
-			}
-			return gi.MatchesPath(p)
+	// Apply the same ignore policy as local builds: fn.IsIgnored always excludes
+	// the DefaultIgnored plus the user's .funcignore patterns. This guarantees local
+	// runtime data under .func — scaffolding (regenerated on-cluster by the
+	// func-scaffold step)
+	userPatterns := fn.ParseFuncIgnore(f.Root)
+	gi, giErr := gitignore.CompileIgnoreFile(filepath.Join(f.Root, ".gitignore"))
+	ignored := func(p string) bool {
+		if fn.IsIgnored(p, userPatterns) {
+			return true
 		}
+		return giErr == nil && gi.MatchesPath(p)
 	}
 
 	pr, pw := io.Pipe()
@@ -327,6 +339,9 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 			}
 
 			if ignored(relp) {
+				if fi.IsDir() {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 
@@ -578,46 +593,18 @@ func findNewestPipelineRunWithRetry(ctx context.Context, f fn.Function, namespac
 
 // allows simple mocking in unit tests, use with caution regarding concurrency
 var createPersistentVolumeClaim = k8s.CreatePersistentVolumeClaim
-var getPersistentVolumeClaim = k8s.GetPersistentVolumeClaim
-var deletePersistentVolumeClaim = k8s.DeletePersistentVolumeClaim
-var waitForPVCDeletion = k8s.WaitForPVCDeletion
 
 func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, namespace string, labels map[string]string) error {
-	pvcName := getPipelinePvcName(f)
-
-	// Check if PVC already exists
-	existingPVC, err := getPersistentVolumeClaim(ctx, pvcName, namespace)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to check existing PVC: %w", err)
-	}
-
-	// If PVC exists, delete it and wait for full deletion to ensure clean workspace
-	if existingPVC != nil {
-		err = deletePersistentVolumeClaim(ctx, pvcName, namespace)
-		if err != nil {
-			return fmt.Errorf("failed to delete existing PVC: %w", err)
-		}
-
-		// Wait for PVC to be fully deleted (not just Terminating)
-		err = waitForPVCDeletion(ctx, pvcName, namespace)
-		if err != nil {
-			return fmt.Errorf("failed waiting for PVC deletion: %w", err)
-		}
-	}
-
-	// Create fresh PVC
-	var pvcs resource.Quantity
-	pvcs = DefaultPersistentVolumeClaimSize
+	var err error
+	pvcs := DefaultPersistentVolumeClaimSize
 	if f.Build.PVCSize != "" {
 		if pvcs, err = resource.ParseQuantity(f.Build.PVCSize); err != nil {
-			return fmt.Errorf("PVC size value could not be parsed: %w", err)
+			return fmt.Errorf("PVC size value could not be parsed. %w", err)
 		}
 	}
-
-	err = createPersistentVolumeClaim(ctx, pvcName, namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass)
-	if err != nil {
-		return fmt.Errorf("problem creating persistent volume claim: %w", err)
+	err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return fmt.Errorf("problem creating persistent volume claim: %v", err)
 	}
-
 	return nil
 }

@@ -1,4 +1,4 @@
-FROM fedora:43
+FROM fedora:44
 
 RUN dnf -y copr enable rhcontainerbot/podman-next && \
     dnf -y install podman socat go make git && \
