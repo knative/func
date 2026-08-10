@@ -8,9 +8,9 @@ import (
 	"knative.dev/func/pkg/mcp/mock"
 )
 
-// TestTool_RunStop_Readonly ensures the run_stop tool rejects requests in
-// readonly mode.
-func TestTool_RunStop_Readonly(t *testing.T) {
+// TestTool_RunStop_AllowedInReadonly ensures the run_stop tool is NOT gated
+// by readonly mode: it is a local-only operation (no cluster mutation).
+func TestTool_RunStop_AllowedInReadonly(t *testing.T) {
 	client, _, err := newTestPairWithReadonly(t, true)
 	if err != nil {
 		t.Fatal(err)
@@ -23,13 +23,14 @@ func TestTool_RunStop_Readonly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.IsError {
-		t.Fatal("expected run_stop to be rejected in readonly mode")
+	if result.IsError {
+		t.Fatalf("expected run_stop to be allowed in readonly mode, got error: %v", result)
 	}
 }
 
-// TestTool_RunStop_NotRunning ensures a clear error is returned when there
-// is no active run for the given path.
+// TestTool_RunStop_NotRunning ensures run_stop is idempotent: stopping a
+// path with no active run succeeds with an informational message rather
+// than erroring.
 func TestTool_RunStop_NotRunning(t *testing.T) {
 	client, server, err := newTestPair(t)
 	if err != nil {
@@ -44,8 +45,8 @@ func TestTool_RunStop_NotRunning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.IsError {
-		t.Fatal("expected run_stop to fail for a path with no active run")
+	if result.IsError {
+		t.Fatalf("expected run_stop for a path with no active run to succeed idempotently, got error: %v", result)
 	}
 }
 
@@ -92,7 +93,8 @@ func TestTool_RunStop_Success(t *testing.T) {
 		t.Fatal("expected the stop function to have been invoked")
 	}
 
-	// A second run_stop for the same, now-inactive path must fail clearly.
+	// A second run_stop for the same, now-inactive path is idempotent and
+	// must succeed rather than error.
 	result, err = client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "run_stop",
 		Arguments: map[string]any{"path": path},
@@ -100,7 +102,7 @@ func TestTool_RunStop_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.IsError {
-		t.Fatal("expected second run_stop for the same path to fail")
+	if result.IsError {
+		t.Fatalf("expected second run_stop for the same path to succeed idempotently, got error: %v", result)
 	}
 }

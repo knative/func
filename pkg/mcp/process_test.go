@@ -11,32 +11,45 @@ import (
 	"time"
 )
 
-// TestRunRegistry_AddGetRemove verifies the basic lifecycle of a runRegistry
-// entry, including rejection of a duplicate add for the same path.
-func TestRunRegistry_AddGetRemove(t *testing.T) {
+// TestRunRegistry_ReserveActivateRemove verifies the basic lifecycle of a
+// runRegistry entry, including rejection of a duplicate reserve for the same
+// path both before and after activation.
+func TestRunRegistry_ReserveActivateRemove(t *testing.T) {
 	r := newRunRegistry()
 	stopped := false
 	stop := func() error { stopped = true; return nil }
 
 	if _, ok := r.get("/a/b"); ok {
-		t.Fatal("expected no entry before add")
+		t.Fatal("expected no entry before reserve")
 	}
 
-	if err := r.add("/a/b", 111, stop); err != nil {
-		t.Fatalf("unexpected error adding: %v", err)
+	if err := r.reserve("/a/b"); err != nil {
+		t.Fatalf("unexpected error reserving: %v", err)
 	}
+
+	// A pending (reserved but not yet activated) entry is not "active".
+	if _, ok := r.get("/a/b"); ok {
+		t.Fatal("expected no active entry while still pending")
+	}
+
+	// A second reserve while pending must be rejected.
+	if err := r.reserve("/a/b"); err == nil {
+		t.Fatal("expected error reserving an already-pending path")
+	}
+
+	r.activate("/a/b", 111, stop)
 
 	entry, ok := r.get("/a/b")
 	if !ok {
-		t.Fatal("expected entry after add")
+		t.Fatal("expected entry after activate")
 	}
 	if entry.pid != 111 {
 		t.Fatalf("expected pid 111, got %d", entry.pid)
 	}
 
-	// Duplicate add for the same path must be rejected.
-	if err := r.add("/a/b", 222, func() error { return nil }); err == nil {
-		t.Fatal("expected error adding duplicate path")
+	// A reserve for an already-active path must be rejected.
+	if err := r.reserve("/a/b"); err == nil {
+		t.Fatal("expected error reserving an already-active path")
 	}
 
 	r.remove("/a/b")
@@ -51,39 +64,63 @@ func TestRunRegistry_AddGetRemove(t *testing.T) {
 	}
 }
 
-// TestResolveRunPath verifies path resolution defaults to the working
-// directory when omitted, and resolves relative paths to absolute ones.
+// TestRunRegistry_StopAll verifies that stopAll stops every active run and
+// clears the registry.
+func TestRunRegistry_StopAll(t *testing.T) {
+	r := newRunRegistry()
+	var stoppedA, stoppedB bool
+
+	if err := r.reserve("/a"); err != nil {
+		t.Fatal(err)
+	}
+	r.activate("/a", 1, func() error { stoppedA = true; return nil })
+
+	if err := r.reserve("/b"); err != nil {
+		t.Fatal(err)
+	}
+	r.activate("/b", 2, func() error { stoppedB = true; return nil })
+
+	r.stopAll()
+
+	if !stoppedA || !stoppedB {
+		t.Fatalf("expected both runs to be stopped, got a=%v b=%v", stoppedA, stoppedB)
+	}
+	if _, ok := r.get("/a"); ok {
+		t.Fatal("expected registry to be cleared after stopAll")
+	}
+	if _, ok := r.get("/b"); ok {
+		t.Fatal("expected registry to be cleared after stopAll")
+	}
+}
+
+// TestResolveRunPath verifies that a required absolute path is accepted
+// as-is (cleaned), and that a relative path is rejected rather than
+// resolved against the server process's working directory.
 func TestResolveRunPath(t *testing.T) {
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
+	abs := filepath.Join(wd, "myfunc")
 
-	got, err := resolveRunPath(nil)
+	got, err := resolveRunPath(abs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != wd {
-		t.Fatalf("expected %q, got %q", wd, got)
+	if got != abs {
+		t.Fatalf("expected %q, got %q", abs, got)
 	}
 
-	empty := ""
-	got, err = resolveRunPath(&empty)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != wd {
-		t.Fatalf("expected %q, got %q", wd, got)
+	if _, err = resolveRunPath(""); err == nil {
+		t.Fatal("expected error for empty path")
 	}
 
-	rel := "."
-	got, err = resolveRunPath(&rel)
-	if err != nil {
-		t.Fatal(err)
+	if _, err = resolveRunPath("."); err == nil {
+		t.Fatal("expected error for relative path")
 	}
-	want, _ := filepath.Abs(rel)
-	if got != want {
-		t.Fatalf("expected %q, got %q", want, got)
+
+	if _, err = resolveRunPath("myfunc"); err == nil {
+		t.Fatal("expected error for relative path")
 	}
 }
 
@@ -127,9 +164,6 @@ func newTestStarter(t *testing.T, script string) defaultProcessStarter {
 // readiness line, then returns pid/host/port, and that the returned stop
 // function terminates the process via SIGTERM.
 func TestDefaultProcessStarter_Ready(t *testing.T) {
-	runStopGrace = 200 * time.Millisecond
-	defer func() { runStopGrace = 10 * time.Second }()
-
 	script := writeTestScript(t, 0, `{"host":"127.0.0.1","port":"9999"}`)
 	starter := newTestStarter(t, script)
 
@@ -179,9 +213,6 @@ func TestDefaultProcessStarter_ExitsBeforeReady(t *testing.T) {
 // TestDefaultProcessStarter_Timeout verifies that Start gives up and returns
 // an error if the process never becomes ready within the given context.
 func TestDefaultProcessStarter_Timeout(t *testing.T) {
-	runStopGrace = 200 * time.Millisecond
-	defer func() { runStopGrace = 10 * time.Second }()
-
 	script := writeTestScript(t, 3*time.Second, `{"host":"127.0.0.1","port":"9999"}`)
 	starter := newTestStarter(t, script)
 

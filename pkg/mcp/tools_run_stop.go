@@ -15,16 +15,11 @@ var runStopTool = &mcp.Tool{
 		Title:           "Stop Local Function Run",
 		ReadOnlyHint:    false,
 		DestructiveHint: ptr(true),
-		IdempotentHint:  true, // stopping an already-stopped run at the same path fails clearly either way
+		IdempotentHint:  true, // stopping an already-stopped run at the same path succeeds either way
 	},
 }
 
 func (s *Server) runStopHandler(ctx context.Context, r *mcp.CallToolRequest, input RunStopInput) (result *mcp.CallToolResult, output RunStopOutput, err error) {
-	if s.readonly.Load() {
-		err = fmt.Errorf("the server is currently in read-only mode; to enable write operations, set FUNC_ENABLE_MCP_WRITE in the server environment and restart the server")
-		return
-	}
-
 	path, err := resolveRunPath(input.Path)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve function path: %w", err)
@@ -33,7 +28,11 @@ func (s *Server) runStopHandler(ctx context.Context, r *mcp.CallToolRequest, inp
 
 	entry, ok := s.runs.get(path)
 	if !ok {
-		err = fmt.Errorf("no running function found at %q", path)
+		// Idempotent: stopping a path with no active run (already stopped,
+		// or never started) is not an error.
+		output = RunStopOutput{
+			Message: fmt.Sprintf("no active run found at %q; already stopped", path),
+		}
 		return
 	}
 
@@ -51,7 +50,7 @@ func (s *Server) runStopHandler(ctx context.Context, r *mcp.CallToolRequest, inp
 
 // RunStopInput defines the input parameters for the run_stop tool.
 type RunStopInput struct {
-	Path *string `json:"path,omitempty" jsonschema:"Absolute path to the function project directory (default: server's current working directory); must match the path used with the run tool"`
+	Path string `json:"path" jsonschema:"required,Absolute path to the function project directory; must match the path used with the run tool"`
 }
 
 // RunStopOutput defines the structured output returned by the run_stop tool.

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -14,11 +13,6 @@ import (
 	"syscall"
 	"time"
 )
-
-// runStopGrace is the delay after sending SIGTERM before a subprocess that
-// has not yet exited is force-killed with SIGKILL. A var (rather than a
-// const) so tests can shrink it.
-var runStopGrace = 10 * time.Second
 
 // runReadyTimeout bounds how long "run" waits for the started function to
 // report readiness (build + container/host startup can be slow on a cold
@@ -40,10 +34,10 @@ type processStarter interface {
 	// done, whichever happens first.
 	//
 	// On success it returns the process ID, host, and port, along with a
-	// stop function which gracefully terminates the process (SIGTERM, then
-	// SIGKILL after a grace period) and blocks until it has fully exited.
-	// stop is idempotent and safe to call even if the process has already
-	// exited on its own.
+	// stop function which gracefully terminates the process (SIGTERM only,
+	// no forced kill) and blocks until it has fully exited. stop is
+	// idempotent and safe to call even if the process has already exited on
+	// its own.
 	//
 	// On error, any process that was started is terminated before
 	// returning; no process is left running.
@@ -67,15 +61,17 @@ func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, arg
 
 	cmd := exec.CommandContext(procCtx, cmdParts[0], cmdParts[1:]...)
 	// Send SIGTERM (not the default SIGKILL) on cancellation so the child's
-	// own signal handler can run its cleanup (job.Stop()). WaitDelay forces
-	// a SIGKILL if it has not exited within the grace period.
+	// own signal handler can run its cleanup (job.Stop(), container
+	// teardown, etc.), and wait for it to exit on its own. We deliberately
+	// do not escalate to SIGKILL: a process that never exits after SIGTERM
+	// is a bug in the runner to fix there, not something for the MCP server
+	// to paper over by force-killing it (which would skip that cleanup).
 	cmd.Cancel = func() error {
 		if cmd.Process == nil {
 			return nil
 		}
 		return cmd.Process.Signal(syscall.SIGTERM)
 	}
-	cmd.WaitDelay = runStopGrace
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -212,7 +208,10 @@ func (t *tailBuffer) String() string {
 	return strings.Join(t.lines, "\n")
 }
 
-// runEntry tracks a single active "run" invocation.
+// runEntry tracks a single "run" invocation. A freshly reserved entry has a
+// nil stop (and zero pid) until activate fills it in once the subprocess has
+// actually started and become ready; get treats such a pending entry as not
+// yet active.
 type runEntry struct {
 	pid  int
 	stop func() error
@@ -230,24 +229,48 @@ func newRunRegistry() *runRegistry {
 	return &runRegistry{byPath: map[string]*runEntry{}}
 }
 
-// add registers a new run for path. It returns an error if a run is already
-// registered for that path, in which case the caller is responsible for
-// stopping the process it just started (it has not been registered).
-func (r *runRegistry) add(path string, pid int, stop func() error) error {
+// reserve atomically claims path for a new run before the (slow) subprocess
+// Start call is made, so that two concurrent "run" calls for the same path
+// cannot both spawn a process: the second is rejected here, before anything
+// is started. The caller must follow a successful reserve with either
+// activate (Start succeeded) or release (Start failed).
+func (r *runRegistry) reserve(path string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if existing, ok := r.byPath[path]; ok {
+		if existing.stop == nil {
+			return fmt.Errorf("a function is already starting at %q; call run_stop first", path)
+		}
 		return fmt.Errorf("a function is already running at %q (pid %d); call run_stop first", path, existing.pid)
 	}
-	r.byPath[path] = &runEntry{pid: pid, stop: stop}
+	r.byPath[path] = &runEntry{}
 	return nil
 }
 
+// activate fills in the pid/stop for a path previously reserve'd, marking it
+// as an active run.
+func (r *runRegistry) activate(path string, pid int, stop func() error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.byPath[path] = &runEntry{pid: pid, stop: stop}
+}
+
+// release removes a reservation for path, used when Start fails after a
+// successful reserve.
+func (r *runRegistry) release(path string) {
+	r.remove(path)
+}
+
+// get returns the active run entry for path, if any. A path that is
+// reserved but not yet activated (still starting) is treated as not active.
 func (r *runRegistry) get(path string) (*runEntry, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	e, ok := r.byPath[path]
-	return e, ok
+	if !ok || e.stop == nil {
+		return nil, false
+	}
+	return e, true
 }
 
 func (r *runRegistry) remove(path string) {
@@ -256,14 +279,34 @@ func (r *runRegistry) remove(path string) {
 	delete(r.byPath, path)
 }
 
-// resolveRunPath resolves the optional path input for the run/run_stop
-// tools to an absolute path, defaulting to the server process's current
-// working directory when omitted. Both tools must resolve paths the same
-// way so that a "run" followed by a "run_stop" with equivalent path inputs
-// (e.g. relative vs. absolute) refer to the same registry entry.
-func resolveRunPath(path *string) (string, error) {
-	if path == nil || *path == "" {
-		return os.Getwd()
+// stopAll stops every currently active run and clears the registry. It is
+// called on normal server shutdown (client disconnect, or SIGINT/SIGTERM
+// canceling the server's context) so that no "func run" subprocess is left
+// behind holding a port. It does nothing useful on a hard kill of the
+// server itself (e.g. SIGKILL), where OS process reaping applies instead.
+func (r *runRegistry) stopAll() {
+	r.mu.Lock()
+	entries := make([]*runEntry, 0, len(r.byPath))
+	for _, e := range r.byPath {
+		entries = append(entries, e)
 	}
-	return filepath.Abs(*path)
+	r.byPath = map[string]*runEntry{}
+	r.mu.Unlock()
+
+	for _, e := range entries {
+		if e.stop != nil {
+			_ = e.stop()
+		}
+	}
+}
+
+// resolveRunPath validates the required path input for the run/run_stop
+// tools. The MCP server process's working directory is unrelated to the
+// caller's, so path must be an absolute path supplied explicitly; there is
+// no CWD-based default.
+func resolveRunPath(path string) (string, error) {
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("path must be an absolute path, got %q", path)
+	}
+	return filepath.Clean(path), nil
 }

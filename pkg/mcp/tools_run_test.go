@@ -76,9 +76,16 @@ func TestTool_Run_Args(t *testing.T) {
 	}
 }
 
-// TestTool_Run_Readonly ensures the run tool rejects requests in readonly mode.
-func TestTool_Run_Readonly(t *testing.T) {
-	client, _, err := newTestPairWithReadonly(t, true)
+// TestTool_Run_AllowedInReadonly ensures the run tool is NOT gated by
+// readonly mode: it is a local-only operation (no cluster mutation), unlike
+// deploy/delete.
+func TestTool_Run_AllowedInReadonly(t *testing.T) {
+	starter := mock.NewProcessStarter()
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, error) {
+		return 1, "127.0.0.1", "8080", func() error { return nil }, nil
+	}
+
+	client, _, err := newTestPairCore(t, true, WithProcessStarter(starter))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,8 +97,8 @@ func TestTool_Run_Readonly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.IsError {
-		t.Fatal("expected run to be rejected in readonly mode")
+	if result.IsError {
+		t.Fatalf("expected run to be allowed in readonly mode, got error: %v", result)
 	}
 }
 

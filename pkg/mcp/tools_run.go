@@ -20,22 +20,16 @@ var runTool = &mcp.Tool{
 }
 
 func (s *Server) runHandler(ctx context.Context, r *mcp.CallToolRequest, input RunInput) (result *mcp.CallToolResult, output RunOutput, err error) {
-	if s.readonly.Load() {
-		err = fmt.Errorf("the server is currently in read-only mode; to enable write operations, set FUNC_ENABLE_MCP_WRITE in the server environment and restart the server")
-		return
-	}
-
 	path, err := resolveRunPath(input.Path)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve function path: %w", err)
 		return
 	}
 
-	// Fail fast without spawning a process if one is already known to be
-	// active. s.runs.add below is the authoritative check that also guards
-	// against a race between two concurrent "run" calls for the same path.
-	if existing, ok := s.runs.get(path); ok {
-		err = fmt.Errorf("a function is already running at %q (pid %d); call run_stop first", path, existing.pid)
+	// reserve claims path before the subprocess is started, so that two
+	// concurrent "run" calls for the same path cannot both spawn a
+	// process; the loser is rejected here, before any process is started.
+	if err = s.runs.reserve(path); err != nil {
 		return
 	}
 
@@ -44,14 +38,12 @@ func (s *Server) runHandler(ctx context.Context, r *mcp.CallToolRequest, input R
 
 	pid, host, port, stop, err := s.starter.Start(readyCtx, "run", input.Args(path)...)
 	if err != nil {
+		s.runs.release(path)
 		err = fmt.Errorf("unable to run function: %w", err)
 		return
 	}
 
-	if err = s.runs.add(path, pid, stop); err != nil {
-		_ = stop()
-		return
-	}
+	s.runs.activate(path, pid, stop)
 
 	output = RunOutput{
 		Pid: pid,
@@ -62,7 +54,7 @@ func (s *Server) runHandler(ctx context.Context, r *mcp.CallToolRequest, input R
 
 // RunInput defines the input parameters for the run tool.
 type RunInput struct {
-	Path     *string `json:"path,omitempty" jsonschema:"Absolute path to the function project directory (default: server's current working directory)"`
+	Path     string  `json:"path" jsonschema:"required,Absolute path to the function project directory"`
 	Registry *string `json:"registry,omitempty" jsonschema:"Container registry for the function image"`
 	Build    *bool   `json:"build,omitempty" jsonschema:"Force a rebuild before running (default false; a build still happens automatically if the image is missing or out of date)"`
 	Port     *int    `json:"port,omitempty" jsonschema:"Host port to bind (default: 8080, or the first available port)"`

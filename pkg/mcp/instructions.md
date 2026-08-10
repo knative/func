@@ -197,8 +197,9 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 ### run
 
 - **FIRST:** Read `func://help/run` for authoritative usage information
+- **REQUIRED parameters:**
+  - `path` (absolute path to the directory containing the Function to run; there is no CWD-based default — the MCP server's own working directory is unrelated to yours)
 - **OPTIONAL parameters:**
-  - `path` (directory containing the Function to run; ALWAYS pass the absolute path explicitly — omitting it defaults to the MCP server's own working directory, not yours)
   - `registry` (container registry; only needed if the Function's image must be named/built)
   - `build` (force a rebuild before running; omit to let func build automatically only when out of date)
   - `port` (host port to bind; omit to use 8080 or the first available port)
@@ -206,12 +207,14 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - The Function keeps running in the background after the tool call returns
 - Only ONE run may be active per Function path at a time — calling `run` again for a path that is already running fails with a clear error; call `run_stop` first
 - ALWAYS call `run_stop` with the matching `path` when finished, to free the port and clean up
+- Not a cluster operation, so unaffected by read-only mode
 
 ### run_stop
 
 - Stops a Function previously started with `run`
-- **REQUIRED:** `path` must match (resolve to) the same absolute path used to start it with `run`
-- Returns a clear error if no active run is found for that path
+- **REQUIRED:** `path` (absolute) must match the path used to start it with `run`
+- Idempotent: calling `run_stop` for a path with no active run (already stopped, or never started) succeeds with an informational message rather than erroring
+- Not a cluster operation, so unaffected by read-only mode
 
 ### config_envs_list, config_envs_add, config_envs_remove
 

@@ -207,8 +207,16 @@ func New(options ...Option) *Server {
 // Start the MCP server using the configured transport.
 // The server's readonly mode is determined at construction time via
 // WithReadonly; it cannot be changed after the server is created.
+//
+// When Run returns, on normal shutdown (client disconnect, or the caller
+// canceling ctx in response to SIGINT/SIGTERM), any Function runs left
+// active by the "run" tool are stopped so no subprocess (and the port it
+// holds) is left behind. A hard kill of the server process itself (e.g. a
+// second SIGKILL) bypasses this; the OS reaps the orphaned children instead.
 func (s *Server) Start(ctx context.Context) error {
-	return s.impl.Run(ctx, s.transport)
+	err := s.impl.Run(ctx, s.transport)
+	s.runs.stopAll()
+	return err
 }
 
 // For now the executor is a simple run of the command "func" or "kn func"
