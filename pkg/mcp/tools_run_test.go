@@ -13,6 +13,8 @@ import (
 // TestTool_Run_Args ensures the run tool passes the correct arguments to the
 // process starter and returns pid/url from the started process.
 func TestTool_Run_Args(t *testing.T) {
+	path := testAbsPath("my-func")
+
 	starter := mock.NewProcessStarter()
 	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, error) {
 		if subcommand != "run" {
@@ -21,7 +23,7 @@ func TestTool_Run_Args(t *testing.T) {
 
 		// path, --json, registry, build, port -> 3 string flags (path, registry, address) * 2 + 1 bool-ish (--json) + 1 (--build=true, standalone flag)
 		wantArgs := map[string]string{
-			"--path":     "/tmp/my-func",
+			"--path":     path,
 			"--registry": "ghcr.io/user",
 			"--address":  "127.0.0.1:9090",
 		}
@@ -51,7 +53,7 @@ func TestTool_Run_Args(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "run",
 		Arguments: map[string]any{
-			"path":     "/tmp/my-func",
+			"path":     path,
 			"registry": "ghcr.io/user",
 			"build":    true,
 			"port":     port,
@@ -92,7 +94,7 @@ func TestTool_Run_AllowedInReadonly(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "run",
-		Arguments: map[string]any{"path": "/tmp/my-func"},
+		Arguments: map[string]any{"path": testAbsPath("my-func")},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +118,7 @@ func TestTool_Run_Duplicate(t *testing.T) {
 	}
 	server.readonly.Store(false)
 
-	params := &mcp.CallToolParams{Name: "run", Arguments: map[string]any{"path": "/tmp/dup-func"}}
+	params := &mcp.CallToolParams{Name: "run", Arguments: map[string]any{"path": testAbsPath("dup-func")}}
 
 	result, err := client.CallTool(t.Context(), params)
 	if err != nil {
@@ -151,7 +153,7 @@ func TestTool_Run_StartError(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "run",
-		Arguments: map[string]any{"path": "/tmp/err-func"},
+		Arguments: map[string]any{"path": testAbsPath("err-func")},
 	})
 	if err != nil {
 		t.Fatal(err)

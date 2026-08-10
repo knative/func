@@ -18,7 +18,7 @@ func TestTool_RunStop_AllowedInReadonly(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "run_stop",
-		Arguments: map[string]any{"path": "/tmp/my-func"},
+		Arguments: map[string]any{"path": testAbsPath("my-func")},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func TestTool_RunStop_NotRunning(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "run_stop",
-		Arguments: map[string]any{"path": "/tmp/never-ran"},
+		Arguments: map[string]any{"path": testAbsPath("never-ran")},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestTool_RunStop_Success(t *testing.T) {
 	}
 	server.readonly.Store(false)
 
-	path := "/tmp/stop-me"
+	path := testAbsPath("stop-me")
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "run",
