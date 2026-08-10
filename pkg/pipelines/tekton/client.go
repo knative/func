@@ -22,7 +22,7 @@ func NewTektonClient(namespace string) (*v1.TektonV1Client, error) {
 
 	client, err := v1.NewForConfig(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new tekton client: %v", err)
+		return nil, fmt.Errorf("failed to create new tekton client: %w", err)
 	}
 
 	return client, nil
@@ -31,14 +31,14 @@ func NewTektonClient(namespace string) (*v1.TektonV1Client, error) {
 func NewTektonClients() (*cli.Clients, error) {
 	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new tekton clientset: %v", err)
+		return nil, fmt.Errorf("failed to create new tekton clientset: %w", err)
 	}
 
 	params := cli.TektonParams{}
 	clients, err := params.Clients(restConfig)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new tekton clients: %v", err)
+		return nil, fmt.Errorf("failed to create new tekton clients: %w", err)
 	}
 
 	return clients, nil

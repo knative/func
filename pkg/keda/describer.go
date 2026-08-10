@@ -44,7 +44,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	clientset, err := k8s.NewKubernetesClientset()
 	if err != nil {
-		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %v", err)
+		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %w", err)
 	}
 
 	serviceClient := clientset.CoreV1().Services(namespace)
@@ -68,7 +68,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 
 	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
 	if err != nil {
-		return fn.Instance{}, fmt.Errorf("unable to create HTTPScaledObject client: %v", err)
+		return fn.Instance{}, fmt.Errorf("unable to create HTTPScaledObject client: %w", err)
 	}
 
 	httpScaledObject, err := httpScaledObjectClientset.HttpV1alpha1().HTTPScaledObjects(namespace).Get(ctx, name, metav1.GetOptions{})
@@ -96,7 +96,7 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	deploymentClient := clientset.AppsV1().Deployments(namespace)
 	deployment, err := deploymentClient.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return fn.Instance{}, fmt.Errorf("unable to get deployment %q: %v", name, err)
+		return fn.Instance{}, fmt.Errorf("unable to get deployment %q: %w", name, err)
 	}
 
 	// get image

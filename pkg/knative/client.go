@@ -21,12 +21,12 @@ func NewServingClient(namespace string) (clientservingv1.KnServingClient, error)
 
 	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new serving client: %v", err)
+		return nil, fmt.Errorf("failed to create new serving client: %w", err)
 	}
 
 	servingClient, err := servingv1.NewForConfig(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new serving client: %v", err)
+		return nil, fmt.Errorf("failed to create new serving client: %w", err)
 	}
 
 	client := clientservingv1.NewKnServingClient(servingClient, namespace)
@@ -41,12 +41,12 @@ func NewEventingClient(namespace string) (clienteventingv1.KnEventingClient, err
 
 	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new serving client: %v", err)
+		return nil, fmt.Errorf("failed to create new serving client: %w", err)
 	}
 
 	eventingClient, err := eventingv1.NewForConfig(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new eventing client: %v", err)
+		return nil, fmt.Errorf("failed to create new eventing client: %w", err)
 	}
 
 	client := clienteventingv1.NewKnEventingClient(eventingClient, namespace)
