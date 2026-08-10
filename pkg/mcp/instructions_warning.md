@@ -15,13 +15,12 @@ The Functions MCP server is currently running in **read-only mode**.
 **Disabled operations:**
 - Deploy to cluster
 - Delete from cluster
-- Invoke a Function
 
-These operations are disabled to prevent unintended cluster modifications and side effects from invoking a Function's handler.
+These write operations are disabled to prevent unintended cluster modifications.
 
 ## Enabling Write Mode
 
-If the user needs to deploy, delete, or invoke Functions, you MUST inform them to enable write mode:
+If the user needs to deploy or delete Functions, you MUST inform them to enable write mode:
 
 1. Close/exit this application completely
 2. Set the environment variable: `FUNC_ENABLE_MCP_WRITE=true`

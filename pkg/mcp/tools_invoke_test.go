@@ -181,11 +181,16 @@ func TestTool_Invoke_MissingPath(t *testing.T) {
 	}
 }
 
-// TestTool_Invoke_Readonly ensures the invoke tool rejects requests in
-// readonly mode, since invoking a Function may trigger arbitrary side
-// effects in its handler.
+// TestTool_Invoke_Readonly ensures the invoke tool remains available in
+// readonly mode, since invoking a Function does not itself mutate cluster
+// state (unlike deploy, delete, and build, which readonly mode disables).
 func TestTool_Invoke_Readonly(t *testing.T) {
-	client, _, err := newTestPairWithReadonly(t, true) // readonly = true
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		return []byte("OK\n"), nil
+	}
+
+	client, _, err := newTestPairCore(t, true, WithReadonly(true), WithExecutor(executor))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,8 +202,11 @@ func TestTool_Invoke_Readonly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.IsError {
-		t.Fatal("expected invoke to be rejected in readonly mode")
+	if result.IsError {
+		t.Fatalf("expected invoke to succeed in readonly mode, got error: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
 	}
 }
 

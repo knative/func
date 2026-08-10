@@ -133,6 +133,8 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - **REQUIRED parameters:**
   - `path` (directory containing the Function to invoke)
 - **Optional** `target` parameter: "local", "remote", or a URL. Defaults to preferring a locally running instance over remote
+- If `data` and `file` are both omitted, a real default payload is still sent: `{"message":"Hello World"}` with content-type `application/json`, source `/boson/fn`, type `boson.fn`, and method `POST`. This is NOT an empty/no-op probe — the Function's handler actually runs against this payload
+- **If using `file`:** you MUST pass an ABSOLUTE path, just like `path`. `file` is resolved relative to the MCP server process's working directory (NOT your current working directory and NOT relative to the `path` parameter), so a relative value will often fail or read the wrong file
 - **CAUTION:** Invoking a Function executes its handler and may trigger arbitrary, real side effects (e.g. sending an email, charging a payment, writing to a database) — this is especially true with `target: "remote"`, which hits the live deployed instance. Do not invoke automatically without considering whether the Function's handler is safe to run; when in doubt, confirm with the user first, particularly before invoking a remote/production instance
 - An error is returned if the invocation fails (e.g. non-2xx HTTP response), so a successful call without an error confirms the Function responded correctly
 
