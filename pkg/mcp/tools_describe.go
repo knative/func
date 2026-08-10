@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	fn "knative.dev/func/pkg/functions"
@@ -27,6 +28,15 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 		return
 	}
 
+	// Validate: namespace only makes sense alongside 'name'. When describing
+	// by 'path', the Function's name and namespace are read from its own
+	// deploy identity (func.yaml); the CLI rejects a separate --namespace in
+	// that mode ("must also specify a name when specifying namespace").
+	if input.Path != nil && input.Namespace != nil {
+		err = fmt.Errorf("'namespace' is only valid with 'name'; when describing by 'path', the namespace is read from the Function's own deploy identity")
+		return
+	}
+
 	// ExecuteSplit (rather than Execute/CombinedOutput) is required here:
 	// the CLI can write warnings to stderr on an otherwise-successful call
 	// (e.g. permission warnings from the knative describer), and stdout and
@@ -45,6 +55,11 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 		return
 	}
 
+	var middleware *fn.Middleware
+	if instance.Middleware.Version != "" {
+		middleware = &instance.Middleware
+	}
+
 	output = DescribeOutput{
 		Name:          instance.Name,
 		Namespace:     instance.Namespace,
@@ -55,7 +70,14 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 		Deployer:      instance.Deployer,
 		Labels:        instance.Labels,
 		Subscriptions: instance.Subscriptions,
+		Middleware:    middleware,
 		Revision:      instance.Revision,
+		// A non-fatal warning on stderr (e.g. RBAC denying the eventing
+		// trigger list) can accompany an otherwise-successful, but partial,
+		// JSON payload on stdout (e.g. an empty subscriptions list).
+		// Surface it so the agent doesn't mistake "no subscriptions" for
+		// "no permission to see them".
+		Warnings: strings.TrimSpace(string(stderr)),
 	}
 	return
 }
@@ -65,7 +87,7 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 type DescribeInput struct {
 	Path      *string `json:"path,omitempty" jsonschema:"Path to the function project directory (mutually exclusive with name)"`
 	Name      *string `json:"name,omitempty" jsonschema:"Name of the function to describe (mutually exclusive with path)"`
-	Namespace *string `json:"namespace,omitempty" jsonschema:"Kubernetes namespace to describe from (default: current or active namespace)"`
+	Namespace *string `json:"namespace,omitempty" jsonschema:"Kubernetes namespace to describe from (default: current or active namespace). Only valid together with 'name'; when describing by 'path' the namespace is read from the Function's own deploy identity"`
 	Verbose   *bool   `json:"verbose,omitempty" jsonschema:"Enable verbose logging output"`
 }
 
@@ -98,5 +120,7 @@ type DescribeOutput struct {
 	Deployer      string            `json:"deployer,omitempty" jsonschema:"Deployer backend (knative, k8s, keda)"`
 	Labels        map[string]string `json:"labels,omitempty" jsonschema:"Function labels"`
 	Subscriptions []fn.Subscription `json:"subscriptions,omitempty" jsonschema:"Active event subscriptions"`
+	Middleware    *fn.Middleware    `json:"middleware,omitempty" jsonschema:"Middleware backend (e.g. keda) applied at deploy time, if any"`
 	Revision      string            `json:"revision,omitempty" jsonschema:"Source commit SHA, read from the OCI revision label baked into the built image"`
+	Warnings      string            `json:"warnings,omitempty" jsonschema:"Non-fatal warnings emitted while gathering this Function's status (e.g. permission errors that caused partial data, such as an empty subscriptions list)"`
 }

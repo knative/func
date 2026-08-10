@@ -135,10 +135,12 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 ### describe
 
 - **FIRST:** Read `func://help/describe` for authoritative usage information
+- Describes a **deployed** Function instance on the cluster; it never just reads local `func.yaml`. This tool will fail if the Function has not yet been deployed (e.g. calling it right after 'create' but before 'deploy' is a usage error, not a tool bug)
 - Supports TWO modes (mutually exclusive):
-  1. **Describe by PATH:** Provide 'path' parameter (reads function name from func.yaml at that path)
-  2. **Describe by NAME:** Provide 'name' parameter (describes named function from cluster)
+  1. **Describe by PATH:** Provide 'path' parameter (reads the Function's name/namespace from func.yaml at that path, then describes whatever is deployed for that Function)
+  2. **Describe by NAME:** Provide 'name' parameter (describes the named Function on the cluster)
 - Exactly ONE of 'path' or 'name' must be provided, not both
+- 'namespace' is only valid together with 'name'; providing both 'path' and 'namespace' is rejected, since path mode already determines the namespace from the Function's own deploy identity
 - Read-only; does not modify local files or cluster resources
 
 ### delete

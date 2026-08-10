@@ -66,6 +66,7 @@ func TestTool_Describe_Args(t *testing.T) {
 			"deployer": "knative",
 			"labels": {"app": "my-function"},
 			"subscriptions": [{"source": "src", "type": "type", "broker": "default"}],
+			"middleware": {"version": "1.2.3"},
 			"revision": "abc123",
 			"ready": "true"
 		}`), nil, nil
@@ -126,8 +127,48 @@ func TestTool_Describe_Args(t *testing.T) {
 	if len(output.Subscriptions) != 1 || output.Subscriptions[0].Broker != "default" {
 		t.Errorf("unexpected subscriptions: %v", output.Subscriptions)
 	}
+	if output.Middleware == nil || output.Middleware.Version != "1.2.3" {
+		t.Errorf("expected middleware version %q, got %v", "1.2.3", output.Middleware)
+	}
 	if output.Revision != "abc123" {
 		t.Errorf("expected revision %q, got %q", "abc123", output.Revision)
+	}
+	if output.Warnings != "" {
+		t.Errorf("expected no warnings, got %q", output.Warnings)
+	}
+}
+
+// TestTool_Describe_NoMiddleware ensures the middleware field is omitted
+// (left nil) when the CLI reports no middleware version, rather than
+// surfacing a zero-value struct.
+func TestTool_Describe_NoMiddleware(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteSplitFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, []byte, error) {
+		return []byte(`{"name": "my-function"}`), nil, nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "describe",
+		Arguments: map[string]any{"name": "my-function"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+
+	var output DescribeOutput
+	if err := unmarshalStructuredContent(result, &output); err != nil {
+		t.Fatal(err)
+	}
+	if output.Middleware != nil {
+		t.Errorf("expected nil middleware, got %v", output.Middleware)
 	}
 }
 
@@ -151,6 +192,37 @@ func TestTool_Describe_PathAndNameMutuallyExclusive(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected describe to be rejected when both path and name are provided")
+	}
+}
+
+// TestTool_Describe_PathAndNamespaceRejected ensures providing both 'path'
+// and 'namespace' is rejected: path mode determines the namespace from the
+// Function's own deploy identity (func.yaml), and the CLI itself rejects a
+// separate --namespace in that mode.
+func TestTool_Describe_PathAndNamespaceRejected(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteSplitFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, []byte, error) {
+		t.Fatal("executor should not be invoked when path+namespace validation fails")
+		return nil, nil, nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "describe",
+		Arguments: map[string]any{
+			"path":      "/tmp/my-function",
+			"namespace": "prod",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected describe to be rejected when both path and namespace are provided")
 	}
 }
 
@@ -248,5 +320,9 @@ func TestTool_Describe_StderrWarningDoesNotBreakParsing(t *testing.T) {
 	}
 	if output.Ready != "true" {
 		t.Errorf("expected ready %q, got %q", "true", output.Ready)
+	}
+	wantWarning := "Warning: cannot list eventing triggers (permission denied) - skipping"
+	if output.Warnings != wantWarning {
+		t.Errorf("expected warnings %q, got %q", wantWarning, output.Warnings)
 	}
 }
