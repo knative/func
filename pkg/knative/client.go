@@ -41,7 +41,7 @@ func NewEventingClient(namespace string) (clienteventingv1.KnEventingClient, err
 
 	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new serving client: %v", err)
+		return nil, fmt.Errorf("failed to create new eventing client: %v", err)
 	}
 
 	eventingClient, err := eventingv1.NewForConfig(restConfig)

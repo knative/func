@@ -10,10 +10,11 @@ import (
 )
 
 func TestInt_FullPath(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_FullPath(t,
 		k8s.NewDeployer(k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(false),
-		k8s.NewLister(false),
+		k8s.NewLister(kc, false),
 		k8s.NewDescriber(false),
 		k8s.KubernetesDeployerName)
 }

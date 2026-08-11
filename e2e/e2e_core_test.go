@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 )
 
@@ -398,7 +399,8 @@ func TestCore_Delete(t *testing.T) {
 	}
 
 	// Check it appears in the list
-	client := fn.New(fn.WithListers(knative.NewLister(false)))
+	kc := k8s.NewClient(k8s.GetClientConfig())
+	client := fn.New(fn.WithListers(knative.NewLister(kc, false)))
 	list, err := client.List(t.Context(), Namespace)
 	if err != nil {
 		t.Fatal(err)

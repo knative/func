@@ -16,9 +16,10 @@ import (
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	listers := []fn.Lister{
-		knative.NewLister(false),
-		k8s.NewLister(false),
+		knative.NewLister(kc, false),
+		k8s.NewLister(kc, false),
 	}
 
 	items := []fn.ListItem{}
