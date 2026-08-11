@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"k8s.io/client-go/dynamic"
@@ -17,8 +18,10 @@ const (
 )
 
 type Client struct {
-	cc  clientcmd.ClientConfig
-	cfg *rest.Config
+	cc     clientcmd.ClientConfig
+	cfg    *rest.Config
+	cfgErr error
+	o      sync.Once
 }
 
 func NewClient(cc clientcmd.ClientConfig) *Client {
@@ -30,18 +33,20 @@ func NewClientFromConfig(cfg *rest.Config) *Client {
 }
 
 func (c *Client) ClientConfig() (*rest.Config, error) {
-	if c.cfg != nil {
-		return c.cfg, nil
-	}
-	if c.cc == nil {
-		return nil, fmt.Errorf("no kubernetes client configuration available")
-	}
-	cfg, err := c.cc.ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kubernetes client config: %w", err)
-	}
-	c.cfg = cfg
-	return c.cfg, nil
+	c.o.Do(func() {
+		if c.cfg != nil {
+			return
+		}
+		if c.cc == nil {
+			c.cfgErr = fmt.Errorf("no kubernetes client configuration available")
+			return
+		}
+		c.cfg, c.cfgErr = c.cc.ClientConfig()
+		if c.cfgErr != nil {
+			c.cfgErr = fmt.Errorf("failed to create kubernetes client config: %w", c.cfgErr)
+		}
+	})
+	return c.cfg, c.cfgErr
 }
 
 func (c *Client) Clientset() (*kubernetes.Clientset, error) {
