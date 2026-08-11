@@ -60,6 +60,7 @@ func NewTestClient(options ...fn.Option) ClientFactory {
 // 'Verbose' indicates the system should write out a higher amount of logging.
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
+		kc = k8s.NewClient(k8s.GetClientConfig())
 		t  = newTransport(cfg.InsecureSkipVerify)                                // may provide a custom impl which proxies
 		c  = newCredentialsProvider(config.Dir(), t, "", cfg.InsecureSkipVerify) // for accessing registries
 		d  = newKnativeDeployer(cfg.Verbose)                                     // default deployer (can be overridden via options)
@@ -76,7 +77,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 				k8s.NewDescriber(cfg.Verbose, k8s.WithDescriberTransport(t)),
 				keda.NewDescriber(cfg.Verbose, keda.WithDescriberTransport(t)),
 			),
-			fn.WithListers(knative.NewLister(cfg.Verbose), k8s.NewLister(cfg.Verbose), keda.NewLister(cfg.Verbose)),
+			fn.WithListers(knative.NewLister(kc, cfg.Verbose), k8s.NewLister(kc, cfg.Verbose), keda.NewLister(kc, cfg.Verbose)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(

@@ -14,22 +14,32 @@ import (
 )
 
 type Lister struct {
+	kc      *k8s.Client
 	verbose bool
 }
 
-func NewLister(verbose bool) fn.Lister {
+func NewLister(kc *k8s.Client, verbose bool) fn.Lister {
 	return &Lister{
+		kc:      kc,
 		verbose: verbose,
 	}
 }
 
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
-	clientset, err := k8s.NewKubernetesClientset()
+	if l.kc == nil {
+		return nil, fmt.Errorf("kubernetes client is not initialized")
+	}
+	clientset, err := l.kc.Clientset()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client: %v", err)
 	}
 
-	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
+	restConfig, err := l.kc.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get kubernetes client config: %v", err)
+	}
+
+	httpScaledObjectClientset, err := versioned.NewForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create HTTPScaledObject client: %v", err)
 	}

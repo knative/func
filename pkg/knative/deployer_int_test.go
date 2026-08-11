@@ -6,14 +6,16 @@ import (
 	"testing"
 
 	deployertesting "knative.dev/func/pkg/deployer/testing"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 )
 
 func TestInt_FullPath(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_FullPath(t,
 		knative.NewDeployer(knative.WithDeployerVerbose(true)),
 		knative.NewRemover(true),
-		knative.NewLister(true),
+		knative.NewLister(kc, true),
 		knative.NewDescriber(true),
 		knative.KnativeDeployerName)
 }

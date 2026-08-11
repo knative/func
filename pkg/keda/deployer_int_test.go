@@ -6,14 +6,16 @@ import (
 	"testing"
 
 	deployertesting "knative.dev/func/pkg/deployer/testing"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/keda"
 )
 
 func TestInt_FullPath(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_FullPath(t,
 		keda.NewDeployer(keda.WithDeployerVerbose(false)),
 		keda.NewRemover(false),
-		keda.NewLister(false),
+		keda.NewLister(kc, false),
 		keda.NewDescriber(false),
 		keda.KedaDeployerName)
 }

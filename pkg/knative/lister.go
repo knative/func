@@ -7,25 +7,40 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"knative.dev/pkg/apis"
+	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	"knative.dev/func/pkg/k8s"
+	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/pkg/apis"
 )
 
 type Lister struct {
+	kc      *k8s.Client
 	verbose bool
 }
 
-func NewLister(verbose bool) *Lister {
-	return &Lister{verbose: verbose}
+func NewLister(kc *k8s.Client, verbose bool) *Lister {
+	return &Lister{kc: kc, verbose: verbose}
 }
 
 // List functions, optionally specifying a namespace.
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
-	client, err := NewServingClient(namespace)
-	if err != nil {
-		return nil, err
+	if l.kc == nil {
+		return nil, fmt.Errorf("kubernetes client is not initialized")
 	}
+
+	restConfig, err := l.kc.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes client config: %v", err)
+	}
+
+	servingClient, err := servingv1.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create serving client: %v", err)
+	}
+
+	client := clientservingv1.NewKnServingClient(servingClient, namespace)
 
 	// TODO: shouldn't this list only services for functions (-> having the function.knative.dev/name label)?!?
 

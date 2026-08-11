@@ -666,6 +666,7 @@ func resetEnv() {
 // newClient creates an instance of the func client with concrete impls
 // sufficient for running integration tests.
 func newClient(verbose bool) *fn.Client {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),
 		fn.WithRegistryInsecure(true),
@@ -675,13 +676,14 @@ func newClient(verbose bool) *fn.Client {
 		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
 		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
 		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
-		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
+		fn.WithListers(knative.NewLister(kc, verbose), k8s.NewLister(kc, verbose)),
 		fn.WithVerbose(verbose),
 	)
 }
 
 // copy of newClient just with s2i methods instead
 func newClientWithS2i(verbose bool) *fn.Client {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	return fn.New(
 		fn.WithRegistry(DefaultIntTestRegistry),
 		fn.WithRegistryInsecure(true),
@@ -692,7 +694,7 @@ func newClientWithS2i(verbose bool) *fn.Client {
 		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
 		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose)),
 		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose)),
-		fn.WithListers(knative.NewLister(verbose), k8s.NewLister(verbose)),
+		fn.WithListers(knative.NewLister(kc, verbose), k8s.NewLister(kc, verbose)),
 	)
 }
 
