@@ -26,6 +26,9 @@ func NewLister(kc *k8s.Client, verbose bool) fn.Lister {
 }
 
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
+	if l.kc == nil {
+		return nil, fmt.Errorf("kubernetes client is not initialized")
+	}
 	clientset, err := l.kc.Clientset()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client: %v", err)

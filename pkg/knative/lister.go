@@ -26,13 +26,13 @@ func NewLister(kc *k8s.Client, verbose bool) *Lister {
 
 // List functions, optionally specifying a namespace.
 func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, error) {
-	if err := validateKubeconfigFile(); err != nil {
-		return nil, err
+	if l.kc == nil {
+		return nil, fmt.Errorf("kubernetes client is not initialized")
 	}
 
 	restConfig, err := l.kc.ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create serving client: %v", err)
+		return nil, fmt.Errorf("failed to get kubernetes client config: %v", err)
 	}
 
 	servingClient, err := servingv1.NewForConfig(restConfig)
