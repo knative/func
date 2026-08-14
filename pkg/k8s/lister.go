@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s/labels"
 )
 
 type Lister struct {
@@ -82,11 +83,10 @@ func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, name,
 		return fn.ListItem{}, fmt.Errorf("could not get service: %w", err)
 	}
 
-	runtimeLabel := ""
 	listItem := fn.ListItem{
 		Name:      service.Name,
 		Namespace: service.Namespace,
-		Runtime:   runtimeLabel,
+		Runtime:   deployment.Labels[labels.FunctionRuntimeKey],
 		URL:       fmt.Sprintf("http://%s.%s.svc", service.Name, service.Namespace), // TODO: use correct scheme
 		Ready:     string(ready),
 		Deployer:  KubernetesDeployerName,

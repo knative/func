@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/k8s/labels"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 
 	fn "knative.dev/func/pkg/functions"
@@ -79,7 +80,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 			}
 		}
 
-		runtimeLabel := ""
+		runtimeLabel := service.Labels[labels.FunctionRuntimeKey]
 
 		listItem := fn.ListItem{
 			Name:      service.Name,
