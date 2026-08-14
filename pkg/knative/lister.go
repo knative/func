@@ -7,6 +7,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/k8s/labels"
@@ -33,12 +34,12 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 
 	restConfig, err := l.kc.ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kubernetes client config: %v", err)
+		return nil, fmt.Errorf("unable to get kubernetes client config: %w", err)
 	}
 
 	servingClient, err := servingv1.NewForConfig(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create serving client: %v", err)
+		return nil, fmt.Errorf("unable to create serving client: %w", err)
 	}
 
 	client := clientservingv1.NewKnServingClient(servingClient, namespace)
@@ -80,6 +81,11 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 			}
 		}
 
+		replicas, err := readyReplicas(ctx, servingClient, service.Namespace, service.Status.LatestReadyRevisionName)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get replicas for %s: %w", service.Name, err)
+		}
+
 		runtimeLabel := service.Labels[labels.FunctionRuntimeKey]
 
 		listItem := fn.ListItem{
@@ -89,10 +95,28 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 			URL:       service.Status.URL.String(),
 			Ready:     string(ready),
 			Deployer:  KnativeDeployerName,
+			Replicas:  replicas,
 		}
 
 		items = append(items, listItem)
 	}
 
 	return items, nil
+}
+
+func readyReplicas(ctx context.Context, client servingv1.ServingV1Interface, namespace, revision string) (int, error) {
+	if revision == "" {
+		return 0, nil
+	}
+	rev, err := client.Revisions(namespace).Get(ctx, revision, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	if rev.Status.ActualReplicas == nil {
+		return 0, nil
+	}
+	return int(*rev.Status.ActualReplicas), nil
 }

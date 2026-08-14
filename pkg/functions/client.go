@@ -165,6 +165,7 @@ type ListItem struct {
 	URL       string `json:"url" yaml:"url"`
 	Ready     string `json:"ready" yaml:"ready"`
 	Deployer  string `json:"deployer" yaml:"deployer"`
+	Replicas  int    `json:"replicas" yaml:"replicas"`
 }
 
 // Describer of function instances

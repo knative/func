@@ -90,6 +90,7 @@ func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, name,
 		URL:       fmt.Sprintf("http://%s.%s.svc", service.Name, service.Namespace), // TODO: use correct scheme
 		Ready:     string(ready),
 		Deployer:  KubernetesDeployerName,
+		Replicas:  int(deployment.Status.ReadyReplicas),
 	}
 
 	return listItem, nil

@@ -87,15 +87,18 @@ func TestInt_List(t *testing.T, lister fn.Lister, deployer fn.Deployer, describe
 	}
 
 	// Should find at least our function (may have others in namespace)
-	found := false
-	for _, item := range list {
-		if item.Name == f.Name {
-			found = true
+	var found *fn.ListItem
+	for i := range list {
+		if list[i].Name == f.Name {
+			found = &list[i]
 			break
 		}
 	}
-	if !found {
-		t.Errorf("function %s not found in list", f.Name)
+	if found == nil {
+		t.Fatalf("function %s not found in list", f.Name)
 	}
 
+	if found.Replicas < 1 {
+		t.Errorf("expected function %s to report >= 1 replica, got %d", f.Name, found.Replicas)
+	}
 }
