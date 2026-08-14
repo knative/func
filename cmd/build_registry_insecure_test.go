@@ -33,8 +33,14 @@ func testRegistryInsecurePersists(cmdFn func(factory ClientFactory) *cobra.Comma
 	}
 
 	var (
-		builder = mock.NewBuilder()
-		pusher  = mock.NewPusher()
+		builder  = mock.NewBuilder()
+		pusher   = mock.NewPusher()
+		clientFn = NewTestClient(
+			fn.WithRegistry(TestRegistry),
+			fn.WithBuilder(builder),
+			fn.WithPusher(pusher),
+			fn.WithDeployer(mock.NewDeployer()),
+		)
 	)
 
 	// Test 1: Initial state - registryInsecure should be false
@@ -51,11 +57,7 @@ func testRegistryInsecurePersists(cmdFn func(factory ClientFactory) *cobra.Comma
 
 	// Test 2: Set registryInsecure to true with flag
 	t.Run("sets to true when flag passed", func(t *testing.T) {
-		cmd := cmdFn(NewTestClient(
-			fn.WithRegistry(TestRegistry),
-			fn.WithBuilder(builder),
-			fn.WithPusher(pusher),
-		))
+		cmd := cmdFn(clientFn)
 		cmd.SetArgs([]string{"--registry-insecure=true"})
 
 		if err := cmd.Execute(); err != nil {
@@ -77,11 +79,7 @@ func testRegistryInsecurePersists(cmdFn func(factory ClientFactory) *cobra.Comma
 	// Expected: registryInsecure should remain true (persisted value)
 	// This is the key test for issue #3489
 	t.Run("persists true when flag not passed", func(t *testing.T) {
-		cmd := cmdFn(NewTestClient(
-			fn.WithRegistry(TestRegistry),
-			fn.WithBuilder(builder),
-			fn.WithPusher(pusher),
-		))
+		cmd := cmdFn(clientFn)
 		cmd.SetArgs([]string{})
 
 		if err := cmd.Execute(); err != nil {
@@ -102,11 +100,7 @@ func testRegistryInsecurePersists(cmdFn func(factory ClientFactory) *cobra.Comma
 	// Test 4: Explicitly set --registry-insecure=false
 	// Expected: registryInsecure should be cleared (set to false)
 	t.Run("clears when flag set to false", func(t *testing.T) {
-		cmd := cmdFn(NewTestClient(
-			fn.WithRegistry(TestRegistry),
-			fn.WithBuilder(builder),
-			fn.WithPusher(pusher),
-		))
+		cmd := cmdFn(clientFn)
 		cmd.SetArgs([]string{"--registry-insecure=false"})
 
 		if err := cmd.Execute(); err != nil {
@@ -127,11 +121,7 @@ func testRegistryInsecurePersists(cmdFn func(factory ClientFactory) *cobra.Comma
 	// Test 5: Run build again WITHOUT flag after clearing
 	// Expected: registryInsecure should stay false
 	t.Run("stays false when not set", func(t *testing.T) {
-		cmd := cmdFn(NewTestClient(
-			fn.WithRegistry(TestRegistry),
-			fn.WithBuilder(builder),
-			fn.WithPusher(pusher),
-		))
+		cmd := cmdFn(clientFn)
 		cmd.SetArgs([]string{})
 
 		if err := cmd.Execute(); err != nil {
@@ -152,11 +142,7 @@ func testRegistryInsecurePersists(cmdFn func(factory ClientFactory) *cobra.Comma
 	// Test 6: Set back to true and verify multiple consecutive runs
 	t.Run("persists across multiple consecutive runs", func(t *testing.T) {
 		// First set it to true
-		cmd := cmdFn(NewTestClient(
-			fn.WithRegistry(TestRegistry),
-			fn.WithBuilder(builder),
-			fn.WithPusher(pusher),
-		))
+		cmd := cmdFn(clientFn)
 		cmd.SetArgs([]string{"--registry-insecure=true"})
 
 		if err := cmd.Execute(); err != nil {
@@ -164,12 +150,8 @@ func testRegistryInsecurePersists(cmdFn func(factory ClientFactory) *cobra.Comma
 		}
 
 		// Run 3 times without the flag
-		for i := 0; i < 3; i++ {
-			cmd := cmdFn(NewTestClient(
-				fn.WithRegistry(TestRegistry),
-				fn.WithBuilder(builder),
-				fn.WithPusher(pusher),
-			))
+		for i := range 3 {
+			cmd := cmdFn(clientFn)
 			cmd.SetArgs([]string{})
 
 			if err := cmd.Execute(); err != nil {

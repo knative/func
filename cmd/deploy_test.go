@@ -41,7 +41,7 @@ func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
-	cmd := cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
+	cmd := cmdFn(NewTestClient(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer())))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -153,7 +153,7 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 		root     = FromTempDirectory(t)
 		f        = fn.Function{Runtime: "go", Root: root, Name: "f"}
 		pusher   = mock.NewPusher()
-		clientFn = NewTestClient(fn.WithPusher(pusher))
+		clientFn = NewTestClient(fn.WithPusher(pusher), fn.WithDeployer(mock.NewDeployer()))
 	)
 	t.Setenv("XDG_CONFIG_HOME", home)
 
@@ -384,8 +384,12 @@ func TestDeploy_Envs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Mock deployer records f.Deploy.Deployer so later redeploys are not
+	// treated as the pre-field legacy (knative) case.
+	clientFn := NewTestClient(fn.WithDeployer(mock.NewDeployer()))
+
 	// Deploy the function with two environment variables specified.
-	cmd = NewDeployCmd(NewTestClient())
+	cmd = NewDeployCmd(clientFn)
 	cmd.SetArgs([]string{"--env=ENV1=VAL1", "--env=ENV2=VAL2"})
 	if err = cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -403,7 +407,7 @@ func TestDeploy_Envs(t *testing.T) {
 	}
 
 	// Deploy the function with an additional environment variable.
-	cmd = NewDeployCmd(NewTestClient())
+	cmd = NewDeployCmd(clientFn)
 	cmd.SetArgs([]string{"--env=ENV3=VAL3"})
 	if err = cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -422,7 +426,7 @@ func TestDeploy_Envs(t *testing.T) {
 	}
 
 	// Deploy the function with a removal instruction
-	cmd = NewDeployCmd(NewTestClient())
+	cmd = NewDeployCmd(clientFn)
 	cmd.SetArgs([]string{"--env=ENV1-"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -439,7 +443,7 @@ func TestDeploy_Envs(t *testing.T) {
 	}
 
 	// Try removing the rest for good measure
-	cmd = NewDeployCmd(NewTestClient())
+	cmd = NewDeployCmd(clientFn)
 	cmd.SetArgs([]string{"--env=ENV2-", "--env=ENV3-"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -453,7 +457,7 @@ func TestDeploy_Envs(t *testing.T) {
 
 	// TODO: create and test typed errors for ErrEnvNotExist etc.
 
-	cmd = NewDeployCmd(NewTestClient())
+	cmd = NewDeployCmd(clientFn)
 	cmd.SetArgs([]string{"--env=DOES_NOT_EXIST-"})
 	err = cmd.Execute()
 
@@ -1155,7 +1159,7 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 	f := fn.Function{
 		Runtime: "go",
 		Root:    root,
-		Deploy:  fn.DeploySpec{Namespace: "funcns"},
+		Deploy:  fn.DeploySpec{Namespace: "funcns", Deployer: deployers.Default},
 	}
 	f, err := fn.New().Init(f)
 	if err != nil {
@@ -1164,6 +1168,7 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 
 	// Redeploy the function without specifying namespace.
 	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 		fn.WithRegistry(TestRegistry),
 	))
@@ -1205,6 +1210,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 		Root:    root,
 		Deploy: fn.DeploySpec{
 			Namespace: "myns",
+			Deployer:  deployers.Default,
 		},
 	}
 	f, err := fn.New().Init(f)
@@ -1355,7 +1361,7 @@ func TestDeploy_NamespaceChangePreservesExternalRegistry(t *testing.T) {
 		Runtime:  "go",
 		Root:     root,
 		Registry: "docker.io/user",
-		Deploy:   fn.DeploySpec{Namespace: "ns1"},
+		Deploy:   fn.DeploySpec{Namespace: "ns1", Deployer: deployers.Default},
 	}
 	f, err := fn.New().Init(f)
 	if err != nil {
@@ -1390,7 +1396,7 @@ func TestDeploy_NamespaceChangeUpdatesInternalRegistry(t *testing.T) {
 		Runtime:  "go",
 		Root:     root,
 		Registry: "image-registry.openshift-image-registry.svc:5000/ns1",
-		Deploy:   fn.DeploySpec{Namespace: "ns1"},
+		Deploy:   fn.DeploySpec{Namespace: "ns1", Deployer: deployers.Default},
 	}
 	f, err := fn.New().Init(f)
 	if err != nil {
@@ -1736,14 +1742,15 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := NewDeployCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
+	clientFn := NewTestClient(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
+	cmd := NewDeployCmd(clientFn)
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
 	// Deploy the function, specifying remote deployment(on-cluster)
-	cmd = NewDeployCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
+	cmd = NewDeployCmd(clientFn)
 	cmd.SetArgs([]string{"--remote"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -1757,7 +1764,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	}
 
 	// Deploy the function again without specifying remote
-	cmd = NewDeployCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
+	cmd = NewDeployCmd(clientFn)
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -1845,8 +1852,10 @@ func TestDeploy_ImagePullSecret(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	clientFn := NewTestClient(fn.WithDeployer(mock.NewDeployer()))
+
 	// Deploy with an image pull secret
-	cmd := NewDeployCmd(NewTestClient())
+	cmd := NewDeployCmd(clientFn)
 	cmd.SetArgs([]string{"--image-pull-secret=my-registry-secret"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -1861,7 +1870,7 @@ func TestDeploy_ImagePullSecret(t *testing.T) {
 	}
 
 	// Deploy again without the flag — value should be retained
-	cmd = NewDeployCmd(NewTestClient())
+	cmd = NewDeployCmd(clientFn)
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -1875,7 +1884,7 @@ func TestDeploy_ImagePullSecret(t *testing.T) {
 	}
 
 	// Deploy with empty value to clear it
-	cmd = NewDeployCmd(NewTestClient())
+	cmd = NewDeployCmd(clientFn)
 	cmd.SetArgs([]string{"--image-pull-secret="})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
