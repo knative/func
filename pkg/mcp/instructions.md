@@ -57,6 +57,7 @@ This is essential because:
 - Before 'deploy' → Read `func://help/deploy`
 - Before 'build' → Read `func://help/build`
 - Before 'list' → Read `func://help/list`
+- Before 'logs' → Read `func://help/logs`
 - Before 'delete' → Read `func://help/delete`
 
 The help text provides authoritative parameter information and usage context.
@@ -130,6 +131,17 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - Does NOT use path parameter (operates on cluster, not local files)
 - Optional `namespace` parameter to list Functions in specific namespace
 - Returns list of deployed Functions in current/specified namespace
+
+### logs
+
+- **FIRST:** Read `func://help/logs` for authoritative usage information
+- Identify the Function by **path** (reads func.yaml) OR by **name** — never both at the same time
+- `path` must be an absolute path to the Function project directory
+- `name` is the deployed Function name on the cluster
+- Optional `namespace` parameter to target a specific Kubernetes namespace
+- Optional `since` parameter controls the time window of returned logs (e.g. `30s`, `5m`, `2h`; default is `1m`)
+- This tool is **read-only** — it never modifies any state
+- Use logs to diagnose a deployed Function after `deploy`, especially when combined with `invoke` to trigger the Function and observe its output
 
 ### delete
 
