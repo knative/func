@@ -110,11 +110,16 @@ func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory) err
 	rootCmd := cmd.Root()
 	cmdPrefix := rootCmd.Use
 
-	// Instantiate
-	client, done := newClient(ClientConfig{},
-		fn.WithMCPServer(mcp.New(
-			mcp.WithPrefix(cmdPrefix),
-			mcp.WithReadonly(!writeEnabled))))
+	// Instantiate using a closure to resolve the circular dependency
+	// between the client and the MCP server.
+	var client *fn.Client
+	mcpServer := mcp.New(
+		mcp.WithPrefix(cmdPrefix),
+		mcp.WithReadonly(!writeEnabled),
+		mcp.WithClientProvider(func() *fn.Client { return client }),
+	)
+	var done func()
+	client, done = newClient(ClientConfig{}, fn.WithMCPServer(mcpServer))
 	defer done()
 
 	// Start
