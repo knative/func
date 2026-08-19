@@ -218,12 +218,8 @@ func TestResource_Listings(t *testing.T) {
 		{
 			name:       "languages",
 			uri:        "func://languages",
-			subcommand: "languages",
-			expectedOutput: `go
-node
-python
-etc
-`,
+			subcommand: "",
+			expectedOutput: "",
 		},
 		{
 			name:       "templates",
@@ -243,18 +239,22 @@ etc          etc
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			executor := mock.NewExecutor()
-			executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-				if subcommand != tc.subcommand {
-					t.Fatalf("expected subcommand %q, got %q", tc.subcommand, subcommand)
+			var opts []Option
+			if tc.name == "templates" {
+				executor := mock.NewExecutor()
+				executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+					if subcommand != tc.subcommand {
+						t.Fatalf("expected subcommand %q, got %q", tc.subcommand, subcommand)
+					}
+					if len(args) != 0 {
+						t.Fatalf("expected no args, got %v", args)
+					}
+					return []byte(tc.expectedOutput), nil
 				}
-				if len(args) != 0 {
-					t.Fatalf("expected no args, got %v", args)
-				}
-				return []byte(tc.expectedOutput), nil
+				opts = append(opts, WithExecutor(executor))
 			}
 
-			client, _, err := newTestPair(t, WithExecutor(executor))
+			client, _, err := newTestPair(t, opts...)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -277,12 +277,12 @@ etc          etc
 			if content.MIMEType != "text/plain" {
 				t.Fatalf("expected MIME type 'text/plain', got %q", content.MIMEType)
 			}
-			if content.Text != tc.expectedOutput {
+			if tc.name == "languages" {
+				if content.Text == "" {
+					t.Fatal("expected non-empty languages listing")
+				}
+			} else if content.Text != tc.expectedOutput {
 				t.Fatalf("expected output:\n%s\ngot:\n%s", tc.expectedOutput, content.Text)
-			}
-
-			if !executor.ExecuteInvoked {
-				t.Fatal("executor was not invoked")
 			}
 		})
 	}

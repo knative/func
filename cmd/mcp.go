@@ -6,10 +6,12 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"knative.dev/func/pkg/mcp"
-
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/mcp"
 )
+
+// testMCPOptions is set by tests to inject MCP server options (e.g. in-memory transport).
+var testMCPOptions []mcp.Option
 
 func NewMCPCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
@@ -89,14 +91,10 @@ DESCRIPTION
 			return runMCPStart(cmd, args, newClient)
 		},
 	}
-	// no flags at this time; future enhancements may be to allow configuring
-	// HTTP Stream vs stdio, single vs multiuser modes, etc.  For now
-	// we just use a simple gathering of options in runMCPStart.
 	return cmd
 }
 
 func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory) error {
-	// Configure write mode
 	writeEnabled := false
 	if val := os.Getenv("FUNC_ENABLE_MCP_WRITE"); val != "" {
 		parsed, err := strconv.ParseBool(val)
@@ -106,18 +104,23 @@ func runMCPStart(cmd *cobra.Command, args []string, newClient ClientFactory) err
 		writeEnabled = parsed
 	}
 
-	// Configure 'func' or 'kn func'?
-	rootCmd := cmd.Root()
-	cmdPrefix := rootCmd.Use
+	cmdPrefix := cmd.Root().Use
 
-	// Instantiate
-	client, done := newClient(ClientConfig{},
-		fn.WithMCPServer(mcp.New(
-			mcp.WithPrefix(cmdPrefix),
-			mcp.WithReadonly(!writeEnabled))))
-	defer done()
+	factory := func(cfg mcp.ClientConfig, options ...fn.Option) (*fn.Client, func()) {
+		return newClient(ClientConfig{
+			Verbose:            cfg.Verbose,
+			InsecureSkipVerify: cfg.InsecureSkipVerify,
+		}, options...)
+	}
 
-	// Start
-	return client.StartMCPServer(cmd.Context())
+	opts := []mcp.Option{
+		mcp.WithPrefix(cmdPrefix),
+		mcp.WithReadonly(!writeEnabled),
+		mcp.WithClientFactory(factory),
+	}
+	opts = append(opts, testMCPOptions...)
 
+	server := mcp.New(opts...)
+
+	return server.Start(cmd.Context())
 }

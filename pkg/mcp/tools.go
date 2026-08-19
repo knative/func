@@ -1,22 +1,5 @@
 package mcp
 
-import (
-	"fmt"
-
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-)
-
-// Helpers
-
-func resultToString(result *mcp.CallToolResult) string {
-	if len(result.Content) > 0 {
-		if tc, ok := result.Content[0].(*mcp.TextContent); ok {
-			return tc.Text
-		}
-	}
-	return fmt.Sprintf("%v", result.Content)
-}
-
 // appendStringFlag adds a string flag to args only if the value is non-nil and non-empty.
 // This ensures we only pass flags that were explicitly provided by the user.
 func appendStringFlag(args []string, flag string, value *string) []string {

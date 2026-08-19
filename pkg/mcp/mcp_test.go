@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 )
 
 // TestStart ensures that the MCP server can be instantiated and started.
@@ -72,6 +73,7 @@ func newTestPairCore(t *testing.T, readonly bool, options ...Option) (session *m
 
 	oo := []Option{
 		WithTransport(serverTpt),
+		WithClientFactory(testClientFactory),
 	}
 	oo = append(oo, options...)
 
@@ -117,6 +119,10 @@ func newTestPairWithReadonly(t *testing.T, readonly bool) (*mcp.ClientSession, *
 // newTestPair returns a ClientSession and Server connected over an in-memory transport.
 func newTestPair(t *testing.T, options ...Option) (session *mcp.ClientSession, server *Server, err error) {
 	return newTestPairCore(t, false, options...)
+}
+
+func testClientFactory(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
+	return fn.New(options...), func() {}
 }
 
 // TestBuildArgs verifies that buildArgs constructs the command argument list

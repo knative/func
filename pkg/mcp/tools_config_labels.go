@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -36,12 +35,11 @@ type ConfigLabelsListOutput struct {
 }
 
 func (s *Server) configLabelsListHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigLabelsListInput) (result *mcp.CallToolResult, output ConfigLabelsListOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigLabelsListOutput{Message: string(out)}
+	output, err = svc.ConfigLabelsList(ctx, input)
 	return
 }
 
@@ -79,12 +77,11 @@ type ConfigLabelsAddOutput struct {
 }
 
 func (s *Server) configLabelsAddHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigLabelsAddInput) (result *mcp.CallToolResult, output ConfigLabelsAddOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigLabelsAddOutput{Message: string(out)}
+	output, err = svc.ConfigLabelsAdd(ctx, input)
 	return
 }
 
@@ -120,11 +117,10 @@ type ConfigLabelsRemoveOutput struct {
 }
 
 func (s *Server) configLabelsRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigLabelsRemoveInput) (result *mcp.CallToolResult, output ConfigLabelsRemoveOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigLabelsRemoveOutput{Message: string(out)}
+	output, err = svc.ConfigLabelsRemove(ctx, input)
 	return
 }

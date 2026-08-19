@@ -36,12 +36,11 @@ type ConfigEnvsListOutput struct {
 }
 
 func (s *Server) configEnvsListHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsListInput) (result *mcp.CallToolResult, output ConfigEnvsListOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigEnvsListOutput{Message: string(out)}
+	output, err = svc.ConfigEnvsList(ctx, input)
 	return
 }
 
@@ -145,12 +144,11 @@ func (s *Server) configEnvsAddHandler(ctx context.Context, r *mcp.CallToolReques
 	if err = input.validate(); err != nil {
 		return
 	}
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigEnvsAddOutput{Message: string(out)}
+	output, err = svc.ConfigEnvsAdd(ctx, input)
 	return
 }
 
@@ -186,11 +184,10 @@ type ConfigEnvsRemoveOutput struct {
 }
 
 func (s *Server) configEnvsRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsRemoveInput) (result *mcp.CallToolResult, output ConfigEnvsRemoveOutput, err error) {
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	svc, err := s.requireService()
 	if err != nil {
-		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
 	}
-	output = ConfigEnvsRemoveOutput{Message: string(out)}
+	output, err = svc.ConfigEnvsRemove(ctx, input)
 	return
 }
