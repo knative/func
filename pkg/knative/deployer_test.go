@@ -451,6 +451,46 @@ func TestGenerateNewService_ResourceSetsPopulated(t *testing.T) {
 	}
 }
 
+// TestGenerateNewService_EnvsPropagated is a regression test for SRVOCF-650.
+// It verifies that plain environment variables set in f.Run.Envs appear on the
+// generated Knative service's container spec when deploying a new function.
+func TestGenerateNewService_EnvsPropagated(t *testing.T) {
+	f := fn.Function{
+		Name: "test-func",
+		Deploy: fn.DeploySpec{
+			Image: "example.com/test:v1",
+		},
+	}
+	f.Run.Envs.Add("SLACK_AUTH_TOKEN", "my-token")
+	f.Run.Envs.Add("OTHER_VAR", "other-value")
+
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVCs := sets.New[string]()
+
+	svc, err := generateNewService(f, nil, false, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+	if err != nil {
+		t.Fatalf("generateNewService returned unexpected error: %v", err)
+	}
+
+	containers := svc.Spec.Template.Spec.Containers
+	if len(containers) != 1 {
+		t.Fatalf("expected 1 container, got %d", len(containers))
+	}
+
+	envMap := make(map[string]string, len(containers[0].Env))
+	for _, e := range containers[0].Env {
+		envMap[e.Name] = e.Value
+	}
+
+	if v, ok := envMap["SLACK_AUTH_TOKEN"]; !ok || v != "my-token" {
+		t.Errorf("expected SLACK_AUTH_TOKEN=my-token in container env, got: %v", containers[0].Env)
+	}
+	if v, ok := envMap["OTHER_VAR"]; !ok || v != "other-value" {
+		t.Errorf("expected OTHER_VAR=other-value in container env, got: %v", containers[0].Env)
+	}
+}
+
 func assertAuth(uname, pwd string, w http.ResponseWriter, r *http.Request) bool {
 	user, pass, ok := r.BasicAuth()
 	if ok && user == uname && pass == pwd {
