@@ -29,6 +29,7 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -448,6 +449,35 @@ func TestGenerateNewService_ResourceSetsPopulated(t *testing.T) {
 	}
 	if !referencedConfigMaps.Has(configMapName) {
 		t.Errorf("expected referencedConfigMaps to contain %q after generateNewService, got: %v", configMapName, referencedConfigMaps)
+	}
+}
+
+func TestSetServiceOptions_ScaleAnnotationFormat(t *testing.T) {
+	target := 100.0
+	utilization := 70.0
+	template := &servingv1.RevisionTemplateSpec{
+		Spec: servingv1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{}},
+			},
+		},
+	}
+	options := fn.Options{
+		Scale: &fn.ScaleOptions{
+			Target:      &target,
+			Utilization: &utilization,
+		},
+	}
+
+	if err := setServiceOptions(template, options); err != nil {
+		t.Fatalf("setServiceOptions returned unexpected error: %v", err)
+	}
+
+	if got := template.Annotations[autoscaling.TargetAnnotationKey]; got != "100" {
+		t.Errorf("expected target annotation to be %q, got %q", "100", got)
+	}
+	if got := template.Annotations[autoscaling.TargetUtilizationPercentageKey]; got != "70" {
+		t.Errorf("expected utilization annotation to be %q, got %q", "70", got)
 	}
 }
 
