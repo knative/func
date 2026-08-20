@@ -25,7 +25,7 @@ const (
 type Server struct {
 	OnInit    func(context.Context) // Invoked when the server is initialized
 	prefix    string                // Command prefix ("func" or "kn func")
-	readonly  atomic.Bool           // disables deploy and delete when true
+	readonly  atomic.Bool           // disables deploy, delete, and build when true
 	executor  executor
 	transport mcp.Transport // Transport to use (defaults to StdioTransport)
 	impl      *mcp.Server   // implements the protocol
@@ -117,6 +117,7 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, createTool, s.createHandler)
 	mcp.AddTool(i, buildTool, s.buildHandler)
 	mcp.AddTool(i, deployTool, s.deployHandler)
+	mcp.AddTool(i, invokeTool, s.invokeHandler)
 	mcp.AddTool(i, listTool, s.listHandler)
 	mcp.AddTool(i, describeTool, s.describeHandler)
 	mcp.AddTool(i, deleteTool, s.deleteHandler)
@@ -154,6 +155,7 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Create Help", "help for 'create'", "create"))
 	i.AddResource(newHelpResource(s, "Build Help", "help for 'build'", "build"))
 	i.AddResource(newHelpResource(s, "Deploy Help", "help for 'deploy'", "deploy"))
+	i.AddResource(newHelpResource(s, "Invoke Help", "help for 'invoke'", "invoke"))
 	i.AddResource(newHelpResource(s, "List Help", "help for 'list'", "list"))
 	i.AddResource(newHelpResource(s, "Describe Help", "help for 'describe'", "describe"))
 	i.AddResource(newHelpResource(s, "Delete Help", "help for delete", "delete"))

@@ -33,6 +33,7 @@ This is essential because:
 - `create` tool: path = absolute path to directory where Function will be created
 - `deploy` tool: path = absolute path to Function directory (where func.yaml exists)
 - `build` tool: path = absolute path to Function directory (where func.yaml exists)
+- `invoke` tool: path = absolute path to Function directory (where func.yaml exists)
 - `config_*_list`, `config_*_add`, `config_*_remove` tools: path = absolute path to Function directory (where func.yaml exists)
 
 **IMPORTANT:** You must use absolute paths (e.g., `/Users/name/myproject/myfunc`), NOT relative paths (e.g., `.` or `myfunc`). The MCP server process runs in a different directory than your current working directory, so relative paths will not resolve correctly.
@@ -57,6 +58,7 @@ This is essential because:
 - Before 'create' → Read `func://help/create`
 - Before 'deploy' → Read `func://help/deploy`
 - Before 'build' → Read `func://help/build`
+- Before 'invoke' → Read `func://help/invoke`
 - Before 'list' → Read `func://help/list`
 - Before 'describe' → Read `func://help/describe`
 - Before 'delete' → Read `func://help/delete`
@@ -132,6 +134,18 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - Useful for creating custom deployments using .yaml files or integrating with other systems which expect containers
 - Uses same builder settings as deploy would use
 - The user should be notified this is an unnecessary step if they intend to deploy, as building is handled as part of deployment
+
+### invoke
+
+- **FIRST:** Read `func://help/invoke` for authoritative usage information
+- Sends a test request to a running Function instance, either local or remote
+- **REQUIRED parameters:**
+  - `path` (directory containing the Function to invoke)
+- **Optional** `target` parameter: "local", "remote", or a URL. Defaults to preferring a locally running instance over remote
+- If `data` and `file` are both omitted, a real default payload is still sent: `{"message":"Hello World"}` with content-type `application/json`, source `/boson/fn`, type `boson.fn`, and method `POST`. This is NOT an empty/no-op probe — the Function's handler actually runs against this payload
+- **If using `file`:** you MUST pass an ABSOLUTE path, just like `path`. `file` is resolved relative to the MCP server process's working directory (NOT your current working directory and NOT relative to the `path` parameter), so a relative value will often fail or read the wrong file
+- **CAUTION:** Invoking a Function executes its handler and may trigger arbitrary, real side effects (e.g. sending an email, charging a payment, writing to a database) — this is especially true with `target: "remote"`, which hits the live deployed instance. Do not invoke automatically without considering whether the Function's handler is safe to run; when in doubt, confirm with the user first, particularly before invoking a remote/production instance
+- An error is returned if the invocation fails (e.g. non-2xx HTTP response), so a successful call without an error confirms the Function responded correctly
 
 ### list
 
