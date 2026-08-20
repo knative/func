@@ -10,7 +10,6 @@ import (
 	"syscall"
 
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/ory/viper"
 
 	"knative.dev/func/cmd"
 	"knative.dev/func/pkg/docker"
@@ -43,8 +42,13 @@ func Main() {
 			os.Exit(130)
 		}
 
-		if viper.GetBool("json") {
-			_ = cmd.WriteJSONError(os.Stdout, err)
+		if cmd.JSONOutputRequested() {
+			if jsonErr := cmd.WriteJSONError(os.Stdout, err); jsonErr != nil {
+				// The envelope could not be written; fall back to plain text
+				// rather than exiting non-zero with no diagnostic at all.
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error: could not write JSON error output: %v\n", jsonErr)
+			}
 		} else {
 			if !errors.Is(err, terminal.InterruptErr) {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)

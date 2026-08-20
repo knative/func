@@ -106,7 +106,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		}
 	}
 	if isJSONEnabled(cmd) {
-		err = writeJSONSuccess(cmd.OutOrStdout(), deleteJSONResult{
+		err = WriteJSONSuccess(cmd.OutOrStdout(), deleteJSONResult{
 			Name:      deletedName,
 			Namespace: deletedNamespace,
 		})

@@ -146,7 +146,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return err
 	}
 	if isJSONEnabled(cmd) {
-		return writeJSONSuccess(cmd.OutOrStdout(), createJSONResult{
+		return WriteJSONSuccess(cmd.OutOrStdout(), createJSONResult{
 			Name:     f.Name,
 			Path:     f.Root,
 			Runtime:  f.Runtime,

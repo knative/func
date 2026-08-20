@@ -66,7 +66,7 @@ EXAMPLES
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
-	cmd.Flags().Bool("json", false, "Set output to JSON format. (Env: $FUNC_JSON)")
+	cmd.Flags().Bool("json", false, jsonFlagUsage)
 	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider ($FUNC_REPOSITORY)")
 	addVerboseFlag(cmd, cfg.Verbose)
 
@@ -106,7 +106,7 @@ func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 			return err
 		}
 		if cfg.JSON {
-			return writeJSONSuccess(cmd.OutOrStdout(), templates)
+			return WriteJSONSuccess(cmd.OutOrStdout(), templates)
 		}
 		for _, template := range templates {
 			fmt.Fprintln(cmd.OutOrStdout(), template)
@@ -132,7 +132,7 @@ func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 			}
 			templateMap[runtime] = templates
 		}
-		return writeJSONSuccess(cmd.OutOrStdout(), templateMap)
+		return WriteJSONSuccess(cmd.OutOrStdout(), templateMap)
 	} else {
 		// print using a formatted writer (sorted)
 		builder := strings.Builder{}

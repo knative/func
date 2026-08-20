@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,6 +26,9 @@ func NewLogsCmd(newClient ClientFactory) *cobra.Command {
 
 Streams logs for the function in the current directory or from the directory
 specified with --path. Abstracts away the underlying service name and pod details.
+
+With --json, the logs available at the time of the call are reported as a
+finite snapshot instead of being streamed, so the command terminates.
 `,
 		Example: `
 # Stream logs for the function in the current directory
@@ -37,6 +42,9 @@ specified with --path. Abstracts away the underlying service name and pod detail
 
 # Stream logs with a specific time window
 {{rootCmdUse}} logs --since 5m
+
+# Report a finite snapshot of the last 5 minutes of logs as JSON
+{{rootCmdUse}} logs --since 5m --json
 `,
 		SuggestFor:        []string{"log", "tail"},
 		ValidArgsFunction: CompleteFunctionList,
@@ -63,9 +71,6 @@ specified with --path. Abstracts away the underlying service name and pod detail
 }
 
 func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
-	if isJSONEnabled(cmd) {
-		return fmt.Errorf("--json is not supported for streaming commands such as 'logs'")
-	}
 	cfg, err := newLogsConfig(cmd)
 	if err != nil {
 		return err
@@ -129,6 +134,25 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 		sinceTime = &t
 	}
 
+	// A structured response has to be finite, so --json reports a snapshot of
+	// the logs available now rather than following the stream. Streaming stays
+	// the default for the human path until #3999 flips it.
+	if isJSONEnabled(cmd) {
+		var buf bytes.Buffer
+		if err = knative.GetKServiceLogsSnapshot(cmd.Context(), f.Namespace, f.Name, f.Image, sinceTime, &buf); err != nil {
+			return fmt.Errorf("failed to read logs: %w", err)
+		}
+		lines := []string{}
+		if trimmed := strings.TrimRight(buf.String(), "\n"); trimmed != "" {
+			lines = strings.Split(trimmed, "\n")
+		}
+		return WriteJSONSuccess(cmd.OutOrStdout(), logsJSONResult{
+			Name:      f.Name,
+			Namespace: f.Namespace,
+			Lines:     lines,
+		})
+	}
+
 	// Create context that can be cancelled with Ctrl+C
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
@@ -151,6 +175,15 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 	}
 
 	return nil
+}
+
+// logsJSONResult is the data payload emitted on success when --json is set.
+type logsJSONResult struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	// Lines is the snapshot of log lines available at the time of the call,
+	// oldest first, with trailing newlines stripped.
+	Lines []string `json:"lines"`
 }
 
 // CLI Configuration (parameters)

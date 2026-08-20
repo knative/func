@@ -321,7 +321,7 @@ func runRepositoryList(cmd *cobra.Command, newClient ClientFactory) (err error) 
 		for i, r := range rr {
 			items[i] = repoItem{Name: r.Name, URL: r.URL()}
 		}
-		return writeJSONSuccess(cmd.OutOrStdout(), items)
+		return WriteJSONSuccess(cmd.OutOrStdout(), items)
 	}
 
 	// Print repository names, or name plus url if verbose
@@ -428,7 +428,7 @@ func runRepositoryAdd(cmd *cobra.Command, args []string, newClient ClientFactory
 		return
 	}
 	if isJSONEnabled(cmd) {
-		return writeJSONSuccess(cmd.OutOrStdout(), struct {
+		return WriteJSONSuccess(cmd.OutOrStdout(), struct {
 			Name string `json:"name"`
 			URL  string `json:"url"`
 		}{Name: n, URL: params.URL})
@@ -504,7 +504,7 @@ func runRepositoryRename(cmd *cobra.Command, args []string, newClient ClientFact
 		return
 	}
 	if isJSONEnabled(cmd) {
-		return writeJSONSuccess(cmd.OutOrStdout(), struct {
+		return WriteJSONSuccess(cmd.OutOrStdout(), struct {
 			Old string `json:"old"`
 			New string `json:"new"`
 		}{Old: params.Old, New: params.New})
@@ -603,7 +603,7 @@ func runRepositoryRemove(cmd *cobra.Command, args []string, newClient ClientFact
 		return
 	}
 	if isJSONEnabled(cmd) {
-		return writeJSONSuccess(cmd.OutOrStdout(), struct {
+		return WriteJSONSuccess(cmd.OutOrStdout(), struct {
 			Name string `json:"name"`
 		}{Name: params.Name})
 	}

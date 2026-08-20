@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	. "knative.dev/func/pkg/testing"
 )
@@ -45,17 +46,11 @@ func TestLanguages_JSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var resp JSONResponse
-	if err := json.Unmarshal([]byte(buf()), &resp); err != nil {
-		t.Fatalf("output is not valid JSON: %v", err)
-	}
-	if resp.APIVersion != "v1" {
-		t.Errorf("expected apiVersion 'v1', got %q", resp.APIVersion)
-	}
-	if resp.Status != "ok" {
-		t.Errorf("expected status 'ok', got %q", resp.Status)
-	}
-	if resp.Data == nil {
-		t.Error("expected non-nil data")
+	var runtimes []string
+	decodeJSONEnvelope(t, []byte(buf()), &runtimes)
+
+	expected := []string{"go", "node", "python", "quarkus", "rust", "springboot", "typescript"}
+	if d := cmp.Diff(expected, runtimes); d != "" {
+		t.Error("runtime list mismatch (-want, +got):", d)
 	}
 }

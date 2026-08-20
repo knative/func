@@ -404,10 +404,15 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return wrapDeploymentError(err)
 		}
-		// Capture the deployed URL for --json output.  The URL is not
-		// returned directly by Deploy; a lightweight Describe call fetches it.
+		// Deploy does not return the resulting URL, so --json fetches it with
+		// a follow-up Describe.  A failure there is not fatal — the deploy
+		// itself succeeded — but it must not be silent either, or the caller
+		// cannot tell an absent url from a function which has none.
 		if isJSONEnabled(cmd) {
-			if inst, descErr := client.Describe(cmd.Context(), "", "", f); descErr == nil && len(inst.Routes) > 0 {
+			inst, descErr := client.Describe(cmd.Context(), "", "", f)
+			if descErr != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: deployed, but could not determine the function URL: %v\n", descErr)
+			} else if len(inst.Routes) > 0 {
 				deployedURL = inst.Routes[0]
 			}
 		}
@@ -426,7 +431,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 	if isJSONEnabled(cmd) {
-		err = writeJSONSuccess(cmd.OutOrStdout(), deployJSONResult{
+		err = WriteJSONSuccess(cmd.OutOrStdout(), deployJSONResult{
 			Name:      f.Name,
 			Namespace: f.Deploy.Namespace,
 			URL:       deployedURL,

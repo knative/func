@@ -129,7 +129,7 @@ EXAMPLES
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // register `--build` as equivalient to `--build=true`
 	cmd.Flags().String("address", "",
 		"Interface and port on which to bind and listen. Default is 127.0.0.1:8080, or an available port if 8080 is not available. ($FUNC_ADDRESS)")
-	cmd.Flags().Bool("json", false, "Output as JSON. ($FUNC_JSON)")
+	cmd.Flags().Bool("json", false, jsonFlagUsage)
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
@@ -272,7 +272,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Output based on format
 	if cfg.JSON {
-		if err = writeJSONSuccess(cmd.OutOrStdout(), runJSONResult{
+		if err = WriteJSONSuccess(cmd.OutOrStdout(), runJSONResult{
 			Address: fmt.Sprintf("http://%s:%s", job.Host, job.Port),
 			Host:    job.Host,
 			Port:    job.Port,

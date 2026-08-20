@@ -71,7 +71,7 @@ DESCRIPTION
 // Run
 func runVersion(cmd *cobra.Command, v Version) error {
 	verbose := viper.GetBool("verbose")
-	output := viper.GetString("output")
+	output := outputFormat()
 
 	// Set verbose flag
 	v.Verbose = verbose
@@ -95,9 +95,6 @@ func runVersion(cmd *cobra.Command, v Version) error {
 	}
 	v.MiddlewareVersions = latestMW
 
-	if isJSONEnabled(cmd) {
-		return writeJSONSuccess(cmd.OutOrStdout(), v)
-	}
 	return write(cmd.OutOrStdout(), v, output)
 }
 

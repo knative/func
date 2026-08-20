@@ -137,11 +137,22 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 	return cmd
 }
 
-// addJSONFlag ensures common text/wording when the --json flag is used
+// jsonFlagUsage is the single wording for --json, shared by the root's
+// persistent flag and by the commands which declared their own --json before
+// it became global (run, templates, languages).
+const jsonFlagUsage = "Output results as JSON ($FUNC_JSON)"
+
+// addJSONFlag registers --json as a persistent flag so every subcommand
+// inherits it, and binds it to viper so that $FUNC_JSON is honored and the
+// top-level error sink in pkg/app can consult it after Execute returns.
 func addJSONFlag(cmd *cobra.Command) {
-	cmd.PersistentFlags().Bool("json", false, "Output results as JSON ($FUNC_JSON)")
-	// Bind to viper so app.go can check viper.GetBool("json") in the error sink.
+	cmd.PersistentFlags().Bool("json", false, jsonFlagUsage)
 	_ = viper.BindPFlag("json", cmd.PersistentFlags().Lookup("json"))
+	// Commands whose PreRunE does not bindEnv would otherwise never enable
+	// viper's environment lookup, leaving $FUNC_JSON silently ignored.
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("func")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 }
 
 // Helpers

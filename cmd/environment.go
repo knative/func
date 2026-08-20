@@ -155,7 +155,7 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 	}
 
 	if isJSONEnabled(cmd) {
-		return writeJSONSuccess(cmd.OutOrStdout(), environment)
+		return WriteJSONSuccess(cmd.OutOrStdout(), environment)
 	}
 
 	var s []byte

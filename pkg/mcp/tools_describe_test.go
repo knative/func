@@ -57,7 +57,7 @@ func TestTool_Describe_Args(t *testing.T) {
 		// fields), so real `func describe --output json` output emits
 		// "Route" capitalized. Using that exact casing here (rather than
 		// "route") keeps this test honest about the real CLI wire format.
-		return []byte(`{
+		return enveloped(`{
 			"name": "my-function",
 			"namespace": "prod",
 			"Route": "https://my-function.prod.example.com",
@@ -144,7 +144,7 @@ func TestTool_Describe_Args(t *testing.T) {
 func TestTool_Describe_NoMiddleware(t *testing.T) {
 	executor := mock.NewExecutor()
 	executor.ExecuteSplitFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, []byte, error) {
-		return []byte(`{"name": "my-function"}`), nil, nil
+		return enveloped(`{"name": "my-function"}`), nil, nil
 	}
 
 	client, _, err := newTestPair(t, WithExecutor(executor))
@@ -282,7 +282,7 @@ func TestTool_Describe_MalformedJSON(t *testing.T) {
 func TestTool_Describe_StderrWarningDoesNotBreakParsing(t *testing.T) {
 	executor := mock.NewExecutor()
 	executor.ExecuteSplitFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, []byte, error) {
-		stdout := []byte(`{
+		stdout := enveloped(`{
 			"name": "my-function",
 			"namespace": "prod",
 			"ready": "true"

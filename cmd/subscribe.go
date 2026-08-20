@@ -66,7 +66,7 @@ func runSubscribe(cmd *cobra.Command) (err error) {
 		return
 	}
 	if isJSONEnabled(cmd) {
-		err = writeJSONSuccess(cmd.OutOrStdout(), subscribeJSONResult{
+		err = WriteJSONSuccess(cmd.OutOrStdout(), subscribeJSONResult{
 			Name:    f.Name,
 			Source:  cfg.Source,
 			Filters: extractFilterMap(cfg.Filter),

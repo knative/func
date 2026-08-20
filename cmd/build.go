@@ -210,7 +210,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		if image == "" {
 			image = f.Image
 		}
-		err = writeJSONSuccess(cmd.OutOrStdout(), buildJSONResult{
+		err = WriteJSONSuccess(cmd.OutOrStdout(), buildJSONResult{
 			Name:  f.Name,
 			Image: image,
 		})

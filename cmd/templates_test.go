@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
 	"testing"
 
@@ -55,20 +54,21 @@ func TestTemplates_JSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var resp JSONResponse
-	if err := json.Unmarshal([]byte(buf()), &resp); err != nil {
-		t.Fatalf("output is not valid JSON: %v", err)
+	var templates map[string][]string
+	decodeJSONEnvelope(t, []byte(buf()), &templates)
+
+	expected := map[string][]string{
+		"go":         {"cloudevents", "http"},
+		"node":       {"cloudevents", "http"},
+		"python":     {"cloudevents", "http"},
+		"quarkus":    {"cloudevents", "http"},
+		"rust":       {"cloudevents", "http"},
+		"springboot": {"cloudevents", "http"},
+		"typescript": {"cloudevents", "http"},
 	}
-	if resp.APIVersion != "v1" {
-		t.Errorf("expected apiVersion 'v1', got %q", resp.APIVersion)
+	if d := cmp.Diff(expected, templates); d != "" {
+		t.Error("template map mismatch (-want, +got):", d)
 	}
-	if resp.Status != "ok" {
-		t.Errorf("expected status 'ok', got %q", resp.Status)
-	}
-	if resp.Data == nil {
-		t.Error("expected non-nil data in templates JSON response")
-	}
-	_ = cmp.Diff // keep import used
 }
 
 // TestTemplates_ByLanguage ensures that the output is correctly filtered
@@ -100,12 +100,11 @@ http`
 		t.Fatal(err)
 	}
 
-	var resp JSONResponse
-	if err := json.Unmarshal([]byte(buf()), &resp); err != nil {
-		t.Fatalf("expected JSON:\n'%v'\n", err)
-	}
-	if resp.Status != "ok" || resp.Data == nil {
-		t.Fatalf("unexpected envelope: status=%q data=%v", resp.Status, resp.Data)
+	var templates []string
+	decodeJSONEnvelope(t, []byte(buf()), &templates)
+
+	if d := cmp.Diff([]string{"cloudevents", "http"}, templates); d != "" {
+		t.Error("template list mismatch (-want, +got):", d)
 	}
 
 }

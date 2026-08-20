@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
@@ -13,12 +14,40 @@ import (
 
 const jsonAPIVersion = "v1"
 
-// isJSONEnabled reports whether --json was explicitly set for this execution.
-// Using cmd.Flag("json").Changed (rather than viper.GetBool("json")) avoids
-// stale viper state polluting test runs.
+// isJSONEnabled reports whether the caller asked for structured JSON output,
+// spelled either as the global --json flag (or $FUNC_JSON), or as
+// "--output json" on the commands which accept an output format.  Both
+// spellings emit the same envelope, so machine consumers have exactly one
+// shape to parse.
 func isJSONEnabled(cmd *cobra.Command) bool {
-	f := cmd.Flag("json")
-	return f != nil && f.Changed
+	if viper.GetBool("json") {
+		return true
+	}
+	// --output is command-local, so only consult it for commands which
+	// actually define it; otherwise a value bound by an earlier command in
+	// the same process could switch an unrelated command into JSON.
+	if cmd.Flags().Lookup("output") != nil {
+		return Format(viper.GetString("output")) == JSON
+	}
+	return false
+}
+
+// outputFormat returns the effective format for commands which accept an
+// --output flag.  The global --json flag is simply the shorthand spelling of
+// "--output json", so it wins when set.
+func outputFormat() string {
+	if viper.GetBool("json") {
+		return JSON
+	}
+	return viper.GetString("output")
+}
+
+// JSONOutputRequested reports whether this invocation asked for JSON output.
+// It is the *cobra.Command-less form of isJSONEnabled, exported for the
+// top-level error sink in pkg/app which runs after Execute has returned and
+// therefore has no command to consult.
+func JSONOutputRequested() bool {
+	return viper.GetBool("json") || Format(viper.GetString("output")) == JSON
 }
 
 // JSONResponse is the top-level envelope for all --json output.
@@ -42,22 +71,26 @@ type JSONError struct {
 // WriteJSONSuccess writes a success envelope containing data to w.
 // Exported for use in tests and pkg/app.
 func WriteJSONSuccess(w io.Writer, data any) error {
-	return json.NewEncoder(w).Encode(JSONResponse{
+	return encodeJSON(w, JSONResponse{
 		APIVersion: jsonAPIVersion,
 		Status:     "ok",
 		Data:       data,
 	})
 }
 
-// writeJSONSuccess is the package-internal alias.
-func writeJSONSuccess(w io.Writer, data any) error {
-	return WriteJSONSuccess(w, data)
+// encodeJSON writes one envelope to w.  Output is indented, matching what
+// --output json produced before it was folded into the envelope, so that
+// output piped through a terminal stays readable.
+func encodeJSON(w io.Writer, response JSONResponse) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(response)
 }
 
 // WriteJSONError classifies err and writes an error envelope to w.
 // Exported so that pkg/app can call it from the top-level error sink.
 func WriteJSONError(w io.Writer, err error) error {
-	return json.NewEncoder(w).Encode(JSONResponse{
+	return encodeJSON(w, JSONResponse{
 		APIVersion: jsonAPIVersion,
 		Status:     "error",
 		Error:      errorToJSONError(err),

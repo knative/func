@@ -69,7 +69,7 @@ func run
   -e, --env stringArray         Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
   -h, --help                    help for run
   -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]. This option takes precedence over --registry. Specifying tag is optional. ($FUNC_IMAGE)
-      --json                    Output as JSON. ($FUNC_JSON)
+      --json                    Output results as JSON ($FUNC_JSON)
   -p, --path string             Path to the function.  Default is current directory ($FUNC_PATH)
   -r, --registry string         Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
   -v, --verbose                 Print verbose logs ($FUNC_VERBOSE)

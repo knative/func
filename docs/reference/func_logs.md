@@ -9,6 +9,9 @@ Stream logs from a deployed function
 Streams logs for the function in the current directory or from the directory
 specified with --path. Abstracts away the underlying service name and pod details.
 
+With --json, the logs available at the time of the call are reported as a
+finite snapshot instead of being streamed, so the command terminates.
+
 
 ```
 func logs
@@ -29,6 +32,9 @@ func logs --namespace my-namespace
 
 # Stream logs with a specific time window
 func logs --since 5m
+
+# Report a finite snapshot of the last 5 minutes of logs as JSON
+func logs --since 5m --json
 
 ```
 
