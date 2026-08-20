@@ -26,7 +26,11 @@ type LogsOptions struct {
 	// Since, when non-nil, is the time from which logs are returned.
 	Since *time.Time
 
-	// Follow keeps streaming the logs until the context is cancelled.
+	// TailLines, when non-nil, limits the output to the last N lines per pod.
+	TailLines *int64
+
+	// Follow streams logs until the context is cancelled.  When false, the
+	// logs currently available are written and the call returns.
 	Follow bool
 }
 
@@ -34,8 +38,11 @@ type LogsOptions struct {
 //
 // It will do so by gathering logs of user-container of all affiliated pods.
 //
-// This function runs as long as the passed context is active (i.e. it is
-// required to cancel the context to stop log gathering).
+// When opts.Follow is set, this function runs as long as the passed context is
+// active (i.e. it is required to cancel the context to stop log gathering).
+// Otherwise a snapshot of the currently available logs is written and the
+// function returns, with k8s.ErrNoMatchingPods if the service currently has no
+// pods whose logs can be read.
 func GetKServiceLogs(ctx context.Context, opts LogsOptions, out io.Writer) error {
 	return k8s.GetPodLogsBySelector(ctx, k8s.PodLogsOptions{
 		Namespace:     opts.Namespace,
@@ -43,6 +50,7 @@ func GetKServiceLogs(ctx context.Context, opts LogsOptions, out io.Writer) error
 		Container:     "user-container",
 		Image:         opts.Image,
 		Since:         opts.Since,
+		TailLines:     opts.TailLines,
 		Follow:        opts.Follow,
 	}, out)
 }
