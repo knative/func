@@ -35,6 +35,8 @@ This is essential because:
 - `build` tool: path = absolute path to Function directory (where func.yaml exists)
 - `invoke` tool: path = absolute path to Function directory (where func.yaml exists)
 - `config_*_list`, `config_*_add`, `config_*_remove` tools: path = absolute path to Function directory (where func.yaml exists)
+- `run` tool: path = absolute path to Function directory (where func.yaml exists)
+- `run_stop` tool: path = the SAME absolute path passed to `run` when starting it
 
 **IMPORTANT:** You must use absolute paths (e.g., `/Users/name/myproject/myfunc`), NOT relative paths (e.g., `.` or `myfunc`). The MCP server process runs in a different directory than your current working directory, so relative paths will not resolve correctly.
 
@@ -62,6 +64,7 @@ This is essential because:
 - Before 'list' → Read `func://help/list`
 - Before 'describe' → Read `func://help/describe`
 - Before 'delete' → Read `func://help/delete`
+- Before 'run' → Read `func://help/run`
 
 The help text provides authoritative parameter information and usage context.
 
@@ -190,6 +193,28 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
   - **OPTIONAL:** `delete_cluster` — removes cluster credentials and pipeline resources
   - When neither flag is provided, local resources are removed by default
 - **WARNING:** `config_git_remove` with `delete_cluster: true` is destructive — cluster pipeline resources are deleted permanently
+
+### run
+
+- **FIRST:** Read `func://help/run` for authoritative usage information
+- **REQUIRED parameters:**
+  - `path` (absolute path to the directory containing the Function to run; there is no CWD-based default — the MCP server's own working directory is unrelated to yours)
+- **OPTIONAL parameters:**
+  - `registry` (container registry; only needed if the Function's image must be named/built)
+  - `build` (force a rebuild before running; omit to let func build automatically only when out of date)
+  - `port` (host port to bind; omit to use 8080 or the first available port)
+- Builds the Function locally if needed, starts it, and returns once it is up: `pid` (process ID) and `url`
+- The Function keeps running in the background after the tool call returns
+- Only ONE run may be active per Function path at a time — calling `run` again for a path that is already running fails with a clear error; call `run_stop` first
+- ALWAYS call `run_stop` with the matching `path` when finished, to free the port and clean up
+- Not a cluster operation, so unaffected by read-only mode
+
+### run_stop
+
+- Stops a Function previously started with `run`
+- **REQUIRED:** `path` (absolute) must match the path used to start it with `run`
+- Idempotent: calling `run_stop` for a path with no active run (already stopped, or never started) succeeds with an informational message rather than erroring
+- Not a cluster operation, so unaffected by read-only mode
 
 ### config_envs_list, config_envs_add, config_envs_remove
 

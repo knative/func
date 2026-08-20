@@ -11,6 +11,7 @@ The Functions MCP server is currently running in **read-only mode**.
 - Build Functions
 - Configure Functions (envs, labels, volumes)
 - Inspect Functions
+- Run/stop Functions locally (not cluster operations, so unaffected by read-only mode)
 
 **Disabled operations:**
 - Deploy to cluster

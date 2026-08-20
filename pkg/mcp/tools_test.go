@@ -3,6 +3,8 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -24,6 +26,13 @@ func unmarshalStructuredContent(result *mcp.CallToolResult, out any) error {
 		}
 		return json.Unmarshal(b, out)
 	}
+}
+
+// testAbsPath returns a platform-native absolute path for name, suitable for
+// tools which require an absolute path. A POSIX literal such as "/tmp/f" can
+// not be used directly because it is not absolute on Windows.
+func testAbsPath(name string) string {
+	return filepath.Join(os.TempDir(), name)
 }
 
 // validateArgLength validates that the args slice has the expected length based on

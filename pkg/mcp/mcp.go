@@ -27,8 +27,10 @@ type Server struct {
 	prefix    string                // Command prefix ("func" or "kn func")
 	readonly  atomic.Bool           // disables deploy, delete, and build when true
 	executor  executor
-	transport mcp.Transport // Transport to use (defaults to StdioTransport)
-	impl      *mcp.Server   // implements the protocol
+	transport mcp.Transport  // Transport to use (defaults to StdioTransport)
+	impl      *mcp.Server    // implements the protocol
+	starter   processStarter // starts long-lived "func run" subprocesses
+	runs      *runRegistry   // tracks active local runs, keyed by function path
 }
 
 type executor interface {
@@ -70,6 +72,14 @@ func WithExecutor(executor executor) Option {
 	}
 }
 
+// WithProcessStarter sets a custom process starter for the "run" tool; used
+// in tests.
+func WithProcessStarter(starter processStarter) Option {
+	return func(s *Server) {
+		s.starter = starter
+	}
+}
+
 // WithTransport sets a custom transport for the server; used in tests.
 func WithTransport(transport mcp.Transport) Option {
 	return func(s *Server) {
@@ -92,6 +102,8 @@ func New(options ...Option) *Server {
 		OnInit:    func(_ context.Context) {},
 	}
 	s.executor = defaultExecutor{s}
+	s.starter = defaultProcessStarter{s}
+	s.runs = newRunRegistry()
 	for _, o := range options {
 		o(s)
 	}
@@ -121,6 +133,8 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, listTool, s.listHandler)
 	mcp.AddTool(i, describeTool, s.describeHandler)
 	mcp.AddTool(i, deleteTool, s.deleteHandler)
+	mcp.AddTool(i, runTool, s.runHandler)
+	mcp.AddTool(i, runStopTool, s.runStopHandler)
 	mcp.AddTool(i, configVolumesListTool, s.configVolumesListHandler)
 	mcp.AddTool(i, configVolumesAddTool, s.configVolumesAddHandler)
 	mcp.AddTool(i, configVolumesRemoveTool, s.configVolumesRemoveHandler)
@@ -193,8 +207,16 @@ func New(options ...Option) *Server {
 // Start the MCP server using the configured transport.
 // The server's readonly mode is determined at construction time via
 // WithReadonly; it cannot be changed after the server is created.
+//
+// When Run returns, on normal shutdown (client disconnect, or the caller
+// canceling ctx in response to SIGINT/SIGTERM), any Function runs left
+// active by the "run" tool are stopped so no subprocess (and the port it
+// holds) is left behind. A hard kill of the server process itself (e.g. a
+// second SIGKILL) bypasses this; the OS reaps the orphaned children instead.
 func (s *Server) Start(ctx context.Context) error {
-	return s.impl.Run(ctx, s.transport)
+	err := s.impl.Run(ctx, s.transport)
+	s.runs.stopAll()
+	return err
 }
 
 // For now the executor is a simple run of the command "func" or "kn func"
