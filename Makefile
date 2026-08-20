@@ -111,6 +111,15 @@ check-misspell: $(BIN_MISSPELL) ## Check for common misspellings
 		while IFS= read -r file; do [ -f "$$file" ] && echo "$$file"; done | \
 		xargs $(BIN_MISSPELL) -i importas -error
 
+.PHONY: check-docs
+check-docs: $(BIN_MISSPELL) ## Check documentation-only paths (see .github/workflows/ci-check.yaml)
+	@echo "Checking documentation for misspellings..."
+	@git ls-files -- ':(glob)*.md' ':(glob)docs/**/*.md' | \
+		git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
+		git check-attr --stdin linguist-vendored | grep -Ev ': (set|true)$$' | cut -d: -f1 | \
+		while IFS= read -r file; do [ -f "$$file" ] && echo "$$file"; done | \
+		xargs $(BIN_MISSPELL) -i importas -error
+
 .PHONY: check-whitespace
 check-whitespace: ## Check for trailing whitespace
 	@echo "Checking for trailing whitespace..."
