@@ -39,7 +39,7 @@ This is essential because:
 
 **Exceptions:**
 - The `list` tool operates on the cluster, not local files, so it does NOT use a path parameter (it uses namespace instead)
-- The `delete` tool requires exactly one of `path` or `name`; it does NOT support a no-argument CWD mode (the MCP server process has its own working directory unrelated to the Function being managed)
+- The `delete` and `describe` tools each require exactly one of `path` or `name`; they do NOT support a no-argument CWD mode (the MCP server process has its own working directory unrelated to the Function being managed)
 
 ## Deployment Behavior
 
@@ -57,6 +57,7 @@ This is essential because:
 - Before 'deploy' → Read `func://help/deploy`
 - Before 'build' → Read `func://help/build`
 - Before 'list' → Read `func://help/list`
+- Before 'describe' → Read `func://help/describe`
 - Before 'delete' → Read `func://help/delete`
 
 The help text provides authoritative parameter information and usage context.
@@ -130,6 +131,17 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - Does NOT use path parameter (operates on cluster, not local files)
 - Optional `namespace` parameter to list Functions in specific namespace
 - Returns list of deployed Functions in current/specified namespace
+
+### describe
+
+- **FIRST:** Read `func://help/describe` for authoritative usage information
+- Describes a **deployed** Function instance on the cluster; it never just reads local `func.yaml`. This tool will fail if the Function has not yet been deployed (e.g. calling it right after 'create' but before 'deploy' is a usage error, not a tool bug)
+- Supports TWO modes (mutually exclusive):
+  1. **Describe by PATH:** Provide 'path' parameter (reads the Function's name/namespace from func.yaml at that path, then describes whatever is deployed for that Function)
+  2. **Describe by NAME:** Provide 'name' parameter (describes the named Function on the cluster)
+- Exactly ONE of 'path' or 'name' must be provided, not both
+- 'namespace' is only valid together with 'name'; providing both 'path' and 'namespace' is rejected, since path mode already determines the namespace from the Function's own deploy identity
+- Read-only; does not modify local files or cluster resources
 
 ### delete
 
