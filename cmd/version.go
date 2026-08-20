@@ -76,13 +76,6 @@ func runVersion(cmd *cobra.Command, v Version) error {
 	// Set verbose flag
 	v.Verbose = verbose
 
-	// Initialize the default value to the zero semver with a descriptive
-	// metadata tag indicating this must have been built from source if
-	// undefined:
-	if v.Vers == "" {
-		v.Vers = DefaultVersion
-	}
-
 	// Kver and Hash are already set from build via ldflags,
 	// injected into the Version struct at startup (see pkg/app/app.go).
 	// Populate image fields from k8s package constants
