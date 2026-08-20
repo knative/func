@@ -142,7 +142,13 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 	fmt.Fprintf(os.Stderr, "Streaming logs for function '%s' in namespace '%s'...\n", f.Name, f.Namespace)
 	fmt.Fprintf(os.Stderr, "Press Ctrl+C to stop.\n\n")
 
-	err = knative.GetKServiceLogs(ctx, f.Namespace, f.Name, f.Image, sinceTime, os.Stdout)
+	err = knative.GetKServiceLogs(ctx, knative.LogsOptions{
+		Name:      f.Name,
+		Namespace: f.Namespace,
+		Image:     f.Image,
+		Since:     sinceTime,
+		Follow:    true,
+	}, os.Stdout)
 	if err != nil && err != context.Canceled {
 		return fmt.Errorf("failed to stream logs: %w", err)
 	}

@@ -198,7 +198,13 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 	}
 	since := time.Now()
 	go func() {
-		_ = GetKServiceLogs(ctx, namespace, f.Name, f.Deploy.Image, &since, out)
+		_ = GetKServiceLogs(ctx, LogsOptions{
+			Name:      f.Name,
+			Namespace: namespace,
+			Image:     f.Deploy.Image,
+			Since:     &since,
+			Follow:    true,
+		}, out)
 	}()
 
 	previousService, err := client.GetService(ctx, f.Name)

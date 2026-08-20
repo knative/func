@@ -759,7 +759,13 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 	buff := new(k8s.SynchronizedBuffer)
 	go func() {
 		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
-		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, buff)
+		_ = k8s.GetPodLogsBySelector(ctx, k8s.PodLogsOptions{
+			Namespace:     namespace,
+			LabelSelector: selector,
+			Container:     "user-container",
+			Since:         &now,
+			Follow:        true,
+		}, buff)
 	}()
 
 	depRes, err := deployer.Deploy(ctx, function)
@@ -839,7 +845,13 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 	redeployLogBuff := new(k8s.SynchronizedBuffer)
 	go func() {
 		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
-		_ = k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", "", &now, redeployLogBuff)
+		_ = k8s.GetPodLogsBySelector(ctx, k8s.PodLogsOptions{
+			Namespace:     namespace,
+			LabelSelector: selector,
+			Container:     "user-container",
+			Since:         &now,
+			Follow:        true,
+		}, redeployLogBuff)
 	}()
 
 	_, err = deployer.Deploy(ctx, function)
