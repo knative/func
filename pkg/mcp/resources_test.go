@@ -101,6 +101,11 @@ func TestResource_Help(t *testing.T) {
 			wantArgs: []string{"--help"},
 		},
 		{
+			name:     "version help",
+			uri:      "func://help/version",
+			wantArgs: []string{"version", "--help"},
+		},
+		{
 			name:     "create help",
 			uri:      "func://help/create",
 			wantArgs: []string{"create", "--help"},

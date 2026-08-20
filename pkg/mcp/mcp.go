@@ -113,6 +113,7 @@ func New(options ...Option) *Server {
 	// -----
 	// One for each command or command group
 	mcp.AddTool(i, healthCheckTool, s.healthcheckHandler)
+	mcp.AddTool(i, versionTool, s.versionHandler)
 	mcp.AddTool(i, createTool, s.createHandler)
 	mcp.AddTool(i, buildTool, s.buildHandler)
 	mcp.AddTool(i, deployTool, s.deployHandler)
@@ -149,6 +150,7 @@ func New(options ...Option) *Server {
 	// A resource for each command which returns its help
 	// eg. "config volumes add" -> "func://help/config/volumes/add")
 	i.AddResource(newHelpResource(s, "Help", "help for the command root"))
+	i.AddResource(newHelpResource(s, "Version Help", "help for 'version'", "version"))
 	i.AddResource(newHelpResource(s, "Create Help", "help for 'create'", "create"))
 	i.AddResource(newHelpResource(s, "Build Help", "help for 'build'", "build"))
 	i.AddResource(newHelpResource(s, "Deploy Help", "help for 'deploy'", "deploy"))

@@ -53,6 +53,7 @@ This is essential because:
 ### General Rules
 
 **CRITICAL:** Before invoking ANY tool, ALWAYS read its help resource first to understand parameters and usage:
+- Before 'version' → Read `func://help/version`
 - Before 'create' → Read `func://help/create`
 - Before 'deploy' → Read `func://help/deploy`
 - Before 'build' → Read `func://help/build`
@@ -61,6 +62,13 @@ This is essential because:
 - Before 'delete' → Read `func://help/delete`
 
 The help text provides authoritative parameter information and usage context.
+
+### version
+
+- **FIRST:** Read `func://help/version` for authoritative usage information
+- Takes no parameters
+- Reports the version (and git commit hash, when available) of the func client binary being driven
+- Use this to gate usage of newer tools/flags on the version of func actually installed, before assuming they are supported
 
 ### create
 
