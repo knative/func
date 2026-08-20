@@ -382,3 +382,29 @@ func TestLogs_ImageNotFiltered(t *testing.T) {
 		t.Errorf("expected pods to not be filtered by image, got %q", opts.Image)
 	}
 }
+
+// TestLogs_FollowEnv ensures following can be enabled by environment, which is
+// how a user for whom the previous always-follow default was the right one can
+// restore it.
+func TestLogs_FollowEnv(t *testing.T) {
+	_ = FromTempDirectory(t)
+	t.Setenv("FUNC_FOLLOW", "true")
+
+	var opts knative.LogsOptions
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cmd := newTestLogsCmd(func(ctx context.Context, o knative.LogsOptions, _ io.Writer) error {
+		opts = o
+		cancel()
+		return ctx.Err()
+	}, &bytes.Buffer{}, &bytes.Buffer{})
+	cmd.SetArgs([]string{"--name", "myfunc"})
+
+	if err := cmd.ExecuteContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !opts.Follow {
+		t.Error("expected FUNC_FOLLOW to enable following")
+	}
+}
