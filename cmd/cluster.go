@@ -54,7 +54,7 @@ EXAMPLES
 	o Create a default development cluster
 	  $ {{rootCmdUse}} cluster create
 
-	o Create a minimal cluster (just Kubernetes + registry)
+	o Create a minimal cluster (Kubernetes + Contour + registry; no Serving/Eventing)
 	  $ {{rootCmdUse}} cluster create --serving=false --eventing=false
 
 	o List existing clusters
@@ -99,14 +99,17 @@ DESCRIPTION
 	  export KUBECONFIG=~/.config/func/clusters/func.local/kubeconfig.yaml
 
 	Installed components are controlled by the --serving, --eventing,
-	--tekton, and --keda flags. Required binaries are downloaded into the
-	func config directory on first use unless --skip-binaries is set.
+	--tekton, and --keda flags. --serving and --eventing default to true
+	(hack/cluster.sh always installs Serving). Contour is always present for
+	the registry host Ingress: with Serving (default path) or standalone when
+	--serving=false. Required binaries are downloaded into the func config
+	directory on first use unless --skip-binaries is set.
 
 EXAMPLES
-	o Create a default development cluster
+	o Create a default development cluster (Serving + Eventing + registry)
 	  $ {{rootCmdUse}} cluster create
 
-	o Create a minimal cluster (just Kubernetes + registry)
+	o Create a minimal cluster (Kubernetes + Contour + registry; no Serving/Eventing)
 	  $ {{rootCmdUse}} cluster create --serving=false --eventing=false
 
 	o Create a cluster with a custom name and domain
@@ -180,7 +183,6 @@ func newClusterCreateConfig() cluster.ClusterConfig {
 		ContainerEngineOverride: viper.GetString("container-engine"),
 		KubectlOverride:         os.Getenv("FUNC_TEST_KUBECTL"),        // override binary path
 		KindOverride:            os.Getenv("FUNC_TEST_KIND"),           // override binary path
-		ActOverride:             os.Getenv("FUNC_TEST_ACT"),            // override binary path
 		GitHubActions:           os.Getenv("GITHUB_ACTIONS") == "true", // detect CI environments
 	}
 }
@@ -195,8 +197,7 @@ NAME
 	{{rootCmdUse}} cluster delete - Delete a local development cluster
 
 SYNOPSIS
-	{{rootCmdUse}} cluster delete [name] [--container-engine]
-	             [--skip-registry-config]
+	{{rootCmdUse}} cluster delete [name] [--skip-registry-config]
 
 DESCRIPTION
 	Deletes a local development cluster. The in-cluster registry is removed
@@ -225,14 +226,12 @@ EXAMPLES
 
 `,
 
-		PreRunE: bindEnv("container-engine", "skip-registry-config"),
+		PreRunE: bindEnv("skip-registry-config"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runClusterDelete(cmd, args)
 		},
 	}
 
-	cmd.Flags().String("container-engine", "",
-		"Container engine: docker or podman; auto-detected if unset, preferring docker when both are installed ($FUNC_CONTAINER_ENGINE)")
 	cmd.Flags().Bool("skip-registry-config", false,
 		"Skip host registry configuration revert ($FUNC_SKIP_REGISTRY_CONFIG)")
 
@@ -241,13 +240,11 @@ EXAMPLES
 
 func newClusterDeleteConfig() cluster.ClusterConfig {
 	return cluster.ClusterConfig{
-		Name:                    "func",
-		ContainerEngineOverride: viper.GetString("container-engine"),
-		SkipRegistryConfig:      viper.GetBool("skip-registry-config"),
-		KubectlOverride:         os.Getenv("FUNC_TEST_KUBECTL"),
-		KindOverride:            os.Getenv("FUNC_TEST_KIND"),
-		ActOverride:             os.Getenv("FUNC_TEST_ACT"),
-		GitHubActions:           os.Getenv("GITHUB_ACTIONS") == "true",
+		Name:               "func",
+		SkipRegistryConfig: viper.GetBool("skip-registry-config"),
+		KubectlOverride:    os.Getenv("FUNC_TEST_KUBECTL"),
+		KindOverride:       os.Getenv("FUNC_TEST_KIND"),
+		GitHubActions:      os.Getenv("GITHUB_ACTIONS") == "true",
 	}
 }
 
