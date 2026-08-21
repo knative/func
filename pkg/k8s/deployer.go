@@ -791,6 +791,9 @@ func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig, referencedS
 
 func appendKafkaEnvValue(envVars []corev1.EnvVar, name, value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, error) {
 	if strings.HasPrefix(value, "{{") {
+		if !strings.HasSuffix(strings.TrimSpace(value), "}}") {
+			return nil, fmt.Errorf("invalid reference format %q, expected {{ secret:name:key }} or {{ configMap:name:key }}", value)
+		}
 		slices := strings.Split(strings.Trim(value, "{} "), ":")
 		if len(slices) == 3 {
 			valueFrom, err := createEnvVarSource(slices, referencedSecrets, referencedConfigMaps)
