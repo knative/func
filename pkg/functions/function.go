@@ -259,7 +259,7 @@ var templateRefPattern = regexp.MustCompile(`^\{\{\s*(secret|configMap):[^:]+:[^
 
 func validateTemplateRef(field, value string) (errors []string) {
 	if strings.HasPrefix(value, "{{") && !templateRefPattern.MatchString(value) {
-		errors = append(errors, fmt.Sprintf("%s has invalid reference format %q, expected {{ secret:name:key }} or {{ configMap:name:key }}", field, value))
+		errors = append(errors, fmt.Sprintf("%s has invalid reference format, expected {{ secret:name:key }} or {{ configMap:name:key }}", field))
 	}
 	return
 }
