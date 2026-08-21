@@ -742,6 +742,32 @@ func TestValidateKafka(t *testing.T) {
 			wantErrs:  1,
 			wantSubst: "sasl.mechanism must be one of",
 		},
+		{
+			name: "malformed secret ref in SASL password",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: "{{ secret:s:k }}extra"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "invalid reference format",
+		},
+		{
+			name: "valid secret ref in SASL password",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				TLS:              &fn.KafkaTLS{CACert: "/ca.crt"},
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: "{{ secret:my-user:password }}"},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

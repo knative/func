@@ -256,8 +256,19 @@ func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string)
 		if !validMechanisms[kafka.SASL.Mechanism] {
 			errors = append(errors, "run.kafka.sasl.mechanism must be one of: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512")
 		}
+		errors = append(errors, validateTemplateRef("run.kafka.sasl.user", kafka.SASL.User)...)
+		errors = append(errors, validateTemplateRef("run.kafka.sasl.password", kafka.SASL.Password)...)
 	}
 
+	return
+}
+
+var templateRefPattern = regexp.MustCompile(`^\{\{\s*(secret|configMap):[^:]+:[^:]+\s*\}\}$`)
+
+func validateTemplateRef(field, value string) (errors []string) {
+	if strings.HasPrefix(value, "{{") && !templateRefPattern.MatchString(value) {
+		errors = append(errors, fmt.Sprintf("%s has invalid reference format %q, expected {{ secret:name:key }} or {{ configMap:name:key }}", field, value))
+	}
 	return
 }
 
