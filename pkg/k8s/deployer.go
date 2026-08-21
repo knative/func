@@ -1052,7 +1052,7 @@ func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig, referencedS
 func appendKafkaEnvValue(envVars []corev1.EnvVar, name, value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, error) {
 	if strings.HasPrefix(value, "{{") {
 		if !strings.HasSuffix(strings.TrimSpace(value), "}}") {
-			return nil, fmt.Errorf("invalid reference format %q, expected {{ secret:name:key }} or {{ configMap:name:key }}", value)
+			return nil, fmt.Errorf("invalid reference format for %s, expected {{ secret:name:key }} or {{ configMap:name:key }}", name)
 		}
 		slices := strings.Split(strings.Trim(value, "{} "), ":")
 		if len(slices) == 3 {
@@ -1062,7 +1062,7 @@ func appendKafkaEnvValue(envVars []corev1.EnvVar, name, value string, referenced
 			}
 			return append(envVars, corev1.EnvVar{Name: name, ValueFrom: valueFrom}), nil
 		}
-		return nil, fmt.Errorf("invalid reference format %q, expected {{ secret:name:key }} or {{ configMap:name:key }}", value)
+		return nil, fmt.Errorf("invalid reference format for %s, expected {{ secret:name:key }} or {{ configMap:name:key }}", name)
 	}
 	return append(envVars, corev1.EnvVar{Name: name, Value: value}), nil
 }
