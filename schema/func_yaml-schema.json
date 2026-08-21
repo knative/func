@@ -347,11 +347,11 @@
 				},
 				"user": {
 					"type": "string",
-					"description": "SASL username. Supports {{ secret:name:key }} syntax"
+					"description": "SASL username. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"
 				},
 				"password": {
 					"type": "string",
-					"description": "SASL password. Supports {{ secret:name:key }} syntax"
+					"description": "SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"
 				}
 			},
 			"additionalProperties": false,
