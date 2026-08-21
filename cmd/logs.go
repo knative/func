@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,36 +15,63 @@ import (
 
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 )
 
+// logGatherer writes the logs of a deployed function.
+type logGatherer func(context.Context, knative.LogsOptions, io.Writer) error
+
 func NewLogsCmd(newClient ClientFactory) *cobra.Command {
+	return newLogsCmd(newClient, knative.GetKServiceLogs)
+}
+
+// newLogsCmd constructs the command with an explicit log gatherer, allowing
+// tests to exercise the command without a cluster.
+func newLogsCmd(newClient ClientFactory, gather logGatherer) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs",
-		Short: "Stream logs from a deployed function",
-		Long: `Stream logs from a deployed function
+		Short: "Print or stream logs from a deployed function",
+		Long: `Print or stream logs from a deployed function
 
-Streams logs for the function in the current directory or from the directory
-specified with --path. Abstracts away the underlying service name and pod details.
+Prints the logs of the function in the current directory or of the directory
+specified with --path and exits. Use --follow to stream logs until interrupted.
+Abstracts away the underlying service name and pod details.
+
+When more than one pod is serving the function, each line is prefixed with the
+pod it came from. A function which has scaled to zero has no pods, and thus no
+logs to print.
+
+Only functions deployed with the default Knative deployer are currently
+supported.
 `,
 		Example: `
-# Stream logs for the function in the current directory
+# Print the logs of the function in the current directory and exit
 {{rootCmdUse}} logs
 
-# Stream logs for a function by name
+# Stream logs until interrupted
+{{rootCmdUse}} logs -f
+
+# Print logs for a function by name
 {{rootCmdUse}} logs --name my-function
 
-# Stream logs from a specific namespace
+# Print logs from a specific namespace
 {{rootCmdUse}} logs --namespace my-namespace
 
-# Stream logs with a specific time window
+# Print logs of a specific time window
 {{rootCmdUse}} logs --since 5m
+
+# Print the last 20 log lines per pod
+{{rootCmdUse}} logs --tail 20
+
+# Stream logs, starting with those of the last 5 minutes
+{{rootCmdUse}} logs -f --since 5m
 `,
 		SuggestFor:        []string{"log", "tail"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("name", "namespace", "path", "since", "verbose"),
+		PreRunE:           bindEnv("name", "namespace", "path", "since", "tail", "follow", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runLogs(cmd, newClient)
+			return runLogs(cmd, newClient, gather)
 		},
 	}
 
@@ -55,14 +84,16 @@ specified with --path. Abstracts away the underlying service name and pod detail
 	// Flags
 	cmd.Flags().StringP("name", "", "", "Name of the function to get logs from ($FUNC_NAME)")
 	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace of the function ($FUNC_NAMESPACE)")
-	cmd.Flags().StringP("since", "", "1m", "Return logs newer than a relative duration like 5s, 2m, or 3h ($FUNC_LOGS_SINCE)")
+	cmd.Flags().StringP("since", "", "", "Return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all available logs, or to the last minute when following without --tail ($FUNC_SINCE)")
+	cmd.Flags().Int64P("tail", "", -1, "Number of most recent log lines to return per pod. Unlimited if negative ($FUNC_TAIL)")
+	cmd.Flags().BoolP("follow", "f", false, "Stream logs until interrupted rather than printing and exiting ($FUNC_FOLLOW)")
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
 
-func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
+func runLogs(cmd *cobra.Command, newClient ClientFactory, gather logGatherer) error {
 	cfg, err := newLogsConfig(cmd)
 	if err != nil {
 		return err
@@ -115,10 +146,24 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 			"You can use 'kubectl logs' directly to view logs for %s-deployed functions", deployer, deployer)
 	}
 
-	// Parse since duration
+	// Limit the lines returned per pod if requested
+	var tailLines *int64
+	if cfg.Tail >= 0 {
+		tailLines = &cfg.Tail
+	}
+
+	// Bound how far back logs are read.  A snapshot defaults to everything
+	// available, as does kubectl, because a default window would silently
+	// truncate --tail and hide the logs of a function which has been idle.
+	// Following, however, keeps its historical one minute of context, unless
+	// --tail already bounds the output.
+	since := cfg.Since
+	if since == "" && cfg.Follow && tailLines == nil {
+		since = "1m"
+	}
 	var sinceTime *time.Time
-	if cfg.Since != "" {
-		duration, err := time.ParseDuration(cfg.Since)
+	if since != "" {
+		duration, err := time.ParseDuration(since)
 		if err != nil {
 			return fmt.Errorf("invalid duration format for --since: %w", err)
 		}
@@ -126,25 +171,61 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory) error {
 		sinceTime = &t
 	}
 
-	// Create context that can be cancelled with Ctrl+C
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
 
-	// Handle interrupt signal
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		fmt.Fprintln(os.Stderr, "\nStopping log stream...")
-		cancel()
-	}()
+	// Following is interactive and unbounded: announce it on stderr, keeping
+	// stdout log content only, and stop on interrupt.
+	if cfg.Follow {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		defer signal.Stop(sigChan)
+		go func() {
+			select {
+			case <-sigChan:
+				fmt.Fprintln(cmd.ErrOrStderr(), "\nStopping log stream...")
+				cancel()
+			case <-ctx.Done():
+			}
+		}()
 
-	fmt.Fprintf(os.Stderr, "Streaming logs for function '%s' in namespace '%s'...\n", f.Name, f.Namespace)
-	fmt.Fprintf(os.Stderr, "Press Ctrl+C to stop.\n\n")
+		fmt.Fprintf(cmd.ErrOrStderr(), "Streaming logs for function '%s' in namespace '%s'...\n", f.Name, f.Namespace)
+		fmt.Fprintf(cmd.ErrOrStderr(), "Press Ctrl+C to stop.\n\n")
+	}
 
-	err = knative.GetKServiceLogs(ctx, f.Namespace, f.Name, f.Image, sinceTime, os.Stdout)
-	if err != nil && err != context.Canceled {
-		return fmt.Errorf("failed to stream logs: %w", err)
+	// NOTE: the image of the described instance is deliberately not used to
+	// filter pods.  It is that of the latest revision, so filtering on it
+	// would drop the logs of the pods actually serving traffic during a
+	// rollout.  All pods of the function's service are of interest here.
+	err = gather(ctx, knative.LogsOptions{
+		Name:      f.Name,
+		Namespace: f.Namespace,
+		Since:     sinceTime,
+		TailLines: tailLines,
+		Follow:    cfg.Follow,
+	}, cmd.OutOrStdout())
+
+	// A function which has scaled to zero has no pods, and thus no logs.  This
+	// is not a failure, but it is reported such that an empty stdout is not
+	// mistaken for a function which is running silently.
+	if errors.Is(err, k8s.ErrNoMatchingPods) {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"No running or recently terminated pods found for function '%s' in namespace '%s'. "+
+				"It may have scaled to zero, in which case there are no logs to print.\n", f.Name, f.Namespace)
+		return nil
+	}
+
+	// Pods can disappear while their logs are being read, e.g. when a revision
+	// is scaled down.  Report it, but keep the logs which were gathered and
+	// the successful exit code.
+	var partial *k8s.PartialLogsError
+	if errors.As(err, &partial) {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %v\n", partial)
+		return nil
+	}
+
+	if err != nil && !errors.Is(err, context.Canceled) {
+		return fmt.Errorf("failed to get logs: %w", err)
 	}
 
 	return nil
@@ -158,6 +239,8 @@ type logsConfig struct {
 	Namespace string
 	Path      string
 	Since     string
+	Tail      int64
+	Follow    bool
 	Verbose   bool
 }
 
@@ -167,6 +250,8 @@ func newLogsConfig(cmd *cobra.Command) (cfg logsConfig, err error) {
 		Namespace: viper.GetString("namespace"),
 		Path:      viper.GetString("path"),
 		Since:     viper.GetString("since"),
+		Tail:      viper.GetInt64("tail"),
+		Follow:    viper.GetBool("follow"),
 		Verbose:   viper.GetBool("verbose"),
 	}
 
