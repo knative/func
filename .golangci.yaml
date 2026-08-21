@@ -24,13 +24,11 @@ linters:
         #   )
         text: 'SA9004:'
     paths:
-      - third_party$
       - builtin$
       - examples$
 formatters:
   exclusions:
     generated: lax
     paths:
-      - third_party$
       - builtin$
       - examples$

@@ -60,6 +60,10 @@ func main() {
 		Use:     rootName,
 	}
 
+	// Include feature-flagged commands so their reference pages stay in sync.
+	// `func config ci` is only registered when this is set.
+	os.Setenv(cmd.ConfigCIFeatureFlag, "true")
+
 	// Create the root command
 	var root = cmd.NewRootCmd(cmd.RootCommandConfig{Name: rootName})
 
