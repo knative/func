@@ -16,7 +16,7 @@
 #
 # This script presumes a local testing environment set up using:
 #     func cluster create        - Creates test cluster with Knative, registry, etc.
-#     func cluster create --dapr - Also installs Dapr (needed for some integration tests)
+#     hack/cluster.sh            - Older cluster path; installs Dapr and other extras
 #     hack/gitlab.sh             - Installs GitLab in-cluster
 #     hack/git-server.sh         - Starts a git server in-cluster
 #

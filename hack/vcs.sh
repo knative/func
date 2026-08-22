@@ -26,17 +26,17 @@ cmd_ls_sources() {
     git ls-files \
       | git check-attr --stdin linguist-generated | grep -Ev ': (set|true)$' | cut -d: -f1 \
       | git check-attr --stdin linguist-vendored  | grep -Ev ': (set|true)$' | cut -d: -f1 \
-      | grep -Ev '(vendor/|third_party/|\.git)'
+      | grep -Ev '(vendor/|\.git)'
   elif [ "$VCS" = jj ]; then
     # jj has no .gitattributes support (https://github.com/jj-vcs/jj/issues/53),
     # so we replicate the linguist-generated filters from .gitattributes here.
     jj file list \
       | grep -Ev '(zz_filesystem_generated\.go$|zz_close_guarding_client_generated\.go$)' \
-      | grep -Ev '(vendor/|third_party/|\.git|\.jj)'
+      | grep -Ev '(vendor/|\.git|\.jj)'
   else
     find . -type f | sed 's|^\./||' \
       | grep -Ev '(zz_filesystem_generated\.go$|zz_close_guarding_client_generated\.go$)' \
-      | grep -Ev '(vendor/|third_party/|\.git|\.jj)'
+      | grep -Ev '(vendor/|\.git|\.jj)'
   fi
 }
 
