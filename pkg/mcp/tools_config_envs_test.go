@@ -2,12 +2,28 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mcp/mock"
 )
+
+// writeTestFunction writes a minimal valid function to root, applying modify
+// to set envs/labels/volumes for the test. Shared by the config *_list tests.
+func writeTestFunction(t *testing.T, root string, modify func(*fn.Function)) {
+	t.Helper()
+	f := fn.NewFunctionWith(fn.Function{Root: root, Name: "test-fn", Runtime: "go"})
+	if modify != nil {
+		modify(&f)
+	}
+	if err := f.Write(); err != nil {
+		t.Fatalf("writing test function: %v", err)
+	}
+}
 
 // TestTool_ConfigEnvsAdd ensures the config_envs_add tool executes with all arguments.
 func TestTool_ConfigEnvsAdd(t *testing.T) {
@@ -456,38 +472,23 @@ func TestTool_ConfigEnvsAdd_ConfigMapKeyWithoutConfigMapName(t *testing.T) {
 	}
 }
 
-// TestTool_ConfigEnvsList ensures the config_envs_list tool lists environment variables.
+// TestTool_ConfigEnvsList verifies the config_envs_list tool reads envs
+// directly from the function on disk via pkg/functions (no subprocess) and
+// returns them as structured output.
 func TestTool_ConfigEnvsList(t *testing.T) {
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		if subcommand != "config" {
-			t.Fatalf("expected subcommand 'config', got %q", subcommand)
-		}
+	root := t.TempDir()
+	writeTestFunction(t, root, func(f *fn.Function) {
+		f.Run.Envs = fn.Envs{{Name: ptr("API_KEY"), Value: ptr("secret")}}
+	})
 
-		// "envs" + "--path" + "." = 3 args
-		if len(args) != 3 {
-			t.Fatalf("expected 3 args, got %d: %v", len(args), args)
-		}
-		if args[0] != "envs" {
-			t.Fatalf("expected args[0]='envs', got %q", args[0])
-		}
-
-		argsMap := argsToMap(args[1:])
-		if val, ok := argsMap["--path"]; !ok || val != "." {
-			t.Fatalf("expected --path='.', got %q", val)
-		}
-
-		return []byte("DATABASE_URL=postgres://localhost\nAPI_KEY=secret\n"), nil
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
+	client, _, err := newTestPair(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_envs_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": root},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -495,8 +496,20 @@ func TestTool_ConfigEnvsList(t *testing.T) {
 	if result.IsError {
 		t.Fatalf("unexpected error result: %v", result)
 	}
-	if !executor.ExecuteInvoked {
-		t.Fatal("executor was not invoked")
+	if result.StructuredContent == nil {
+		t.Fatal("expected StructuredContent to be populated")
+	}
+
+	raw, err := json.Marshal(result.StructuredContent)
+	if err != nil {
+		t.Fatalf("marshal structured content: %v", err)
+	}
+	var out ConfigEnvsListOutput
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("unmarshal output: %v", err)
+	}
+	if len(out.Envs) != 1 || out.Envs[0].Name == nil || *out.Envs[0].Name != "API_KEY" {
+		t.Fatalf("unexpected envs in output: %+v", out.Envs)
 	}
 }
 
@@ -556,27 +569,23 @@ func TestTool_ConfigEnvsRemove(t *testing.T) {
 	}
 }
 
-// TestTool_ConfigEnvsList_Error ensures the config_envs_list tool propagates executor errors.
+// TestTool_ConfigEnvsList_Error ensures the config_envs_list tool returns an
+// error result when the function path does not exist.
 func TestTool_ConfigEnvsList_Error(t *testing.T) {
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		return []byte("list failed"), errors.New("executor error")
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
+	client, _, err := newTestPair(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_envs_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": filepath.Join(t.TempDir(), "does-not-exist")},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !result.IsError {
-		t.Fatal("expected error result, got success")
+		t.Fatal("expected error result for nonexistent path")
 	}
 }
 

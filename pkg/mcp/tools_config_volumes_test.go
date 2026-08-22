@@ -2,10 +2,13 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mcp/mock"
 )
 
@@ -75,38 +78,26 @@ func TestTool_ConfigVolumesAdd(t *testing.T) {
 	}
 }
 
-// TestTool_ConfigVolumesList ensures the config_volumes_list tool lists volumes.
+// TestTool_ConfigVolumesList verifies the config_volumes_list tool reads
+// volume mounts directly from the function on disk via pkg/functions (no
+// subprocess) and returns them as structured output.
 func TestTool_ConfigVolumesList(t *testing.T) {
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		if subcommand != "config" {
-			t.Fatalf("expected subcommand 'config', got %q", subcommand)
-		}
+	root := t.TempDir()
+	writeTestFunction(t, root, func(f *fn.Function) {
+		f.Run.Volumes = []fn.Volume{{
+			Secret: ptr("my-secret"),
+			Path:   ptr("/workspace/secret"),
+		}}
+	})
 
-		// "volumes" + "--path" + "." = 3 args
-		if len(args) != 3 {
-			t.Fatalf("expected 3 args, got %d: %v", len(args), args)
-		}
-		if args[0] != "volumes" {
-			t.Fatalf("expected args[0]='volumes', got %q", args[0])
-		}
-
-		argsMap := argsToMap(args[1:])
-		if val, ok := argsMap["--path"]; !ok || val != "." {
-			t.Fatalf("expected --path='.', got %q", val)
-		}
-
-		return []byte("secret:my-secret:/workspace/secret\n"), nil
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
+	client, _, err := newTestPair(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_volumes_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": root},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -114,8 +105,20 @@ func TestTool_ConfigVolumesList(t *testing.T) {
 	if result.IsError {
 		t.Fatalf("unexpected error result: %v", result)
 	}
-	if !executor.ExecuteInvoked {
-		t.Fatal("executor was not invoked")
+	if result.StructuredContent == nil {
+		t.Fatal("expected StructuredContent to be populated")
+	}
+
+	raw, err := json.Marshal(result.StructuredContent)
+	if err != nil {
+		t.Fatalf("marshal structured content: %v", err)
+	}
+	var out ConfigVolumesListOutput
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("unmarshal output: %v", err)
+	}
+	if len(out.Volumes) != 1 || out.Volumes[0].Secret == nil || *out.Volumes[0].Secret != "my-secret" {
+		t.Fatalf("unexpected volumes in output: %+v", out.Volumes)
 	}
 }
 
@@ -175,27 +178,23 @@ func TestTool_ConfigVolumesRemove(t *testing.T) {
 	}
 }
 
-// TestTool_ConfigVolumesList_Error ensures the config_volumes_list tool propagates executor errors.
+// TestTool_ConfigVolumesList_Error ensures the config_volumes_list tool
+// returns an error result when the function path does not exist.
 func TestTool_ConfigVolumesList_Error(t *testing.T) {
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		return []byte("list failed"), errors.New("executor error")
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
+	client, _, err := newTestPair(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_volumes_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": filepath.Join(t.TempDir(), "does-not-exist")},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !result.IsError {
-		t.Fatal("expected error result, got success")
+		t.Fatal("expected error result for nonexistent path")
 	}
 }
 
