@@ -101,7 +101,9 @@ func cleanupJobDirs(j *Job) error {
 			fmt.Printf("No process listening on port %v.  Removing its job directory\n", d.Name())
 			fmt.Printf("rm %v\n", orphanedJobDir)
 		}
-		return os.RemoveAll(orphanedJobDir)
+		if err := os.RemoveAll(orphanedJobDir); err != nil {
+			return err
+		}
 	}
 	return nil
 }
