@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -48,9 +49,14 @@ the current directory or from the directory specified with --path.
 	return cmd
 }
 
-func runConfigGitCmd(_ *cobra.Command, _ ClientFactory) (err error) {
-	fmt.Printf("--------------------------- Function Git config ---------------------------\n")
-	fmt.Printf("Not implemented yet.\n")
-
+func runConfigGitCmd(cmd *cobra.Command, _ ClientFactory) (err error) {
+	// Reporting an empty success envelope here would tell a machine consumer
+	// the command produced a result when it did nothing at all, so say so as
+	// a failure instead.
+	if isJSONEnabled(cmd) {
+		return errors.New("'config git' is not implemented yet")
+	}
+	fmt.Fprintln(cmd.ErrOrStderr(), "--------------------------- Function Git config ---------------------------")
+	fmt.Fprintln(cmd.ErrOrStderr(), "Not implemented yet.")
 	return nil
 }

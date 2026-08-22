@@ -26,7 +26,7 @@ func TestTool_Version(t *testing.T) {
 		}{
 			"output": {"output", "--output", "json"},
 		})
-		return []byte(`{"version":"v1.16.0","commit":"abc123"}`), nil
+		return enveloped(`{"version":"v1.16.0","commit":"abc123"}`), nil
 	}
 
 	client, _, err := newTestPair(t, WithExecutor(executor))
@@ -65,7 +65,7 @@ func TestTool_Version(t *testing.T) {
 func TestTool_Version_NoCommit(t *testing.T) {
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		return []byte(`{"version":"v0.0.0+source"}`), nil
+		return enveloped(`{"version":"v0.0.0+source"}`), nil
 	}
 
 	client, _, err := newTestPair(t, WithExecutor(executor))

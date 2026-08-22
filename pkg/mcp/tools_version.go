@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -33,8 +32,8 @@ func (s *Server) versionHandler(ctx context.Context, r *mcp.CallToolRequest, inp
 		Vers string `json:"version,omitempty"`
 		Hash string `json:"commit,omitempty"`
 	}
-	if err = json.Unmarshal(out, &raw); err != nil {
-		err = fmt.Errorf("error parsing version output: %w\n%s", err, string(out))
+	if err = unwrapJSON(out, &raw); err != nil {
+		err = fmt.Errorf("error reading version output: %w", err)
 		return
 	}
 

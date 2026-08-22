@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -50,8 +49,8 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 	}
 
 	var instance fn.Instance
-	if err = json.Unmarshal(stdout, &instance); err != nil {
-		err = fmt.Errorf("failed to parse describe output: %w\n%s", err, string(stdout))
+	if err = unwrapJSON(stdout, &instance); err != nil {
+		err = fmt.Errorf("failed to read describe output: %w", err)
 		return
 	}
 

@@ -111,7 +111,7 @@ func newDescribeConfig(cmd *cobra.Command, args []string) (cfg describeConfig, e
 	cfg = describeConfig{
 		Name:      name,
 		Namespace: viper.GetString("namespace"),
-		Output:    viper.GetString("output"),
+		Output:    outputFormat(),
 		Path:      viper.GetString("path"),
 		Verbose:   viper.GetBool("verbose"),
 	}

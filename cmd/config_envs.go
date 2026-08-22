@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"knative.dev/func/cmd/common"
@@ -38,7 +36,7 @@ the current directory or from the directory specified with --path.
 				return
 			}
 
-			return listEnvs(function, cmd.OutOrStdout(), Format(viper.GetString("output")))
+			return listEnvs(function, cmd.OutOrStdout(), Format(outputFormat()))
 		},
 	}
 	cfg, err := config.NewDefault()
@@ -204,8 +202,7 @@ func listEnvs(f fn.Function, w io.Writer, outputFormat Format) error {
 		}
 		return nil
 	case JSON:
-		enc := json.NewEncoder(w)
-		return enc.Encode(f.Run.Envs)
+		return WriteJSONSuccess(w, f.Run.Envs)
 	default:
 		return fmt.Errorf("bad format: %v", outputFormat)
 	}

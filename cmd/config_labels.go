@@ -2,13 +2,11 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"knative.dev/func/cmd/common"
@@ -35,7 +33,7 @@ the current directory or from the directory specified with --path.
 				return
 			}
 
-			return listLabels(function, cmd.OutOrStdout(), Format(viper.GetString("output")))
+			return listLabels(function, cmd.OutOrStdout(), Format(outputFormat()))
 		},
 	}
 
@@ -178,8 +176,7 @@ func listLabels(f fn.Function, w io.Writer, outputFormat Format) error {
 		}
 		return nil
 	case JSON:
-		enc := json.NewEncoder(w)
-		return enc.Encode(f.Deploy.Labels)
+		return WriteJSONSuccess(w, f.Deploy.Labels)
 	default:
 		return fmt.Errorf("invalid format: %v", outputFormat)
 	}

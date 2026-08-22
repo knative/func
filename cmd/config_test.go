@@ -39,8 +39,22 @@ func TestListEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// All JSON output, whether requested with --json or --output json, is
+	// wrapped in the versioned envelope; the payload is under "data".
+	var envelope struct {
+		APIVersion string          `json:"apiVersion"`
+		Status     string          `json:"status"`
+		Data       json.RawMessage `json:"data"`
+	}
+	if err = json.Unmarshal(buff.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.APIVersion != "v1" || envelope.Status != "ok" {
+		t.Fatalf("unexpected envelope: %s", buff.Bytes())
+	}
+
 	var data []fn.Env
-	err = json.Unmarshal(buff.Bytes(), &data)
+	err = json.Unmarshal(envelope.Data, &data)
 	if err != nil {
 		t.Fatal(err)
 	}

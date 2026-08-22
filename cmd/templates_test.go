@@ -43,7 +43,7 @@ typescript   http`
 }
 
 // TestTemplates_JSON ensures that listing templates respects the --json
-// output format.
+// output format, returning an envelope with the template map as data.
 func TestTemplates_JSON(t *testing.T) {
 	_ = FromTempDirectory(t)
 
@@ -54,39 +54,20 @@ func TestTemplates_JSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := `{
-  "go": [
-    "cloudevents",
-    "http"
-  ],
-  "node": [
-    "cloudevents",
-    "http"
-  ],
-  "python": [
-    "cloudevents",
-    "http"
-  ],
-  "quarkus": [
-    "cloudevents",
-    "http"
-  ],
-  "rust": [
-    "cloudevents",
-    "http"
-  ],
-  "springboot": [
-    "cloudevents",
-    "http"
-  ],
-  "typescript": [
-    "cloudevents",
-    "http"
-  ]
-}`
+	var templates map[string][]string
+	decodeJSONEnvelope(t, []byte(buf()), &templates)
 
-	if d := cmp.Diff(expected, buf()); d != "" {
-		t.Error("output mismatch (-want, +got):", d)
+	expected := map[string][]string{
+		"go":         {"cloudevents", "http"},
+		"node":       {"cloudevents", "http"},
+		"python":     {"cloudevents", "http"},
+		"quarkus":    {"cloudevents", "http"},
+		"rust":       {"cloudevents", "http"},
+		"springboot": {"cloudevents", "http"},
+		"typescript": {"cloudevents", "http"},
+	}
+	if d := cmp.Diff(expected, templates); d != "" {
+		t.Error("template map mismatch (-want, +got):", d)
 	}
 }
 
@@ -112,21 +93,18 @@ http`
 		t.Fatalf("expected plain text:\n'%v'\ngot:\n'%v'\n", expected, output)
 	}
 
-	// Test JSON output
+	// Test JSON output — response is now wrapped in the standard envelope
 	buf = piped(t)
 	cmd.SetArgs([]string{"go", "--json"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
-	expected = `[
-  "cloudevents",
-  "http"
-]`
+	var templates []string
+	decodeJSONEnvelope(t, []byte(buf()), &templates)
 
-	output = buf()
-	if output != expected {
-		t.Fatalf("expected JSON:\n'%v'\ngot:\n'%v'\n", expected, output)
+	if d := cmp.Diff([]string{"cloudevents", "http"}, templates); d != "" {
+		t.Error("template list mismatch (-want, +got):", d)
 	}
 
 }

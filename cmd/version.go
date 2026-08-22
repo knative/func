@@ -71,7 +71,7 @@ DESCRIPTION
 // Run
 func runVersion(cmd *cobra.Command, v Version) error {
 	verbose := viper.GetBool("verbose")
-	output := viper.GetString("output")
+	output := outputFormat()
 
 	// Set verbose flag
 	v.Verbose = verbose
