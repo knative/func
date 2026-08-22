@@ -4,7 +4,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-FUNC_UTILS_IMG="registry.localtest.me/knative/func-utils:v2"
+# Push the locally built func-util image under the same tag the func binary
+# embeds (FUNC_UTILS_IMG in Makefile: v2 on main/PRs, X.Y on a release-X.Y
+# branch). The kind cluster mirrors ghcr.io to the local registry
+# (hack/cluster.sh), so repo path and tag must match for in-cluster pulls.
+EMBEDDED_IMG="$(make -C "$(dirname "$0")/.." --no-print-directory -s func-utils-image)"
+FUNC_UTILS_IMG="registry.localtest.me/knative/func-utils:${EMBEDDED_IMG##*:}"
 
 CGO_ENABLED=0 go build -o "func-util" -trimpath -ldflags '-w -s' ./cmd/func-util
 
