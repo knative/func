@@ -290,11 +290,76 @@
 				"consumerGroup": {
 					"type": "string",
 					"description": "Kafka consumer group ID"
+				},
+				"securityProtocol": {
+					"enum": [
+						"PLAINTEXT",
+						"SSL",
+						"SASL_PLAINTEXT",
+						"SASL_SSL"
+					],
+					"type": "string",
+					"description": "Security protocol: PLAINTEXT SSL SASL_PLAINTEXT or SASL_SSL"
+				},
+				"tls": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KafkaTLS",
+					"description": "TLS configuration for SSL or SASL_SSL"
+				},
+				"sasl": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KafkaSASL",
+					"description": "SASL authentication for SASL_PLAINTEXT or SASL_SSL"
 				}
 			},
 			"additionalProperties": false,
 			"type": "object",
 			"description": "KafkaConfig specifies the Kafka event source configuration."
+		},
+		"KafkaSASL": {
+			"properties": {
+				"mechanism": {
+					"enum": [
+						"PLAIN",
+						"SCRAM-SHA-256",
+						"SCRAM-SHA-512"
+					],
+					"type": "string",
+					"description": "SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512"
+				},
+				"user": {
+					"type": "string",
+					"description": "SASL username. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"
+				},
+				"password": {
+					"type": "string",
+					"description": "SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"KafkaTLS": {
+			"properties": {
+				"caCert": {
+					"type": "string",
+					"description": "Path to CA certificate PEM file for verifying broker certificate"
+				},
+				"clientCert": {
+					"type": "string",
+					"description": "Path to client certificate PEM file for mutual TLS"
+				},
+				"clientKey": {
+					"type": "string",
+					"description": "Path to client private key PEM file for mutual TLS"
+				},
+				"skipVerify": {
+					"type": "boolean",
+					"description": "Skip broker certificate verification (development only)"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
 		},
 		"KnativeSubscription": {
 			"required": [
