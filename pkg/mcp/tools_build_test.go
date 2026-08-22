@@ -8,6 +8,55 @@ import (
 	"knative.dev/func/pkg/mcp/mock"
 )
 
+// TestTool_Build_ReadonlyPushRejected ensures build with push=true is rejected in readonly mode.
+func TestTool_Build_ReadonlyPushRejected(t *testing.T) {
+	client, _, err := newTestPairWithReadonly(t, true) // readonly = true
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "build",
+		Arguments: map[string]any{"path": ".", "push": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected build --push to be rejected in readonly mode")
+	}
+}
+
+// TestTool_Build_ReadonlyWithoutPushAllowed ensures build without push is allowed in readonly mode.
+func TestTool_Build_ReadonlyWithoutPushAllowed(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(_ context.Context, subcommand string, _ ...string) ([]byte, error) {
+		if subcommand != "build" {
+			t.Fatalf("expected subcommand 'build', got %q", subcommand)
+		}
+		return []byte("OK\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithReadonly(true), WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "build",
+		Arguments: map[string]any{"path": "."},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("expected build without push to succeed in readonly mode, got error: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
+	}
+}
+
 // TestTool_Build_Args ensures the build tool executes with all arguments passed correctly.
 func TestTool_Build_Args(t *testing.T) {
 	// Test data - defined once and used for both input and validation
