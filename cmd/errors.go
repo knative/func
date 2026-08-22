@@ -31,6 +31,9 @@ Internal error during error-wrapping: specified cmd '%s' not supported`, cmd)
 	if errors.Is(err, fn.ErrPlatformNotSupported) {
 		return NewErrPlatformNotSupported(err, cmd)
 	}
+	if errors.Is(err, fn.ErrInvalidExpose) {
+		return NewErrInvalidExpose(err)
+	}
 	return err
 }
 
@@ -212,6 +215,33 @@ For more options, run 'func %s --help'`, e.Err, e.Cmd, e.Cmd, e.Cmd)
 }
 
 func (e *ErrInvalidDomain) Unwrap() error {
+	return e.Err
+}
+
+// -------------------------------------------------------------------------- //
+
+type ErrInvalidExpose struct {
+	Err error
+}
+
+func NewErrInvalidExpose(err error) error {
+	return &ErrInvalidExpose{Err: err}
+}
+
+func (e *ErrInvalidExpose) Error() string {
+	return fmt.Sprintf(`%v
+
+Try this:
+  func deploy --expose=route  Create an OpenShift Route (OpenShift clusters only)
+  func deploy --expose=none   Cluster-local, no external exposure
+
+deploy.expose takes effect with the raw and keda deployers only (--deployer=raw or --deployer=keda).
+These deployers are cluster-local by default; external exposure is opt-in.
+The knative deployer manages its own exposure and ignores this setting.
+For more options, run 'func deploy --help'`, e.Err)
+}
+
+func (e *ErrInvalidExpose) Unwrap() error {
 	return e.Err
 }
 

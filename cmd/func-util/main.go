@@ -18,10 +18,12 @@ import (
 	"k8s.io/klog/v2"
 
 	"knative.dev/func/pkg/buildpacks"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/ocproute"
 	"knative.dev/func/pkg/s2i"
 	"knative.dev/func/pkg/scaffolding"
 	"knative.dev/func/pkg/tar"
@@ -173,14 +175,32 @@ func deploy(ctx context.Context) error {
 		d = k8s.NewDeployer(
 			k8s.WithDeployerDecorator(deployDecorator{}),
 			k8s.WithDeployerVerbose(true),
+			k8s.WithExposer(ocproute.New(deployers.Kubernetes)),
 		)
 	case keda.KedaDeployerName:
 		d = keda.NewDeployer(
 			keda.WithDeployerDecorator(deployDecorator{}),
 			keda.WithDeployerVerbose(true),
+			keda.WithExposer(ocproute.New(deployers.Keda)),
 		)
 	default:
 		return fmt.Errorf("unknown deployer: %s", deployer)
+	}
+
+	// Refuse an impossible request rather than deploying and reporting a
+	// success that carries no external address; this catches intent carried
+	// on-cluster in func.yaml. Same rule and same split as the CLI gate; only
+	// the wording differs (the user is holding func.yaml here, not a flag).
+	if f.Expose == fn.ExposeRoute && deployer != knative.KnativeDeployerName {
+		ok, probeErr := k8s.DetectOpenShift()
+		if probeErr != nil {
+			return fmt.Errorf("expose is %q but this cluster could not be asked whether it "+
+				"serves route.openshift.io: %w", f.Expose, probeErr)
+		}
+		if !ok {
+			return fmt.Errorf("expose is %q but this is not an OpenShift cluster: "+
+				"route.openshift.io Routes are an OpenShift-specific resource", f.Expose)
+		}
 	}
 
 	client := fn.New(fn.WithDeployer(d))

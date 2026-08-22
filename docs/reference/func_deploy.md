@@ -66,6 +66,13 @@ DESCRIPTION
 	  selectors. Note that the domain specified must be one of those configured
 	  or the flag will be ignored.
 
+	  With '--expose=route' (raw and keda deployers on OpenShift) the domain
+	  is used verbatim as the Route's hostname. DNS (pointing the name at the
+	  cluster's router) and the TLS certificate (e.g. via cert-manager, whose
+	  injected certificate deploys preserve) are the user's responsibility;
+	  until both exist the name does not resolve or serves the router's
+	  default certificate.
+
 EXAMPLES
 
 	o Deploy the function
@@ -122,6 +129,7 @@ func deploy
       --deployer string               Type of deployment to use: 'knative' for Knative Service, 'raw' for Kubernetes Deployment, or 'keda' for Deployment with a KEDA HTTP scaler ($FUNC_DEPLOYER) (default "knative")
       --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
   -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+      --expose string                 External exposure mode: 'route' for an OpenShift Route (OpenShift clusters only), 'none' for cluster-local. Default: no exposure. Raw and keda deployers only. ($FUNC_EXPOSE)
   -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
   -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
   -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)

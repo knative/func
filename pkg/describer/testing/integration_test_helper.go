@@ -38,6 +38,7 @@ func TestInt_Describe(t *testing.T, describer fn.Describer, deployer fn.Deployer
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)

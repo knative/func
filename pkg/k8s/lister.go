@@ -83,11 +83,18 @@ func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, name,
 		return fn.ListItem{}, fmt.Errorf("could not get service: %w", err)
 	}
 
+	// External hostname (if exposed) was recorded on the Service by Deploy()
+	// at exposure time - no extra API call is needed here.
+	url := fmt.Sprintf("http://%s.%s.svc", service.Name, service.Namespace) // TODO: use correct scheme
+	if hostname, ok := service.Annotations[RouteHostnameAnnotation]; ok && hostname != "" {
+		url = fmt.Sprintf("https://%s", hostname)
+	}
+
 	listItem := fn.ListItem{
 		Name:      service.Name,
 		Namespace: service.Namespace,
 		Runtime:   deployment.Labels[labels.FunctionRuntimeKey],
-		URL:       fmt.Sprintf("http://%s.%s.svc", service.Name, service.Namespace), // TODO: use correct scheme
+		URL:       url,
 		Ready:     string(ready),
 		Deployer:  KubernetesDeployerName,
 		Replicas:  int(deployment.Status.ReadyReplicas),
