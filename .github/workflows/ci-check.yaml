@@ -1,0 +1,43 @@
+name: Check
+
+# Documentation-only companion to the Functions workflow.
+#
+# The Functions workflow ignores documentation changes (see its `paths-ignore`),
+# so this workflow covers exactly those paths and runs only the checks that
+# apply to them (`make check-docs`).  The two trigger sets are disjoint: a
+# doc-only change runs Check, a code change runs Functions.
+
+on:
+  push:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'docs/**/*.md'
+      - '*.md'
+  pull_request:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'docs/**/*.md'
+      - '*.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check-docs:
+    name: Check Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+
+      - name: Check Docs
+        run: make check-docs

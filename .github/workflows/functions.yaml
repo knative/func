@@ -18,10 +18,22 @@ on:
     branches:
       - main
       - 'release-*'
+    paths-ignore:
+      - 'docs/**/*.md'
+      - '*.md'
+      - 'OWNERS'
+      - 'OWNERS_ALIASES'
+      - 'LICENSE'
   pull_request:
     branches:
       - main
       - 'release-*'
+    paths-ignore:
+      - 'docs/**/*.md'
+      - '*.md'
+      - 'OWNERS'
+      - 'OWNERS_ALIASES'
+      - 'LICENSE'
   workflow_dispatch:
 
 concurrency:
