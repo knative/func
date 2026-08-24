@@ -204,8 +204,8 @@ github.com/cenkalti/backoff/v4 v4.1.3/go.mod h1:scbssz8iZGpm3xbr14ovlUdkxfGXNInq
 github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=
 github.com/cenkalti/backoff/v5 v5.0.3/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
-github.com/cert-manager/cert-manager v1.16.3 h1:seEF5eidFaeduaCuM85PFEuzH/1X/HOV5Y8zDQrHgpc=
-github.com/cert-manager/cert-manager v1.16.3/go.mod h1:6JQ/GAZ6dH+erqS1BbaqorPy8idJzCtWFUmJQBTjo6Q=
+github.com/cert-manager/cert-manager v1.20.3 h1:7zgThbjfRBNjN2/cM/Wdo/vl/oeFQybIMNzxd1Ocipc=
+github.com/cert-manager/cert-manager v1.20.3/go.mod h1:Aqf5P0xRh9aey1p10m2c3UAk/Vb/FBPyH3WQxJRm+7Y=
 github.com/certifi/gocertifi v0.0.0-20191021191039-0944d244cd40/go.mod h1:sGbDF6GwGcLpkNXPUTkMRoywsNa/ol15pxFe6ERfguA=
 github.com/certifi/gocertifi v0.0.0-20200922220541-2c3bb06c6054/go.mod h1:sGbDF6GwGcLpkNXPUTkMRoywsNa/ol15pxFe6ERfguA=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
@@ -1876,10 +1876,10 @@ k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a/go.mod h1:jPW/WVKK9YHAvNhRxK0md/
 k8s.io/utils v0.0.0-20230209194617-a36077c30491/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 h1:AZYQSJemyQB5eRxqcPky+/7EdBj0xi3g0ZcxxJ7vbWU=
 k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2/go.mod h1:xDxuJ0whA3d0I4mf/C4ppKHxXynQ+fxnkmQH0vTHnuk=
-knative.dev/client/pkg v0.0.0-20260821141025-0c3f06d32dc8 h1:RnDly8uQKY42xfwpMSgxI6wPqM9KoFQRCmLtRumbDak=
-knative.dev/client/pkg v0.0.0-20260821141025-0c3f06d32dc8/go.mod h1:/7Tmmvd2e4NsmA4LvgwV41nKgAMgLu0+ldiBa6uDyQQ=
-knative.dev/eventing v0.50.1-0.20260821145524-32583ea24ac0 h1:3W2DLIRQ3RJQNxxUy0o4AJH5ZV6vLKOidWnhe8+wRYY=
-knative.dev/eventing v0.50.1-0.20260821145524-32583ea24ac0/go.mod h1:k85LNR3Rt5wiVRaHksFHXK82AM/vcStAvr3K7lBYbHc=
+knative.dev/client/pkg v0.0.0-20260824022027-f22c1f6498a3 h1:yDau9zgPC4EPkkFKsXiKslX+A4u3erge5PArBXOk+0g=
+knative.dev/client/pkg v0.0.0-20260824022027-f22c1f6498a3/go.mod h1:uA+bOCkcmaU8gbYLQ/6GrUXD9hmfV0tsXUoYUC/d3cg=
+knative.dev/eventing v0.50.1-0.20260824121526-ec5c1d17105c h1:GfZm9tjdDAuRMtPOrAM5340nj/VHiKEpkIuxHwPYkWI=
+knative.dev/eventing v0.50.1-0.20260824121526-ec5c1d17105c/go.mod h1:se5U7KcgxQ/VaAIjvWnGjYqXDQhfKwfTgB+7cf2mY1A=
 knative.dev/hack v0.0.0-20260428014158-b2a37f1b6e7b h1:MvbV2F2BdI8qKrYYUhDwbUZbX0BAYRSIpXM2TOtTvs0=
 knative.dev/hack v0.0.0-20260428014158-b2a37f1b6e7b/go.mod h1:L5RzHgbvam0u8QFHfzCX6MKxu/a/gIGEdaRBqNiVbl0=
 knative.dev/networking v0.0.0-20260821014922-17b28c62e1cb h1:ukTLqsBsPfPsvEvB7c8DsVoKpDGi4tMsHCDzL8y8ycM=
@@ -1897,8 +1897,8 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.2/go.mod h1:+qG7ISX
 sigs.k8s.io/controller-runtime v0.15.3/go.mod h1:kp4jckA4vTx281S/0Yk2LFEEQe67mjg+ev/yknv47Ds=
 sigs.k8s.io/controller-runtime v0.23.3 h1:VjB/vhoPoA9l1kEKZHBMnQF33tdCLQKJtydy4iqwZ80=
 sigs.k8s.io/controller-runtime v0.23.3/go.mod h1:B6COOxKptp+YaUT5q4l6LqUJTRpizbgf9KSRNdQGns0=
-sigs.k8s.io/gateway-api v1.4.1 h1:NPxFutNkKNa8UfLd2CMlEuhIPMQgDQ6DXNKG9sHbJU8=
-sigs.k8s.io/gateway-api v1.4.1/go.mod h1:AR5RSqciWP98OPckEjOjh2XJhAe2Na4LHyXD2FUY7Qk=
+sigs.k8s.io/gateway-api v1.5.0 h1:duoo14Ky/fJXpjpmyMISE2RTBGnfCg8zICfTYLTnBJA=
+sigs.k8s.io/gateway-api v1.5.0/go.mod h1:GvCETiaMAlLym5CovLxGjS0NysqFk3+Yuq3/rh6QL2o=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd/go.mod h1:B8JuhiUyNFVKdsE8h686QcCxMaH6HrOAZj4vswFpcB0=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730/go.mod h1:mdzfpAEoE6DHQEN0uh9ZbOCuHbLK5wOm7dK4ctXE9Tg=

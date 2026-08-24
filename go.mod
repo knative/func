@@ -70,8 +70,8 @@ require (
 	k8s.io/client-go v0.35.7
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
-	knative.dev/client/pkg v0.0.0-20260821141025-0c3f06d32dc8
-	knative.dev/eventing v0.50.1-0.20260821145524-32583ea24ac0
+	knative.dev/client/pkg v0.0.0-20260824022027-f22c1f6498a3
+	knative.dev/eventing v0.50.1-0.20260824121526-ec5c1d17105c
 	knative.dev/hack v0.0.0-20260428014158-b2a37f1b6e7b
 	knative.dev/pkg v0.0.0-20260820190123-c9015f8bfdea
 	knative.dev/serving v0.50.1-0.20260821122824-98e5ef90aa70
@@ -123,7 +123,7 @@ require (
 	github.com/buildpacks/libcnb v1.30.3 // indirect
 	github.com/buildpacks/lifecycle v0.21.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
-	github.com/cert-manager/cert-manager v1.16.3 // indirect
+	github.com/cert-manager/cert-manager v1.20.3 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chainguard-dev/kaniko v1.25.13 // indirect
@@ -320,7 +320,7 @@ require (
 	k8s.io/cli-runtime v0.34.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
 	knative.dev/networking v0.0.0-20260821014922-17b28c62e1cb // indirect
-	sigs.k8s.io/gateway-api v1.4.1 // indirect
+	sigs.k8s.io/gateway-api v1.5.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.0 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.0 // indirect
