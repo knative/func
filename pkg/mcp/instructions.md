@@ -51,6 +51,25 @@ This is essential because:
 - **OVERRIDE specific settings**: Call "deploy" tool with specific flags (e.g., --builder pack, --registry docker.io/user)
   - Example: "deploy with pack builder" → call deploy tool with --builder pack only
 
+## Prompts
+
+This server also exposes prompts: named, parameterized workflows the client
+invokes on the user's behalf.
+
+### onboard
+
+- Drives full end-to-end onboarding: prerequisites → language → scaffold →
+  local run and invoke → registry → deploy → remote invoke → summary
+- All four arguments (`language`, `template`, `registry`, `cluster`) are
+  optional. Supplied values are treated as decided; omitted ones are gathered
+  from the user as the relevant step is reached
+- `template` defaults to `http` and `cluster` defaults to `local`
+- In read-only mode the deploy-dependent steps are omitted from the returned
+  prompt, since they would be refused
+- If a user asks to "get started", "set up a Function from scratch", or
+  similar, suggest they invoke this prompt rather than improvising the
+  sequence yourself
+
 ## Tool Usage Guide
 
 ### General Rules
