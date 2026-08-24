@@ -36,9 +36,11 @@ func rawPromptArg(r *mcp.GetPromptRequest, name string) string {
 
 // promptArg returns the named argument from the request, normalized by
 // trimming surrounding whitespace and lowercasing. Prompt arguments arrive as
-// free-form strings typed by a human (or filled in by an agent), so "  Go "
-// and "go" must be treated as the same value. Returns "" when the argument
-// was not provided.
+// free-form strings typed by a human (or filled in by an agent), so "  Local "
+// and "local" must be treated as the same value. Use this only for arguments
+// whose valid values are enumerated by the prompt itself; values passed
+// through to func (a runtime, a template, a registry) must keep their case
+// and so use rawPromptArg. Returns "" when the argument was not provided.
 func promptArg(r *mcp.GetPromptRequest, name string) string {
 	return strings.ToLower(strings.TrimSpace(rawPromptArg(r, name)))
 }
