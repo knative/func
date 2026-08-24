@@ -175,8 +175,12 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - Exactly one of `path` or `name` is required (same shape as `delete` / `describe`) — never both, and never neither
 - `path` must be an absolute path to the Function project directory (reads func.yaml); `name` is the deployed Function name on the cluster
 - The Function must already be **deployed** — in path mode the tool still talks to the cluster via the project's deploy identity, so calling it before `deploy` is a usage error, not a tool bug
-- Returns a **finite snapshot** of recent logs (it prints and exits; it is not a live stream); use the optional `since` parameter to bound the window (e.g. `30s`, `5m`, `2h`; default is all available logs)
-- Optional `namespace` parameter to target a specific Kubernetes namespace
+- Returns a **finite snapshot** of recent logs (it prints and exits; it is not a live stream); the default is every line the Function's pods have retained, so bound the output with `since` (time window, e.g. `30s`, `5m`, `2h`) and/or `tail` (most recent lines per pod) whenever the volume is large or unknown
+- If the payload exceeds the tool's size limit, only the most recent lines are returned and `truncated` is set to true; re-run with `tail` or `since` rather than assuming the output is complete
+- **Always read `warnings` before concluding a Function produced no output.** Empty or partial `logs` with a zero exit is normal and explained there: the Function may have scaled to zero (no pods, therefore no logs), or the logs of only some of its pods could be read
+- The `namespace` parameter is only valid together with `name`; providing both `path` and `namespace` is rejected, since path mode determines the namespace from the Function's own deploy identity
+- When more than one pod serves the Function, each line is prefixed with `[pod/<name>] `
+- `follow`/streaming is deliberately not exposed: it never terminates, so it is unusable from an agent. Use `since`/`tail` and call again to observe new output
 - Only Functions deployed with the default **knative** deployer are supported; for other deployers the CLI returns an error directing you to `kubectl logs`
 - This tool is **read-only** — it never modifies any state
 - Use logs to diagnose a deployed Function after `deploy`, especially when combined with `invoke` to trigger the Function and observe its output
