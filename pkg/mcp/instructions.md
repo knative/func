@@ -172,11 +172,12 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 ### logs
 
 - **FIRST:** Read `func://help/logs` for authoritative usage information
-- Identify the Function by **path** (reads func.yaml) OR by **name** — never both at the same time
-- `path` must be an absolute path to the Function project directory
-- `name` is the deployed Function name on the cluster
+- Exactly one of `path` or `name` is required (same shape as `delete` / `describe`) — never both, and never neither
+- `path` must be an absolute path to the Function project directory (reads func.yaml); `name` is the deployed Function name on the cluster
+- The Function must already be **deployed** — in path mode the tool still talks to the cluster via the project's deploy identity, so calling it before `deploy` is a usage error, not a tool bug
+- Returns a **finite snapshot** of recent logs (it prints and exits; it is not a live stream); use the optional `since` parameter to bound the window (e.g. `30s`, `5m`, `2h`; default is all available logs)
 - Optional `namespace` parameter to target a specific Kubernetes namespace
-- Optional `since` parameter controls the time window of returned logs (e.g. `30s`, `5m`, `2h`; default is `1m`)
+- Only Functions deployed with the default **knative** deployer are supported; for other deployers the CLI returns an error directing you to `kubectl logs`
 - This tool is **read-only** — it never modifies any state
 - Use logs to diagnose a deployed Function after `deploy`, especially when combined with `invoke` to trigger the Function and observe its output
 
