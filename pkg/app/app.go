@@ -38,23 +38,32 @@ func Main() {
 		}}
 
 	if err := cmd.NewRootCmd(cfg).ExecuteContext(ctx); err != nil {
-		if !errors.Is(err, terminal.InterruptErr) {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		}
 		if ctx.Err() != nil || errors.Is(err, terminal.InterruptErr) {
 			os.Exit(130)
 		}
 
-		if errors.Is(err, docker.ErrNoDocker) {
-			if !dockerOrPodmanInstalled() {
-				fmt.Fprintln(os.Stderr, `Docker/Podman not installed.
+		if cmd.JSONOutputRequested() {
+			if jsonErr := cmd.WriteJSONError(os.Stdout, err); jsonErr != nil {
+				// The envelope could not be written; fall back to plain text
+				// rather than exiting non-zero with no diagnostic at all.
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error: could not write JSON error output: %v\n", jsonErr)
+			}
+		} else {
+			if !errors.Is(err, terminal.InterruptErr) {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			}
+			if errors.Is(err, docker.ErrNoDocker) {
+				if !dockerOrPodmanInstalled() {
+					fmt.Fprintln(os.Stderr, `Docker/Podman not installed.
 Please consider installing one of these:
   https://podman-desktop.io/
   https://www.docker.com/products/docker-desktop/`)
-			} else {
-				fmt.Fprintln(os.Stderr, `Possible causes:
+				} else {
+					fmt.Fprintln(os.Stderr, `Possible causes:
   The docker/podman daemon is not running.
   The DOCKER_HOST environment variable is not set.`)
+				}
 			}
 		}
 

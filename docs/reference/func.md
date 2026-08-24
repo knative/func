@@ -19,6 +19,7 @@ Learn more about Knative at: https://knative.dev
 
 ```
   -h, --help   help for func
+      --json   Output results as JSON ($FUNC_JSON)
 ```
 
 ### SEE ALSO

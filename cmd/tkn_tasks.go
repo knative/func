@@ -18,6 +18,9 @@ Installation: func tkn-tasks | kubectl apply -f -
 `,
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if isJSONEnabled(cmd) {
+				return fmt.Errorf("--json is not supported for 'tkn-tasks': it outputs raw multi-document YAML")
+			}
 			_, err := fmt.Fprintln(cmd.OutOrStdout(), tekton.GetClusterTasks())
 			return err
 		},

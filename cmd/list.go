@@ -91,7 +91,10 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 		return NewErrListClusterConnection(err)
 	}
 
-	if len(items) == 0 {
+	// An empty result is reported as an empty JSON array rather than the
+	// human "no functions found" notice: a machine consumer asking for JSON
+	// must always receive parseable JSON on stdout.
+	if len(items) == 0 && !isJSONEnabled(cmd) {
 		printNoFunctionsFound(cmd, cfg.Namespace)
 		return
 	}
@@ -111,7 +114,7 @@ type listConfig struct {
 func newListConfig(cmd *cobra.Command) (cfg listConfig, err error) {
 	cfg = listConfig{
 		Namespace: viper.GetString("namespace"),
-		Output:    viper.GetString("output"),
+		Output:    outputFormat(),
 		Verbose:   viper.GetBool("verbose"),
 	}
 	// If --all-namespaces, zero out any value for namespace (such as)

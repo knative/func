@@ -23,6 +23,12 @@ func config labels remove
   -v, --verbose       Print verbose logs ($FUNC_VERBOSE)
 ```
 
+### Options inherited from parent commands
+
+```
+      --json   Output results as JSON ($FUNC_JSON)
+```
+
 ### SEE ALSO
 
 * [func config labels](func_config_labels.md)	 - List and manage configured labels for a function

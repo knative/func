@@ -20,3 +20,13 @@ func GetKServiceLogs(ctx context.Context, namespace, kServiceName, image string,
 	selector := fmt.Sprintf("serving.knative.dev/service=%s", kServiceName)
 	return k8s.GetPodLogsBySelector(ctx, namespace, selector, "user-container", image, since, out)
 }
+
+// GetKServiceLogsSnapshot writes the logs currently available from the
+// user-container of the Knative service's pods, and returns.
+//
+// Unlike GetKServiceLogs it does not follow the log streams, so it terminates
+// on its own; callers which need a finite result use this.
+func GetKServiceLogsSnapshot(ctx context.Context, namespace, kServiceName, image string, since *time.Time, out io.Writer) error {
+	selector := fmt.Sprintf("serving.knative.dev/service=%s", kServiceName)
+	return k8s.GetPodLogsSnapshotBySelector(ctx, namespace, selector, "user-container", image, since, out)
+}

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 )
@@ -33,7 +35,15 @@ func write(out io.Writer, s Formatter, formatName string) error {
 	case Plain:
 		return s.Plain(out)
 	case JSON:
-		return s.JSON(out)
+		// Every JSON payload func emits is wrapped in the versioned envelope
+		// (see cmd/json.go), whether it was requested with --json or with
+		// --output json.  Wrapping here rather than at each call site keeps
+		// the two spellings from drifting into separate dialects.
+		var buf bytes.Buffer
+		if err := s.JSON(&buf); err != nil {
+			return err
+		}
+		return WriteJSONSuccess(out, json.RawMessage(buf.Bytes()))
 	case YAML:
 		return s.YAML(out)
 	case URL:

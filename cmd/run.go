@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -130,7 +129,7 @@ EXAMPLES
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // register `--build` as equivalient to `--build=true`
 	cmd.Flags().String("address", "",
 		"Interface and port on which to bind and listen. Default is 127.0.0.1:8080, or an available port if 8080 is not available. ($FUNC_ADDRESS)")
-	cmd.Flags().Bool("json", false, "Output as JSON. ($FUNC_JSON)")
+	cmd.Flags().Bool("json", false, jsonFlagUsage)
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
@@ -273,22 +272,13 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Output based on format
 	if cfg.JSON {
-		// Create JSON output structure
-		output := struct {
-			Address string `json:"address"`
-			Host    string `json:"host"`
-			Port    string `json:"port"`
-		}{
+		if err = WriteJSONSuccess(cmd.OutOrStdout(), runJSONResult{
 			Address: fmt.Sprintf("http://%s:%s", job.Host, job.Port),
 			Host:    job.Host,
 			Port:    job.Port,
+		}); err != nil {
+			return fmt.Errorf("failed to write JSON output: %w", err)
 		}
-
-		jsonData, err := json.Marshal(output)
-		if err != nil {
-			return fmt.Errorf("failed to marshal JSON output: %w", err)
-		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(jsonData))
 	} else {
 		fmt.Fprintf(cmd.OutOrStderr(), "Function running on %s\n", net.JoinHostPort(job.Host, job.Port))
 	}
@@ -433,4 +423,11 @@ func (c runConfig) Validate(cmd *cobra.Command, f fn.Function) (err error) {
 	}
 
 	return
+}
+
+// runJSONResult is the data payload emitted on success when --json is set.
+type runJSONResult struct {
+	Address string `json:"address"`
+	Host    string `json:"host"`
+	Port    string `json:"port"`
 }

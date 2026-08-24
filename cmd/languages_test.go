@@ -3,6 +3,8 @@ package cmd
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -33,7 +35,7 @@ typescript`
 }
 
 // TestLanguages_JSON ensures that listing languages in --json format returns
-// builtin languages as a JSON array.
+// builtin languages wrapped in a structured JSON envelope.
 func TestLanguages_JSON(t *testing.T) {
 	_ = FromTempDirectory(t)
 
@@ -44,17 +46,11 @@ func TestLanguages_JSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := `[
-  "go",
-  "node",
-  "python",
-  "quarkus",
-  "rust",
-  "springboot",
-  "typescript"
-]`
-	output := buf()
-	if output != expected {
-		t.Fatalf("expected:\n%v\ngot:\n%v\n", expected, output)
+	var runtimes []string
+	decodeJSONEnvelope(t, []byte(buf()), &runtimes)
+
+	expected := []string{"go", "node", "python", "quarkus", "rust", "springboot", "typescript"}
+	if d := cmp.Diff(expected, runtimes); d != "" {
+		t.Error("runtime list mismatch (-want, +got):", d)
 	}
 }

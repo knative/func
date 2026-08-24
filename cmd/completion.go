@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -27,6 +28,9 @@ source <(func completion bash)
 		ValidArgs: []string{"bash", "zsh", "fish"},
 		Args:      cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			if isJSONEnabled(cmd) {
+				return fmt.Errorf("--json is not supported for 'completion': it outputs raw shell completion scripts")
+			}
 			if len(args) < 1 {
 				return errors.New("missing argument")
 			}

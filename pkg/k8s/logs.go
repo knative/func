@@ -96,24 +96,6 @@ func GetPodLogsBySelector(ctx context.Context, namespace, labelSelector, contain
 		return nil
 	}
 
-	mayReadLogs := func(pod corev1.Pod) bool {
-		for _, status := range pod.Status.ContainerStatuses {
-			if status.Name == containerName {
-				return status.State.Running != nil || status.State.Terminated != nil
-			}
-		}
-		return false
-	}
-
-	getImage := func(pod corev1.Pod) string {
-		for _, ctr := range pod.Spec.Containers {
-			if ctr.Name == containerName {
-				return ctr.Image
-			}
-		}
-		return ""
-	}
-
 	var eg errgroup.Group
 
 	for event := range w.ResultChan() {
@@ -124,7 +106,7 @@ func GetPodLogsBySelector(ctx context.Context, namespace, labelSelector, contain
 			_, loggingAlready := beingProcessed[pod.Name]
 			beingProcessedMu.Unlock()
 
-			if !loggingAlready && (image == "" || image == getImage(pod)) && mayReadLogs(pod) {
+			if !loggingAlready && (image == "" || image == containerImage(pod, containerName)) && mayReadLogs(pod, containerName) {
 
 				beingProcessedMu.Lock()
 				beingProcessed[pod.Name] = true
@@ -142,6 +124,76 @@ func GetPodLogsBySelector(ctx context.Context, namespace, labelSelector, contain
 		return fmt.Errorf("error while gathering logs: %w", err)
 	}
 	return nil
+}
+
+// GetPodLogsSnapshotBySelector writes the logs currently available from the
+// given container of every pod matching labelSelector to out, and returns.
+//
+// Unlike GetPodLogsBySelector it neither follows the log streams nor watches
+// for new pods, so it always terminates.  Callers which need a finite result
+// (scripts, --json output, agents) use this.
+func GetPodLogsSnapshotBySelector(ctx context.Context, namespace, labelSelector, containerName, image string, since *time.Time, out io.Writer) error {
+	client, namespace, err := NewClientAndResolvedNamespace(namespace)
+	if err != nil {
+		return fmt.Errorf("cannot create k8s client: %w", err)
+	}
+
+	pods := client.CoreV1().Pods(namespace)
+
+	list, err := pods.List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		return fmt.Errorf("cannot list pods: %w", err)
+	}
+
+	podLogOpts := corev1.PodLogOptions{Container: containerName}
+	if since != nil {
+		sinceTime := metav1.NewTime(*since)
+		podLogOpts.SinceTime = &sinceTime
+	}
+
+	// Pods are read sequentially rather than concurrently: a snapshot has a
+	// definite end, so concurrency would only buy interleaved, nondeterministic
+	// output.
+	for _, pod := range list.Items {
+		if image != "" && image != containerImage(pod, containerName) {
+			continue
+		}
+		if !mayReadLogs(pod, containerName) {
+			continue
+		}
+		r, e := pods.GetLogs(pod.Name, &podLogOpts).Stream(ctx)
+		if e != nil {
+			return fmt.Errorf("cannot get logs of pod %q: %w", pod.Name, e)
+		}
+		_, e = io.Copy(out, r)
+		r.Close()
+		if e != nil {
+			return fmt.Errorf("error copying logs of pod %q: %w", pod.Name, e)
+		}
+	}
+	return nil
+}
+
+// mayReadLogs reports whether the named container of pod has reached a state
+// in which the API server will serve its logs.
+func mayReadLogs(pod corev1.Pod, containerName string) bool {
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.Name == containerName {
+			return status.State.Running != nil || status.State.Terminated != nil
+		}
+	}
+	return false
+}
+
+// containerImage returns the image of the named container of pod, or "" when
+// the pod has no such container.
+func containerImage(pod corev1.Pod, containerName string) string {
+	for _, ctr := range pod.Spec.Containers {
+		if ctr.Name == containerName {
+			return ctr.Image
+		}
+	}
+	return ""
 }
 
 type SynchronizedBuffer struct {
