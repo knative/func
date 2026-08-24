@@ -3,22 +3,44 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// maxLogBytes bounds the log payload returned by the logs tool.  A snapshot
-// defaults to every line the Function's pods have retained (see 'func logs
-// --tail'), which for a chatty Function is more than an agent's context can
-// hold.  The most recent lines are kept, and the fact that older lines were
-// dropped is reported via LogsOutput.Truncated rather than being silent.
+// defaultTailLines bounds at the source how much log output the CLI is asked
+// to gather when the caller has not bounded it themselves.  'func logs'
+// defaults to every line the Function's pods have retained, and the executor
+// buffers that in full before this package sees any of it, so a default is
+// applied here rather than gathering everything and discarding most of it
+// after the fact.  It is declared in the tool's input schema, and a negative
+// 'tail' still means unlimited, exactly as it does in the CLI.
+const defaultTailLines = 1000
+
+// maxLogBytes is a backstop on the log payload returned to the caller, for
+// the cases defaultTailLines does not bound: an explicitly large (or
+// unlimited) 'tail', or a Function served by many pods, each contributing its
+// own tail.  The most recent lines are kept, and the fact that older lines
+// were dropped is reported via LogsOutput.Truncated rather than being silent.
 const maxLogBytes = 256 * 1024
+
+// maxWarningBytes bounds the notices returned alongside the logs.  stderr is
+// not necessarily a line or two: 'verbose' writes its output there, as does
+// one warning per pod whose logs could not be read, so it needs a bound of
+// its own rather than being returned whole.
+const maxWarningBytes = 8 * 1024
+
+// warningsTruncatedMarker introduces a warnings payload which was itself too
+// large to return, so that the notices which remain are not mistaken for all
+// of them.
+const warningsTruncatedMarker = "[...older notices omitted...]"
 
 var logsTool = &mcp.Tool{
 	Name:        "logs",
 	Title:       "Get Function Logs",
-	Description: "Retrieve a finite snapshot of recent logs from a deployed Function (prints and returns, does not stream). Bound the output with 'since' (time window, e.g. '5m') and 'tail' (most recent lines per pod). Identify the Function by path (reads func.yaml) or by name.",
+	Description: "Retrieve a finite snapshot of recent logs from a deployed Function (prints and returns, does not stream). Returns the most recent 1000 lines per pod by default; bound it explicitly with 'tail' and/or 'since' (time window, e.g. '5m'). Identify the Function by path (reads func.yaml) or by name.",
 	Annotations: &mcp.ToolAnnotations{
 		Title:        "Get Function Logs",
 		ReadOnlyHint: true,
@@ -32,18 +54,15 @@ func (s *Server) logsHandler(ctx context.Context, r *mcp.CallToolRequest, input 
 	// Unlike the CLI, the MCP tool does not fall back to the server's working
 	// directory: an agent has no meaningful cwd, so require an explicit target.
 	// Exactly one of Path or Name must be provided (same shape as describe/delete).
+	//
+	// NOTE: no further validation is performed here.  In particular
+	// 'namespace' is forwarded as given, including alongside 'path', where
+	// the CLI reads the namespace from the Function's own deploy identity and
+	// ignores the flag.  Rejecting that combination would be a rule this tool
+	// enforces and 'func logs' does not, which is a divergence between the two
+	// surfaces rather than a fix.
 	if (input.Path != nil && input.Name != nil) || (input.Path == nil && input.Name == nil) {
 		err = fmt.Errorf("exactly one of 'path' or 'name' must be provided")
-		return
-	}
-
-	// Validate: namespace only makes sense alongside 'name'.  When fetching
-	// logs by 'path', the CLI resolves the Function's name and namespace from
-	// its own deploy identity (func.yaml) and ignores --namespace entirely.
-	// Rejecting the combination is the same rule the describe tool applies,
-	// and avoids returning another namespace's logs while reporting success.
-	if input.Path != nil && input.Namespace != nil {
-		err = fmt.Errorf("'namespace' is only valid with 'name'; when fetching logs by 'path', the namespace is read from the Function's own deploy identity")
 		return
 	}
 
@@ -60,16 +79,15 @@ func (s *Server) logsHandler(ctx context.Context, r *mcp.CallToolRequest, input 
 		return
 	}
 
-	logs, truncated := truncateLogs(string(stdout))
+	// Truncation of the logs is reported by Truncated alone.  It is
+	// deliberately not also described in Warnings: two channels for one fact
+	// invite the caller to report it twice, and Warnings is what the CLI
+	// said, not what this tool did to the payload.
+	logs, truncated := truncateTail(string(stdout), maxLogBytes)
 
-	warnings := strings.TrimSpace(string(stderr))
-	if truncated {
-		notice := fmt.Sprintf("Output exceeded %d bytes: only the most recent lines are included. Use 'tail' or 'since' to bound the window.", maxLogBytes)
-		if warnings == "" {
-			warnings = notice
-		} else {
-			warnings += "\n" + notice
-		}
+	warnings, warningsTruncated := truncateTail(strings.TrimSpace(string(stderr)), maxWarningBytes)
+	if warningsTruncated {
+		warnings = warningsTruncatedMarker + "\n" + warnings
 	}
 
 	output = LogsOutput{
@@ -80,18 +98,49 @@ func (s *Server) logsHandler(ctx context.Context, r *mcp.CallToolRequest, input 
 	return
 }
 
-// truncateLogs bounds logs to maxLogBytes, keeping the most recent lines and
-// reporting whether anything was dropped.  Truncation is to a line boundary so
-// the first line returned is not a fragment of an older one.
-func truncateLogs(logs string) (string, bool) {
-	if len(logs) <= maxLogBytes {
-		return logs, false
+// truncateTail bounds s to its last 'limit' bytes, keeping the most recent lines
+// and reporting whether anything was dropped.
+//
+// Whole lines are preserved in both directions: the first line returned is
+// never a fragment of an older one, and no complete line is discarded in
+// order to reach a line boundary the cut had already landed on.  A single
+// line longer than the limit is the one case which cannot be honored; its tail is
+// returned, trimmed to a rune boundary so that the result is still valid
+// UTF-8.
+func truncateTail(s string, limit int) (string, bool) {
+	if len(s) <= limit {
+		return s, false
 	}
-	truncated := logs[len(logs)-maxLogBytes:]
-	if i := strings.IndexByte(truncated, '\n'); i >= 0 {
-		truncated = truncated[i+1:]
+	cut := len(s) - limit // >= 1, since len(s) > limit
+
+	// A cut which lands immediately after a newline already begins a whole,
+	// intact line.  Searching forward for a newline from here would find that
+	// line's own terminator and silently drop the entire line.
+	if s[cut-1] == '\n' {
+		return s[cut:], true
 	}
-	return truncated, true
+
+	// Otherwise the cut landed inside a line; drop that line's remainder.
+	if i := strings.IndexByte(s[cut:], '\n'); i >= 0 {
+		return s[cut+i+1:], true
+	}
+
+	// No newline anywhere in the retained window: a single line longer than
+	// the limit, such as one JSON log record or an un-terminated stack trace.
+	return trimPartialRune(s[cut:]), true
+}
+
+// trimPartialRune drops the leading bytes of a UTF-8 sequence which a
+// byte-wise cut left incomplete, so that s begins on a rune boundary.
+// Without it, cutting multi-byte content mid-rune yields invalid UTF-8, which
+// JSON encoding replaces with U+FFFD.
+func trimPartialRune(s string) string {
+	for i := 0; i < len(s) && i < utf8.UTFMax; i++ {
+		if utf8.RuneStart(s[i]) {
+			return s[i:]
+		}
+	}
+	return s
 }
 
 // LogsInput defines the input parameters for the logs tool.
@@ -99,10 +148,10 @@ func truncateLogs(logs string) (string, bool) {
 type LogsInput struct {
 	Path      *string `json:"path,omitempty"      jsonschema:"Absolute path to the Function project directory (mutually exclusive with name)"`
 	Name      *string `json:"name,omitempty"      jsonschema:"Name of the deployed Function to fetch logs for (mutually exclusive with path)"`
-	Namespace *string `json:"namespace,omitempty" jsonschema:"Kubernetes namespace of the Function (default: current namespace). Only valid together with 'name'; when fetching logs by 'path' the namespace is read from the Function's own deploy identity"`
-	Since     *string `json:"since,omitempty"     jsonschema:"Return logs newer than a relative duration such as 30s, 5m, or 2h (default: all available logs)"`
-	Tail      *int    `json:"tail,omitempty"      jsonschema:"Number of most recent log lines to return per pod (default: unlimited). Prefer bounding large or unknown log volumes with this rather than fetching everything"`
-	Verbose   *bool   `json:"verbose,omitempty"   jsonschema:"Enable verbose logging output"`
+	Namespace *string `json:"namespace,omitempty" jsonschema:"Kubernetes namespace of the Function (default: current namespace). Applies when identifying the Function by 'name'; in 'path' mode the namespace is read from the Function's own deploy identity in func.yaml and this has no effect, as in the CLI"`
+	Since     *string `json:"since,omitempty"     jsonschema:"Return logs newer than a relative duration such as 30s, 5m, or 2h (default: all retained logs, subject to tail)"`
+	Tail      *int    `json:"tail,omitempty"      jsonschema:"Number of most recent log lines to return per pod (default: 1000; a negative value means unlimited, as in the CLI). Lower it, or add 'since', to bound a large or unknown log volume further"`
+	Verbose   *bool   `json:"verbose,omitempty"   jsonschema:"Enable verbose logging output. Note this is written to the same stream as the notices returned in 'warnings'"`
 }
 
 func (i LogsInput) Args() []string {
@@ -116,9 +165,15 @@ func (i LogsInput) Args() []string {
 
 	args = appendStringFlag(args, "--namespace", i.Namespace)
 	args = appendStringFlag(args, "--since", i.Since)
+
+	// Always bounded at the source: the caller's value when given, otherwise
+	// the default.  See defaultTailLines.
+	tail := defaultTailLines
 	if i.Tail != nil {
-		args = append(args, "--tail", fmt.Sprintf("%d", *i.Tail))
+		tail = *i.Tail
 	}
+	args = append(args, "--tail", strconv.Itoa(tail))
+
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
 	return args
 }
@@ -126,6 +181,6 @@ func (i LogsInput) Args() []string {
 // LogsOutput defines the structured output returned by the logs tool.
 type LogsOutput struct {
 	Logs      string `json:"logs" jsonschema:"Log output from the deployed Function. When more than one pod is serving the Function, each line is prefixed with the pod it came from"`
-	Truncated bool   `json:"truncated,omitempty" jsonschema:"True if older lines were dropped because the output exceeded the size limit; only the most recent lines are included"`
-	Warnings  string `json:"warnings,omitempty" jsonschema:"Non-fatal notices emitted while gathering the logs. Empty or partial output is explained here: that the Function has scaled to zero and so has no logs to print, or that the logs of some of its pods could not be read. Always check this before concluding that a Function produced no output"`
+	Truncated bool   `json:"truncated,omitempty" jsonschema:"True if older lines were dropped because the output exceeded the tool's size limit; only the most recent lines are included. Re-run with a smaller 'tail' or a shorter 'since' window rather than assuming the output is complete"`
+	Warnings  string `json:"warnings,omitempty" jsonschema:"Non-fatal notices the CLI emitted while gathering the logs. Empty or partial output is explained here: that the Function has scaled to zero and so has no logs to print, or that the logs of some of its pods could not be read. Always check this before concluding that a Function produced no output"`
 }
