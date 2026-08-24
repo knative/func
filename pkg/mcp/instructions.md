@@ -155,7 +155,7 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - **FIRST:** Read `func://help/list` for authoritative usage information
 - Does NOT use path parameter (operates on cluster, not local files)
 - Optional `namespace` parameter to list Functions in specific namespace
-- Returns list of deployed Functions in current/specified namespace
+- Returns structured JSON: an `items` array (name, namespace, runtime, url, ready, deployer for each deployed Function; empty if none found) plus `warnings` for any non-fatal issues encountered while listing (e.g. a deployer backend that couldn't be reached)
 
 ### describe
 
