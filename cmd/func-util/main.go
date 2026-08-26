@@ -164,22 +164,23 @@ func deploy(ctx context.Context) error {
 	if deployer == "" {
 		deployer = knative.KnativeDeployerName
 	}
+	kc := k8s.NewClientFromKubeconfig()
 	var d fn.Deployer
 	switch deployer {
 	case knative.KnativeDeployerName:
-		d = knative.NewDeployer(
-			knative.WithDeployerDecorator(deployDecorator{}),
+		d = knative.NewDeployer(kc,
+			knative.WithDeployerDecorator(deployDecorator{kc}),
 			knative.WithDeployerVerbose(true),
 		)
 	case k8s.KubernetesDeployerName:
-		d = k8s.NewDeployer(
-			k8s.WithDeployerDecorator(deployDecorator{}),
+		d = k8s.NewDeployer(kc,
+			k8s.WithDeployerDecorator(deployDecorator{kc}),
 			k8s.WithDeployerVerbose(true),
 			k8s.WithExposer(ocproute.New(deployers.Kubernetes)),
 		)
 	case keda.KedaDeployerName:
-		d = keda.NewDeployer(
-			keda.WithDeployerDecorator(deployDecorator{}),
+		d = keda.NewDeployer(kc,
+			keda.WithDeployerDecorator(deployDecorator{kc}),
 			keda.WithDeployerVerbose(true),
 			keda.WithExposer(ocproute.New(deployers.Keda)),
 		)
@@ -192,7 +193,7 @@ func deploy(ctx context.Context) error {
 	// on-cluster in func.yaml. Same rule and same split as the CLI gate; only
 	// the wording differs (the user is holding func.yaml here, not a flag).
 	if f.Expose == fn.ExposeRoute && deployer != knative.KnativeDeployerName {
-		ok, probeErr := k8s.DetectOpenShift()
+		ok, probeErr := kc.IsOpenShift()
 		if probeErr != nil {
 			return fmt.Errorf("expose is %q but this cluster could not be asked whether it "+
 				"serves route.openshift.io: %w", f.Expose, probeErr)
@@ -214,19 +215,19 @@ func deploy(ctx context.Context) error {
 }
 
 type deployDecorator struct {
-	oshDec k8s.OpenshiftMetadataDecorator
+	kc *k8s.Client
 }
 
 func (d deployDecorator) UpdateAnnotations(function fn.Function, annotations map[string]string) map[string]string {
-	if k8s.IsOpenShift() {
-		return d.oshDec.UpdateAnnotations(function, annotations)
+	if ok, _ := d.kc.IsOpenShift(); ok {
+		return k8s.OpenshiftMetadataDecorator{}.UpdateAnnotations(function, annotations)
 	}
 	return annotations
 }
 
 func (d deployDecorator) UpdateLabels(function fn.Function, labels map[string]string) map[string]string {
-	if k8s.IsOpenShift() {
-		return d.oshDec.UpdateLabels(function, labels)
+	if ok, _ := d.kc.IsOpenShift(); ok {
+		return k8s.OpenshiftMetadataDecorator{}.UpdateLabels(function, labels)
 	}
 	return labels
 }

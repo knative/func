@@ -1355,8 +1355,7 @@ func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 func TestDeploy_NamespaceChangePreservesExternalRegistry(t *testing.T) {
 	root := FromTempDirectory(t)
 
-	cleanup := k8s.SetOpenShiftForTest(true, nil)
-	defer cleanup()
+	FakeCluster(t, true)
 
 	// Create a function deployed to "ns1" with an external registry
 	f := fn.Function{
@@ -1390,8 +1389,7 @@ func TestDeploy_NamespaceChangePreservesExternalRegistry(t *testing.T) {
 func TestDeploy_NamespaceChangeUpdatesInternalRegistry(t *testing.T) {
 	root := FromTempDirectory(t)
 
-	cleanup := k8s.SetOpenShiftForTest(true, nil)
-	defer cleanup()
+	FakeCluster(t, true)
 
 	// Create a function deployed to "ns1" using the internal registry
 	f := fn.Function{
@@ -2860,9 +2858,8 @@ func TestDeploy_ExposeInvalidValueError(t *testing.T) {
 // (Function.Expose) and observed status (Deploy.Expose) end-to-end.
 func TestDeploy_ExposeRoutePersists(t *testing.T) {
 	root := FromTempDirectory(t)
-	// CLI gates route on OpenShift; tests run without a cluster.
-	cleanup := k8s.SetOpenShiftForTest(true, nil)
-	defer cleanup()
+	// CLI gates route on OpenShift; a fake cluster answers the probe.
+	FakeCluster(t, true)
 
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -2930,8 +2927,7 @@ func TestDeploy_ExposeIgnoredByDeployerNote(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			root := FromTempDirectory(t)
 			// route cases need OpenShift gate open; none/empty do not care.
-			cleanup := k8s.SetOpenShiftForTest(true, nil)
-			defer cleanup()
+			FakeCluster(t, true)
 			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 				t.Fatal(err)
 			}
@@ -2988,8 +2984,7 @@ func TestDeploy_RemoteExposeRecordsObservation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			root := FromTempDirectory(t)
-			cleanup := k8s.SetOpenShiftForTest(true, nil)
-			defer cleanup()
+			FakeCluster(t, true)
 
 			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 				t.Fatal(err)
@@ -3045,8 +3040,7 @@ func TestDeploy_RemoteExposeRecordsObservation(t *testing.T) {
 func TestDeploy_ExposeRouteUnreachableClusterIsNotAPlatformClaim(t *testing.T) {
 	root := FromTempDirectory(t)
 
-	cleanup := k8s.SetOpenShiftForTest(false, errors.New("dial tcp 127.0.0.1:6443: connect: connection refused"))
-	defer cleanup()
+	UnreachableCluster(t)
 
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)

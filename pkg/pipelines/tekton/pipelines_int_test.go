@@ -49,19 +49,19 @@ func newRemoteTestClient(verbose bool, deployer string, opts ...fn.Option) *fn.C
 	baseOpts := []fn.Option{
 		fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithCredentialsProvider(testCP))),
-		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose), keda.NewDescriber(verbose)),
+		fn.WithDescribers(knative.NewDescriber(kc, verbose), k8s.NewDescriber(kc, verbose), keda.NewDescriber(kc, verbose)),
 		fn.WithListers(knative.NewLister(kc, verbose), k8s.NewLister(kc, verbose), keda.NewLister(kc, verbose)),
-		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose), keda.NewRemover(verbose)),
-		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose))),
+		fn.WithRemovers(knative.NewRemover(kc, verbose), k8s.NewRemover(kc, verbose), keda.NewRemover(kc, verbose)),
+		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose), tekton.WithK8sClient(kc))),
 	}
 
 	switch deployer {
 	case k8s.KubernetesDeployerName:
-		baseOpts = append(baseOpts, fn.WithDeployer(k8s.NewDeployer(k8s.WithDeployerVerbose(verbose))))
+		baseOpts = append(baseOpts, fn.WithDeployer(k8s.NewDeployer(kc, k8s.WithDeployerVerbose(verbose))))
 	case keda.KedaDeployerName:
-		baseOpts = append(baseOpts, fn.WithDeployer(keda.NewDeployer(keda.WithDeployerVerbose(verbose))))
+		baseOpts = append(baseOpts, fn.WithDeployer(keda.NewDeployer(kc, keda.WithDeployerVerbose(verbose))))
 	case knative.KnativeDeployerName:
-		baseOpts = append(baseOpts, fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))))
+		baseOpts = append(baseOpts, fn.WithDeployer(knative.NewDeployer(kc, knative.WithDeployerVerbose(verbose))))
 	}
 
 	return fn.New(append(baseOpts, opts...)...)

@@ -16,6 +16,7 @@ import (
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/oci"
 )
 
@@ -190,7 +191,8 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 
 	// Client
-	clientOptions, err := cfg.clientOptions()
+	kc := k8s.NewClientFromKubeconfig()
+	clientOptions, err := cfg.clientOptions(kc)
 	if err != nil {
 		return
 	}
@@ -201,7 +203,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		clientOptions = append(clientOptions, fn.WithStartTimeout(cfg.StartTimeout))
 	}
 
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, clientOptions...)
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, K8sClient: kc}, clientOptions...)
 	defer done()
 
 	// Build

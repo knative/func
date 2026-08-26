@@ -611,7 +611,7 @@ func TestExpose_KedaRouteDomain(t *testing.T) {
 		t.Errorf("expected spec.host %q, got %q", domain, host)
 	}
 
-	hsoClient, err := keda.NewHTTPScaledObjectClientset()
+	hsoClient, err := keda.NewHTTPScaledObjectClientset(k8s.NewClientFromKubeconfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -884,7 +884,7 @@ func TestExpose_RemoteKedaRoute(t *testing.T) {
 		t.Fatalf("expected 1 Route in interceptor namespace %q, found %d", interceptorNS, n)
 	}
 
-	hsoClient, err := keda.NewHTTPScaledObjectClientset()
+	hsoClient, err := keda.NewHTTPScaledObjectClientset(k8s.NewClientFromKubeconfig())
 	if err != nil {
 		t.Fatal(err)
 	}

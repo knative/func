@@ -25,8 +25,10 @@ const (
 	openShiftRegistryHostPort = openShiftRegistryHost + ":5000"
 )
 
-func GetOpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
-	client, ns, err := NewClientAndResolvedNamespace("")
+// OpenShiftServiceCA fetches the OpenShift service CA certificate by creating
+// a temporary ConfigMap annotated for CA bundle injection.
+func (c *Client) OpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
+	client, ns, err := c.ClientAndNamespace("")
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +88,19 @@ func GetOpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
 	}
 }
 
+// DefaultOpenShiftRegistry returns the internal registry path for the active
+// namespace.
+func (c *Client) DefaultOpenShiftRegistry() string {
+	ns, _ := c.DefaultNamespace()
+	if ns == "" {
+		ns = "default"
+	}
+
+	return openShiftRegistryHostPort + "/" + ns
+}
+
+// GetDefaultOpenShiftRegistry reads the kubeconfig ad hoc. Remains only for
+// callers not yet migrated to Client. Do not add new callers.
 func GetDefaultOpenShiftRegistry() string {
 	ns, _ := GetDefaultNamespace()
 	if ns == "" {
@@ -101,10 +116,10 @@ func IsOpenShiftInternalRegistry(registry string) bool {
 	return strings.HasPrefix(registry, openShiftRegistryHost)
 }
 
-func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
-	conf := GetClientConfig()
-
-	rawConf, err := conf.RawConfig()
+// OpenShiftDockerCredentialLoaders returns a credential loader for the
+// internal OpenShift registry, authenticating with the active user's token.
+func (c *Client) OpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
+	rawConf, err := c.RawConfig()
 	if err != nil {
 		return nil
 	}
@@ -142,9 +157,12 @@ var (
 	detectErr   error
 )
 
-// DetectOpenShift reports whether the cluster serves the OpenShift Route API.
-// A non-nil error means the cluster could not be asked and the bool is
-// meaningless. Probes once per process, answers from cache after.
+// DetectOpenShift reads the kubeconfig ad hoc. Remains only for callers not
+// yet migrated to Client. Do not add new callers; use (*Client).IsOpenShift.
+//
+// It reports whether the cluster serves the OpenShift Route API. A non-nil
+// error means the cluster could not be asked and the bool is meaningless.
+// Probes once per process, answers from cache after.
 func DetectOpenShift() (bool, error) {
 	detectOnce.Do(func() {
 		client, err := NewKubernetesClientset()

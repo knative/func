@@ -53,10 +53,12 @@ type Deployer struct {
 	verbose bool
 
 	decorator deployer.DeployDecorator
+
+	kc *k8s.Client
 }
 
-func NewDeployer(opts ...DeployerOpt) *Deployer {
-	d := &Deployer{}
+func NewDeployer(kc *k8s.Client, opts ...DeployerOpt) *Deployer {
+	d := &Deployer{kc: kc}
 
 	for _, opt := range opts {
 		opt(d)
@@ -84,7 +86,7 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	if err != nil {
 		return false
 	}
-	k8sClient, err := k8s.NewKubernetesClientset()
+	k8sClient, err := d.kc.Clientset()
 	if err != nil {
 		return false
 	}
@@ -107,7 +109,7 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	return false
 }
 
-func onClusterFix(f fn.Function) fn.Function {
+func (d *Deployer) onClusterFix(f fn.Function) fn.Function {
 	// This only exists because of a bootstrapping problem with On-Cluster
 	// builds:  It appears that, when sending a function to be built on-cluster
 	// the target namespace is not being transmitted in the pipeline
@@ -116,13 +118,16 @@ func onClusterFix(f fn.Function) fn.Function {
 	// earlier versions of this logic relied entirely on the current
 	// kubernetes context.
 	if f.Namespace == "" && f.Deploy.Namespace == "" {
-		f.Namespace, _ = k8s.GetDefaultNamespace()
+		f.Namespace, _ = d.kc.DefaultNamespace()
 	}
 	return f
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
-	f = onClusterFix(f)
+	if d.kc == nil {
+		return fn.DeploymentResult{}, fmt.Errorf("kubernetes client is not initialized")
+	}
+	f = d.onClusterFix(f)
 	// Choosing f.Namespace vs f.Deploy.Namespace:
 	// This is minimal logic currently required of all deployer impls.
 	// If f.Namespace is defined, this is the (possibly new) target
@@ -150,18 +155,19 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		f.Deploy.Image = f.Build.Image
 	}
 
+	kc := d.kc
 	// Clients
-	client, err := NewServingClient(namespace)
+	client, err := NewServingClient(kc, namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, wrapDeployerClientError(err)
 	}
-	eventingClient, err := NewEventingClient(namespace)
+	eventingClient, err := NewEventingClient(kc, namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, wrapDeployerClientError(err)
 	}
 	// check if 'dapr-system' namespace exists
 	daprInstalled := false
-	k8sClient, err := k8s.NewKubernetesClientset()
+	k8sClient, err := kc.Clientset()
 	if err != nil {
 		return fn.DeploymentResult{}, wrapDeployerClientError(err)
 	}
@@ -170,7 +176,11 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		daprInstalled = true
 	}
 
-	t := fnhttp.NewRoundTripper(fnhttp.WithOpenShiftServiceCA(), fnhttp.WithInsecureSkipVerify(f.RegistryInsecure))
+	t := fnhttp.NewRoundTripper(
+		fnhttp.WithOpenShiftServiceCA(kc),
+		fnhttp.WithInsecureSkipVerify(f.RegistryInsecure),
+		fnhttp.WithInClusterDialer(k8s.NewLazyInitInClusterDialer(kc.Loader())),
+	)
 	defer func(t fnhttp.RoundTripCloser) {
 		_ = t.Close()
 	}(t)

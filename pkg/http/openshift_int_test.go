@@ -11,12 +11,13 @@ import (
 )
 
 func TestInt_RoundTripper(t *testing.T) {
-	if !k8s.IsOpenShift() {
+	kc := k8s.NewClientFromKubeconfig()
+	if ok, _ := kc.IsOpenShift(); !ok {
 		t.Skip("The cluster in not an instance of OpenShift.")
 		return
 	}
 
-	transport := fnhttp.NewRoundTripper(fnhttp.WithOpenShiftServiceCA())
+	transport := fnhttp.NewRoundTripper(fnhttp.WithOpenShiftServiceCA(kc))
 	defer transport.Close()
 
 	client := http.Client{

@@ -58,6 +58,7 @@ type PipelinesProvider struct {
 	credentialsProvider oci.CredentialsProvider
 	decorator           PipelineDecorator
 	transport           http.RoundTripper
+	kc                  *k8s.Client
 }
 
 func WithCredentialsProvider(credentialsProvider oci.CredentialsProvider) Opt {
@@ -81,6 +82,12 @@ func WithPipelineDecorator(decorator PipelineDecorator) Opt {
 func WithTransport(transport http.RoundTripper) Opt {
 	return func(pp *PipelinesProvider) {
 		pp.transport = transport
+	}
+}
+
+func WithK8sClient(kc *k8s.Client) Opt {
+	return func(pp *PipelinesProvider) {
+		pp.kc = kc
 	}
 }
 
@@ -269,12 +276,12 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 	var describer fn.Describer
 	switch f.Deploy.Deployer {
 	case k8s.KubernetesDeployerName:
-		describer = k8s.NewDescriber(false, k8s.WithDescriberTransport(pp.transport))
+		describer = k8s.NewDescriber(pp.kc, false, k8s.WithDescriberTransport(pp.transport))
 	case keda.KedaDeployerName:
-		describer = keda.NewDescriber(false, keda.WithDescriberTransport(pp.transport))
+		describer = keda.NewDescriber(pp.kc, false, keda.WithDescriberTransport(pp.transport))
 	default:
 		// default to knative
-		describer = knative.NewDescriber(false, knative.WithDescriberTransport(pp.transport))
+		describer = knative.NewDescriber(pp.kc, false, knative.WithDescriberTransport(pp.transport))
 	}
 
 	obj, err := describer.Describe(ctx, f.Name, f.Namespace)

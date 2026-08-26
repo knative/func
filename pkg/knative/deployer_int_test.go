@@ -13,65 +13,72 @@ import (
 func TestInt_FullPath(t *testing.T) {
 	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_FullPath(t,
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewRemover(true),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewRemover(kc, true),
 		knative.NewLister(kc, true),
-		knative.NewDescriber(true),
+		knative.NewDescriber(kc, true),
 		knative.KnativeDeployerName)
 }
 
 func TestInt_Deploy(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_Deploy(t,
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewRemover(false),
-		knative.NewDescriber(false),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewRemover(kc, false),
+		knative.NewDescriber(kc, false),
 		knative.KnativeDeployerName)
 }
 
 func TestInt_Metadata(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_Metadata(t,
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewRemover(false),
-		knative.NewDescriber(false),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewRemover(kc, false),
+		knative.NewDescriber(kc, false),
 		knative.KnativeDeployerName)
 }
 
 func TestInt_Events(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_Events(t,
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewRemover(false),
-		knative.NewDescriber(false),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewRemover(kc, false),
+		knative.NewDescriber(kc, false),
 		knative.KnativeDeployerName)
 }
 
 func TestInt_Scale(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_Scale(t,
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewRemover(false),
-		knative.NewDescriber(false),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewRemover(kc, false),
+		knative.NewDescriber(kc, false),
 		knative.KnativeDeployerName)
 }
 
 func TestInt_EnvsUpdate(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_EnvsUpdate(t,
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewRemover(false),
-		knative.NewDescriber(false),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewRemover(kc, false),
+		knative.NewDescriber(kc, false),
 		knative.KnativeDeployerName)
 }
 
 func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_ResourceValidationOnFirstDeploy(t,
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewRemover(false),
-		knative.NewDescriber(false),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewRemover(kc, false),
+		knative.NewDescriber(kc, false),
 		knative.KnativeDeployerName)
 }
 
 func TestInt_OperatorSync(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_OperatorSync(t,
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewRemover(false),
-		knative.NewDescriber(false),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewRemover(kc, false),
+		knative.NewDescriber(kc, false),
 		knative.KnativeDeployerName)
 }

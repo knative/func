@@ -594,7 +594,7 @@ func Test_ProcessVolumes_ValidPath(t *testing.T) {
 // state keda's embedded raw Deployer runs in on every deploy, so it must stay
 // quiet - keda exposes its own Route afterwards (pkg/keda/exposure.go).
 func Test_ResolveExposure_NoExposer(t *testing.T) {
-	d := NewDeployer()
+	d := NewDeployer(nil) // fake clientsets are passed explicitly below
 	f := fn.Function{Name: "f", Deploy: fn.DeploySpec{Namespace: "ns"}}
 	ctx := t.Context()
 	clientset := fake.NewClientset()
@@ -671,7 +671,7 @@ func Test_ResolveExposure_NoExposerLeavesHostnameAlone(t *testing.T) {
 	clientset := fake.NewClientset(svc)
 	dynClient := dynamicfakeclient.NewSimpleDynamicClient(runtime.NewScheme())
 
-	d := NewDeployer()
+	d := NewDeployer(nil) // fake clientsets are passed explicitly below
 	f := fn.Function{Name: "f", Expose: fn.ExposeNone, Deploy: fn.DeploySpec{Namespace: "ns"}}
 
 	if _, applied, err := d.resolveExposure(ctx, f, "ns", svc, clientset, dynClient, nil, nil); err != nil {
@@ -711,7 +711,7 @@ func Test_generateService_CarriesExposureRecordAcrossRedeploy(t *testing.T) {
 		host    = "f-ns.apps.example.com"
 		routeNS = "openshift-keda"
 	)
-	d := NewDeployer()
+	d := NewDeployer(nil) // fake clientsets are passed explicitly below
 	// A function already deployed to "ns". Each subtest regenerates its
 	// Service as a redeploy would, against a different live Service.
 	f := fn.Function{Name: "f", Deploy: fn.DeploySpec{Namespace: "ns"}}
@@ -790,7 +790,7 @@ func Test_ResolveExposure_WithExposer(t *testing.T) {
 		dynClient := dynamicfakeclient.NewSimpleDynamicClient(runtime.NewScheme())
 
 		exposer := &stubExposer{host: host}
-		d := NewDeployer(WithExposer(exposer))
+		d := NewDeployer(nil, WithExposer(exposer))
 		f := fn.Function{Name: "f", Expose: fn.ExposeRoute, Deploy: fn.DeploySpec{Namespace: "ns"}}
 
 		svc := testService(nil)
@@ -842,7 +842,7 @@ func Test_ResolveExposure_WithExposer(t *testing.T) {
 		dynClient := dynamicfakeclient.NewSimpleDynamicClient(runtime.NewScheme())
 
 		exposer := &stubExposer{}
-		d := NewDeployer(WithExposer(exposer))
+		d := NewDeployer(nil, WithExposer(exposer))
 		f := fn.Function{Name: "f", Expose: fn.ExposeNone, Deploy: fn.DeploySpec{Namespace: "ns"}}
 
 		_, applied, err := d.resolveExposure(ctx, f, "ns", svc, clientset, dynClient, nil, nil)
@@ -890,7 +890,7 @@ func Test_ResolveExposure_RecordFailureRollsBack(t *testing.T) {
 
 	t.Run("rollback happens and both facts are reported", func(t *testing.T) {
 		exposer := &stubExposer{host: host}
-		d := NewDeployer(WithExposer(exposer))
+		d := NewDeployer(nil, WithExposer(exposer))
 
 		_, _, err := d.resolveExposure(t.Context(), f, "ns", testService(nil), newClientset(), dynClient, nil, nil)
 		if err == nil {
@@ -906,7 +906,7 @@ func Test_ResolveExposure_RecordFailureRollsBack(t *testing.T) {
 
 	t.Run("a failed rollback reports both failures", func(t *testing.T) {
 		exposer := &stubExposer{host: host, unexposeErr: fmt.Errorf("also boom")}
-		d := NewDeployer(WithExposer(exposer))
+		d := NewDeployer(nil, WithExposer(exposer))
 
 		_, _, err := d.resolveExposure(t.Context(), f, "ns", testService(nil), newClientset(), dynClient, nil, nil)
 		if err == nil {
@@ -964,7 +964,7 @@ func Test_ResolveExposure_RecordOrSilence(t *testing.T) {
 			dynClient := dynamicfakeclient.NewSimpleDynamicClient(runtime.NewScheme())
 
 			exposer := &stubExposer{unexposeErr: tt.unexposeErr}
-			d := NewDeployer(WithExposer(exposer))
+			d := NewDeployer(nil, WithExposer(exposer))
 			f := fn.Function{Name: "f", Expose: tt.expose, Deploy: fn.DeploySpec{Namespace: "ns"}}
 
 			_, applied, err := d.resolveExposure(ctx, f, "ns", svc, clientset, dynClient, nil, nil)
@@ -1041,7 +1041,7 @@ func Test_DeployNamespace(t *testing.T) {
 // domain or user labels there make later changes require recreation. Those
 // labels stay on object metadata and the pod template.
 func Test_DomainStaysOutOfSelectors(t *testing.T) {
-	d := NewDeployer()
+	d := NewDeployer(nil) // fake clientsets are passed explicitly below
 	team := "red"
 	teamKey := "team"
 	f := fn.Function{
@@ -1104,7 +1104,7 @@ func Test_DomainStaysOutOfSelectors(t *testing.T) {
 // hold no such grant, so the Service create fails outright. KinD does not
 // run the plugin, so CI cannot catch a regression; this test can.
 func Test_generateService_OwnerReferenceOmitsBlockOwnerDeletion(t *testing.T) {
-	d := NewDeployer()
+	d := NewDeployer(nil) // fake clientsets are passed explicitly below
 	f := fn.Function{Name: "f", Deploy: fn.DeploySpec{Image: "registry.example.com/f:latest"}}
 	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "f", Namespace: "ns", UID: "uid-1"}}
 

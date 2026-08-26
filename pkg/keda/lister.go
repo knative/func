@@ -36,7 +36,7 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 		return nil, fmt.Errorf("unable to create k8s client: %v", err)
 	}
 
-	restConfig, err := l.kc.ClientConfig()
+	restConfig, err := l.kc.RestConfig()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get kubernetes client config: %v", err)
 	}

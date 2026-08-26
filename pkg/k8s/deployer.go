@@ -63,12 +63,13 @@ type DeployerOpt func(*Deployer)
 type Deployer struct {
 	verbose   bool
 	decorator deployer.DeployDecorator
+	kc        *Client
 
 	exposer deployer.Exposer
 }
 
-func NewDeployer(opts ...DeployerOpt) *Deployer {
-	d := &Deployer{}
+func NewDeployer(kc *Client, opts ...DeployerOpt) *Deployer {
+	d := &Deployer{kc: kc}
 	for _, opt := range opts {
 		opt(d)
 	}
@@ -93,7 +94,7 @@ func WithDeployerDecorator(decorator deployer.DeployDecorator) DeployerOpt {
 	}
 }
 
-func onClusterFix(f fn.Function) fn.Function {
+func (d *Deployer) onClusterFix(f fn.Function) fn.Function {
 	// This only exists because of a bootstrapping problem with On-Cluster
 	// builds:  It appears that, when sending a function to be built on-cluster
 	// the target namespace is not being transmitted in the pipeline
@@ -102,7 +103,7 @@ func onClusterFix(f fn.Function) fn.Function {
 	// earlier versions of this logic relied entirely on the current
 	// kubernetes context.
 	if f.Namespace == "" && f.Deploy.Namespace == "" {
-		f.Namespace, _ = GetDefaultNamespace()
+		f.Namespace, _ = d.kc.DefaultNamespace()
 	}
 	return f
 }
@@ -117,7 +118,10 @@ func newEventingClient(config *rest.Config, namespace string) (clienteventingv1.
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
-	f = onClusterFix(f)
+	if d.kc == nil {
+		return fn.DeploymentResult{}, fmt.Errorf("kubernetes client is not initialized")
+	}
+	f = d.onClusterFix(f)
 	// Choosing f.Namespace vs f.Deploy.Namespace:
 	// This is minimal logic currently required of all deployer impls.
 	// If f.Namespace is defined, this is the (possibly new) target
@@ -142,18 +146,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		f.Deploy.Image = f.Build.Image
 	}
 
-	// Get the Kubernetes REST config
-	config, err := GetClientConfig().ClientConfig()
+	clientset, err := d.kc.Clientset()
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return fn.DeploymentResult{}, err
-	}
-
-	dynClient, err := dynamic.NewForConfig(config)
+	dynClient, err := d.kc.DynamicClient()
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
@@ -286,7 +284,11 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// Sync triggers
-	eventingClient, err := newEventingClient(config, namespace)
+	restConfig, err := d.kc.RestConfig()
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
+	eventingClient, err := newEventingClient(restConfig, namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create eventing client: %w", err)
 	}

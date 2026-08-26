@@ -22,12 +22,16 @@ import (
 	"net"
 	"net/http"
 	"net/http/cgi"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const DefaultIntTestRegistry = "registry.localtest.me/func"
@@ -330,4 +334,63 @@ func Registry() string {
 	}
 	// Default to localhost registry (same as E2E tests)
 	return DefaultIntTestRegistry
+}
+
+// FakeCluster starts a fake Kubernetes API server which answers the
+// discovery request used for OpenShift detection and nothing else, writes a
+// kubeconfig pointing at it and sets KUBECONFIG to that file for the test.
+// The server reports itself as OpenShift when openshift is true.
+// It returns the kubeconfig path.
+func FakeCluster(t *testing.T, openshift bool) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if openshift && r.URL.Path == "/apis/route.openshift.io/v1" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"kind":"APIResourceList","apiVersion":"v1","groupVersion":"route.openshift.io/v1","resources":[]}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	cfg := clientcmdapi.Config{
+		CurrentContext: "fake",
+		Contexts:       map[string]*clientcmdapi.Context{"fake": {Cluster: "fake", AuthInfo: "fake", Namespace: "default"}},
+		Clusters:       map[string]*clientcmdapi.Cluster{"fake": {Server: srv.URL}},
+		AuthInfos:      map[string]*clientcmdapi.AuthInfo{"fake": {Token: "fake-token"}},
+	}
+	path := filepath.Join(t.TempDir(), "kubeconfig")
+	if err := clientcmd.WriteToFile(cfg, path); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KUBECONFIG", path)
+	return path
+}
+
+// UnreachableCluster points KUBECONFIG at a kubeconfig whose server is a
+// closed local port, so every API call fails with a connection error. Use it
+// to test code that must tell "could not ask the cluster" apart from a
+// cluster's answer. Returns the kubeconfig path.
+func UnreachableCluster(t *testing.T) string {
+	t.Helper()
+	// Bind and immediately close a port so nothing listens on it.
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := "https://" + l.Addr().String()
+	_ = l.Close()
+
+	cfg := clientcmdapi.Config{
+		CurrentContext: "unreachable",
+		Contexts:       map[string]*clientcmdapi.Context{"unreachable": {Cluster: "unreachable", AuthInfo: "unreachable", Namespace: "default"}},
+		Clusters:       map[string]*clientcmdapi.Cluster{"unreachable": {Server: server, InsecureSkipTLSVerify: true}},
+		AuthInfos:      map[string]*clientcmdapi.AuthInfo{"unreachable": {Token: "unreachable-token"}},
+	}
+	path := filepath.Join(t.TempDir(), "kubeconfig")
+	if err := clientcmd.WriteToFile(cfg, path); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KUBECONFIG", path)
+	return path
 }

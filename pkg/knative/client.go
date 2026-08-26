@@ -14,12 +14,15 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-func NewServingClient(namespace string) (clientservingv1.KnServingClient, error) {
+func NewServingClient(kc *k8s.Client, namespace string) (clientservingv1.KnServingClient, error) {
 	if err := validateKubeconfigFile(); err != nil {
 		return nil, err
 	}
+	if kc == nil {
+		return nil, fmt.Errorf("kubernetes client is not initialized")
+	}
 
-	restConfig, err := k8s.GetClientConfig().ClientConfig()
+	restConfig, err := kc.RestConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new serving client: %v", err)
 	}
@@ -34,12 +37,15 @@ func NewServingClient(namespace string) (clientservingv1.KnServingClient, error)
 	return client, nil
 }
 
-func NewEventingClient(namespace string) (clienteventingv1.KnEventingClient, error) {
+func NewEventingClient(kc *k8s.Client, namespace string) (clienteventingv1.KnEventingClient, error) {
 	if err := validateKubeconfigFile(); err != nil {
 		return nil, err
 	}
+	if kc == nil {
+		return nil, fmt.Errorf("kubernetes client is not initialized")
+	}
 
-	restConfig, err := k8s.GetClientConfig().ClientConfig()
+	restConfig, err := kc.RestConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new eventing client: %v", err)
 	}

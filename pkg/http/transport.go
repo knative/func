@@ -50,10 +50,12 @@ func WithInsecureSkipVerify(insecureSkipVerify bool) Option {
 	}
 }
 
-// NewRoundTripper returns new closable RoundTripper that first tries to dial connection in standard way,
-// if the dial operation fails due to hostname resolution the RoundTripper tries to dial from in cluster pod.
+// NewRoundTripper returns new closable RoundTripper that first tries to dial
+// connection in standard way, if the dial operation fails due to hostname
+// resolution the RoundTripper tries to dial from in cluster pod.
 //
-// This is useful for accessing cluster internal services (pushing a CloudEvent into Knative broker).
+// This is useful for accessing cluster internal services (pushing a CloudEvent
+// into Knative broker).
 func NewRoundTripper(opts ...Option) RoundTripCloser {
 	o := options{
 		inClusterDialer:    k8s.NewLazyInitInClusterDialer(k8s.GetClientConfig()),

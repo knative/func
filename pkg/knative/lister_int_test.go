@@ -14,8 +14,8 @@ func TestInt_List(t *testing.T) {
 	kc := k8s.NewClient(k8s.GetClientConfig())
 	listertesting.TestInt_List(t,
 		knative.NewLister(kc, true),
-		knative.NewDeployer(knative.WithDeployerVerbose(true)),
-		knative.NewDescriber(true),
-		knative.NewRemover(true),
+		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
+		knative.NewDescriber(kc, true),
+		knative.NewRemover(kc, true),
 		knative.KnativeDeployerName)
 }

@@ -1064,7 +1064,7 @@ func createTrigger(t *testing.T, ctx context.Context, namespace, triggerName str
 			},
 		},
 	}
-	eventingClient, err := knative.NewEventingClient(namespace)
+	eventingClient, err := knative.NewEventingClient(k8s.NewClient(k8s.GetClientConfig()), namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1167,7 +1167,7 @@ func deferCleanup(t *testing.T, namespace string, resourceType string, name stri
 		})
 	case "trigger":
 		t.Cleanup(func() {
-			if eventingClient, err := knative.NewEventingClient(namespace); err == nil {
+			if eventingClient, err := knative.NewEventingClient(k8s.NewClient(k8s.GetClientConfig()), namespace); err == nil {
 				_ = eventingClient.DeleteTrigger(context.Background(), name)
 			}
 		})

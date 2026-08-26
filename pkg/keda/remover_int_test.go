@@ -13,9 +13,9 @@ import (
 func TestInt_Remove(t *testing.T) {
 	kc := k8s.NewClient(k8s.GetClientConfig())
 	removertesting.TestInt_Remove(t,
-		keda.NewRemover(true),
-		keda.NewDeployer(keda.WithDeployerVerbose(true)),
-		keda.NewDescriber(true),
+		keda.NewRemover(kc, true),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(true)),
+		keda.NewDescriber(kc, true),
 		keda.NewLister(kc, true),
 		keda.KedaDeployerName)
 }

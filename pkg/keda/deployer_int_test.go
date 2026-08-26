@@ -13,67 +13,74 @@ import (
 func TestInt_FullPath(t *testing.T) {
 	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_FullPath(t,
-		keda.NewDeployer(keda.WithDeployerVerbose(false)),
-		keda.NewRemover(false),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(false)),
+		keda.NewRemover(kc, false),
 		keda.NewLister(kc, false),
-		keda.NewDescriber(false),
+		keda.NewDescriber(kc, false),
 		keda.KedaDeployerName)
 }
 
 func TestInt_Deploy(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_Deploy(t,
-		keda.NewDeployer(keda.WithDeployerVerbose(false)),
-		keda.NewRemover(false),
-		keda.NewDescriber(false),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(false)),
+		keda.NewRemover(kc, false),
+		keda.NewDescriber(kc, false),
 		keda.KedaDeployerName)
 }
 
 func TestInt_Metadata(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_Metadata(t,
-		keda.NewDeployer(keda.WithDeployerVerbose(false)),
-		keda.NewRemover(false),
-		keda.NewDescriber(false),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(false)),
+		keda.NewRemover(kc, false),
+		keda.NewDescriber(kc, false),
 		keda.KedaDeployerName)
 }
 
 func TestInt_Events(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	t.Skip("Keda deployer does not support func subscribe yet")
 
 	deployertesting.TestInt_Events(t,
-		keda.NewDeployer(keda.WithDeployerVerbose(false)),
-		keda.NewRemover(false),
-		keda.NewDescriber(false),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(false)),
+		keda.NewRemover(kc, false),
+		keda.NewDescriber(kc, false),
 		keda.KedaDeployerName)
 }
 
 func TestInt_Scale(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_Scale(t,
-		keda.NewDeployer(keda.WithDeployerVerbose(false)),
-		keda.NewRemover(false),
-		keda.NewDescriber(false),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(false)),
+		keda.NewRemover(kc, false),
+		keda.NewDescriber(kc, false),
 		keda.KedaDeployerName)
 }
 
 func TestInt_EnvsUpdate(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_EnvsUpdate(t,
-		keda.NewDeployer(keda.WithDeployerVerbose(false)),
-		keda.NewRemover(false),
-		keda.NewDescriber(false),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(false)),
+		keda.NewRemover(kc, false),
+		keda.NewDescriber(kc, false),
 		keda.KedaDeployerName)
 }
 
 func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_ResourceValidationOnFirstDeploy(t,
-		keda.NewDeployer(keda.WithDeployerVerbose(false)),
-		keda.NewRemover(false),
-		keda.NewDescriber(false),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(false)),
+		keda.NewRemover(kc, false),
+		keda.NewDescriber(kc, false),
 		keda.KedaDeployerName)
 }
 
 func TestInt_OperatorSync(t *testing.T) {
+	kc := k8s.NewClient(k8s.GetClientConfig())
 	deployertesting.TestInt_OperatorSync(t,
-		keda.NewDeployer(keda.WithDeployerVerbose(false)),
-		keda.NewRemover(false),
-		keda.NewDescriber(false),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(false)),
+		keda.NewRemover(kc, false),
+		keda.NewDescriber(kc, false),
 		keda.KedaDeployerName)
 }
