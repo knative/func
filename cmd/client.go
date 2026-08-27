@@ -129,9 +129,9 @@ func newTransport(kc *k8s.Client, insecureSkipVerify bool) fnhttp.RoundTripClose
 		fnhttp.WithOpenShiftServiceCA(kc),
 	}
 	if kc != nil && kc.Loader() != nil {
-		opts = append(opts, fnhttp.WithInClusterDialer(k8s.NewLazyInitInClusterDialer(kc.Loader())))
+		opts = append(opts, fnhttp.WithInClusterDialer(k8s.NewLazyInitInClusterDialer(kc)))
 	}
-	return fnhttp.NewRoundTripper(opts...)
+	return fnhttp.NewRoundTripper(kc, opts...)
 }
 
 // newCredentialsProvider returns a credentials provider which possibly

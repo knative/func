@@ -82,7 +82,7 @@ out:
 		time.Sleep(time.Millisecond * 500)
 	}
 
-	out, err := k8s.GetPodLogs(ctx, testingNS, testingPodName, testingPodName)
+	out, err := k8s.GetPodLogs(ctx, k8s.NewClientFromKubeconfig(), testingNS, testingPodName, testingPodName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestInt_GetPodLogsBySelectorSnapshot(t *testing.T) {
 
 	// A snapshot of a selector which matches no pods is not an error, but is
 	// reported such that it is distinguishable from a pod logging nothing.
-	err = k8s.GetPodLogsBySelector(ctx, opts, io.Discard)
+	err = k8s.GetPodLogsBySelector(ctx, k8s.NewClientFromKubeconfig(), opts, io.Discard)
 	if !errors.Is(err, k8s.ErrNoMatchingPods) {
 		t.Errorf("expected ErrNoMatchingPods for a selector matching no pods, got %v", err)
 	}
@@ -171,7 +171,7 @@ out:
 	buff := &k8s.SynchronizedBuffer{}
 	done := make(chan error, 1)
 	go func() {
-		done <- k8s.GetPodLogsBySelector(ctx, opts, buff)
+		done <- k8s.GetPodLogsBySelector(ctx, k8s.NewClientFromKubeconfig(), opts, buff)
 	}()
 
 	select {

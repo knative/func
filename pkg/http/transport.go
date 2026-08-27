@@ -56,13 +56,15 @@ func WithInsecureSkipVerify(insecureSkipVerify bool) Option {
 //
 // This is useful for accessing cluster internal services (pushing a CloudEvent
 // into Knative broker).
-func NewRoundTripper(opts ...Option) RoundTripCloser {
+func NewRoundTripper(kc *k8s.Client, opts ...Option) RoundTripCloser {
 	o := options{
-		inClusterDialer:    k8s.NewLazyInitInClusterDialer(k8s.GetClientConfig()),
 		insecureSkipVerify: false,
 	}
 	for _, option := range opts {
 		option(&o)
+	}
+	if o.inClusterDialer == nil {
+		o.inClusterDialer = k8s.NewLazyInitInClusterDialer(kc)
 	}
 
 	httpTransport := newHTTPTransport()

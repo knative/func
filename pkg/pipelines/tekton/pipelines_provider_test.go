@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 func TestSourcesAsTarStream(t *testing.T) {
@@ -130,7 +131,7 @@ func TestSourcesAsTarStream_ExcludesFuncDir(t *testing.T) {
 }
 
 func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
-	type mockType func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error)
+	type mockType func(ctx context.Context, _ *k8s.Client, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error)
 
 	type args struct {
 		ctx       context.Context
@@ -154,7 +155,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 				labels:    nil,
 				size:      DefaultPersistentVolumeClaimSize.String(),
 			},
-			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
+			mock: func(ctx context.Context, _ *k8s.Client, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
 				return errors.New("creation of pvc failed")
 			},
 			wantErr: true,
@@ -168,7 +169,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 				labels:    nil,
 				size:      DefaultPersistentVolumeClaimSize.String(),
 			},
-			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
+			mock: func(ctx context.Context, _ *k8s.Client, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
 				return &apiErrors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonAlreadyExists}}
 			},
 			wantErr: false,
@@ -182,7 +183,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 				labels:    nil,
 				size:      DefaultPersistentVolumeClaimSize.String(),
 			},
-			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
+			mock: func(ctx context.Context, _ *k8s.Client, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClass string) (err error) {
 				return errors.New("no namespace defined")
 			},
 			wantErr: true,
@@ -195,7 +196,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 
 			createPersistentVolumeClaim = tt.mock
 			tt.args.f.Build.PVCSize = tt.args.size
-			if err := createPipelinePersistentVolumeClaim(tt.args.ctx, tt.args.f, tt.args.namespace, tt.args.labels); (err != nil) != tt.wantErr {
+			if err := createPipelinePersistentVolumeClaim(tt.args.ctx, nil, tt.args.f, tt.args.namespace, tt.args.labels); (err != nil) != tt.wantErr {
 				t.Errorf("createPipelinePersistentVolumeClaim() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

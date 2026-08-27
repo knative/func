@@ -176,10 +176,10 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		daprInstalled = true
 	}
 
-	t := fnhttp.NewRoundTripper(
+	t := fnhttp.NewRoundTripper(kc,
 		fnhttp.WithOpenShiftServiceCA(kc),
 		fnhttp.WithInsecureSkipVerify(f.RegistryInsecure),
-		fnhttp.WithInClusterDialer(k8s.NewLazyInitInClusterDialer(kc.Loader())),
+		fnhttp.WithInClusterDialer(k8s.NewLazyInitInClusterDialer(kc)),
 	)
 	defer func(t fnhttp.RoundTripCloser) {
 		_ = t.Close()
@@ -208,7 +208,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 	}
 	since := time.Now()
 	go func() {
-		_ = GetKServiceLogs(ctx, LogsOptions{
+		_ = GetKServiceLogs(ctx, kc, LogsOptions{
 			Name:      f.Name,
 			Namespace: namespace,
 			Image:     f.Deploy.Image,
@@ -234,7 +234,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 				return fn.DeploymentResult{}, err
 			}
 
-			err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
+			err = k8s.CheckResourcesArePresent(ctx, kc, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -338,7 +338,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			return fn.DeploymentResult{}, err
 		}
 
-		err = k8s.CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
+		err = k8s.CheckResourcesArePresent(ctx, kc, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err

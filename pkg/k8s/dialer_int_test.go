@@ -157,7 +157,7 @@ func TestInt_DialInClusterService(t *testing.T) {
 	// Initialize the InClusterDialer. This will create a socat pod in the
 	// cluster that acts as a TCP proxy, allowing us to reach cluster-internal
 	// services. The "lazy init" variant only creates the pod when first used.
-	dialer := k8s.NewLazyInitInClusterDialer(clientConfig)
+	dialer := k8s.NewLazyInitInClusterDialer(k8s.NewClient(clientConfig))
 	t.Cleanup(func() {
 		dialer.Close()
 	})
@@ -222,7 +222,7 @@ func TestInt_DialInClusterService(t *testing.T) {
 func TestInt_DialUnreachable(t *testing.T) {
 	var ctx = t.Context()
 
-	dialer, err := k8s.NewInClusterDialer(ctx, k8s.GetClientConfig())
+	dialer, err := k8s.NewInClusterDialer(ctx, k8s.NewClientFromKubeconfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +326,7 @@ func TestInt_DialContextExpiry(t *testing.T) {
 	}
 
 	// Create the dialer pod eagerly so that pod creation is not tied to dialCtx.
-	dialer, err := k8s.NewInClusterDialer(setupCtx, clientConfig)
+	dialer, err := k8s.NewInClusterDialer(setupCtx, k8s.NewClient(clientConfig))
 	if err != nil {
 		t.Fatal(err)
 	}

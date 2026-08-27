@@ -23,7 +23,9 @@ import (
 type logGatherer func(context.Context, knative.LogsOptions, io.Writer) error
 
 func NewLogsCmd(newClient ClientFactory) *cobra.Command {
-	return newLogsCmd(newClient, knative.GetKServiceLogs)
+	return newLogsCmd(newClient, func(ctx context.Context, opts knative.LogsOptions, out io.Writer) error {
+		return knative.GetKServiceLogs(ctx, k8s.NewClientFromKubeconfig(), opts, out)
+	})
 }
 
 // newLogsCmd constructs the command with an explicit log gatherer, allowing

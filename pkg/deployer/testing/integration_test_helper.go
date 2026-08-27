@@ -768,7 +768,7 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 	buff := new(k8s.SynchronizedBuffer)
 	go func() {
 		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
-		_ = k8s.GetPodLogsBySelector(ctx, k8s.PodLogsOptions{
+		_ = k8s.GetPodLogsBySelector(ctx, k8s.NewClientFromKubeconfig(), k8s.PodLogsOptions{
 			Namespace:     namespace,
 			LabelSelector: selector,
 			Container:     "user-container",
@@ -854,7 +854,7 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 	redeployLogBuff := new(k8s.SynchronizedBuffer)
 	go func() {
 		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
-		_ = k8s.GetPodLogsBySelector(ctx, k8s.PodLogsOptions{
+		_ = k8s.GetPodLogsBySelector(ctx, k8s.NewClientFromKubeconfig(), k8s.PodLogsOptions{
 			Namespace:     namespace,
 			LabelSelector: selector,
 			Container:     "user-container",
@@ -1419,8 +1419,7 @@ func getHttpClient(ctx context.Context, deployer string) (*http.Client, func(), 
 	case k8s.KubernetesDeployerName, keda.KedaDeployerName:
 		// For Kubernetes deployments, use in-cluster dialer to access ClusterIP services
 
-		clientConfig := k8s.GetClientConfig()
-		dialer, err := k8s.NewInClusterDialer(ctx, clientConfig)
+		dialer, err := k8s.NewInClusterDialer(ctx, k8s.NewClientFromKubeconfig())
 		if err != nil {
 			return nil, noopDeferFunc, fmt.Errorf("failed to create in-cluster dialer: %w", err)
 		}

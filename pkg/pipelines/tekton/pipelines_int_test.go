@@ -97,7 +97,7 @@ func assertFunctionEchoes(httpClient *http.Client, url string) (err error) {
 func httpClientForDeployer(t *testing.T, ctx context.Context, deployer string) *http.Client {
 	switch deployer {
 	case k8s.KubernetesDeployerName, keda.KedaDeployerName:
-		dialer, err := k8s.NewInClusterDialer(ctx, k8s.GetClientConfig())
+		dialer, err := k8s.NewInClusterDialer(ctx, k8s.NewClientFromKubeconfig())
 		if err != nil {
 			t.Fatalf("failed to create in-cluster dialer: %v", err)
 		}

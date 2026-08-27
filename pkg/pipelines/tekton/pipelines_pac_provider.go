@@ -63,7 +63,7 @@ func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, me
 			data.WebhookSecret = random.AlphaString(10)
 
 			// try to reuse existing Webhook Secret stored in the cluster
-			secret, err := k8s.GetSecret(ctx, getPipelineSecretName(f), namespace)
+			secret, err := k8s.GetSecret(ctx, pp.kc, getPipelineSecretName(f), namespace)
 			if err != nil {
 				if !k8serrors.IsNotFound(err) {
 					return err
@@ -134,12 +134,12 @@ func (pp *PipelinesProvider) createLocalPACResources(ctx context.Context, f fn.F
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	err = createPipelineTemplatePAC(f, labels)
+	err = createPipelineTemplatePAC(pp.kc, f, labels)
 	if err != nil {
 		return err
 	}
 
-	err = createPipelineRunTemplatePAC(f, labels)
+	err = createPipelineRunTemplatePAC(pp.kc, f, labels)
 	if err != nil {
 		return err
 	}
@@ -201,13 +201,13 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 	metadata.RegistryPassword = creds.Password
 	metadata.RegistryServer = registry
 
-	err = createPipelinePersistentVolumeClaim(ctx, f, namespace, labels)
+	err = createPipelinePersistentVolumeClaim(ctx, pp.kc, f, namespace, labels)
 	if err != nil {
 		return err
 	}
 	fmt.Printf(" ✅ Persistent Volume is present on the cluster with name %q\n", getPipelinePvcName(f))
 
-	err = ensurePACSecretExists(ctx, f, namespace, metadata, labels)
+	err = ensurePACSecretExists(ctx, pp.kc, f, namespace, metadata, labels)
 	if err != nil {
 		return err
 	}

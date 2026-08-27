@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	v1alpha1 "github.com/functions-dev/func-operator/api/v1alpha1"
+	"knative.dev/func/pkg/k8s"
 )
 
 func newScheme() *runtime.Scheme {
@@ -53,7 +54,7 @@ func TestSyncFunctionCR_CreateNew(t *testing.T) {
 		RepoPath:     ".",
 	}
 
-	err := syncFunctionCR(context.Background(), cl, disc, cfg)
+	err := syncFunctionCR(context.Background(), nil, cl, disc, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +103,7 @@ func TestSyncFunctionCR_UpdateExistingByMetadataName(t *testing.T) {
 		RepoPath:     "subfolder",
 	}
 
-	err := syncFunctionCR(context.Background(), cl, disc, cfg)
+	err := syncFunctionCR(context.Background(), nil, cl, disc, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +162,7 @@ func TestSyncFunctionCR_UpdateExistingByStatusName(t *testing.T) {
 		RepoPath:     ".",
 	}
 
-	err := syncFunctionCR(context.Background(), cl, disc, cfg)
+	err := syncFunctionCR(context.Background(), nil, cl, disc, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +197,7 @@ func TestSyncFunctionCR_NoCRD_SkipSilently(t *testing.T) {
 		RepoPath:     ".",
 	}
 
-	err := syncFunctionCR(context.Background(), cl, disc, cfg)
+	err := syncFunctionCR(context.Background(), nil, cl, disc, cfg)
 	if err != nil {
 		t.Fatalf("expected no error when CRD missing, got: %v", err)
 	}
@@ -204,7 +205,7 @@ func TestSyncFunctionCR_NoCRD_SkipSilently(t *testing.T) {
 
 func TestSyncFunctionCR_WithRegistryCredentials(t *testing.T) {
 	original := ensureRegistrySecret
-	ensureRegistrySecret = func(_ context.Context, _, _ string, _, _ map[string]string, _, _, _ string) error {
+	ensureRegistrySecret = func(_ context.Context, _ *k8s.Client, _, _ string, _, _ map[string]string, _, _, _ string) error {
 		return nil
 	}
 	t.Cleanup(func() { ensureRegistrySecret = original })
@@ -226,7 +227,7 @@ func TestSyncFunctionCR_WithRegistryCredentials(t *testing.T) {
 		},
 	}
 
-	err := syncFunctionCR(context.Background(), cl, disc, cfg)
+	err := syncFunctionCR(context.Background(), nil, cl, disc, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +261,7 @@ func TestSyncFunctionCR_NoRepoURL_SkipsWithMessage(t *testing.T) {
 		RepoPath:     ".",
 	}
 
-	err := syncFunctionCR(context.Background(), cl, disc, cfg)
+	err := syncFunctionCR(context.Background(), nil, cl, disc, cfg)
 	if err != nil {
 		t.Fatalf("expected no error when repo URL empty, got: %v", err)
 	}

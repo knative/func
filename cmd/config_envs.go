@@ -130,7 +130,7 @@ set environment variable from a secret
 				return loadSaver.Save(function)
 			}
 
-			return runAddEnvsPrompt(cmd.Context(), function)
+			return runAddEnvsPrompt(cmd.Context(), k8s.NewClientFromKubeconfig(), function)
 		},
 	}
 
@@ -211,7 +211,7 @@ func listEnvs(f fn.Function, w io.Writer, outputFormat Format) error {
 	}
 }
 
-func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
+func runAddEnvsPrompt(ctx context.Context, kc *k8s.Client, f fn.Function) (err error) {
 
 	insertToIndex := 0
 
@@ -243,11 +243,11 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	// SECTION - select the type of Environment variable to be added
-	secrets, err := k8s.ListSecretsNamesIfConnected(ctx, f.Deploy.Namespace)
+	secrets, err := k8s.ListSecretsNamesIfConnected(ctx, kc, f.Deploy.Namespace)
 	if err != nil {
 		return
 	}
-	configMaps, err := k8s.ListConfigMapsNamesIfConnected(ctx, f.Deploy.Namespace)
+	configMaps, err := k8s.ListConfigMapsNamesIfConnected(ctx, kc, f.Deploy.Namespace)
 	if err != nil {
 		return
 	}

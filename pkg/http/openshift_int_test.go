@@ -17,7 +17,7 @@ func TestInt_RoundTripper(t *testing.T) {
 		return
 	}
 
-	transport := fnhttp.NewRoundTripper(fnhttp.WithOpenShiftServiceCA(kc))
+	transport := fnhttp.NewRoundTripper(kc, fnhttp.WithOpenShiftServiceCA(kc))
 	defer transport.Close()
 
 	client := http.Client{
