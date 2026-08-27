@@ -71,10 +71,10 @@ require (
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	knative.dev/client/pkg v0.0.0-20260824022027-f22c1f6498a3
-	knative.dev/eventing v0.50.1-0.20260824121526-ec5c1d17105c
+	knative.dev/eventing v0.50.1-0.20260826203415-973bbbc1f791
 	knative.dev/hack v0.0.0-20260428014158-b2a37f1b6e7b
 	knative.dev/pkg v0.0.0-20260825072334-d2a153acc00c
-	knative.dev/serving v0.50.1-0.20260821122824-98e5ef90aa70
+	knative.dev/serving v0.50.1-0.20260825144834-618b0c275af1
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/yaml v1.6.0
 )
