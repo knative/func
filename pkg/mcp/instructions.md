@@ -42,7 +42,7 @@ This is essential because:
 
 **Exceptions:**
 - The `list` tool operates on the cluster, not local files, so it does NOT use a path parameter (it uses namespace instead)
-- The `delete` and `describe` tools each require exactly one of `path` or `name`; they do NOT support a no-argument CWD mode (the MCP server process has its own working directory unrelated to the Function being managed)
+- The `delete`, `describe` and `logs` tools each require exactly one of `path` or `name`; they do NOT support a no-argument CWD mode (the MCP server process has its own working directory unrelated to the Function being managed)
 
 ## Deployment Behavior
 
@@ -63,6 +63,7 @@ This is essential because:
 - Before 'invoke' → Read `func://help/invoke`
 - Before 'list' → Read `func://help/list`
 - Before 'describe' → Read `func://help/describe`
+- Before 'logs' → Read `func://help/logs`
 - Before 'delete' → Read `func://help/delete`
 - Before 'run' → Read `func://help/run`
 
@@ -167,6 +168,24 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - Exactly ONE of 'path' or 'name' must be provided, not both
 - 'namespace' is only valid together with 'name'; providing both 'path' and 'namespace' is rejected, since path mode already determines the namespace from the Function's own deploy identity
 - Read-only; does not modify local files or cluster resources
+
+### logs
+
+- **FIRST:** Read `func://help/logs` for authoritative usage information
+- Exactly one of `path` or `name` is required (same shape as `delete` / `describe`) — never both, and never neither
+- `path` must be an absolute path to the Function project directory (reads func.yaml); `name` is the deployed Function name on the cluster
+- The Function must already be **deployed** — in path mode the tool still talks to the cluster via the project's deploy identity, so calling it before `deploy` is a usage error, not a tool bug
+- Returns a **finite snapshot** of recent logs (it prints and exits; it is not a live stream); the default is the most recent 1000 lines per pod, so the output is bounded even when you pass neither `since` nor `tail`
+- Narrow it further with `since` (time window, e.g. `30s`, `5m`, `2h`) and/or a smaller `tail` (most recent lines per pod); a negative `tail` means unlimited, and is the only way to ask for every retained line
+- If the payload exceeds the tool's size limit, only the most recent lines are returned and `truncated` is set to true; re-run with `tail` or `since` rather than assuming the output is complete
+- **Always read `warnings` before concluding a Function produced no output.** Empty or partial `logs` with a zero exit is normal and explained there: the Function may have scaled to zero (no pods, therefore no logs), or the logs of only some of its pods could be read
+- `namespace` applies when identifying the Function by `name`. In `path` mode the namespace is read from the Function's own deploy identity in func.yaml and `namespace` has no effect — the same behavior as `func logs`, which this tool does not add rules on top of
+- When more than one pod serves the Function, each line is prefixed with `[pod/<name>] `
+- `follow`/streaming is deliberately not exposed: it never terminates, so it is unusable from an agent. Use `since`/`tail` and call again to observe new output
+- Only Functions deployed with the default **knative** deployer are supported; for other deployers the CLI returns an error directing you to `kubectl logs`
+- `verbose` output is written to the same stream the notices come back on, so enabling it makes `warnings` considerably noisier; the returned notices are bounded and older ones are dropped when they overflow
+- This tool is **read-only** — it never modifies any state
+- Use logs to diagnose a deployed Function after `deploy`, especially when combined with `invoke` to trigger the Function and observe its output
 
 ### delete
 
