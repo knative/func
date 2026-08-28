@@ -62,7 +62,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 	// A Route left unrecorded by a crash is not searched for; the next
 	// exposed redeploy finds it by its function labels.
 	if recordedNS := svc.Annotations[k8s.RouteNamespaceAnnotation]; recordedNS != "" {
-		dynClient, err := k8s.NewDynamicClient()
+		dynClient, err := remover.kc.DynamicClient()
 		if err != nil {
 			return fmt.Errorf("could not setup dynamic client: %w", err)
 		}

@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -23,83 +24,95 @@ const (
 // once, at the top of the call chain (the CLI), and passed down to every
 // component which talks to the cluster. Components must NOT construct their
 // own cluster configuration.
+//
+// A Client is backed by exactly one of:
+//   - a kubeconfig loader (NewClient, NewClientFromKubeconfig), which also
+//     knows contexts and the active namespace;
+//   - a bare rest.Config (NewClientFromConfig), for callers such as services
+//     which hold a host and a token and have no kubeconfig at all.
 type Client struct {
+	// cc is the kubeconfig loader: merged files, contexts, active namespace.
+	// Nil when the Client was built from a rest.Config.
 	cc clientcmd.ClientConfig
 
-	cfg     *rest.Config
-	cfgErr  error
-	cfgOnce sync.Once
+	// cfg is the rest configuration given to NewClientFromConfig.
+	// Nil when the Client was built from a kubeconfig loader.
+	cfg *rest.Config
 
-	// isOpenShift answers IsOpenShift: memoized detection, or a preset.
+	// isOpenShift answers IsOpenShift; detection runs once per Client.
 	isOpenShift func() (bool, error)
 }
 
-// ClientOpt configures a Client.
-type ClientOpt func(*Client)
+// errNoKubeconfig is returned by the methods which need a kubeconfig when the
+// Client was built from a bare rest.Config.
+var errNoKubeconfig = errors.New("client was built from a rest config; no kubeconfig available")
 
-// WithOpenShift sets the OpenShift detection result up front, so the Client
-// never contacts the cluster to find out. Intended for tests.
-func WithOpenShift(v bool) ClientOpt {
-	return func(c *Client) {
-		c.isOpenShift = func() (bool, error) { return v, nil }
-	}
-}
+// errNoConfiguration is returned when a Client was built with neither a
+// kubeconfig loader nor a rest config (NewClient(nil)).
+var errNoConfiguration = errors.New("client has no kubeconfig loader and no rest config")
 
-func applyClientOpts(c *Client, opts []ClientOpt) *Client {
-	if c.isOpenShift == nil {
-		c.isOpenShift = sync.OnceValues(func() (bool, error) { return detectOpenShift(c) })
-	}
-	for _, o := range opts {
-		o(c)
-	}
-	return c
-}
+// errNilClient is returned by every method called on a nil *Client.
+//
+// Go runs a pointer-receiver method on a nil pointer; only a field access
+// panics (https://go.dev/ref/spec#Selectors). RestConfig, RawConfig,
+// DefaultNamespace and IsOpenShift are the only methods that read the
+// struct's fields, and they check the receiver first. Everything else reaches
+// the fields through them, so a nil client anywhere yields this error, not a
+// panic.
+var errNilClient = errors.New("kubernetes client is nil")
 
-// NewClient returns a Client backed by the given client configuration.
-func NewClient(cc clientcmd.ClientConfig, opts ...ClientOpt) *Client {
-	return applyClientOpts(&Client{cc: cc}, opts)
+// NewClient returns a Client backed by the given kubeconfig loader.
+func NewClient(cc clientcmd.ClientConfig) *Client {
+	return newClient(&Client{cc: cc})
 }
 
 // NewClientFromKubeconfig returns a Client which resolves its configuration
 // the way kubectl does: KUBECONFIG, ~/.kube/config, in-cluster.
-func NewClientFromKubeconfig(opts ...ClientOpt) *Client {
-	return NewClient(GetClientConfig(), opts...)
+func NewClientFromKubeconfig() *Client {
+	return NewClient(kubeconfigClientConfig())
 }
 
 // NewClientFromConfig returns a Client backed by an already-resolved rest
-// config. Used in tests that do not want to go through kubeconfig.
-func NewClientFromConfig(cfg *rest.Config, opts ...ClientOpt) *Client {
-	return applyClientOpts(&Client{cfg: cfg}, opts)
+// configuration, for callers which have a host and credentials but no
+// kubeconfig. Methods which need a kubeconfig (RawConfig, DefaultNamespace)
+// return an error on such a Client.
+func NewClientFromConfig(cfg *rest.Config) *Client {
+	return newClient(&Client{cfg: cfg})
 }
 
-// Loader returns the deferred kubeconfig loader, if this Client was built
-// from kubeconfig. Nil when built from NewClientFromConfig.
-func (c *Client) Loader() clientcmd.ClientConfig {
-	return c.cc
+func newClient(c *Client) *Client {
+	c.isOpenShift = sync.OnceValues(func() (bool, error) { return detectOpenShift(c) })
+	return c
 }
 
-// RestConfig returns the resolved rest configuration (host, token, certs).
+// RestConfig returns the rest configuration (host, token, certs). Every call
+// returns a value the caller may mutate: a copy for a config-backed Client,
+// and for a kubeconfig-backed one the loader builds a new rest.Config on
+// each call.
 func (c *Client) RestConfig() (*rest.Config, error) {
-	c.cfgOnce.Do(func() {
-		if c.cfg != nil {
-			return
-		}
-		if c.cc == nil {
-			c.cfgErr = fmt.Errorf("no kubernetes client configuration available")
-			return
-		}
-		c.cfg, c.cfgErr = c.cc.ClientConfig()
-		if c.cfgErr != nil {
-			c.cfgErr = fmt.Errorf("failed to create kubernetes client config: %w", c.cfgErr)
-		}
-	})
-	return c.cfg, c.cfgErr
+	if c == nil {
+		return nil, errNilClient
+	}
+	if c.cfg != nil {
+		return rest.CopyConfig(c.cfg), nil
+	}
+	if c.cc == nil {
+		return nil, errNoConfiguration
+	}
+	cfg, err := c.cc.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kubernetes client config: %w", err)
+	}
+	return cfg, nil
 }
 
 // RawConfig returns the merged kubeconfig.
 func (c *Client) RawConfig() (clientcmdapi.Config, error) {
+	if c == nil {
+		return clientcmdapi.Config{}, errNilClient
+	}
 	if c.cc == nil {
-		return clientcmdapi.Config{}, fmt.Errorf("no kubernetes client configuration available")
+		return clientcmdapi.Config{}, errNoKubeconfig
 	}
 	return c.cc.RawConfig()
 }
@@ -124,8 +137,11 @@ func (c *Client) DynamicClient() (dynamic.Interface, error) {
 
 // DefaultNamespace returns the namespace of the active context.
 func (c *Client) DefaultNamespace() (string, error) {
+	if c == nil {
+		return "", errNilClient
+	}
 	if c.cc == nil {
-		return "", fmt.Errorf("no kubernetes client configuration available")
+		return "", errNoKubeconfig
 	}
 	ns, _, err := c.cc.Namespace()
 	return ns, err
@@ -148,12 +164,15 @@ func (c *Client) ClientAndNamespace(ns string) (*kubernetes.Clientset, string, e
 // A non-nil error means the cluster could not be asked and the bool is
 // meaningless. Detection runs at most once per Client, on first use.
 func (c *Client) IsOpenShift() (bool, error) {
+	if c == nil {
+		return false, errNilClient
+	}
 	return c.isOpenShift()
 }
 
 // detectOpenShift asks the API server for the route.openshift.io/v1 group,
-// which works even under restrictive RBAC. Any error, including an
-// unreachable cluster, counts as "not OpenShift".
+// which works even under restrictive RBAC. NotFound means the cluster answered
+// "not OpenShift"; any other error means it could not be asked.
 func detectOpenShift(c *Client) (bool, error) {
 	cs, err := c.Clientset()
 	if err != nil {
@@ -171,48 +190,9 @@ func detectOpenShift(c *Client) (bool, error) {
 	}
 }
 
-// The functions below read the kubeconfig ad hoc. They remain only for
-// callers not yet migrated to Client and will be removed once none are left.
-// Do not add new callers.
-
-func NewClientAndResolvedNamespace(ns string) (*kubernetes.Clientset, string, error) {
-	var err error
-	if ns == "" {
-		ns, err = GetDefaultNamespace()
-		if err != nil {
-			return nil, ns, err
-		}
-	}
-
-	client, err := NewKubernetesClientset()
-	return client, ns, err
-}
-
-func NewKubernetesClientset() (*kubernetes.Clientset, error) {
-	restConfig, err := GetClientConfig().ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new kubernetes client: %w", err)
-	}
-
-	return kubernetes.NewForConfig(restConfig)
-}
-
-func NewDynamicClient() (dynamic.Interface, error) {
-	restConfig, err := GetClientConfig().ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new kubernetes client: %w", err)
-	}
-
-	return dynamic.NewForConfig(restConfig)
-}
-
-// GetDefaultNamespace returns default namespace
-func GetDefaultNamespace() (namespace string, err error) {
-	namespace, _, err = GetClientConfig().Namespace()
-	return
-}
-
-func GetClientConfig() clientcmd.ClientConfig {
+// kubeconfigClientConfig resolves cluster configuration the way kubectl
+// does: KUBECONFIG, ~/.kube/config, in-cluster.
+func kubeconfigClientConfig() clientcmd.ClientConfig {
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
 		&clientcmd.ConfigOverrides{})

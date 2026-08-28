@@ -67,7 +67,7 @@ func requiresOpenShift(t *testing.T) {
 	// IsOpenShift caches its first answer for the whole binary. setupEnv sets
 	// this same value later; the probe needs it first.
 	os.Setenv("KUBECONFIG", Kubeconfig)
-	if !k8s.IsOpenShift() {
+	if ok, _ := k8s.NewClientFromKubeconfig().IsOpenShift(); !ok {
 		t.Skip("not an OpenShift cluster: route.openshift.io is unavailable, " +
 			"so there is no Route to assert on")
 	}
@@ -79,7 +79,7 @@ func requiresOpenShift(t *testing.T) {
 func requiresNotOpenShift(t *testing.T) {
 	t.Helper()
 	os.Setenv("KUBECONFIG", Kubeconfig) // see requiresOpenShift
-	if k8s.IsOpenShift() {
+	if ok, _ := k8s.NewClientFromKubeconfig().IsOpenShift(); ok {
 		t.Skip("this is an OpenShift cluster, where a Route is possible, " +
 			"so there is no refusal to assert on")
 	}
@@ -423,7 +423,7 @@ func TestExpose_KedaRoute(t *testing.T) {
 // the identity rules change.
 func routeCount(t *testing.T, ns, fnName, fnNamespace string) int {
 	t.Helper()
-	client, err := k8s.NewDynamicClient()
+	client, err := k8s.NewClientFromKubeconfig().DynamicClient()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -444,7 +444,7 @@ func routeCount(t *testing.T, ns, fnName, fnNamespace string) int {
 // records the exposed hostname and the Route's namespace.
 func serviceAnnotations(t *testing.T, ns, name string) map[string]string {
 	t.Helper()
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -560,7 +560,7 @@ func TestExpose_KedaDeleteCleansRoute(t *testing.T) {
 	if n := routeCount(t, recordedNS, name, ns); n != 0 {
 		t.Errorf("expected delete to remove the Route, found %d left in %q", n, recordedNS)
 	}
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -627,7 +627,7 @@ func TestExpose_KedaRouteDomain(t *testing.T) {
 // routeFor returns the one Route carrying this function's identity labels.
 func routeFor(t *testing.T, ns, fnName, fnNamespace string) *unstructured.Unstructured {
 	t.Helper()
-	client, err := k8s.NewDynamicClient()
+	client, err := k8s.NewClientFromKubeconfig().DynamicClient()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -735,7 +735,7 @@ func TestExpose_RouteDomainTLS(t *testing.T) {
 	// Play the certificate controller: inject a self-signed cert for the
 	// domain, exactly as cert-manager's openshift-routes plugin would.
 	certPEM, keyPEM, pool := selfSignedCert(t, domain)
-	client, err := k8s.NewDynamicClient()
+	client, err := k8s.NewClientFromKubeconfig().DynamicClient()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -900,7 +900,7 @@ func liveInterceptorNamespace(t *testing.T) string {
 	t.Helper()
 	// Same Service keda.interceptorNamespace looks for.
 	const interceptorServiceName = "keda-add-ons-http-interceptor-proxy"
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -922,7 +922,7 @@ var grantPipelineInterceptorOnce sync.Once
 func grantPipelineSAInterceptorAccess(t *testing.T, interceptorNS string) {
 	t.Helper()
 	grantPipelineInterceptorOnce.Do(func() {
-		clientset, err := k8s.NewKubernetesClientset()
+		clientset, err := k8s.NewClientFromKubeconfig().Clientset()
 		if err != nil {
 			t.Fatal(err)
 		}

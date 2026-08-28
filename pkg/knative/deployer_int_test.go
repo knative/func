@@ -11,7 +11,7 @@ import (
 )
 
 func TestInt_FullPath(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_FullPath(t,
 		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
 		knative.NewRemover(kc, true),
@@ -21,7 +21,7 @@ func TestInt_FullPath(t *testing.T) {
 }
 
 func TestInt_Deploy(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_Deploy(t,
 		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
 		knative.NewRemover(kc, false),
@@ -30,7 +30,7 @@ func TestInt_Deploy(t *testing.T) {
 }
 
 func TestInt_Metadata(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_Metadata(t,
 		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
 		knative.NewRemover(kc, false),
@@ -39,7 +39,7 @@ func TestInt_Metadata(t *testing.T) {
 }
 
 func TestInt_Events(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_Events(t,
 		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
 		knative.NewRemover(kc, false),
@@ -48,7 +48,7 @@ func TestInt_Events(t *testing.T) {
 }
 
 func TestInt_Scale(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_Scale(t,
 		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
 		knative.NewRemover(kc, false),
@@ -57,7 +57,7 @@ func TestInt_Scale(t *testing.T) {
 }
 
 func TestInt_EnvsUpdate(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_EnvsUpdate(t,
 		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
 		knative.NewRemover(kc, false),
@@ -66,7 +66,7 @@ func TestInt_EnvsUpdate(t *testing.T) {
 }
 
 func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_ResourceValidationOnFirstDeploy(t,
 		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
 		knative.NewRemover(kc, false),
@@ -75,7 +75,7 @@ func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
 }
 
 func TestInt_OperatorSync(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_OperatorSync(t,
 		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),
 		knative.NewRemover(kc, false),

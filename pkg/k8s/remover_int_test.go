@@ -10,7 +10,7 @@ import (
 )
 
 func TestInt_Remove(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	removertesting.TestInt_Remove(t,
 		k8s.NewRemover(kc, true),
 		k8s.NewDeployer(kc, k8s.WithDeployerVerbose(true)),

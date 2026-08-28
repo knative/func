@@ -10,7 +10,7 @@ import (
 )
 
 func TestInt_FullPath(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_FullPath(t,
 		k8s.NewDeployer(kc, k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(kc, false),
@@ -20,7 +20,7 @@ func TestInt_FullPath(t *testing.T) {
 }
 
 func TestInt_Deploy(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_Deploy(t,
 		k8s.NewDeployer(kc, k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(kc, false),
@@ -29,7 +29,7 @@ func TestInt_Deploy(t *testing.T) {
 }
 
 func TestInt_Metadata(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_Metadata(t,
 		k8s.NewDeployer(kc, k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(kc, false),
@@ -38,7 +38,7 @@ func TestInt_Metadata(t *testing.T) {
 }
 
 func TestInt_Events(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	t.Skip("Kubernetes deploy does not support func subscribe yet")
 
 	deployertesting.TestInt_Events(t,
@@ -49,7 +49,7 @@ func TestInt_Events(t *testing.T) {
 }
 
 func TestInt_Scale(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_Scale(t,
 		k8s.NewDeployer(kc, k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(kc, false),
@@ -58,7 +58,7 @@ func TestInt_Scale(t *testing.T) {
 }
 
 func TestInt_EnvsUpdate(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_EnvsUpdate(t,
 		k8s.NewDeployer(kc, k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(kc, false),
@@ -67,7 +67,7 @@ func TestInt_EnvsUpdate(t *testing.T) {
 }
 
 func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_ResourceValidationOnFirstDeploy(t,
 		k8s.NewDeployer(kc, k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(kc, false),
@@ -76,7 +76,7 @@ func TestInt_ResourceValidationOnFirstDeploy(t *testing.T) {
 }
 
 func TestInt_OperatorSync(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	deployertesting.TestInt_OperatorSync(t,
 		k8s.NewDeployer(kc, k8s.WithDeployerVerbose(false)),
 		k8s.NewRemover(kc, false),

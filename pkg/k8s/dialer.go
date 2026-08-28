@@ -255,7 +255,6 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 	if err != nil {
 		return
 	}
-	c.restConf = restclient.CopyConfig(c.restConf) // the Client's config is shared; do not mutate it
 	c.restConf.WarningHandler = restclient.NoWarnings{}
 
 	err = setConfigDefaults(c.restConf)

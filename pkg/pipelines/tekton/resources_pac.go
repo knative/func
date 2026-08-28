@@ -41,8 +41,8 @@ func ensurePACSecretExists(ctx context.Context, kc *k8s.Client, f fn.Function, n
 }
 
 // ensurePACRepositoryExists checks that up-to-date Repository CR is present on the cluster
-func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace string, metadata pipelines.PacMetadata, labels map[string]string) error {
-	client, namespace, err := pac.NewTektonPacClientAndResolvedNamespace(namespace)
+func ensurePACRepositoryExists(ctx context.Context, kc *k8s.Client, f fn.Function, namespace string, metadata pipelines.PacMetadata, labels map[string]string) error {
+	client, namespace, err := pac.NewTektonPacClientAndResolvedNamespace(kc, namespace)
 	if err != nil {
 		return err
 	}
@@ -100,8 +100,8 @@ func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace str
 }
 
 // deletePACRepositories deletes all Repository resources present on the cluster that match input list options
-func deletePACRepositories(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) error {
-	client, namespace, err := pac.NewTektonPacClientAndResolvedNamespace(namespaceOverride)
+func deletePACRepositories(ctx context.Context, kc *k8s.Client, namespaceOverride string, listOptions metav1.ListOptions) error {
+	client, namespace, err := pac.NewTektonPacClientAndResolvedNamespace(kc, namespaceOverride)
 	if err != nil {
 		return err
 	}

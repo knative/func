@@ -93,7 +93,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 				docker.WithTransport(t),
 				docker.WithVerbose(cfg.Verbose),
 				docker.WithInsecure(cfg.InsecureSkipVerify))),
-			fn.WithSyncer(operator.NewSyncer(operator.WithCredentialsProvider(c))),
+			fn.WithSyncer(operator.NewSyncer(kc, operator.WithCredentialsProvider(c))),
 		}
 	)
 
@@ -124,14 +124,7 @@ func newK8sClient(kc *k8s.Client) *k8s.Client {
 // newTransport returns a transport with cluster-flavor-specific variations
 // which take advantage of additional features offered by cluster variants.
 func newTransport(kc *k8s.Client, insecureSkipVerify bool) fnhttp.RoundTripCloser {
-	opts := []fnhttp.Option{
-		fnhttp.WithInsecureSkipVerify(insecureSkipVerify),
-		fnhttp.WithOpenShiftServiceCA(kc),
-	}
-	if kc != nil && kc.Loader() != nil {
-		opts = append(opts, fnhttp.WithInClusterDialer(k8s.NewLazyInitInClusterDialer(kc)))
-	}
-	return fnhttp.NewRoundTripper(kc, opts...)
+	return fnhttp.NewRoundTripper(kc, fnhttp.WithInsecureSkipVerify(insecureSkipVerify), fnhttp.WithOpenShiftServiceCA(kc))
 }
 
 // newCredentialsProvider returns a credentials provider which possibly
@@ -183,10 +176,9 @@ func newTektonPipelinesProvider(kc *k8s.Client, creds oci.CredentialsProvider, v
 		tekton.WithVerbose(verbose),
 		tekton.WithPipelineDecorator(deployDecorator{kc}),
 		tekton.WithTransport(transport),
-		tekton.WithK8sClient(kc),
 	}
 
-	return tekton.NewPipelinesProvider(options...)
+	return tekton.NewPipelinesProvider(kc, options...)
 }
 
 func newKnativeDeployer(kc *k8s.Client, verbose bool) fn.Deployer {

@@ -11,7 +11,7 @@ import (
 )
 
 func TestInt_List(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	listertesting.TestInt_List(t,
 		knative.NewLister(kc, true),
 		knative.NewDeployer(kc, knative.WithDeployerVerbose(true)),

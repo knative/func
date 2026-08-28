@@ -357,7 +357,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 
 	// Informative non-error messages regarding the final deployment request
-	printDeployMessages(cmd.OutOrStdout(), f)
+	printDeployMessages(cmd.OutOrStdout(), kc, f)
 
 	// create client with options from cfg
 	clientOptions, err := cfg.clientOptions(kc)
@@ -890,7 +890,7 @@ func (c deployConfig) clientOptions(kc *k8s.Client) ([]fn.Option, error) {
 }
 
 // printDeployMessages to the output.  Non-error deployment messages.
-func printDeployMessages(out io.Writer, f fn.Function) {
+func printDeployMessages(out io.Writer, kc *k8s.Client, f fn.Function) {
 	digest, err := isDigested(f.Image)
 	if err == nil && digest {
 		fmt.Fprintf(out, "Deploying image '%v', which has a digest. Build and push are disabled.\n", f.Image)
@@ -915,7 +915,7 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	// If the target namespace is provided but differs from active, warn because
 	// the function won't be visible to other commands such as kubectl unless
 	// context namespace is switched.
-	activeNamespace, err := k8s.GetDefaultNamespace()
+	activeNamespace, err := kc.DefaultNamespace()
 	if err == nil && targetNamespace != "" && targetNamespace != activeNamespace {
 		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", targetNamespace, activeNamespace, targetNamespace)
 	}

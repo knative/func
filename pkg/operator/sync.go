@@ -43,10 +43,7 @@ var ensureRegistrySecret = k8s.EnsureDockerRegistrySecretExist
 // SyncFunctionCR creates or updates a Function CR for the given function.
 // It sets up Kubernetes clients, checks if the Function CRD exists on the
 // cluster, and creates or updates the CR accordingly.
-func SyncFunctionCR(ctx context.Context, cfg SyncConfig) error {
-	// TODO: inject the k8s.Client through NewSyncer instead of resolving it
-	// from the kubeconfig here.
-	kc := k8s.NewClientFromKubeconfig()
+func SyncFunctionCR(ctx context.Context, kc *k8s.Client, cfg SyncConfig) error {
 	restCfg, err := kc.RestConfig()
 	if err != nil {
 		return fmt.Errorf("getting kubernetes config: %w", err)

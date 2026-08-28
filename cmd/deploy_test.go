@@ -1239,7 +1239,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	activeNamespace, err := k8s.GetDefaultNamespace()
+	activeNamespace, err := k8s.NewClientFromKubeconfig().DefaultNamespace()
 	if err != nil {
 		t.Fatalf("Couldn't get active namespace, got error: %v", err)
 	}

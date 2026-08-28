@@ -85,20 +85,17 @@ func WithTransport(transport http.RoundTripper) Opt {
 	}
 }
 
-func WithK8sClient(kc *k8s.Client) Opt {
-	return func(pp *PipelinesProvider) {
-		pp.kc = kc
-	}
-}
-
 func WithPacURLCallback(getPacURL pacURLCallback) Opt {
 	return func(pp *PipelinesProvider) {
 		pp.getPacURL = getPacURL
 	}
 }
 
-func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
+// NewPipelinesProvider returns a provider which talks to the cluster kc
+// points at.
+func NewPipelinesProvider(kc *k8s.Client, opts ...Opt) *PipelinesProvider {
 	pp := &PipelinesProvider{
+		kc: kc,
 		getPacURL: func() (string, error) {
 			var url string
 			e := survey.AskOne(&survey.Input{
@@ -123,6 +120,9 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 // (f.Deploy.Image, f.Deploy.Namespace, f.Deploy.Deployer and f.Deploy.Expose)
 // or an error.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn.Function, error) {
+	if pp.kc == nil {
+		return "", f, fmt.Errorf("kubernetes client is not initialized")
+	}
 	var err error
 
 	// Checks builder and registry:
@@ -174,7 +174,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 	// deployer wrote at exposure time.
 
 	// Client for the given namespace
-	client, err := NewTektonClient(namespace)
+	client, err := NewTektonClient(pp.kc)
 	if err != nil {
 		return "", f, err
 	}
@@ -426,6 +426,9 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 
 // Remove tries to remove all resources that are present on the cluster and belongs to the input function and it's pipelines
 func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
+	if pp.kc == nil {
+		return fmt.Errorf("kubernetes client is not initialized")
+	}
 	return pp.removeClusterResources(ctx, f)
 }
 
@@ -448,15 +451,11 @@ func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Fu
 
 	// let's try to delete all resources in parallel, so the operation doesn't take long
 	wg := sync.WaitGroup{}
-	deleteFunctions := []func(context.Context, string, metav1.ListOptions) error{
+	deleteFunctions := []func(context.Context, *k8s.Client, string, metav1.ListOptions) error{
 		deletePipelines,
 		deletePipelineRuns,
-		func(ctx context.Context, ns string, o metav1.ListOptions) error {
-			return k8s.DeleteSecrets(ctx, pp.kc, ns, o)
-		},
-		func(ctx context.Context, ns string, o metav1.ListOptions) error {
-			return k8s.DeletePersistentVolumeClaims(ctx, pp.kc, ns, o)
-		},
+		k8s.DeleteSecrets,
+		k8s.DeletePersistentVolumeClaims,
 		deletePACRepositories,
 	}
 
@@ -467,7 +466,7 @@ func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Fu
 		df := deleteFunctions[i]
 		go func() {
 			defer wg.Done()
-			err := df(ctx, namespace, listOptions)
+			err := df(ctx, pp.kc, namespace, listOptions)
 			if err != nil && !k8serrors.IsNotFound(err) && !k8serrors.IsForbidden(err) {
 				errChan <- err
 			}
@@ -501,7 +500,7 @@ func (pp *PipelinesProvider) watchPipelineRunProgress(ctx context.Context, pr *v
 		"deploy":        "Deploying function to the cluster",
 	}
 
-	clients, err := NewTektonClients()
+	clients, err := NewTektonClients(pp.kc)
 	if err != nil {
 		return err
 	}

@@ -19,13 +19,12 @@ import (
 	"knative.dev/func/pkg/knative"
 )
 
-// logGatherer writes the logs of a deployed function.
-type logGatherer func(context.Context, knative.LogsOptions, io.Writer) error
+// logGatherer writes the logs of a deployed function, reading them through
+// the given cluster client.
+type logGatherer func(context.Context, *k8s.Client, knative.LogsOptions, io.Writer) error
 
 func NewLogsCmd(newClient ClientFactory) *cobra.Command {
-	return newLogsCmd(newClient, func(ctx context.Context, opts knative.LogsOptions, out io.Writer) error {
-		return knative.GetKServiceLogs(ctx, k8s.NewClientFromKubeconfig(), opts, out)
-	})
+	return newLogsCmd(newClient, knative.GetKServiceLogs)
 }
 
 // newLogsCmd constructs the command with an explicit log gatherer, allowing
@@ -101,7 +100,10 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory, gather logGatherer) er
 		return err
 	}
 
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+	// The cluster client for this command, shared by the describer (through
+	// newClient) and the log gatherer.
+	kc := k8s.NewClientFromKubeconfig()
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, K8sClient: kc})
 	defer done()
 
 	// Get function details and deployer type
@@ -199,7 +201,7 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory, gather logGatherer) er
 	// filter pods.  It is that of the latest revision, so filtering on it
 	// would drop the logs of the pods actually serving traffic during a
 	// rollout.  All pods of the function's service are of interest here.
-	err = gather(ctx, knative.LogsOptions{
+	err = gather(ctx, kc, knative.LogsOptions{
 		Name:      f.Name,
 		Namespace: f.Namespace,
 		Since:     sinceTime,

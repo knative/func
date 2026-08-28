@@ -11,7 +11,7 @@ import (
 )
 
 func TestInt_Describe(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	describertesting.TestInt_Describe(t,
 		keda.NewDescriber(kc, true),
 		keda.NewDeployer(kc, keda.WithDeployerVerbose(true)),

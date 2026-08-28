@@ -12,22 +12,67 @@ import (
 	. "knative.dev/func/pkg/testing"
 )
 
-func TestNewClientFromConfig(t *testing.T) {
-	cfg := &rest.Config{Host: "https://example.com:6443"}
+// inMemoryLoader returns a kubeconfig loader for a single-context config
+// pointing at host, without touching the filesystem.
+func inMemoryLoader(host string) clientcmd.ClientConfig {
+	return clientcmd.NewDefaultClientConfig(clientcmdapi.Config{
+		CurrentContext: "test",
+		Contexts:       map[string]*clientcmdapi.Context{"test": {Cluster: "test", AuthInfo: "test"}},
+		Clusters:       map[string]*clientcmdapi.Cluster{"test": {Server: host}},
+		AuthInfos:      map[string]*clientcmdapi.AuthInfo{"test": {Token: "t"}},
+	}, nil)
+}
+
+// TestClient_RestConfig verifies the rest config is resolved from the loader
+// and that each call yields its own copy, safe to mutate.
+func TestClient_RestConfig(t *testing.T) {
+	c := k8s.NewClient(inMemoryLoader("https://example.com:6443"))
+
+	got, err := c.RestConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Host != "https://example.com:6443" {
+		t.Errorf("unexpected host %q", got.Host)
+	}
+	got.Host = "mutated"
+	if again, _ := c.RestConfig(); again.Host != "https://example.com:6443" {
+		t.Error("RestConfig() should return a fresh config on every call")
+	}
+}
+
+// TestClient_FromConfig verifies a Client built from a bare rest.Config:
+// RestConfig returns a copy of it, and the kubeconfig-only methods report
+// that no kubeconfig is available rather than panicking.
+func TestClient_FromConfig(t *testing.T) {
+	cfg := &rest.Config{Host: "https://example.com:6443", BearerToken: "t"}
 	c := k8s.NewClientFromConfig(cfg)
 
 	got, err := c.RestConfig()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != cfg {
-		t.Error("RestConfig() should return the same config that was passed in")
+	if got.Host != cfg.Host || got.BearerToken != cfg.BearerToken {
+		t.Errorf("unexpected config %+v", got)
+	}
+	got.Host = "mutated"
+	if cfg.Host != "https://example.com:6443" {
+		t.Error("RestConfig() must return a copy, not the caller's config")
+	}
+
+	if _, err := c.Clientset(); err != nil {
+		t.Errorf("unexpected error creating clientset: %v", err)
+	}
+	if _, err := c.RawConfig(); err == nil {
+		t.Error("RawConfig() should fail without a kubeconfig")
+	}
+	if _, err := c.DefaultNamespace(); err == nil {
+		t.Error("DefaultNamespace() should fail without a kubeconfig")
 	}
 }
 
 func TestClientClientset(t *testing.T) {
-	cfg := &rest.Config{Host: "https://example.com:6443"}
-	c := k8s.NewClientFromConfig(cfg)
+	c := k8s.NewClient(inMemoryLoader("https://example.com:6443"))
 
 	cs, err := c.Clientset()
 	if err != nil {
@@ -103,19 +148,6 @@ func TestClient_IsOpenShiftUnreachable(t *testing.T) {
 	}
 }
 
-// TestClient_WithOpenShift verifies the preset answer wins and no detection
-// runs, even though the fake cluster would answer the opposite.
-func TestClient_WithOpenShift(t *testing.T) {
-	FakeCluster(t, false)
-	if ok, _ := k8s.NewClientFromKubeconfig(k8s.WithOpenShift(true)).IsOpenShift(); !ok {
-		t.Error("expected preset true")
-	}
-	FakeCluster(t, true)
-	if ok, _ := k8s.NewClientFromKubeconfig(k8s.WithOpenShift(false)).IsOpenShift(); ok {
-		t.Error("expected preset false")
-	}
-}
-
 // TestClient_Namespace verifies namespace resolution from the active context.
 func TestClient_Namespace(t *testing.T) {
 	FakeCluster(t, false)
@@ -165,5 +197,46 @@ func TestClient_OpenShiftDockerCredentialLoaders(t *testing.T) {
 	}
 	if _, err = loaders[0]("docker.io"); err == nil {
 		t.Error("expected error for a foreign registry")
+	}
+}
+
+// TestNilClient_MethodsReturnErrors ensures every method of a nil *Client
+// returns an error instead of panicking (see errNilClient).
+func TestNilClient_MethodsReturnErrors(t *testing.T) {
+	var c *k8s.Client
+
+	if _, err := c.RestConfig(); err == nil {
+		t.Error("RestConfig() on a nil client should fail")
+	}
+	if _, err := c.RawConfig(); err == nil {
+		t.Error("RawConfig() on a nil client should fail")
+	}
+	if _, err := c.DefaultNamespace(); err == nil {
+		t.Error("DefaultNamespace() on a nil client should fail")
+	}
+	if _, err := c.IsOpenShift(); err == nil {
+		t.Error("IsOpenShift() on a nil client should fail")
+	}
+	// Derived methods reach the fields only through the four above.
+	if _, err := c.Clientset(); err == nil {
+		t.Error("Clientset() on a nil client should fail")
+	}
+	if _, err := c.DynamicClient(); err == nil {
+		t.Error("DynamicClient() on a nil client should fail")
+	}
+	if _, _, err := c.ClientAndNamespace(""); err == nil {
+		t.Error("ClientAndNamespace() on a nil client should fail")
+	}
+	if _, err := c.OpenShiftServiceCA(t.Context()); err == nil {
+		t.Error("OpenShiftServiceCA() on a nil client should fail")
+	}
+	if loaders := c.OpenShiftDockerCredentialLoaders(); loaders != nil {
+		t.Error("OpenShiftDockerCredentialLoaders() on a nil client should yield no loaders")
+	}
+
+	// A Client with neither a kubeconfig loader nor a rest config fails the
+	// same way, one level up.
+	if _, err := k8s.NewClient(nil).RestConfig(); err == nil {
+		t.Error("RestConfig() on a Client without configuration should fail")
 	}
 }

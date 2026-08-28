@@ -63,7 +63,9 @@ func NewRoundTripper(kc *k8s.Client, opts ...Option) RoundTripCloser {
 	for _, option := range opts {
 		option(&o)
 	}
-	if o.inClusterDialer == nil {
+	// Without a cluster client there is no pod to dial from; the transport
+	// then dials directly only.
+	if o.inClusterDialer == nil && kc != nil {
 		o.inClusterDialer = k8s.NewLazyInitInClusterDialer(kc)
 	}
 
@@ -133,7 +135,7 @@ func (d *dialerWithFallback) DialContext(ctx context.Context, network, address s
 	}
 
 	var dnsErr *net.DNSError
-	if !errors.As(err, &dnsErr) {
+	if !errors.As(err, &dnsErr) || d.fallbackDialer == nil {
 		return nil, err
 	}
 
@@ -149,9 +151,10 @@ func (d *dialerWithFallback) Close() error {
 		errs = append(errs, err)
 	}
 
-	err = d.fallbackDialer.Close()
-	if err != nil {
-		errs = append(errs, err)
+	if d.fallbackDialer != nil {
+		if err = d.fallbackDialer.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if len(errs) > 0 {

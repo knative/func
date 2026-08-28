@@ -88,7 +88,6 @@ func runWithVolumeMounted(ctx context.Context, c *Client, podImage string, podCo
 	if err != nil {
 		return fmt.Errorf("cannot get client config: %w", err)
 	}
-	restConf = restclient.CopyConfig(restConf) // the Client's config is shared; do not mutate it
 	restConf.WarningHandler = restclient.NoWarnings{}
 
 	err = setConfigDefaults(restConf)

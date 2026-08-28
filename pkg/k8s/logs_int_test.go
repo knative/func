@@ -20,7 +20,7 @@ func TestInt_GetPodLogs(t *testing.T) {
 	var err error
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*5)
 	t.Cleanup(cancel)
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ out:
 func TestInt_GetPodLogsBySelectorSnapshot(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*5)
 	t.Cleanup(cancel)
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}

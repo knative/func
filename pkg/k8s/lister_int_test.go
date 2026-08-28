@@ -10,7 +10,7 @@ import (
 )
 
 func TestInt_List(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	listertesting.TestInt_List(t,
 		k8s.NewLister(kc, true),
 		k8s.NewDeployer(kc, k8s.WithDeployerVerbose(true)),

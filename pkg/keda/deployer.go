@@ -119,7 +119,8 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// Resolved once per deploy and threaded down
-	interceptorNS, exposeRefusal := interceptorNamespace(ctx, k8sClientset)
+	openShift, _ := d.kc.IsOpenShift()
+	interceptorNS, exposeRefusal := interceptorNamespace(ctx, k8sClientset, openShift)
 
 	// DNS label checks before we create anything on cluster
 	if err := d.validateExposure(f, exposeRefusal); err != nil {

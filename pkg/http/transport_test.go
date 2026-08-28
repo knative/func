@@ -148,3 +148,23 @@ func startServer(t *testing.T, hostname string) (addr string, ca *x509.Certifica
 	}()
 	return
 }
+
+// TestNilClient_TransportDialsDirectly ensures a transport built without a
+// cluster client still works as a plain transport: a hostname that does not
+// resolve yields a dial error, not a panic in a missing in-cluster fallback
+// dialer or a missing service CA client.
+func TestNilClient_TransportDialsDirectly(t *testing.T) {
+	transport := fnhttp.NewRoundTripper(nil, fnhttp.WithOpenShiftServiceCA(nil))
+	defer transport.Close()
+
+	client := http.Client{Transport: transport}
+
+	// .invalid is reserved and never resolves; this is the case that would
+	// otherwise fall back to the in-cluster dialer. The OpenShift registry
+	// host is used so the service CA path is exercised too.
+	resp, err := client.Get("https://image-registry.openshift-image-registry.svc.invalid:5000/v2/")
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("expected a dial error for an unresolvable host")
+	}
+}

@@ -25,6 +25,9 @@ import (
 // Parameter `metadata` is type `any` to not bring `pkg/pipelines` package dependency to `pkg/functions`,
 // this specific implementation expects the parameter to be a type `pipelines.PacMetada`.
 func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, metadata any) error {
+	if pp.kc == nil {
+		return fmt.Errorf("kubernetes client is not initialized")
+	}
 	// Derive Registry from the image when not explicitly set, so that
 	// downstream insecure-registry detection and template params work.
 	if f.Registry == "" {
@@ -95,6 +98,9 @@ func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, me
 // RemovePAC tries to remove all local and remote resources that were created for PAC.
 // Resources on the remote GitHub repo are not removed, we would need to store webhook id somewhere locally.
 func (pp *PipelinesProvider) RemovePAC(ctx context.Context, f fn.Function, metadata any) error {
+	if pp.kc == nil {
+		return fmt.Errorf("kubernetes client is not initialized")
+	}
 	data, ok := metadata.(pipelines.PacMetadata)
 	if !ok {
 		return fmt.Errorf("incorrect type of pipelines metadata: %T", metadata)
@@ -157,7 +163,7 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 	}
 
 	// figure out pac installation namespace
-	installed, _, err := pac.DetectPACInstallation(ctx)
+	installed, _, err := pac.DetectPACInstallation(ctx, pp.kc)
 	if !installed {
 		errMsg := ""
 		if err != nil {
@@ -213,7 +219,7 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 	}
 	fmt.Printf(" ✅ Credentials are present on the cluster in secret %q\n", getPipelineSecretName(f))
 
-	err = ensurePACRepositoryExists(ctx, f, namespace, metadata, labels)
+	err = ensurePACRepositoryExists(ctx, pp.kc, f, namespace, metadata, labels)
 	if err != nil {
 		return err
 	}
@@ -228,7 +234,7 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 func (pp *PipelinesProvider) createRemotePACResources(ctx context.Context, f fn.Function, metadata pipelines.PacMetadata) error {
 
 	// figure out pac installation namespace
-	installed, installationNS, err := pac.DetectPACInstallation(ctx)
+	installed, installationNS, err := pac.DetectPACInstallation(ctx, pp.kc)
 	if !installed {
 		errMsg := ""
 		if err != nil {
@@ -241,14 +247,14 @@ func (pp *PipelinesProvider) createRemotePACResources(ctx context.Context, f fn.
 	}
 
 	// fetch configmap to get controller url
-	controllerURL, err := pac.GetPACInfo(ctx, installationNS)
+	controllerURL, err := pac.GetPACInfo(ctx, pp.kc, installationNS)
 	if err != nil {
 		return err
 	}
 
 	// check if info configmap has url then use that otherwise try to detect
 	if controllerURL == "" {
-		controllerURL, _ = pac.DetectPACOpenShiftRoute(ctx, installationNS)
+		controllerURL, _ = pac.DetectPACOpenShiftRoute(ctx, pp.kc, installationNS)
 	}
 
 	// we haven't been able to detect PAC controller public route, let's prompt:
