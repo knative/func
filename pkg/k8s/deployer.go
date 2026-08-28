@@ -176,6 +176,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		existingService, err := serviceClient.Get(ctx, f.Name, metav1.GetOptions{})
 		if err == nil {
 			svc.ResourceVersion = existingService.ResourceVersion
+			preserveServiceNetworkFields(svc, existingService)
 			if _, err = serviceClient.Update(ctx, svc, metav1.UpdateOptions{}); err != nil {
 				return fn.DeploymentResult{}, fmt.Errorf("failed to update service: %w", err)
 			}
@@ -522,6 +523,15 @@ func (d *Deployer) generateService(f fn.Function, namespace string, daprInstalle
 	}
 
 	return service, nil
+}
+
+// preserveServiceNetworkFields carries forward the existing Service's
+// network configuration when preparing a generated Service for update.
+func preserveServiceNetworkFields(target, existing *corev1.Service) {
+	target.Spec.ClusterIP = existing.Spec.ClusterIP
+	target.Spec.ClusterIPs = existing.Spec.ClusterIPs
+	target.Spec.IPFamilies = existing.Spec.IPFamilies
+	target.Spec.IPFamilyPolicy = existing.Spec.IPFamilyPolicy
 }
 
 // CheckResourcesArePresent returns error if Secrets or ConfigMaps
