@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"knative.dev/func/pkg/builders"
 )
 
 // ---------------------------------------------------------------------------
@@ -29,7 +31,7 @@ func TestRemote_Deploy(t *testing.T) {
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if err := newCmd(t, "deploy", "--remote", "--builder=pack", fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
+	if err := newCmd(t, "deploy", "--remote", "--builder", builders.Default, fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
@@ -44,7 +46,7 @@ func TestRemote_Deploy(t *testing.T) {
 // TestRemote_Source ensures a remote build can be triggered which pulls
 // source from a remote repository.
 //
-//	func deploy --remote --git-url={url} --registry={} --builder=pack
+//	func deploy --remote --git-url={url} --registry={}
 func TestRemote_Source(t *testing.T) {
 	name := "func-e2e-test-remote-source"
 	_ = fromCleanEnv(t, name)
@@ -60,7 +62,7 @@ func TestRemote_Source(t *testing.T) {
 	if err := newCmd(t, "deploy", "--remote",
 		"--git-url", "https://github.com/functions-dev/func-e2e-tests",
 		"--registry", Registry,
-		"--builder", "pack",
+		"--builder", builders.Default,
 	).Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +106,7 @@ func TestRemote_Ref(t *testing.T) {
 		"--git-url", "https://github.com/functions-dev/func-e2e-tests",
 		"--git-branch", name,
 		"--registry", Registry,
-		"--builder", "pack",
+		"--builder", builders.Default,
 		"--build",
 	).Run(); err != nil {
 		t.Fatal(err)
@@ -151,7 +153,7 @@ func TestRemote_Dir(t *testing.T) {
 		"--git-url", "https://github.com/functions-dev/func-e2e-tests",
 		"--git-dir", name,
 		"--registry", Registry,
-		"--builder", "pack",
+		"--builder", builders.Default,
 		"--build",
 	).Run(); err != nil {
 		t.Fatal(err)
@@ -177,7 +179,7 @@ func TestRemote_Deploy_InClusterRegistry(t *testing.T) {
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if err := newCmd(t, "deploy", "--remote", "--builder=pack", "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
+	if err := newCmd(t, "deploy", "--remote", "--builder", builders.Default, "--registry=registry.default.svc.cluster.local:5000/func").Run(); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
@@ -194,7 +196,7 @@ func TestRemote_Deploy_InClusterRegistry(t *testing.T) {
 // remote analogue of TestCore_Update / TestMatrix_Python_Update, which only cover
 // the local build+deploy path.
 //
-//	func deploy --remote --builder=pack
+//	func deploy --remote
 func TestRemote_Update(t *testing.T) {
 	name := "func-e2e-test-remote-update"
 	root := fromCleanEnv(t, name)
@@ -205,7 +207,7 @@ func TestRemote_Update(t *testing.T) {
 	}
 
 	// initial remote build + deploy
-	if err := newCmd(t, "deploy", "--remote", "--builder=pack", fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
+	if err := newCmd(t, "deploy", "--remote", "--builder", builders.Default, fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
@@ -231,7 +233,7 @@ func TestRemote_Update(t *testing.T) {
 	}
 
 	// redeploy via the remote path
-	if err := newCmd(t, "deploy", "--remote", "--builder=pack", fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
+	if err := newCmd(t, "deploy", "--remote", "--builder", builders.Default, fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
 		t.Fatal(err)
 	}
 	if !waitFor(t, ksvcUrl(name),
