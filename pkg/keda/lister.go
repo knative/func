@@ -62,7 +62,8 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 		}
 
 		runtime := service.Labels[labels.FunctionRuntimeKey]
-		item, err := l.get(ctx, clientset, httpScaledObjectClientset, service.Name, service.Namespace, runtime)
+		item, err := l.get(ctx, clientset, httpScaledObjectClientset, service.Name,
+			service.Namespace, runtime, service.Annotations[k8s.RouteHostnameAnnotation])
 		if err != nil {
 			return nil, fmt.Errorf("unable to get details about function: %v", err)
 		}
@@ -73,8 +74,11 @@ func (l *Lister) List(ctx context.Context, namespace string) ([]fn.ListItem, err
 	return listItems, nil
 }
 
-// Get a function, optionally specifying a namespace.
-func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, httpScaledObjectClientset *versioned.Clientset, name, namespace, runtime string) (fn.ListItem, error) {
+// Get a function, optionally specifying a namespace. exposedHost is the
+// hostname Deploy recorded on the function's Service, empty when the function
+// is cluster-local; List reads it there rather than looking the exposing
+// object up again.
+func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, httpScaledObjectClientset *versioned.Clientset, name, namespace, runtime, exposedHost string) (fn.ListItem, error) {
 	httpScaledObject, err := httpScaledObjectClientset.HttpV1alpha1().HTTPScaledObjects(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return fn.ListItem{}, fmt.Errorf("unable to get HTTPScaledObject: %v", err)
@@ -93,10 +97,7 @@ func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, httpS
 		ready = v1.ConditionFalse
 	}
 
-	url := ""
-	if len(httpScaledObject.Spec.Hosts) > 0 {
-		url = fmt.Sprintf("http://%s:8080", httpScaledObject.Spec.Hosts[0])
-	}
+	url, _ := functionURLs(httpScaledObject.Spec.Hosts, exposedHost)
 
 	listItem := fn.ListItem{
 		Name:      name,

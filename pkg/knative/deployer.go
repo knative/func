@@ -298,7 +298,7 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			}
 
 			if d.verbose {
-				fmt.Printf("Function deployed in namespace %q and exposed at URL:\n%s\n", namespace, route.Status.URL.String())
+				fmt.Printf("Function deployed in namespace %q at URL:\n%s\n", namespace, route.Status.URL.String())
 			}
 			return fn.DeploymentResult{
 				Status:    fn.Deployed,

@@ -39,6 +39,7 @@ func TestInt_Remove(t *testing.T, remover fn.Remover, deployer fn.Deployer, desc
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)

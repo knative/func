@@ -6,7 +6,9 @@ import (
 	"os"
 
 	"github.com/ory/viper"
+	"knative.dev/func/pkg/deployers"
 	"knative.dev/func/pkg/keda"
+	"knative.dev/func/pkg/ocproute"
 
 	"knative.dev/func/cmd/prompt"
 	"knative.dev/func/pkg/buildpacks"
@@ -71,7 +73,8 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithScaffolder(buildpacks.NewScaffolder(cfg.Verbose)),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
-			fn.WithRemovers(knative.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose), keda.NewRemover(cfg.Verbose)),
+			fn.WithRemovers(knative.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose),
+				keda.NewRemover(cfg.Verbose)),
 			fn.WithDescribers(
 				knative.NewDescriber(cfg.Verbose, knative.WithDescriberTransport(t)),
 				k8s.NewDescriber(cfg.Verbose, k8s.WithDescriberTransport(t)),
@@ -173,22 +176,30 @@ func newKnativeDeployer(verbose bool) fn.Deployer {
 	return knative.NewDeployer(options...)
 }
 
+// newK8sDeployer builds the raw deployer.
+//
+// The Exposer is attached unconditionally, not only when the deploy asks for a
+// Route. The record saying whether teardown is owed lives on the cluster, so
+// wiring time cannot know.
 func newK8sDeployer(verbose bool) fn.Deployer {
-	options := []k8s.DeployerOpt{
+	return k8s.NewDeployer(
 		k8s.WithDeployerVerbose(verbose),
 		k8s.WithDeployerDecorator(deployDecorator{}),
-	}
-
-	return k8s.NewDeployer(options...)
+		k8s.WithExposer(ocproute.New(deployers.Kubernetes)),
+	)
 }
 
+// newKedaDeployer builds the keda deployer. The Exposer is keda's own, never
+// the embedded raw deployer's, so Routes point at the interceptor rather than
+// bypassing it. Attached unconditionally for the reason in newK8sDeployer,
+// which bites harder here: keda's Route has no owner reference, so a Route
+// nothing goes looking for is a Route nothing ever removes.
 func newKedaDeployer(verbose bool) fn.Deployer {
-	options := []keda.DeployerOpt{
+	return keda.NewDeployer(
 		keda.WithDeployerVerbose(verbose),
 		keda.WithDeployerDecorator(deployDecorator{}),
-	}
-
-	return keda.NewDeployer(options...)
+		keda.WithExposer(ocproute.New(deployers.Keda)),
+	)
 }
 
 type deployDecorator struct {

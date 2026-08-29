@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -1353,7 +1355,7 @@ func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 func TestDeploy_NamespaceChangePreservesExternalRegistry(t *testing.T) {
 	root := FromTempDirectory(t)
 
-	cleanup := k8s.SetOpenShiftForTest(true)
+	cleanup := k8s.SetOpenShiftForTest(true, nil)
 	defer cleanup()
 
 	// Create a function deployed to "ns1" with an external registry
@@ -1388,7 +1390,7 @@ func TestDeploy_NamespaceChangePreservesExternalRegistry(t *testing.T) {
 func TestDeploy_NamespaceChangeUpdatesInternalRegistry(t *testing.T) {
 	root := FromTempDirectory(t)
 
-	cleanup := k8s.SetOpenShiftForTest(true)
+	cleanup := k8s.SetOpenShiftForTest(true, nil)
 	defer cleanup()
 
 	// Create a function deployed to "ns1" using the internal registry
@@ -2673,26 +2675,27 @@ func TestDeploy_DeployerGlobalConfig(t *testing.T) {
 	}
 }
 
-// TestDeploy_DeployerSwitch pins the CLI-only part of the switch guard.
+// TestDeploy_DeployerSwitch pins two things no lower-level test reaches: that a
+// blocked switch surfaces its error through the whole CLI path, and the CLI's
+// own resolution of a deployer ValidateSwitch would call unknown.
 func TestDeploy_DeployerSwitch(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
-		deployedDep string // Deploy.Deployer already deployed ("" = legacy)
-		requested   string // --deployer flag value
+		deployedDep string // Deploy.Deployer already deployed ("" = unrecorded)
+		requested   string // --deployer flag value ("" = flag omitted)
 		wantBlocked bool
 	}{
-		// A blocked and an allowed switch, proving the guard is reached and its
-		// error surfaced through the full CLI path (flag -> config -> client).
-		{"keda2raw blocked", keda.KedaDeployerName, k8s.KubernetesDeployerName, true},
-		{"raw2keda safe switch", k8s.KubernetesDeployerName, keda.KedaDeployerName, false},
-		// Legacy (deployed before the deployer was persisted, so empty): the CLI
-		// treats it as knative, so an explicit knative is allowed but any other
-		// deployer is blocked. This normalization is the CLI-only bit here.
-		{"legacy empty is treated as knative", "", deployers.Knative, false},
-		{"legacy empty to raw is blocked", "", k8s.KubernetesDeployerName, true},
-		// A function deployed by an older binary has its deployer only in state,
-		// not intent. A flag-less redeploy must reuse it.
-		{"legacy keda reused on flag-less redeploy", keda.KedaDeployerName, "", false},
+		// the policy is pinned in pkg/deployers. We test that the guard is
+		// reached at all through flag -> config -> client, and that its error
+		// reaches the user.
+		{"cross-deployer switch is blocked", keda.KedaDeployerName, k8s.KubernetesDeployerName, true},
+		// ValidateSwitch treats an empty deployer as "not known" and allows it.
+		// The CLI never lets one through: a deployed function without a recorded
+		// deployer is resolved to knative, and an omitted flag is resolved to
+		// whatever is already deployed.
+		{"unrecorded deployer is treated as knative", "", deployers.Knative, false},
+		{"unrecorded deployer to raw is blocked", "", k8s.KubernetesDeployerName, true},
+		{"omitted flag reuses the deployed one", keda.KedaDeployerName, "", false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			root := FromTempDirectory(t)
@@ -2736,5 +2739,337 @@ func TestDeploy_DeployerSwitch(t *testing.T) {
 				t.Fatal("expected the deployer to run when the switch is allowed")
 			}
 		})
+	}
+}
+
+// TestDeploy_ExposeEmptyVsUnset: an explicitly empty --expose=""
+// clears the persisted deploy.expose key reverting to the default at deploy
+// time, while a deploy without the flag leaves the persisted value untouched.
+func TestDeploy_ExposeEmptyVsUnset(t *testing.T) {
+	// newFn initializes a Go function in a temp directory and returns its root.
+	newFn := func(t *testing.T) string {
+		t.Helper()
+		root := FromTempDirectory(t)
+		if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+			t.Fatal(err)
+		}
+		return root
+	}
+
+	// deploy runs `func deploy` with args against mock builder/deployer,
+	// failing the test on error and returning the command's combined output.
+	deploy := func(t *testing.T, args ...string) string {
+		t.Helper()
+		cmd := NewDeployCmd(NewTestClient(
+			fn.WithBuilder(mock.NewBuilder()),
+			fn.WithDeployer(mock.NewDeployer()),
+			fn.WithRegistry(TestRegistry),
+		))
+		cmd.SetArgs(args)
+		var out strings.Builder
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		if err := cmd.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		return out.String()
+	}
+
+	// loadFn re-reads the function from disk.
+	loadFn := func(t *testing.T, root string) fn.Function {
+		t.Helper()
+		f, err := fn.NewFunction(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+
+	t.Run(`--expose="" clears a previously-persisted "none" intent`, func(t *testing.T) {
+		root := newFn(t)
+
+		deploy(t, "--deployer", "raw", "--expose", "none")
+		if f := loadFn(t, root); f.Expose != "none" {
+			t.Fatalf("setup: expected intent expose 'none' to be persisted, got %q", f.Expose)
+		}
+
+		deploy(t, "--deployer", "raw", "--expose=")
+		// unmarshalled yaml would not be able to distinguish between the value
+		// being empty and gone (not in the file)
+		raw, err := os.ReadFile(filepath.Join(root, "func.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(raw), "expose") {
+			t.Errorf("expected NO expose key in func.yaml, got:\n%s", raw)
+		}
+	})
+
+	t.Run("plain deploy without the flag leaves intent and status empty", func(t *testing.T) {
+		root := newFn(t)
+		deploy(t, "--deployer", "raw")
+		f := loadFn(t, root)
+		if f.Expose != "" {
+			t.Errorf("expected intent expose empty, got %q", f.Expose)
+		}
+		if f.Deploy.Expose != "" {
+			t.Errorf("expected status expose empty, got %q", f.Deploy.Expose)
+		}
+	})
+
+	t.Run("persisted none intent + no flag round-trips", func(t *testing.T) {
+		root := newFn(t)
+
+		deploy(t, "--deployer", "raw", "--expose", "none")
+		if f := loadFn(t, root); f.Expose != "none" {
+			t.Fatalf("expected intent expose 'none', got %q", f.Expose)
+		}
+		// status is observed applied mode; "none"/empty both mean cluster-local
+		if f := loadFn(t, root); f.Deploy.Expose != "" {
+			t.Fatalf("expected status expose empty for cluster-local, got %q", f.Deploy.Expose)
+		}
+
+		// redeploy without the flag should keep intent via flag default
+		deploy(t, "--deployer", "raw")
+		if f := loadFn(t, root); f.Expose != "none" {
+			t.Errorf("expected intent 'none' to round-trip, got %q", f.Expose)
+		}
+	})
+}
+
+// TestDeploy_ExposeInvalidValueError: a malformed --expose value fails the
+// deploy (any deployer) with the CLI's typed ErrInvalidExpose.
+func TestDeploy_ExposeInvalidValueError(t *testing.T) {
+	root := FromTempDirectory(t)
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--expose", "bogus"})
+	var want *ErrInvalidExpose
+	if err := cmd.Execute(); !errors.As(err, &want) {
+		t.Errorf("expected ErrInvalidExpose, got %v", err)
+	}
+}
+
+// TestDeploy_ExposeRoutePersists ensures "route" round-trips as intent
+// (Function.Expose) and observed status (Deploy.Expose) end-to-end.
+func TestDeploy_ExposeRoutePersists(t *testing.T) {
+	root := FromTempDirectory(t)
+	// CLI gates route on OpenShift; tests run without a cluster.
+	cleanup := k8s.SetOpenShiftForTest(true, nil)
+	defer cleanup()
+
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--deployer", "raw", "--expose=route"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Expose != "route" {
+		t.Fatalf("expected intent expose 'route', got %q", f.Expose)
+	}
+	if f.Deploy.Expose != "route" {
+		t.Fatalf("expected status expose 'route', got %q", f.Deploy.Expose)
+	}
+}
+
+// TestDeploy_ExposeIgnoredByDeployerNote: a deployer that ignores a set
+// deploy.expose warns and proceeds
+func TestDeploy_ExposeIgnoredByDeployerNote(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		wantWarning string // distinguishing substring of the warning; "" means silent
+	}{
+		{
+			name: "raw+route: silent",
+			args: []string{"--deployer", "raw", "--expose", "route"},
+		},
+		{
+			name: "knative+empty: silent",
+			args: []string{"--deployer", "knative"},
+		},
+		{
+			name:        "knative+route: warns, proceeds",
+			args:        []string{"--deployer", "knative", "--expose", "route"},
+			wantWarning: `expose "route" is ignored - only the raw and keda deployers support external exposure via this field.`,
+		},
+		{
+			name:        "knative+none: warns, proceeds",
+			args:        []string{"--deployer", "knative", "--expose", "none"},
+			wantWarning: `expose "none" is ignored - only the raw and keda deployers support external exposure via this field.`,
+		},
+		{
+			name: "keda+route: silent, keda supports expose too",
+			args: []string{"--deployer", "keda", "--expose", "route"},
+		},
+		{
+			name: "keda+none: silent, keda supports expose too",
+			args: []string{"--deployer", "keda", "--expose", "none"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			// route cases need OpenShift gate open; none/empty do not care.
+			cleanup := k8s.SetOpenShiftForTest(true, nil)
+			defer cleanup()
+			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+				t.Fatal(err)
+			}
+
+			builder := mock.NewBuilder()
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithBuilder(builder),
+				fn.WithDeployer(mock.NewDeployer()),
+				fn.WithRegistry(TestRegistry),
+			))
+			cmd.SetArgs(tt.args)
+			var stderr strings.Builder
+			cmd.SetOut(&stderr)
+			cmd.SetErr(&stderr)
+			err := cmd.Execute()
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !builder.BuildInvoked {
+				t.Error("expected the deploy to proceed to build")
+			}
+
+			if tt.wantWarning == "" {
+				if strings.Contains(stderr.String(), "expose") && strings.Contains(stderr.String(), "ignored") {
+					t.Errorf("expected no warning on stderr, got:\n%s", stderr.String())
+				}
+				return
+			}
+			if !strings.Contains(stderr.String(), tt.wantWarning) {
+				t.Errorf("expected stderr to contain:\n%s\ngot:\n%s", tt.wantWarning, stderr.String())
+			}
+		})
+	}
+}
+
+// TestDeploy_RemoteExposeRecordsObservation: after a remote deploy the
+// recorded exposure is what the pipeline's describer observed on the cluster,
+// not just passed along from f.Expose. A pipeline whose func-util predates
+// expose leaves no record, and that mismatch is warned about rather than
+// papered over with a record of a Route that does not exist.
+func TestDeploy_RemoteExposeRecordsObservation(t *testing.T) {
+	tests := []struct {
+		name string
+		// observed is what the pipeline run leaves in Deploy.Expose, standing
+		// in for what the on-cluster deployer recorded on the Service.
+		observed    string
+		wantRecord  string
+		wantWarning bool
+	}{
+		{name: "pipeline honoured the intent", observed: fn.ExposeRoute, wantRecord: fn.ExposeRoute},
+		{name: "stale func-util ignored the intent", observed: "", wantRecord: "", wantWarning: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			cleanup := k8s.SetOpenShiftForTest(true, nil)
+			defer cleanup()
+
+			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+				t.Fatal(err)
+			}
+
+			pipeliner := mock.NewPipelinesProvider()
+			// Wrap the stock RunFn: run it, then stamp Deploy.Expose with what
+			// the describer would have read off the cluster. base snapshots the
+			// stock func value; stamping after the call mirrors the real provider,
+			// which records exposure only after the pipeline finishes.
+			base := pipeliner.RunFn
+			pipeliner.RunFn = func(f fn.Function) (string, fn.Function, error) {
+				// add exposure tracking to the base RunFn
+				url, f, err := base(f)
+				f.Deploy.Expose = tt.observed
+				return url, f, err
+			}
+
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithPipelinesProvider(pipeliner),
+				fn.WithRegistry(TestRegistry),
+			))
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(&out)
+			cmd.SetArgs([]string{"--remote",
+				"--git-url=https://example.com/user/repo",
+				"--deployer=raw", "--expose=route"})
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+
+			f, err := fn.NewFunction(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if f.Deploy.Expose != tt.wantRecord {
+				t.Errorf("Deploy.Expose = %q, want %q", f.Deploy.Expose, tt.wantRecord)
+			}
+			warned := strings.Contains(out.String(), "applied no external exposure")
+			if warned != tt.wantWarning {
+				t.Errorf("warning present = %v, want %v; output:\n%s", warned, tt.wantWarning, out.String())
+			}
+		})
+	}
+}
+
+// TestDeploy_ExposeRouteUnreachableClusterIsNotAPlatformClaim: when the
+// OpenShift probe gets no answer the deploy is still refused, since a Route
+// on a cluster that may not serve Routes is what the gate prevents. But the
+// error must name the connection as the cause. "Not OpenShift" is a claim
+// about the cluster, and an unanswered probe cannot support it.
+func TestDeploy_ExposeRouteUnreachableClusterIsNotAPlatformClaim(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	cleanup := k8s.SetOpenShiftForTest(false, errors.New("dial tcp 127.0.0.1:6443: connect: connection refused"))
+	defer cleanup()
+
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--deployer", "raw", "--expose=route"})
+	var out strings.Builder
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected the deploy to be refused when the platform could not be determined")
+	}
+	if strings.Contains(err.Error(), "requires an OpenShift cluster: ") {
+		t.Errorf("the refusal asserts the cluster is not OpenShift, which was never established:\n%v", err)
+	}
+	if !strings.Contains(err.Error(), "could not be reached") {
+		t.Errorf("expected the refusal to name the real reason, got:\n%v", err)
 	}
 }

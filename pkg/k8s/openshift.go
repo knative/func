@@ -10,6 +10,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -130,40 +131,60 @@ func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
 
 }
 
-var isOpenShift bool
-var checkOpenShiftOnce sync.Once
+// openShiftRouteGroupVersion is the API group whose presence identifies an
+// OpenShift cluster. Routes are OpenShift-specific, and discovery should answer
+// it even under restrictive RBAC, unlike listing namespaces or services.
+const openShiftRouteGroupVersion = "route.openshift.io/v1"
 
-// SetOpenShiftForTest overrides OpenShift detection for testing.
-// Returns a cleanup function that restores the previous state.
-func SetOpenShiftForTest(val bool) func() {
-	checkOpenShiftOnce.Do(func() {}) // ensure real detection won't run
-	prev := isOpenShift
-	isOpenShift = val
-	return func() { isOpenShift = prev }
-}
+var (
+	detectOnce  sync.Once
+	isOpenShift bool
+	detectErr   error
+)
 
-func IsOpenShift() bool {
-	checkOpenShiftOnce.Do(func() {
-		isOpenShift = false
+// DetectOpenShift reports whether the cluster serves the OpenShift Route API.
+// A non-nil error means the cluster could not be asked and the bool is
+// meaningless. Probes once per process, answers from cache after.
+func DetectOpenShift() (bool, error) {
+	detectOnce.Do(func() {
 		client, err := NewKubernetesClientset()
 		if err != nil {
+			detectErr = err
 			return
 		}
-
-		// Detect OpenShift by checking for OpenShift-specific API groups
-		// This is reliable and works even with restrictive RBAC, unlike checking
-		// for namespaces/services which can produce false positives when forbidden
-		discoveryClient := client.Discovery()
-
-		// Check for route.openshift.io API group (Routes are OpenShift-specific)
-		_, err = discoveryClient.ServerResourcesForGroupVersion("route.openshift.io/v1")
-		if err == nil {
-			// API group exists - this is OpenShift
+		_, err = client.Discovery().ServerResourcesForGroupVersion(openShiftRouteGroupVersion)
+		switch {
+		case err == nil:
 			isOpenShift = true
+		case apierrors.IsNotFound(err):
+			// The cluster answered: it does not serve this API.
+		default:
+			detectErr = err
 		}
-		// If NotFound or any other error, this is most likely not OpenShift
 	})
-	return isOpenShift
+	return isOpenShift, detectErr
+}
+
+// IsOpenShift is a convenient wrapper for getting simple yes/no for openshift
+// cluster. The inner function should run in the cmd layer once to resolve the
+// detectOnce.Do(), any call after is cached so we dont have to call API all the
+// time.
+//
+// note: gauron99: this might change after restructuring to kubeconfig resolution
+// at the start of program instead of adhoc API calls of kube client throughout
+// the codebase
+func IsOpenShift() bool {
+	ok, _ := DetectOpenShift()
+	return ok
+}
+
+// SetOpenShiftForTest seeds the detection cache; err simulates a cluster that
+// could not be asked. Returns a cleanup restoring the previous state.
+func SetOpenShiftForTest(val bool, err error) func() {
+	detectOnce.Do(func() {}) // ensure real detection won't run
+	prevB, prevE := isOpenShift, detectErr
+	isOpenShift, detectErr = val, err
+	return func() { isOpenShift, detectErr = prevB, prevE }
 }
 
 const (

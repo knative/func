@@ -130,6 +130,15 @@
 				"managementDisabled": {
 					"type": "boolean",
 					"description": "ManagementDisabled disables automatic creation/update of a Function CR\nfor operator management after deploy. The zero value (false) means\nthe function is managed by default when the func-operator is installed."
+				},
+				"expose": {
+					"enum": [
+						"route",
+						"none",
+						""
+					],
+					"type": "string",
+					"description": "Expose records the external exposure mode CURRENTLY applied on the\ncluster for raw/keda (observed state). Written after successful deploy,\ncleared on undeploy alongside Namespace and Deployer. Empty means\ncluster-local (or never exposed). User intent lives on Function.Expose."
 				}
 			},
 			"additionalProperties": false,
@@ -210,6 +219,15 @@
 					],
 					"type": "string",
 					"description": "Deployer with which to deploy the Function: the requested (intended)\ndeployer. This is the user's choice and persists across undeploy.\nThe deployer a Function is CURRENTLY deployed with is recorded separately\nin .Deploy.Deployer, which is cleared on undeploy."
+				},
+				"expose": {
+					"enum": [
+						"route",
+						"none",
+						""
+					],
+					"type": "string",
+					"description": "Expose is the requested (intended) external exposure mode for the raw\nand keda deployers (knative manages its own networking and ignores it).\nValues: \"route\" (OpenShift Route; OpenShift only), \"none\" (cluster-local).\nEmpty means cluster-local. Persists across undeploy like Deployer.\nThe mode CURRENTLY applied on the cluster is recorded separately in\n.Deploy.Expose, which is cleared on undeploy."
 				},
 				"created": {
 					"type": "string",

@@ -6,10 +6,39 @@ import (
 	"strings"
 	"testing"
 
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
 	. "knative.dev/func/pkg/testing"
 )
+
+// Test_routeMarker pins the human-facing route labels. Only the raw and keda
+// deployers get markers; their describers list the external route first when
+// one exists. Knative manages its own exposure and gets no label.
+func Test_routeMarker(t *testing.T) {
+	tests := []struct {
+		name     string
+		deployer string
+		expose   string
+		idx      int
+		want     string
+	}{
+		{"knative is never marked", deployers.Knative, "", 0, ""},
+		{"raw exposed: external route first", deployers.Kubernetes, fn.ExposeRoute, 0, " (exposed)"},
+		{"raw exposed: internal route second", deployers.Kubernetes, fn.ExposeRoute, 1, " (cluster-local)"},
+		{"raw cluster-local", deployers.Kubernetes, "", 0, " (cluster-local)"},
+		{"keda exposed: external route first", deployers.Keda, fn.ExposeRoute, 0, " (exposed)"},
+		{"keda cluster-local", deployers.Keda, "", 0, " (cluster-local)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			i := info{Deployer: tt.deployer, Expose: tt.expose}
+			if got := i.routeMarker(tt.idx); got != tt.want {
+				t.Errorf("routeMarker(%d) = %q, want %q", tt.idx, got, tt.want)
+			}
+		})
+	}
+}
 
 // TestDescribe_Default ensures that running describe when there is no
 // function in the given directory fails correctly.

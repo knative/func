@@ -1576,6 +1576,32 @@ func TestClient_Pipelines_Deploy_Namespace(t *testing.T) {
 	}
 }
 
+// TestClient_Deploy_InvalidExposeErrors ensures Deploy rejects an exposure
+// mode this build does not recognize, before any deployer runs. The check
+// lives here rather than per-deployer, so this is the only place that proves
+// every deployer rejects the same set.
+func TestClient_Deploy_InvalidExposeErrors(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
+
+	f, err := client.Init(fn.Function{Runtime: TestRuntime, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Expose = "fake-exposer" // not a mode this build knows
+
+	// The built check fires first and is not what this pins.
+	_, err = client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
+	if err == nil {
+		t.Fatal("expected an unrecognized exposure mode to be refused")
+	}
+	if !errors.Is(err, fn.ErrInvalidExpose) {
+		t.Fatalf("expected ErrInvalidExpose, got %v", err)
+	}
+}
+
 // TestClient_Deploy_UnbuiltErrors ensures that a call to deploy a function
 // which was not fully created (ie. was only initialized, not actually built
 // or deployed) yields the expected error.
@@ -1600,6 +1626,42 @@ func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
 
 	if !errors.Is(err, fn.ErrNotBuilt) {
 		t.Fatalf("did not receive expected error type.  Expected ErrNotBuilt, got %T", err)
+	}
+}
+
+// TestClient_Deploy_PrintsResultMessage asserts Deploy prints the deploy
+// status message (namespace + URL) to stderr on success.
+func TestClient_Deploy_PrintsResultMessage(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	f, err := fn.New().Init(fn.Function{Runtime: TestRuntime, Name: "f", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deployer := mock.NewDeployerWithResult(fn.DeploymentResult{
+		Status:    fn.Deployed,
+		Namespace: TestNamespace,
+		URL:       "http://f.example.com",
+	})
+	client := fn.New(fn.WithDeployer(deployer))
+
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	_, err = client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
+
+	w.Close()
+	os.Stderr = old
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var buf [4096]byte
+	n, _ := r.Read(buf[:])
+	if output := string(buf[:n]); !strings.Contains(output, "deployed in namespace") || !strings.Contains(output, "http://f.example.com") {
+		t.Errorf("expected stderr to contain the deploy message and URL, got: %q", output)
 	}
 }
 
@@ -2580,8 +2642,8 @@ func absPath(p string) string {
 // TestClient_Deploy_BlocksDeployerSwitch ensures the deployer-switch guard is
 // enforced by the client itself, so every API consumer is protected, not only
 // the CLI. Redeploying an already-deployed function with a different deployer
-// would strand the previous deployer's resources; raw -> keda is the one safe
-// change because the keda deployer embeds the raw one.
+// would strand the previous deployer's resources, so every change of deployer
+// is refused and the user is told to run func delete first.
 //
 // A blocked switch must also fail BEFORE the deployer runs: the point of the
 // guard is that nothing on the cluster is touched.
@@ -2595,7 +2657,7 @@ func TestClient_Deploy_BlocksDeployerSwitch(t *testing.T) {
 	}{
 		{"keda2raw blocked", deployers.Keda, deployers.Kubernetes, "ns", true},
 		{"knative2keda blocked", deployers.Knative, deployers.Keda, "ns", true},
-		{"raw2keda is safe switch", deployers.Kubernetes, deployers.Keda, "ns", false},
+		{"raw2keda blocked", deployers.Kubernetes, deployers.Keda, "ns", true},
 		{"same deployer is not a switch", deployers.Keda, deployers.Keda, "ns", false},
 
 		{"undeployed is never blocked", "", deployers.Keda, "", false},

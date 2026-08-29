@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -135,6 +136,18 @@ func newDescribeConfig(cmd *cobra.Command, args []string) (cfg describeConfig, e
 
 type info fn.Instance
 
+// routeMarker labels the route at idx " (exposed)" or " (cluster-local)".
+// Raw and keda list the external route first; knative gets no label.
+func (i info) routeMarker(idx int) string {
+	if i.Deployer != deployers.Kubernetes && i.Deployer != deployers.Keda {
+		return ""
+	}
+	if i.Expose == fn.ExposeRoute && idx == 0 {
+		return " (exposed)"
+	}
+	return " (cluster-local)"
+}
+
 func (i info) Human(w io.Writer) error {
 	fmt.Fprintln(w, "Function name:")
 	fmt.Fprintf(w, "  %v\n", i.Name)
@@ -144,8 +157,8 @@ func (i info) Human(w io.Writer) error {
 	fmt.Fprintf(w, "  %v\n", i.Namespace)
 	fmt.Fprintln(w, "Routes:")
 
-	for _, route := range i.Routes {
-		fmt.Fprintf(w, "  %v\n", route)
+	for idx, route := range i.Routes {
+		fmt.Fprintf(w, "  %v%v\n", route, i.routeMarker(idx))
 	}
 
 	fmt.Fprintln(w, "Function is ready:")

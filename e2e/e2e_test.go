@@ -174,6 +174,12 @@ var (
 	// Can be set with FUNC_E2E_NAMESPACE
 	Namespace string
 
+	// namespaceExplicit records whether FUNC_E2E_NAMESPACE was set, as opposed
+	// to Namespace holding its default. setupEnv forces the CLI's namespace
+	// only when it was, so an unset run keeps deploying wherever the
+	// kubeconfig's current context points.
+	namespaceExplicit bool
+
 	// Plugin indicates func is being run as a plugin within Bin, and
 	// the value of this argument is the subcommand.  For example, when
 	// running e2e tests as a plugin to `kn`, Bin will be /path/to/kn and
@@ -337,7 +343,7 @@ func readEnvs() {
 	// Final =          current ENV, deprecated ENV, default
 
 	// BrokerHost - the hostname of the Knative broker ingress
-	BrokerHost = getEnv("FUNC_E2E_BROKER_HOST", "", DefaultBrokerHost)
+	BrokerHost, _ = getEnv("FUNC_E2E_BROKER_HOST", "", DefaultBrokerHost)
 
 	// Clean up deployed functions before starting next test
 	Clean = getEnvBool("FUNC_E2E_CLEAN", "", DefaultClean)
@@ -346,10 +352,10 @@ func readEnvs() {
 	CleanImages = getEnvBool("FUNC_E2E_CLEAN_IMAGES", "", DefaultCleanImages)
 
 	// DockerHost - the DOCKER_HOST to use for container operations (not including podman-specific tests)
-	DockerHost = getEnv("FUNC_E2E_DOCKER_HOST", "", "")
+	DockerHost, _ = getEnv("FUNC_E2E_DOCKER_HOST", "", "")
 
 	// Domain - the DNS domain suffix for function URLs
-	Domain = getEnv("FUNC_E2E_DOMAIN", "", DefaultDomain)
+	Domain, _ = getEnv("FUNC_E2E_DOMAIN", "", DefaultDomain)
 
 	// Gocoverdir - the coverage directory to use while testing the go binary.
 	Gocoverdir = getEnvPath("FUNC_E2E_GOCOVERDIR", "", DefaultGocoverdir)
@@ -373,12 +379,15 @@ func readEnvs() {
 	// Templates
 	MatrixTemplates = getEnvList("FUNC_E2E_MATRIX_TEMPLATES", "", toCSV(MatrixTemplates))
 
-	// Namespace - the Kubernetes namespace where functions will be deployed
-	Namespace = getEnv("FUNC_E2E_NAMESPACE", "", DefaultNamespace)
+	// Namespace - the Kubernetes namespace where functions will be deployed.
+	// namespaceExplicit records whether FUNC_E2E_NAMESPACE was set, as
+	// opposed to Namespace holding its default. Only an explicitly set
+	// namespace is forced on the CLI; see setupEnv.
+	Namespace, namespaceExplicit = getEnv("FUNC_E2E_NAMESPACE", "", DefaultNamespace)
 
 	// Plugin - if set, func is a plugin and Bin is the one plugging. The value
 	// is the name of the subcommand.
-	Plugin = getEnv("FUNC_E2E_PLUGIN", "E2E_USE_KN_FUNC", "")
+	Plugin, _ = getEnv("FUNC_E2E_PLUGIN", "E2E_USE_KN_FUNC", "")
 	// Plugin Backwards compatibility:
 	// If set to "true", the default value is "func" because the deprecated
 	// value was literal string "true".
@@ -395,7 +404,7 @@ func readEnvs() {
 	// PodmanHost - the DOCKER_HOST to use specifically during Podman tests
 	// If FUNC_E2E_PODMAN is enabled but FUNC_E2E_PODMAN_HOST is not set,
 	// try to auto-detect the Podman socket path
-	PodmanHost = getEnv("FUNC_E2E_PODMAN_HOST", "", "")
+	PodmanHost, _ = getEnv("FUNC_E2E_PODMAN_HOST", "", "")
 	if Podman && PodmanHost == "" {
 		PodmanHost = detectPodmanSocket()
 		if PodmanHost != "" {
@@ -405,10 +414,10 @@ func readEnvs() {
 
 	// Registry - the registry URL including any account/repository at that
 	// registry.  Example:  docker.io/alice.  Default is the local registry.
-	Registry = getEnv("FUNC_E2E_REGISTRY", "E2E_REGISTRY_URL", DefaultRegistry)
+	Registry, _ = getEnv("FUNC_E2E_REGISTRY", "E2E_REGISTRY_URL", DefaultRegistry)
 
 	// ClusterRegistry - the cluster-internal registry URL for in-cluster builds
-	ClusterRegistry = getEnv("FUNC_E2E_CLUSTER_REGISTRY", "", DefaultClusterRegistry)
+	ClusterRegistry, _ = getEnv("FUNC_E2E_CLUSTER_REGISTRY", "", DefaultClusterRegistry)
 
 	// Verbose env as a truthy boolean
 	Verbose = getEnvBool("FUNC_E2E_VERBOSE", "", DefaultVerbose)
@@ -494,6 +503,15 @@ func setupEnv(t *testing.T) {
 	// The Registry will be set either during first-time setup using the
 	// global config, or already defaulted by the user via environment variable.
 	os.Setenv("FUNC_REGISTRY", Registry)
+
+	// The CLI reads FUNC_NAMESPACE through viper's "func" env prefix, so this
+	// is what makes FUNC_E2E_NAMESPACE reach the deploy. Set only when
+	// FUNC_E2E_NAMESPACE was set explicitly: without it the CLI falls back
+	// to the kubeconfig's current context, which is the long-standing
+	// behaviour and what CI relies on.
+	if namespaceExplicit {
+		os.Setenv("FUNC_NAMESPACE", Namespace)
+	}
 
 	// When using the default registry (registry.localtest.me), mark it as
 	// insecure since it serves plain HTTP.
@@ -597,6 +615,16 @@ func newCmd(t *testing.T, args ...string) *exec.Cmd {
 	cmd := exec.Command(bin, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	return cmd
+}
+
+// newCmdOutput is newCmd for tests that read the output: CombinedOutput
+// refuses a command whose streams are already set, so leave them unset.
+func newCmdOutput(t *testing.T, args ...string) *exec.Cmd {
+	t.Helper()
+	cmd := newCmd(t, args...)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
 	return cmd
 }
 
@@ -1164,7 +1192,7 @@ func detectPodmanSocket() string {
 // getEnvPath converts the value returned from getEnv to an absolute path.
 // See getEnv docs for details.
 func getEnvPath(env, deprecated, dflt string) (val string) {
-	val = getEnv(env, deprecated, dflt)
+	val, _ = getEnv(env, deprecated, dflt)
 	if !filepath.IsAbs(val) { // convert to abs
 		var err error
 		if val, err = filepath.Abs(val); err != nil {
@@ -1176,13 +1204,15 @@ func getEnvPath(env, deprecated, dflt string) (val string) {
 
 // getEnvPath converts the value returned from getEnv into a string slice.
 func getEnvList(env, deprecated, dflt string) (vals []string) {
-	return fromCSV(getEnv(env, deprecated, dflt))
+	val, _ := getEnv(env, deprecated, dflt)
+	return fromCSV(val)
 }
 
 // getEnvBool converts the value returned from getEnv into a boolean.
 func getEnvBool(env, deprecated string, dfltBool bool) bool {
 	dflt := fmt.Sprintf("%t", dfltBool)
-	val, err := strconv.ParseBool(getEnv(env, deprecated, dflt))
+	raw, _ := getEnv(env, deprecated, dflt)
+	val, err := strconv.ParseBool(raw)
 	if err != nil {
 		panic(fmt.Sprintf("value for %v %v expected to be boolean. %v", env, deprecated, err))
 	}
@@ -1192,17 +1222,19 @@ func getEnvBool(env, deprecated string, dfltBool bool) bool {
 // getEnv gets the value of the given environment variable, or the default.
 // If the optional deprecated environment variable name is passed, it will be used
 // as a fallback with a warning about its deprecation status being printed.
-// The final value will be converted to an absolute path.
-func getEnv(env, deprecated, dflt string) (val string) {
+// set reports whether either variable carried a value, letting a caller
+// distinguish an explicitly set variable from the default filling in.
+func getEnv(env, deprecated, dflt string) (val string, set bool) {
 	// First check deprecated if provided
 	if deprecated != "" {
-		if val = os.Getenv(deprecated); val != "" {
+		if v := os.Getenv(deprecated); v != "" {
 			fmt.Fprintf(os.Stderr, "warning:  the env var %v is deprecated and support will be removed in a future release.   please use %v.", deprecated, env)
+			val, set = v, true
 		}
 	}
 	// Current env takes precedence
 	if v := os.Getenv(env); v != "" {
-		val = v
+		val, set = v, true
 	}
 	// Default
 	if val == "" {

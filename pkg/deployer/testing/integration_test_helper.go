@@ -62,6 +62,10 @@ func TestInt_Deploy(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
+		// Explicit opt-out: keeps this integration deploy cluster-local and
+		// platform-deterministic under exposed-by-default; ignored entirely
+		// by the knative deployer.
+		Expose: fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -165,6 +169,7 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -320,6 +325,7 @@ func TestInt_Events(t *testing.T, deployer fn.Deployer, remover fn.Remover, desc
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -403,6 +409,7 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -518,6 +525,7 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -731,10 +739,11 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		//   * application also prints the same info to stderr on startup
 		Created: now,
 		Deploy: fn.DeploySpec{
-			// TODO: gauron99 - is it okay to have this explicitly set to deploy.image already?
-			// With this I skip the logic of setting the .Deploy.Image field but it should be fine for this test
+			// pinned prebuilt image: these tests exercise deployment, not the
+			// build/image-resolution flow
 			Image:     "quay.io/mvasek/func-test-service@sha256:2eca4de00d7569c8791634bdbb0c4d5ec8fb061b001549314591e839dabd5269",
 			Namespace: namespace,
+			Expose:    "none",
 			Labels:    []fn.Label{{Key: ptr("my-label"), Value: ptr("my-label-value")}},
 			Options: fn.Options{
 				Scale: &fn.ScaleOptions{
@@ -890,6 +899,7 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		t.Error("environment variable was not set from config-map")
 	}
 
+	// Removal by name, as the CLI does with --name: no local record.
 	if err = remover.Remove(ctx, functionName, namespace); err != nil {
 		t.Fatal(err)
 	}
@@ -939,6 +949,7 @@ func TestInt_ResourceValidationOnFirstDeploy(t *testing.T, deployer fn.Deployer,
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1246,6 +1257,7 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 		Runtime:   "go",
 		Namespace: ns,
 		Registry:  Registry(),
+		Expose:    fn.ExposeNone,
 	})
 	if err != nil {
 		t.Fatal(err)

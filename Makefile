@@ -88,20 +88,36 @@ test: generate/zz_filesystem_generated.go ## Run core unit tests
 	go test -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
-check: check-lint check-goimports check-misspell check-whitespace check-eof ## Check code quality (comprehensive)
+check: check-lint check-build-tags check-goimports check-misspell check-whitespace check-eof ## Check code quality (comprehensive)
 
 .PHONY: check-lint
 check-lint: $(BIN_GOLANGCI_LINT) ## Run golangci-lint
 	$(BIN_GOLANGCI_LINT) run --timeout 300s
 
+# cmd/func-util/main.go is behind "exclude_graphdriver_btrfs || !cgo", so the
+# default build context compiles only socat.go and every other check in this
+# file silently skips it: go vet, golangci-lint and go test all read the
+# default context. The sole compile of it anywhere is publish-utils-image in
+# functions.yaml, which needs: build and so runs only on a push to main. A type
+# error there therefore passes every pull-request check and first fails after
+# merge. Vet with the tag so the file is type-checked where the error is cheap.
+.PHONY: check-build-tags
+check-build-tags: ## Type-check sources the default build context excludes
+	@echo "Type-checking build-tagged sources..."
+	go vet -tags exclude_graphdriver_btrfs ./cmd/func-util/
+
 .PHONY: check-goimports
 check-goimports: $(BIN_GOIMPORTS) ## Check Go import formatting
 	@echo "Checking Go import formatting..."
-	@$(LS_SOURCES) | \
+	@offenders=$$($(LS_SOURCES) | \
 		grep '\.go$$' | \
 		while IFS= read -r file; do [ -f "$$file" ] && echo "$$file"; done | \
-		xargs $(BIN_GOIMPORTS) -l | grep . && \
-		(echo "Error: Files with incorrect import formatting found. Run 'goimports -w <file>' to fix."; exit 1) || true
+		xargs $(BIN_GOIMPORTS) -l); \
+	if [ -n "$$offenders" ]; then \
+		echo "$$offenders"; \
+		echo "Error: Files with incorrect import formatting found. Run 'goimports -w <file>' to fix."; \
+		exit 1; \
+	fi
 
 .PHONY: check-misspell
 check-misspell: $(BIN_MISSPELL) ## Check for common misspellings
@@ -324,6 +340,14 @@ test-e2e-matrix: func-instrumented-bin ## Basic E2E tests (includes core, metada
 test-e2e-lifecycle: func-instrumented-bin ## Run lifecycle hook E2E tests (Start, Stop, Ready, Alive)
 	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
 	go test -tags e2e -timeout 60m ./e2e -v -run TestLifecycle_
+	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
+
+.PHONY: test-e2e-expose
+test-e2e-expose: func-instrumented-bin ## Run external exposure E2E tests (--expose)
+	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
+	# Assertions about a Route skip unless the target cluster is OpenShift, and the
+	# assertions that func REFUSES a Route skip unless it is not. See records/test-plan-exposure.md
+	go test -tags e2e -timeout 30m ./e2e -v -run TestExpose_
 	go tool covdata textfmt -i=$${FUNC_E2E_GOCOVERDIR:-.coverage} -o coverage.txt
 
 .PHONY: test-e2e-config-ci

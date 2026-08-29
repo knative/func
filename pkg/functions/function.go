@@ -106,6 +106,14 @@ type Function struct {
 	// in .Deploy.Deployer, which is cleared on undeploy.
 	Deployer string `yaml:"deployer,omitempty" jsonschema:"enum=knative,enum=raw,enum=keda"`
 
+	// Expose is the requested (intended) external exposure mode for the raw
+	// and keda deployers (knative manages its own networking and ignores it).
+	// Values: "route" (OpenShift Route; OpenShift only), "none" (cluster-local).
+	// Empty means cluster-local. Persists across undeploy like Deployer.
+	// The mode CURRENTLY applied on the cluster is recorded separately in
+	// .Deploy.Expose, which is cleared on undeploy.
+	Expose string `yaml:"expose,omitempty" jsonschema:"enum=route,enum=none,enum="`
+
 	// Created time is the moment that creation was successfully completed
 	// according to the client which is in charge of what constitutes being
 	// fully "Created" (aka initialized)
@@ -277,6 +285,12 @@ type DeploySpec struct {
 	// for operator management after deploy. The zero value (false) means
 	// the function is managed by default when the func-operator is installed.
 	ManagementDisabled bool `yaml:"managementDisabled,omitempty"`
+
+	// Expose records the external exposure mode CURRENTLY applied on the
+	// cluster for raw/keda (observed state). Written after successful deploy,
+	// cleared on undeploy alongside Namespace and Deployer. Empty means
+	// cluster-local (or never exposed). User intent lives on Function.Expose.
+	Expose string `yaml:"expose,omitempty" jsonschema:"enum=route,enum=none,enum="`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
@@ -406,6 +420,7 @@ func (f Function) Validate() error {
 		ValidateLabels(f.Deploy.Labels),
 		validateGit(f.Build.Git),
 		validateKafka(f.Run.Kafka, f.Invoke, f.Runtime),
+		validateExpose(f.Deploy.Expose, f.Expose),
 	}
 
 	var b strings.Builder

@@ -11,7 +11,7 @@ import (
 // See openshift.go:SetOpenShiftForTest.
 
 func TestDefaultPodSecurityContext_NonOpenShift(t *testing.T) {
-	cleanup := SetOpenShiftForTest(false)
+	cleanup := SetOpenShiftForTest(false, nil)
 	defer cleanup()
 
 	sc := defaultPodSecurityContext()
@@ -36,7 +36,7 @@ func TestDefaultPodSecurityContext_NonOpenShift(t *testing.T) {
 }
 
 func TestDefaultPodSecurityContext_OpenShift(t *testing.T) {
-	cleanup := SetOpenShiftForTest(true)
+	cleanup := SetOpenShiftForTest(true, nil)
 	defer cleanup()
 
 	sc := defaultPodSecurityContext()
@@ -107,7 +107,7 @@ func TestRestrictedProfileCompliance(t *testing.T) {
 			name = "openshift"
 		}
 		t.Run(name, func(t *testing.T) {
-			cleanup := SetOpenShiftForTest(openshift)
+			cleanup := SetOpenShiftForTest(openshift, nil)
 			defer cleanup()
 
 			pod := defaultPodSecurityContext()
