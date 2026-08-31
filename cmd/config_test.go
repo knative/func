@@ -139,9 +139,10 @@ func TestEnvsAddNameWithoutValue(t *testing.T) {
 func setupConfigLabelsCmd(mock common.FunctionLoaderSaver, args ...string) *cobra.Command {
 	cmd := fnCmd.NewConfigCmd(
 		mock,
-		ci.NewBufferWriter(),
+		github.NewBufferWriter(),
 		common.CurrentBranchStub("", nil),
 		common.WorkDirStub("", nil),
+		fnCmd.NewTestCIGeneratorFactory(&github.WorkflowGeneratorMock{}),
 		fnCmd.NewClient,
 	)
 	cmd.SetArgs(append([]string{"labels"}, args...))
