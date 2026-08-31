@@ -158,6 +158,11 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, configGitSetTool, s.configGitSetHandler)
 	mcp.AddTool(i, configGitRemoveTool, s.configGitRemoveHandler)
 
+	// Prompts
+	// -------
+	// Multi-step, parameterized workflows the client can invoke by name
+	i.AddPrompt(onboardPrompt, s.onboardHandler)
+
 	// Resources
 	// ---------
 	// Current Function state
