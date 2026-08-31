@@ -149,6 +149,9 @@ func updatePOM(path, newVersion, newSpringCloudVersion string) error {
 		return err
 	}
 	updated := parentVersionRe.ReplaceAll(data, []byte("${1}"+newVersion+"${3}"))
+	if !springCloudVersionRe.Match(updated) {
+		return fmt.Errorf("cannot find <%s> in %s", springCloudVersionTag, path)
+	}
 	updated = springCloudVersionRe.ReplaceAll(updated,
 		[]byte(fmt.Sprintf("<%s>%s</%s>", springCloudVersionTag, newSpringCloudVersion, springCloudVersionTag)))
 	return os.WriteFile(path, updated, 0644)
@@ -202,20 +205,20 @@ func resolveSpringCloudVersion(springBootVersion string, mappings []springCloudM
 			// the JS original's slice(1,-1), so that the closing ")" is removed
 			// correctly (strings.Trim would only remove "[" and "]", leaving ")").
 			if len(r) < 2 {
-				continue
+				return "", fmt.Errorf("cannot parse compatibilityRange %q: too short", r)
 			}
 			inner := r[1 : len(r)-1]
 			parts := strings.SplitN(inner, ",", 2)
 			if len(parts) != 2 {
-				continue
+				return "", fmt.Errorf("cannot parse compatibilityRange %q: expected \"[begin,end)\"", r)
 			}
 			begin, err := semver.ParseTolerant(strings.TrimSpace(parts[0]))
 			if err != nil {
-				continue
+				return "", fmt.Errorf("cannot parse begin of compatibilityRange %q: %w", r, err)
 			}
 			end, err := semver.ParseTolerant(strings.TrimSpace(parts[1]))
 			if err != nil {
-				continue
+				return "", fmt.Errorf("cannot parse end of compatibilityRange %q: %w", r, err)
 			}
 			if target.GTE(begin) && target.LT(end) {
 				return m.Version, nil
@@ -224,7 +227,7 @@ func resolveSpringCloudVersion(springBootVersion string, mappings []springCloudM
 			// open-ended lower bound
 			begin, err := semver.ParseTolerant(r)
 			if err != nil {
-				continue
+				return "", fmt.Errorf("cannot parse compatibilityRange %q: %w", r, err)
 			}
 			if target.GTE(begin) {
 				return m.Version, nil

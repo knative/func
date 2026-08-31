@@ -463,8 +463,7 @@ update-springboot-platform: ## Update Spring Boot platform version in templates
 	go run ./hack/cmd/update-springboot-platform
 
 .PHONY: update-ca-bundle
-update-ca-bundle: ## Update CA bundle in templates
-	go run ./hack/cmd/update-ca-bundle
+update-ca-bundle: certs ## Update CA bundle in templates (alias for "certs")
 
 .PHONY: setup-githooks
 setup-githooks:
