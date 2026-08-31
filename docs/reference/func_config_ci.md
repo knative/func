@@ -22,7 +22,7 @@ func config ci
       --registry-user-variable-name string        Use a custom registry user variable name in the workflow, e.g. vars.YOUR_REGISTRY_USER (default "REGISTRY_USERNAME")
       --remote                                    Build the function on a Tekton-enabled cluster
       --self-hosted-runner                        Use a 'self-hosted' runner instead of the default 'ubuntu-latest' for local runner execution
-      --test-step                                 Add a language-specific test step (supported: go, node, python) (default true)
+      --test-step                                 Add a language-specific test step (supported: go, node, typescript, python, quarkus) (default true)
   -v, --verbose                                   Print verbose logs ($FUNC_VERBOSE)
       --workflow-name string                      Use a custom workflow name (default "Func Deploy")
 ```
