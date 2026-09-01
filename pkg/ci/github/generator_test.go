@@ -566,6 +566,7 @@ func defaultOpts() opts {
 		RegistryUserVar:        github.DefaultRegistryUserVariableName,
 		RegistryPassSecret:     github.DefaultRegistryPassSecretName,
 		RegistryUrlVar:         github.DefaultRegistryUrlVariableName,
+		FuncCliVersion:         github.DefaultFuncCliVersion,
 		RegistryLogin:          github.DefaultRegistryLogin,
 		SelfHostedRunner:       github.DefaultSelfHostedRunner,
 		RemoteBuild:            github.DefaultRemoteBuild,
@@ -643,7 +644,7 @@ func assertDefaultWorkflow(t *testing.T, actualGw string) {
 
 	assert.Assert(t, yamlContains(actualGw, "Install func cli"))
 	assert.Assert(t, yamlContains(actualGw, "functions-dev/action@main"))
-	assert.Assert(t, yamlContains(actualGw, "version: knative-v1.22.0"))
+	assert.Assert(t, yamlContains(actualGw, "version: "+github.DefaultFuncCliVersion))
 	assert.Assert(t, yamlContains(actualGw, "name: func"))
 
 	assert.Assert(t, yamlContains(actualGw, "Deploy function"))
@@ -676,7 +677,7 @@ func assertSemiDefaultWorkflow(t *testing.T, actualGw string) {
 
 	assert.Assert(t, yamlContains(actualGw, "Install func cli"))
 	assert.Assert(t, yamlContains(actualGw, "functions-dev/action@main"))
-	assert.Assert(t, yamlContains(actualGw, "version: knative-v1.22.0"))
+	assert.Assert(t, yamlContains(actualGw, "version: "+github.DefaultFuncCliVersion))
 	assert.Assert(t, yamlContains(actualGw, "name: func"))
 
 	assert.Assert(t, yamlContains(actualGw, "Deploy function"))
