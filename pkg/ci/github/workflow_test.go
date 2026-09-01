@@ -18,7 +18,7 @@ func TestGitHubWorkflow_Export(t *testing.T) {
 	// WHEN
 	opts := WorkflowConfig{}
 
-	gw, workflowErr := newGitHubWorkflow(WorkflowConfig{}, "go", &bytes.Buffer{})
+	gw, workflowErr := newGitHubWorkflow(WorkflowConfig{}, "go", "", &bytes.Buffer{})
 	assert.NilError(t, workflowErr, "unexpected error when creating GitHub Workflow")
 
 	exportErr := gw.Export(opts.fnGitHubWorkflowFilepath("path/to/functions"), bufferWriter, true, &bytes.Buffer{})

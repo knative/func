@@ -1,8 +1,28 @@
 package github
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
 
-func determineBuilder(runtime string, remote bool) (string, error) {
+	"knative.dev/func/pkg/builders"
+)
+
+func determineBuilder(runtime, builder string, remote bool) (string, error) {
+	defaultBuilder, err := runtimeDefaultBuilder(runtime, remote)
+	if err != nil {
+		return "", err
+	}
+	if builder == "" {
+		return defaultBuilder, nil
+	}
+	all := builders.All()
+	if !slices.Contains(all, builder) {
+		return "", builders.ErrUnknownBuilder{Name: builder, Known: all}
+	}
+	return builder, nil
+}
+
+func runtimeDefaultBuilder(runtime string, remote bool) (string, error) {
 	switch runtime {
 	case "go":
 		if remote {

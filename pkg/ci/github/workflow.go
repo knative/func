@@ -148,7 +148,7 @@ type step struct {
 	With map[string]string `yaml:"with,omitempty"`
 }
 
-func newGitHubWorkflow(cfg WorkflowConfig, runtime string, messageWriter io.Writer) (*workflow, error) {
+func newGitHubWorkflow(cfg WorkflowConfig, runtime, builder string, messageWriter io.Writer) (*workflow, error) {
 	var steps []step
 	steps = createCheckoutStep(steps)
 	steps = createRuntimeTestStep(cfg, runtime, messageWriter, steps)
@@ -156,7 +156,7 @@ func newGitHubWorkflow(cfg WorkflowConfig, runtime string, messageWriter io.Writ
 	steps = createRegistryLoginStep(cfg, steps)
 	steps = createFuncCLIInstallStep(cfg, steps)
 
-	steps, err := createFuncDeployStep(cfg, runtime, steps)
+	steps, err := createFuncDeployStep(cfg, runtime, builder, steps)
 	if err != nil {
 		return nil, err
 	}
@@ -237,11 +237,11 @@ func createFuncCLIInstallStep(cfg WorkflowConfig, steps []step) []step {
 	return append(steps, *installFuncCli)
 }
 
-func createFuncDeployStep(opts WorkflowConfig, runtime string, steps []step) ([]step, error) {
+func createFuncDeployStep(opts WorkflowConfig, runtime, builder string, steps []step) ([]step, error) {
 	deployFuncStep := newStep("Deploy function").
 		withEnv("FUNC_VERBOSE", "true")
 
-	builder, err := determineBuilder(runtime, opts.RemoteBuild)
+	builder, err := determineBuilder(runtime, builder, opts.RemoteBuild)
 	if err != nil {
 		return nil, err
 	}

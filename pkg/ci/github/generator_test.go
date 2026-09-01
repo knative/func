@@ -518,6 +518,46 @@ func TestCIGenerator_BuilderForRuntime(t *testing.T) {
 	}
 }
 
+func TestCIGenerator_BuilderConfiguredInFuncYaml(t *testing.T) {
+	testCases := []struct {
+		name    string
+		runtime string
+		builder string
+	}{
+		{
+			name:    "node function with s2i builder configured",
+			runtime: "node",
+			builder: "s2i",
+		},
+		{
+			name:    "python function with pack builder configured",
+			runtime: "python",
+			builder: "pack",
+		},
+		{
+			name:    "quarkus function with s2i builder configured",
+			runtime: "quarkus",
+			builder: "s2i",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// GIVEN
+			opts := defaultOpts()
+			opts.goFn.Runtime = tc.runtime
+			opts.goFn.Build.Builder = tc.builder
+
+			// WHEN
+			result := runGenerateWorkflow(t, opts)
+
+			// THEN
+			assert.NilError(t, result.executeErr)
+			assert.Assert(t, strings.Contains(result.gwYamlString, "FUNC_BUILDER: "+tc.builder))
+		})
+	}
+}
+
 func TestCIGenerator_BuilderForRuntimeError(t *testing.T) {
 	// GIVEN
 	opts := defaultOpts()
@@ -528,6 +568,31 @@ func TestCIGenerator_BuilderForRuntimeError(t *testing.T) {
 
 	// THEN
 	assert.Error(t, result.executeErr, "no builder support for runtime: zig")
+}
+
+func TestCIGenerator_UnsupportedRuntimeErrorsEvenWithExplicitBuilder(t *testing.T) {
+	// GIVEN
+	opts := defaultOpts()
+	opts.goFn.Runtime = "zig"
+	opts.goFn.Build.Builder = "pack"
+
+	// WHEN
+	result := runGenerateWorkflow(t, opts)
+
+	// THEN
+	assert.Error(t, result.executeErr, "no builder support for runtime: zig")
+}
+
+func TestCIGenerator_InvalidBuilderErrors(t *testing.T) {
+	// GIVEN
+	opts := defaultOpts()
+	opts.goFn.Build.Builder = "pakc"
+
+	// WHEN
+	result := runGenerateWorkflow(t, opts)
+
+	// THEN
+	assert.Error(t, result.executeErr, `"pakc" is not a known builder. Available builders are "host", "pack" and "s2i"`)
 }
 
 // ---------------------
