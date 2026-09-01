@@ -46,7 +46,8 @@ type WorkflowConfig struct {
 	RegistryUserVar,
 	RegistryPassSecret,
 	RegistryUrlVar,
-	FuncCliVersion string
+	FuncCliVersion,
+	Builder string
 	RegistryLogin,
 	SelfHostedRunner,
 	RemoteBuild,
@@ -241,7 +242,7 @@ func createFuncDeployStep(opts WorkflowConfig, runtime string, steps []step) ([]
 	deployFuncStep := newStep("Deploy function").
 		withEnv("FUNC_VERBOSE", "true")
 
-	builder, err := determineBuilder(runtime, opts.RemoteBuild)
+	builder, err := determineBuilder(runtime, opts.Builder, opts.RemoteBuild)
 	if err != nil {
 		return nil, err
 	}

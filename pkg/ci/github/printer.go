@@ -50,7 +50,7 @@ Create the following Secret on github.com: %s
 )
 
 func PrintConfiguration(cfg WorkflowConfig, runtime string, w io.Writer) error {
-	builder, err := determineBuilder(runtime, cfg.RemoteBuild)
+	builder, err := determineBuilder(runtime, cfg.Builder, cfg.RemoteBuild)
 	if err != nil {
 		return err
 	}
