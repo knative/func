@@ -18,6 +18,7 @@ import (
 	"knative.dev/func/pkg/ci/github"
 	fn "knative.dev/func/pkg/functions"
 	fnTest "knative.dev/func/pkg/testing"
+	"knative.dev/func/pkg/version"
 )
 
 // START: Integration Tests
@@ -77,6 +78,13 @@ func TestNewConfigCICmd_CreatesGitHubWorkflowDirectory(t *testing.T) {
 }
 
 func TestNewConfigCICmd_WritesWorkflowFileToFSWithCorrectYAMLStructure(t *testing.T) {
+	// Pin the CLI version so the generated workflow is deterministic,
+	// independent of the version injected via -ldflags at build time
+	// (which varies with the branch's most recent git tag).
+	prev := version.Kver
+	version.Kver = github.DefaultFuncCliVersion
+	t.Cleanup(func() { version.Kver = prev })
+
 	opts := defaultIntegrationOpts(t, nil)
 
 	err := runConfigCiCmdIntegration(t, opts)
@@ -231,7 +239,7 @@ func assertDefaultWorkflow(t *testing.T, actualGw string) {
 
 	assert.Assert(t, yamlContains(actualGw, "Install func cli"))
 	assert.Assert(t, yamlContains(actualGw, "functions-dev/action@main"))
-	assert.Assert(t, yamlContains(actualGw, "version: knative-v1.22.0"))
+	assert.Assert(t, yamlContains(actualGw, "version: "+github.DefaultFuncCliVersion))
 	assert.Assert(t, yamlContains(actualGw, "name: func"))
 
 	assert.Assert(t, yamlContains(actualGw, "Deploy function"))

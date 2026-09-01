@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 
 	"github.com/ory/viper"
@@ -11,7 +12,12 @@ import (
 	"knative.dev/func/cmd/common"
 	"knative.dev/func/pkg/ci/github"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/version"
 )
+
+// gitDescribeSuffix matches the "-N-gHASH" suffix produced by git describe
+// on commits that are not exactly on a release tag.
+var gitDescribeSuffix = regexp.MustCompile(`-\d+-g[0-9a-f]+$`)
 
 // ciGeneratorFactory creates a CIGenerator from resolved CLI flag values.
 // Using a factory allows tests to capture the resolved config and inject
@@ -250,6 +256,7 @@ func newConfigAndLoadedFunc(
 		RegistryUserVar:        viper.GetString(registryUserVariableNameFlag),
 		RegistryPassSecret:     viper.GetString(registryPassSecretNameFlag),
 		RegistryUrlVar:         viper.GetString(registryUrlVariableNameFlag),
+		FuncCliVersion:         gitDescribeSuffix.ReplaceAllString(version.Kver, ""),
 		RegistryLogin:          viper.GetBool(registryLoginFlag),
 		SelfHostedRunner:       viper.GetBool(selfHostedRunnerFlag),
 		RemoteBuild:            viper.GetBool(remoteBuildFlag),

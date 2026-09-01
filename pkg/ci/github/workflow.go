@@ -14,7 +14,7 @@ import (
 var ErrWorkflowExists = errors.New("existing GitHub workflow detected, overwrite using the --force option")
 
 const (
-	defaultFuncCliVersion               = "knative-v1.22.0"
+	DefaultFuncCliVersion               = "knative-v1.23.0"
 	DefaultPlatform                     = "github"
 	DefaultGitHubWorkflowDir            = ".github/workflows"
 	DefaultGitHubWorkflowFilename       = "func-deploy.yaml"
@@ -45,7 +45,8 @@ type WorkflowConfig struct {
 	RegistryLoginUrlVar,
 	RegistryUserVar,
 	RegistryPassSecret,
-	RegistryUrlVar string
+	RegistryUrlVar,
+	FuncCliVersion string
 	RegistryLogin,
 	SelfHostedRunner,
 	RemoteBuild,
@@ -74,6 +75,7 @@ func defaultWorkflowConfig() WorkflowConfig {
 		RegistryUserVar:        DefaultRegistryUserVariableName,
 		RegistryPassSecret:     DefaultRegistryPassSecretName,
 		RegistryUrlVar:         DefaultRegistryUrlVariableName,
+		FuncCliVersion:         DefaultFuncCliVersion,
 		RegistryLogin:          DefaultRegistryLogin,
 		SelfHostedRunner:       DefaultSelfHostedRunner,
 		RemoteBuild:            DefaultRemoteBuild,
@@ -110,6 +112,9 @@ func setEmptyFieldsToDefaults(defaults WorkflowConfig) WorkflowConfig {
 	}
 	if defaults.RegistryUrlVar == "" {
 		defaults.RegistryUrlVar = DefaultRegistryUrlVariableName
+	}
+	if defaults.FuncCliVersion == "" {
+		defaults.FuncCliVersion = DefaultFuncCliVersion
 	}
 
 	return defaults
@@ -149,7 +154,7 @@ func newGitHubWorkflow(cfg WorkflowConfig, runtime string, messageWriter io.Writ
 	steps = createRuntimeTestStep(cfg, runtime, messageWriter, steps)
 	steps = createK8ContextStep(cfg, steps)
 	steps = createRegistryLoginStep(cfg, steps)
-	steps = createFuncCLIInstallStep(steps)
+	steps = createFuncCLIInstallStep(cfg, steps)
 
 	steps, err := createFuncDeployStep(cfg, runtime, steps)
 	if err != nil {
@@ -223,10 +228,10 @@ func createRegistryLoginStep(opts WorkflowConfig, steps []step) []step {
 	return append(steps, *loginToContainerRegistry)
 }
 
-func createFuncCLIInstallStep(steps []step) []step {
+func createFuncCLIInstallStep(cfg WorkflowConfig, steps []step) []step {
 	installFuncCli := newStep("Install func cli").
 		withUses("functions-dev/action@main").
-		withActionConfig("version", defaultFuncCliVersion).
+		withActionConfig("version", cfg.FuncCliVersion).
 		withActionConfig("name", "func")
 
 	return append(steps, *installFuncCli)
