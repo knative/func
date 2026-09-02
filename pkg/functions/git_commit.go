@@ -1,6 +1,8 @@
 package functions
 
 import (
+	"context"
+
 	"github.com/go-git/go-git/v5"
 )
 
@@ -38,4 +40,19 @@ func GitCommit(dir string) (string, error) {
 	}
 
 	return sha, nil
+}
+
+// GitRemoteCommit returns the short commit SHA that g.Revision of the
+// repository at g.URL currently resolves to, without a local checkout. It is
+// the remote counterpart of GitCommit, so a build from a git repository can
+// be labelled with the commit that is actually built.
+func GitRemoteCommit(ctx context.Context, g Git) (string, error) {
+	src, err := resolveGitSource(ctx, g)
+	if err != nil {
+		return "", err
+	}
+	if src.hash.IsZero() {
+		return "", nil
+	}
+	return src.hash.String()[:7], nil
 }

@@ -374,24 +374,10 @@ func NewFunction(root string) (f Function, err error) {
 	if err != nil {
 		return
 	}
-	var functionMarshallingError error
-	var functionMigrationError error
-	if marshallingErr := yaml.Unmarshal(bb, &f); marshallingErr != nil {
-		functionMarshallingError = formatUnmarshalError(marshallingErr) // human-friendly unmarshalling errors
+	if f, err = parseFunction(bb); err != nil {
+		return
 	}
-	if f, err = f.Migrate(); err != nil {
-		functionMigrationError = err
-	}
-	// Only if migration fail return errors to the user. include marshalling error if present
-	if functionMigrationError != nil {
-		//returning both  migrations and marshalling errors to the user
-		errorText := "Error: \n"
-		if functionMarshallingError != nil {
-			errorText += "Marshalling: " + functionMarshallingError.Error()
-		}
-		errorText += "\n" + "Migration: " + functionMigrationError.Error()
-		return Function{}, errors.New(errorText)
-	}
+	f.Root = root
 
 	f.Local, err = f.newLocal()
 	if err != nil {
@@ -402,6 +388,33 @@ func NewFunction(root string) (f Function, err error) {
 	f.Build.Image, err = f.getLastBuiltImage()
 
 	return
+}
+
+// parseFunction unmarshals a serialized function (the content of a func.yaml)
+// and migrates it to the current spec version. The result has no Root: where
+// the bytes came from is the caller's concern.
+//
+// Unmarshalling errors are reported only when the migration also fails. A
+// function whose migration succeeds is accepted even if some of its fields
+// did not unmarshal cleanly.
+func parseFunction(bb []byte) (f Function, err error) {
+	f.Build.BuilderImages = make(map[string]string)
+	f.Deploy.Annotations = make(map[string]string)
+
+	var marshallingErr error
+	if err = yaml.Unmarshal(bb, &f); err != nil {
+		marshallingErr = formatUnmarshalError(err) // human-friendly unmarshalling errors
+	}
+	if f, err = f.migrate(bb); err != nil {
+		// Return both the migration and any marshalling error to the user
+		errorText := "Error: \n"
+		if marshallingErr != nil {
+			errorText += "Marshalling: " + marshallingErr.Error()
+		}
+		errorText += "\n" + "Migration: " + err.Error()
+		return Function{}, errors.New(errorText)
+	}
+	return f, nil
 }
 
 // Validate function is logically correct, returning a bundled, and quite
@@ -680,7 +693,8 @@ func (f Function) HasScaffolding() bool {
 // https://github.com/knative/func/pull/3436) and can interfere with other
 // builders (mostly just pack).
 func WarnIfLegacyS2IScaffolding(f Function, w io.Writer) {
-	if !f.HasScaffolding() {
+	// A function without a Root has no working tree to inspect.
+	if !f.HasScaffolding() || f.Root == "" {
 		return
 	}
 	legacyAssemble := filepath.Join(f.Root, ".s2i", "bin", "assemble")
