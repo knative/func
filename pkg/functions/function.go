@@ -418,12 +418,10 @@ func parseFunction(bb []byte) (f Function, err error) {
 }
 
 // Validate function is logically correct, returning a bundled, and quite
-// verbose, formatted error detailing any issues.
+// verbose, formatted error detailing any issues. Where the function lives is
+// not part of its correctness: a function read from a git repository has no
+// Root, which Write requires.
 func (f Function) Validate() error {
-	if f.Root == "" {
-		return errors.New("function root path is required")
-	}
-
 	var ctr int
 	errs := [][]string{
 		validateVolumes(f.Run.Volumes),
@@ -546,6 +544,9 @@ func (f Function) MarshalFuncYaml() ([]byte, error) {
 
 // Write Function struct (metadata) to Disk at f.Root
 func (f Function) Write() (err error) {
+	if f.Root == "" {
+		return ErrRootRequired
+	}
 	// Skip writing (and dirtying the work tree) if there were no modifications.
 	f1, _ := NewFunction(f.Root)
 	if reflect.DeepEqual(f, f1) {

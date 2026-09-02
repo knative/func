@@ -148,7 +148,7 @@ func newConfigGitSetConfig(_ *cobra.Command) (c configGitSetConfig) {
 
 func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 	var err error
-	if c.buildConfig, err = c.buildConfig.Prompt(); err != nil {
+	if c.buildConfig, err = c.buildConfig.Prompt(f); err != nil {
 		return c, err
 	}
 
