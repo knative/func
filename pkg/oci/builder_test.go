@@ -326,6 +326,91 @@ type fileInfo struct {
 	Linkname   string
 }
 
+// TestNewDataTarball_NormalizesModes ensures that the shared data layer
+// (function source, static files and the /func directory itself) is written
+// with portable permissions regardless of the on-disk modes.
+//
+// Regression test: the on-disk mode of the project directory and its files is
+// copied verbatim into the image layer. Under a strict umask that yields a
+// non-traversable /func, or files that are not world-readable, the resulting
+// image fails under an arbitrary UID (e.g. OpenShift's restricted SCC) because
+// a non-owner UID cannot traverse /func to reach /func/f (or read the files).
+// Directories and executables must be 0755 and regular files 0644; symlinks are
+// left untouched.
+func TestNewDataTarball_NormalizesModes(t *testing.T) {
+	root := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(root, "func.yaml"), []byte("x\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "run.sh"), []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(root, "sub")
+	if err := os.Mkdir(sub, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "mod.py"), []byte("y\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	// Force a non-traversable project root, i.e. what the failure looks like.
+	if err := os.Chmod(root, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(root, 0o755) //nolint:errcheck // best effort for cleanup
+
+	target := filepath.Join(t.TempDir(), "data.tar.gz")
+	if err := newDataTarball(root, target, nil, false); err != nil {
+		t.Fatal(err)
+	}
+
+	modes := map[string]int64{}
+	f, err := os.Open(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	gr, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gr.Close()
+	tr := tar.NewReader(gr)
+	for {
+		hdr, err := tr.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			t.Fatal(err)
+		}
+		modes[hdr.Name] = hdr.Mode & int64(fs.ModePerm)
+	}
+
+	assertMode := func(name string, want int64) {
+		t.Helper()
+		got, ok := modes[name]
+		if !ok {
+			t.Fatalf("entry %q not found in tarball; entries: %v", name, modes)
+		}
+		if got != want {
+			t.Errorf("entry %q has mode %#o, want %#o", name, got, want)
+		}
+	}
+
+	assertMode("/func", 0o755)     // the project root must be traversable
+	assertMode("/func/sub", 0o755) // subdirs too
+	assertMode("/func/func.yaml", 0o644)
+	assertMode("/func/sub/mod.py", 0o644)
+	if runtime.GOOS != "windows" {
+		// Windows has no executable bit, so os.Stat never reports one and the
+		// file is normalized as a regular file.
+		assertMode("/func/run.sh", 0o755) // executables keep the execute bit
+	} else {
+		assertMode("/func/run.sh", 0o644)
+	}
+}
+
 // TestBuilder_StaticEnvs ensures that certain "static" environment variables
 // comprising Function metadata are added to the config.
 func TestBuilder_StaticEnvs(t *testing.T) {
