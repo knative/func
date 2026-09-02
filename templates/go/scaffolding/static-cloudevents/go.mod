@@ -6,7 +6,7 @@ go 1.25.0
 
 require (
 	function v0.0.0-00010101000000-000000000000
-	knative.dev/func-go v0.22.0
+	knative.dev/func-go v0.23.0
 )
 
 require (
@@ -24,7 +24,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
-	github.com/mattn/go-isatty v0.0.23 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pierrec/lz4/v4 v4.1.27 // indirect
