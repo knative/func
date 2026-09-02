@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -15,6 +16,11 @@ import (
 // returns its path and the full hash of that commit.
 func newGitRepo(t *testing.T) (dir, commit string) {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		// The fixture is served over file://, which go-git only supports
+		// through the git binary and not from a Windows path.
+		t.Skip("file:// repositories are not supported on Windows")
+	}
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("No 'git' found in path. Skipping test.")
 	}
