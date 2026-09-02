@@ -5,7 +5,6 @@ package e2e
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -42,21 +41,15 @@ func TestRemote_Deploy(t *testing.T) {
 }
 
 // TestRemote_Source ensures a remote build can be triggered which pulls
-// source from a remote repository.
+// source from a remote repository, with no local copy of the function.
 //
 //	func deploy --remote --git-url={url} --registry={} --builder=pack
 func TestRemote_Source(t *testing.T) {
 	name := "func-e2e-test-remote-source"
 	_ = fromCleanEnv(t, name)
 
-	// This command currently requires the function source also be available
-	// locally in order to use its name.
-	cmd := exec.Command("git", "clone", "https://github.com/functions-dev/func-e2e-tests", ".")
-	if err := cmd.Run(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Trigger the deploy
+	// Trigger the deploy from an empty directory: the function is read from
+	// the repository.
 	if err := newCmd(t, "deploy", "--remote",
 		"--git-url", "https://github.com/functions-dev/func-e2e-tests",
 		"--registry", Registry,
@@ -77,27 +70,11 @@ func TestRemote_Source(t *testing.T) {
 
 // TestRemote_Ref ensures a remote build can be triggered which pulls
 // source from a specific reference (branch/tag) of a remote repository.
+// The function's metadata (name, runtime, etc) is read from that reference,
+// so no local checkout is involved.
 func TestRemote_Ref(t *testing.T) {
 	name := "func-e2e-test-remote-ref"
 	_ = fromCleanEnv(t, name)
-
-	// This command currently requires the function source also be available
-	// locally in order to use its name.
-	cmd := exec.Command("git", "clone", "https://github.com/functions-dev/func-e2e-tests", ".")
-	if err := cmd.Run(); err != nil {
-		t.Fatal(err)
-	}
-
-	// IMPORTANT: The local func.yaml must match the one in the target branch.
-	// This is a current limitation where remote builds still require local
-	// source to determine function metadata (name, runtime, etc).
-	// TODO: Remove this checkout once the implementation supports fetching
-	// function metadata from the remote repository.
-	// https://github.com/knative/func/issues/3203
-	cmd = exec.Command("git", "checkout", name)
-	if err := cmd.Run(); err != nil {
-		t.Fatal(err)
-	}
 
 	// Trigger the deploy
 	if err := newCmd(t, "deploy", "--remote",
@@ -120,31 +97,13 @@ func TestRemote_Ref(t *testing.T) {
 }
 
 // TestRemote_Dir ensures that remote builds can be instructed to build and
-// deploy a function located in a subdirectory.
+// deploy a function located in a subdirectory of the repository. The
+// function's metadata is read from that subdirectory.
 //
-//	func deploy --remote --git-dir={subdir}
 //	func deploy --remote --git-dir={subdir} --git-url={url}
 func TestRemote_Dir(t *testing.T) {
 	name := "func-e2e-test-remote-dir"
 	_ = fromCleanEnv(t, name)
-
-	// This command currently requires the function source also be available
-	// locally in order to use its name.
-	cmd := exec.Command("git", "clone", "https://github.com/functions-dev/func-e2e-tests", ".")
-	if err := cmd.Run(); err != nil {
-		t.Fatal(err)
-	}
-
-	// IMPORTANT: When using --git-dir, we need to change to that directory locally
-	// to ensure the local func.yaml matches the one that will be used in the remote build.
-	// This is a current limitation where remote builds still require local source to
-	// determine function metadata (name, runtime, etc).
-	// TODO: Remove this cd once the implementation supports fetching function metadata
-	// from the remote repository subdirectory.
-	// https://github.com/knative/func/issues/3203
-	if err := os.Chdir(name); err != nil {
-		t.Fatalf("failed to change to subdirectory %s: %v", name, err)
-	}
 
 	// Trigger the deploy
 	if err := newCmd(t, "deploy", "--remote",
