@@ -34,7 +34,7 @@ NAME
 
 SYNOPSIS
 	{{rootCmdUse}} deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
-	             [-e|--env] [-g|--git-url] [-t|--git-branch] [-d|--git-dir]
+	             [-e|--env] [-s|--source] [-t|--revision] [-d|--source-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
 	             [--service-account] [-c|--confirm] [-v|--verbose]
@@ -79,8 +79,8 @@ DESCRIPTION
 	  invoked in the remote.  Deploying with '{{rootCmdUse}} deploy --remote' will
 	  send the function's source code to be built and deployed by the cluster,
 	  eliminating the need for a local container engine.  To trigger deployment
-	  of a git repository instead of local source, combine with '--git-url':
-	  '{{rootCmdUse}} deploy --remote --git-url=git.example.com/alice/f.git'
+	  of a git repository instead of local source, combine with '--source':
+	  '{{rootCmdUse}} deploy --remote --source=git.example.com/alice/f.git'
 
 	Domain
 	  When deploying, a function's route is automatically generated using the
@@ -120,7 +120,7 @@ EXAMPLES
 
 	o Trigger a remote deploy, which instructs the cluster to build and deploy
 	  the function in the specified git repository.
-	  $ {{rootCmdUse}} deploy --remote --git-url=https://example.com/alice/myfunc.git
+	  $ {{rootCmdUse}} deploy --remote --source=https://example.com/alice/myfunc.git
 
 	o Deploy the function, rebuilding the image even if no changes have been
 	  detected in the local filesystem (source).
@@ -138,8 +138,8 @@ EXAMPLES
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
-			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
-			"git-url", "image", "image-pull-secret", "management-disabled",
+			"base-image", "confirm", "domain", "env", "revision", "source-dir",
+			"source", "image", "image-pull-secret", "management-disabled",
 			"namespace", "path", "platform", "push", "pvc-size", "service-account",
 			"deployer", "expose", "registry", "registry-insecure", "registry-authfile",
 			"remote", "username", "password", "token", "verbose", "remote-storage-class"),
@@ -191,12 +191,12 @@ EXAMPLES
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().String("domain", f.Domain,
 		"Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)")
-	cmd.Flags().StringP("git-url", "g", f.Build.Git.URL,
-		"Repository url containing the function to build ($FUNC_GIT_URL)")
-	cmd.Flags().StringP("git-branch", "t", f.Build.Git.Revision,
-		"Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)")
-	cmd.Flags().StringP("git-dir", "d", f.Build.Git.ContextDir,
-		"Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)")
+	cmd.Flags().StringP("source", "s", f.Build.Source.URL,
+		"Repository to build the function from on the cluster, instead of the local directory ($FUNC_SOURCE)")
+	cmd.Flags().StringP("revision", "t", f.Build.Source.Revision,
+		"Revision of --source to build: a branch, a tag or a commit (default is the repository's default branch) ($FUNC_REVISION)")
+	cmd.Flags().StringP("source-dir", "d", f.Build.Source.Dir,
+		"Directory within --source containing the function (default is the root) ($FUNC_SOURCE_DIR)")
 	cmd.Flags().BoolP("remote", "R", f.Local.Remote,
 		"Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)")
 	cmd.Flags().StringP("remote-storage-class", "", f.Build.RemoteStorageClass,
@@ -275,7 +275,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Check if function exists BEFORE prompting for config
 	if !f.Initialized() {
-		if !cfg.Remote || f.Build.Git.URL == "" {
+		if !cfg.Remote || f.Build.Source.URL == "" {
 			// Only error if this is not a fully remote build
 			return NewErrNotInitializedFromPath(f.Root, "deploy")
 		} else {
@@ -564,14 +564,14 @@ type deployConfig struct {
 	// the FWDN.  Example `func delete www.example.com`
 	Domain string
 
-	// Git branch for remote builds
-	GitBranch string
+	// Revision of Source to build for remote builds
+	Revision string
 
-	// Directory in the git repo where the function is located
-	GitDir string
+	// Directory within Source where the function is located
+	SourceDir string
 
-	// Git repo url for remote builds
-	GitURL string
+	// Source repository for remote builds
+	Source string
 
 	// Namespace override for the deployed function.  If provided, the
 	// underlying platform will be instructed to deploy the function to the given
@@ -622,9 +622,9 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		Build:              viper.GetString("build"),
 		Env:                viper.GetStringSlice("env"),
 		Domain:             viper.GetString("domain"),
-		GitBranch:          viper.GetString("git-branch"),
-		GitDir:             viper.GetString("git-dir"),
-		GitURL:             viper.GetString("git-url"),
+		Revision:           viper.GetString("revision"),
+		SourceDir:          viper.GetString("source-dir"),
+		Source:             viper.GetString("source"),
 		Namespace:          viper.GetString("namespace"),
 		Remote:             viper.GetBool("remote"),
 		RemoteStorageClass: viper.GetString("remote-storage-class"),
@@ -664,9 +664,9 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	// Configure basic members
 	f.Domain = c.Domain
 	f.Namespace = c.Namespace
-	f.Build.Git.URL = c.GitURL
-	f.Build.Git.ContextDir = c.GitDir
-	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
+	f.Build.Source.URL = c.Source
+	f.Build.Source.Dir = c.SourceDir
+	f.Build.Source.Revision = c.Revision
 	f.Build.RemoteStorageClass = c.RemoteStorageClass
 	f.Deploy.ServiceAccountName = c.ServiceAccountName
 	f.Deploy.ImagePullSecret = c.ImagePullSecret
@@ -696,9 +696,9 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	// TODO: the system should support specifying revision (refSpec) as a URL
 	// fragment (<url>[#<refspec>]) throughout, which, when implemented, removes
 	// the need for the below split into separate members:
-	if parts := strings.SplitN(c.GitURL, "#", 2); len(parts) == 2 {
-		f.Build.Git.URL = parts[0]
-		f.Build.Git.Revision = parts[1]
+	if parts := strings.SplitN(c.Source, "#", 2); len(parts) == 2 {
+		f.Build.Source.URL = parts[0]
+		f.Build.Source.Revision = parts[1]
 	}
 	return f, nil
 }
@@ -753,10 +753,10 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 	if c.Remote {
 		qs = []*survey.Question{
 			{
-				Name: "GitURL",
+				Name: "Source",
 				Prompt: &survey.Input{
-					Message: "URL to Git Repository for the remote to use (default is to send local source code)",
-					Default: c.GitURL,
+					Message: "Repository to build from on the cluster (default is to send the local source code)",
+					Default: c.Source,
 				},
 			},
 		}
@@ -765,8 +765,8 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 		}
 	}
 
-	// TODO: prompt for optional additional git settings here:
-	// if c.GitURL != "" {
+	// TODO: prompt for optional additional source settings here:
+	// if c.Source != "" {
 	// }
 
 	return c, err
@@ -831,14 +831,14 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Git references can only be supplied explicitly when coupled with --remote
 	// See `printDeployMessages` which issues informative messages to the user
 	// regarding this potentially confusing nuance.
-	if !c.Remote && (cmd.Flags().Changed("git-url") || cmd.Flags().Changed("git-dir") || cmd.Flags().Changed("git-branch")) {
-		return errors.New("git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)")
+	if !c.Remote && (cmd.Flags().Changed("source") || cmd.Flags().Changed("source-dir") || cmd.Flags().Changed("revision")) {
+		return errors.New("source settings (--source, --revision and --source-dir) are only applicable when triggering remote deployments (--remote)")
 	}
 
-	// Git URL can contain at maximum one '#'
-	urlParts := strings.Split(c.GitURL, "#")
+	// Source can contain at maximum one '#'
+	urlParts := strings.Split(c.Source, "#")
 	if len(urlParts) > 2 {
-		return fmt.Errorf("invalid --git-url '%v'", c.GitURL)
+		return fmt.Errorf("invalid --source '%v'", c.Source)
 	}
 
 	// NOTE: There is no explicit check for --registry or --image here, because
@@ -922,29 +922,27 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	// present.
 	//
 	// However, when building _locally_ thereafter, the deploy command should
-	// prefer the local source code, ignoring the values for --git-url etc.
+	// prefer the local source code, ignoring the values for --source etc.
 	// Since this might be confusing, a warning is issued below that the local
 	// function source does include a reference to a git repository, but that it
 	// will be ignored in favor of the local source code since --remote was not
 	// specified.
-
-	// TODO update names of these to Source--Revision--Dir
-	if !f.Local.Remote && (f.Build.Git.URL != "" || f.Build.Git.Revision != "" || f.Build.Git.ContextDir != "") {
-		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
+	if !f.Local.Remote && (f.Build.Source.URL != "" || f.Build.Source.Revision != "" || f.Build.Source.Dir != "") {
+		fmt.Fprintf(out, "Warning: source settings are only applicable when running with --remote.  Local source code will be used.")
 	}
 
 	// Git Branch Mismatch
 	// -------------------
-	// When doing a remote build with --git-branch, warn if the local branch
+	// When doing a remote build with --revision, warn if the local branch
 	// doesn't match, as this can lead to confusion about which func.yaml is used.
-	if f.Local.Remote && f.Build.Git.URL != "" && f.Build.Git.Revision != "" {
+	if f.Local.Remote && f.Build.Source.URL != "" && f.Build.Source.Revision != "" {
 		// Doing a remote build, specified a git repository to pull from, and
 		// specified a reference within that remote.
 		currentBranch, err := common.DefaultCurrentBranch(f.Root)
 		if err != nil {
 			fmt.Fprintf(out, "Warning: unable to verify local and remote references match. %v\n", err)
-		} else if currentBranch != f.Build.Git.Revision {
-			fmt.Fprintf(out, "Warning: Local git branch '%s' does not match --git-branch '%s'. The local func.yaml will be used for function metadata (name, runtime, etc). Ensure your local branch matches the remote branch to avoid deployment issues.\n", currentBranch, f.Build.Git.Revision)
+		} else if currentBranch != f.Build.Source.Revision {
+			fmt.Fprintf(out, "Warning: Local git branch '%s' does not match --revision '%s'. The local func.yaml will be used for function metadata (name, runtime, etc). Ensure your local branch matches the remote branch to avoid deployment issues.\n", currentBranch, f.Build.Source.Revision)
 		}
 	}
 }

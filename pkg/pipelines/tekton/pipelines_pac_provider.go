@@ -258,14 +258,14 @@ func (pp *PipelinesProvider) createRemotePACResources(ctx context.Context, f fn.
 		}
 	}
 
-	if err := git.CreateWebHook(ctx, f.Build.Git.URL, controllerURL, metadata.WebhookSecret, metadata.PersonalAccessToken); err != nil {
+	if err := git.CreateWebHook(ctx, f.Build.Source.URL, controllerURL, metadata.WebhookSecret, metadata.PersonalAccessToken); err != nil {
 		// Error: POST https://api.github.com/repos/foobar/test-function/hooks: 422 Validation Failed [{Resource:Hook Field: Code:custom Message:Hook already exists on this repository}]
 		if !strings.Contains(err.Error(), "Hook already exists") {
 			return err
 		}
-		fmt.Printf(" ✅ Webhook already exists on repository %v\n", f.Build.Git.URL)
+		fmt.Printf(" ✅ Webhook already exists on repository %v\n", f.Build.Source.URL)
 	} else {
-		fmt.Printf(" ✅ Webhook is created on repository %v\n", f.Build.Git.URL)
+		fmt.Printf(" ✅ Webhook is created on repository %v\n", f.Build.Source.URL)
 	}
 
 	return nil

@@ -35,15 +35,18 @@ build:
     s2i: example.com/user/my-s2i-node-builder
 ```
 
-### `git`
+### `source`
 
-If using a `git` build strategy, this field is used to specify the git URL as well
-as an optional context directory. For example:
+The repository a function is built from on the cluster, when it is not the
+local directory: the `--source`, `--revision` and `--source-dir` of
+`func deploy --remote`. The revision is a branch, a tag or a commit; the dir
+is the directory within the repository holding the function. For example:
 
 ```
-git:
-  url: github.com/boson-project/example
-  contextDir: subdirectory
+source:
+  url: https://github.com/boson-project/example
+  revision: main
+  dir: subdirectory
 ```
 
 ### `buildEnvs`

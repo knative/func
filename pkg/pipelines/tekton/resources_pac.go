@@ -55,7 +55,7 @@ func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace str
 			Annotations: f.Deploy.Annotations,
 		},
 		Spec: v1alpha1.RepositorySpec{
-			URL: f.Build.Git.URL,
+			URL: f.Build.Source.URL,
 			GitProvider: &v1alpha1.GitProvider{
 				Type: metadata.GitProvider,
 				Secret: &v1alpha1.Secret{

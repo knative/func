@@ -2,6 +2,7 @@ package functions
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -146,7 +147,7 @@ func TestMigrateToSpecVersion(t *testing.T) {
 func TestMigrateToSpecs(t *testing.T) {
 
 	root := "testdata/migrations/v0.34.0"
-	expectedGit := Git{URL: "http://test-url", Revision: "test revision", ContextDir: "/test/context/dir"}
+	expectedGit := Source{URL: "http://test-url", Revision: "test revision", Dir: "/test/context/dir"}
 	expectedNamespace := "test-namespace"
 	var expectedEnvs []Env
 	var expectedVolumes []Volume
@@ -157,8 +158,8 @@ func TestMigrateToSpecs(t *testing.T) {
 		t.Fatal(f)
 	}
 
-	if f.Build.Git != expectedGit {
-		t.Fatalf("migrated Function expected Git '%v', got '%v'", expectedGit, f.Build.Git)
+	if f.Build.Source != expectedGit {
+		t.Fatalf("migrated Function expected Source '%v', got '%v'", expectedGit, f.Build.Source)
 	}
 
 	if f.Deploy.Namespace != expectedNamespace {
@@ -315,4 +316,38 @@ func writeFunc(f Function, root string) error {
 		return err
 	}
 	return os.WriteFile(root+"/func.yaml", bb, 0644)
+}
+
+// TestMigrateGitToSource ensures the former build.git keys (url, revision,
+// contextDir) are carried over into build.source (url, revision, dir), and
+// written back under the new keys.
+func TestMigrateGitToSource(t *testing.T) {
+	f, err := NewFunction("testdata/migrations/v0.37.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Source{URL: "https://example.com/alice/testfunc.git", Revision: "feature", Dir: "functions/testfunc"}
+	if f.Build.Source != want {
+		t.Fatalf("migrated Function expected source %+v, got %+v", want, f.Build.Source)
+	}
+	if f.SpecVersion != LastSpecVersion() {
+		t.Errorf("expected specVersion %q, got %q", LastSpecVersion(), f.SpecVersion)
+	}
+
+	f.Root = t.TempDir()
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	bb, err := os.ReadFile(filepath.Join(f.Root, FunctionFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"source:", "url: https://example.com/alice/testfunc.git", "revision: feature", "dir: functions/testfunc"} {
+		if !strings.Contains(string(bb), want) {
+			t.Errorf("expected %q in the written func.yaml, got:\n%s", want, bb)
+		}
+	}
+	if strings.Contains(string(bb), "git:") || strings.Contains(string(bb), "contextDir:") {
+		t.Errorf("expected no build.git keys in the written func.yaml, got:\n%s", bb)
+	}
 }

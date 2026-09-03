@@ -186,7 +186,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, err
 	}
 
-	if f.Build.Git.URL == "" {
+	if f.Build.Source.URL == "" {
 		// Use direct upload to PVC if Git is not set up.
 
 		// The uploaded func.yaml is synthesized from this in-memory f (see

@@ -54,7 +54,7 @@ func getBuilderImage(f fn.Function) (name string) {
 
 func getPipelineName(f fn.Function) string {
 	var source string
-	if f.Build.Git.URL == "" {
+	if f.Build.Source.URL == "" {
 		source = "upload"
 	} else {
 		source = "git"

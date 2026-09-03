@@ -143,14 +143,14 @@ func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
 // createPipelineRunTemplatePAC creates a PipelineRun template used for PAC on-cluster build
 // it creates the resource in the project directory
 func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error {
-	contextDir := f.Build.Git.ContextDir
+	contextDir := f.Build.Source.Dir
 	if contextDir == "" && f.Build.Builder == builders.S2I {
 		// TODO(lkingland): could instead update S2I to interpret empty string
 		// as cwd, such that builder-specific code can be kept out of here.
 		contextDir = "."
 	}
 
-	pipelinesTargetBranch := f.Build.Git.Revision
+	pipelinesTargetBranch := f.Build.Source.Revision
 	if pipelinesTargetBranch == "" {
 		pipelinesTargetBranch = defaultPipelinesTargetBranch
 	}
@@ -350,14 +350,14 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 // createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build
 // all resources are created on the fly, if there's a PipelineRun defined in the project directory, it is used instead
 func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string) error {
-	contextDir := f.Build.Git.ContextDir
+	contextDir := f.Build.Source.Dir
 	if contextDir == "" && f.Build.Builder == builders.S2I {
 		// TODO(lkingland): could instead update S2I to interpret empty string
 		// as cwd, such that builder-specific code can be kept out of here.
 		contextDir = "."
 	}
 
-	pipelinesTargetBranch := f.Build.Git.Revision
+	pipelinesTargetBranch := f.Build.Source.Revision
 	if pipelinesTargetBranch == "" {
 		pipelinesTargetBranch = defaultPipelinesTargetBranch
 	}
@@ -410,7 +410,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		TlsVerify:          tlsVerify,
 		Commit:             commit,
 
-		RepoUrl:  f.Build.Git.URL,
+		RepoUrl:  f.Build.Source.URL,
 		Revision: pipelinesTargetBranch,
 	}
 
