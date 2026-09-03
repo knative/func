@@ -184,6 +184,18 @@ func newPythonLibTarball(job buildJob, root, target string) error {
 		header.Name = slashpath.Join("/func/", filepath.ToSlash(relPath))
 		header.Uid = DefaultUid
 		header.Gid = DefaultGid
+		// Normalize permissions so the image works on platforms that run
+		// containers with an arbitrary UID (e.g. OpenShift's restricted SCC).
+		// The on-disk mode is not portable: e.g. the build directory is created
+		// with 0774 which, under the default umask 022, becomes 0754 - stripping
+		// the traverse bit for group/other and making /func/.func/build/... only
+		// accessible to UID DefaultUid. Directories and executables get 0755,
+		// regular files 0644, so any UID (in group 0 or otherwise) can read them.
+		if info.IsDir() || info.Mode()&0o111 != 0 {
+			header.Mode = (header.Mode & ^int64(fs.ModePerm)) | 0o755
+		} else {
+			header.Mode = (header.Mode & ^int64(fs.ModePerm)) | 0o644
+		}
 		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
