@@ -769,6 +769,44 @@ func TestValidateKafka(t *testing.T) {
 			wantSubst: "invalid reference format",
 		},
 		{
+			name: "SASL protocol without sasl block",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.sasl is required",
+		},
+		{
+			name: "SASL with empty user",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "", Password: "p"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.sasl.user is required",
+		},
+		{
+			name: "SASL with empty password",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: ""},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.sasl.password is required",
+		},
+		{
 			name: "valid secret ref in SASL password",
 			kafka: &fn.KafkaConfig{
 				Brokers:          "broker:9093",

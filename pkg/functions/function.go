@@ -248,6 +248,10 @@ func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string)
 		}
 	}
 
+	if (kafka.SecurityProtocol == "SASL_PLAINTEXT" || kafka.SecurityProtocol == "SASL_SSL") && kafka.SASL == nil {
+		errors = append(errors, "run.kafka.sasl is required when securityProtocol is SASL_PLAINTEXT or SASL_SSL")
+	}
+
 	if kafka.SASL != nil {
 		if kafka.SecurityProtocol != "SASL_PLAINTEXT" && kafka.SecurityProtocol != "SASL_SSL" {
 			errors = append(errors, "run.kafka.sasl requires securityProtocol SASL_PLAINTEXT or SASL_SSL")
@@ -255,6 +259,12 @@ func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string)
 		validMechanisms := map[string]bool{"": true, "PLAIN": true, "SCRAM-SHA-256": true, "SCRAM-SHA-512": true}
 		if !validMechanisms[kafka.SASL.Mechanism] {
 			errors = append(errors, "run.kafka.sasl.mechanism must be one of: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512")
+		}
+		if kafka.SASL.User == "" {
+			errors = append(errors, "run.kafka.sasl.user is required")
+		}
+		if kafka.SASL.Password == "" {
+			errors = append(errors, "run.kafka.sasl.password is required")
 		}
 		errors = append(errors, validateTemplateRef("run.kafka.sasl.user", kafka.SASL.User)...)
 		errors = append(errors, validateTemplateRef("run.kafka.sasl.password", kafka.SASL.Password)...)
