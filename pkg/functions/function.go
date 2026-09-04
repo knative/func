@@ -507,11 +507,11 @@ func (f Function) Validate() error {
 }
 
 func validateScaleDeployer(scale *ScaleOptions, deployer string, kafka *KafkaConfig) (errors []string) {
+	if deployer == "keda" && (scale == nil || scale.KEDA == nil || len(scale.KEDA.Triggers) == 0) {
+		errors = append(errors, "deployer keda requires at least one trigger in scale.keda.triggers")
+	}
 	if scale == nil {
 		return
-	}
-	if deployer == "keda" && (scale.KEDA == nil || len(scale.KEDA.Triggers) == 0) {
-		errors = append(errors, "deployer keda requires at least one trigger in scale.keda.triggers")
 	}
 	if scale.KEDA != nil && deployer != "keda" {
 		errors = append(errors, "options field \"scale.keda\" requires deployer: keda")
