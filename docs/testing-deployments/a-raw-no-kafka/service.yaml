@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    function.knative.dev/deployer: raw
+  creationTimestamp: "2026-09-03T11:50:09Z"
+  labels:
+    boson.dev/function: "true"
+    function.knative.dev/name: test-raw-no-kafka
+    function.knative.dev/runtime: go
+  name: test-raw-no-kafka
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    controller: true
+    kind: Deployment
+    name: test-raw-no-kafka
+    uid: 19429fe7-f249-403e-ba0f-a8876f804a35
+  resourceVersion: "540"
+  uid: a8f0754a-1783-4668-904a-32d3b5e4f87b
+spec:
+  clusterIP: 10.96.182.163
+  clusterIPs:
+  - 10.96.182.163
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    boson.dev/function: "true"
+    function.knative.dev/name: test-raw-no-kafka
+    function.knative.dev/runtime: go
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

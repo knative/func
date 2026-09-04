@@ -1,0 +1,27 @@
+# $schema: https://raw.githubusercontent.com/knative/func/main/schema/func_yaml-schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/knative/func/main/schema/func_yaml-schema.json
+specVersion: 0.37.0
+name: test-migration
+runtime: go
+registry: docker.io/aliok
+namespace: default
+deployer: knative
+created: 2026-09-04T10:29:25.601427+03:00
+invoke: cloudevent
+build:
+  builder: pack
+deploy:
+  namespace: default
+  image: index.docker.io/aliok/test-migration@sha256:bcce986a9e2df7088268ef444ce64cf34d5b98b9d31cb68ed68bbedd7fb5120c
+  options:
+    scale:
+      min: 1
+      max: 5
+      metric: concurrency
+      target: 200
+      utilization: 80
+      kpa:
+        metric: concurrency
+        target: 200
+        utilization: 80
+  deployer: knative

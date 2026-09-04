@@ -99,8 +99,14 @@ func (k *kedaDeployerDecorator) UpdateLabels(function fn.Function, labels map[st
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
-	if err := validateBridgeName(f.Name); err != nil {
-		return fn.DeploymentResult{}, err
+	triggers := triggers(f)
+	wantHTTP := hasHTTPTrigger(triggers)
+	wantKafka := hasKafkaTrigger(triggers)
+
+	if wantHTTP {
+		if err := validateBridgeName(f.Name); err != nil {
+			return fn.DeploymentResult{}, err
+		}
 	}
 
 	k8sClientset, err := k8s.NewKubernetesClientset()
@@ -112,12 +118,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
-	// Resolved once per deploy and threaded down
-	interceptorNS, exposeRefusal := interceptorNamespace(ctx, k8sClientset)
-
-	// DNS label checks before we create anything on cluster
-	if err := d.validateExposure(f, exposeRefusal); err != nil {
-		return fn.DeploymentResult{}, err
+	var interceptorNS string
+	var exposeRefusal error
+	if wantHTTP {
+		interceptorNS, exposeRefusal = interceptorNamespace(ctx, k8sClientset)
+		if err := d.validateExposure(f, exposeRefusal); err != nil {
+			return fn.DeploymentResult{}, err
+		}
 	}
 
 	// execute raw deployment deployer
@@ -126,7 +133,6 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to deploy function via raw deployer: %w", err)
 	}
 
-	// create additional required keda resources
 	namespace := deployResult.Namespace
 
 	deployment, err := k8sClientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
@@ -139,39 +145,67 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to get service %s/%s: %v", namespace, f.Name, err)
 	}
 
-	ref := deployer.NewExposureRef(f.Name, namespace, interceptorNS)
-	if err := ensureInterceptorBridgeService(ctx, k8sClientset, ref, deployment); err != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("failed to ensure proxy service exists: %w", err)
-	}
-
-	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
-	if err != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("failed to generate common labels: %w", err)
-	}
-	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, false, KedaDeployerName)
-
 	minScale, maxScale := replicaBounds(f)
-	target := deployTarget{
-		clientset:   k8sClientset,
-		dynClient:   dynClient,
-		ref:         ref,
-		deployment:  deployment,
-		appService:  appService,
-		labels:      labels,
-		annotations: annotations,
-		minScale:    minScale,
-		maxScale:    maxScale,
-	}
+
+	// HTTP trigger path: bridge Service + HTTPScaledObject
 	var url string
 	appliedExpose := ""
-	if d.exposer != nil && fn.ActiveExpose(f.Expose) {
-		if url, err = d.deployExposed(ctx, target); err != nil {
-			return fn.DeploymentResult{}, err
+	if wantHTTP {
+		ref := deployer.NewExposureRef(f.Name, namespace, interceptorNS)
+		if err := ensureInterceptorBridgeService(ctx, k8sClientset, ref, deployment); err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to ensure proxy service exists: %w", err)
 		}
-		appliedExpose = f.Expose
+
+		labels, err := deployer.GenerateCommonLabels(f, d.decorator)
+		if err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to generate common labels: %w", err)
+		}
+		annotations := deployer.GenerateCommonAnnotations(f, d.decorator, false, KedaDeployerName)
+
+		target := deployTarget{
+			clientset:   k8sClientset,
+			dynClient:   dynClient,
+			ref:         ref,
+			deployment:  deployment,
+			appService:  appService,
+			labels:      labels,
+			annotations: annotations,
+			minScale:    minScale,
+			maxScale:    maxScale,
+		}
+
+		if d.exposer != nil && fn.ActiveExpose(f.Expose) {
+			if url, err = d.deployExposed(ctx, target); err != nil {
+				return fn.DeploymentResult{}, err
+			}
+			appliedExpose = f.Expose
+		} else {
+			if url, err = d.deployClusterLocal(ctx, target); err != nil {
+				return fn.DeploymentResult{}, err
+			}
+		}
 	} else {
-		if url, err = d.deployClusterLocal(ctx, target); err != nil {
-			return fn.DeploymentResult{}, err
+		// No HTTP trigger — URL is the app service
+		url = fmt.Sprintf("http://%s.%s.svc:8080", f.Name, namespace)
+	}
+
+	// Kafka trigger path: TriggerAuthentication + ScaledObject
+	if wantKafka && f.Run.Kafka != nil {
+		if needsTriggerAuth(f.Run.Kafka) {
+			ta := buildTriggerAuth(f, deployment, namespace)
+			if ta != nil {
+				if err := ensureTriggerAuth(ctx, dynClient, ta); err != nil {
+					return fn.DeploymentResult{}, fmt.Errorf("failed to ensure TriggerAuthentication: %w", err)
+				}
+			}
+		}
+
+		kt := kafkaTrigger(triggers)
+		so := buildScaledObject(f, kt, deployment, namespace, minScale, maxScale)
+		if so != nil {
+			if err := ensureScaledObject(ctx, dynClient, so); err != nil {
+				return fn.DeploymentResult{}, fmt.Errorf("failed to ensure ScaledObject: %w", err)
+			}
 		}
 	}
 

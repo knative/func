@@ -126,7 +126,7 @@ func deploy
   -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
       --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
-      --deployer string               Type of deployment to use: 'knative' for Knative Service, 'raw' for Kubernetes Deployment, or 'keda' for Deployment with a KEDA HTTP scaler ($FUNC_DEPLOYER) (default "knative")
+      --deployer string               Type of deployment to use: 'knative' for Knative Service, 'raw' for Kubernetes Deployment, or 'keda' for Deployment scaled by KEDA (HTTP, Kafka, or cron triggers) ($FUNC_DEPLOYER) (default "knative")
       --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
   -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
       --expose string                 External exposure mode: 'route' for an OpenShift Route (OpenShift clusters only), 'none' for cluster-local. Default: no exposure. Raw and keda deployers only. ($FUNC_EXPOSE)

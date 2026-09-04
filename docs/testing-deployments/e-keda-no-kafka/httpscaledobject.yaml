@@ -1,0 +1,52 @@
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  annotations:
+    function.knative.dev/deployer: keda
+  creationTimestamp: "2026-09-03T13:28:17Z"
+  finalizers:
+  - httpscaledobject.http.keda.sh
+  generation: 1
+  labels:
+    boson.dev/function: "true"
+    function.knative.dev/name: test-keda-no-kafka
+    function.knative.dev/runtime: go
+  name: test-keda-no-kafka
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    controller: true
+    kind: Deployment
+    name: test-keda-no-kafka
+    uid: e479851c-a037-4376-b546-99168f2fa679
+  resourceVersion: "1294"
+  uid: b7ad5cf8-20c0-4cd9-86b6-c94b9bce6d18
+spec:
+  hosts:
+  - test-keda-no-kafka-interceptor-bridge.default.svc
+  - test-keda-no-kafka-interceptor-bridge
+  replicas:
+    max: 10
+    min: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test-keda-no-kafka
+    port: 80
+    service: test-keda-no-kafka
+  scaledownPeriod: 300
+  scalingMetric:
+    requestRate:
+      granularity: 1s
+      targetValue: 100
+      window: 1m0s
+status:
+  conditions:
+  - lastTransitionTime: "2026-09-03T13:28:17Z"
+    message: ScaledObject created and configured
+    observedGeneration: 1
+    reason: Reconciled
+    status: "True"
+    type: Ready
+  targetService: test-keda-no-kafka:80
+  targetWorkload: apps/v1/Deployment/test-keda-no-kafka

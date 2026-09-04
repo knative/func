@@ -598,20 +598,36 @@ func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Opti
 			toRemove = append(toRemove, autoscaling.MaxScaleAnnotationKey)
 		}
 
-		if options.Scale.Metric != nil {
-			toUpdate[autoscaling.MetricAnnotationKey] = *options.Scale.Metric
+		// KPA fields: prefer kpa sub-key, fall back to flat fields
+		metric := options.Scale.Metric
+		target := options.Scale.Target
+		utilization := options.Scale.Utilization
+		if options.Scale.KPA != nil {
+			if options.Scale.KPA.Metric != nil {
+				metric = options.Scale.KPA.Metric
+			}
+			if options.Scale.KPA.Target != nil {
+				target = options.Scale.KPA.Target
+			}
+			if options.Scale.KPA.Utilization != nil {
+				utilization = options.Scale.KPA.Utilization
+			}
+		}
+
+		if metric != nil {
+			toUpdate[autoscaling.MetricAnnotationKey] = *metric
 		} else {
 			toRemove = append(toRemove, autoscaling.MetricAnnotationKey)
 		}
 
-		if options.Scale.Target != nil {
-			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%f", *options.Scale.Target)
+		if target != nil {
+			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%f", *target)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetAnnotationKey)
 		}
 
-		if options.Scale.Utilization != nil {
-			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *options.Scale.Utilization)
+		if utilization != nil {
+			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *utilization)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetUtilizationPercentageKey)
 		}

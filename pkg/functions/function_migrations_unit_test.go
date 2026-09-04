@@ -316,3 +316,136 @@ func writeFunc(f Function, root string) error {
 	}
 	return os.WriteFile(root+"/func.yaml", bb, 0644)
 }
+
+func TestMigrateScaleKPA(t *testing.T) {
+	t.Run("flat fields move to kpa", func(t *testing.T) {
+		metric := "concurrency"
+		target := 100.0
+		utilization := 70.0
+		f := Function{
+			SpecVersion: "0.36.0",
+			Deploy: DeploySpec{
+				Options: Options{
+					Scale: &ScaleOptions{
+						Metric:      &metric,
+						Target:      &target,
+						Utilization: &utilization,
+					},
+				},
+			},
+		}
+
+		migrated, err := migrateScaleKPA(f, migration{version: "0.37.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if migrated.SpecVersion != "0.37.0" {
+			t.Errorf("specVersion = %q, want 0.37.0", migrated.SpecVersion)
+		}
+		if migrated.Deploy.Options.Scale.KPA == nil {
+			t.Fatal("expected kpa to be populated")
+		}
+		if *migrated.Deploy.Options.Scale.KPA.Metric != "concurrency" {
+			t.Errorf("kpa.metric = %q, want concurrency", *migrated.Deploy.Options.Scale.KPA.Metric)
+		}
+		if *migrated.Deploy.Options.Scale.KPA.Target != 100.0 {
+			t.Errorf("kpa.target = %f, want 100", *migrated.Deploy.Options.Scale.KPA.Target)
+		}
+		if *migrated.Deploy.Options.Scale.KPA.Utilization != 70.0 {
+			t.Errorf("kpa.utilization = %f, want 70", *migrated.Deploy.Options.Scale.KPA.Utilization)
+		}
+		// Flat fields are preserved for backwards compatibility
+		if migrated.Deploy.Options.Scale.Metric == nil {
+			t.Error("expected flat metric to be preserved")
+		}
+	})
+
+	t.Run("no-op when no scale fields", func(t *testing.T) {
+		f := Function{SpecVersion: "0.36.0"}
+		migrated, err := migrateScaleKPA(f, migration{version: "0.37.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.SpecVersion != "0.37.0" {
+			t.Errorf("specVersion = %q, want 0.37.0", migrated.SpecVersion)
+		}
+	})
+
+	t.Run("no-op when kpa already set", func(t *testing.T) {
+		metric := "rps"
+		f := Function{
+			SpecVersion: "0.36.0",
+			Deploy: DeploySpec{
+				Options: Options{
+					Scale: &ScaleOptions{
+						KPA: &KPAScaleOptions{Metric: &metric},
+					},
+				},
+			},
+		}
+		migrated, err := migrateScaleKPA(f, migration{version: "0.37.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if *migrated.Deploy.Options.Scale.KPA.Metric != "rps" {
+			t.Errorf("kpa.metric = %q, want rps (should not be overwritten)", *migrated.Deploy.Options.Scale.KPA.Metric)
+		}
+	})
+
+	t.Run("keda deployer gets http trigger", func(t *testing.T) {
+		f := Function{
+			SpecVersion: "0.36.0",
+			Deployer:    "keda",
+		}
+		migrated, err := migrateScaleKPA(f, migration{version: "0.37.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Deploy.Options.Scale == nil || migrated.Deploy.Options.Scale.KEDA == nil {
+			t.Fatal("expected scale.keda to be populated")
+		}
+		triggers := migrated.Deploy.Options.Scale.KEDA.Triggers
+		if len(triggers) != 1 || triggers[0].Type != "http" {
+			t.Errorf("expected [{http}], got %v", triggers)
+		}
+	})
+
+	t.Run("keda deployer with existing triggers unchanged", func(t *testing.T) {
+		f := Function{
+			SpecVersion: "0.36.0",
+			Deployer:    "keda",
+			Deploy: DeploySpec{
+				Options: Options{
+					Scale: &ScaleOptions{
+						KEDA: &KEDAScaleOptions{
+							Triggers: []KEDATrigger{{Type: "kafka"}},
+						},
+					},
+				},
+			},
+		}
+		migrated, err := migrateScaleKPA(f, migration{version: "0.37.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		triggers := migrated.Deploy.Options.Scale.KEDA.Triggers
+		if len(triggers) != 1 || triggers[0].Type != "kafka" {
+			t.Errorf("expected [{kafka}], got %v", triggers)
+		}
+	})
+
+	t.Run("non-keda deployer no triggers added", func(t *testing.T) {
+		f := Function{
+			SpecVersion: "0.36.0",
+			Deployer:    "raw",
+		}
+		migrated, err := migrateScaleKPA(f, migration{version: "0.37.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Deploy.Options.Scale != nil {
+			t.Errorf("expected no scale options for raw deployer, got %v", migrated.Deploy.Options.Scale)
+		}
+	})
+}

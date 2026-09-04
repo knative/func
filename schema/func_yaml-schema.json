@@ -290,6 +290,79 @@
 			"type": "object",
 			"description": "HealthEndpoints specify the liveness and readiness endpoints for a Runtime"
 		},
+		"KEDAScaleOptions": {
+			"properties": {
+				"triggers": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/KEDATrigger"
+					},
+					"type": "array"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"KEDATrigger": {
+			"required": [
+				"type"
+			],
+			"properties": {
+				"type": {
+					"enum": [
+						"http",
+						"kafka",
+						"cron"
+					],
+					"type": "string"
+				},
+				"lagThreshold": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"activationLagThreshold": {
+					"type": "integer",
+					"minimum": 0
+				},
+				"timezone": {
+					"type": "string"
+				},
+				"start": {
+					"type": "string"
+				},
+				"end": {
+					"type": "string"
+				},
+				"desiredReplicas": {
+					"type": "integer",
+					"minimum": 1
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"KPAScaleOptions": {
+			"properties": {
+				"metric": {
+					"enum": [
+						"concurrency",
+						"rps"
+					],
+					"type": "string"
+				},
+				"target": {
+					"type": "number",
+					"minimum": 0
+				},
+				"utilization": {
+					"maximum": 100,
+					"minimum": 1,
+					"type": "number"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
 		"KafkaConfig": {
 			"required": [
 				"brokers",
@@ -566,6 +639,14 @@
 					"maximum": 100,
 					"minimum": 1,
 					"type": "number"
+				},
+				"keda": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KEDAScaleOptions"
+				},
+				"kpa": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KPAScaleOptions"
 				}
 			},
 			"additionalProperties": false,

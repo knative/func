@@ -1,0 +1,68 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  creationTimestamp: "2026-09-03T15:05:06Z"
+  finalizers:
+  - finalizer.keda.sh
+  generation: 1
+  labels:
+    scaledobject.keda.sh/name: test-keda-kafka-kafka
+  name: test-keda-kafka-kafka
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Deployment
+    name: test-keda-kafka
+    uid: 12d64f85-4bda-4d4a-8568-f45eb47628db
+  resourceVersion: "13494"
+  uid: e1f5fd03-431f-4f92-9b01-b24a6cb5e927
+spec:
+  cooldownPeriod: 300
+  maxReplicaCount: 10
+  minReplicaCount: 0
+  scaleTargetRef:
+    kind: Deployment
+    name: test-keda-kafka
+  triggers:
+  - authenticationRef:
+      name: test-keda-kafka-kafka-auth
+    metadata:
+      activationLagThreshold: "0"
+      bootstrapServers: my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9093
+      consumerGroup: test-keda-kafka-group
+      lagThreshold: "5"
+      sasl: scram_sha512
+      tls: enable
+      topic: test-topic
+    type: kafka
+status:
+  authenticationsTypes: test-keda-kafka-kafka-auth
+  conditions:
+  - message: ScaledObject is defined correctly and is ready for scaling
+    reason: ScaledObjectReady
+    status: "True"
+    type: Ready
+  - message: Scaling is performed because triggers are active
+    reason: ScalerActive
+    status: "True"
+    type: Active
+  - message: No fallbacks are active on this scaled object
+    reason: NoFallbackFound
+    status: "False"
+    type: Fallback
+  - status: Unknown
+    type: Paused
+  externalMetricNames:
+  - s0-kafka-test-topic
+  hpaName: keda-hpa-test-keda-kafka-kafka
+  lastActiveTime: "2026-09-03T15:13:36Z"
+  originalReplicaCount: 1
+  scaleTargetGVKR:
+    group: apps
+    kind: Deployment
+    resource: deployments
+    version: v1
+  scaleTargetKind: apps/v1.Deployment
+  triggersTypes: kafka

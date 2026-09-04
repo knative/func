@@ -1,0 +1,85 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    function.knative.dev/deployer: knative
+    serving.knative.dev/creator: kubernetes-admin
+    serving.knative.dev/lastModifier: kubernetes-admin
+  creationTimestamp: "2026-09-04T07:31:53Z"
+  generation: 1
+  labels:
+    boson.dev/function: "true"
+    function.knative.dev/name: test-migration
+    function.knative.dev/runtime: go
+  name: test-migration
+  namespace: default
+  resourceVersion: "1684"
+  uid: 37033c72-75d8-4504-92e3-995efd918ace
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/max-scale: "5"
+        autoscaling.knative.dev/metric: concurrency
+        autoscaling.knative.dev/min-scale: "1"
+        autoscaling.knative.dev/target: "200.000000"
+        autoscaling.knative.dev/target-utilization-percentage: "80.000000"
+        function.knative.dev/deployer: knative
+      labels:
+        boson.dev/function: "true"
+        function.knative.dev/name: test-migration
+        function.knative.dev/runtime: go
+    spec:
+      containerConcurrency: 0
+      containers:
+      - env:
+        - name: BUILT
+          value: 20260904T103153
+        - name: ADDRESS
+          value: 0.0.0.0
+        image: index.docker.io/aliok/test-migration@sha256:bcce986a9e2df7088268ef444ce64cf34d5b98b9d31cb68ed68bbedd7fb5120c
+        livenessProbe:
+          httpGet:
+            path: /health/liveness
+            port: 8080
+        name: user-container
+        readinessProbe:
+          httpGet:
+            path: /health/readiness
+            port: 8080
+          successThreshold: 1
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+      enableServiceLinks: false
+      timeoutSeconds: 300
+  traffic:
+  - latestRevision: true
+    percent: 100
+status:
+  address:
+    url: http://test-migration.default.svc.cluster.local
+  conditions:
+  - lastTransitionTime: "2026-09-04T07:32:05Z"
+    status: "True"
+    type: ConfigurationsReady
+  - lastTransitionTime: "2026-09-04T07:32:05Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-09-04T07:32:05Z"
+    status: "True"
+    type: RoutesReady
+  latestCreatedRevisionName: test-migration-00001
+  latestReadyRevisionName: test-migration-00001
+  observedGeneration: 1
+  traffic:
+  - latestRevision: true
+    percent: 100
+    revisionName: test-migration-00001
+  url: http://test-migration.default.svc.cluster.local

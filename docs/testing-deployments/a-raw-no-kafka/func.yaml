@@ -1,0 +1,16 @@
+# $schema: https://raw.githubusercontent.com/knative/func/main/schema/func_yaml-schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/knative/func/main/schema/func_yaml-schema.json
+specVersion: 0.37.0
+name: test-raw-no-kafka
+runtime: go
+registry: docker.io/aliok
+namespace: default
+deployer: raw
+created: 2026-09-03T14:45:21.811082+03:00
+invoke: cloudevent
+build:
+  builder: pack
+deploy:
+  namespace: default
+  image: index.docker.io/aliok/test-raw-no-kafka@sha256:ec7977a4995f8a8335a3aee3cfd2c7fab714dfd14bb275b66fa523dcbbfd9ce6
+  deployer: raw

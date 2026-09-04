@@ -168,7 +168,7 @@ EXAMPLES
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().String("deployer", cfg.Deployer,
-		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service, '%s' for Kubernetes Deployment, or '%s' for Deployment with a KEDA HTTP scaler ($FUNC_DEPLOYER)", deployers.Knative, deployers.Kubernetes, deployers.Keda))
+		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service, '%s' for Kubernetes Deployment, or '%s' for Deployment scaled by KEDA (HTTP, Kafka, or cron triggers) ($FUNC_DEPLOYER)", deployers.Knative, deployers.Kubernetes, deployers.Keda))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)")

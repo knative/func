@@ -1,0 +1,85 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    function.knative.dev/deployer: knative
+    serving.knative.dev/creator: kubernetes-admin
+    serving.knative.dev/lastModifier: kubernetes-admin
+  creationTimestamp: "2026-09-03T12:38:46Z"
+  generation: 1
+  labels:
+    boson.dev/function: "true"
+    function.knative.dev/name: test-knative-no-kafka
+    function.knative.dev/runtime: go
+  name: test-knative-no-kafka
+  namespace: default
+  resourceVersion: "1724"
+  uid: d421a51b-1edc-4007-a131-211bed172476
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/max-scale: "5"
+        autoscaling.knative.dev/metric: concurrency
+        autoscaling.knative.dev/min-scale: "0"
+        autoscaling.knative.dev/target: "100.000000"
+        autoscaling.knative.dev/target-utilization-percentage: "70.000000"
+        function.knative.dev/deployer: knative
+      labels:
+        boson.dev/function: "true"
+        function.knative.dev/name: test-knative-no-kafka
+        function.knative.dev/runtime: go
+    spec:
+      containerConcurrency: 0
+      containers:
+      - env:
+        - name: BUILT
+          value: 20260903T153846
+        - name: ADDRESS
+          value: 0.0.0.0
+        image: index.docker.io/aliok/test-knative-no-kafka@sha256:ec7977a4995f8a8335a3aee3cfd2c7fab714dfd14bb275b66fa523dcbbfd9ce6
+        livenessProbe:
+          httpGet:
+            path: /health/liveness
+            port: 8080
+        name: user-container
+        readinessProbe:
+          httpGet:
+            path: /health/readiness
+            port: 8080
+          successThreshold: 1
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+      enableServiceLinks: false
+      timeoutSeconds: 300
+  traffic:
+  - latestRevision: true
+    percent: 100
+status:
+  address:
+    url: http://test-knative-no-kafka.default.svc.cluster.local
+  conditions:
+  - lastTransitionTime: "2026-09-03T12:38:55Z"
+    status: "True"
+    type: ConfigurationsReady
+  - lastTransitionTime: "2026-09-03T12:38:55Z"
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-09-03T12:38:55Z"
+    status: "True"
+    type: RoutesReady
+  latestCreatedRevisionName: test-knative-no-kafka-00001
+  latestReadyRevisionName: test-knative-no-kafka-00001
+  observedGeneration: 1
+  traffic:
+  - latestRevision: true
+    percent: 100
+    revisionName: test-knative-no-kafka-00001
+  url: http://test-knative-no-kafka.default.svc.cluster.local

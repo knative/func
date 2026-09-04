@@ -479,6 +479,7 @@ func (f Function) Validate() error {
 		ValidateBuildEnvs(f.Build.BuildEnvs),
 		ValidateEnvs(f.Run.Envs),
 		validateOptions(f.Deploy.Options),
+		validateScaleDeployer(f.Deploy.Options.Scale, f.Deployer, f.Run.Kafka),
 		ValidateLabels(f.Deploy.Labels),
 		validateGit(f.Build.Git),
 		validateKafka(f.Run.Kafka, f.Invoke, f.Runtime),
@@ -503,6 +504,29 @@ func (f Function) Validate() error {
 	}
 
 	return errors.New(b.String())
+}
+
+func validateScaleDeployer(scale *ScaleOptions, deployer string, kafka *KafkaConfig) (errors []string) {
+	if scale == nil {
+		return
+	}
+	if deployer == "keda" && (scale.KEDA == nil || len(scale.KEDA.Triggers) == 0) {
+		errors = append(errors, "deployer keda requires at least one trigger in scale.keda.triggers")
+	}
+	if scale.KEDA != nil && deployer != "keda" {
+		errors = append(errors, "options field \"scale.keda\" requires deployer: keda")
+	}
+	if scale.KPA != nil && deployer != "knative" && deployer != "" {
+		errors = append(errors, "options field \"scale.kpa\" requires deployer: knative")
+	}
+	if scale.KEDA != nil {
+		for i, t := range scale.KEDA.Triggers {
+			if t.Type == "kafka" && kafka == nil {
+				errors = append(errors, fmt.Sprintf("options field \"scale.keda.triggers[%d]\" has type kafka but run.kafka is not configured", i))
+			}
+		}
+	}
+	return
 }
 
 var envPattern = regexp.MustCompile(`^{{\s*(\w+)\s*:(\w+)\s*}}$`)
