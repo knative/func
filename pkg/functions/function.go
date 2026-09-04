@@ -263,10 +263,10 @@ func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string)
 	return
 }
 
-var templateRefPattern = regexp.MustCompile(`^\{\{\s*(secret|configMap):[^:]+:[^:]+\s*\}\}$`)
+var TemplateRefPattern = regexp.MustCompile(`^\{\{\s*(secret|configMap):([^:{}\s]+):([^:{}\s]+)\s*\}\}$`)
 
 func validateTemplateRef(field, value string) (errors []string) {
-	if strings.HasPrefix(value, "{{") && !templateRefPattern.MatchString(value) {
+	if strings.HasPrefix(value, "{{") && !TemplateRefPattern.MatchString(value) {
 		errors = append(errors, fmt.Sprintf("%s has invalid reference format, expected {{ secret:name:key }} or {{ configMap:name:key }}", field))
 	}
 	return

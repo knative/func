@@ -644,6 +644,26 @@ func TestAppendKafkaEnvs_MalformedSecretRef(t *testing.T) {
 	}
 }
 
+func TestAppendKafkaEnvs_MalformedSecretRefTrailingBraces(t *testing.T) {
+	kafka := &fn.KafkaConfig{
+		Brokers:          "broker:9093",
+		Topic:            "my-topic",
+		ConsumerGroup:    "my-group",
+		SecurityProtocol: "SASL_SSL",
+		SASL: &fn.KafkaSASL{
+			Mechanism: "PLAIN",
+			User:      "u",
+			Password:  "{{ secret:s:k }}junk}}",
+		},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	_, err := AppendKafkaEnvs(nil, kafka, &secrets, &configMaps)
+	if err == nil {
+		t.Fatal("expected error for malformed secret reference with trailing braces")
+	}
+}
+
 func Test_ProcessVolumes_NilPath(t *testing.T) {
 	secretName := "my-secret"
 	referencedSecrets := sets.New[string]()

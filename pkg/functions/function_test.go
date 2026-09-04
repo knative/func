@@ -756,6 +756,19 @@ func TestValidateKafka(t *testing.T) {
 			wantSubst: "invalid reference format",
 		},
 		{
+			name: "malformed secret ref with trailing braces in SASL password",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: "{{ secret:s:k }}junk}}"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "invalid reference format",
+		},
+		{
 			name: "valid secret ref in SASL password",
 			kafka: &fn.KafkaConfig{
 				Brokers:          "broker:9093",
