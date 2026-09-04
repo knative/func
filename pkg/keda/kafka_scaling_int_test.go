@@ -56,10 +56,10 @@ func TestInt_KafkaScaling(t *testing.T) {
 	}
 
 	caSecretName := name + "-ca"
-	createSecretForTest(t, ctx, cliSet, ns, caSecretName, map[string][]byte{"ca.crt": []byte("dummy-ca-cert")})
+	createSecretForTest(t, ctx, cliSet, ns, caSecretName, map[string][]byte{"ca.crt": []byte("placeholder-ca-cert")})
 
 	userSecretName := name + "-user"
-	createSecretForTest(t, ctx, cliSet, ns, userSecretName, map[string][]byte{"password": []byte("dummy-password")})
+	createSecretForTest(t, ctx, cliSet, ns, userSecretName, map[string][]byte{"password": []byte("placeholder-password")})
 
 	minScale := int64(0)
 	maxScale := int64(10)
@@ -92,7 +92,7 @@ func TestInt_KafkaScaling(t *testing.T) {
 		},
 		Run: fn.RunSpec{
 			Kafka: &fn.KafkaConfig{
-				Brokers:          "dummy-kafka-bootstrap." + ns + ".svc:9093",
+				Brokers:          "placeholder-kafka-bootstrap." + ns + ".svc:9093",
 				Topic:            "test-topic",
 				ConsumerGroup:    name + "-group",
 				SecurityProtocol: "SASL_SSL",
