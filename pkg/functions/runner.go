@@ -314,6 +314,36 @@ func buildRunnerEnv(job *Job, extras map[string]string) ([]string, error) {
 			"KAFKA_TOPIC="+k.Topic,
 			"KAFKA_CONSUMER_GROUP="+k.ConsumerGroup,
 		)
+		if k.SecurityProtocol != "" {
+			env = append(env, "KAFKA_SECURITY_PROTOCOL="+k.SecurityProtocol)
+		}
+		if k.TLS != nil {
+			if k.TLS.CACert != "" {
+				env = append(env, "KAFKA_TLS_CA_CERT="+k.TLS.CACert)
+			}
+			if k.TLS.ClientCert != "" {
+				env = append(env, "KAFKA_TLS_CLIENT_CERT="+k.TLS.ClientCert)
+			}
+			if k.TLS.ClientKey != "" {
+				env = append(env, "KAFKA_TLS_CLIENT_KEY="+k.TLS.ClientKey)
+			}
+			if k.TLS.SkipVerify {
+				env = append(env, "KAFKA_TLS_SKIP_VERIFY=true")
+			} else {
+				env = append(env, "KAFKA_TLS_SKIP_VERIFY=false")
+			}
+		}
+		if k.SASL != nil {
+			if k.SASL.Mechanism != "" {
+				env = append(env, "KAFKA_SASL_MECHANISM="+k.SASL.Mechanism)
+			}
+			if k.SASL.User != "" {
+				env = append(env, "KAFKA_SASL_USER="+k.SASL.User)
+			}
+			if k.SASL.Password != "" {
+				env = append(env, "KAFKA_SASL_PASSWORD="+k.SASL.Password)
+			}
+		}
 	}
 
 	return env, nil

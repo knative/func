@@ -321,7 +321,10 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
-		newEnv = k8s.AppendKafkaEnvs(newEnv, f.Run.Kafka)
+		newEnv, err = k8s.AppendKafkaEnvs(newEnv, f.Run.Kafka, &referencedSecrets, &referencedConfigMaps)
+		if err != nil {
+			return fn.DeploymentResult{}, err
+		}
 
 		newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 		if err != nil {
@@ -435,7 +438,10 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 	if err != nil {
 		return nil, err
 	}
-	container.Env = k8s.AppendKafkaEnvs(newEnv, f.Run.Kafka)
+	container.Env, err = k8s.AppendKafkaEnvs(newEnv, f.Run.Kafka, referencedSecrets, referencedConfigMaps)
+	if err != nil {
+		return nil, err
+	}
 	container.EnvFrom = newEnvFrom
 
 	newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)

@@ -306,6 +306,36 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 			"KAFKA_TOPIC="+k.Topic,
 			"KAFKA_CONSUMER_GROUP="+k.ConsumerGroup,
 		)
+		if k.SecurityProtocol != "" {
+			c.Env = append(c.Env, "KAFKA_SECURITY_PROTOCOL="+k.SecurityProtocol)
+		}
+		if k.TLS != nil {
+			if k.TLS.CACert != "" {
+				c.Env = append(c.Env, "KAFKA_TLS_CA_CERT="+k.TLS.CACert)
+			}
+			if k.TLS.ClientCert != "" {
+				c.Env = append(c.Env, "KAFKA_TLS_CLIENT_CERT="+k.TLS.ClientCert)
+			}
+			if k.TLS.ClientKey != "" {
+				c.Env = append(c.Env, "KAFKA_TLS_CLIENT_KEY="+k.TLS.ClientKey)
+			}
+			if k.TLS.SkipVerify {
+				c.Env = append(c.Env, "KAFKA_TLS_SKIP_VERIFY=true")
+			} else {
+				c.Env = append(c.Env, "KAFKA_TLS_SKIP_VERIFY=false")
+			}
+		}
+		if k.SASL != nil {
+			if k.SASL.Mechanism != "" {
+				c.Env = append(c.Env, "KAFKA_SASL_MECHANISM="+k.SASL.Mechanism)
+			}
+			if k.SASL.User != "" {
+				c.Env = append(c.Env, "KAFKA_SASL_USER="+k.SASL.User)
+			}
+			if k.SASL.Password != "" {
+				c.Env = append(c.Env, "KAFKA_SASL_PASSWORD="+k.SASL.Password)
+			}
+		}
 	}
 
 	return
