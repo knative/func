@@ -598,26 +598,34 @@ func TestAppendKafkaEnvs_SecretRef(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	envByName := make(map[string]corev1.EnvVar, len(got))
 	for _, ev := range got {
-		if ev.Name == "KAFKA_SASL_USER" {
-			if ev.ValueFrom == nil || ev.ValueFrom.SecretKeyRef == nil {
-				t.Fatal("KAFKA_SASL_USER should have ValueFrom with SecretKeyRef")
-			}
-			if ev.ValueFrom.SecretKeyRef.Name != "my-kafka-user" {
-				t.Errorf("secret name = %q, want my-kafka-user", ev.ValueFrom.SecretKeyRef.Name)
-			}
-			if ev.ValueFrom.SecretKeyRef.Key != "username" {
-				t.Errorf("secret key = %q, want username", ev.ValueFrom.SecretKeyRef.Key)
-			}
-		}
-		if ev.Name == "KAFKA_SASL_PASSWORD" {
-			if ev.ValueFrom == nil || ev.ValueFrom.SecretKeyRef == nil {
-				t.Fatal("KAFKA_SASL_PASSWORD should have ValueFrom with SecretKeyRef")
-			}
-			if ev.ValueFrom.SecretKeyRef.Key != "password" {
-				t.Errorf("secret key = %q, want password", ev.ValueFrom.SecretKeyRef.Key)
-			}
-		}
+		envByName[ev.Name] = ev
+	}
+
+	userEnv, ok := envByName["KAFKA_SASL_USER"]
+	if !ok {
+		t.Fatal("KAFKA_SASL_USER not found in env vars")
+	}
+	if userEnv.ValueFrom == nil || userEnv.ValueFrom.SecretKeyRef == nil {
+		t.Fatal("KAFKA_SASL_USER should have ValueFrom with SecretKeyRef")
+	}
+	if userEnv.ValueFrom.SecretKeyRef.Name != "my-kafka-user" {
+		t.Errorf("secret name = %q, want my-kafka-user", userEnv.ValueFrom.SecretKeyRef.Name)
+	}
+	if userEnv.ValueFrom.SecretKeyRef.Key != "username" {
+		t.Errorf("secret key = %q, want username", userEnv.ValueFrom.SecretKeyRef.Key)
+	}
+
+	passEnv, ok := envByName["KAFKA_SASL_PASSWORD"]
+	if !ok {
+		t.Fatal("KAFKA_SASL_PASSWORD not found in env vars")
+	}
+	if passEnv.ValueFrom == nil || passEnv.ValueFrom.SecretKeyRef == nil {
+		t.Fatal("KAFKA_SASL_PASSWORD should have ValueFrom with SecretKeyRef")
+	}
+	if passEnv.ValueFrom.SecretKeyRef.Key != "password" {
+		t.Errorf("secret key = %q, want password", passEnv.ValueFrom.SecretKeyRef.Key)
 	}
 	if !secrets.Has("my-kafka-user") {
 		t.Error("secret my-kafka-user should be tracked in referencedSecrets")
