@@ -121,3 +121,89 @@ func TestBuildRunnerEnv_KafkaIncomplete(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildRunnerEnv_KafkaTLSSASL(t *testing.T) {
+	job := &Job{
+		Function: Function{
+			Root:    t.TempDir(),
+			Runtime: "go",
+			Run: RunSpec{
+				Kafka: &KafkaConfig{
+					Brokers:          "broker:9093",
+					Topic:            "my-topic",
+					ConsumerGroup:    "my-group",
+					SecurityProtocol: "SASL_SSL",
+					TLS: &KafkaTLS{
+						CACert:     "/ca.crt",
+						ClientCert: "/client.crt",
+						ClientKey:  "/client.key",
+						SkipVerify: true,
+					},
+					SASL: &KafkaSASL{
+						Mechanism: "SCRAM-SHA-512",
+						User:      "my-user",
+						Password:  "my-pass",
+					},
+				},
+			},
+		},
+	}
+	env, err := buildRunnerEnv(job, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"KAFKA_SECURITY_PROTOCOL": "SASL_SSL",
+		"KAFKA_TLS_CA_CERT":       "/ca.crt",
+		"KAFKA_TLS_CLIENT_CERT":   "/client.crt",
+		"KAFKA_TLS_CLIENT_KEY":    "/client.key",
+		"KAFKA_TLS_SKIP_VERIFY":   "true",
+		"KAFKA_SASL_MECHANISM":    "SCRAM-SHA-512",
+		"KAFKA_SASL_USER":         "my-user",
+		"KAFKA_SASL_PASSWORD":     "my-pass",
+	}
+	for key, val := range want {
+		found := false
+		for _, e := range env {
+			if e == key+"="+val {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected %s=%s in env, not found", key, val)
+		}
+	}
+}
+
+func TestBuildRunnerEnv_KafkaTLSSkipVerifyFalse(t *testing.T) {
+	job := &Job{
+		Function: Function{
+			Root:    t.TempDir(),
+			Runtime: "go",
+			Run: RunSpec{
+				Kafka: &KafkaConfig{
+					Brokers:          "broker:9093",
+					Topic:            "my-topic",
+					ConsumerGroup:    "my-group",
+					SecurityProtocol: "SSL",
+					TLS:              &KafkaTLS{CACert: "/ca.crt"},
+				},
+			},
+		},
+	}
+	env, err := buildRunnerEnv(job, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, e := range env {
+		if e == "KAFKA_TLS_SKIP_VERIFY=false" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected KAFKA_TLS_SKIP_VERIFY=false when TLS block present with SkipVerify unset")
+	}
+}
