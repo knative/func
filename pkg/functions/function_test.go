@@ -743,6 +743,32 @@ func TestValidateKafka(t *testing.T) {
 			wantSubst: "sasl.mechanism must be one of",
 		},
 		{
+			name: "TLS clientCert without clientKey",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SSL",
+				TLS:              &fn.KafkaTLS{CACert: "/ca.crt", ClientCert: "/client.crt"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "must both be set or both be empty",
+		},
+		{
+			name: "TLS clientKey without clientCert",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SSL",
+				TLS:              &fn.KafkaTLS{CACert: "/ca.crt", ClientKey: "/client.key"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "must both be set or both be empty",
+		},
+		{
 			name: "malformed secret ref in SASL password",
 			kafka: &fn.KafkaConfig{
 				Brokers:          "broker:9093",

@@ -246,6 +246,9 @@ func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string)
 		if kafka.SecurityProtocol != "SSL" && kafka.SecurityProtocol != "SASL_SSL" {
 			errors = append(errors, "run.kafka.tls requires securityProtocol SSL or SASL_SSL")
 		}
+		if (kafka.TLS.ClientCert == "") != (kafka.TLS.ClientKey == "") {
+			errors = append(errors, "run.kafka.tls.clientCert and run.kafka.tls.clientKey must both be set or both be empty")
+		}
 	}
 
 	if (kafka.SecurityProtocol == "SASL_PLAINTEXT" || kafka.SecurityProtocol == "SASL_SSL") && kafka.SASL == nil {
