@@ -1,0 +1,32 @@
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  creationTimestamp: "2026-09-03T15:05:06Z"
+  finalizers:
+  - finalizer.keda.sh
+  generation: 1
+  name: test-keda-kafka-kafka-auth
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Deployment
+    name: test-keda-kafka
+    uid: 12d64f85-4bda-4d4a-8568-f45eb47628db
+  resourceVersion: "11871"
+  uid: 8796adfc-3360-432e-ac05-2df90d480e8b
+spec:
+  env:
+  - containerName: user-container
+    name: KAFKA_SASL_USER
+    parameter: username
+  secretTargetRef:
+  - key: password
+    name: my-kafka-user
+    parameter: password
+  - key: ca.crt
+    name: my-cluster-cluster-ca-cert
+    parameter: ca
+status:
+  scaledobjects: test-keda-kafka-kafka

@@ -35,6 +35,17 @@ build:
     s2i: example.com/user/my-s2i-node-builder
 ```
 
+### `deployer`
+
+The type of deployment to use when deploying the function. Possible values are:
+- `knative` (default): deploys a Knative Service, scaled by Knative's KPA (Knative Pod Autoscaler).
+- `raw`: deploys a plain Kubernetes Deployment with a static replica count.
+- `keda`: deploys a plain Kubernetes Deployment scaled by [KEDA](https://keda.sh), based on triggers such as incoming HTTP traffic or Kafka consumer lag. See [`options.scale.keda`](#options) below.
+
+```yaml
+deployer: keda
+```
+
 ### `git`
 
 If using a `git` build strategy, this field is used to specify the git URL as well
@@ -139,6 +150,18 @@ Options allows you to set specific configuration for the deployed function, allo
   - `metric`: Defines which metric type is watched by the Autoscaler. Could be `concurrency` (default) or `rps`. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).
   - `target`: Recommendation for when to scale up based on the concurrent number of incoming request. Defaults to `options.resources.limits.concurrency` when given. Can be float value greater than 0.01, default is 100. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/concurrency/#soft-limit).
   - `utilization`: Percentage of concurrent requests utilization before scaling up. Can be float value between 1 and 100, default is 70. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/concurrency/#target-utilization).
+  - `kpa`: Knative-specific autoscaling config, used only with `deployer: knative`. Alternative location for `metric`, `target` and `utilization` above, kept separate so KPA-specific settings don't get confused with KEDA's.
+    - `metric`, `target`, `utilization`: same meaning as above.
+  - `keda`: KEDA-specific scaling config, required when `deployer: keda`.
+    - `triggers`: a list of KEDA triggers. At least one is required. Each trigger has a `type` of `http`, `kafka`, or `cron`:
+      - `http`: scales based on incoming HTTP request rate. No additional fields.
+      - `kafka`: scales based on consumer group lag. Requires [`run.kafka`](#runkafka) to be configured.
+        - `lagThreshold`: average consumer lag per partition that triggers scaling up. Default is 10.
+        - `activationLagThreshold`: lag below which KEDA keeps replicas at 0 when `scale.min` is 0. Default is 0.
+      - `cron`: scales based on a time window.
+        - `timezone`: e.g. `Europe/Istanbul`.
+        - `start`, `end`: cron expressions defining the active window, e.g. `0 8 * * *`.
+        - `desiredReplicas`: number of replicas to scale to during the active window.
 - `resources`
   - `requests`
     - `cpu`: A CPU resource request for the container with deployed function. See related [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits).
@@ -164,6 +187,72 @@ options:
       cpu: 1000m
       memory: 256Mi
       concurrency: 100
+```
+
+Example using `deployer: keda` with an HTTP trigger and a Kafka trigger:
+
+```yaml
+deployer: keda
+options:
+  scale:
+    min: 0
+    max: 10
+    keda:
+      triggers:
+        - type: http
+        - type: kafka
+          lagThreshold: 5
+          activationLagThreshold: 0
+```
+
+Example using `deployer: knative` with explicit KPA settings:
+
+```yaml
+deployer: knative
+options:
+  scale:
+    min: 1
+    max: 10
+    kpa:
+      metric: concurrency
+      target: 50
+```
+
+### `run.kafka`
+
+When set, the function is deployed as a Kafka consumer: it reads CloudEvents from a Kafka
+topic instead of (or, with the KEDA `http` trigger, in addition to) serving HTTP requests.
+Requires `invoke: cloudevent` and the Go runtime.
+
+- `brokers`: comma-separated list of Kafka broker addresses.
+- `topic`: the topic to consume.
+- `consumerGroup`: the Kafka consumer group ID.
+- `securityProtocol`: one of `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL`.
+- `tls`: TLS configuration, required for `SSL` and `SASL_SSL`.
+  - `caCert`: path to the CA certificate PEM file used to verify the broker certificate. Typically mounted via [`volumes`](#volumes).
+  - `clientCert`, `clientKey`: paths to the client certificate/key PEM files, for mutual TLS.
+  - `skipVerify`: skip broker certificate verification (development only).
+- `sasl`: SASL configuration, required for `SASL_PLAINTEXT` and `SASL_SSL`.
+  - `mechanism`: one of `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`.
+  - `user`: SASL username. Supports `{{ secret:name:key }}` and `{{ configMap:name:key }}` syntax, or a plain value.
+  - `password`: SASL password. Supports `{{ secret:name:key }}` and `{{ configMap:name:key }}` syntax.
+
+```yaml
+run:
+  kafka:
+    brokers: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9093"
+    topic: "my-topic"
+    consumerGroup: "my-function-group"
+    securityProtocol: "SASL_SSL"
+    tls:
+      caCert: "/etc/kafka/ca/ca.crt"
+    sasl:
+      mechanism: "SCRAM-SHA-512"
+      user: "my-kafka-user"
+      password: "{{ secret:my-kafka-user:password }}"
+  volumes:
+    - secret: my-cluster-cluster-ca-cert
+      path: /etc/kafka/ca
 ```
 
 ### `runtime`

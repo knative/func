@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    function.knative.dev/deployer: keda
+  creationTimestamp: "2026-09-03T13:28:11Z"
+  labels:
+    boson.dev/function: "true"
+    function.knative.dev/name: test-keda-no-kafka
+    function.knative.dev/runtime: go
+  name: test-keda-no-kafka
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    controller: true
+    kind: Deployment
+    name: test-keda-no-kafka
+    uid: e479851c-a037-4376-b546-99168f2fa679
+  resourceVersion: "1251"
+  uid: 4678bb2b-ba71-45b8-a0c7-3d51f1f458c7
+spec:
+  clusterIP: 10.96.195.54
+  clusterIPs:
+  - 10.96.195.54
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    boson.dev/function: "true"
+    function.knative.dev/name: test-keda-no-kafka
+    function.knative.dev/runtime: go
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

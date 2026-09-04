@@ -60,6 +60,27 @@ import (
 // and s2i. Remote deploys keep pack: host cannot build in-cluster.
 // ---------------------------------------------------------------------------
 
+// setKedaHTTPTrigger declares an explicit http KEDA trigger in the func.yaml
+// at root. The keda deployer requires at least one trigger to be declared
+// explicitly (it no longer infers one), so tests that only care about HTTP
+// exposure/routing behavior need this to reach a deployable state.
+func setKedaHTTPTrigger(t *testing.T, root string) {
+	t.Helper()
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.Options.Scale == nil {
+		f.Deploy.Options.Scale = &fn.ScaleOptions{}
+	}
+	f.Deploy.Options.Scale.KEDA = &fn.KEDAScaleOptions{
+		Triggers: []fn.KEDATrigger{{Type: "http"}},
+	}
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // requiresOpenShift skips a test whose assertions need a real Route.
 func requiresOpenShift(t *testing.T) {
 	t.Helper()
@@ -194,11 +215,12 @@ func TestExpose_KedaRejectsLongName(t *testing.T) {
 	if len(name) != 45 {
 		t.Fatalf("test setup: expected a 45 character name, got %d", len(name))
 	}
-	fromCleanEnv(t, name)
+	root := fromCleanEnv(t, name)
 
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
+	setKedaHTTPTrigger(t, root)
 
 	out, err := newCmdOutput(t, "deploy", "--builder=host", "--deployer=keda").CombinedOutput()
 	if err == nil {
@@ -379,6 +401,7 @@ func TestExpose_KedaRoute(t *testing.T) {
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
+	setKedaHTTPTrigger(t, root)
 	if err := newCmd(t, "deploy", "--builder=host", "--deployer=keda", "--expose=route").Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -470,6 +493,7 @@ func TestExpose_KedaToggle(t *testing.T) {
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
+	setKedaHTTPTrigger(t, root)
 	if err := newCmd(t, "deploy", "--builder=host", "--deployer=keda", "--expose=route").Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -535,6 +559,7 @@ func TestExpose_KedaDeleteCleansRoute(t *testing.T) {
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
+	setKedaHTTPTrigger(t, root)
 	if err := newCmd(t, "deploy", "--builder=host", "--deployer=keda", "--expose=route").Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -587,6 +612,7 @@ func TestExpose_KedaRouteDomain(t *testing.T) {
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
+	setKedaHTTPTrigger(t, root)
 	if err := newCmd(t, "deploy", "--builder=host", "--deployer=keda", "--expose=route", "--domain="+domain).Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -852,6 +878,7 @@ func TestExpose_RemoteKedaRoute(t *testing.T) {
 	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
 		t.Fatal(err)
 	}
+	setKedaHTTPTrigger(t, root)
 	if err := newCmd(t, "deploy", "--remote", "--builder=pack", "--registry="+Registry,
 		"--deployer=keda", "--expose=route").Run(); err != nil {
 		t.Fatal(err)

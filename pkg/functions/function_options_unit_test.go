@@ -310,6 +310,102 @@ func Test_validateOptions(t *testing.T) {
 			},
 			10,
 		},
+		{
+			"valid keda triggers",
+			Options{
+				Scale: &ScaleOptions{
+					KEDA: &KEDAScaleOptions{
+						Triggers: []KEDATrigger{
+							{Type: "http"},
+							{Type: "kafka", LagThreshold: ptr.Int64(10)},
+						},
+					},
+				},
+			},
+			0,
+		},
+		{
+			"empty keda triggers",
+			Options{
+				Scale: &ScaleOptions{
+					KEDA: &KEDAScaleOptions{},
+				},
+			},
+			1,
+		},
+		{
+			"invalid keda trigger type",
+			Options{
+				Scale: &ScaleOptions{
+					KEDA: &KEDAScaleOptions{
+						Triggers: []KEDATrigger{
+							{Type: "invalid"},
+						},
+					},
+				},
+			},
+			1,
+		},
+		{
+			"keda cron trigger missing fields",
+			Options{
+				Scale: &ScaleOptions{
+					KEDA: &KEDAScaleOptions{
+						Triggers: []KEDATrigger{
+							{Type: "cron"},
+						},
+					},
+				},
+			},
+			4,
+		},
+		{
+			"valid keda cron trigger",
+			Options{
+				Scale: &ScaleOptions{
+					KEDA: &KEDAScaleOptions{
+						Triggers: []KEDATrigger{
+							{Type: "cron", Timezone: "UTC", Start: "0 8 * * *", End: "0 20 * * *", DesiredReplicas: ptr.Int64(3)},
+						},
+					},
+				},
+			},
+			0,
+		},
+		{
+			"keda and kpa mutually exclusive",
+			Options{
+				Scale: &ScaleOptions{
+					KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "http"}}},
+					KPA:  &KPAScaleOptions{Metric: ptr.String("concurrency")},
+				},
+			},
+			1,
+		},
+		{
+			"valid kpa options",
+			Options{
+				Scale: &ScaleOptions{
+					KPA: &KPAScaleOptions{
+						Metric:      ptr.String("rps"),
+						Target:      ptr.Float64(50),
+						Utilization: ptr.Float64(80),
+					},
+				},
+			},
+			0,
+		},
+		{
+			"invalid kpa metric",
+			Options{
+				Scale: &ScaleOptions{
+					KPA: &KPAScaleOptions{
+						Metric: ptr.String("bad"),
+					},
+				},
+			},
+			1,
+		},
 	}
 
 	for _, tt := range tests {

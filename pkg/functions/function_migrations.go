@@ -99,6 +99,7 @@ var migrations = []migration{
 	{"0.34.0", migrateToSpecsStructure},
 	{"0.35.0", migrateFromInvokeStructure},
 	{"0.36.0", migratePersistentVolumeTypoFixup},
+	{"0.37.0", migrateScaleKPA},
 	// New Migrations Here.
 }
 
@@ -354,6 +355,40 @@ func migratePersistentVolumeTypoFixup(fn Function, m migration) (Function, error
 	}
 	fn.SpecVersion = m.version
 	return fn, nil
+}
+
+// migrateScaleKPA moves the flat metric/target/utilization fields under a kpa
+// sub-key so that scaler-specific config is organized by type.
+// The flat fields are kept alongside kpa for backwards compatibility with
+// older CLI versions that don't know about the kpa sub-key.
+func migrateScaleKPA(f Function, m migration) (Function, error) {
+	if f.Deploy.Options.Scale != nil {
+		hasKPAFields := f.Deploy.Options.Scale.Metric != nil ||
+			f.Deploy.Options.Scale.Target != nil ||
+			f.Deploy.Options.Scale.Utilization != nil
+
+		if hasKPAFields && f.Deploy.Options.Scale.KPA == nil {
+			f.Deploy.Options.Scale.KPA = &KPAScaleOptions{
+				Metric:      f.Deploy.Options.Scale.Metric,
+				Target:      f.Deploy.Options.Scale.Target,
+				Utilization: f.Deploy.Options.Scale.Utilization,
+			}
+		}
+	}
+
+	if f.Deployer == "keda" {
+		if f.Deploy.Options.Scale == nil {
+			f.Deploy.Options.Scale = &ScaleOptions{}
+		}
+		if f.Deploy.Options.Scale.KEDA == nil || len(f.Deploy.Options.Scale.KEDA.Triggers) == 0 {
+			f.Deploy.Options.Scale.KEDA = &KEDAScaleOptions{
+				Triggers: []KEDATrigger{{Type: "http"}},
+			}
+		}
+	}
+
+	f.SpecVersion = m.version
+	return f, nil
 }
 
 // The pertinent aspects of the Function's schema prior the 1.0.0 version migrations

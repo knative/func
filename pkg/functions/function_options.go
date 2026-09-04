@@ -12,8 +12,30 @@ type Options struct {
 }
 
 type ScaleOptions struct {
-	Min         *int64   `yaml:"min,omitempty" jsonschema_extras:"minimum=0"`
-	Max         *int64   `yaml:"max,omitempty" jsonschema_extras:"minimum=0"`
+	Min         *int64            `yaml:"min,omitempty" jsonschema_extras:"minimum=0"`
+	Max         *int64            `yaml:"max,omitempty" jsonschema_extras:"minimum=0"`
+	Metric      *string           `yaml:"metric,omitempty" jsonschema:"enum=concurrency,enum=rps"`
+	Target      *float64          `yaml:"target,omitempty" jsonschema_extras:"minimum=0.01"`
+	Utilization *float64          `yaml:"utilization,omitempty" jsonschema:"minimum=1,maximum=100"`
+	KEDA        *KEDAScaleOptions `yaml:"keda,omitempty"`
+	KPA         *KPAScaleOptions  `yaml:"kpa,omitempty"`
+}
+
+type KEDAScaleOptions struct {
+	Triggers []KEDATrigger `yaml:"triggers,omitempty"`
+}
+
+type KEDATrigger struct {
+	Type                   string `yaml:"type" jsonschema:"enum=http,enum=kafka,enum=cron"`
+	LagThreshold           *int64 `yaml:"lagThreshold,omitempty" jsonschema_extras:"minimum=1"`
+	ActivationLagThreshold *int64 `yaml:"activationLagThreshold,omitempty" jsonschema_extras:"minimum=0"`
+	Timezone               string `yaml:"timezone,omitempty"`
+	Start                  string `yaml:"start,omitempty"`
+	End                    string `yaml:"end,omitempty"`
+	DesiredReplicas        *int64 `yaml:"desiredReplicas,omitempty" jsonschema_extras:"minimum=1"`
+}
+
+type KPAScaleOptions struct {
 	Metric      *string  `yaml:"metric,omitempty" jsonschema:"enum=concurrency,enum=rps"`
 	Target      *float64 `yaml:"target,omitempty" jsonschema_extras:"minimum=0.01"`
 	Utilization *float64 `yaml:"utilization,omitempty" jsonschema:"minimum=1,maximum=100"`
@@ -82,6 +104,18 @@ func validateOptions(options Options) (errors []string) {
 						*options.Scale.Utilization))
 			}
 		}
+
+		if options.Scale.KEDA != nil && options.Scale.KPA != nil {
+			errors = append(errors, "options fields \"scale.keda\" and \"scale.kpa\" are mutually exclusive")
+		}
+
+		if options.Scale.KEDA != nil {
+			errors = append(errors, validateKEDAScale(options.Scale.KEDA)...)
+		}
+
+		if options.Scale.KPA != nil {
+			errors = append(errors, validateKPAScale(options.Scale.KPA)...)
+		}
 	}
 
 	// options.resource
@@ -135,5 +169,65 @@ func validateOptions(options Options) (errors []string) {
 		}
 	}
 
+	return
+}
+
+func validateKEDAScale(keda *KEDAScaleOptions) (errors []string) {
+	if len(keda.Triggers) == 0 {
+		errors = append(errors, "options field \"scale.keda.triggers\" must not be empty when scale.keda is set")
+		return
+	}
+	for i, t := range keda.Triggers {
+		switch t.Type {
+		case "http":
+			// no extra fields required
+		case "kafka":
+			if t.LagThreshold != nil && *t.LagThreshold < 1 {
+				errors = append(errors, fmt.Sprintf("options field \"scale.keda.triggers[%d].lagThreshold\" must be at least 1", i))
+			}
+			if t.ActivationLagThreshold != nil && *t.ActivationLagThreshold < 0 {
+				errors = append(errors, fmt.Sprintf("options field \"scale.keda.triggers[%d].activationLagThreshold\" must not be negative", i))
+			}
+		case "cron":
+			if t.Timezone == "" {
+				errors = append(errors, fmt.Sprintf("options field \"scale.keda.triggers[%d].timezone\" is required for cron triggers", i))
+			}
+			if t.Start == "" {
+				errors = append(errors, fmt.Sprintf("options field \"scale.keda.triggers[%d].start\" is required for cron triggers", i))
+			}
+			if t.End == "" {
+				errors = append(errors, fmt.Sprintf("options field \"scale.keda.triggers[%d].end\" is required for cron triggers", i))
+			}
+			if t.DesiredReplicas == nil {
+				errors = append(errors, fmt.Sprintf("options field \"scale.keda.triggers[%d].desiredReplicas\" is required for cron triggers", i))
+			} else if *t.DesiredReplicas < 1 {
+				errors = append(errors, fmt.Sprintf("options field \"scale.keda.triggers[%d].desiredReplicas\" must be at least 1", i))
+			}
+		default:
+			errors = append(errors, fmt.Sprintf("options field \"scale.keda.triggers[%d].type\" has invalid value %q, allowed: http, kafka, cron", i, t.Type))
+		}
+	}
+	return
+}
+
+func validateKPAScale(kpa *KPAScaleOptions) (errors []string) {
+	if kpa.Metric != nil {
+		if *kpa.Metric != "concurrency" && *kpa.Metric != "rps" {
+			errors = append(errors, fmt.Sprintf("options field \"scale.kpa.metric\" has invalid value set: %s, allowed is only \"concurrency\" or \"rps\"",
+				*kpa.Metric))
+		}
+	}
+	if kpa.Target != nil {
+		if *kpa.Target < 0.01 {
+			errors = append(errors, fmt.Sprintf("options field \"scale.kpa.target\" has value set to \"%f\", but it must not be less than 0.01",
+				*kpa.Target))
+		}
+	}
+	if kpa.Utilization != nil {
+		if *kpa.Utilization < 1 || *kpa.Utilization > 100 {
+			errors = append(errors, fmt.Sprintf("options field \"scale.kpa.utilization\" has value set to \"%f\", but it must not be less than 1 or greater than 100",
+				*kpa.Utilization))
+		}
+	}
 	return
 }

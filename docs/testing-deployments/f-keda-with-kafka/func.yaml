@@ -1,0 +1,40 @@
+# $schema: https://raw.githubusercontent.com/knative/func/main/schema/func_yaml-schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/knative/func/main/schema/func_yaml-schema.json
+specVersion: 0.37.0
+name: test-keda-kafka
+runtime: go
+registry: docker.io/aliok
+namespace: default
+deployer: keda
+created: 2026-09-03T17:12:41.109216+03:00
+invoke: cloudevent
+build:
+  builder: pack
+run:
+  volumes:
+  - secret: my-cluster-cluster-ca-cert
+    path: /etc/kafka/ca
+  kafka:
+    brokers: my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9093
+    topic: test-topic
+    consumerGroup: test-keda-kafka-group
+    securityProtocol: SASL_SSL
+    tls:
+      caCert: /etc/kafka/ca/ca.crt
+    sasl:
+      mechanism: SCRAM-SHA-512
+      user: my-kafka-user
+      password: '{{ secret:my-kafka-user:password }}'
+deploy:
+  namespace: default
+  image: index.docker.io/aliok/test-keda-kafka@sha256:9a40b49d3f87baf3efe03bbdf6cc1d4b85276cc650e438231050985048ef400e
+  options:
+    scale:
+      min: 0
+      max: 10
+      keda:
+        triggers:
+        - type: kafka
+          lagThreshold: 5
+          activationLagThreshold: 0
+  deployer: keda
