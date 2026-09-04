@@ -165,12 +165,20 @@ func TestInt_Remote_Default(t *testing.T) {
 				Template:  "echo",
 				Registry:  TestRegistry,
 				Namespace: TestNamespace,
+				Deployer:  d,
 				Build: fn.BuildSpec{
 					Builder: "pack", // TODO: test "s2i".  Currently it causes a 'no space left on device' error in GH actions.
 				},
-				Deploy: fn.DeploySpec{
-					Deployer: d,
-				},
+			}
+			if d == keda.KedaDeployerName {
+				// keda defaults to the http scaler with no scale.keda, which
+				// suits this HTTP-served function; declare it explicitly so
+				// the trigger is recorded in func.yaml.
+				f.Scale = &fn.ScaleOptions{
+					KEDA: &fn.KEDAScaleOptions{
+						Triggers: []fn.KEDATrigger{{Type: "http"}},
+					},
+				}
 			}
 
 			if f, err = client.Init(f); err != nil {

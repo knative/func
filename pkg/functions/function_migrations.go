@@ -100,6 +100,7 @@ var migrations = []migration{
 	{"0.35.0", migrateFromInvokeStructure},
 	{"0.36.0", migratePersistentVolumeTypoFixup},
 	{"0.37.0", migrateGitToSource},
+	{"0.38.0", migrateScaleToTopLevel},
 	// New Migrations Here.
 }
 
@@ -404,6 +405,143 @@ func nestedString(v interface{}, keys ...string) string {
 	}
 	s, _ := v.(string)
 	return s
+}
+
+// migrateScaleToTopLevel moves scale config from deploy.options.scale to the
+// top-level scale field and moves the flat metric/target/utilization fields
+// (from pre-0.38.0 func.yaml files) into the kpa sub-key.
+func migrateScaleToTopLevel(f Function, m migration) (Function, error) {
+	// Read the on-disk func.yaml to capture pre-migration fields that no
+	// longer deserialize under their current shape: the flat KPA fields
+	// (Metric, Target, Utilization), which no longer exist on ScaleOptions.
+	// deploy.deployer and deploy.expose keep their YAML tags; they are read
+	// here too so the migration stays self-contained for callers that pass a
+	// Function not populated via the primary unmarshal.
+	type oldScale struct {
+		Min         *int64            `yaml:"min,omitempty"`
+		Max         *int64            `yaml:"max,omitempty"`
+		Metric      *string           `yaml:"metric,omitempty"`
+		Target      *float64          `yaml:"target,omitempty"`
+		Utilization *float64          `yaml:"utilization,omitempty"`
+		KEDA        *KEDAScaleOptions `yaml:"keda,omitempty"`
+		KPA         *KPAScaleOptions  `yaml:"kpa,omitempty"`
+	}
+	type oldOptions struct {
+		Scale *oldScale `yaml:"scale,omitempty"`
+	}
+	type oldDeploy struct {
+		Options  oldOptions `yaml:"options,omitempty"`
+		Deployer string     `yaml:"deployer,omitempty"`
+		Expose   string     `yaml:"expose,omitempty"`
+	}
+	var disk struct {
+		Deploy oldDeploy     `yaml:"deploy,omitempty"`
+		Scale  *ScaleOptions `yaml:"scale,omitempty"`
+	}
+
+	if f.Root != "" {
+		bb, err := os.ReadFile(filepath.Join(f.Root, FunctionFile))
+		if err == nil {
+			_ = yaml.Unmarshal(bb, &disk)
+		}
+	}
+
+	// NOTE: this migration deliberately does NOT recover a legacy
+	// deploy.deployer value into f.Deployer (intent). A pre-#3953 func.yaml
+	// recorded the deployer only under deploy.deployer, and losing that intent
+	// on a delete-then-redeploy is a real (if narrow) bug -- but it is a
+	// pre-existing issue on main, unrelated to this scale migration, and is
+	// tracked separately in https://github.com/knative/func/issues/4054. The
+	// normal deploy path already recovers the deployer from observed state
+	// (config.Apply falls back to f.Deploy.Deployer), so only the
+	// delete-then-redeploy edge case is affected.
+	old := disk.Deploy.Options.Scale
+	if old == nil && f.Deploy.Options.Scale != nil {
+		// f.Root is empty (library callers construct a Function without a
+		// backing file) or the on-disk read found nothing: fall back to the
+		// already-deserialized in-memory value instead of treating it as
+		// absent. It can't carry the old flat metric/target/utilization
+		// fields -- those no longer exist on the current ScaleOptions type,
+		// so there's nothing on this path to recover them from -- but its
+		// Min/Max/KEDA/KPA must not be silently dropped.
+		mem := f.Deploy.Options.Scale
+		old = &oldScale{Min: mem.Min, Max: mem.Max, KEDA: mem.KEDA, KPA: mem.KPA}
+	}
+
+	if old != nil {
+		newScale := &ScaleOptions{
+			Min:  old.Min,
+			Max:  old.Max,
+			KEDA: old.KEDA,
+			KPA:  old.KPA,
+		}
+
+		// scale.kpa is only valid for deployer: knative (or the unset/
+		// default deployer, which behaves as knative) -- see ValidateScale.
+		// Building it here regardless of deployer let a pre-0.38
+		// deployer: keda function with legacy flat fields end up with both
+		// scale.kpa (from this block) and scale.keda (from the block below,
+		// which always populates it for deployer: keda), which ValidateScale
+		// then rejects as a mutually-exclusive combination -- so the
+		// migration itself produced a function that immediately failed
+		// validation.
+		hasFlat := old.Metric != nil || old.Target != nil || old.Utilization != nil
+		validKPADeployer := f.Deployer == "" || f.Deployer == "knative"
+		if hasFlat && newScale.KPA == nil && validKPADeployer {
+			newScale.KPA = &KPAScaleOptions{
+				Metric:      old.Metric,
+				Target:      old.Target,
+				Utilization: old.Utilization,
+			}
+		}
+
+		f.Scale = newScale
+	}
+
+	// If there was already a top-level scale in the file (shouldn't happen
+	// in practice, but be defensive), the on-disk value wins.
+	if disk.Scale != nil {
+		f.Scale = disk.Scale
+	}
+
+	// Clear the old location so it doesn't get serialized.
+	f.Deploy.Options.Scale = nil
+
+	// keda deployer without triggers: default to http. Since ValidateScale no
+	// longer rejects a nil scale.keda for keda (the deployer defaults to the
+	// http scaler at runtime), this injection is now cosmetic -- it just
+	// materializes that default explicitly into migrated old files rather than
+	// leaving scale.keda absent. Kept so migrated files stay self-describing.
+	if f.Deployer == "keda" {
+		if f.Scale == nil {
+			f.Scale = &ScaleOptions{}
+		}
+		if f.Scale.KEDA == nil {
+			f.Scale.KEDA = &KEDAScaleOptions{}
+		}
+		// Only set Triggers: replacing the whole KEDAScaleOptions struct
+		// here would silently discard any PollingInterval/CooldownPeriod
+		// the user already had configured alongside an empty triggers list.
+		if len(f.Scale.KEDA.Triggers) == 0 {
+			f.Scale.KEDA.Triggers = []KEDATrigger{{Type: "http"}}
+		}
+	}
+
+	// deploy.deployer and deploy.expose keep their YAML tags. Populate the
+	// observed-state fields from disk so the migration is self-contained
+	// regardless of how f was constructed. f.Root == "" (library callers)
+	// needs no handling here: the in-memory value already reflects whatever
+	// was set via the Go field name, so there's nothing on disk to migrate
+	// from and nothing to fall back to.
+	if disk.Deploy.Deployer != "" {
+		f.Deploy.Deployer = disk.Deploy.Deployer
+	}
+	if disk.Deploy.Expose != "" {
+		f.Deploy.Expose = disk.Deploy.Expose
+	}
+
+	f.SpecVersion = m.version
+	return f, nil
 }
 
 // The pertinent aspects of the Function's schema prior the 1.0.0 version migrations
