@@ -1008,7 +1008,7 @@ func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig, referencedS
 		corev1.EnvVar{Name: "KAFKA_CONSUMER_GROUP", Value: kafka.ConsumerGroup},
 	)
 
-	if kafka.SecurityProtocol != "" && kafka.SecurityProtocol != "PLAINTEXT" {
+	if kafka.SecurityProtocol != "" {
 		envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_SECURITY_PROTOCOL", Value: kafka.SecurityProtocol})
 	}
 

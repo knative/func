@@ -306,7 +306,7 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 			"KAFKA_TOPIC="+k.Topic,
 			"KAFKA_CONSUMER_GROUP="+k.ConsumerGroup,
 		)
-		if k.SecurityProtocol != "" && k.SecurityProtocol != "PLAINTEXT" {
+		if k.SecurityProtocol != "" {
 			c.Env = append(c.Env, "KAFKA_SECURITY_PROTOCOL="+k.SecurityProtocol)
 		}
 		if k.TLS != nil {

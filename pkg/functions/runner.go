@@ -314,7 +314,7 @@ func buildRunnerEnv(job *Job, extras map[string]string) ([]string, error) {
 			"KAFKA_TOPIC="+k.Topic,
 			"KAFKA_CONSUMER_GROUP="+k.ConsumerGroup,
 		)
-		if k.SecurityProtocol != "" && k.SecurityProtocol != "PLAINTEXT" {
+		if k.SecurityProtocol != "" {
 			env = append(env, "KAFKA_SECURITY_PROTOCOL="+k.SecurityProtocol)
 		}
 		if k.TLS != nil {
