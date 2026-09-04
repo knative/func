@@ -1024,6 +1024,8 @@ func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig, referencedS
 		}
 		if kafka.TLS.SkipVerify {
 			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_SKIP_VERIFY", Value: "true"})
+		} else {
+			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_SKIP_VERIFY", Value: "false"})
 		}
 	}
 

@@ -321,6 +321,8 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 			}
 			if k.TLS.SkipVerify {
 				c.Env = append(c.Env, "KAFKA_TLS_SKIP_VERIFY=true")
+			} else {
+				c.Env = append(c.Env, "KAFKA_TLS_SKIP_VERIFY=false")
 			}
 		}
 		if k.SASL != nil {

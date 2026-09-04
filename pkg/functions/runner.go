@@ -329,6 +329,8 @@ func buildRunnerEnv(job *Job, extras map[string]string) ([]string, error) {
 			}
 			if k.TLS.SkipVerify {
 				env = append(env, "KAFKA_TLS_SKIP_VERIFY=true")
+			} else {
+				env = append(env, "KAFKA_TLS_SKIP_VERIFY=false")
 			}
 		}
 		if k.SASL != nil {
