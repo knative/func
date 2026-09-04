@@ -78,7 +78,7 @@ func TestFindSecretForPath(t *testing.T) {
 		t.Errorf("got (%q, %q), want (my-cluster-ca, ca.crt)", name, key)
 	}
 
-	name, key = findSecretForPath("/other/path", volumes)
+	name, _ = findSecretForPath("/other/path", volumes)
 	if name != "" {
 		t.Errorf("expected empty for non-matching path, got %q", name)
 	}
