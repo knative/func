@@ -57,6 +57,9 @@ DESCRIPTION
 	  eliminating the need for a local container engine.  To trigger deployment
 	  of a git repository instead of local source, combine with '--git-url':
 	  'func deploy --remote --git-url=git.example.com/alice/f.git'
+	  The function is then read from the repository, so no local copy is
+	  needed.  Choose the revision with '--git-branch' and the directory within
+	  the repository with '--git-dir'.
 
 	Domain
 	  When deploying, a function's route is automatically generated using the

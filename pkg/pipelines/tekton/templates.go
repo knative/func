@@ -347,9 +347,11 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	return createAndApplyResource(f.Root, pipelineFileName, template, "pipeline", getPipelineName(f), namespace, data)
 }
 
-// createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build
-// all resources are created on the fly, if there's a PipelineRun defined in the project directory, it is used instead
-func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string) error {
+// createAndApplyPipelineRunTemplate creates and applies PipelineRun template
+// for a standard on-cluster build all resources are created on the fly, if
+// there's a PipelineRun defined in the project directory, it is used instead.
+// commit is the source commit the image is labelled with (see sourceCommit).
+func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string, commit string) error {
 	contextDir := f.Build.Git.ContextDir
 	if contextDir == "" && f.Build.Builder == builders.S2I {
 		// TODO(lkingland): could instead update S2I to interpret empty string
@@ -388,8 +390,6 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 	if f.RegistryInsecure || isInsecureRegistry(f.Registry) {
 		tlsVerify = "false"
 	}
-
-	commit, _ := fn.GitCommit(f.Root)
 
 	data := templateData{
 		FunctionName:  f.Name,
@@ -431,12 +431,13 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 var manifestivalClient = k8s.GetManifestivalClient
 
 // createAndApplyResource tries to create and apply a resource to the k8s cluster from the input template and data,
-// if there's the same resource already created in the project directory, it is used instead
+// if there's the same resource already created in the project directory, it is used instead.
+// An empty projectRoot (a function loaded from git) has no such directory.
 func createAndApplyResource(projectRoot, fileName, fileTemplate, kind, resourceName, namespace string, data interface{}) error {
 	var source manifestival.Source
 
 	filePath := path.Join(projectRoot, resourcesDirectory, fileName)
-	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+	if _, err := os.Stat(filePath); projectRoot != "" && !os.IsNotExist(err) {
 		source = manifestival.Path(filePath)
 	} else {
 		tmpl, err := template.New("template").Parse(fileTemplate)

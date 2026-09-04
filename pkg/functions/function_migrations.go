@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,20 +17,34 @@ var unknownFieldsOnce sync.Once
 // version of the function.  It is the caller's responsibility to
 // .Write() the function to persist to disk. Additionally it will warn on
 // up-to-date spec but wrong func.yaml (eg. extraneous fields)
+//
+// Migrations need the function as it was serialized, which Migrate reads
+// from the func.yaml at f.Root. See migrate for functions without a Root.
 func (f Function) Migrate() (migrated Function, err error) {
+	var raw []byte
+	if f.Root != "" {
+		if raw, err = os.ReadFile(filepath.Join(f.Root, FunctionFile)); err != nil && !os.IsNotExist(err) {
+			return f, err
+		}
+	}
+	return f.migrate(raw)
+}
+
+// migrate applies any necessary migrations to f, whose serialized form (the
+// content of its func.yaml) is raw. Migrations read the previous structure
+// from raw, so a function needs no working tree to be migrated.
+func (f Function) migrate(raw []byte) (migrated Function, err error) {
 	// Return immediately if the function indicates it has already been
 	// migrated.
 	if f.Migrated() {
-		// Already at the latest spec — check for unknown fields
-		if f.Root != "" {
-			if bb, readErr := os.ReadFile(filepath.Join(f.Root, FunctionFile)); readErr == nil {
-				unknownFieldsOnce.Do(func() {
-					var strict Function
-					if strictErr := yaml.UnmarshalStrict(bb, &strict); strictErr != nil {
-						fmt.Fprintf(os.Stderr, "Warning (unknown fields will be ignored):\n %v\n.\n", formatUnmarshalError(strictErr))
-					}
-				})
-			}
+		// Already at the latest spec: check for unknown fields
+		if raw != nil {
+			unknownFieldsOnce.Do(func() {
+				var strict Function
+				if strictErr := yaml.UnmarshalStrict(raw, &strict); strictErr != nil {
+					fmt.Fprintf(os.Stderr, "Warning (unknown fields will be ignored):\n %v\n.\n", formatUnmarshalError(strictErr))
+				}
+			})
 		}
 		return f, nil
 	}
@@ -45,7 +58,7 @@ func (f Function) Migrate() (migrated Function, err error) {
 		}
 		// Apply this migration when the function's specVersion is less than that which
 		// the migration will impart.
-		migrated, err = m.migrate(migrated, m)
+		migrated, err = m.migrate(migrated, raw, m)
 		if err != nil {
 			return // fail fast on any migration errors
 		}
@@ -61,7 +74,20 @@ type migration struct {
 }
 
 // migrator is a function which returns a migrated copy of an inbound function.
-type migrator func(Function, migration) (Function, error)
+// It receives the function's serialized form to read the previous structure.
+type migrator func(f Function, raw []byte, m migration) (Function, error)
+
+// unmarshalPrevious loads the pertinent parts of a previous schema version
+// from the serialized function raw, on behalf of the named migration.
+func unmarshalPrevious(raw []byte, migration string, previous interface{}) error {
+	if raw == nil {
+		return fmt.Errorf("migration '%s' error: the serialized function is required", migration)
+	}
+	if err := yaml.Unmarshal(raw, previous); err != nil {
+		return fmt.Errorf("migration '%s' error: %w", migration, err)
+	}
+	return nil
+}
 
 // Migrated returns whether the function has been migrated to the highest
 // level the currently executing system is aware of (or beyond).
@@ -125,7 +151,7 @@ var migrations = []migration{
 // created stamp.  Otherwise, this is an in-memory (new) function that is
 // currently in the process of being created and as such need not be mutated
 // to consider this migration having been evaluated.
-func migrateToCreationStamp(f Function, m migration) (Function, error) {
+func migrateToCreationStamp(f Function, _ []byte, m migration) (Function, error) {
 	// For functions with no creation timestamp, but appear to have been pre-
 	// existing, populate their created stamp and version.
 	// Yes, it's a little gnarly, but bootstrapping into the loveliness of a
@@ -172,16 +198,11 @@ func migrateToCreationStamp(f Function, m migration) (Function, error) {
 // a customized builder image, that value is preserved as the builder image
 // for the 'pack' builder in the new version (s2i did not exist prior).
 // See associated unit tests.
-func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
+func migrateToBuilderImages(f1 Function, raw []byte, m migration) (Function, error) {
 	// Load the function using pertinent parts of the previous version's schema:
-	f0Filename := filepath.Join(f1.Root, FunctionFile)
-	bb, err := os.ReadFile(f0Filename)
-	if err != nil {
-		return f1, errors.New("migration 'migrateToBuilderImages' error: " + err.Error())
-	}
 	f0 := migrateToBuilderImages_previousFunction{}
-	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f1, errors.New("migration 'migrateToBuilderImages' error: " + err.Error())
+	if err := unmarshalPrevious(raw, "migrateToBuilderImages", &f0); err != nil {
+		return f1, err
 	}
 
 	// At time of this migration, the default pack builder image for all language
@@ -205,18 +226,11 @@ func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
 
 // migrateToSpecVersion updates a func.yaml file to use SpecVersion
 // instead of Version to track the migration numbers
-func migrateToSpecVersion(f Function, m migration) (Function, error) {
+func migrateToSpecVersion(f Function, raw []byte, m migration) (Function, error) {
 	// Load the function func.yaml file
-	f0Filename := filepath.Join(f.Root, FunctionFile)
-	bb, err := os.ReadFile(f0Filename)
-	if err != nil {
-		return f, errors.New("migration 'migrateToSpecVersion' error: " + err.Error())
-	}
-
-	// Only handle the Version field if it exists
 	f0 := migrateToSpecVersion_previousFunction{}
-	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f, errors.New("migration 'migrateToSpecVersion' error: " + err.Error())
+	if err := unmarshalPrevious(raw, "migrateToSpecVersion", &f0); err != nil {
+		return f, err
 	}
 
 	f.SpecVersion = m.version
@@ -226,16 +240,11 @@ func migrateToSpecVersion(f Function, m migration) (Function, error) {
 // migrateToSpecsStructure migration makes sure use the sub-specs structs for build, run and deploy phases.
 // To avoid unmarshalling issues with the old format this migration needs to be executed first.
 // Further migrations will operate on this new struct with sub-specs
-func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
+func migrateToSpecsStructure(f1 Function, raw []byte, m migration) (Function, error) {
 	// Load the Function using pertinent parts of the previous version's schema:
-	f0Filename := filepath.Join(f1.Root, FunctionFile)
-	bb, err := os.ReadFile(f0Filename)
-	if err != nil {
-		return f1, errors.New("migration 'migrateToSpecsStructure' error: " + err.Error())
-	}
 	f0 := migrateToSpecs_previousFunction{}
-	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f1, errors.New("migration 'migrateToSpecsStructure' error: " + err.Error())
+	if err := unmarshalPrevious(raw, "migrateToSpecsStructure", &f0); err != nil {
+		return f1, err
 	}
 
 	if f0.Git.URL != "" {
@@ -305,16 +314,11 @@ func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
 // file. When Invoke now holds default value (http) it will not show up in
 // func.yaml as the default value is implicitly expected. Otherwise if Invoke
 // is non-default value, it will be written in func.yaml.
-func migrateFromInvokeStructure(f1 Function, m migration) (Function, error) {
+func migrateFromInvokeStructure(f1 Function, raw []byte, m migration) (Function, error) {
 	// Load the Function using pertinent parts of the previous version's schema:
-	f0Filename := filepath.Join(f1.Root, FunctionFile)
-	bb, err := os.ReadFile(f0Filename)
-	if err != nil {
-		return f1, errors.New("migration 'migrateFromInvokeStructure' error: " + err.Error())
-	}
 	f0 := migrateFromInvokeStructure_previousFunction{}
-	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f1, errors.New("migration 'migrateFromInvokeStructure' error: " + err.Error())
+	if err := unmarshalPrevious(raw, "migrateFromInvokeStructure", &f0); err != nil {
+		return f1, err
 	}
 
 	if f0.Invocation.Format != "" && f0.Invocation.Format != "http" {
@@ -326,13 +330,7 @@ func migrateFromInvokeStructure(f1 Function, m migration) (Function, error) {
 	return f1, nil
 }
 
-func migratePersistentVolumeTypoFixup(fn Function, m migration) (Function, error) {
-	f, err := os.Open(filepath.Join(fn.Root, FunctionFile))
-	if err != nil {
-		return Function{}, fmt.Errorf("cannot open func.yaml: %w", err)
-	}
-	defer f.Close()
-
+func migratePersistentVolumeTypoFixup(fn Function, raw []byte, m migration) (Function, error) {
 	data := struct {
 		Run struct {
 			Volumes []struct {
@@ -340,11 +338,8 @@ func migratePersistentVolumeTypoFixup(fn Function, m migration) (Function, error
 			} `yaml:"volumes,omitempty"`
 		}
 	}{}
-
-	dec := yaml.NewDecoder(f)
-	err = dec.Decode(&data)
-	if err != nil {
-		return Function{}, fmt.Errorf("cannot deserialize old sub-structure: %w", err)
+	if err := unmarshalPrevious(raw, "migratePersistentVolumeTypoFixup", &data); err != nil {
+		return fn, err
 	}
 
 	for idx, volume := range data.Run.Volumes {
