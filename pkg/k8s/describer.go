@@ -14,6 +14,7 @@ import (
 )
 
 type Describer struct {
+	kc        *Client
 	verbose   bool
 	transport http.RoundTripper
 }
@@ -26,8 +27,8 @@ func WithDescriberTransport(transport http.RoundTripper) DescriberOpt {
 	}
 }
 
-func NewDescriber(verbose bool, opts ...DescriberOpt) *Describer {
-	d := &Describer{verbose: verbose}
+func NewDescriber(kc *Client, verbose bool, opts ...DescriberOpt) *Describer {
+	d := &Describer{kc: kc, verbose: verbose}
 	for _, o := range opts {
 		o(d)
 	}
@@ -39,8 +40,11 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	if namespace == "" {
 		return fn.Instance{}, fmt.Errorf("function namespace is required when describing %q", name)
 	}
+	if d.kc == nil {
+		return fn.Instance{}, fmt.Errorf("kubernetes client is not initialized")
+	}
 
-	clientset, err := NewKubernetesClientset()
+	clientset, err := d.kc.Clientset()
 	if err != nil {
 		return fn.Instance{}, fmt.Errorf("unable to create k8s client: %v", err)
 	}

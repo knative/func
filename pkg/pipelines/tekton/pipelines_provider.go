@@ -58,6 +58,7 @@ type PipelinesProvider struct {
 	credentialsProvider oci.CredentialsProvider
 	decorator           PipelineDecorator
 	transport           http.RoundTripper
+	kc                  *k8s.Client
 }
 
 func WithCredentialsProvider(credentialsProvider oci.CredentialsProvider) Opt {
@@ -90,8 +91,11 @@ func WithPacURLCallback(getPacURL pacURLCallback) Opt {
 	}
 }
 
-func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
+// NewPipelinesProvider returns a provider which talks to the cluster kc
+// points at.
+func NewPipelinesProvider(kc *k8s.Client, opts ...Opt) *PipelinesProvider {
 	pp := &PipelinesProvider{
+		kc: kc,
 		getPacURL: func() (string, error) {
 			var url string
 			e := survey.AskOne(&survey.Input{
@@ -116,6 +120,9 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 // (f.Deploy.Image, f.Deploy.Namespace, f.Deploy.Deployer and f.Deploy.Expose)
 // or an error.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn.Function, error) {
+	if pp.kc == nil {
+		return "", f, fmt.Errorf("kubernetes client is not initialized")
+	}
 	var err error
 
 	// Checks builder and registry:
@@ -167,7 +174,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 	// deployer wrote at exposure time.
 
 	// Client for the given namespace
-	client, err := NewTektonClient(namespace)
+	client, err := NewTektonClient(pp.kc)
 	if err != nil {
 		return "", f, err
 	}
@@ -181,7 +188,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	err = createPipelinePersistentVolumeClaim(ctx, f, namespace, labels)
+	err = createPipelinePersistentVolumeClaim(ctx, pp.kc, f, namespace, labels)
 	if err != nil {
 		return "", f, err
 	}
@@ -196,13 +203,13 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		}
 		content := sourcesAsTarStream(f)
 		defer content.Close()
-		err = k8s.UploadToVolume(ctx, content, getPipelinePvcName(f), namespace)
+		err = k8s.UploadToVolume(ctx, pp.kc, content, getPipelinePvcName(f), namespace)
 		if err != nil {
 			return "", f, fmt.Errorf("cannot upload sources to the PVC: %w", err)
 		}
 	}
 
-	err = createAndApplyPipelineTemplate(f, namespace, labels)
+	err = createAndApplyPipelineTemplate(pp.kc, f, namespace, labels)
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
 			if k8serrors.IsNotFound(err) {
@@ -234,12 +241,12 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		f.Registry = registry
 	}
 
-	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), namespace, labels, f.Deploy.Annotations, creds.Username, creds.Password, registry)
+	err = k8s.EnsureDockerRegistrySecretExist(ctx, pp.kc, getPipelineSecretName(f), namespace, labels, f.Deploy.Annotations, creds.Username, creds.Password, registry)
 	if err != nil {
 		return "", f, fmt.Errorf("problem in creating secret: %v", err)
 	}
 
-	err = createAndApplyPipelineRunTemplate(f, namespace, labels)
+	err = createAndApplyPipelineRunTemplate(pp.kc, f, namespace, labels)
 	if err != nil {
 		return "", f, fmt.Errorf("problem in creating pipeline run: %v", err)
 	}
@@ -268,19 +275,19 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 	}
 
 	if newestPipelineRun.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
-		message := getFailedPipelineRunLog(ctx, client, newestPipelineRun, namespace)
+		message := getFailedPipelineRunLog(ctx, pp.kc, client, newestPipelineRun, namespace)
 		return "", f, fmt.Errorf("function pipeline run has failed with message: \n\n%s", message)
 	}
 
 	var describer fn.Describer
 	switch f.Deploy.Deployer {
 	case k8s.KubernetesDeployerName:
-		describer = k8s.NewDescriber(false, k8s.WithDescriberTransport(pp.transport))
+		describer = k8s.NewDescriber(pp.kc, false, k8s.WithDescriberTransport(pp.transport))
 	case keda.KedaDeployerName:
-		describer = keda.NewDescriber(false, keda.WithDescriberTransport(pp.transport))
+		describer = keda.NewDescriber(pp.kc, false, keda.WithDescriberTransport(pp.transport))
 	default:
 		// default to knative
-		describer = knative.NewDescriber(false, knative.WithDescriberTransport(pp.transport))
+		describer = knative.NewDescriber(pp.kc, false, knative.WithDescriberTransport(pp.transport))
 	}
 
 	obj, err := describer.Describe(ctx, f.Name, f.Namespace)
@@ -455,6 +462,9 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 
 // Remove tries to remove all resources that are present on the cluster and belongs to the input function and it's pipelines
 func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
+	if pp.kc == nil {
+		return fmt.Errorf("kubernetes client is not initialized")
+	}
 	return pp.removeClusterResources(ctx, f)
 }
 
@@ -477,7 +487,7 @@ func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Fu
 
 	// let's try to delete all resources in parallel, so the operation doesn't take long
 	wg := sync.WaitGroup{}
-	deleteFunctions := []func(context.Context, string, metav1.ListOptions) error{
+	deleteFunctions := []func(context.Context, *k8s.Client, string, metav1.ListOptions) error{
 		deletePipelines,
 		deletePipelineRuns,
 		k8s.DeleteSecrets,
@@ -492,7 +502,7 @@ func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Fu
 		df := deleteFunctions[i]
 		go func() {
 			defer wg.Done()
-			err := df(ctx, namespace, listOptions)
+			err := df(ctx, pp.kc, namespace, listOptions)
 			if err != nil && !k8serrors.IsNotFound(err) && !k8serrors.IsForbidden(err) {
 				errChan <- err
 			}
@@ -526,7 +536,7 @@ func (pp *PipelinesProvider) watchPipelineRunProgress(ctx context.Context, pr *v
 		"deploy":        "Deploying function to the cluster",
 	}
 
-	clients, err := NewTektonClients()
+	clients, err := NewTektonClients(pp.kc)
 	if err != nil {
 		return err
 	}
@@ -573,7 +583,7 @@ out:
 
 // getFailedPipelineRunLog returns log message for a failed PipelineRun,
 // returns log from a container where the failing TaskRun is running, if available.
-func getFailedPipelineRunLog(ctx context.Context, client *pipelineClient.TektonV1Client, pr *v1.PipelineRun, namespace string) string {
+func getFailedPipelineRunLog(ctx context.Context, kc *k8s.Client, client *pipelineClient.TektonV1Client, pr *v1.PipelineRun, namespace string) string {
 	// Reason "Failed" usually means there is a specific failure in some step,
 	// let's find the failed step and try to get log directly from the container.
 	// If we are not able to get the container's log, we return the generic message from the PipelineRun.Status.
@@ -588,7 +598,7 @@ func getFailedPipelineRunLog(ctx context.Context, client *pipelineClient.TektonV
 				for _, s := range t.Status.Steps {
 					// let's try to print logs of the first unsuccessful step
 					if s.Terminated != nil && s.Terminated.ExitCode != 0 {
-						podLogs, err := k8s.GetPodLogs(ctx, namespace, t.Status.PodName, s.Container)
+						podLogs, err := k8s.GetPodLogs(ctx, kc, namespace, t.Status.PodName, s.Container)
 						if err == nil {
 							return podLogs
 						}
@@ -641,7 +651,7 @@ func findNewestPipelineRunWithRetry(ctx context.Context, f fn.Function, namespac
 // allows simple mocking in unit tests, use with caution regarding concurrency
 var createPersistentVolumeClaim = k8s.CreatePersistentVolumeClaim
 
-func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, namespace string, labels map[string]string) error {
+func createPipelinePersistentVolumeClaim(ctx context.Context, kc *k8s.Client, f fn.Function, namespace string, labels map[string]string) error {
 	var err error
 	pvcs := DefaultPersistentVolumeClaimSize
 	if f.Build.PVCSize != "" {
@@ -649,7 +659,7 @@ func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, nam
 			return fmt.Errorf("PVC size value could not be parsed. %w", err)
 		}
 	}
-	err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass)
+	err = createPersistentVolumeClaim(ctx, kc, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("problem creating persistent volume claim: %v", err)
 	}

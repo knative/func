@@ -10,13 +10,15 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-func NewRemover(verbose bool) *Remover {
+func NewRemover(kc *Client, verbose bool) *Remover {
 	return &Remover{
+		kc:      kc,
 		verbose: verbose,
 	}
 }
 
 type Remover struct {
+	kc      *Client
 	verbose bool
 }
 
@@ -25,8 +27,11 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 		fmt.Fprintf(os.Stderr, "no namespace defined when trying to delete a function in knative remover\n")
 		return fn.ErrNamespaceRequired
 	}
+	if remover.kc == nil {
+		return fmt.Errorf("kubernetes client is not initialized")
+	}
 
-	clientset, err := NewKubernetesClientset()
+	clientset, err := remover.kc.Clientset()
 	if err != nil {
 		return fmt.Errorf("could not setup kubernetes clientset: %w", err)
 	}

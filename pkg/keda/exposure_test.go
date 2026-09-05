@@ -16,7 +16,6 @@ import (
 
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 // errDenied fills the cause slot of the synthetic Forbidden errors the test
@@ -31,9 +30,7 @@ var errDenied = errors.New("denied")
 //
 // It is resolved by looking for the interceptor Service, so the platform sets
 // only the order tried and the answer given when nothing definite came back.
-//
-// Note: SetOpenShiftForTest mutates a package-level bool without a mutex, so
-// this test must not run with t.Parallel() (see pkg/k8s/openshift.go).
+// The platform is a plain argument, so no global state is involved.
 func Test_interceptorNamespace(t *testing.T) {
 	interceptorServiceIn := func(ns string) *corev1.Service {
 		return &corev1.Service{ObjectMeta: metav1.ObjectMeta{
@@ -91,16 +88,13 @@ func Test_interceptorNamespace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cleanup := k8s.SetOpenShiftForTest(tt.openShift, nil)
-			defer cleanup()
-
 			// A fake cluster seeded with whatever interceptor Services this
 			// row installs.
 			objects := make([]runtime.Object, 0, len(tt.installed))
 			for _, ns := range tt.installed {
 				objects = append(objects, interceptorServiceIn(ns))
 			}
-			got, refusal := interceptorNamespace(t.Context(), fake.NewClientset(objects...))
+			got, refusal := interceptorNamespace(t.Context(), fake.NewClientset(objects...), tt.openShift)
 			if got != tt.want {
 				t.Errorf("interceptorNamespace() = %q, want %q", got, tt.want)
 			}
@@ -125,8 +119,6 @@ func Test_interceptorNamespace(t *testing.T) {
 // candidate is denied. Test_interceptorNamespace_DeniedBeatsRuledOut is the
 // case that separates them; this one only holds the floor.
 func Test_interceptorNamespace_AllDeniedUsesPlatformDefault(t *testing.T) {
-	cleanup := k8s.SetOpenShiftForTest(true, nil)
-	defer cleanup()
 
 	// An interceptor really is installed; denial hides it, so the guess
 	// below is genuinely blind.
@@ -138,7 +130,7 @@ func Test_interceptorNamespace_AllDeniedUsesPlatformDefault(t *testing.T) {
 			schema.GroupResource{Resource: "services"}, interceptorServiceName, errDenied)
 	})
 
-	got, refusal := interceptorNamespace(t.Context(), clientset)
+	got, refusal := interceptorNamespace(t.Context(), clientset, true)
 	if got != interceptorNamespaceOpenShift {
 		t.Errorf("interceptorNamespace() = %q, want the platform default %q when every lookup is denied",
 			got, interceptorNamespaceOpenShift)
@@ -155,8 +147,6 @@ func Test_interceptorNamespace_AllDeniedUsesPlatformDefault(t *testing.T) {
 // ruled out wins. Answering with a namespace known to hold nothing would be
 // strictly worse than admitting ignorance.
 func Test_interceptorNamespace_DeniedBeatsRuledOut(t *testing.T) {
-	cleanup := k8s.SetOpenShiftForTest(true, nil)
-	defer cleanup()
 
 	clientset := fake.NewClientset()
 	clientset.PrependReactor("get", "services", func(action k8stesting.Action) (bool, runtime.Object, error) {
@@ -167,7 +157,7 @@ func Test_interceptorNamespace_DeniedBeatsRuledOut(t *testing.T) {
 		return false, nil, nil // openshift-keda falls through to a real NotFound
 	})
 
-	got, refusal := interceptorNamespace(t.Context(), clientset)
+	got, refusal := interceptorNamespace(t.Context(), clientset, true)
 	if got != interceptorNamespaceUpstream {
 		t.Errorf("interceptorNamespace() = %q, want %q: the ruled-out candidate must lose to the unseen one",
 			got, interceptorNamespaceUpstream)

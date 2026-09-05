@@ -23,8 +23,8 @@ import (
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 )
 
-func GetPersistentVolumeClaim(ctx context.Context, name, namespaceOverride string) (*corev1.PersistentVolumeClaim, error) {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+func GetPersistentVolumeClaim(ctx context.Context, c *Client, name, namespaceOverride string) (*corev1.PersistentVolumeClaim, error) {
+	client, namespace, err := c.ClientAndNamespace(namespaceOverride)
 	if err != nil {
 		return nil, err
 	}
@@ -32,8 +32,8 @@ func GetPersistentVolumeClaim(ctx context.Context, name, namespaceOverride strin
 	return client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClassName string) (err error) {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+func CreatePersistentVolumeClaim(ctx context.Context, c *Client, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity, storageClassName string) (err error) {
+	client, namespace, err := c.ClientAndNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
@@ -63,8 +63,8 @@ func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride st
 	return
 }
 
-func DeletePersistentVolumeClaims(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+func DeletePersistentVolumeClaims(ctx context.Context, c *Client, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
+	client, namespace, err := c.ClientAndNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
@@ -75,17 +75,16 @@ func DeletePersistentVolumeClaims(ctx context.Context, namespaceOverride string,
 var TarImage = "ghcr.io/knative/func-utils:v2"
 
 // UploadToVolume uploads files (passed in form of tar stream) into volume.
-func UploadToVolume(ctx context.Context, content io.Reader, claimName, namespace string) error {
-	return runWithVolumeMounted(ctx, TarImage, []string{"sh", "-c", "umask 0000 && exec tar -xmf -"}, content, claimName, namespace)
+func UploadToVolume(ctx context.Context, c *Client, content io.Reader, claimName, namespace string) error {
+	return runWithVolumeMounted(ctx, c, TarImage, []string{"sh", "-c", "umask 0000 && exec tar -xmf -"}, content, claimName, namespace)
 }
 
 // Runs a pod with given image, command and stdin
 // while having the volume mounted and working directory set to it.
-func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []string, podInput io.Reader, claimName, namespace string) error {
+func runWithVolumeMounted(ctx context.Context, c *Client, podImage string, podCommand []string, podInput io.Reader, claimName, namespace string) error {
 	var err error
 
-	cliConf := GetClientConfig()
-	restConf, err := cliConf.ClientConfig()
+	restConf, err := c.RestConfig()
 	if err != nil {
 		return fmt.Errorf("cannot get client config: %w", err)
 	}
@@ -102,7 +101,7 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 	}
 
 	if namespace == "" {
-		namespace, err = GetDefaultNamespace()
+		namespace, err = c.DefaultNamespace()
 		if err != nil {
 			return fmt.Errorf("cannot get namespace: %w", err)
 		}
@@ -118,6 +117,7 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 
 	const volumeMntPoint = "/tmp/volume_mnt"
 	const pVol = "p-vol"
+	openShift, _ := c.IsOpenShift()
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        podName,
@@ -125,7 +125,7 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 			Annotations: nil,
 		},
 		Spec: corev1.PodSpec{
-			SecurityContext: defaultPodSecurityContext(),
+			SecurityContext: defaultPodSecurityContext(openShift),
 			Containers: []corev1.Container{
 				{
 					Name:            podName,
@@ -269,8 +269,8 @@ func (t *tsBuff) Write(p []byte) (n int, err error) {
 
 // ListPersistentVolumeClaimsNamesIfConnected lists names of PersistentVolumeClaims present and the current k8s context
 // returns empty list, if not connected to any cluster
-func ListPersistentVolumeClaimsNamesIfConnected(ctx context.Context, namespaceOverride string) (names []string, err error) {
-	names, err = listPersistentVolumeClaimsNames(ctx, namespaceOverride)
+func ListPersistentVolumeClaimsNamesIfConnected(ctx context.Context, c *Client, namespaceOverride string) (names []string, err error) {
+	names, err = listPersistentVolumeClaimsNames(ctx, c, namespaceOverride)
 	if err != nil {
 		// not logged our authorized to access resources
 		if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) || k8serrors.IsInvalid(err) || k8serrors.IsTimeout(err) {
@@ -299,8 +299,8 @@ func ListPersistentVolumeClaimsNamesIfConnected(ctx context.Context, namespaceOv
 	return
 }
 
-func listPersistentVolumeClaimsNames(ctx context.Context, namespaceOverride string) (names []string, err error) {
-	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+func listPersistentVolumeClaimsNames(ctx context.Context, c *Client, namespaceOverride string) (names []string, err error) {
+	client, namespace, err := c.ClientAndNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}

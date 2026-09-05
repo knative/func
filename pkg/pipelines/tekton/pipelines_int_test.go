@@ -45,23 +45,23 @@ const (
 )
 
 func newRemoteTestClient(verbose bool, deployer string, opts ...fn.Option) *fn.Client {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	baseOpts := []fn.Option{
 		fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))),
 		fn.WithPusher(docker.NewPusher(docker.WithCredentialsProvider(testCP))),
-		fn.WithDescribers(knative.NewDescriber(verbose), k8s.NewDescriber(verbose), keda.NewDescriber(verbose)),
+		fn.WithDescribers(knative.NewDescriber(kc, verbose), k8s.NewDescriber(kc, verbose), keda.NewDescriber(kc, verbose)),
 		fn.WithListers(knative.NewLister(kc, verbose), k8s.NewLister(kc, verbose), keda.NewLister(kc, verbose)),
-		fn.WithRemovers(knative.NewRemover(verbose), k8s.NewRemover(verbose), keda.NewRemover(verbose)),
-		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose))),
+		fn.WithRemovers(knative.NewRemover(kc, verbose), k8s.NewRemover(kc, verbose), keda.NewRemover(kc, verbose)),
+		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(kc, tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose))),
 	}
 
 	switch deployer {
 	case k8s.KubernetesDeployerName:
-		baseOpts = append(baseOpts, fn.WithDeployer(k8s.NewDeployer(k8s.WithDeployerVerbose(verbose))))
+		baseOpts = append(baseOpts, fn.WithDeployer(k8s.NewDeployer(kc, k8s.WithDeployerVerbose(verbose))))
 	case keda.KedaDeployerName:
-		baseOpts = append(baseOpts, fn.WithDeployer(keda.NewDeployer(keda.WithDeployerVerbose(verbose))))
+		baseOpts = append(baseOpts, fn.WithDeployer(keda.NewDeployer(kc, keda.WithDeployerVerbose(verbose))))
 	case knative.KnativeDeployerName:
-		baseOpts = append(baseOpts, fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))))
+		baseOpts = append(baseOpts, fn.WithDeployer(knative.NewDeployer(kc, knative.WithDeployerVerbose(verbose))))
 	}
 
 	return fn.New(append(baseOpts, opts...)...)
@@ -97,7 +97,7 @@ func assertFunctionEchoes(httpClient *http.Client, url string) (err error) {
 func httpClientForDeployer(t *testing.T, ctx context.Context, deployer string) *http.Client {
 	switch deployer {
 	case k8s.KubernetesDeployerName, keda.KedaDeployerName:
-		dialer, err := k8s.NewInClusterDialer(ctx, k8s.GetClientConfig())
+		dialer, err := k8s.NewInClusterDialer(ctx, k8s.NewClientFromKubeconfig())
 		if err != nil {
 			t.Fatalf("failed to create in-cluster dialer: %v", err)
 		}
@@ -195,7 +195,7 @@ func TestInt_Remote_Default(t *testing.T) {
 
 func setupNS(t *testing.T) string {
 	name := "pipeline-integration-test-" + strings.ToLower(random.AlphaString(5))
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}

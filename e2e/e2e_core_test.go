@@ -399,7 +399,7 @@ func TestCore_Delete(t *testing.T) {
 	}
 
 	// Check it appears in the list
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	client := fn.New(fn.WithListers(knative.NewLister(kc, false)))
 	list, err := client.List(t.Context(), Namespace)
 	if err != nil {

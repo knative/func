@@ -6,6 +6,7 @@ import (
 
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -50,7 +51,8 @@ func Test_createLocalResources(t *testing.T) {
 			f.Image = "docker.io/alice/" + f.Name
 			f.Registry = TestRegistry
 
-			pp := NewPipelinesProvider()
+			// Local resources only; the client is never used.
+			pp := NewPipelinesProvider(k8s.NewClientFromKubeconfig())
 			err = pp.createLocalPACResources(t.Context(), f)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("pp.createLocalResources() error = %v, wantErr %v", err, tt.wantErr)
@@ -74,7 +76,8 @@ func Test_deleteAllPipelineTemplates(t *testing.T) {
 	f.Image = "docker.io/alice/" + f.Name
 	f.Registry = TestRegistry
 
-	pp := NewPipelinesProvider()
+	// Local resources only; the client is never used.
+	pp := NewPipelinesProvider(k8s.NewClientFromKubeconfig())
 	err = pp.createLocalPACResources(t.Context(), f)
 	if err != nil {
 		t.Errorf("unexpected error while running pp.createLocalResources() error = %v", err)

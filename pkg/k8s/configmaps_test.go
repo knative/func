@@ -8,7 +8,7 @@ import (
 
 func TestListConfigMapsNamesIfConnectedWrongKubeconfig(t *testing.T) {
 	t.Setenv("KUBECONFIG", "/tmp/non-existent.config")
-	_, err := k8s.ListConfigMapsNamesIfConnected(t.Context(), "")
+	_, err := k8s.ListConfigMapsNamesIfConnected(t.Context(), k8s.NewClientFromKubeconfig(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -16,7 +16,7 @@ func TestListConfigMapsNamesIfConnectedWrongKubeconfig(t *testing.T) {
 
 func TestListConfigMapsNamesIfConnectedWrongKubernentesMaster(t *testing.T) {
 	t.Setenv("KUBERNETES_MASTER", "/tmp/non-existent.config")
-	_, err := k8s.ListConfigMapsNamesIfConnected(t.Context(), "")
+	_, err := k8s.ListConfigMapsNamesIfConnected(t.Context(), k8s.NewClientFromKubeconfig(), "")
 	if err != nil {
 		t.Fatal(err)
 	}

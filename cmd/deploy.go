@@ -317,11 +317,15 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 
+	// The cluster client every cluster-facing component uses for this
+	// command. Resolved once, here, and passed down.
+	kc := k8s.NewClientFromKubeconfig()
+
 	// A Route is an OpenShift-only resource, not compatible with knative deployer.
 	// Dont error here, knative + expose=route means expose key is ignored and
 	// we print warning in warnExposeIgnore()
 	if f.Expose == fn.ExposeRoute && f.Deployer != deployers.Knative {
-		ok, probeErr := k8s.DetectOpenShift()
+		ok, probeErr := kc.IsOpenShift()
 		if probeErr != nil {
 			return fmt.Errorf("--expose=route requires an OpenShift cluster, and this one "+
 				"could not be reached to check: %w. Fix the connection, or use --expose=none "+
@@ -345,7 +349,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// also update the registry because there is a registry per namespace,
 	// and their name includes the namespace.
 	// This saves needing a manual flag ``--registry={destination namespace registry}``
-	if changingNamespace(f) && k8s.IsOpenShift() && k8s.IsOpenShiftInternalRegistry(f.Registry) {
+	if ok, _ := kc.IsOpenShift(); changingNamespace(f) && ok && k8s.IsOpenShiftInternalRegistry(f.Registry) {
 		f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Namespace
 		if cfg.Verbose {
 			fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
@@ -353,14 +357,14 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 
 	// Informative non-error messages regarding the final deployment request
-	printDeployMessages(cmd.OutOrStdout(), f)
+	printDeployMessages(cmd.OutOrStdout(), kc, f)
 
 	// create client with options from cfg
-	clientOptions, err := cfg.clientOptions()
+	clientOptions, err := cfg.clientOptions(kc)
 	if err != nil {
 		return
 	}
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.RegistryInsecure}, clientOptions...)
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.RegistryInsecure, K8sClient: kc}, clientOptions...)
 	defer done()
 
 	// Deploy
@@ -850,28 +854,28 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 
 // clientOptions returns client options specific to deploy, including the
 // appropriate deployer
-func (c deployConfig) clientOptions() ([]fn.Option, error) {
+func (c deployConfig) clientOptions(kc *k8s.Client) ([]fn.Option, error) {
 	// Start with build config options
-	o, err := c.buildConfig.clientOptions()
+	o, err := c.buildConfig.clientOptions(kc)
 	if err != nil {
 		return o, err
 	}
 
-	t := newTransport(c.RegistryInsecure)
-	creds := newCredentialsProvider(config.Dir(), t, c.RegistryAuthfile, c.RegistryInsecure)
+	t := newTransport(kc, c.RegistryInsecure)
+	creds := newCredentialsProvider(kc, config.Dir(), t, c.RegistryAuthfile, c.RegistryInsecure)
 
 	// Override the pipelines provider to use custom credentials
 	// This is needed for remote builds (deploy --remote)
-	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(creds, c.Verbose, t)))
+	o = append(o, fn.WithPipelinesProvider(newTektonPipelinesProvider(kc, creds, c.Verbose, t)))
 
 	// Add the appropriate deployer based on deploy type.
 	switch c.Deployer {
 	case knative.KnativeDeployerName:
-		o = append(o, fn.WithDeployer(newKnativeDeployer(c.Verbose)))
+		o = append(o, fn.WithDeployer(newKnativeDeployer(kc, c.Verbose)))
 	case k8s.KubernetesDeployerName:
-		o = append(o, fn.WithDeployer(newK8sDeployer(c.Verbose)))
+		o = append(o, fn.WithDeployer(newK8sDeployer(kc, c.Verbose)))
 	case keda.KedaDeployerName:
-		o = append(o, fn.WithDeployer(newKedaDeployer(c.Verbose)))
+		o = append(o, fn.WithDeployer(newKedaDeployer(kc, c.Verbose)))
 	default:
 		return o, fmt.Errorf("unsupported deploy type: %s (supported: %s, %s, %s)", c.Deployer, knative.KnativeDeployerName, k8s.KubernetesDeployerName, keda.KedaDeployerName)
 	}
@@ -880,7 +884,7 @@ func (c deployConfig) clientOptions() ([]fn.Option, error) {
 }
 
 // printDeployMessages to the output.  Non-error deployment messages.
-func printDeployMessages(out io.Writer, f fn.Function) {
+func printDeployMessages(out io.Writer, kc *k8s.Client, f fn.Function) {
 	digest, err := isDigested(f.Image)
 	if err == nil && digest {
 		fmt.Fprintf(out, "Deploying image '%v', which has a digest. Build and push are disabled.\n", f.Image)
@@ -905,7 +909,7 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	// If the target namespace is provided but differs from active, warn because
 	// the function won't be visible to other commands such as kubectl unless
 	// context namespace is switched.
-	activeNamespace, err := k8s.GetDefaultNamespace()
+	activeNamespace, err := kc.DefaultNamespace()
 	if err == nil && targetNamespace != "" && targetNamespace != activeNamespace {
 		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", targetNamespace, activeNamespace, targetNamespace)
 	}

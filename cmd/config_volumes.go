@@ -98,7 +98,7 @@ For non-interactive usage, use flags to specify the volume type and configuratio
 			}
 
 			// Fall back to interactive mode
-			return runAddVolumesPrompt(cmd.Context(), function)
+			return runAddVolumesPrompt(cmd.Context(), k8s.NewClientFromKubeconfig(), function)
 		},
 	}
 
@@ -164,17 +164,17 @@ func listVolumes(f fn.Function) {
 	}
 }
 
-func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
+func runAddVolumesPrompt(ctx context.Context, kc *k8s.Client, f fn.Function) (err error) {
 
-	secrets, err := k8s.ListSecretsNamesIfConnected(ctx, f.Deploy.Namespace)
+	secrets, err := k8s.ListSecretsNamesIfConnected(ctx, kc, f.Deploy.Namespace)
 	if err != nil {
 		return
 	}
-	configMaps, err := k8s.ListConfigMapsNamesIfConnected(ctx, f.Deploy.Namespace)
+	configMaps, err := k8s.ListConfigMapsNamesIfConnected(ctx, kc, f.Deploy.Namespace)
 	if err != nil {
 		return
 	}
-	persistentVolumeClaims, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(ctx, f.Deploy.Namespace)
+	persistentVolumeClaims, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(ctx, kc, f.Deploy.Namespace)
 	if err != nil {
 		return
 	}

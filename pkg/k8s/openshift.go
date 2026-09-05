@@ -6,11 +6,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"strings"
-	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -25,8 +23,10 @@ const (
 	openShiftRegistryHostPort = openShiftRegistryHost + ":5000"
 )
 
-func GetOpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
-	client, ns, err := NewClientAndResolvedNamespace("")
+// OpenShiftServiceCA fetches the OpenShift service CA certificate by creating
+// a temporary ConfigMap annotated for CA bundle injection.
+func (c *Client) OpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
+	client, ns, err := c.ClientAndNamespace("")
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +86,10 @@ func GetOpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
 	}
 }
 
-func GetDefaultOpenShiftRegistry() string {
-	ns, _ := GetDefaultNamespace()
+// DefaultOpenShiftRegistry returns the internal registry path for the active
+// namespace.
+func (c *Client) DefaultOpenShiftRegistry() string {
+	ns, _ := c.DefaultNamespace()
 	if ns == "" {
 		ns = "default"
 	}
@@ -101,10 +103,10 @@ func IsOpenShiftInternalRegistry(registry string) bool {
 	return strings.HasPrefix(registry, openShiftRegistryHost)
 }
 
-func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
-	conf := GetClientConfig()
-
-	rawConf, err := conf.RawConfig()
+// OpenShiftDockerCredentialLoaders returns a credential loader for the
+// internal OpenShift registry, authenticating with the active user's token.
+func (c *Client) OpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
+	rawConf, err := c.RawConfig()
 	if err != nil {
 		return nil
 	}
@@ -129,62 +131,6 @@ func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
 		},
 	}
 
-}
-
-// openShiftRouteGroupVersion is the API group whose presence identifies an
-// OpenShift cluster. Routes are OpenShift-specific, and discovery should answer
-// it even under restrictive RBAC, unlike listing namespaces or services.
-const openShiftRouteGroupVersion = "route.openshift.io/v1"
-
-var (
-	detectOnce  sync.Once
-	isOpenShift bool
-	detectErr   error
-)
-
-// DetectOpenShift reports whether the cluster serves the OpenShift Route API.
-// A non-nil error means the cluster could not be asked and the bool is
-// meaningless. Probes once per process, answers from cache after.
-func DetectOpenShift() (bool, error) {
-	detectOnce.Do(func() {
-		client, err := NewKubernetesClientset()
-		if err != nil {
-			detectErr = err
-			return
-		}
-		_, err = client.Discovery().ServerResourcesForGroupVersion(openShiftRouteGroupVersion)
-		switch {
-		case err == nil:
-			isOpenShift = true
-		case apierrors.IsNotFound(err):
-			// The cluster answered: it does not serve this API.
-		default:
-			detectErr = err
-		}
-	})
-	return isOpenShift, detectErr
-}
-
-// IsOpenShift is a convenient wrapper for getting simple yes/no for openshift
-// cluster. The inner function should run in the cmd layer once to resolve the
-// detectOnce.Do(), any call after is cached so we dont have to call API all the
-// time.
-//
-// note: gauron99: this might change after restructuring to kubeconfig resolution
-// at the start of program instead of adhoc API calls of kube client throughout
-// the codebase
-func IsOpenShift() bool {
-	ok, _ := DetectOpenShift()
-	return ok
-}
-
-// SetOpenShiftForTest seeds the detection cache; err simulates a cluster that
-// could not be asked. Returns a cleanup restoring the previous state.
-func SetOpenShiftForTest(val bool, err error) func() {
-	detectOnce.Do(func() {}) // ensure real detection won't run
-	prevB, prevE := isOpenShift, detectErr
-	isOpenShift, detectErr = val, err
-	return func() { isOpenShift, detectErr = prevB, prevE }
 }
 
 const (

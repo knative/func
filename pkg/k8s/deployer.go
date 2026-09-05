@@ -63,12 +63,13 @@ type DeployerOpt func(*Deployer)
 type Deployer struct {
 	verbose   bool
 	decorator deployer.DeployDecorator
+	kc        *Client
 
 	exposer deployer.Exposer
 }
 
-func NewDeployer(opts ...DeployerOpt) *Deployer {
-	d := &Deployer{}
+func NewDeployer(kc *Client, opts ...DeployerOpt) *Deployer {
+	d := &Deployer{kc: kc}
 	for _, opt := range opts {
 		opt(d)
 	}
@@ -93,7 +94,7 @@ func WithDeployerDecorator(decorator deployer.DeployDecorator) DeployerOpt {
 	}
 }
 
-func onClusterFix(f fn.Function) fn.Function {
+func (d *Deployer) onClusterFix(f fn.Function) fn.Function {
 	// This only exists because of a bootstrapping problem with On-Cluster
 	// builds:  It appears that, when sending a function to be built on-cluster
 	// the target namespace is not being transmitted in the pipeline
@@ -102,7 +103,7 @@ func onClusterFix(f fn.Function) fn.Function {
 	// earlier versions of this logic relied entirely on the current
 	// kubernetes context.
 	if f.Namespace == "" && f.Deploy.Namespace == "" {
-		f.Namespace, _ = GetDefaultNamespace()
+		f.Namespace, _ = d.kc.DefaultNamespace()
 	}
 	return f
 }
@@ -117,7 +118,10 @@ func newEventingClient(config *rest.Config, namespace string) (clienteventingv1.
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
-	f = onClusterFix(f)
+	if d.kc == nil {
+		return fn.DeploymentResult{}, fmt.Errorf("kubernetes client is not initialized")
+	}
+	f = d.onClusterFix(f)
 	// Choosing f.Namespace vs f.Deploy.Namespace:
 	// This is minimal logic currently required of all deployer impls.
 	// If f.Namespace is defined, this is the (possibly new) target
@@ -142,18 +146,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		f.Deploy.Image = f.Build.Image
 	}
 
-	// Get the Kubernetes REST config
-	config, err := GetClientConfig().ClientConfig()
+	clientset, err := d.kc.Clientset()
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return fn.DeploymentResult{}, err
-	}
-
-	dynClient, err := dynamic.NewForConfig(config)
+	dynClient, err := d.kc.DynamicClient()
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
@@ -190,7 +188,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
 		}
 
-		if err = CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
+		if err = CheckResourcesArePresent(ctx, d.kc, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
@@ -250,7 +248,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate deployment resources: %w", err)
 		}
 
-		if err = CheckResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
+		if err = CheckResourcesArePresent(ctx, d.kc, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName, f.Deploy.ImagePullSecret); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to validate referenced resources: %w", err)
 		}
 
@@ -286,7 +284,11 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// Sync triggers
-	eventingClient, err := newEventingClient(config, namespace)
+	restConfig, err := d.kc.RestConfig()
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
+	eventingClient, err := newEventingClient(restConfig, namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create eventing client: %w", err)
 	}
@@ -789,10 +791,10 @@ func withoutWorkloadAnnotations(annotations map[string]string) map[string]string
 
 // CheckResourcesArePresent returns error if Secrets or ConfigMaps
 // referenced in input sets are not deployed on the cluster in the specified namespace
-func CheckResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount, imagePullSecret string) error {
+func CheckResourcesArePresent(ctx context.Context, c *Client, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount, imagePullSecret string) error {
 	errMsg := ""
 	for s := range *referencedSecrets {
-		_, err := GetSecret(ctx, s, namespace)
+		_, err := GetSecret(ctx, c, s, namespace)
 		if err != nil {
 			if errors.IsForbidden(err) {
 				errMsg += " Ensure that the service account has the necessary permissions to access the secret.\n"
@@ -803,14 +805,14 @@ func CheckResourcesArePresent(ctx context.Context, namespace string, referencedS
 	}
 
 	for cm := range *referencedConfigMaps {
-		_, err := GetConfigMap(ctx, cm, namespace)
+		_, err := GetConfigMap(ctx, c, cm, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced ConfigMap \"%s\" is not present in namespace \"%s\"\n", cm, namespace)
 		}
 	}
 
 	for pvc := range *referencedPVCs {
-		_, err := GetPersistentVolumeClaim(ctx, pvc, namespace)
+		_, err := GetPersistentVolumeClaim(ctx, c, pvc, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced PersistentVolumeClaim \"%s\" is not present in namespace \"%s\"\n", pvc, namespace)
 		}
@@ -818,14 +820,14 @@ func CheckResourcesArePresent(ctx context.Context, namespace string, referencedS
 
 	// check if referenced ServiceAccount is present in the namespace if it is not default
 	if referencedServiceAccount != "" && referencedServiceAccount != "default" {
-		err := GetServiceAccount(ctx, referencedServiceAccount, namespace)
+		err := GetServiceAccount(ctx, c, referencedServiceAccount, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced ServiceAccount \"%s\" is not present in namespace \"%s\"\n", referencedServiceAccount, namespace)
 		}
 	}
 
 	if imagePullSecret != "" {
-		_, err := GetSecret(ctx, imagePullSecret, namespace)
+		_, err := GetSecret(ctx, c, imagePullSecret, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced image pull Secret \"%s\" is not present in namespace \"%s\"\n", imagePullSecret, namespace)
 		}

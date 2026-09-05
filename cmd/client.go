@@ -34,6 +34,11 @@ type ClientConfig struct {
 
 	// Allow insecure server connections when using SSL
 	InsecureSkipVerify bool
+
+	// K8sClient is the cluster client every cluster-facing component uses.
+	// Commands resolve it once and pass it here. If nil, NewClient resolves
+	// it from the kubeconfig.
+	K8sClient *k8s.Client
 }
 
 // ClientFactory defines a constructor which assists in the creation of a Client
@@ -62,23 +67,23 @@ func NewTestClient(options ...fn.Option) ClientFactory {
 // 'Verbose' indicates the system should write out a higher amount of logging.
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
-		kc = k8s.NewClient(k8s.GetClientConfig())
-		t  = newTransport(cfg.InsecureSkipVerify)                                // may provide a custom impl which proxies
-		c  = newCredentialsProvider(config.Dir(), t, "", cfg.InsecureSkipVerify) // for accessing registries
-		d  = newKnativeDeployer(cfg.Verbose)                                     // default deployer (can be overridden via options)
-		pp = newTektonPipelinesProvider(c, cfg.Verbose, t)
+		kc = newK8sClient(cfg.K8sClient)
+		t  = newTransport(kc, cfg.InsecureSkipVerify)                                // may provide a custom impl which proxies
+		c  = newCredentialsProvider(kc, config.Dir(), t, "", cfg.InsecureSkipVerify) // for accessing registries
+		d  = newKnativeDeployer(kc, cfg.Verbose)                                     // default deployer (can be overridden via options)
+		pp = newTektonPipelinesProvider(kc, c, cfg.Verbose, t)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
 			fn.WithTransport(t),
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithScaffolder(buildpacks.NewScaffolder(cfg.Verbose)),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
-			fn.WithRemovers(knative.NewRemover(cfg.Verbose), k8s.NewRemover(cfg.Verbose),
-				keda.NewRemover(cfg.Verbose)),
+			fn.WithRemovers(knative.NewRemover(kc, cfg.Verbose), k8s.NewRemover(kc, cfg.Verbose),
+				keda.NewRemover(kc, cfg.Verbose)),
 			fn.WithDescribers(
-				knative.NewDescriber(cfg.Verbose, knative.WithDescriberTransport(t)),
-				k8s.NewDescriber(cfg.Verbose, k8s.WithDescriberTransport(t)),
-				keda.NewDescriber(cfg.Verbose, keda.WithDescriberTransport(t)),
+				knative.NewDescriber(kc, cfg.Verbose, knative.WithDescriberTransport(t)),
+				k8s.NewDescriber(kc, cfg.Verbose, k8s.WithDescriberTransport(t)),
+				keda.NewDescriber(kc, cfg.Verbose, keda.WithDescriberTransport(t)),
 			),
 			fn.WithListers(knative.NewLister(kc, cfg.Verbose), k8s.NewLister(kc, cfg.Verbose), keda.NewLister(kc, cfg.Verbose)),
 			fn.WithDeployer(d),
@@ -88,7 +93,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 				docker.WithTransport(t),
 				docker.WithVerbose(cfg.Verbose),
 				docker.WithInsecure(cfg.InsecureSkipVerify))),
-			fn.WithSyncer(operator.NewSyncer(operator.WithCredentialsProvider(c))),
+			fn.WithSyncer(operator.NewSyncer(kc, operator.WithCredentialsProvider(c))),
 		}
 	)
 
@@ -107,10 +112,19 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	return client, cleanup
 }
 
+// newK8sClient returns kc, or a client resolved from the kubeconfig when kc
+// is nil. This is the one place a command falls back to the kubeconfig.
+func newK8sClient(kc *k8s.Client) *k8s.Client {
+	if kc != nil {
+		return kc
+	}
+	return k8s.NewClientFromKubeconfig()
+}
+
 // newTransport returns a transport with cluster-flavor-specific variations
 // which take advantage of additional features offered by cluster variants.
-func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
-	return fnhttp.NewRoundTripper(fnhttp.WithInsecureSkipVerify(insecureSkipVerify), fnhttp.WithOpenShiftServiceCA())
+func newTransport(kc *k8s.Client, insecureSkipVerify bool) fnhttp.RoundTripCloser {
+	return fnhttp.NewRoundTripper(kc, fnhttp.WithInsecureSkipVerify(insecureSkipVerify), fnhttp.WithOpenShiftServiceCA(kc))
 }
 
 // newCredentialsProvider returns a credentials provider which possibly
@@ -118,8 +132,8 @@ func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
 // of features or configuration nuances of cluster variants.
 // If authFilePath is provided (non-empty), it will be used as the primary auth file.
 // When insecure is true, credential verification uses plain HTTP instead of HTTPS.
-func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath string, insecure bool) oci.CredentialsProvider {
-	additionalLoaders := append(k8s.GetOpenShiftDockerCredentialLoaders(), k8s.GetGoogleCredentialLoader()...)
+func newCredentialsProvider(kc *k8s.Client, configPath string, t http.RoundTripper, authFilePath string, insecure bool) oci.CredentialsProvider {
+	additionalLoaders := append(kc.OpenShiftDockerCredentialLoaders(), k8s.GetGoogleCredentialLoader()...)
 	additionalLoaders = append(additionalLoaders, k8s.GetECRCredentialLoader()...)
 	additionalLoaders = append(additionalLoaders, k8s.GetACRCredentialLoader()...)
 
@@ -156,24 +170,22 @@ func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath
 	return creds.NewCredentialsProvider(configPath, options...)
 }
 
-func newTektonPipelinesProvider(creds oci.CredentialsProvider, verbose bool, transport http.RoundTripper) *tekton.PipelinesProvider {
+func newTektonPipelinesProvider(kc *k8s.Client, creds oci.CredentialsProvider, verbose bool, transport http.RoundTripper) *tekton.PipelinesProvider {
 	options := []tekton.Opt{
 		tekton.WithCredentialsProvider(creds),
 		tekton.WithVerbose(verbose),
-		tekton.WithPipelineDecorator(deployDecorator{}),
+		tekton.WithPipelineDecorator(deployDecorator{kc}),
 		tekton.WithTransport(transport),
 	}
 
-	return tekton.NewPipelinesProvider(options...)
+	return tekton.NewPipelinesProvider(kc, options...)
 }
 
-func newKnativeDeployer(verbose bool) fn.Deployer {
-	options := []knative.DeployerOpt{
+func newKnativeDeployer(kc *k8s.Client, verbose bool) fn.Deployer {
+	return knative.NewDeployer(kc,
 		knative.WithDeployerVerbose(verbose),
-		knative.WithDeployerDecorator(deployDecorator{}),
-	}
-
-	return knative.NewDeployer(options...)
+		knative.WithDeployerDecorator(deployDecorator{kc}),
+	)
 }
 
 // newK8sDeployer builds the raw deployer.
@@ -181,10 +193,10 @@ func newKnativeDeployer(verbose bool) fn.Deployer {
 // The Exposer is attached unconditionally, not only when the deploy asks for a
 // Route. The record saying whether teardown is owed lives on the cluster, so
 // wiring time cannot know.
-func newK8sDeployer(verbose bool) fn.Deployer {
-	return k8s.NewDeployer(
+func newK8sDeployer(kc *k8s.Client, verbose bool) fn.Deployer {
+	return k8s.NewDeployer(kc,
 		k8s.WithDeployerVerbose(verbose),
-		k8s.WithDeployerDecorator(deployDecorator{}),
+		k8s.WithDeployerDecorator(deployDecorator{kc}),
 		k8s.WithExposer(ocproute.New(deployers.Kubernetes)),
 	)
 }
@@ -194,28 +206,30 @@ func newK8sDeployer(verbose bool) fn.Deployer {
 // bypassing it. Attached unconditionally for the reason in newK8sDeployer,
 // which bites harder here: keda's Route has no owner reference, so a Route
 // nothing goes looking for is a Route nothing ever removes.
-func newKedaDeployer(verbose bool) fn.Deployer {
-	return keda.NewDeployer(
+func newKedaDeployer(kc *k8s.Client, verbose bool) fn.Deployer {
+	return keda.NewDeployer(kc,
 		keda.WithDeployerVerbose(verbose),
-		keda.WithDeployerDecorator(deployDecorator{}),
+		keda.WithDeployerDecorator(deployDecorator{kc}),
 		keda.WithExposer(ocproute.New(deployers.Keda)),
 	)
 }
 
+// deployDecorator adds OpenShift metadata when the target cluster is
+// OpenShift.
 type deployDecorator struct {
-	oshDec k8s.OpenshiftMetadataDecorator
+	kc *k8s.Client
 }
 
 func (d deployDecorator) UpdateAnnotations(function fn.Function, annotations map[string]string) map[string]string {
-	if k8s.IsOpenShift() {
-		return d.oshDec.UpdateAnnotations(function, annotations)
+	if ok, _ := d.kc.IsOpenShift(); ok {
+		return k8s.OpenshiftMetadataDecorator{}.UpdateAnnotations(function, annotations)
 	}
 	return annotations
 }
 
 func (d deployDecorator) UpdateLabels(function fn.Function, labels map[string]string) map[string]string {
-	if k8s.IsOpenShift() {
-		return d.oshDec.UpdateLabels(function, labels)
+	if ok, _ := d.kc.IsOpenShift(); ok {
+		return k8s.OpenshiftMetadataDecorator{}.UpdateLabels(function, labels)
 	}
 	return labels
 }

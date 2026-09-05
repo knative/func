@@ -11,11 +11,11 @@ import (
 )
 
 func TestInt_List(t *testing.T) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	listertesting.TestInt_List(t,
 		keda.NewLister(kc, true),
-		keda.NewDeployer(keda.WithDeployerVerbose(true)),
-		keda.NewDescriber(true),
-		keda.NewRemover(true),
+		keda.NewDeployer(kc, keda.WithDeployerVerbose(true)),
+		keda.NewDescriber(kc, true),
+		keda.NewRemover(kc, true),
 		keda.KedaDeployerName)
 }

@@ -465,7 +465,7 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 
 	// Check the actual number of pods running using Kubernetes API
 	// This is much more reliable than checking logs
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -616,7 +616,7 @@ func TestInt_EnvsUpdate(t *testing.T, deployer fn.Deployer, remover fn.Remover, 
 		t.Fatal(err)
 	}
 
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -671,7 +671,7 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	t.Cleanup(cancel)
 
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -768,7 +768,7 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 	buff := new(k8s.SynchronizedBuffer)
 	go func() {
 		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
-		_ = k8s.GetPodLogsBySelector(ctx, k8s.PodLogsOptions{
+		_ = k8s.GetPodLogsBySelector(ctx, k8s.NewClientFromKubeconfig(), k8s.PodLogsOptions{
 			Namespace:     namespace,
 			LabelSelector: selector,
 			Container:     "user-container",
@@ -854,7 +854,7 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 	redeployLogBuff := new(k8s.SynchronizedBuffer)
 	go func() {
 		selector := fmt.Sprintf("function.knative.dev/name=%s", functionName)
-		_ = k8s.GetPodLogsBySelector(ctx, k8s.PodLogsOptions{
+		_ = k8s.GetPodLogsBySelector(ctx, k8s.NewClientFromKubeconfig(), k8s.PodLogsOptions{
 			Namespace:     namespace,
 			LabelSelector: selector,
 			Container:     "user-container",
@@ -1064,7 +1064,7 @@ func createTrigger(t *testing.T, ctx context.Context, namespace, triggerName str
 			},
 		},
 	}
-	eventingClient, err := knative.NewEventingClient(namespace)
+	eventingClient, err := knative.NewEventingClient(k8s.NewClientFromKubeconfig(), namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1097,7 +1097,7 @@ func createTrigger(t *testing.T, ctx context.Context, namespace, triggerName str
 func createSecret(t *testing.T, namespace, name string, data map[string]string) {
 	t.Helper()
 
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1128,7 +1128,7 @@ func createSecret(t *testing.T, namespace, name string, data map[string]string) 
 func createConfigMap(t *testing.T, namespace, name string, data map[string]string) {
 	t.Helper()
 
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1155,19 +1155,19 @@ func deferCleanup(t *testing.T, namespace string, resourceType string, name stri
 	switch resourceType {
 	case "secret":
 		t.Cleanup(func() {
-			if cliSet, err := k8s.NewKubernetesClientset(); err == nil {
+			if cliSet, err := k8s.NewClientFromKubeconfig().Clientset(); err == nil {
 				_ = cliSet.CoreV1().Secrets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 			}
 		})
 	case "configmap":
 		t.Cleanup(func() {
-			if cliSet, err := k8s.NewKubernetesClientset(); err == nil {
+			if cliSet, err := k8s.NewClientFromKubeconfig().Clientset(); err == nil {
 				_ = cliSet.CoreV1().ConfigMaps(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 			}
 		})
 	case "trigger":
 		t.Cleanup(func() {
-			if eventingClient, err := knative.NewEventingClient(namespace); err == nil {
+			if eventingClient, err := knative.NewEventingClient(k8s.NewClientFromKubeconfig(), namespace); err == nil {
 				_ = eventingClient.DeleteTrigger(context.Background(), name)
 			}
 		})
@@ -1248,7 +1248,7 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 		fn.WithDeployer(deployer),
 		fn.WithDescribers(describer),
 		fn.WithRemovers(remover),
-		fn.WithSyncer(operator.NewSyncer()),
+		fn.WithSyncer(operator.NewSyncer(k8s.NewClientFromKubeconfig())),
 	)
 
 	f, err := client.Init(fn.Function{
@@ -1295,7 +1295,7 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 	})
 
 	// Verify CR state only if the Function CRD is installed
-	restCfg, err := k8s.GetClientConfig().ClientConfig()
+	restCfg, err := k8s.NewClientFromKubeconfig().RestConfig()
 	if err != nil {
 		t.Fatalf("getting kubernetes config: %v", err)
 	}
@@ -1419,8 +1419,7 @@ func getHttpClient(ctx context.Context, deployer string) (*http.Client, func(), 
 	case k8s.KubernetesDeployerName, keda.KedaDeployerName:
 		// For Kubernetes deployments, use in-cluster dialer to access ClusterIP services
 
-		clientConfig := k8s.GetClientConfig()
-		dialer, err := k8s.NewInClusterDialer(ctx, clientConfig)
+		dialer, err := k8s.NewInClusterDialer(ctx, k8s.NewClientFromKubeconfig())
 		if err != nil {
 			return nil, noopDeferFunc, fmt.Errorf("failed to create in-cluster dialer: %w", err)
 		}

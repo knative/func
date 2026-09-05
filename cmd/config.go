@@ -12,6 +12,7 @@ import (
 	"knative.dev/func/pkg/ci/github"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 func NewConfigCmd(
@@ -102,9 +103,9 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 	case "Add":
 		switch answers.SelectedConfig {
 		case "Volumes":
-			err = runAddVolumesPrompt(cmd.Context(), function)
+			err = runAddVolumesPrompt(cmd.Context(), k8s.NewClientFromKubeconfig(), function)
 		case "Environment variables":
-			err = runAddEnvsPrompt(cmd.Context(), function)
+			err = runAddEnvsPrompt(cmd.Context(), k8s.NewClientFromKubeconfig(), function)
 		case "Labels":
 			err = runAddLabelsPrompt(cmd.Context(), function, common.DefaultLoaderSaver)
 		case "Git":
