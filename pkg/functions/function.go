@@ -986,6 +986,9 @@ func (f Function) ImageNameWithDigest(newDigest string) string {
 		return f.Build.Image
 	}
 	image := f.Build.Image
+	if image == "" {
+		return ""
+	}
 
 	// overwrite current digest
 	shaIndex := strings.Index(image, "@sha256:")
