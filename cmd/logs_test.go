@@ -161,7 +161,7 @@ func TestLogs_DefaultSnapshot(t *testing.T) {
 
 	var opts knative.LogsOptions
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	cmd := newTestLogsCmd(func(ctx context.Context, o knative.LogsOptions, out io.Writer) error {
+	cmd := newTestLogsCmd(func(ctx context.Context, _ *k8s.Client, o knative.LogsOptions, out io.Writer) error {
 		opts = o
 		if o.Follow { // would block indefinitely in the real implementation
 			<-ctx.Done()
@@ -207,7 +207,7 @@ func TestLogs_Follow(t *testing.T) {
 	defer cancel()
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	cmd := newTestLogsCmd(func(ctx context.Context, o knative.LogsOptions, out io.Writer) error {
+	cmd := newTestLogsCmd(func(ctx context.Context, _ *k8s.Client, o knative.LogsOptions, out io.Writer) error {
 		opts = o
 		close(started)
 		<-ctx.Done()
@@ -270,7 +270,7 @@ func TestLogs_Window(t *testing.T) {
 			_ = FromTempDirectory(t)
 
 			var opts knative.LogsOptions
-			cmd := newTestLogsCmd(func(_ context.Context, o knative.LogsOptions, _ io.Writer) error {
+			cmd := newTestLogsCmd(func(_ context.Context, _ *k8s.Client, o knative.LogsOptions, _ io.Writer) error {
 				opts = o
 				return nil
 			}, &bytes.Buffer{}, &bytes.Buffer{})
@@ -308,7 +308,7 @@ func TestLogs_NoPods(t *testing.T) {
 	_ = FromTempDirectory(t)
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	cmd := newTestLogsCmd(func(_ context.Context, _ knative.LogsOptions, _ io.Writer) error {
+	cmd := newTestLogsCmd(func(_ context.Context, _ *k8s.Client, _ knative.LogsOptions, _ io.Writer) error {
 		return k8s.ErrNoMatchingPods
 	}, stdout, stderr)
 	cmd.SetArgs([]string{"--name", "myfunc"})
@@ -330,7 +330,7 @@ func TestLogs_PartialLogs(t *testing.T) {
 	_ = FromTempDirectory(t)
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	cmd := newTestLogsCmd(func(_ context.Context, _ knative.LogsOptions, out io.Writer) error {
+	cmd := newTestLogsCmd(func(_ context.Context, _ *k8s.Client, _ knative.LogsOptions, out io.Writer) error {
 		_, _ = out.Write([]byte("log line\n"))
 		return &k8s.PartialLogsError{Err: errors.New("pod is terminating")}
 	}, stdout, stderr)
@@ -351,7 +351,7 @@ func TestLogs_PartialLogs(t *testing.T) {
 func TestLogs_Failure(t *testing.T) {
 	_ = FromTempDirectory(t)
 
-	cmd := newTestLogsCmd(func(_ context.Context, _ knative.LogsOptions, _ io.Writer) error {
+	cmd := newTestLogsCmd(func(_ context.Context, _ *k8s.Client, _ knative.LogsOptions, _ io.Writer) error {
 		return errors.New("forbidden")
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 	cmd.SetArgs([]string{"--name", "myfunc"})
@@ -369,7 +369,7 @@ func TestLogs_ImageNotFiltered(t *testing.T) {
 	_ = FromTempDirectory(t)
 
 	var opts knative.LogsOptions
-	cmd := newTestLogsCmd(func(_ context.Context, o knative.LogsOptions, _ io.Writer) error {
+	cmd := newTestLogsCmd(func(_ context.Context, _ *k8s.Client, o knative.LogsOptions, _ io.Writer) error {
 		opts = o
 		return nil
 	}, &bytes.Buffer{}, &bytes.Buffer{})
@@ -394,7 +394,7 @@ func TestLogs_FollowEnv(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cmd := newTestLogsCmd(func(ctx context.Context, o knative.LogsOptions, _ io.Writer) error {
+	cmd := newTestLogsCmd(func(ctx context.Context, _ *k8s.Client, o knative.LogsOptions, _ io.Writer) error {
 		opts = o
 		cancel()
 		return ctx.Err()

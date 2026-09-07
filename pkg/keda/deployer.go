@@ -30,12 +30,15 @@ type Deployer struct {
 
 	verbose   bool
 	decorator deployer.DeployDecorator
+	kc        *k8s.Client
 	exposer   deployer.Exposer
 }
 
-func NewDeployer(opts ...DeployerOpt) *Deployer {
+func NewDeployer(kc *k8s.Client, opts ...DeployerOpt) *Deployer {
 	d := &Deployer{
+		kc: kc,
 		Deployer: *k8s.NewDeployer(
+			kc,
 			// init with the kedaDeployerDecorator to have the correct deployer labels&annotations
 			k8s.WithDeployerDecorator(&kedaDeployerDecorator{}),
 		),
@@ -103,17 +106,21 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, err
 	}
 
-	k8sClientset, err := k8s.NewKubernetesClientset()
+	if d.kc == nil {
+		return fn.DeploymentResult{}, fmt.Errorf("kubernetes client is not initialized")
+	}
+	k8sClientset, err := d.kc.Clientset()
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create K8sClientset: %v", err)
 	}
-	dynClient, err := k8s.NewDynamicClient()
+	dynClient, err := d.kc.DynamicClient()
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
 	// Resolved once per deploy and threaded down
-	interceptorNS, exposeRefusal := interceptorNamespace(ctx, k8sClientset)
+	openShift, _ := d.kc.IsOpenShift()
+	interceptorNS, exposeRefusal := interceptorNamespace(ctx, k8sClientset, openShift)
 
 	// DNS label checks before we create anything on cluster
 	if err := d.validateExposure(f, exposeRefusal); err != nil {
@@ -152,6 +159,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 	minScale, maxScale := replicaBounds(f)
 	target := deployTarget{
+		kc:          d.kc,
 		clientset:   k8sClientset,
 		dynClient:   dynClient,
 		ref:         ref,
@@ -216,6 +224,7 @@ func (d *Deployer) validateExposure(f fn.Function, exposeRefusal error) error {
 // choosing a path: the clients, the function's placement, replica bounds,
 // and the live objects the HSO hangs off
 type deployTarget struct {
+	kc          *k8s.Client
 	clientset   kubernetes.Interface
 	dynClient   dynamic.Interface
 	ref         deployer.ExposureRef
@@ -456,7 +465,7 @@ func ensureHTTPScaledObject(ctx context.Context, t deployTarget, hosts []string)
 		return fmt.Errorf("failed to generate http scaled object: %w", err)
 	}
 
-	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
+	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset(t.kc)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTPScaledObject clientset: %v", err)
 	}

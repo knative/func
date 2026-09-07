@@ -6,15 +6,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// Note: SetOpenShiftForTest mutates a package-level bool without a mutex.
-// These tests must not be run with t.Parallel() until that is addressed.
-// See openshift.go:SetOpenShiftForTest.
-
 func TestDefaultPodSecurityContext_NonOpenShift(t *testing.T) {
-	cleanup := SetOpenShiftForTest(false, nil)
-	defer cleanup()
-
-	sc := defaultPodSecurityContext()
+	sc := defaultPodSecurityContext(false)
 	if sc == nil {
 		t.Fatal("expected non-nil PodSecurityContext on non-OpenShift")
 	}
@@ -36,10 +29,7 @@ func TestDefaultPodSecurityContext_NonOpenShift(t *testing.T) {
 }
 
 func TestDefaultPodSecurityContext_OpenShift(t *testing.T) {
-	cleanup := SetOpenShiftForTest(true, nil)
-	defer cleanup()
-
-	sc := defaultPodSecurityContext()
+	sc := defaultPodSecurityContext(true)
 	if sc == nil {
 		t.Fatal("expected non-nil PodSecurityContext on OpenShift")
 	}
@@ -107,10 +97,7 @@ func TestRestrictedProfileCompliance(t *testing.T) {
 			name = "openshift"
 		}
 		t.Run(name, func(t *testing.T) {
-			cleanup := SetOpenShiftForTest(openshift, nil)
-			defer cleanup()
-
-			pod := defaultPodSecurityContext()
+			pod := defaultPodSecurityContext(openshift)
 			ctr := defaultSecurityContext()
 
 			// restricted requires: allowPrivilegeEscalation=false (container level)

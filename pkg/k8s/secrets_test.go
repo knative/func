@@ -8,7 +8,7 @@ import (
 
 func TestListSecretsNamesIfConnectedWrongKubeconfig(t *testing.T) {
 	t.Setenv("KUBECONFIG", "/tmp/non-existent.config")
-	_, err := k8s.ListSecretsNamesIfConnected(t.Context(), "")
+	_, err := k8s.ListSecretsNamesIfConnected(t.Context(), k8s.NewClientFromKubeconfig(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -16,7 +16,7 @@ func TestListSecretsNamesIfConnectedWrongKubeconfig(t *testing.T) {
 
 func TestListSecretsNamesIfConnectedWrongKubernentesMaster(t *testing.T) {
 	t.Setenv("KUBERNETES_MASTER", "/tmp/non-existent.config")
-	_, err := k8s.ListSecretsNamesIfConnected(t.Context(), "")
+	_, err := k8s.ListSecretsNamesIfConnected(t.Context(), k8s.NewClientFromKubeconfig(), "")
 	if err != nil {
 		t.Fatal(err)
 	}

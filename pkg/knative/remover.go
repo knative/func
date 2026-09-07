@@ -8,17 +8,20 @@ import (
 
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 const RemoveTimeout = 120 * time.Second
 
-func NewRemover(verbose bool) *Remover {
+func NewRemover(kc *k8s.Client, verbose bool) *Remover {
 	return &Remover{
+		kc:      kc,
 		verbose: verbose,
 	}
 }
 
 type Remover struct {
+	kc      *k8s.Client
 	verbose bool
 }
 
@@ -27,8 +30,11 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 		fmt.Fprintf(os.Stderr, "no namespace defined when trying to delete a function in knative remover\n")
 		return fn.ErrNamespaceRequired
 	}
+	if remover.kc == nil {
+		return fmt.Errorf("kubernetes client is not initialized")
+	}
 
-	client, err := NewServingClient(ns)
+	client, err := NewServingClient(remover.kc, ns)
 	if err != nil {
 		return err
 	}

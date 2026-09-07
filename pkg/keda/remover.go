@@ -13,13 +13,15 @@ import (
 	"knative.dev/func/pkg/ocproute"
 )
 
-func NewRemover(verbose bool) *Remover {
+func NewRemover(kc *k8s.Client, verbose bool) *Remover {
 	return &Remover{
+		kc:      kc,
 		verbose: verbose,
 	}
 }
 
 type Remover struct {
+	kc      *k8s.Client
 	verbose bool
 }
 
@@ -28,8 +30,11 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 		fmt.Fprintf(os.Stderr, "no namespace defined when trying to delete a function in keda remover\n")
 		return fn.ErrNamespaceRequired
 	}
+	if remover.kc == nil {
+		return fmt.Errorf("kubernetes client is not initialized")
+	}
 
-	clientset, err := k8s.NewKubernetesClientset()
+	clientset, err := remover.kc.Clientset()
 	if err != nil {
 		return fmt.Errorf("could not setup kubernetes clientset: %w", err)
 	}
@@ -57,7 +62,7 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 	// A Route left unrecorded by a crash is not searched for; the next
 	// exposed redeploy finds it by its function labels.
 	if recordedNS := svc.Annotations[k8s.RouteNamespaceAnnotation]; recordedNS != "" {
-		dynClient, err := k8s.NewDynamicClient()
+		dynClient, err := remover.kc.DynamicClient()
 		if err != nil {
 			return fmt.Errorf("could not setup dynamic client: %w", err)
 		}

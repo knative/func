@@ -145,7 +145,7 @@ func registry() string {
 		return r
 	}
 	cfg, _ := config.NewDefault()
-	return cfg.RegistryDefault()
+	return cfg.RegistryDefault(k8s.NewClientFromKubeconfig())
 }
 
 // effectivePath to use is that which was provided by --path or FUNC_PATH.
@@ -190,7 +190,7 @@ func defaultNamespace(f fn.Function, verbose bool) string {
 	}
 
 	// Active K8S namespace
-	namespace, err := k8s.GetDefaultNamespace()
+	namespace, err := k8s.NewClientFromKubeconfig().DefaultNamespace()
 	if err != nil {
 		if verbose {
 			fmt.Fprintf(os.Stderr, "Unable to get current active kubernetes namespace.  Defaults will be used. %v", err)

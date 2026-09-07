@@ -16,7 +16,7 @@ import (
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	kc := k8s.NewClient(k8s.GetClientConfig())
+	kc := k8s.NewClientFromKubeconfig()
 	listers := []fn.Lister{
 		knative.NewLister(kc, false),
 		k8s.NewLister(kc, false),

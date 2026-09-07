@@ -15,18 +15,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 // GetPodLogs returns logs from a specified Container in a Pod, if container is empty string,
 // then the first container in the pod is selected.
-func GetPodLogs(ctx context.Context, namespace, podName, containerName string) (string, error) {
+func GetPodLogs(ctx context.Context, c *Client, namespace, podName, containerName string) (string, error) {
+	client, namespace, err := c.ClientAndNamespace(namespace)
+	if err != nil {
+		return "", err
+	}
+	return podLogs(ctx, client.CoreV1(), namespace, podName, containerName)
+}
+
+// podLogs returns logs of one container of a pod; an empty containerName
+// selects the first container.
+func podLogs(ctx context.Context, core v1.CoreV1Interface, namespace, podName, containerName string) (string, error) {
 	podLogOpts := corev1.PodLogOptions{}
 	if containerName != "" {
 		podLogOpts.Container = containerName
 	}
 
-	client, namespace, _ := NewClientAndResolvedNamespace(namespace)
-	request := client.CoreV1().Pods(namespace).GetLogs(podName, &podLogOpts)
+	request := core.Pods(namespace).GetLogs(podName, &podLogOpts)
 
 	containerLogStream, err := request.Stream(ctx)
 	if err != nil {
@@ -96,8 +106,8 @@ type PodLogsOptions struct {
 // When Follow is set, this function runs as long as the passed context is active
 // (i.e. it is required to cancel the context to stop log gathering).  Otherwise a
 // snapshot of the currently available logs is written and the function returns.
-func GetPodLogsBySelector(ctx context.Context, opts PodLogsOptions, out io.Writer) error {
-	client, namespace, err := NewClientAndResolvedNamespace(opts.Namespace)
+func GetPodLogsBySelector(ctx context.Context, c *Client, opts PodLogsOptions, out io.Writer) error {
+	client, namespace, err := c.ClientAndNamespace(opts.Namespace)
 	if err != nil {
 		return fmt.Errorf("cannot create k8s client: %w", err)
 	}

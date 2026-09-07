@@ -24,7 +24,8 @@ func TestInt_UploadToVolume(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*5)
 	t.Cleanup(cancel)
 
-	cliSet, testingNS, err := k8s.NewClientAndResolvedNamespace("")
+	kc := k8s.NewClientFromKubeconfig()
+	cliSet, testingNS, err := kc.ClientAndNamespace("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +33,7 @@ func TestInt_UploadToVolume(t *testing.T) {
 	rnd := rand.String(5)
 	testingPVCName := "testing-pvc-" + rnd
 
-	err = k8s.CreatePersistentVolumeClaim(ctx, testingPVCName, testingNS,
+	err = k8s.CreatePersistentVolumeClaim(ctx, kc, testingPVCName, testingNS,
 		nil, nil, corev1.ReadWriteOnce,
 		*resource.NewQuantity(1024, resource.DecimalSI), "")
 	if err != nil {
@@ -48,7 +49,7 @@ func TestInt_UploadToVolume(t *testing.T) {
 	t.Log("created PVC: " + testingPVCName)
 
 	// First, test error handling by uploading empty content stream.
-	err = k8s.UploadToVolume(ctx, &bytes.Buffer{}, testingPVCName, testingNS)
+	err = k8s.UploadToVolume(ctx, kc, &bytes.Buffer{}, testingPVCName, testingNS)
 	if err == nil || !strings.Contains(err.Error(), "does not look like a tar") {
 		t.Error("got <nil> error, or error with unexpected message")
 	}
@@ -59,7 +60,7 @@ func TestInt_UploadToVolume(t *testing.T) {
 	}
 	t.Cleanup(func() { f.Close() })
 
-	err = k8s.UploadToVolume(ctx, f, testingPVCName, testingNS)
+	err = k8s.UploadToVolume(ctx, kc, f, testingPVCName, testingNS)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +127,7 @@ func TestInt_UploadToVolume(t *testing.T) {
 	}
 	t.Log("the testing pod has exited")
 
-	out, err := k8s.GetPodLogs(ctx, testingNS, testingPodName, testingPodName)
+	out, err := k8s.GetPodLogs(ctx, k8s.NewClientFromKubeconfig(), testingNS, testingPodName, testingPodName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +139,7 @@ func TestInt_UploadToVolume(t *testing.T) {
 
 func TestInt_ListPersistentVolumeClaimsNamesIfConnectedWrongKubeconfig(t *testing.T) {
 	t.Setenv("KUBECONFIG", "/tmp/non-existent.config")
-	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(t.Context(), "")
+	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(t.Context(), k8s.NewClientFromKubeconfig(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +147,7 @@ func TestInt_ListPersistentVolumeClaimsNamesIfConnectedWrongKubeconfig(t *testin
 
 func TestInt_ListPersistentVolumeClaimsNamesIfConnectedWrongKubernentesMaster(t *testing.T) {
 	t.Setenv("KUBERNETES_MASTER", "/tmp/non-existent.config")
-	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(t.Context(), "")
+	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(t.Context(), k8s.NewClientFromKubeconfig(), "")
 	if err != nil {
 		t.Fatal(err)
 	}

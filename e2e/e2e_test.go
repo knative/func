@@ -888,7 +888,7 @@ func isAbnormalExit(t *testing.T, err error) bool {
 func setSecret(t *testing.T, name, ns string, data map[string][]byte) {
 	t.Helper()
 	ctx := t.Context()
-	config, err := k8s.GetClientConfig().ClientConfig()
+	config, err := k8s.NewClientFromKubeconfig().RestConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -911,7 +911,7 @@ func setSecret(t *testing.T, name, ns string, data map[string][]byte) {
 func setConfigMap(t *testing.T, name, ns string, data map[string]string) {
 	t.Helper()
 	ctx := t.Context()
-	config, err := k8s.GetClientConfig().ClientConfig()
+	config, err := k8s.NewClientFromKubeconfig().RestConfig()
 	if err != nil {
 		t.Fatal(err)
 	}

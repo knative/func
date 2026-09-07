@@ -12,7 +12,6 @@ import (
 
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 const (
@@ -48,8 +47,8 @@ const (
 // Off OpenShift only keda is possible, so only keda is probed. Order matters
 // when every probe is denied: Forbidden says nothing about existence, so the
 // first candidate becomes the guess.
-func interceptorNamespaceCandidates() []string {
-	if k8s.IsOpenShift() {
+func interceptorNamespaceCandidates(openShift bool) []string {
+	if openShift {
 		return []string{interceptorNamespaceOpenShift, interceptorNamespaceUpstream}
 	}
 	return []string{interceptorNamespaceUpstream}
@@ -61,9 +60,9 @@ func interceptorNamespaceCandidates() []string {
 // for the cluster-local bridge, and exposeRefusal says why it is not good
 // enough to build a Route to.
 func interceptorNamespace(ctx context.Context,
-	clientset kubernetes.Interface) (ns string, exposeRefusal error) {
+	clientset kubernetes.Interface, openShift bool) (ns string, exposeRefusal error) {
 
-	candidates := interceptorNamespaceCandidates()
+	candidates := interceptorNamespaceCandidates(openShift)
 
 	var undetermined []string
 	for _, candidate := range candidates {

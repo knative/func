@@ -12,8 +12,13 @@ import (
 
 const openShiftRegistryHost = "image-registry.openshift-image-registry.svc"
 
-// WithOpenShiftServiceCA enables trust to OpenShift's service CA for internal image registry
-func WithOpenShiftServiceCA() Option {
+// WithOpenShiftServiceCA enables trust to OpenShift's service CA for the
+// internal image registry. Without a cluster client there is no way to fetch
+// the CA, so the option does nothing.
+func WithOpenShiftServiceCA(c *k8s.Client) Option {
+	if c == nil {
+		return func(*options) {}
+	}
 	var err error
 	var ca *x509.Certificate
 	var o sync.Once
@@ -21,7 +26,7 @@ func WithOpenShiftServiceCA() Option {
 	selectCA := func(ctx context.Context, serverName string) (*x509.Certificate, error) {
 		if strings.HasPrefix(serverName, openShiftRegistryHost) {
 			o.Do(func() {
-				ca, err = k8s.GetOpenShiftServiceCA(ctx)
+				ca, err = c.OpenShiftServiceCA(ctx)
 				if err != nil {
 					err = fmt.Errorf("cannot get CA: %w", err)
 				}

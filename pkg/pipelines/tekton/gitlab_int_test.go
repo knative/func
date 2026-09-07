@@ -115,7 +115,7 @@ func TestInt_Gitlab(t *testing.T) {
 			Password: "",
 		}, nil
 	}
-	pp := tekton.NewPipelinesProvider(
+	pp := tekton.NewPipelinesProvider(k8s.NewClientFromKubeconfig(),
 		tekton.WithCredentialsProvider(credentialsProvider),
 		tekton.WithPacURLCallback(func() (string, error) {
 			return "http://" + pacCtrHostname, nil
@@ -613,7 +613,7 @@ func generateSSHKeys(t *testing.T) string {
 func usingNamespace(t *testing.T) string {
 
 	name := "gitlab-test-" + strings.ToLower(random.AlphaString(5))
-	k8sClient, err := k8s.NewKubernetesClientset()
+	k8sClient, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -667,7 +667,7 @@ func usingNamespace(t *testing.T) string {
 
 func awaitBuildCompletion(t *testing.T, name, ns string) <-chan error {
 
-	clis, err := tekton.NewTektonClients()
+	clis, err := tekton.NewTektonClients(k8s.NewClientFromKubeconfig())
 	if err != nil {
 		t.Fatal(err)
 	}

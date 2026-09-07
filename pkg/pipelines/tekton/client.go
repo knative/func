@@ -13,9 +13,9 @@ const (
 	DefaultWaitingTimeout = 120 * time.Second
 )
 
-// NewTektonClient returns TektonV1beta1Client for namespace
-func NewTektonClient(namespace string) (*v1.TektonV1Client, error) {
-	restConfig, err := k8s.GetClientConfig().ClientConfig()
+// NewTektonClient returns a TektonV1Client for the cluster kc points at.
+func NewTektonClient(kc *k8s.Client) (*v1.TektonV1Client, error) {
+	restConfig, err := kc.RestConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new tekton client: %w", err)
 	}
@@ -28,8 +28,8 @@ func NewTektonClient(namespace string) (*v1.TektonV1Client, error) {
 	return client, nil
 }
 
-func NewTektonClients() (*cli.Clients, error) {
-	restConfig, err := k8s.GetClientConfig().ClientConfig()
+func NewTektonClients(kc *k8s.Client) (*cli.Clients, error) {
+	restConfig, err := kc.RestConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new tekton clientset: %v", err)
 	}

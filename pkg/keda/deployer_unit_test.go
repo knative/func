@@ -80,7 +80,7 @@ func routeCount(t *testing.T, dynClient *dynamicfake.FakeDynamicClient) int {
 // client.
 func Test_RecordExposure_kedaRollback(t *testing.T) {
 	routeName := interceptorExposureName(testFnName, testFnNS)
-	d := NewDeployer(WithExposer(ocproute.New(deployers.Keda)))
+	d := NewDeployer(nil, WithExposer(ocproute.New(deployers.Keda)))
 
 	t.Run("record failure rolls the Route back", func(t *testing.T) {
 		dynClient := newTestDynClient(kedaRoute(routeName, testInterceptorNS, testFnName, testFnNS))
@@ -143,7 +143,7 @@ func Test_RecordExposure_kedaRollback(t *testing.T) {
 // and a nil Exposer leaves everything alone.
 func Test_clearExposure(t *testing.T) {
 	routeName := interceptorExposureName(testFnName, testFnNS)
-	d := NewDeployer(WithExposer(ocproute.New(deployers.Keda)))
+	d := NewDeployer(nil, WithExposer(ocproute.New(deployers.Keda)))
 
 	t.Run("removes the recorded Route, then clears the record", func(t *testing.T) {
 		dynClient := newTestDynClient(kedaRoute(routeName, testInterceptorNS, testFnName, testFnNS))
@@ -209,7 +209,7 @@ func Test_clearExposure(t *testing.T) {
 		dynClient := newTestDynClient(kedaRoute(routeName, testInterceptorNS, testFnName, testFnNS))
 		clientset := newTestClientset(false, testRecord())
 
-		if err := NewDeployer().clearExposure(t.Context(), newTestTarget(clientset, dynClient), testInterceptorNS); err != nil {
+		if err := NewDeployer(nil).clearExposure(t.Context(), newTestTarget(clientset, dynClient), testInterceptorNS); err != nil {
 			t.Fatalf("expected a nil exposer to be a no-op, got: %v", err)
 		}
 		if n := len(dynClient.Actions()); n != 0 {
@@ -230,7 +230,7 @@ func Test_clearExposure(t *testing.T) {
 // interceptor nobody asked to route through.
 func Test_validateExposure(t *testing.T) {
 	refusal := fmt.Errorf("interceptor missing")
-	d := NewDeployer(WithExposer(ocproute.New(deployers.Keda)))
+	d := NewDeployer(nil, WithExposer(ocproute.New(deployers.Keda)))
 
 	f := fn.Function{Name: testFnName, Namespace: testFnNS, Expose: fn.ExposeRoute}
 	if err := d.validateExposure(f, refusal); err == nil || !strings.Contains(err.Error(), "cannot expose") {
@@ -247,7 +247,7 @@ func Test_validateExposure(t *testing.T) {
 	}
 
 	f.Expose = fn.ExposeRoute
-	if err := NewDeployer().validateExposure(f, refusal); err != nil {
+	if err := NewDeployer(nil).validateExposure(f, refusal); err != nil {
 		t.Errorf("expected a nil exposer to skip exposure validation, got: %v", err)
 	}
 }

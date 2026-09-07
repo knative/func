@@ -2,22 +2,26 @@ package operator
 
 import (
 	"context"
+	"fmt"
 
 	fn "knative.dev/func/pkg/functions"
 
 	"knative.dev/func/pkg/docker"
 	funcgit "knative.dev/func/pkg/git"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/oci"
 )
 
 type SyncerOpt func(*Syncer)
 
 type Syncer struct {
+	kc                  *k8s.Client
 	credentialsProvider oci.CredentialsProvider
 }
 
-func NewSyncer(opts ...SyncerOpt) *Syncer {
-	s := &Syncer{}
+// NewSyncer returns a Syncer which talks to the cluster kc points at.
+func NewSyncer(kc *k8s.Client, opts ...SyncerOpt) *Syncer {
+	s := &Syncer{kc: kc}
 	for _, o := range opts {
 		o(s)
 	}
@@ -31,6 +35,9 @@ func WithCredentialsProvider(cp oci.CredentialsProvider) SyncerOpt {
 }
 
 func (s *Syncer) Sync(ctx context.Context, f fn.Function) error {
+	if s.kc == nil {
+		return fmt.Errorf("kubernetes client is not initialized")
+	}
 	repoURL := f.Build.Git.URL
 	repoBranch := f.Build.Git.Revision
 	repoPath := f.Build.Git.ContextDir
@@ -71,7 +78,7 @@ func (s *Syncer) Sync(ctx context.Context, f fn.Function) error {
 		}
 	}
 
-	return SyncFunctionCR(ctx, SyncConfig{
+	return SyncFunctionCR(ctx, s.kc, SyncConfig{
 		FunctionName:        f.Name,
 		Namespace:           namespace,
 		RepoURL:             repoURL,

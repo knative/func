@@ -43,8 +43,8 @@ type LogsOptions struct {
 // Otherwise a snapshot of the currently available logs is written and the
 // function returns, with k8s.ErrNoMatchingPods if the service currently has no
 // pods whose logs can be read.
-func GetKServiceLogs(ctx context.Context, opts LogsOptions, out io.Writer) error {
-	return k8s.GetPodLogsBySelector(ctx, k8s.PodLogsOptions{
+func GetKServiceLogs(ctx context.Context, kc *k8s.Client, opts LogsOptions, out io.Writer) error {
+	return k8s.GetPodLogsBySelector(ctx, kc, k8s.PodLogsOptions{
 		Namespace:     opts.Namespace,
 		LabelSelector: fmt.Sprintf("serving.knative.dev/service=%s", opts.Name),
 		Container:     "user-container",

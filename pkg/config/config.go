@@ -61,19 +61,17 @@ func New() Global {
 }
 
 // RegistryDefault is a convenience method for deferred calculation of a
-// default registry taking into account both the global config file and cluster
-// detection.
-func (c Global) RegistryDefault() string {
+// default registry taking into account both the global config file and the
+// cluster kc points at.
+func (c Global) RegistryDefault(kc *k8s.Client) string {
 	// If defined, the user's choice for global registry default value is used
 	if c.Registry != "" {
 		return c.Registry
 	}
-	switch {
-	case k8s.IsOpenShift():
-		return k8s.GetDefaultOpenShiftRegistry()
-	default:
-		return ""
+	if ok, _ := kc.IsOpenShift(); ok {
+		return kc.DefaultOpenShiftRegistry()
 	}
+	return ""
 }
 
 // NewDefault returns a config populated by global defaults as defined by the

@@ -116,7 +116,7 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 
 	// Gets the cluster host
 	var host string
-	cc, err := k8s.GetClientConfig().ClientConfig()
+	cc, err := k8s.NewClientFromKubeconfig().RestConfig()
 	if err != nil {
 		fmt.Printf("error getting client config %v\n", err)
 	} else {

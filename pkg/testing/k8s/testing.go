@@ -17,7 +17,7 @@ const DefaultIntTestNamespacePrefix = "func-int-test"
 func Namespace(t *testing.T, ctx context.Context) string {
 	t.Helper()
 
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, err := k8s.NewClientFromKubeconfig().Clientset()
 	if err != nil {
 		t.Fatal(err)
 	}

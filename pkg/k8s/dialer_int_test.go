@@ -35,10 +35,10 @@ func TestInt_DialInClusterService(t *testing.T) {
 	var ctx = t.Context()
 
 	// Initialize client configuration from kubeconfig or in-cluster config
-	clientConfig := k8s.GetClientConfig()
+	kc := k8s.NewClientFromKubeconfig()
 
 	// Extract the REST config and create a clientset for API operations
-	rc, err := clientConfig.ClientConfig()
+	rc, err := kc.RestConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestInt_DialInClusterService(t *testing.T) {
 	}
 
 	// Determine which namespace to use for test resources
-	testingNS, _, err := clientConfig.Namespace()
+	testingNS, err := kc.DefaultNamespace()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestInt_DialInClusterService(t *testing.T) {
 	// Initialize the InClusterDialer. This will create a socat pod in the
 	// cluster that acts as a TCP proxy, allowing us to reach cluster-internal
 	// services. The "lazy init" variant only creates the pod when first used.
-	dialer := k8s.NewLazyInitInClusterDialer(clientConfig)
+	dialer := k8s.NewLazyInitInClusterDialer(kc)
 	t.Cleanup(func() {
 		dialer.Close()
 	})
@@ -222,7 +222,7 @@ func TestInt_DialInClusterService(t *testing.T) {
 func TestInt_DialUnreachable(t *testing.T) {
 	var ctx = t.Context()
 
-	dialer, err := k8s.NewInClusterDialer(ctx, k8s.GetClientConfig())
+	dialer, err := k8s.NewInClusterDialer(ctx, k8s.NewClientFromKubeconfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,8 +261,8 @@ func TestInt_DialUnreachable(t *testing.T) {
 func TestInt_DialContextExpiry(t *testing.T) {
 	var setupCtx = t.Context()
 
-	clientConfig := k8s.GetClientConfig()
-	rc, err := clientConfig.ClientConfig()
+	kc := k8s.NewClientFromKubeconfig()
+	rc, err := kc.RestConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +275,7 @@ func TestInt_DialContextExpiry(t *testing.T) {
 	creatOpts := metaV1.CreateOptions{}
 	deleteOpts := metaV1.DeleteOptions{PropagationPolicy: &pp}
 
-	testingNS, _, err := clientConfig.Namespace()
+	testingNS, err := kc.DefaultNamespace()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +326,7 @@ func TestInt_DialContextExpiry(t *testing.T) {
 	}
 
 	// Create the dialer pod eagerly so that pod creation is not tied to dialCtx.
-	dialer, err := k8s.NewInClusterDialer(setupCtx, clientConfig)
+	dialer, err := k8s.NewInClusterDialer(setupCtx, kc)
 	if err != nil {
 		t.Fatal(err)
 	}
