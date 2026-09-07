@@ -123,6 +123,19 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, err
 	}
 
+	// The source is either a git repository or the local working tree, which
+	// is uploaded. A function loaded from git has no Root.
+	if f.Build.Git.URL == "" && f.Root == "" {
+		return "", f, errors.New("a local function directory is required to upload sources; set a git URL to build from a repository")
+	}
+
+	// Resolve the commit to label the image with before creating any cluster
+	// resources: an unreachable repository or unknown revision fails here.
+	commit, err := sourceCommit(ctx, f)
+	if err != nil {
+		return "", f, err
+	}
+
 	// Warn if the func-generated legacy .s2i/bin/assemble exists; it will be
 	// uploaded to the PVC and can interfere with the in-cluster build.
 	// Remote deploy doesn't go through Client.Build, so we re-check here.
@@ -239,7 +252,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, fmt.Errorf("problem in creating secret: %v", err)
 	}
 
-	err = createAndApplyPipelineRunTemplate(f, namespace, labels)
+	err = createAndApplyPipelineRunTemplate(f, namespace, labels, commit)
 	if err != nil {
 		return "", f, fmt.Errorf("problem in creating pipeline run: %v", err)
 	}
@@ -303,6 +316,21 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 	}
 
 	return obj.Route, f, nil
+}
+
+// sourceCommit returns the short commit SHA of the source the pipeline
+// builds, used to label the image (org.opencontainers.image.revision): the
+// resolved revision of the git repository when one is set, the local
+// checkout otherwise.
+func sourceCommit(ctx context.Context, f fn.Function) (string, error) {
+	if f.Build.Git.URL != "" {
+		commit, err := fn.GitRemoteCommit(ctx, f.Build.Git)
+		if err != nil {
+			return "", fmt.Errorf("cannot resolve the git source: %w", err)
+		}
+		return commit, nil
+	}
+	return fn.GitCommit(f.Root)
 }
 
 // Creates tar stream with the function sources as they were in "./source" directory.

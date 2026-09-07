@@ -297,6 +297,35 @@ var testData = []struct {
 	},
 }
 
+// Test_createAndApplyPipelineRunTemplate_NoRoot ensures a function loaded
+// from a git repository, which has no Root, yields a PipelineRun: nothing
+// is read from a project directory in that case.
+func Test_createAndApplyPipelineRunTemplate_NoRoot(t *testing.T) {
+	old := manifestivalClient
+	defer func() { manifestivalClient = old }()
+	manifestivalClient = func() (manifestival.Client, error) {
+		return fake.New(), nil
+	}
+
+	f := fn.Function{
+		Name:     "remote-fn",
+		Runtime:  "go",
+		Registry: TestRegistry,
+		Build: fn.BuildSpec{
+			Builder: builders.Pack,
+			Git:     fn.Git{URL: "https://example.com/alice/remote-fn.git", Revision: "main"},
+		},
+	}
+	f.Deploy.Image = "docker.io/alice/remote-fn"
+
+	if err := createAndApplyPipelineTemplate(f, "test-ns", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := createAndApplyPipelineRunTemplate(f, "test-ns", nil, "abc1234"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
@@ -321,7 +350,7 @@ func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 			f.Image = "docker.io/alice/" + f.Name
 			f.Registry = TestRegistry
 
-			if err := createAndApplyPipelineRunTemplate(f, tt.namespace, tt.labels); (err != nil) != tt.wantErr {
+			if err := createAndApplyPipelineRunTemplate(f, tt.namespace, tt.labels, "abc1234"); (err != nil) != tt.wantErr {
 				t.Errorf("createAndApplyPipelineRunTemplate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

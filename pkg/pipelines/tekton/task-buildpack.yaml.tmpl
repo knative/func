@@ -72,6 +72,23 @@ spec:
       - name: CNB_PLATFORM_API
         value: "0.10"
   steps:
+    - name: clean-src
+      # The git-clone StepAction runs as user 65532 and deletes what is in the
+      # workspace before cloning. A previous run of this pipeline leaves the
+      # sources there owned by the build user, which 65532 cannot remove, so a
+      # second build of the same function from git failed. Empty the workspace
+      # as root first and hand the directory to the clone user.
+      image: docker.io/library/bash:5.1
+      when:
+        - input: "$(params.GIT_REPOSITORY)"
+          operator: notin
+          values: [""]
+      script: |
+        #!/usr/bin/env bash
+        set -e
+        src="$(workspaces.source.path)"
+        find "$src" -mindepth 1 -delete
+        chown 65532:65532 "$src"
     - name: fetch-src
       ref:
         resolver: bundles

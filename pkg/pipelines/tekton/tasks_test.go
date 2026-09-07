@@ -61,6 +61,25 @@ func TestGetTasks(t *testing.T) {
 			if apiErr != nil {
 				t.Fatalf("%+v\n", apiErr)
 			}
+
+			// The workspace is emptied as root right before the clone, and
+			// only when there is a repository to clone; the upload path must
+			// keep the sources it received.
+			steps := task.Spec.Steps
+			if len(steps) < 2 || steps[0].Name != "clean-src" || steps[1].Name != "fetch-src" {
+				t.Fatalf("expected clean-src to precede fetch-src, got %v", stepNames(steps))
+			}
+			if len(steps[0].When) != 1 || steps[0].When[0].Input != "$(params.GIT_REPOSITORY)" {
+				t.Errorf("expected clean-src to be gated on GIT_REPOSITORY, got %+v", steps[0].When)
+			}
 		})
 	}
+}
+
+func stepNames(steps []tektonv1.Step) []string {
+	names := make([]string, 0, len(steps))
+	for _, s := range steps {
+		names = append(names, s.Name)
+	}
+	return names
 }

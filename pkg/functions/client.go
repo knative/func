@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v2"
 	"knative.dev/func/pkg/deployers"
 	"knative.dev/func/pkg/utils"
 )
@@ -1609,11 +1608,8 @@ func hasInitializedFunction(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	f := Function{}
-	if err = yaml.Unmarshal(bb, &f); err != nil {
-		return false, err
-	}
-	if f, err = f.Migrate(); err != nil {
+	f, err := parseFunction(bb)
+	if err != nil {
 		return false, err
 	}
 	return f.Initialized(), nil

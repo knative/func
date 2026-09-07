@@ -153,13 +153,17 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		cfg buildConfig
 		f   fn.Function
 	)
-	if cfg, err = newBuildConfig().Prompt(); err != nil {
+	cfg = newBuildConfig()
+	if f, err = fn.NewFunction(cfg.Path); err != nil { // Read in the Function
+		return
+	}
+	if cfg, err = cfg.Prompt(f); err != nil {
 		return wrapPromptError(err, "build")
 	}
 	if err = cfg.Validate(cmd); err != nil { // Perform any pre-validation
 		return wrapValidateError(err, "build")
 	}
-	if f, err = fn.NewFunction(cfg.Path); err != nil { // Read in the Function
+	if f, err = fn.NewFunction(cfg.Path); err != nil { // The prompt may change the path
 		return
 	}
 	if !f.Initialized() {
@@ -300,8 +304,9 @@ func (c buildConfig) Configure(f fn.Function) fn.Function {
 
 // Prompt the user with value of config members, allowing for interactive changes.
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
-// all prompts) was set (default).
-func (c buildConfig) Prompt() (buildConfig, error) {
+// all prompts) was set (default). f is the function being configured, which
+// need not be on the local filesystem.
+func (c buildConfig) Prompt(f fn.Function) (buildConfig, error) {
 	// If there is no registry nor explicit image name defined, the
 	// Registry prompt is shown whether or not we are in confirm mode.
 	// Otherwise, it is only shown if in confirm mode
@@ -309,10 +314,6 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	// value and will always use the value from the config (flag or env variable).
 	// This is not strictly correct and will be fixed when Global Config: Function
 	// Context is available (PR#1416)
-	f, err := fn.NewFunction(c.Path)
-	if err != nil {
-		return c, err
-	}
 
 	// Check if function exists first
 	if !f.Initialized() {
@@ -330,7 +331,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 		err := survey.AskOne(
 			&survey.Input{Message: "Registry for function images:", Default: c.Registry},
 			&c.Registry,
-			survey.WithValidator(NewRegistryValidator(c.Path)))
+			survey.WithValidator(NewRegistryValidator(f)))
 		if err != nil {
 			return c, fn.ErrRegistryRequired
 		}
@@ -377,7 +378,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 		},
 	}
 
-	err = survey.Ask(qs, &c)
+	err := survey.Ask(qs, &c)
 	if err != nil {
 		return c, err
 	}
