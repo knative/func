@@ -2,7 +2,9 @@ package tekton
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"text/template"
 
@@ -168,6 +170,22 @@ func Test_createPipelineRunTemplatePAC(t *testing.T) {
 			if !exists != tt.wantErr {
 				t.Errorf("a pipeline run should be generated in %s", fp)
 				return
+			}
+			if tt.wantErr {
+				return
+			}
+
+			// Pipelines-as-Code applies no Pipeline itself: the PipelineRun
+			// must tell it to fetch the one generated next to it, or its
+			// pipelineRef resolves only if a Pipeline of that name already
+			// exists on the cluster.
+			b, err := os.ReadFile(fp)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "pipelinesascode.tekton.dev/pipeline: " + resourcesDirectory + "/" + pipelineFileNamePAC
+			if !strings.Contains(string(b), want) {
+				t.Errorf("expected the pipeline run to reference the generated pipeline with %q", want)
 			}
 		})
 	}
