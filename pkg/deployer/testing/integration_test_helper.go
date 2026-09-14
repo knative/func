@@ -1263,9 +1263,9 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 		t.Fatal(err)
 	}
 
-	f.Build.Git.URL = repoURL
-	f.Build.Git.Revision = repoBranch
-	f.Build.Git.ContextDir = repoPath
+	f.Build.Source.URL = repoURL
+	f.Build.Source.Revision = repoBranch
+	f.Build.Source.Dir = repoPath
 
 	err = client.Scaffold(ctx, f, "")
 	if err != nil {

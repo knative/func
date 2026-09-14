@@ -1479,7 +1479,7 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		Runtime:   "node",
 		Root:      root,
 		Build: fn.BuildSpec{
-			Git: fn.Git{URL: "http://example-git.com/alice/myfunc.git"},
+			Source: fn.Source{URL: "http://example-git.com/alice/myfunc.git"},
 		},
 	}
 
@@ -1557,7 +1557,7 @@ func TestClient_Pipelines_Deploy_Namespace(t *testing.T) {
 		Root:      root,
 		Namespace: "myns",
 		Build: fn.BuildSpec{
-			Git: fn.Git{URL: "http://example-git.com/alice/myfunc.git"},
+			Source: fn.Source{URL: "http://example-git.com/alice/myfunc.git"},
 		},
 	}
 

@@ -143,8 +143,9 @@ type KnativeSubscription struct {
 
 // BuildSpec
 type BuildSpec struct {
-	// Git stores information about an optionally associated git repository.
-	Git Git `yaml:"git,omitempty"`
+	// Source is the repository the function is built from on the cluster,
+	// when it is not the local directory: url, revision and dir.
+	Source Source `yaml:"source,omitempty"`
 
 	// BuilderImages define optional explicit builder images to use by
 	// builder implementations in leau of the in-code defaults.  They key
@@ -480,7 +481,7 @@ func (f Function) Validate() error {
 		ValidateEnvs(f.Run.Envs),
 		validateOptions(f.Deploy.Options),
 		ValidateLabels(f.Deploy.Labels),
-		validateGit(f.Build.Git),
+		validateSource(f.Build.Source),
 		validateKafka(f.Run.Kafka, f.Invoke, f.Runtime),
 		validateExpose(f.Deploy.Expose, f.Expose),
 	}

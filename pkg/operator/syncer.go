@@ -31,9 +31,9 @@ func WithCredentialsProvider(cp oci.CredentialsProvider) SyncerOpt {
 }
 
 func (s *Syncer) Sync(ctx context.Context, f fn.Function) error {
-	repoURL := f.Build.Git.URL
-	repoBranch := f.Build.Git.Revision
-	repoPath := f.Build.Git.ContextDir
+	repoURL := f.Build.Source.URL
+	repoBranch := f.Build.Source.Revision
+	repoPath := f.Build.Source.Dir
 
 	if repoURL == "" {
 		resolved, err := funcgit.ResolveRemoteURL(f.Root)

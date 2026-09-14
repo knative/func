@@ -4,10 +4,10 @@
 	"definitions": {
 		"BuildSpec": {
 			"properties": {
-				"git": {
+				"source": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/Git",
-					"description": "Git stores information about an optionally associated git repository."
+					"$ref": "#/definitions/Source",
+					"description": "Source is the repository the function is built from on the cluster,\nwhen it is not the local directory: url, revision and dir."
 				},
 				"builderImages": {
 					"patternProperties": {
@@ -261,21 +261,6 @@
 			"additionalProperties": false,
 			"type": "object",
 			"description": "Function"
-		},
-		"Git": {
-			"properties": {
-				"url": {
-					"type": "string"
-				},
-				"revision": {
-					"type": "string"
-				},
-				"contextDir": {
-					"type": "string"
-				}
-			},
-			"additionalProperties": false,
-			"type": "object"
 		},
 		"HealthEndpoints": {
 			"properties": {
@@ -570,6 +555,25 @@
 			},
 			"additionalProperties": false,
 			"type": "object"
+		},
+		"Source": {
+			"properties": {
+				"url": {
+					"type": "string",
+					"description": "URL of the repository."
+				},
+				"revision": {
+					"type": "string",
+					"description": "Revision to build: a branch, a tag or a commit, as git's fetch takes it.\nEmpty means the remote's default branch."
+				},
+				"dir": {
+					"type": "string",
+					"description": "Dir is the directory within the repository holding the function.\nEmpty means the repository root."
+				}
+			},
+			"additionalProperties": false,
+			"type": "object",
+			"description": "Source is the repository a function is built from on the cluster: the values of --source, --revision and --source-dir."
 		},
 		"Volume": {
 			"properties": {

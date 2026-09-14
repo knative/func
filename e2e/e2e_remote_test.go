@@ -44,7 +44,7 @@ func TestRemote_Deploy(t *testing.T) {
 // TestRemote_Source ensures a remote build can be triggered which pulls
 // source from a remote repository.
 //
-//	func deploy --remote --git-url={url} --registry={} --builder=pack
+//	func deploy --remote --source={url} --registry={} --builder=pack
 func TestRemote_Source(t *testing.T) {
 	name := "func-e2e-test-remote-source"
 	_ = fromCleanEnv(t, name)
@@ -58,7 +58,7 @@ func TestRemote_Source(t *testing.T) {
 
 	// Trigger the deploy
 	if err := newCmd(t, "deploy", "--remote",
-		"--git-url", "https://github.com/functions-dev/func-e2e-tests",
+		"--source", "https://github.com/functions-dev/func-e2e-tests",
 		"--registry", Registry,
 		"--builder", "pack",
 	).Run(); err != nil {
@@ -101,8 +101,8 @@ func TestRemote_Ref(t *testing.T) {
 
 	// Trigger the deploy
 	if err := newCmd(t, "deploy", "--remote",
-		"--git-url", "https://github.com/functions-dev/func-e2e-tests",
-		"--git-branch", name,
+		"--source", "https://github.com/functions-dev/func-e2e-tests",
+		"--revision", name,
 		"--registry", Registry,
 		"--builder", "pack",
 		"--build",
@@ -122,8 +122,8 @@ func TestRemote_Ref(t *testing.T) {
 // TestRemote_Dir ensures that remote builds can be instructed to build and
 // deploy a function located in a subdirectory.
 //
-//	func deploy --remote --git-dir={subdir}
-//	func deploy --remote --git-dir={subdir} --git-url={url}
+//	func deploy --remote --source-dir={subdir}
+//	func deploy --remote --source-dir={subdir} --source={url}
 func TestRemote_Dir(t *testing.T) {
 	name := "func-e2e-test-remote-dir"
 	_ = fromCleanEnv(t, name)
@@ -135,7 +135,7 @@ func TestRemote_Dir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// IMPORTANT: When using --git-dir, we need to change to that directory locally
+	// IMPORTANT: When using --source-dir, we need to change to that directory locally
 	// to ensure the local func.yaml matches the one that will be used in the remote build.
 	// This is a current limitation where remote builds still require local source to
 	// determine function metadata (name, runtime, etc).
@@ -148,8 +148,8 @@ func TestRemote_Dir(t *testing.T) {
 
 	// Trigger the deploy
 	if err := newCmd(t, "deploy", "--remote",
-		"--git-url", "https://github.com/functions-dev/func-e2e-tests",
-		"--git-dir", name,
+		"--source", "https://github.com/functions-dev/func-e2e-tests",
+		"--source-dir", name,
 		"--registry", Registry,
 		"--builder", "pack",
 		"--build",

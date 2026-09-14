@@ -136,9 +136,9 @@ func TestCore_Deploy_Template(t *testing.T) {
 
 // TestCore_Deploy_Source ensures that a function can be built and deployed
 // locally from source code housed in a remote source repository.
-// func deploy --git-url={url}
-// func deploy --git-url={url} --git-ref={ref}
-// func deploy --git-url={url} --git-ref={ref} --git-dir={subdir}
+// func deploy --source={url}
+// func deploy --source={url} --revision={ref}
+// func deploy --source={url} --revision={ref} --source-dir={subdir}
 func TestCore_Deploy_Source(t *testing.T) {
 	t.Log("Not Implemented: running a local deploy from source code in a remote repo is not currently an implemented feature because this can be easily accomplished with `git clone ... && func deploy`")
 	// Should this be a feature implemented in the future (mostly just a
@@ -147,7 +147,7 @@ func TestCore_Deploy_Source(t *testing.T) {
 	// name := "func-e2e-test-core-deploy-source"
 	// _ = cdTemp(t, name) // sets Function name obliquely, see function docs
 	//
-	// if err := newCmd(t, "deploy", "--git-url=https://github.com/functions-dev/func-e2e-tests").Run(); err != nil {
+	// if err := newCmd(t, "deploy", "--source=https://github.com/functions-dev/func-e2e-tests").Run(); err != nil {
 	// 	t.Fatal(err)
 	// }
 	// defer func() {

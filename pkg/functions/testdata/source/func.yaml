@@ -1,0 +1,9 @@
+specVersion: 0.37.0
+name: testfunc
+runtime: go
+created: 2026-01-01T00:00:00.000000+00:00
+build:
+  source:
+    url: https://example.com/alice/testfunc.git
+    revision: v1.2.0
+    dir: functions/testfunc

@@ -533,9 +533,9 @@ func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
 	}
 }
 
-// TestDeploy_GitArgsPersist ensures that the git flags, if provided, are
-// persisted to the Function for subsequent deployments.
-func TestDeploy_GitArgsPersist(t *testing.T) {
+// TestDeploy_RemoteSourcePersists ensures that the source flags, if provided,
+// are persisted to the Function for subsequent deployments.
+func TestDeploy_RemoteSourcePersists(t *testing.T) {
 	root := FromTempDirectory(t)
 
 	var (
@@ -550,12 +550,12 @@ func TestDeploy_GitArgsPersist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Deploy the Function specifying all of the git-related flags
+	// Deploy the Function specifying all of the source flags
 	cmd := NewDeployCmd(NewTestClient(
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 		fn.WithRegistry(TestRegistry),
 	))
-	cmd.SetArgs([]string{"--remote", "--git-url=" + url, "--git-branch=" + branch, "--git-dir=" + dir, "."})
+	cmd.SetArgs([]string{"--remote", "--source=" + url, "--revision=" + branch, "--source-dir=" + dir, "."})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -565,20 +565,46 @@ func TestDeploy_GitArgsPersist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Build.Git.URL != url {
-		t.Errorf("expected git URL '%v' got '%v'", url, f.Build.Git.URL)
-	}
-	if f.Build.Git.Revision != branch {
-		t.Errorf("expected git branch '%v' got '%v'", branch, f.Build.Git.Revision)
-	}
-	if f.Build.Git.ContextDir != dir {
-		t.Errorf("expected git dir '%v' got '%v'", dir, f.Build.Git.ContextDir)
+	if want := (fn.Source{URL: url, Revision: branch, Dir: dir}); f.Build.Source != want {
+		t.Errorf("expected source %+v persisted, got %+v", want, f.Build.Source)
 	}
 }
 
-// TestDeploy_GitArgsUsed ensures that any git values provided as flags are used
+// TestDeploy_RemoteSourceEnv ensures the source flags are also read from
+// their environment variables, FUNC_SOURCE, FUNC_REVISION and
+// FUNC_SOURCE_DIR.
+func TestDeploy_RemoteSourceEnv(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("FUNC_SOURCE", "https://example.com/user/repo")
+	t.Setenv("FUNC_REVISION", "v1.2.0")
+	t.Setenv("FUNC_SOURCE_DIR", "function")
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--remote"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fn.Source{URL: "https://example.com/user/repo", Revision: "v1.2.0", Dir: "function"}
+	if f.Build.Source != want {
+		t.Errorf("expected source %+v from the environment, got %+v", want, f.Build.Source)
+	}
+}
+
+// TestDeploy_RemoteSourceUsed ensures that any source values provided as flags are used
 // when invoking a remote deployment.
-func TestDeploy_GitArgsUsed(t *testing.T) {
+func TestDeploy_RemoteSourceUsed(t *testing.T) {
 	root := FromTempDirectory(t)
 
 	var (
@@ -595,14 +621,14 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 	// A Pipelines Provider which will validate the expected values were received
 	pipeliner := mock.NewPipelinesProvider()
 	pipeliner.RunFn = func(f fn.Function) (string, fn.Function, error) {
-		if f.Build.Git.URL != url {
-			t.Errorf("Pipeline Provider expected git URL '%v' got '%v'", url, f.Build.Git.URL)
+		if f.Build.Source.URL != url {
+			t.Errorf("Pipeline Provider expected git URL '%v' got '%v'", url, f.Build.Source.URL)
 		}
-		if f.Build.Git.Revision != branch {
-			t.Errorf("Pipeline Provider expected git branch '%v' got '%v'", branch, f.Build.Git.Revision)
+		if f.Build.Source.Revision != branch {
+			t.Errorf("Pipeline Provider expected git branch '%v' got '%v'", branch, f.Build.Source.Revision)
 		}
-		if f.Build.Git.ContextDir != dir {
-			t.Errorf("Pipeline Provider expected git dir '%v' got '%v'", url, f.Build.Git.ContextDir)
+		if f.Build.Source.Dir != dir {
+			t.Errorf("Pipeline Provider expected git dir '%v' got '%v'", url, f.Build.Source.Dir)
 		}
 		return url, f, nil
 	}
@@ -614,15 +640,15 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 	))
 
-	cmd.SetArgs([]string{"--remote=true", "--git-url=" + url, "--git-branch=" + branch, "--git-dir=" + dir})
+	cmd.SetArgs([]string{"--remote=true", "--source=" + url, "--revision=" + branch, "--source-dir=" + dir})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// TestDeploy_GitURLBranch ensures that a --git-url which specifies the branch
-// in the URL is equivalent to providing --git-branch
-func TestDeploy_GitURLBranch(t *testing.T) {
+// TestDeploy_RemoteSourceFragment ensures that a --source which specifies the branch
+// in the URL is equivalent to providing --revision
+func TestDeploy_RemoteSourceFragment(t *testing.T) {
 	root := FromTempDirectory(t)
 
 	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
@@ -641,7 +667,7 @@ func TestDeploy_GitURLBranch(t *testing.T) {
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 		fn.WithRegistry(TestRegistry),
 	))
-	cmd.SetArgs([]string{"--remote", "--git-url=" + url})
+	cmd.SetArgs([]string{"--remote", "--source=" + url})
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -651,11 +677,11 @@ func TestDeploy_GitURLBranch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Build.Git.URL != expectedUrl {
-		t.Errorf("expected git URL '%v' got '%v'", expectedUrl, f.Build.Git.URL)
+	if f.Build.Source.URL != expectedUrl {
+		t.Errorf("expected git URL '%v' got '%v'", expectedUrl, f.Build.Source.URL)
 	}
-	if f.Build.Git.Revision != expectedBranch {
-		t.Errorf("expected git branch '%v' got '%v'", expectedBranch, f.Build.Git.Revision)
+	if f.Build.Source.Revision != expectedBranch {
+		t.Errorf("expected git branch '%v' got '%v'", expectedBranch, f.Build.Source.Revision)
 	}
 }
 
@@ -1587,7 +1613,7 @@ func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 	}
 }
 
-// TestDeploy_RemoteBuildURLPermutations ensures that the remote, build and git-url flags
+// TestDeploy_RemoteBuildURLPermutations ensures that the remote, build and source flags
 // are properly respected for all permutations, including empty.
 func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 	// Valid flag permutations (empty indicates flag should be omitted)
@@ -1609,7 +1635,7 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 				args = append(args, fmt.Sprintf("--build=%v", build))
 			}
 			if url != "" {
-				args = append(args, fmt.Sprintf("--git-url=%v", url))
+				args = append(args, fmt.Sprintf("--source=%v", url))
 			}
 			return args
 		}
@@ -1666,13 +1692,13 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 			} else {
 				// LOCAL Assertions
 
-				// TODO: (enhancement) allow --git-url when running local deployment.
+				// TODO: (enhancement) allow --source when running local deployment.
 				// Check that the local builder is invoked with a directive to use a
 				// git repo rather than the local filesystem if building is enabled and
-				// a url is provided.  For now it throws an error statign that git-url
+				// a url is provided.  For now it throws an error statign that source
 				// is only used when --remote
 				if url != "" && err == nil {
-					t.Fatal("error expected when deploying from local but provided --git-url")
+					t.Fatal("error expected when deploying from local but provided --source")
 					return
 				} else if url != "" && err != nil {
 					return // test successfully confirmed this is an error case
@@ -1812,7 +1838,7 @@ func TestDeploy_UnsetFlag(t *testing.T) {
 
 	// Deploy it, specifying a Git URL
 	cmd := NewDeployCmd(NewTestClient())
-	cmd.SetArgs([]string{"--remote", "--git-url=https://git.example.com/alice/f"})
+	cmd.SetArgs([]string{"--remote", "--source=https://git.example.com/alice/f"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -1822,13 +1848,13 @@ func TestDeploy_UnsetFlag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Build.Git.URL != "https://git.example.com/alice/f" {
+	if f.Build.Source.URL != "https://git.example.com/alice/f" {
 		t.Fatalf("url not persisted")
 	}
 
 	// Deploy it again, unsetting the value
 	cmd = NewDeployCmd(NewTestClient())
-	cmd.SetArgs([]string{"--git-url="})
+	cmd.SetArgs([]string{"--source="})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -1838,7 +1864,7 @@ func TestDeploy_UnsetFlag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Build.Git.URL != "" {
+	if f.Build.Source.URL != "" {
 		t.Fatalf("url not cleared")
 	}
 }
@@ -3028,7 +3054,7 @@ func TestDeploy_RemoteExposeRecordsObservation(t *testing.T) {
 			cmd.SetOut(&out)
 			cmd.SetErr(&out)
 			cmd.SetArgs([]string{"--remote",
-				"--git-url=https://example.com/user/repo",
+				"--source=https://example.com/user/repo",
 				"--deployer=raw", "--expose=route"})
 			if err := cmd.Execute(); err != nil {
 				t.Fatal(err)

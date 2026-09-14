@@ -99,6 +99,7 @@ var migrations = []migration{
 	{"0.34.0", migrateToSpecsStructure},
 	{"0.35.0", migrateFromInvokeStructure},
 	{"0.36.0", migratePersistentVolumeTypoFixup},
+	{"0.37.0", migrateGitToSource},
 	// New Migrations Here.
 }
 
@@ -239,13 +240,13 @@ func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
 	}
 
 	if f0.Git.URL != "" {
-		f1.Build.Git.URL = f0.Git.URL
+		f1.Build.Source.URL = f0.Git.URL
 	}
 	if f0.Git.Revision != "" {
-		f1.Build.Git.Revision = f0.Git.Revision
+		f1.Build.Source.Revision = f0.Git.Revision
 	}
 	if f0.Git.ContextDir != "" {
-		f1.Build.Git.ContextDir = f0.Git.ContextDir
+		f1.Build.Source.Dir = f0.Git.ContextDir
 	}
 	//Append BuilderImages from old format, without destroying previous migrations
 	if f0.BuilderImages != nil {
@@ -356,6 +357,55 @@ func migratePersistentVolumeTypoFixup(fn Function, m migration) (Function, error
 	return fn, nil
 }
 
+// migrateGitToSource
+// The repository a function is built from was build.git, with url, revision
+// and contextDir. It is build.source, with url, revision and dir: the flags
+// are --source, --revision and --source-dir, and nothing about the values
+// is specific to git. The old keys are carried over; the next write stores
+// the new ones.
+func migrateGitToSource(fn Function, m migration) (Function, error) {
+	f, err := os.Open(filepath.Join(fn.Root, FunctionFile))
+	if err != nil {
+		return Function{}, fmt.Errorf("cannot open func.yaml: %w", err)
+	}
+	defer f.Close()
+
+	// Before the specs structure (0.34.0), build was the build type as a
+	// string, so the key is read loosely.
+	data := struct {
+		Build interface{} `yaml:"build"`
+	}{}
+	if err = yaml.NewDecoder(f).Decode(&data); err != nil {
+		return Function{}, fmt.Errorf("cannot deserialize old sub-structure: %w", err)
+	}
+
+	if fn.Build.Source.URL == "" {
+		fn.Build.Source.URL = nestedString(data.Build, "git", "url")
+	}
+	if fn.Build.Source.Revision == "" {
+		fn.Build.Source.Revision = nestedString(data.Build, "git", "revision")
+	}
+	if fn.Build.Source.Dir == "" {
+		fn.Build.Source.Dir = nestedString(data.Build, "git", "contextDir")
+	}
+	fn.SpecVersion = m.version
+	return fn, nil
+}
+
+// nestedString returns the string at the given path of keys within a
+// decoded YAML value, or "" when the path does not lead to a string.
+func nestedString(v interface{}, keys ...string) string {
+	for _, key := range keys {
+		m, ok := v.(map[interface{}]interface{})
+		if !ok {
+			return ""
+		}
+		v = m[key]
+	}
+	s, _ := v.(string)
+	return s
+}
+
 // The pertinent aspects of the Function's schema prior the 1.0.0 version migrations
 type migrateToSpecs_previousFunction struct {
 
@@ -364,7 +414,11 @@ type migrateToSpecs_previousFunction struct {
 
 	// Git stores information about remote git repository,
 	// in case build type "git" is being used
-	Git Git `yaml:"git"`
+	Git struct {
+		URL        string `yaml:"url"`
+		Revision   string `yaml:"revision"`
+		ContextDir string `yaml:"contextDir"`
+	} `yaml:"git"`
 
 	// BuilderImages define optional explicit builder images to use by
 	// builder implementations in leau of the in-code defaults.  They key

@@ -42,9 +42,9 @@ type DeployInput struct {
 	Registry           *string `json:"registry,omitempty" jsonschema:"Container registry for function image"`
 	Image              *string `json:"image,omitempty" jsonschema:"Full image name (overrides registry)"`
 	Namespace          *string `json:"namespace,omitempty" jsonschema:"Kubernetes namespace to deploy into"`
-	GitURL             *string `json:"gitUrl,omitempty" jsonschema:"Git URL containing the function source"`
-	GitBranch          *string `json:"gitBranch,omitempty" jsonschema:"Git branch for remote deployment"`
-	GitDir             *string `json:"gitDir,omitempty" jsonschema:"Directory inside the Git repository"`
+	Source             *string `json:"source,omitempty" jsonschema:"Repository to build the function from on the cluster, for remote deployment"`
+	Revision           *string `json:"revision,omitempty" jsonschema:"Revision of source to build: a branch, a tag or a commit"`
+	SourceDir          *string `json:"sourceDir,omitempty" jsonschema:"Directory within source containing the function"`
 	BuilderImage       *string `json:"builderImage,omitempty" jsonschema:"Custom builder image"`
 	Domain             *string `json:"domain,omitempty" jsonschema:"Domain for the function route"`
 	Platform           *string `json:"platform,omitempty" jsonschema:"Target platform (e.g., linux/amd64)"`
@@ -66,9 +66,9 @@ func (i DeployInput) Args() []string {
 	args = appendStringFlag(args, "--registry", i.Registry)
 	args = appendStringFlag(args, "--image", i.Image)
 	args = appendStringFlag(args, "--namespace", i.Namespace)
-	args = appendStringFlag(args, "--git-url", i.GitURL)
-	args = appendStringFlag(args, "--git-branch", i.GitBranch)
-	args = appendStringFlag(args, "--git-dir", i.GitDir)
+	args = appendStringFlag(args, "--source", i.Source)
+	args = appendStringFlag(args, "--revision", i.Revision)
+	args = appendStringFlag(args, "--source-dir", i.SourceDir)
 	args = appendStringFlag(args, "--builder-image", i.BuilderImage)
 	args = appendStringFlag(args, "--domain", i.Domain)
 	args = appendStringFlag(args, "--platform", i.Platform)
