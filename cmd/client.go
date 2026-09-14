@@ -121,7 +121,6 @@ func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
 func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath string, insecure bool) oci.CredentialsProvider {
 	additionalLoaders := append(k8s.GetOpenShiftDockerCredentialLoaders(), k8s.GetGoogleCredentialLoader()...)
 	additionalLoaders = append(additionalLoaders, k8s.GetECRCredentialLoader()...)
-	additionalLoaders = append(additionalLoaders, k8s.GetACRCredentialLoader()...)
 
 	additionalLoaders = append(additionalLoaders,
 		func(registry string) (oci.Credentials, error) {
@@ -139,12 +138,15 @@ func newCredentialsProvider(configPath string, t http.RoundTripper, authFilePath
 		},
 	)
 
+	contextLoaders := k8s.GetACRCredentialLoader()
+
 	options := []creds.Opt{
 		creds.WithPromptForCredentials(prompt.NewPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
 		creds.WithPromptForCredentialStore(prompt.NewPromptForCredentialStore()),
 		creds.WithTransport(t),
 		creds.WithInsecure(insecure),
 		creds.WithAdditionalCredentialLoaders(additionalLoaders...),
+		creds.WithContextCredentialLoaders(contextLoaders...),
 	}
 
 	// If a custom auth file path is provided, use it
