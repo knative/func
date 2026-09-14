@@ -8,12 +8,14 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
-
 	"github.com/google/uuid"
+	"github.com/segmentio/kafka-go"
 )
 
 const (
@@ -55,28 +57,12 @@ func NewInvokeMessage() InvokeMessage {
 // invocation message.  Returned is metadata (such as HTTP headers or
 // CloudEvent fields) and a stringified version of the payload.
 func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage, verbose bool) (metadata map[string][]string, body string, err error) {
-	// Get the first available route from 'local', 'remote', a named environment
-	// or treat target
-	route, err := invocationRoute(ctx, c, f, target) // choose instance to invoke
-	if err != nil {
-		return
-	}
-
-	// Format" either 'http' or 'cloudevent'
+	// Format" either 'http', 'cloudevent' or 'kafka'
 	// TODO: discuss if providing a Format on Message should a) update the
 	// function to use the new format if none is defined already (backwards
 	// compatibility fix) or b) always update the function, even if it was already
 	// set. Once decided, codify in a test.
 	format := DefaultInvokeFormat
-
-	// RequestType is expected GET or POST
-	if m.RequestType == "" {
-		m.RequestType = DefaultInvokeRequestType
-	}
-
-	if verbose {
-		fmt.Printf("Invoking '%v' function at %v\n", f.Invoke, route)
-	}
 
 	if f.Invoke != "" {
 		// Prefer the format set during function creation if defined.
@@ -85,12 +71,35 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 	if m.Format != "" {
 		// Use the override specified on the message if provided
 		format = m.Format
-		if verbose {
+	}
+
+	var route string
+	if format != "kafka" {
+		// Get the first available route from 'local', 'remote', a named environment
+		// or treat target
+		route, err = invocationRoute(ctx, c, f, target) // choose instance to invoke
+		if err != nil {
+			return
+		}
+	}
+
+	// RequestType is expected GET or POST
+	if m.RequestType == "" {
+		m.RequestType = DefaultInvokeRequestType
+	}
+
+	if verbose {
+		if format == "kafka" {
+			fmt.Printf("Invoking '%v' function\n", f.Invoke)
+		} else {
+			fmt.Printf("Invoking '%v' function at %v\n", f.Invoke, route)
+		}
+		if m.Format != "" {
 			fmt.Printf("Invoking '%v' function using '%v' format\n", f.Invoke, m.Format)
 		}
 	}
 
-	if m.RequestType != "POST" && m.RequestType != "GET" {
+	if format != "kafka" && m.RequestType != "POST" && m.RequestType != "GET" {
 		err = fmt.Errorf("http request type '%v' not supported, expected GET or POST", m.RequestType)
 		return
 	}
@@ -107,6 +116,29 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 			// This will be used most likely only for very special cases
 			body, err = sendGetEvent(ctx, route, m, c.transport, verbose)
 		}
+	case "kafka":
+		// Get brokers and topics from Function configuration
+		funcEnvs, err := Interpolate(f.Run.Envs)
+		if err != nil {
+			return nil, "", err
+		}
+		brokers := funcEnvs["KAFKA_BROKERS"]
+		if brokers == "" {
+			brokers = os.Getenv("KAFKA_BROKERS")
+		}
+		topics := funcEnvs["KAFKA_TOPICS"]
+		if topics == "" {
+			topics = os.Getenv("KAFKA_TOPICS")
+		}
+
+		if brokers == "" {
+			return nil, "", errors.New("KAFKA_BROKERS not found in func.yaml (run.envs) or environment")
+		}
+		if topics == "" {
+			return nil, "", errors.New("KAFKA_TOPICS not found in func.yaml (run.envs) or environment")
+		}
+
+		return sendKafka(ctx, brokers, topics, m, verbose)
 	default:
 		err = fmt.Errorf("format '%v' not supported", format)
 	}
@@ -289,4 +321,53 @@ func sendHttp(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 	}
 	b, err := io.ReadAll(resp.Body)
 	return resp.Header, string(b), err
+}
+
+type kafkaWriter interface {
+	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+	Close() error
+}
+
+var newKafkaWriter = func(brokers []string, topic string) kafkaWriter {
+	return &kafka.Writer{
+		Addr:  kafka.TCP(brokers...),
+		Topic: topic,
+	}
+}
+
+// sendKafka produces a message to the specified Kafka topics using the brokers
+func sendKafka(ctx context.Context, brokers string, topics string, m InvokeMessage, verbose bool) (map[string][]string, string, error) {
+	brokerList := strings.Split(brokers, ",")
+	for i, b := range brokerList {
+		brokerList[i] = strings.TrimSpace(b)
+	}
+
+	topicList := strings.Split(topics, ",")
+	for i, t := range topicList {
+		topicList[i] = strings.TrimSpace(t)
+	}
+
+	if verbose {
+		fmt.Printf("Connecting to Kafka brokers: %v\n", brokerList)
+	}
+
+	for _, topic := range topicList {
+		if topic == "" {
+			continue
+		}
+		if verbose {
+			fmt.Printf("Producing test message to topic: %q\n", topic)
+		}
+		writer := newKafkaWriter(brokerList, topic)
+		defer writer.Close()
+
+		err := writer.WriteMessages(ctx, kafka.Message{
+			Value: m.Data,
+		})
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to write message to Kafka topic %q: %w", topic, err)
+		}
+	}
+
+	return nil, fmt.Sprintf("Message sent to Kafka topic(s): %s\n", topics), nil
 }
