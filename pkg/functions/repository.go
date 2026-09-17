@@ -710,29 +710,22 @@ func (r *Repository) Write(dest string) (err error) {
 	// plain clone first to a temp directory and then copy the files on disk
 	// using a regular file copy operation which thus includes the repo metadata.
 	if _, ok := r.fs.(filesystem.BillyFilesystem); ok {
-		var (
-			tempDir string
-			clone   *git.Repository
-			wt      *git.Worktree
-		)
+		var tempDir string
 		if tempDir, err = os.MkdirTemp("", "func"); err != nil {
 			return
 		}
 		cloneOpts := getGitCloneOptions(r.uri)
-		clone, err = git.PlainClone(tempDir, false, cloneOpts) // not bare
+		_, err = git.PlainClone(tempDir, false, cloneOpts) // not bare
 		if isAuthError(err) {
 			if auth := credentialsForURL(cloneOpts.URL); auth != nil {
 				cloneOpts.Auth = auth
-				clone, err = git.PlainClone(tempDir, false, cloneOpts)
+				_, err = git.PlainClone(tempDir, false, cloneOpts)
 			}
 		}
 		if err != nil {
 			return fmt.Errorf("failed to plain clone repository: %w", err)
 		}
-		if wt, err = clone.Worktree(); err != nil {
-			return fmt.Errorf("failed to get worktree: %w", err)
-		}
-		fs = filesystem.NewBillyFilesystem(wt.Filesystem)
+		fs = filesystem.NewOsFilesystem(tempDir)
 	}
 	return filesystem.CopyFromFS(".", dest, fs)
 }
