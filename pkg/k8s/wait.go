@@ -69,6 +69,10 @@ func checkIfDeploymentIsAvailable(ctx context.Context, clientset *kubernetes.Cli
 
 	desiredReplicas := *deployment.Spec.Replicas
 
+	if desiredReplicas == 0 {
+		return true, nil
+	}
+
 	// Check if deployment is available
 	for _, condition := range deployment.Status.Conditions {
 		if condition.Type == appsv1.DeploymentAvailable && condition.Status == corev1.ConditionTrue {

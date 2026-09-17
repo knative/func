@@ -417,11 +417,9 @@ func TestInt_Scale(t *testing.T, deployer fn.Deployer, remover fn.Remover, descr
 	// Note: There is no reason for all these being pointers:
 	minScale := int64(2)
 	maxScale := int64(100)
-	f.Deploy.Options = fn.Options{
-		Scale: &fn.ScaleOptions{
-			Min: &minScale,
-			Max: &maxScale,
-		},
+	f.Scale = &fn.ScaleOptions{
+		Min: &minScale,
+		Max: &maxScale,
 	}
 
 	// Scaffold
@@ -738,6 +736,10 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		//     * files under /etc/cm and /etc/sc.
 		//   * application also prints the same info to stderr on startup
 		Created: now,
+		Scale: &fn.ScaleOptions{
+			Min: &minScale,
+			Max: &maxScale,
+		},
 		Deploy: fn.DeploySpec{
 			// pinned prebuilt image: these tests exercise deployment, not the
 			// build/image-resolution flow
@@ -745,12 +747,6 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 			Namespace: namespace,
 			Expose:    "none",
 			Labels:    []fn.Label{{Key: ptr("my-label"), Value: ptr("my-label-value")}},
-			Options: fn.Options{
-				Scale: &fn.ScaleOptions{
-					Min: &minScale,
-					Max: &maxScale,
-				},
-			},
 		},
 		Run: fn.RunSpec{
 			Envs: []fn.Env{

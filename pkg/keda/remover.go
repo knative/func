@@ -50,6 +50,11 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 		return fn.ErrNotHandled
 	}
 
+	dynClient, err := k8s.NewDynamicClient()
+	if err != nil {
+		return fmt.Errorf("could not setup dynamic client: %w", err)
+	}
+
 	// Remove the recorded Route before deleting anything: keda's Route has no
 	// owner reference (it would have to cross namespaces), so nothing collects
 	// it, and its record - these Service annotations - is deleted with the
@@ -57,15 +62,25 @@ func (remover *Remover) Remove(ctx context.Context, name, ns string) error {
 	// A Route left unrecorded by a crash is not searched for; the next
 	// exposed redeploy finds it by its function labels.
 	if recordedNS := svc.Annotations[k8s.RouteNamespaceAnnotation]; recordedNS != "" {
-		dynClient, err := k8s.NewDynamicClient()
-		if err != nil {
-			return fmt.Errorf("could not setup dynamic client: %w", err)
-		}
 		if err := ocproute.New(KedaDeployerName).Unexpose(ctx, dynClient, deployer.NewExposureRef(name, ns, recordedNS)); err != nil {
 			return fmt.Errorf("could not remove the Route exposing function %q in namespace %q; "+
 				"nothing was deleted and the function is still running, if you fix this you can run delete again: %w",
 				name, recordedNS, err)
 		}
+	}
+
+	// Clean up Kafka scaling resources before deleting the Deployment.
+	// These have ownerReferences so they'd be garbage-collected, but
+	// explicit deletion avoids races with a slow GC. Errors here (both
+	// functions already ignore not-found) are not fatal to Remove: the
+	// owner reference still cleans these up eventually, but the user is
+	// warned so a persistent failure (e.g. missing RBAC) doesn't go
+	// unnoticed.
+	if err := deleteScaledObject(ctx, dynClient, ns, scaledObjectName(name)); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+	}
+	if err := deleteTriggerAuth(ctx, dynClient, ns, triggerAuthName(name)); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 	}
 
 	deploymentClient := clientset.AppsV1().Deployments(ns)

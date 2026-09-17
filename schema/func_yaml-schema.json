@@ -118,7 +118,7 @@
 						"keda"
 					],
 					"type": "string",
-					"description": "Deployer records the deployer the Function is CURRENTLY DEPLOYED:\nobserved state, written after successful deployment, and cleared on\nundeploy alongside Namespace."
+					"description": "Deployer records the deployer the Function is CURRENTLY DEPLOYED\nwith: observed state, written after successful deployment, and cleared\non undeploy alongside Namespace. User intent lives on Function.Deployer."
 				},
 				"subscriptions": {
 					"items": {
@@ -138,7 +138,7 @@
 						""
 					],
 					"type": "string",
-					"description": "Expose records the external exposure mode CURRENTLY applied on the\ncluster for raw/keda (observed state). Written after successful deploy,\ncleared on undeploy alongside Namespace and Deployer. Empty means\ncluster-local (or never exposed). User intent lives on Function.Expose."
+					"description": "Expose records the external exposure mode CURRENTLY applied on\nthe cluster for raw/keda (observed state). Written after successful\ndeploy, cleared on undeploy alongside Namespace and Deployer.\nEmpty means cluster-local (or never exposed). User intent lives on\nFunction.Expose."
 				}
 			},
 			"additionalProperties": false,
@@ -256,6 +256,11 @@
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/DeploySpec",
 					"description": "Deploy defines the deployment properties for a function"
+				},
+				"scale": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/ScaleOptions",
+					"description": "Scale defines autoscaling configuration for the function."
 				}
 			},
 			"additionalProperties": false,
@@ -274,6 +279,97 @@
 			"additionalProperties": false,
 			"type": "object",
 			"description": "HealthEndpoints specify the liveness and readiness endpoints for a Runtime"
+		},
+		"KEDAScaleOptions": {
+			"required": [
+				"triggers"
+			],
+			"properties": {
+				"pollingInterval": {
+					"type": "integer",
+					"description": "How often KEDA checks the trigger in seconds (default 30). Applies only to kafka triggers; it has no effect on an http trigger (which scales from interceptor-reported metrics and has no polling concept).",
+					"minimum": 1
+				},
+				"cooldownPeriod": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"triggers": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/KEDATrigger"
+					},
+					"minItems": 1,
+					"type": "array"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"KEDATrigger": {
+			"required": [
+				"type"
+			],
+			"properties": {
+				"type": {
+					"enum": [
+						"http",
+						"kafka",
+						"cron"
+					],
+					"type": "string"
+				},
+				"targetValue": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"lagThreshold": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"activationLagThreshold": {
+					"type": "integer",
+					"minimum": 0
+				},
+				"timezone": {
+					"type": "string"
+				},
+				"start": {
+					"type": "string"
+				},
+				"end": {
+					"type": "string"
+				},
+				"desiredReplicas": {
+					"type": "integer",
+					"minimum": 1
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"KPAScaleOptions": {
+			"properties": {
+				"metric": {
+					"enum": [
+						"concurrency",
+						"rps"
+					],
+					"type": "string"
+				},
+				"target": {
+					"exclusiveMinimum": true,
+					"type": "number",
+					"minimum": 0
+				},
+				"utilization": {
+					"maximum": 100,
+					"minimum": 1,
+					"type": "number"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
 		},
 		"KafkaConfig": {
 			"required": [
@@ -423,10 +519,6 @@
 		},
 		"Options": {
 			"properties": {
-				"scale": {
-					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/ScaleOptions"
-				},
 				"resources": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/ResourcesOptions"
@@ -529,28 +621,22 @@
 		"ScaleOptions": {
 			"properties": {
 				"min": {
+					"maximum": 2147483647,
 					"type": "integer",
 					"minimum": 0
 				},
 				"max": {
+					"maximum": 2147483647,
 					"type": "integer",
 					"minimum": 0
 				},
-				"metric": {
-					"enum": [
-						"concurrency",
-						"rps"
-					],
-					"type": "string"
+				"keda": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KEDAScaleOptions"
 				},
-				"target": {
-					"type": "number",
-					"minimum": 0
-				},
-				"utilization": {
-					"maximum": 100,
-					"minimum": 1,
-					"type": "number"
+				"kpa": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KPAScaleOptions"
 				}
 			},
 			"additionalProperties": false,

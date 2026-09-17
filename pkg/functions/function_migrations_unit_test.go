@@ -10,6 +10,7 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"gopkg.in/yaml.v2"
+	"knative.dev/pkg/ptr"
 )
 
 // TestMigrated ensures that the .Migrated() method returns whether or not the
@@ -350,4 +351,404 @@ func TestMigrateGitToSource(t *testing.T) {
 	if strings.Contains(string(bb), "git:") || strings.Contains(string(bb), "contextDir:") {
 		t.Errorf("expected no build.git keys in the written func.yaml, got:\n%s", bb)
 	}
+}
+
+func TestMigrateScaleToTopLevel(t *testing.T) {
+	t.Run("flat fields move to top-level scale.kpa", func(t *testing.T) {
+		root := t.TempDir()
+		// Write an old-format func.yaml with flat KPA fields under deploy.options.scale
+		funcYaml := `specVersion: "0.36.0"
+name: testfn
+runtime: go
+deploy:
+  options:
+    scale:
+      min: 1
+      max: 10
+      metric: concurrency
+      target: 100.0
+      utilization: 70.0
+`
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		f := Function{
+			SpecVersion: "0.36.0",
+			Root:        root,
+		}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if migrated.SpecVersion != "0.38.0" {
+			t.Errorf("specVersion = %q, want 0.38.0", migrated.SpecVersion)
+		}
+		if migrated.Scale == nil {
+			t.Fatal("expected top-level scale to be populated")
+		}
+		if migrated.Scale.Min == nil || *migrated.Scale.Min != 1 {
+			t.Errorf("scale.min = %v, want 1", migrated.Scale.Min)
+		}
+		if migrated.Scale.Max == nil || *migrated.Scale.Max != 10 {
+			t.Errorf("scale.max = %v, want 10", migrated.Scale.Max)
+		}
+		if migrated.Scale.KPA == nil {
+			t.Fatal("expected scale.kpa to be populated from flat fields")
+		}
+		if *migrated.Scale.KPA.Metric != "concurrency" {
+			t.Errorf("scale.kpa.metric = %q, want concurrency", *migrated.Scale.KPA.Metric)
+		}
+		if *migrated.Scale.KPA.Target != 100.0 {
+			t.Errorf("scale.kpa.target = %f, want 100", *migrated.Scale.KPA.Target)
+		}
+		if *migrated.Scale.KPA.Utilization != 70.0 {
+			t.Errorf("scale.kpa.utilization = %f, want 70", *migrated.Scale.KPA.Utilization)
+		}
+		if migrated.Deploy.Options.Scale != nil {
+			t.Error("expected deploy.options.scale to be cleared")
+		}
+	})
+
+	t.Run("no-op when no scale fields", func(t *testing.T) {
+		root := t.TempDir()
+		funcYaml := `specVersion: "0.36.0"
+name: testfn
+runtime: go
+`
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		f := Function{SpecVersion: "0.36.0", Root: root}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.SpecVersion != "0.38.0" {
+			t.Errorf("specVersion = %q, want 0.38.0", migrated.SpecVersion)
+		}
+		if migrated.Scale != nil {
+			t.Errorf("expected nil scale, got %+v", migrated.Scale)
+		}
+	})
+
+	t.Run("preserves kpa sub-key when already set", func(t *testing.T) {
+		root := t.TempDir()
+		funcYaml := `specVersion: "0.36.0"
+name: testfn
+runtime: go
+deploy:
+  options:
+    scale:
+      kpa:
+        metric: rps
+`
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		f := Function{SpecVersion: "0.36.0", Root: root}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Scale == nil || migrated.Scale.KPA == nil {
+			t.Fatal("expected scale.kpa to be preserved")
+		}
+		if *migrated.Scale.KPA.Metric != "rps" {
+			t.Errorf("scale.kpa.metric = %q, want rps", *migrated.Scale.KPA.Metric)
+		}
+	})
+
+	t.Run("keda deployer gets http trigger", func(t *testing.T) {
+		root := t.TempDir()
+		funcYaml := `specVersion: "0.36.0"
+name: testfn
+runtime: go
+deployer: keda
+`
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		f := Function{SpecVersion: "0.36.0", Deployer: "keda", Root: root}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Scale == nil || migrated.Scale.KEDA == nil {
+			t.Fatal("expected scale.keda to be populated")
+		}
+		triggers := migrated.Scale.KEDA.Triggers
+		if len(triggers) != 1 || triggers[0].Type != "http" {
+			t.Errorf("expected [{http}], got %v", triggers)
+		}
+	})
+
+	t.Run("keda deployer with existing triggers unchanged", func(t *testing.T) {
+		root := t.TempDir()
+		funcYaml := `specVersion: "0.36.0"
+name: testfn
+runtime: go
+deployer: keda
+deploy:
+  options:
+    scale:
+      keda:
+        triggers:
+          - type: kafka
+`
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		f := Function{
+			SpecVersion: "0.36.0",
+			Deployer:    "keda",
+			Root:        root,
+		}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		triggers := migrated.Scale.KEDA.Triggers
+		if len(triggers) != 1 || triggers[0].Type != "kafka" {
+			t.Errorf("expected [{kafka}], got %v", triggers)
+		}
+	})
+
+	t.Run("non-keda deployer no triggers added", func(t *testing.T) {
+		root := t.TempDir()
+		funcYaml := `specVersion: "0.36.0"
+name: testfn
+runtime: go
+deployer: raw
+`
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		f := Function{SpecVersion: "0.36.0", Deployer: "raw", Root: root}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Scale != nil {
+			t.Errorf("expected no scale for raw deployer, got %+v", migrated.Scale)
+		}
+	})
+
+	t.Run("empty Root falls back to the in-memory scale instead of dropping it", func(t *testing.T) {
+		// Library callers can construct a Function with no backing file
+		// (Root == ""). The migration must not silently clear
+		// Deploy.Options.Scale without moving it to the top-level field.
+		min := int64(2)
+		max := int64(20)
+		f := Function{
+			SpecVersion: "0.36.0",
+			Deploy: DeploySpec{
+				Options: Options{
+					Scale: &ScaleOptions{Min: &min, Max: &max},
+				},
+			},
+		}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Scale == nil {
+			t.Fatal("expected the in-memory scale to be moved to the top level, got nil")
+		}
+		if migrated.Scale.Min == nil || *migrated.Scale.Min != 2 {
+			t.Errorf("scale.min = %v, want 2", migrated.Scale.Min)
+		}
+		if migrated.Scale.Max == nil || *migrated.Scale.Max != 20 {
+			t.Errorf("scale.max = %v, want 20", migrated.Scale.Max)
+		}
+		if migrated.Deploy.Options.Scale != nil {
+			t.Error("expected deploy.options.scale to be cleared")
+		}
+	})
+
+	t.Run("keda deployer with legacy flat fields does not produce scale.kpa", func(t *testing.T) {
+		// scale.kpa is only valid for deployer: knative. Building it from
+		// legacy flat fields regardless of deployer, combined with the
+		// keda-defaults-to-http-trigger block always setting scale.keda for
+		// deployer: keda, previously produced a migrated function with both
+		// scale.kpa and scale.keda set -- which ValidateScale rejects as
+		// mutually exclusive.
+		root := t.TempDir()
+		funcYaml := `specVersion: "0.36.0"
+name: testfn
+runtime: go
+deployer: keda
+deploy:
+  options:
+    scale:
+      metric: concurrency
+      target: 100.0
+      utilization: 70.0
+`
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		f := Function{SpecVersion: "0.36.0", Deployer: "keda", Root: root}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Scale == nil {
+			t.Fatal("expected scale to be populated")
+		}
+		if migrated.Scale.KPA != nil {
+			t.Errorf("expected scale.kpa to stay nil for deployer: keda, got %+v", migrated.Scale.KPA)
+		}
+		if migrated.Scale.KEDA == nil || len(migrated.Scale.KEDA.Triggers) == 0 {
+			t.Fatal("expected scale.keda to be populated with a default http trigger")
+		}
+		if errs := ValidateScale(migrated.Scale, "keda", nil); len(errs) != 0 {
+			t.Errorf("expected the migrated scale to pass validation, got: %v", errs)
+		}
+	})
+
+	t.Run("old deploy.deployer/deploy.expose keys populate the observed-state fields", func(t *testing.T) {
+		// A pre-#3953 legacy file recorded the deployer only under the old
+		// deploy.deployer key. The migration copies deploy.deployer/expose
+		// into the observed-state fields (Deploy.Deployer/Expose) so a
+		// Function handed to the migration without going through the primary
+		// unmarshal still carries them. It intentionally does NOT promote the
+		// legacy value to f.Deployer (intent) -- that recovery was removed as
+		// an unrelated, pre-existing concern (see the follow-up ticket).
+		root := t.TempDir()
+		funcYaml := `specVersion: "0.36.0"
+name: testfn
+runtime: go
+deploy:
+  deployer: keda
+  expose: route
+`
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		f := Function{SpecVersion: "0.36.0", Root: root}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Deploy.Deployer != "keda" {
+			t.Errorf("Deploy.Deployer = %q, want keda", migrated.Deploy.Deployer)
+		}
+		if migrated.Deploy.Expose != "route" {
+			t.Errorf("Deploy.Expose = %q, want route", migrated.Deploy.Expose)
+		}
+		// Intent is left empty: the migration no longer recovers the legacy
+		// deploy.deployer value as f.Deployer.
+		if migrated.Deployer != "" {
+			t.Errorf("Deployer = %q, want empty (legacy intent recovery removed)", migrated.Deployer)
+		}
+	})
+
+	t.Run("migration never touches f.Deployer intent", func(t *testing.T) {
+		// The migration must leave the intent field exactly as the caller set
+		// it -- it neither invents intent from the legacy observed field nor
+		// overrides an already-present one.
+		root := t.TempDir()
+		funcYaml := `specVersion: "0.36.0"
+name: testfn
+runtime: go
+deployer: raw
+deploy:
+  deployer: knative
+`
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		f := Function{SpecVersion: "0.36.0", Deployer: "raw", Root: root}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Deployer != "raw" {
+			t.Errorf("Deployer = %q, want raw (must be left untouched)", migrated.Deployer)
+		}
+		if migrated.Deploy.Deployer != "knative" {
+			t.Errorf("Deploy.Deployer = %q, want knative", migrated.Deploy.Deployer)
+		}
+	})
+
+	t.Run("keda-defaults-to-http preserves existing KEDA tuning fields", func(t *testing.T) {
+		f := Function{
+			SpecVersion: "0.36.0",
+			Deployer:    "keda",
+			Scale: &ScaleOptions{
+				KEDA: &KEDAScaleOptions{
+					PollingInterval: ptr.Int32(45),
+					CooldownPeriod:  ptr.Int32(600),
+				},
+			},
+		}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Scale == nil || migrated.Scale.KEDA == nil {
+			t.Fatal("expected scale.keda to be populated")
+		}
+		if migrated.Scale.KEDA.PollingInterval == nil || *migrated.Scale.KEDA.PollingInterval != 45 {
+			t.Errorf("pollingInterval = %v, want 45 (must survive the default-http-trigger migration)", migrated.Scale.KEDA.PollingInterval)
+		}
+		if migrated.Scale.KEDA.CooldownPeriod == nil || *migrated.Scale.KEDA.CooldownPeriod != 600 {
+			t.Errorf("cooldownPeriod = %v, want 600 (must survive the default-http-trigger migration)", migrated.Scale.KEDA.CooldownPeriod)
+		}
+		if len(migrated.Scale.KEDA.Triggers) != 1 || migrated.Scale.KEDA.Triggers[0].Type != "http" {
+			t.Errorf("expected a default http trigger, got %+v", migrated.Scale.KEDA.Triggers)
+		}
+	})
+
+	t.Run("no-op when neither old deployer/expose key is present", func(t *testing.T) {
+		root := t.TempDir()
+		funcYaml := `specVersion: "0.36.0"
+name: testfn
+runtime: go
+`
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		f := Function{SpecVersion: "0.36.0", Root: root}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Deploy.Deployer != "" || migrated.Deploy.Expose != "" {
+			t.Errorf("expected both fields to stay empty, got Deployer=%q Expose=%q",
+				migrated.Deploy.Deployer, migrated.Deploy.Expose)
+		}
+	})
+
+	t.Run("empty Root does not touch the in-memory deployer/expose value", func(t *testing.T) {
+		// Library callers can construct a Function with no backing file.
+		// The in-memory Deploy.Deployer/Expose already reflect
+		// whatever the caller set via the current Go field names -- this
+		// migration must leave them alone, not clear them.
+		f := Function{
+			SpecVersion: "0.36.0",
+			Deploy:      DeploySpec{Deployer: "raw", Expose: "none"},
+		}
+		migrated, err := migrateScaleToTopLevel(f, migration{version: "0.38.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if migrated.Deploy.Deployer != "raw" {
+			t.Errorf("Deploy.Deployer = %q, want raw", migrated.Deploy.Deployer)
+		}
+		if migrated.Deploy.Expose != "none" {
+			t.Errorf("Deploy.Expose = %q, want none", migrated.Deploy.Expose)
+		}
+	})
 }

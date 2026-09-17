@@ -3,6 +3,9 @@ package keda
 import (
 	"context"
 	"fmt"
+	"math"
+	"os"
+	"strings"
 	"time"
 
 	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
@@ -99,8 +102,165 @@ func (k *kedaDeployerDecorator) UpdateLabels(function fn.Function, labels map[st
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
-	if err := validateBridgeName(f.Name); err != nil {
-		return fn.DeploymentResult{}, err
+	triggers := triggers(f)
+	if len(triggers) == 0 {
+		// triggers(f) only returns empty when scale.keda is present with an
+		// explicitly empty triggers list (the nil-Scale/nil-KEDA case falls
+		// back to a plain http trigger). ValidateScale already rejects this,
+		// but Deploy is reachable without Function.Validate first (library
+		// callers, tests): without this check, Deploy would silently skip
+		// both the HTTPScaledObject and Kafka ScaledObject paths and deploy
+		// with no scaler at all.
+		return fn.DeploymentResult{}, fmt.Errorf("function %q: deployer keda requires at least one trigger in scale.keda.triggers", f.Name)
+	}
+	wantHTTP := hasHTTPTrigger(triggers)
+	wantKafka := hasKafkaTrigger(triggers)
+
+	seenTriggerTypes := map[string]bool{}
+	for i, t := range triggers {
+		if t.Type != "http" && t.Type != "kafka" {
+			// ValidateScale already rejects any type other than http/kafka
+			// (cron is explicitly unsupported; anything else is invalid),
+			// but Deploy is reachable without it first (library callers,
+			// tests): an unrecognized type makes both wantHTTP and
+			// wantKafka false, so without this check Deploy would
+			// silently skip every scaler path and deploy the raw
+			// workload with no scaling at all, instead of failing.
+			return fn.DeploymentResult{}, fmt.Errorf(
+				"function %q: scale.keda.triggers[%d].type has invalid value %q, allowed: http, kafka", f.Name, i, t.Type)
+		}
+		if seenTriggerTypes[t.Type] {
+			// ValidateScale already rejects a repeated type, but Deploy is
+			// reachable without it first: kafkaTrigger()/the http
+			// targetValue lookup both only ever use the first match, so a
+			// second trigger of the same type would silently have its
+			// settings ignored instead of failing.
+			return fn.DeploymentResult{}, fmt.Errorf(
+				"function %q: scale.keda.triggers[%d].type %q is repeated: only one trigger of each type is supported", f.Name, i, t.Type)
+		}
+		seenTriggerTypes[t.Type] = true
+	}
+	if wantHTTP && wantKafka {
+		// ValidateScale already rejects this combination, but Deploy is
+		// reachable without it first: the deployer creates a separate
+		// HTTPScaledObject for "http" and a separate ScaledObject for
+		// "kafka", both targeting the same Deployment, and KEDA only
+		// allows one scaler per workload.
+		return fn.DeploymentResult{}, fmt.Errorf(
+			"function %q: scale.keda.triggers must not combine type http with type kafka: they cannot scale the same Deployment together, not yet supported", f.Name)
+	}
+
+	if pollingIntervalIgnored(f, wantHTTP, wantKafka) {
+		// Not fatal: the value is inert, not invalid. httpScaledObject scales
+		// off the KEDA HTTP add-on's interceptor metrics, which have no polling
+		// interval, so it never reads scale.keda.pollingInterval -- only a
+		// kafka trigger's ScaledObject honors it. Warn so a caller who set it
+		// expecting it to apply isn't left wondering why nothing changed.
+		fmt.Fprintf(os.Stderr, "Warning: scale.keda.pollingInterval is ignored for an http trigger (it applies only to kafka triggers); function %q\n", f.Name)
+	}
+
+	if wantHTTP {
+		if err := validateBridgeName(f.Name); err != nil {
+			return fn.DeploymentResult{}, err
+		}
+	}
+	if wantKafka {
+		// Counterpart to validateBridgeName above: the Kafka path names its
+		// ScaledObject/TriggerAuthentication by appending suffixes to f.Name,
+		// which can overflow the 63-character DNS label limit and fail
+		// resource creation server-side with no preflight otherwise.
+		if err := validateKafkaResourceNames(f.Name, needsTriggerAuth(f.Run.Kafka)); err != nil {
+			return fn.DeploymentResult{}, err
+		}
+	}
+
+	// The following are all pure functions of f -- no cluster state needed --
+	// so they run before d.Deployer.Deploy creates anything. ValidateScale
+	// already rejects each of these, but Deploy is reachable without going
+	// through Function.Validate first (library callers, tests): failing
+	// before the raw Deployment/Service exist, rather than after, avoids
+	// leaving a partial workload behind with no Kafka scaler and no error
+	// pointing at why.
+	if f.Scale != nil {
+		// scale.min/max are int64 in func.yaml but replicaBounds narrows them
+		// to int32 (Kubernetes replica counts). Reject values that would not
+		// survive the narrowing before it silently wraps -- e.g. 1<<32 casts
+		// to int32(0), which would otherwise slip past the maxScale >= 1 check
+		// below as a bogus value.
+		if f.Scale.Min != nil && (*f.Scale.Min < 0 || *f.Scale.Min > math.MaxInt32) {
+			return fn.DeploymentResult{}, fmt.Errorf("function %q: scale.min %d is out of range [0, %d]", f.Name, *f.Scale.Min, math.MaxInt32)
+		}
+		if f.Scale.Max != nil && (*f.Scale.Max < 0 || *f.Scale.Max > math.MaxInt32) {
+			return fn.DeploymentResult{}, fmt.Errorf("function %q: scale.max %d is out of range [0, %d]", f.Name, *f.Scale.Max, math.MaxInt32)
+		}
+	}
+	minScale, maxScale := replicaBounds(f)
+	if maxScale < 1 {
+		// deployer: keda's HTTPScaledObject/ScaledObject map scale.max
+		// straight into an HPA's maxReplicas, which must be >= 1.
+		return fn.DeploymentResult{}, fmt.Errorf("function %q: scale.max must be >= 1 for deployer: keda, got %d", f.Name, maxScale)
+	}
+	if minScale > maxScale {
+		return fn.DeploymentResult{}, fmt.Errorf("function %q: scale.max (%d) must be >= scale.min (%d)", f.Name, maxScale, minScale)
+	}
+	if wantKafka && f.Run.Kafka == nil {
+		return fn.DeploymentResult{}, fmt.Errorf("function %q: scale.keda.triggers has a kafka trigger but run.kafka is not configured", f.Name)
+	}
+	if wantKafka && f.Run.Kafka != nil {
+		// buildScaledObject sets these directly as KEDA trigger metadata
+		// (bootstrapServers/topic/consumerGroup); an empty value produces
+		// a ScaledObject that can't connect to any broker.
+		var missing []string
+		if f.Run.Kafka.Brokers == "" {
+			missing = append(missing, "brokers")
+		}
+		if f.Run.Kafka.Topic == "" {
+			missing = append(missing, "topic")
+		}
+		if f.Run.Kafka.ConsumerGroup == "" {
+			missing = append(missing, "consumerGroup")
+		}
+		if len(missing) > 0 {
+			return fn.DeploymentResult{}, fmt.Errorf("function %q: run.kafka is missing required field(s): %s", f.Name, strings.Join(missing, ", "))
+		}
+		// buildTriggerAuth's TLS-path resolution only depends on
+		// f.Run.Kafka/f.Run.Volumes -- no live deployment needed -- so it
+		// can run here, before the raw Deployment/Service exist, instead
+		// of only inside buildTriggerAuth after they already do.
+		if err := validateKafkaTLSPaths(f.Run.Kafka, f.Run.Volumes); err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("function %q: %w", f.Name, err)
+		}
+	}
+	if wantKafka && f.Run.Kafka != nil {
+		// Validate the securityProtocol/TLS/SASL consistency with the same
+		// rules Function.Validate applies, so a direct Deploy caller that
+		// bypasses it can't create a ScaledObject whose SASL/TLS metadata
+		// silently disagrees with how the function's own container
+		// authenticates. buildScaledObject only emits "sasl" metadata for a
+		// non-empty mechanism, so e.g. SASL_SSL with an empty mechanism would
+		// otherwise leave KEDA connecting without SASL at all. Excludes the
+		// runtime/invoke checks (a function-authoring concern, not a KEDA
+		// resource concern) and the broker/topic/consumerGroup checks (done
+		// above), so it doesn't reject valid direct-deploy inputs.
+		if errs := fn.ValidateKafkaSecurity(f.Run.Kafka); len(errs) > 0 {
+			return fn.DeploymentResult{}, fmt.Errorf("function %q: %s", f.Name, strings.Join(errs, "; "))
+		}
+	}
+
+	// Final sweep with the shared scale validator, for direct callers that
+	// bypass Function.Validate. The tailored guards above cover the cases
+	// worth a deploy-specific message (and their own tests); this catches the
+	// remaining ValidateScale checks they don't -- pollingInterval/
+	// cooldownPeriod bounds, per-trigger threshold bounds, and the
+	// scale.keda<->scale.kpa mutual exclusion -- so an invalid scaler config
+	// can't create/update the raw Deployment before KEDA rejects or silently
+	// ignores it. Gated on an explicit scale.keda/scale.kpa so the intentional
+	// default-http fallback (neither set -> triggers() supplies a plain http
+	// trigger) still deploys instead of tripping "keda requires a trigger".
+	if f.Scale != nil && (f.Scale.KEDA != nil || f.Scale.KPA != nil) {
+		if errs := fn.ValidateScale(f.Scale, KedaDeployerName, f.Run.Kafka); len(errs) > 0 {
+			return fn.DeploymentResult{}, fmt.Errorf("function %q: %s", f.Name, strings.Join(errs, "; "))
+		}
 	}
 
 	k8sClientset, err := k8s.NewKubernetesClientset()
@@ -112,12 +272,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
-	// Resolved once per deploy and threaded down
-	interceptorNS, exposeRefusal := interceptorNamespace(ctx, k8sClientset)
-
-	// DNS label checks before we create anything on cluster
-	if err := d.validateExposure(f, exposeRefusal); err != nil {
-		return fn.DeploymentResult{}, err
+	var interceptorNS string
+	var exposeRefusal error
+	if wantHTTP {
+		interceptorNS, exposeRefusal = interceptorNamespace(ctx, k8sClientset)
+		if err := d.validateExposure(f, exposeRefusal); err != nil {
+			return fn.DeploymentResult{}, err
+		}
 	}
 
 	// execute raw deployment deployer
@@ -126,7 +287,6 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to deploy function via raw deployer: %w", err)
 	}
 
-	// create additional required keda resources
 	namespace := deployResult.Namespace
 
 	deployment, err := k8sClientset.AppsV1().Deployments(namespace).Get(ctx, f.Name, metav1.GetOptions{})
@@ -139,39 +299,169 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to get service %s/%s: %v", namespace, f.Name, err)
 	}
 
-	ref := deployer.NewExposureRef(f.Name, namespace, interceptorNS)
-	if err := ensureInterceptorBridgeService(ctx, k8sClientset, ref, deployment); err != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("failed to ensure proxy service exists: %w", err)
+	// Delete stale resources for whichever trigger type is NOT currently
+	// configured, before provisioning the type that is.
+	//
+	// The two *scaler* deletions (HTTPScaledObject, ScaledObject) are fatal:
+	// creating a new scaler while an old one of the other kind still targets
+	// the same Deployment trips KEDA's one-scaler-per-workload rule, so a
+	// leftover would silently leave two scalers fighting over the Deployment
+	// while Deploy reported success. During a transition the Deployment
+	// persists (unlike Remover.Remove, so no owner-reference garbage
+	// collection saves us), so fail loudly and let the transition be retried.
+	//
+	// Their non-scaler companions (the interceptor bridge Service and the
+	// TriggerAuthentication) are best-effort: orphaned, they are inert -- a
+	// Service nothing routes to, a TriggerAuthentication no ScaledObject
+	// references -- and the next deploy of that type recreates/updates them.
+	// A failure to delete them must not abort a deploy. This also matters for
+	// the common case: these deletes run speculatively on every deploy, and
+	// on-cluster the deploy ServiceAccount may lack the delete verb for a
+	// resource that never existed. Kubernetes checks authorization before
+	// existence, so such a delete returns Forbidden (not NotFound) even when
+	// there is nothing to remove -- making it fatal would break every
+	// single-type deploy on a cluster with tighter RBAC.
+	//
+	// None of this waits for actual removal: KEDA attaches its own finalizer
+	// to ScaledObject/TriggerAuthentication, so a successful Delete() only
+	// sets deletionTimestamp and returns. A transition immediately followed
+	// by another deploy could still see the old scaler mid-termination; that
+	// narrow, self-correcting race resolves on retry and isn't worth a
+	// wait-for-actual-deletion poll on every deploy.
+	if !wantHTTP {
+		// No HTTP trigger: a prior deploy's HTTPScaledObject and
+		// interceptor bridge Service, if any, are now orphaned.
+		if err := deleteHTTPScaledObject(ctx, namespace, f.Name); err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to remove stale HTTP scaler before switching triggers: %w", err)
+		} else if d.verbose {
+			fmt.Fprintf(os.Stderr, "deleted HTTPScaledObject %s/%s (if it existed); KEDA's finalizer means removal may still be in progress\n", namespace, f.Name)
+		}
+		if err := deleteInterceptorBridgeService(ctx, k8sClientset, namespace, f.Name); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not remove stale interceptor bridge Service (harmless once orphaned): %v\n", err)
+		}
+	}
+	if !wantKafka {
+		// The Kafka trigger was dropped (or never configured): remove any
+		// scaler resources a prior deploy left behind, so switching back to
+		// http-only doesn't leave a ScaledObject/TriggerAuthentication
+		// still acting on stale Kafka lag config.
+		if err := deleteScaledObject(ctx, dynClient, namespace, scaledObjectName(f.Name)); err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to remove stale Kafka scaler before switching triggers: %w", err)
+		} else if d.verbose {
+			fmt.Fprintf(os.Stderr, "deleted ScaledObject %s/%s (if it existed); KEDA's finalizer means removal may still be in progress\n", namespace, scaledObjectName(f.Name))
+		}
+		if err := deleteTriggerAuth(ctx, dynClient, namespace, triggerAuthName(f.Name)); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not remove stale Kafka TriggerAuthentication (harmless once its ScaledObject is gone): %v\n", err)
+		}
 	}
 
-	labels, err := deployer.GenerateCommonLabels(f, d.decorator)
-	if err != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("failed to generate common labels: %w", err)
-	}
-	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, false, KedaDeployerName)
-
-	minScale, maxScale := replicaBounds(f)
-	target := deployTarget{
-		clientset:   k8sClientset,
-		dynClient:   dynClient,
-		ref:         ref,
-		deployment:  deployment,
-		appService:  appService,
-		labels:      labels,
-		annotations: annotations,
-		minScale:    minScale,
-		maxScale:    maxScale,
-	}
+	// HTTP trigger path: bridge Service + HTTPScaledObject
 	var url string
 	appliedExpose := ""
-	if d.exposer != nil && fn.ActiveExpose(f.Expose) {
-		if url, err = d.deployExposed(ctx, target); err != nil {
+	if wantHTTP {
+		ref := deployer.NewExposureRef(f.Name, namespace, interceptorNS)
+		if err := ensureInterceptorBridgeService(ctx, k8sClientset, ref, deployment); err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to ensure proxy service exists: %w", err)
+		}
+
+		labels, err := deployer.GenerateCommonLabels(f, d.decorator)
+		if err != nil {
+			return fn.DeploymentResult{}, fmt.Errorf("failed to generate common labels: %w", err)
+		}
+		annotations := deployer.GenerateCommonAnnotations(f, d.decorator, false, KedaDeployerName)
+
+		target := deployTarget{
+			clientset:   k8sClientset,
+			dynClient:   dynClient,
+			ref:         ref,
+			deployment:  deployment,
+			appService:  appService,
+			labels:      labels,
+			annotations: annotations,
+			minScale:    minScale,
+			maxScale:    maxScale,
+			scale:       f.Scale,
+		}
+
+		if d.exposer != nil && fn.ActiveExpose(f.Expose) {
+			if url, err = d.deployExposed(ctx, target); err != nil {
+				return fn.DeploymentResult{}, err
+			}
+			appliedExpose = f.Expose
+		} else {
+			if url, err = d.deployClusterLocal(ctx, target); err != nil {
+				return fn.DeploymentResult{}, err
+			}
+		}
+	} else {
+		// No HTTP trigger — URL is the app service. The Service listens on
+		// port 80 (routing to the container's DefaultHTTPPort via
+		// targetPort), so the URL, like elsewhere in the codebase (e.g.
+		// pkg/k8s/describer.go), has no explicit port.
+		url = fmt.Sprintf("http://%s.%s.svc", f.Name, namespace)
+
+		// A prior deploy may have exposed this function over HTTP. Nothing
+		// reconciles that exposure once the HTTP trigger is gone, so clear
+		// it the same way deployClusterLocal does -- otherwise the old
+		// Route and the Service's exposure annotations stay active,
+		// pointing at a function that no longer has anything serving HTTP.
+		target := deployTarget{
+			clientset: k8sClientset,
+			dynClient: dynClient,
+			ref:       deployer.NewExposureRef(f.Name, namespace, ""),
+		}
+		if err := d.clearExposure(ctx, target, appService.Annotations[k8s.RouteNamespaceAnnotation]); err != nil {
 			return fn.DeploymentResult{}, err
 		}
-		appliedExpose = f.Expose
-	} else {
-		if url, err = d.deployClusterLocal(ctx, target); err != nil {
-			return fn.DeploymentResult{}, err
+	}
+
+	// Kafka trigger path: TriggerAuthentication + ScaledObject
+	if wantKafka && f.Run.Kafka != nil {
+		needsAuth := needsTriggerAuth(f.Run.Kafka)
+		if needsAuth {
+			ta, err := buildTriggerAuth(f, deployment, namespace)
+			if err != nil {
+				// A TLS path was explicitly configured but doesn't resolve
+				// to any configured volume. Failing here avoids a
+				// ScaledObject whose authenticationRef points at a
+				// TriggerAuthentication missing the credential it needs.
+				return fn.DeploymentResult{}, fmt.Errorf("function %q: %w", f.Name, err)
+			}
+			if ta == nil {
+				// needsTriggerAuth said SASL/TLS credentials need a
+				// TriggerAuthentication, but buildTriggerAuth found nothing
+				// to resolve at all. Failing here avoids a ScaledObject
+				// whose authenticationRef points at a TriggerAuthentication
+				// that was never created.
+				return fn.DeploymentResult{}, fmt.Errorf(
+					"function %q: run.kafka SASL/TLS credentials are configured but could not be resolved to a Secret or environment variable; "+
+						"check that run.kafka.sasl/tls paths match a configured volume", f.Name)
+			}
+			if err := ensureTriggerAuth(ctx, dynClient, ta); err != nil {
+				return fn.DeploymentResult{}, fmt.Errorf("failed to ensure TriggerAuthentication: %w", err)
+			}
+		}
+
+		kt := kafkaTrigger(triggers)
+		so := buildScaledObject(f, kt, deployment, namespace, minScale, maxScale)
+		if so != nil {
+			if err := ensureScaledObject(ctx, dynClient, so); err != nil {
+				return fn.DeploymentResult{}, fmt.Errorf("failed to ensure ScaledObject: %w", err)
+			}
+		}
+
+		if !needsAuth {
+			// SASL/TLS credentials were removed from run.kafka while the kafka
+			// trigger stayed: a prior deploy may have left a
+			// TriggerAuthentication behind that nothing references anymore.
+			// Delete it only AFTER the ScaledObject above has been reconciled to
+			// drop its authenticationRef -- deleting first would, if that update
+			// then failed, leave the live ScaledObject pointing at a
+			// TriggerAuthentication that no longer exists. Not fatal, same
+			// treatment as the no-kafka-at-all cleanup above.
+			if err := deleteTriggerAuth(ctx, dynClient, namespace, triggerAuthName(f.Name)); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+			}
 		}
 	}
 
@@ -225,6 +515,7 @@ type deployTarget struct {
 	annotations map[string]string
 	minScale    int32
 	maxScale    int32
+	scale       *fn.ScaleOptions
 }
 
 // bridgeHosts are the cluster-local names the HSO registers for f: requests
@@ -252,7 +543,7 @@ func (d *Deployer) deployExposed(ctx context.Context, t deployTarget) (string, e
 	}
 
 	hosts := append(bridgeHosts(t.ref), exposedHost)
-	if err := ensureHTTPScaledObject(ctx, t, hosts); err != nil {
+	if err := ensureHTTPScaledObject(ctx, t, hosts, t.scale); err != nil {
 		return "", fmt.Errorf("failed to ensure http scaled object exists: %w", err)
 	}
 
@@ -276,7 +567,7 @@ func (d *Deployer) deployExposed(ctx context.Context, t deployTarget) (string, e
 // effectively unexposed.
 func (d *Deployer) deployClusterLocal(ctx context.Context, t deployTarget) (string, error) {
 	hosts := bridgeHosts(t.ref)
-	if err := ensureHTTPScaledObject(ctx, t, hosts); err != nil {
+	if err := ensureHTTPScaledObject(ctx, t, hosts, t.scale); err != nil {
 		return "", fmt.Errorf("failed to ensure http scaled object exists: %w", err)
 	}
 
@@ -317,30 +608,56 @@ const (
 	defaultMaxReplicas int32 = 10
 )
 
+// pollingIntervalIgnored reports whether scale.keda.pollingInterval is set
+// but will have no effect. Only a kafka trigger's ScaledObject honors it
+// (see buildScaledObjectSpec); the HTTPScaledObject scales off the KEDA HTTP
+// add-on's interceptor metrics, which have no polling interval, so
+// httpScaledObject never reads it. Deploy warns (rather than rejects) when
+// this holds. Pure so it can be unit-tested without capturing stderr.
+func pollingIntervalIgnored(f fn.Function, wantHTTP, wantKafka bool) bool {
+	return wantHTTP && !wantKafka &&
+		f.Scale != nil && f.Scale.KEDA != nil && f.Scale.KEDA.PollingInterval != nil
+}
+
 // replicaBounds is scale.min and scale.max from the function, or the
 // defaults above when either is unset. The HTTPScaledObject spec requires
 // both; these fallbacks are keda's, not shared with the raw or knative
 // deployers.
 func replicaBounds(f fn.Function) (min, max int32) {
 	min, max = defaultMinReplicas, defaultMaxReplicas
-	if scale := f.Deploy.Options.Scale; scale != nil {
-		if scale.Min != nil {
-			min = int32(*scale.Min)
+	if f.Scale != nil {
+		if f.Scale.Min != nil {
+			min = int32(*f.Scale.Min)
 		}
-		if scale.Max != nil {
-			max = int32(*scale.Max)
+		if f.Scale.Max != nil {
+			max = int32(*f.Scale.Max)
 		}
 	}
 	return
 }
 
-func httpScaledObject(t deployTarget, hosts []string) (*httpv1alpha1.HTTPScaledObject, error) {
+func httpScaledObject(t deployTarget, hosts []string, scale *fn.ScaleOptions) (*httpv1alpha1.HTTPScaledObject, error) {
 	deployment := t.deployment
 	service := t.appService
 	if len(service.Spec.Ports) == 0 {
 		return nil, fmt.Errorf("service %s has no ports defined", service.Name)
 	}
 
+	cooldown := int32(300)
+	targetValue := int64(100)
+	if scale != nil && scale.KEDA != nil {
+		if scale.KEDA.CooldownPeriod != nil {
+			cooldown = *scale.KEDA.CooldownPeriod
+		}
+		for _, trig := range scale.KEDA.Triggers {
+			if trig.Type == "http" && trig.TargetValue != nil {
+				targetValue = *trig.TargetValue
+				break
+			}
+		}
+	}
+
+	controllerTrue := true
 	return &httpv1alpha1.HTTPScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        t.ref.FunctionName,
@@ -353,7 +670,7 @@ func httpScaledObject(t deployTarget, hosts []string) (*httpv1alpha1.HTTPScaledO
 					Kind:       "Deployment",
 					Name:       deployment.Name,
 					UID:        deployment.UID,
-					Controller: new(true),
+					Controller: &controllerTrue,
 				},
 			},
 		},
@@ -367,13 +684,13 @@ func httpScaledObject(t deployTarget, hosts []string) (*httpv1alpha1.HTTPScaledO
 				Port:       service.Spec.Ports[0].Port,
 			},
 			Replicas: &httpv1alpha1.ReplicaStruct{
-				Min: new(t.minScale),
-				Max: new(t.maxScale),
+				Min: &t.minScale,
+				Max: &t.maxScale,
 			},
-			CooldownPeriod: new(int32(300)),
+			CooldownPeriod: &cooldown,
 			ScalingMetric: &httpv1alpha1.ScalingMetricSpec{
 				Rate: &httpv1alpha1.RateMetricSpec{
-					TargetValue: 100,
+					TargetValue: int(targetValue),
 					Window: metav1.Duration{
 						Duration: time.Minute,
 					},
@@ -391,6 +708,7 @@ func interceptorBridgeServiceName(name string) string {
 }
 
 func interceptorBridgeService(ref deployer.ExposureRef, deployment *v1.Deployment) *corev1.Service {
+	controllerTrue := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      interceptorBridgeServiceName(ref.FunctionName),
@@ -401,7 +719,7 @@ func interceptorBridgeService(ref deployer.ExposureRef, deployment *v1.Deploymen
 					Kind:       "Deployment",
 					Name:       deployment.Name,
 					UID:        deployment.UID,
-					Controller: new(true),
+					Controller: &controllerTrue,
 				},
 			},
 		},
@@ -450,8 +768,8 @@ func ensureInterceptorBridgeService(ctx context.Context,
 	return nil
 }
 
-func ensureHTTPScaledObject(ctx context.Context, t deployTarget, hosts []string) error {
-	expected, err := httpScaledObject(t, hosts)
+func ensureHTTPScaledObject(ctx context.Context, t deployTarget, hosts []string, scale *fn.ScaleOptions) error {
+	expected, err := httpScaledObject(t, hosts, scale)
 	if err != nil {
 		return fmt.Errorf("failed to generate http scaled object: %w", err)
 	}
@@ -494,6 +812,36 @@ func ensureHTTPScaledObject(ctx context.Context, t deployTarget, hosts []string)
 		return nil
 	}
 
+	return nil
+}
+
+// deleteHTTPScaledObject removes an HTTPScaledObject if it exists. A nil
+// return means the delete was accepted, not that the object is actually gone
+// yet: the KEDA HTTP add-on attaches its own finalizer to this resource, so
+// removal completes asynchronously once its controller processes it. Callers
+// that immediately provision a replacement scaler accept this as a rare,
+// self-correcting race rather than polling for actual removal here -- same
+// reasoning as deleteScaledObject/deleteTriggerAuth in kafka_scaling.go.
+func deleteHTTPScaledObject(ctx context.Context, ns, name string) error {
+	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
+	if err != nil {
+		return fmt.Errorf("failed to create HTTPScaledObject clientset: %w", err)
+	}
+	err = httpScaledObjectClientset.HttpV1alpha1().HTTPScaledObjects(ns).Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete HTTPScaledObject %s/%s: %w", ns, name, err)
+	}
+	return nil
+}
+
+// deleteInterceptorBridgeService removes the interceptor bridge Service for
+// functionName if it exists.
+func deleteInterceptorBridgeService(ctx context.Context, clientset *kubernetes.Clientset, ns, functionName string) error {
+	name := interceptorBridgeServiceName(functionName)
+	err := clientset.CoreV1().Services(ns).Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete interceptor bridge Service %s/%s: %w", ns, name, err)
+	}
 	return nil
 }
 

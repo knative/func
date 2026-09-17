@@ -136,7 +136,7 @@ func deployRecorder(t *testing.T, name string) *recorder {
 		t.Fatal(err)
 	}
 	minScale := int64(1)
-	f.Deploy.Options.Scale = &fn.ScaleOptions{Min: &minScale}
+	f.Scale = &fn.ScaleOptions{Min: &minScale}
 	if err := f.Write(); err != nil {
 		t.Fatal(err)
 	}
