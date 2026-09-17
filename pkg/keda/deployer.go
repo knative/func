@@ -299,29 +299,35 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, fmt.Errorf("failed to get service %s/%s: %v", namespace, f.Name, err)
 	}
 
-	// Delete stale scaler resources for whichever trigger type is NOT
-	// currently configured, before provisioning the type that is: creating
-	// a new scaler while an old one of the other kind still targets the
-	// same Deployment trips KEDA's one-scaler-per-workload rule.
+	// Delete stale resources for whichever trigger type is NOT currently
+	// configured, before provisioning the type that is.
 	//
-	// These deletions are fatal, not best-effort. The delete helpers below
-	// already suppress the expected NotFound case (returning nil), so a
-	// non-nil error means the stale scaler definitely still exists. On a
-	// steady-state single-type deploy that just means NotFound -> nil and
-	// this is a no-op; the error path only fires during an actual trigger
-	// transition, where the Deployment persists (unlike Remover.Remove, so
-	// no owner-reference garbage-collection saves us) and leaving the old
-	// scaler behind would silently leave two scalers fighting over the same
-	// Deployment while Deploy still reported success. Fail loudly instead so
-	// the transition can be retried.
+	// The two *scaler* deletions (HTTPScaledObject, ScaledObject) are fatal:
+	// creating a new scaler while an old one of the other kind still targets
+	// the same Deployment trips KEDA's one-scaler-per-workload rule, so a
+	// leftover would silently leave two scalers fighting over the Deployment
+	// while Deploy reported success. During a transition the Deployment
+	// persists (unlike Remover.Remove, so no owner-reference garbage
+	// collection saves us), so fail loudly and let the transition be retried.
 	//
-	// Note this does not wait for actual removal: KEDA attaches its own
-	// finalizer to ScaledObject/TriggerAuthentication, so a successful
-	// Delete() only sets deletionTimestamp and returns -- it doesn't wait
-	// for KEDA's controller to finish. A transition immediately followed by
-	// another deploy could still see the old scaler mid-termination when the
-	// new one is created; that narrow, self-correcting race resolves on
-	// retry and isn't worth a wait-for-actual-deletion poll on every deploy.
+	// Their non-scaler companions (the interceptor bridge Service and the
+	// TriggerAuthentication) are best-effort: orphaned, they are inert -- a
+	// Service nothing routes to, a TriggerAuthentication no ScaledObject
+	// references -- and the next deploy of that type recreates/updates them.
+	// A failure to delete them must not abort a deploy. This also matters for
+	// the common case: these deletes run speculatively on every deploy, and
+	// on-cluster the deploy ServiceAccount may lack the delete verb for a
+	// resource that never existed. Kubernetes checks authorization before
+	// existence, so such a delete returns Forbidden (not NotFound) even when
+	// there is nothing to remove -- making it fatal would break every
+	// single-type deploy on a cluster with tighter RBAC.
+	//
+	// None of this waits for actual removal: KEDA attaches its own finalizer
+	// to ScaledObject/TriggerAuthentication, so a successful Delete() only
+	// sets deletionTimestamp and returns. A transition immediately followed
+	// by another deploy could still see the old scaler mid-termination; that
+	// narrow, self-correcting race resolves on retry and isn't worth a
+	// wait-for-actual-deletion poll on every deploy.
 	if !wantHTTP {
 		// No HTTP trigger: a prior deploy's HTTPScaledObject and
 		// interceptor bridge Service, if any, are now orphaned.
@@ -331,7 +337,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			fmt.Fprintf(os.Stderr, "deleted HTTPScaledObject %s/%s (if it existed); KEDA's finalizer means removal may still be in progress\n", namespace, f.Name)
 		}
 		if err := deleteInterceptorBridgeService(ctx, k8sClientset, namespace, f.Name); err != nil {
-			return fn.DeploymentResult{}, fmt.Errorf("failed to remove stale interceptor bridge Service before switching triggers: %w", err)
+			fmt.Fprintf(os.Stderr, "warning: could not remove stale interceptor bridge Service (harmless once orphaned): %v\n", err)
 		}
 	}
 	if !wantKafka {
@@ -345,7 +351,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			fmt.Fprintf(os.Stderr, "deleted ScaledObject %s/%s (if it existed); KEDA's finalizer means removal may still be in progress\n", namespace, scaledObjectName(f.Name))
 		}
 		if err := deleteTriggerAuth(ctx, dynClient, namespace, triggerAuthName(f.Name)); err != nil {
-			return fn.DeploymentResult{}, fmt.Errorf("failed to remove stale Kafka TriggerAuthentication before switching triggers: %w", err)
+			fmt.Fprintf(os.Stderr, "warning: could not remove stale Kafka TriggerAuthentication (harmless once its ScaledObject is gone): %v\n", err)
 		}
 	}
 
