@@ -354,8 +354,8 @@ func TestDelete_ByProjectClearsDeployedMarker(t *testing.T) {
 		Registry: TestRegistry,
 		Deployer: keda.KedaDeployerName, // intent - how to deploy
 		Deploy: fn.DeploySpec{
-			Namespace:      "myns",
-			Deployer: keda.KedaDeployerName,
+			Namespace: "myns",
+			Deployer:  keda.KedaDeployerName,
 		},
 		Scale: &fn.ScaleOptions{
 			KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "http"}}},

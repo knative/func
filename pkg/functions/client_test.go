@@ -1276,7 +1276,7 @@ func TestClient_Remove_ReturnsReconciledFunction(t *testing.T) {
 	newFn := func() fn.Function {
 		return fn.Function{
 			Name:     "fn",
-			Deployer: deployer,                                                 // intent
+			Deployer: deployer,                                           // intent
 			Deploy:   fn.DeploySpec{Namespace: "ns", Deployer: deployer}, // state
 		}
 	}
@@ -2677,8 +2677,8 @@ func TestClient_Deploy_BlocksDeployerSwitch(t *testing.T) {
 				Namespace: "ns",
 				Deployer:  tt.requested,
 				Deploy: fn.DeploySpec{
-					Namespace:      tt.deployedNS,
-					Deployer: tt.deployedWith,
+					Namespace: tt.deployedNS,
+					Deployer:  tt.deployedWith,
 				},
 			}
 
