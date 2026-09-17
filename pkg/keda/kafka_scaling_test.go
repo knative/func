@@ -1,6 +1,7 @@
 package keda
 
 import (
+	"fmt"
 	"testing"
 
 	v1 "k8s.io/api/apps/v1"
@@ -12,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+	clienttesting "k8s.io/client-go/testing"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -108,6 +110,19 @@ func TestDeleteScaledObject(t *testing.T) {
 			t.Fatalf("expected nil error for a non-existent ScaledObject, got: %v", err)
 		}
 	})
+
+	// The trigger-transition cleanup in Deploy treats a delete failure as
+	// fatal, relying on this helper to return the error (rather than swallow
+	// it) for any cause other than NotFound.
+	t.Run("propagates a non-NotFound delete error", func(t *testing.T) {
+		dynClient := newScalingDynClient(unstructuredScaledObject(name, ns))
+		dynClient.PrependReactor("delete", "scaledobjects", func(clienttesting.Action) (bool, runtime.Object, error) {
+			return true, nil, k8serrors.NewInternalError(fmt.Errorf("boom"))
+		})
+		if err := deleteScaledObject(t.Context(), dynClient, ns, name); err == nil {
+			t.Fatal("expected a non-nil error when the API delete fails, got nil")
+		}
+	})
 }
 
 func TestDeleteTriggerAuth(t *testing.T) {
@@ -129,6 +144,16 @@ func TestDeleteTriggerAuth(t *testing.T) {
 		dynClient := newScalingDynClient()
 		if err := deleteTriggerAuth(t.Context(), dynClient, ns, name); err != nil {
 			t.Fatalf("expected nil error for a non-existent TriggerAuthentication, got: %v", err)
+		}
+	})
+
+	t.Run("propagates a non-NotFound delete error", func(t *testing.T) {
+		dynClient := newScalingDynClient(unstructuredTriggerAuth(name, ns))
+		dynClient.PrependReactor("delete", "triggerauthentications", func(clienttesting.Action) (bool, runtime.Object, error) {
+			return true, nil, k8serrors.NewInternalError(fmt.Errorf("boom"))
+		})
+		if err := deleteTriggerAuth(t.Context(), dynClient, ns, name); err == nil {
+			t.Fatal("expected a non-nil error when the API delete fails, got nil")
 		}
 	})
 }

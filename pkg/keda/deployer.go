@@ -302,33 +302,36 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	// Delete stale scaler resources for whichever trigger type is NOT
 	// currently configured, before provisioning the type that is: creating
 	// a new scaler while an old one of the other kind still targets the
-	// same Deployment can trip KEDA's one-scaler-per-workload rule and fail
-	// the new scaler's readiness wait. Not fatal to Deploy, same as
-	// Remover.Remove's treatment of these: they're owned by the Deployment
-	// and get garbage-collected regardless.
+	// same Deployment trips KEDA's one-scaler-per-workload rule.
 	//
-	// This narrows that race but doesn't close it: KEDA attaches its own
-	// finalizer to ScaledObject/TriggerAuthentication, so Delete() below
-	// only sets deletionTimestamp and returns -- it doesn't wait for KEDA's
-	// controller to finish its own cleanup and actually remove the object.
-	// A transition immediately followed by another deploy could therefore
-	// still see the old scaler mid-termination when the new one is
-	// created. Accepted as a rare, self-correcting race rather than adding
-	// a wait-for-actual-deletion poll here: a failure from this specific
-	// cause resolves itself on retry once KEDA finishes terminating the
-	// old object, and the added latency of polling on every single-type
-	// deploy (the overwhelmingly common case, not just a transition)
-	// wasn't judged worth it for a race this narrow.
+	// These deletions are fatal, not best-effort. The delete helpers below
+	// already suppress the expected NotFound case (returning nil), so a
+	// non-nil error means the stale scaler definitely still exists. On a
+	// steady-state single-type deploy that just means NotFound -> nil and
+	// this is a no-op; the error path only fires during an actual trigger
+	// transition, where the Deployment persists (unlike Remover.Remove, so
+	// no owner-reference garbage-collection saves us) and leaving the old
+	// scaler behind would silently leave two scalers fighting over the same
+	// Deployment while Deploy still reported success. Fail loudly instead so
+	// the transition can be retried.
+	//
+	// Note this does not wait for actual removal: KEDA attaches its own
+	// finalizer to ScaledObject/TriggerAuthentication, so a successful
+	// Delete() only sets deletionTimestamp and returns -- it doesn't wait
+	// for KEDA's controller to finish. A transition immediately followed by
+	// another deploy could still see the old scaler mid-termination when the
+	// new one is created; that narrow, self-correcting race resolves on
+	// retry and isn't worth a wait-for-actual-deletion poll on every deploy.
 	if !wantHTTP {
 		// No HTTP trigger: a prior deploy's HTTPScaledObject and
 		// interceptor bridge Service, if any, are now orphaned.
 		if err := deleteHTTPScaledObject(ctx, namespace, f.Name); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+			return fn.DeploymentResult{}, fmt.Errorf("failed to remove stale HTTP scaler before switching triggers: %w", err)
 		} else if d.verbose {
 			fmt.Fprintf(os.Stderr, "deleted HTTPScaledObject %s/%s (if it existed); KEDA's finalizer means removal may still be in progress\n", namespace, f.Name)
 		}
 		if err := deleteInterceptorBridgeService(ctx, k8sClientset, namespace, f.Name); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+			return fn.DeploymentResult{}, fmt.Errorf("failed to remove stale interceptor bridge Service before switching triggers: %w", err)
 		}
 	}
 	if !wantKafka {
@@ -337,12 +340,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		// http-only doesn't leave a ScaledObject/TriggerAuthentication
 		// still acting on stale Kafka lag config.
 		if err := deleteScaledObject(ctx, dynClient, namespace, scaledObjectName(f.Name)); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+			return fn.DeploymentResult{}, fmt.Errorf("failed to remove stale Kafka scaler before switching triggers: %w", err)
 		} else if d.verbose {
 			fmt.Fprintf(os.Stderr, "deleted ScaledObject %s/%s (if it existed); KEDA's finalizer means removal may still be in progress\n", namespace, scaledObjectName(f.Name))
 		}
 		if err := deleteTriggerAuth(ctx, dynClient, namespace, triggerAuthName(f.Name)); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+			return fn.DeploymentResult{}, fmt.Errorf("failed to remove stale Kafka TriggerAuthentication before switching triggers: %w", err)
 		}
 	}
 
