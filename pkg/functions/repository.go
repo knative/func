@@ -714,6 +714,7 @@ func (r *Repository) Write(dest string) (err error) {
 		if tempDir, err = os.MkdirTemp("", "func"); err != nil {
 			return
 		}
+		defer os.RemoveAll(tempDir)
 		cloneOpts := getGitCloneOptions(r.uri)
 		_, err = git.PlainClone(tempDir, false, cloneOpts) // not bare
 		if isAuthError(err) {
