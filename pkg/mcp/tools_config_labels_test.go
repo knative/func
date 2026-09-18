@@ -2,10 +2,13 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mcp/mock"
 )
 
@@ -71,38 +74,23 @@ func TestTool_ConfigLabelsAdd(t *testing.T) {
 	}
 }
 
-// TestTool_ConfigLabelsList ensures the config_labels_list tool lists labels.
+// TestTool_ConfigLabelsList verifies the config_labels_list tool reads labels
+// directly from the function on disk via pkg/functions (no subprocess) and
+// returns them as structured output.
 func TestTool_ConfigLabelsList(t *testing.T) {
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		if subcommand != "config" {
-			t.Fatalf("expected subcommand 'config', got %q", subcommand)
-		}
+	root := t.TempDir()
+	writeTestFunction(t, root, func(f *fn.Function) {
+		f.Deploy.Labels = []fn.Label{{Key: ptr("environment"), Value: ptr("prod")}}
+	})
 
-		// "labels" + "--path" + "." = 3 args
-		if len(args) != 3 {
-			t.Fatalf("expected 3 args, got %d: %v", len(args), args)
-		}
-		if args[0] != "labels" {
-			t.Fatalf("expected args[0]='labels', got %q", args[0])
-		}
-
-		argsMap := argsToMap(args[1:])
-		if val, ok := argsMap["--path"]; !ok || val != "." {
-			t.Fatalf("expected --path='.', got %q", val)
-		}
-
-		return []byte("app=my-function\nenvironment=prod\n"), nil
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
+	client, _, err := newTestPair(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_labels_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": root},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -110,8 +98,20 @@ func TestTool_ConfigLabelsList(t *testing.T) {
 	if result.IsError {
 		t.Fatalf("unexpected error result: %v", result)
 	}
-	if !executor.ExecuteInvoked {
-		t.Fatal("executor was not invoked")
+	if result.StructuredContent == nil {
+		t.Fatal("expected StructuredContent to be populated")
+	}
+
+	raw, err := json.Marshal(result.StructuredContent)
+	if err != nil {
+		t.Fatalf("marshal structured content: %v", err)
+	}
+	var out ConfigLabelsListOutput
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("unmarshal output: %v", err)
+	}
+	if len(out.Labels) != 1 || out.Labels[0].Key == nil || *out.Labels[0].Key != "environment" {
+		t.Fatalf("unexpected labels in output: %+v", out.Labels)
 	}
 }
 
@@ -171,27 +171,23 @@ func TestTool_ConfigLabelsRemove(t *testing.T) {
 	}
 }
 
-// TestTool_ConfigLabelsList_Error ensures the config_labels_list tool propagates executor errors.
+// TestTool_ConfigLabelsList_Error ensures the config_labels_list tool returns
+// an error result when the function path does not exist.
 func TestTool_ConfigLabelsList_Error(t *testing.T) {
-	executor := mock.NewExecutor()
-	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
-		return []byte("list failed"), errors.New("executor error")
-	}
-
-	client, _, err := newTestPair(t, WithExecutor(executor))
+	client, _, err := newTestPair(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_labels_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": filepath.Join(t.TempDir(), "does-not-exist")},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !result.IsError {
-		t.Fatal("expected error result, got success")
+		t.Fatal("expected error result for nonexistent path")
 	}
 }
 
