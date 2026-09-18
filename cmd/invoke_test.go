@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -113,5 +114,27 @@ func TestInvokeExtensionsMapMalformed(t *testing.T) {
 				t.Fatalf("expected error for %v, got nil", tc.exts)
 			}
 		})
+	}
+}
+
+// TestInvoke_NotInitialized ensures that invoking when there is no
+// function in the given directory fails with the appropriate error.
+func TestInvoke_NotInitialized(t *testing.T) {
+	_ = FromTempDirectory(t)
+
+	cmd := NewInvokeCmd(NewClient)
+	cmd.SetArgs([]string{})
+	err := cmd.Execute()
+
+	if err == nil {
+		t.Fatal("invoking a nonexistent function should error")
+	}
+
+	var errNotInit *ErrNotInitialized
+	if !errors.As(err, &errNotInit) {
+		t.Fatalf("expected ErrNotInitialized, got %T: %v", err, err)
+	}
+	if !strings.Contains(err.Error(), "No function found in provided path") {
+		t.Fatalf("Unexpected error text returned: %v", err)
 	}
 }
