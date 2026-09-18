@@ -59,25 +59,30 @@ func runSubscribe(cmd *cobra.Command) (err error) {
 	}
 
 	// add subscription	to function
-	f.Deploy.Subscriptions = updateOrAddSubscription(f.Deploy.Subscriptions, cfg)
+	subscriptions, err := updateOrAddSubscription(f.Deploy.Subscriptions, cfg)
+	if err != nil {
+		return err
+	}
+	f.Deploy.Subscriptions = subscriptions
 
 	// pump it
 	return f.Write()
 }
 
-func extractFilterMap(filters []string) map[string]string {
+func extractFilterMap(filters []string) (map[string]string, error) {
 	subscriptionFilters := make(map[string]string)
 	for _, filter := range filters {
-		kv := strings.Split(filter, "=")
+		kv := strings.SplitN(filter, "=", 2)
 		if len(kv) != 2 {
-			fmt.Println("Invalid pair:", filter)
-			continue
+			return nil, fmt.Errorf("invalid filter %q: must be in the form key=value", filter)
 		}
-		key := kv[0]
-		value := kv[1]
+		key, value := kv[0], kv[1]
+		if key == "" {
+			return nil, fmt.Errorf("invalid filter %q: key must not be empty", filter)
+		}
 		subscriptionFilters[key] = value
 	}
-	return subscriptionFilters
+	return subscriptionFilters, nil
 }
 
 type subscibeConfig struct {
@@ -85,9 +90,12 @@ type subscibeConfig struct {
 	Source string
 }
 
-func updateOrAddSubscription(subscriptions []fn.KnativeSubscription, cfg subscibeConfig) []fn.KnativeSubscription {
+func updateOrAddSubscription(subscriptions []fn.KnativeSubscription, cfg subscibeConfig) ([]fn.KnativeSubscription, error) {
 	found := false
-	newFilters := extractFilterMap(cfg.Filter)
+	newFilters, err := extractFilterMap(cfg.Filter)
+	if err != nil {
+		return nil, err
+	}
 
 	// Iterate over subscriptions to find if one with the same source already exists
 	for i, subscription := range subscriptions {
@@ -114,7 +122,7 @@ func updateOrAddSubscription(subscriptions []fn.KnativeSubscription, cfg subscib
 			Filters: newFilters,
 		})
 	}
-	return subscriptions
+	return subscriptions, nil
 }
 
 func newSubscribeConfig(cmd *cobra.Command) (c subscibeConfig) {
