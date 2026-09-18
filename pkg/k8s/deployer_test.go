@@ -176,6 +176,136 @@ func Test_generateDeployment_ImagePullSecret(t *testing.T) {
 	})
 }
 
+func Test_generateDeployment_KafkaSidecar(t *testing.T) {
+	d := &Deployer{}
+
+	hasEnv := func(c corev1.Container, name string) bool {
+		for _, e := range c.Env {
+			if e.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+	envValue := func(c corev1.Container, name string) string {
+		for _, e := range c.Env {
+			if e.Name == name {
+				return e.Value
+			}
+		}
+		return ""
+	}
+	containerByName := func(dep *appsv1.Deployment, name string) *corev1.Container {
+		for i := range dep.Spec.Template.Spec.Containers {
+			if dep.Spec.Template.Spec.Containers[i].Name == name {
+				return &dep.Spec.Template.Spec.Containers[i]
+			}
+		}
+		return nil
+	}
+
+	t.Run("no kafka: single container, no kafka envs", func(t *testing.T) {
+		f := fn.Function{Name: "test-func", Deploy: fn.DeploySpec{Image: "img:latest"}}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := len(dep.Spec.Template.Spec.Containers); got != 1 {
+			t.Fatalf("expected 1 container, got %d", got)
+		}
+		user := containerByName(dep, "user-container")
+		if user == nil {
+			t.Fatal("user-container not found")
+		}
+		if hasEnv(*user, "FUNC_TRANSPORT") || hasEnv(*user, "KAFKA_BROKERS") {
+			t.Error("function container must not carry Kafka env when Kafka is unconfigured")
+		}
+	})
+
+	t.Run("kafka configured: sidecar injected, function stays plain", func(t *testing.T) {
+		f := fn.Function{
+			Name:    "test-func",
+			Runtime: "go",
+			Invoke:  "cloudevent",
+			Deploy:  fn.DeploySpec{Image: "img:latest"},
+			Run: fn.RunSpec{
+				Kafka: &fn.KafkaConfig{
+					Brokers:       "broker:9092",
+					Topic:         "my-topic",
+					ConsumerGroup: "my-group",
+				},
+			},
+		}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := len(dep.Spec.Template.Spec.Containers); got != 2 {
+			t.Fatalf("expected 2 containers (function + kafka sidecar), got %d", got)
+		}
+
+		// The function container must remain a plain CE server: no Kafka env,
+		// no FUNC_TRANSPORT.
+		user := containerByName(dep, "user-container")
+		if user == nil {
+			t.Fatal("user-container not found")
+		}
+		if hasEnv(*user, "FUNC_TRANSPORT") || hasEnv(*user, "KAFKA_BROKERS") {
+			t.Error("function container must not carry Kafka env in the sidecar model")
+		}
+
+		// The sidecar owns Kafka.
+		sc := containerByName(dep, kafkaSidecarName)
+		if sc == nil {
+			t.Fatalf("%q container not found", kafkaSidecarName)
+		}
+		if sc.Image != DefaultKafkaRuntimeImage {
+			t.Errorf("sidecar image = %q, want %q", sc.Image, DefaultKafkaRuntimeImage)
+		}
+		if got := envValue(*sc, "FUNCTION_TARGET"); got != kafkaFunctionTarget {
+			t.Errorf("FUNCTION_TARGET = %q, want %q", got, kafkaFunctionTarget)
+		}
+		if got := envValue(*sc, "KAFKA_BROKERS"); got != "broker:9092" {
+			t.Errorf("KAFKA_BROKERS = %q, want broker:9092", got)
+		}
+		if hasEnv(*sc, "FUNC_TRANSPORT") {
+			t.Error("sidecar must not carry FUNC_TRANSPORT (in-process selector is retired)")
+		}
+		if sc.ReadinessProbe == nil || sc.ReadinessProbe.HTTPGet == nil ||
+			sc.ReadinessProbe.HTTPGet.Port.IntValue() != kafkaRuntimeHealthPort {
+			t.Errorf("sidecar readiness probe should target port %d", kafkaRuntimeHealthPort)
+		}
+	})
+
+	t.Run("image override via env", func(t *testing.T) {
+		t.Setenv(kafkaRuntimeImageEnv, "example.com/custom:v1")
+		f := fn.Function{
+			Name:   "test-func",
+			Deploy: fn.DeploySpec{Image: "img:latest"},
+			Run: fn.RunSpec{
+				Kafka: &fn.KafkaConfig{Brokers: "b:9092", Topic: "t", ConsumerGroup: "g"},
+			},
+		}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sc := containerByName(dep, kafkaSidecarName)
+		if sc == nil {
+			t.Fatal("kafka sidecar not found")
+		}
+		if sc.Image != "example.com/custom:v1" {
+			t.Errorf("sidecar image = %q, want example.com/custom:v1", sc.Image)
+		}
+	})
+}
+
 // generateDeployment narrows scale.min (int64) to the Deployment's int32
 // replica count. Function.Validate rejects out-of-range values, but Deploy is
 // reachable without it, so generateDeployment guards the narrowing itself:
@@ -546,11 +676,10 @@ func TestAppendKafkaEnvs_AllFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 5 {
-		t.Fatalf("expected 5 env vars (1 existing + 4 kafka), got %d", len(got))
+	if len(got) != 4 {
+		t.Fatalf("expected 4 env vars (1 existing + 3 kafka), got %d", len(got))
 	}
 	expected := map[string]string{
-		"FUNC_TRANSPORT":       "kafka",
 		"KAFKA_BROKERS":        "broker1:9092,broker2:9092",
 		"KAFKA_TOPIC":          "my-topic",
 		"KAFKA_CONSUMER_GROUP": "my-group",
