@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	pack "github.com/buildpacks/pack/pkg/client"
@@ -381,4 +382,180 @@ type mockImpl struct {
 
 func (i mockImpl) Build(ctx context.Context, opts pack.BuildOptions) error {
 	return i.BuildFn(ctx, opts)
+}
+
+// TestBuild_BuildCACertFile tests the CA certificate file handling
+func TestBuild_BuildCACertFile(t *testing.T) {
+	tests := []struct {
+		name          string
+		caCertPath    string
+		setupFunc     func(t *testing.T, root string) string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:       "no CA cert file",
+			caCertPath: "",
+			setupFunc: func(t *testing.T, root string) string {
+				return ""
+			},
+			expectError: false,
+		},
+		{
+			name:       "absolute path to CA cert",
+			caCertPath: "", // Will be set by setupFunc
+			setupFunc: func(t *testing.T, root string) string {
+				// Create a temporary CA cert file
+				tmpFile, err := os.CreateTemp("", "ca-cert-*.crt")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer tmpFile.Close()
+
+				// Write some dummy CA cert content
+				if _, err := tmpFile.WriteString("-----BEGIN CERTIFICATE-----\nDUMMY\n-----END CERTIFICATE-----\n"); err != nil {
+					t.Fatal(err)
+				}
+
+				return tmpFile.Name()
+			},
+			expectError: false,
+		},
+		{
+			name:       "relative path to CA cert",
+			caCertPath: "ca-cert.crt",
+			setupFunc: func(t *testing.T, root string) string {
+				// Don't create the file yet - will be created after Init
+				return "ca-cert.crt" // Return relative path
+			},
+			expectError: false,
+		},
+		{
+			name:          "non-existent CA cert file",
+			caCertPath:    "/nonexistent/ca-cert.crt",
+			setupFunc:     func(t *testing.T, root string) string { return "/nonexistent/ca-cert.crt" },
+			expectError:   true,
+			errorContains: "CA bundle file not found",
+		},
+		{
+			name:       "CA cert outside function directory",
+			caCertPath: "", // Will be set by setupFunc
+			setupFunc: func(t *testing.T, root string) string {
+				// Create a temporary CA cert file outside function root
+				tmpDir := t.TempDir()
+				caPath := filepath.Join(tmpDir, "external-ca.crt")
+				if err := os.WriteFile(caPath, []byte("-----BEGIN CERTIFICATE-----\nDUMMY\n-----END CERTIFICATE-----\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				return caPath
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root, done := Mktemp(t)
+			defer done()
+
+			// Setup the CA cert file
+			caCertPath := tt.setupFunc(t, root)
+			if tt.caCertPath != "" && caCertPath == "" {
+				caCertPath = tt.caCertPath
+			}
+
+			var (
+				i = &mockImpl{}
+				b = NewBuilder(WithImpl(i))
+				f = fn.Function{
+					Runtime:  "go",
+					Root:     root,
+					Registry: "example.com/alice",
+					Build: fn.BuildSpec{
+						BuildCACertFile: caCertPath,
+					},
+				}
+			)
+
+			// Initialize the function
+			var err error
+			if f, err = fn.New().Init(f); err != nil {
+				t.Fatal(err)
+			}
+
+			// Set the CA cert path after init
+			f.Build.BuildCACertFile = caCertPath
+
+			// For relative path test, create the file AFTER init
+			if caCertPath == "ca-cert.crt" {
+				caPath := filepath.Join(root, "ca-cert.crt")
+				if err := os.WriteFile(caPath, []byte("-----BEGIN CERTIFICATE-----\nDUMMY\n-----END CERTIFICATE-----\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// Track whether Build was called
+			buildCalled := false
+			i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+				buildCalled = true
+
+				// If CA cert is provided, verify the binding is set up correctly
+				if caCertPath != "" && !tt.expectError {
+					// Check that SERVICE_BINDING_ROOT is set
+					if _, ok := opts.Env["SERVICE_BINDING_ROOT"]; !ok {
+						t.Error("SERVICE_BINDING_ROOT not set when CA cert is provided")
+					}
+
+					// Check that volumes are configured
+					if len(opts.ContainerConfig.Volumes) == 0 {
+						t.Error("No volumes configured when CA cert is provided")
+					}
+
+					// Verify at least one volume contains "ca-certificates"
+					foundCABinding := false
+					for _, vol := range opts.ContainerConfig.Volumes {
+						if strings.Contains(vol, "ca-certificates") {
+							foundCABinding = true
+							break
+						}
+					}
+					if !foundCABinding {
+						t.Error("CA certificates binding not found in volumes")
+					}
+				}
+
+				return nil
+			}
+
+			// Execute the build
+			err = b.Build(t.Context(), f, nil)
+
+			// Check error expectations
+			if tt.expectError {
+				if err == nil {
+					t.Fatal("expected error but got none")
+				}
+				if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
+					t.Fatalf("expected error containing %q, got: %v", tt.errorContains, err)
+				}
+				// Build should not have been called if there was an error
+				if buildCalled {
+					t.Error("Build was called despite error in setup")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				// Build should have been called
+				if !buildCalled {
+					t.Error("Build was not called")
+				}
+			}
+
+			// Cleanup: remove temporary CA cert files created outside function root
+			if caCertPath != "" && filepath.IsAbs(caCertPath) && !strings.HasPrefix(caCertPath, root) {
+				os.Remove(caCertPath)
+			}
+		})
+	}
 }
