@@ -607,16 +607,17 @@ func TestValidateKafka(t *testing.T) {
 			wantErrs: 0,
 		},
 		{
-			name: "non-go runtime",
+			// Kafka is language-agnostic via the sidecar runtime: a non-Go
+			// runtime with a cloudevent invoke is valid.
+			name: "non-go runtime is allowed",
 			kafka: &fn.KafkaConfig{
 				Brokers:       "broker:9092",
 				Topic:         "my-topic",
 				ConsumerGroup: "my-group",
 			},
-			runtime:   "python",
-			invoke:    "cloudevent",
-			wantErrs:  1,
-			wantSubst: "only supported for the Go runtime",
+			runtime:  "python",
+			invoke:   "cloudevent",
+			wantErrs: 0,
 		},
 		{
 			name: "wrong invoke type",
