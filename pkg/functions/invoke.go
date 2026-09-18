@@ -169,8 +169,8 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 	event.SetID(m.ID)
 	event.SetSource(m.Source)
 	event.SetType(m.Type)
-	for extension := range m.Extensions {
-		event.SetExtension(extension, m.Extensions[extension])
+	for k, v := range m.Extensions {
+		event.SetExtension(k, v)
 	}
 	err = event.SetData(m.ContentType, (m.Data))
 	if err != nil {
