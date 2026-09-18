@@ -45,6 +45,15 @@ spec:
     - name: COMMIT
       description: Git commit SHA of the function source
       default: ""
+    - name: IMAGE_PULL_SECRET
+      description: Image pull secret name forwarded from the CLI to the in-cluster deploy step
+      default: ""
+    - name: SERVICE_ACCOUNT
+      description: Service account name forwarded from the CLI to the in-cluster deploy step
+      default: ""
+    - name: DEPLOYER
+      description: Deployer type forwarded from the CLI to the in-cluster deploy step (knative, raw, keda)
+      default: ""
   workspaces:
     - name: source
     - name: cache
@@ -148,6 +157,13 @@ spec:
     - name: func-deploy
       image: '{{.DeployerImage}}'
       workingDir: $(workspaces.source.path)
+      env:
+        - name: FUNC_IMAGE_PULL_SECRET
+          value: $(params.IMAGE_PULL_SECRET)
+        - name: FUNC_SERVICE_ACCOUNT
+          value: $(params.SERVICE_ACCOUNT)
+        - name: FUNC_DEPLOYER
+          value: $(params.DEPLOYER)
       command: ["deploy", $(params.PATH_CONTEXT), "$(params.IMAGE)"]
   volumes:
     - emptyDir: {}
