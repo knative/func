@@ -57,6 +57,18 @@ DESCRIPTION
 	  eliminating the need for a local container engine.  To trigger deployment
 	  of a git repository instead of local source, combine with '--source':
 	  'func deploy --remote --source=git.example.com/alice/f.git'
+	  A branch, tag or commit is given with '--revision':
+	  'func deploy --remote --source=git.example.com/alice/f.git --revision=v1.2.0'
+	  The function is then read from the repository, so no local copy is
+	  needed, and nothing is written locally: to change the function, clone
+	  the repository, edit it and deploy the working tree.  Choose the
+	  directory within the repository with '--source-dir'.  The function is
+	  deployed as configured by the func.yaml committed there: of the flags
+	  which configure a function, only '--builder', '--registry',
+	  '--registry-insecure' and '--namespace' apply, the latter only if the
+	  func.yaml names no other namespace.  A repository set in the local
+	  func.yaml (build.source) instead of with '--source' is built with the
+	  local function's settings.
 
 	Domain
 	  When deploying, a function's route is automatically generated using the
