@@ -123,6 +123,12 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, err
 	}
 
+	// The source is either a git repository or the local working tree, which
+	// is uploaded. A function loaded from git has no Root.
+	if f.Build.Source.URL == "" && f.Root == "" {
+		return "", f, errors.New("a local function directory is required to upload sources; set a git URL to build from a repository")
+	}
+
 	// Warn if the func-generated legacy .s2i/bin/assemble exists; it will be
 	// uploaded to the PVC and can interfere with the in-cluster build.
 	// Remote deploy doesn't go through Client.Build, so we re-check here.

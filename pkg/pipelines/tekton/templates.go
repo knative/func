@@ -76,7 +76,9 @@ type templateData struct {
 	PipelinesTargetBranch string
 
 	// Static entries
-	RepoUrl  string
+	RepoUrl string
+	// Revision is rendered with %q in the PipelineRun templates: a git ref
+	// may contain a quote, and a commit hash could read as a YAML number.
 	Revision string
 
 	// Task references
@@ -347,6 +349,34 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	return createAndApplyResource(f.Root, pipelineFileName, template, "pipeline", getPipelineName(f), namespace, data)
 }
 
+// sourceRevision returns what the cluster fetches and what it labels the
+// image with. A function read from its repository has the commit it was
+// read at, so the cluster fetches exactly that. Anything else is fetched by
+// the revision as configured (main when empty), and labelled from the git
+// working tree on disk if it has one, HEAD marked dirty when there are
+// uncommitted changes, as every builder labels a local source.
+func sourceRevision(f fn.Function) (fetch, label string) {
+	if c := f.Build.Source.Commit; c != "" {
+		// NewFunctionFromGit sets a full hash; the guard spares a caller
+		// which set a shorter one a panic.
+		label = c
+		if len(label) > 7 {
+			label = label[:7]
+		}
+		return c, label
+	}
+	// Only a function on disk has a working tree to label from: with no
+	// Root, GitCommit would search whichever repository func runs in.
+	if f.Root != "" {
+		label, _ = fn.GitCommit(f.Root)
+	}
+	fetch = f.Build.Source.Revision
+	if fetch == "" {
+		fetch = defaultPipelinesTargetBranch
+	}
+	return fetch, label
+}
+
 // createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build
 // all resources are created on the fly, if there's a PipelineRun defined in the project directory, it is used instead
 func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string) error {
@@ -355,11 +385,6 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		// TODO(lkingland): could instead update S2I to interpret empty string
 		// as cwd, such that builder-specific code can be kept out of here.
 		contextDir = "."
-	}
-
-	pipelinesTargetBranch := f.Build.Source.Revision
-	if pipelinesTargetBranch == "" {
-		pipelinesTargetBranch = defaultPipelinesTargetBranch
 	}
 
 	buildEnvs := []string{}
@@ -389,7 +414,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		tlsVerify = "false"
 	}
 
-	commit, _ := fn.GitCommit(f.Root)
+	fetch, label := sourceRevision(f)
 
 	data := templateData{
 		FunctionName:  f.Name,
@@ -408,10 +433,10 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 
 		S2iImageScriptsUrl: s2iImageScriptsUrl,
 		TlsVerify:          tlsVerify,
-		Commit:             commit,
+		Commit:             label,
 
 		RepoUrl:  f.Build.Source.URL,
-		Revision: pipelinesTargetBranch,
+		Revision: fetch,
 	}
 
 	var template string
@@ -431,12 +456,13 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 var manifestivalClient = k8s.GetManifestivalClient
 
 // createAndApplyResource tries to create and apply a resource to the k8s cluster from the input template and data,
-// if there's the same resource already created in the project directory, it is used instead
+// if there's the same resource already created in the project directory, it is used instead.
+// An empty projectRoot (a function loaded from git) has no such directory.
 func createAndApplyResource(projectRoot, fileName, fileTemplate, kind, resourceName, namespace string, data interface{}) error {
 	var source manifestival.Source
 
 	filePath := path.Join(projectRoot, resourcesDirectory, fileName)
-	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+	if _, err := os.Stat(filePath); projectRoot != "" && !os.IsNotExist(err) {
 		source = manifestival.Path(filePath)
 	} else {
 		tmpl, err := template.New("template").Parse(fileTemplate)
