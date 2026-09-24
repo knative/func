@@ -1613,7 +1613,7 @@ func hasInitializedFunction(path string) (bool, error) {
 	if err = yaml.Unmarshal(bb, &f); err != nil {
 		return false, err
 	}
-	if f, err = f.Migrate(); err != nil {
+	if f, err = f.migrate(bb); err != nil {
 		return false, err
 	}
 	return f.Initialized(), nil

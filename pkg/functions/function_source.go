@@ -18,6 +18,13 @@ type Source struct {
 	// Dir is the directory within the repository holding the function.
 	// Empty means the repository root.
 	Dir string `yaml:"dir,omitempty"`
+
+	// Commit is the full hash Revision resolved to when the function was read
+	// from its repository, in memory only, never stored. The cluster then
+	// fetches and labels the image with exactly this commit. Empty for a local
+	// or uploaded source, which the builders label from the git working tree
+	// on disk: its HEAD, marked dirty when there are uncommitted changes.
+	Commit string `yaml:"-" json:"-"`
 }
 
 // validateSource validates the source option from Function config
