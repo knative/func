@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"math"
 	"testing"
 
 	"knative.dev/pkg/ptr"
@@ -256,6 +257,32 @@ func Test_ValidateScale(t *testing.T) {
 				KPA: &KPAScaleOptions{Target: ptr.Float64(0)},
 			},
 			"knative", 1,
+		},
+		{
+			// Exactly the declared minimum is accepted: the check is
+			// target >= 0.01, not > 0.01. This is the boundary the generated
+			// schema must not tighten with exclusiveMinimum.
+			"kpa target at the minimum boundary",
+			&ScaleOptions{
+				KPA: &KPAScaleOptions{Target: ptr.Float64(0.01)},
+			},
+			"knative", 0,
+		},
+		{
+			// The largest float64 below 0.01 is still rejected, so the
+			// boundary is exactly 0.01 rather than merely "small".
+			"kpa target just below the minimum boundary",
+			&ScaleOptions{
+				KPA: &KPAScaleOptions{Target: ptr.Float64(math.Nextafter(0.01, 0))},
+			},
+			"knative", 1,
+		},
+		{
+			"kpa target above the minimum boundary",
+			&ScaleOptions{
+				KPA: &KPAScaleOptions{Target: ptr.Float64(0.02)},
+			},
+			"knative", 0,
 		},
 		{
 			"kpa utilization out of range",
