@@ -124,6 +124,11 @@ type DeploymentResult struct {
 	Namespace string
 	Deployer  string
 	Expose    string
+	// ScalerType is the KEDA scaler the deploy provisioned ("http" or "kafka"),
+	// or "" for deployers that have no scaler concept. Copied into
+	// f.Deploy.ScalerType as observed state so the scaler-switch gate has a
+	// trustworthy "from" on the next deploy.
+	ScalerType string
 }
 
 // Status of the function from the DeploymentResult
@@ -882,6 +887,13 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 		if err := deployers.ValidateSwitch(f.Deploy.Deployer, f.Deployer); err != nil {
 			return f, fmt.Errorf("function %q: %w", f.Name, err)
 		}
+		// Scaler switch gate - like the deployer gate above, switching the KEDA
+		// scaler/trigger type (http <-> kafka) in place would leave a stale
+		// scaler orphaned on the Deployment. Refuse and expect the user to
+		// undeploy first.
+		if err := ValidateScalerSwitch(f.Deploy.ScalerType, intendedScalerType(f)); err != nil {
+			return f, fmt.Errorf("function %q: %w", f.Name, err)
+		}
 	}
 
 	// Warn if moving namespaces
@@ -926,6 +938,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	f.Deploy.Namespace = result.Namespace
 	f.Deploy.Deployer = result.Deployer
 	f.Deploy.Expose = result.Expose
+	f.Deploy.ScalerType = result.ScalerType
 
 	// Raw/keda with a nil exposer (library) applied nothing. Knative ignores
 	// expose by design; the CLI already warned.
@@ -1267,6 +1280,7 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 		f.Deploy.Namespace = ""
 		f.Deploy.Deployer = ""
 		f.Deploy.Expose = ""
+		f.Deploy.ScalerType = ""
 	}
 	return f, combinedErr
 }

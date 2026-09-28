@@ -5,10 +5,48 @@ import (
 	"math"
 )
 
+// KEDA scaler types recorded as observed state (DeploySpec.ScalerType) and
+// derived from intent (Function.Scale.KEDA.Triggers).
+const (
+	ScalerTypeHTTP  = "http"
+	ScalerTypeKafka = "kafka"
+)
+
+// intendedScalerType derives the KEDA scaler type a deploy of f would provision:
+// "kafka" when a kafka trigger is configured, otherwise "http" (the keda
+// default). Returns "" for non-keda deployers, which have no scaler concept.
+func intendedScalerType(f Function) string {
+	if f.Deployer != "keda" {
+		return ""
+	}
+	if f.Scale != nil && f.Scale.KEDA != nil {
+		for _, t := range f.Scale.KEDA.Triggers {
+			if t.Type == ScalerTypeKafka {
+				return ScalerTypeKafka
+			}
+		}
+	}
+	return ScalerTypeHTTP
+}
+
+// ValidateScalerSwitch reports whether switching the KEDA scaler type from the
+// currently-deployed "from" to the requested "to" is allowed. Switching in place
+// (http <-> kafka) would orphan the old scaler on the Deployment, so it is
+// refused; the user must `func delete` first. An empty from (nothing recorded)
+// or empty to (deployer has no scaler) is not a switch. Mirrors
+// deployers.ValidateSwitch.
+func ValidateScalerSwitch(from, to string) error {
+	if from == "" || to == "" || from == to {
+		return nil
+	}
+	return fmt.Errorf("function was deployed with the %q scaler; redeploying with %q is not supported. Run func delete first, then redeploy", from, to)
+}
+
 // ValidateScale validates the top-level scale configuration against the chosen
-// deployer. It handles the deployer-agnostic min/max bounds and the KPA
-// (knative) scaling sub-key.
-func ValidateScale(scale *ScaleOptions, deployer string) (errors []string) {
+// deployer. It handles the deployer-agnostic min/max bounds and the KEDA and KPA
+// scaling sub-keys. kafka is the run.kafka config (may be nil) so a kafka trigger
+// can be checked against it.
+func ValidateScale(scale *ScaleOptions, deployer string, kafka *KafkaConfig) (errors []string) {
 	if scale == nil {
 		return
 	}
@@ -41,6 +79,23 @@ func ValidateScale(scale *ScaleOptions, deployer string) (errors []string) {
 		errors = append(errors, "scale.max must be >= 1 when deployer is keda: 0 (\"no limit\") is not a valid value, leave scale.max unset to use keda's default")
 	}
 
+	// scale.keda and scale.kpa target different deployers and cannot both apply.
+	if scale.KEDA != nil && scale.KPA != nil {
+		errors = append(errors, "scale.keda and scale.kpa are mutually exclusive")
+		return
+	}
+	// scale.keda requires the keda deployer. Unlike scale.kpa on a non-knative
+	// deployer (benign: min/max still apply, ignored with a warning at deploy
+	// time), silently dropping a scale.keda block would discard the user's whole
+	// scaling intent (e.g. kafka consumer-lag scaling), so this is a hard error.
+	if scale.KEDA != nil && deployer != "keda" {
+		errors = append(errors, "scale.keda requires deployer: keda")
+	}
+
+	if scale.KEDA != nil {
+		errors = append(errors, validateKEDAScale(scale.KEDA, kafka)...)
+	}
+
 	// scale.kpa is only consumed by the knative deployer (setServiceOptions);
 	// raw and keda ignore it. That mismatch is not a validation error -- it is
 	// surfaced as an ignored-with-warning case at deploy time (see
@@ -51,6 +106,56 @@ func ValidateScale(scale *ScaleOptions, deployer string) (errors []string) {
 		errors = append(errors, validateKPAScale(scale.KPA)...)
 	}
 
+	return
+}
+
+// validateKEDAScale validates the scale.keda block: pollingInterval/cooldownPeriod
+// bounds and each trigger. kafka is the run.kafka config (may be nil); a kafka
+// trigger requires it to be configured.
+func validateKEDAScale(keda *KEDAScaleOptions, kafka *KafkaConfig) (errors []string) {
+	if len(keda.Triggers) == 0 {
+		errors = append(errors, "scale.keda.triggers must not be empty when scale.keda is set")
+		return
+	}
+	if keda.PollingInterval != nil && *keda.PollingInterval < 1 {
+		errors = append(errors, "scale.keda.pollingInterval must be >= 1")
+	}
+	if keda.CooldownPeriod != nil && *keda.CooldownPeriod < 1 {
+		errors = append(errors, "scale.keda.cooldownPeriod must be >= 1")
+	}
+	var sawHTTP, sawKafka bool
+	seenTypes := map[string]bool{}
+	for i, t := range keda.Triggers {
+		if seenTypes[t.Type] && (t.Type == "http" || t.Type == "kafka") {
+			errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].type %q is repeated: only one trigger of each type is supported", i, t.Type))
+		}
+		seenTypes[t.Type] = true
+		switch t.Type {
+		case "http":
+			sawHTTP = true
+			if t.TargetValue != nil && *t.TargetValue < 1 {
+				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].targetValue must be >= 1", i))
+			}
+		case "kafka":
+			sawKafka = true
+			if kafka == nil {
+				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d] has type kafka but run.kafka is not configured", i))
+			}
+			if t.LagThreshold != nil && *t.LagThreshold < 1 {
+				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].lagThreshold must be >= 1", i))
+			}
+			if t.ActivationLagThreshold != nil && *t.ActivationLagThreshold < 0 {
+				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].activationLagThreshold must not be negative", i))
+			}
+		case "cron":
+			errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].type cron is not yet supported", i))
+		default:
+			errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].type has invalid value %q, allowed: http, kafka", i, t.Type))
+		}
+	}
+	if sawHTTP && sawKafka {
+		errors = append(errors, "scale.keda.triggers must not combine type http with type kafka: they cannot scale the same Deployment together, not yet supported")
+	}
 	return
 }
 
