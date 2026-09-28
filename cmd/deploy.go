@@ -304,6 +304,9 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Warn if expose flag is used with deployer where it has no effect
 	warnExposeIgnore(cmd.OutOrStderr(), cfg.Expose, cfg.Deployer)
 
+	// Warn if scale.kpa is set with a deployer that ignores it
+	warnScaleKpaIgnore(cmd.OutOrStderr(), f.Scale, cfg.Deployer)
+
 	// Back-compat: a function deployed before the deployer was recorded has a
 	// namespace but no deployer, which historically could only mean knative.
 	if f.Deploy.Namespace != "" && f.Deploy.Deployer == "" {
@@ -967,5 +970,17 @@ func warnExposeIgnore(w io.Writer, expose, deployer string) {
 		deployer != keda.KedaDeployerName {
 		fmt.Fprintf(w, "warning: expose %q is ignored - only the raw and keda deployers "+
 			"support external exposure via this field.\n", expose)
+	}
+}
+
+// warnScaleKpaIgnore warns when scale.kpa is set with a deployer that ignores
+// it. Only the knative deployer consumes scale.kpa (concurrency/rps
+// autoscaling) via setServiceOptions; the raw and keda deployers ignore it. An
+// empty deployer means the default (knative), which honors it.
+func warnScaleKpaIgnore(w io.Writer, scale *fn.ScaleOptions, deployer string) {
+	if scale != nil && scale.KPA != nil && deployer != "" &&
+		deployer != knative.KnativeDeployerName {
+		fmt.Fprintf(w, "warning: scale.kpa is ignored - only the knative deployer "+
+			"supports kpa (concurrency/rps) autoscaling.\n")
 	}
 }

@@ -100,6 +100,7 @@ var migrations = []migration{
 	{"0.35.0", migrateFromInvokeStructure},
 	{"0.36.0", migratePersistentVolumeTypoFixup},
 	{"0.37.0", migrateGitToSource},
+	{"0.38.0", migrateScaleToTopLevel},
 	// New Migrations Here.
 }
 
@@ -279,9 +280,9 @@ func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
 		f1.Deploy.Options.Resources = f0.Options.Resources
 	}
 
-	if f0.Options.Scale != nil {
-		f1.Deploy.Options.Scale = f0.Options.Scale
-	}
+	// Any pre-0.34 top-level options.scale is left on disk for
+	// migrateScaleToTopLevel to read and lift into the top-level scale field;
+	// it is not staged onto Options here (Options no longer carries scale).
 
 	if f0.Labels != nil {
 		f1.Deploy.Labels = append(f1.Deploy.Labels, f0.Labels...)
@@ -404,6 +405,100 @@ func nestedString(v interface{}, keys ...string) string {
 	}
 	s, _ := v.(string)
 	return s
+}
+
+// migrateScaleToTopLevel moves scale config from deploy.options.scale to the
+// top-level scale field and moves the flat metric/target/utilization fields
+// (from pre-0.38.0 func.yaml files) into the kpa sub-key.
+func migrateScaleToTopLevel(f Function, m migration) (Function, error) {
+	// Read the on-disk func.yaml to capture pre-migration fields that no
+	// longer deserialize under their current shape: the flat KPA fields
+	// (Metric, Target, Utilization), which no longer exist on ScaleOptions.
+	// Both scale locations are read: the current deploy.options.scale, and the
+	// pre-0.34 top-level options.scale (still on disk when this runs -- see the
+	// fallback below).
+	type oldScale struct {
+		Min         *int64   `yaml:"min,omitempty"`
+		Max         *int64   `yaml:"max,omitempty"`
+		Metric      *string  `yaml:"metric,omitempty"`
+		Target      *float64 `yaml:"target,omitempty"`
+		Utilization *float64 `yaml:"utilization,omitempty"`
+	}
+	type oldOptions struct {
+		Scale *oldScale `yaml:"scale,omitempty"`
+	}
+	type oldDeploy struct {
+		Options oldOptions `yaml:"options,omitempty"`
+	}
+	var disk struct {
+		Deploy  oldDeploy     `yaml:"deploy,omitempty"`
+		Options oldOptions    `yaml:"options,omitempty"`
+		Scale   *ScaleOptions `yaml:"scale,omitempty"`
+	}
+
+	if f.Root != "" {
+		bb, err := os.ReadFile(filepath.Join(f.Root, FunctionFile))
+		if err == nil {
+			_ = yaml.Unmarshal(bb, &disk)
+		}
+	}
+
+	// Prefer the current-spec location (deploy.options.scale). Fall back to the
+	// pre-0.34 top-level options.scale: it is still on disk when this runs,
+	// because each migration re-reads the original file and
+	// migrateToSpecsStructure no longer stages that block onto Options
+	// in-memory. Reading it here with oldScale (rather than through the current
+	// ScaleOptions) also recovers the pre-0.34 flat metric/target/utilization
+	// fields, which the specs migration would otherwise drop.
+	old := disk.Deploy.Options.Scale
+	if old == nil {
+		old = disk.Options.Scale
+	}
+
+	if old != nil {
+		newScale := &ScaleOptions{
+			Min: old.Min,
+			Max: old.Max,
+		}
+
+		// Lift the flat metric/target/utilization fields into scale.kpa for
+		// every deployer, without inspecting the deployer. These were only ever
+		// consumed by the knative deployer's setServiceOptions; raw reads only
+		// min and keda only min/max, so both ignore them regardless -- there is
+		// no correctness reason to gate the lift. A scale.kpa left on a
+		// non-knative function is reported as an ignored-with-warning case at
+		// deploy time (see warnScaleKpaIgnore), not dropped here.
+		if old.Metric != nil || old.Target != nil || old.Utilization != nil {
+			newScale.KPA = &KPAScaleOptions{
+				Metric:      old.Metric,
+				Target:      old.Target,
+				Utilization: old.Utilization,
+			}
+		}
+
+		// Only keep a top-level scale if something survived. A newScale with
+		// all-nil fields -- e.g. a deploy.options.scale that was present but
+		// empty -- would otherwise serialize as an empty "scale: {}" block on
+		// the next write.
+		if newScale.Min != nil || newScale.Max != nil || newScale.KPA != nil {
+			f.Scale = newScale
+		}
+	}
+
+	// If there was already a top-level scale in the file (shouldn't happen
+	// in practice, but be defensive), the on-disk value wins.
+	if disk.Scale != nil {
+		f.Scale = disk.Scale
+	}
+
+	// The old deploy.options.scale location no longer exists on the Options
+	// struct, so it is dropped from the next write automatically -- nothing to
+	// clear in-memory. deploy.deployer/deploy.expose keep their YAML tags and
+	// are already populated by the primary unmarshal, so this migration leaves
+	// them untouched.
+
+	f.SpecVersion = m.version
+	return f, nil
 }
 
 // The pertinent aspects of the Function's schema prior the 1.0.0 version migrations

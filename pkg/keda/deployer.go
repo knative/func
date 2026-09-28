@@ -3,6 +3,7 @@ package keda
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
@@ -150,7 +151,10 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 	annotations := deployer.GenerateCommonAnnotations(f, d.decorator, false, KedaDeployerName)
 
-	minScale, maxScale := replicaBounds(f)
+	minScale, maxScale, err := replicaBounds(f)
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
 	target := deployTarget{
 		clientset:   k8sClientset,
 		dynClient:   dynClient,
@@ -321,15 +325,42 @@ const (
 // defaults above when either is unset. The HTTPScaledObject spec requires
 // both; these fallbacks are keda's, not shared with the raw or knative
 // deployers.
-func replicaBounds(f fn.Function) (min, max int32) {
+func replicaBounds(f fn.Function) (min, max int32, err error) {
 	min, max = defaultMinReplicas, defaultMaxReplicas
-	if scale := f.Deploy.Options.Scale; scale != nil {
+	if scale := f.Scale; scale != nil {
+		// scale.min/max are int64 in func.yaml but the HTTPScaledObject
+		// replica counts are int32. ValidateScale rejects out-of-range values,
+		// but Deploy is reachable without it (library callers), so guard here
+		// too: a value outside [0, MaxInt32] would otherwise wrap on narrowing
+		// -- e.g. int32(1<<32) == 0. Mirrors the preflight check in the raw
+		// deployer.
 		if scale.Min != nil {
+			if *scale.Min < 0 || *scale.Min > math.MaxInt32 {
+				return 0, 0, fmt.Errorf("function %q: scale.min %d is out of range [0, %d]", f.Name, *scale.Min, math.MaxInt32)
+			}
 			min = int32(*scale.Min)
 		}
 		if scale.Max != nil {
+			if *scale.Max < 0 || *scale.Max > math.MaxInt32 {
+				return 0, 0, fmt.Errorf("function %q: scale.max %d is out of range [0, %d]", f.Name, *scale.Max, math.MaxInt32)
+			}
 			max = int32(*scale.Max)
 		}
+	}
+	// keda maps scale.max straight to the HPA's maxReplicas, which must be >= 1.
+	// ValidateScale rejects an explicit scale.max: 0 for keda, but Deploy is
+	// reachable without it (library callers), so guard the effective value here
+	// too -- otherwise min: 0, max: 0 also slips past the min > max check below.
+	if max < 1 {
+		return 0, 0, fmt.Errorf("function %q: scale.max %d is invalid; keda requires a maximum of at least 1 (leave scale.max unset to use keda's default)", f.Name, max)
+	}
+	// ValidateScale compares min against max only when both are set explicitly,
+	// so scale.min above keda's default max (with max unset) slips past it and
+	// would otherwise yield an HTTPScaledObject with min > max, which KEDA/HPA
+	// rejects. Compare the effective values -- including any default filled in
+	// above -- and fail with a clear message instead.
+	if min > max {
+		return 0, 0, fmt.Errorf("function %q: scale.min (%d) exceeds the effective scale.max (%d); set scale.max explicitly", f.Name, min, max)
 	}
 	return
 }

@@ -132,6 +132,9 @@ type Function struct {
 	// Deploy defines the deployment properties for a function
 	Deploy DeploySpec `yaml:"deploy,omitempty"`
 
+	// Scale defines autoscaling configuration for the function.
+	Scale *ScaleOptions `yaml:"scale,omitempty"`
+
 	Local Local `yaml:"-"`
 }
 
@@ -474,12 +477,25 @@ func (f Function) Validate() error {
 		return errors.New("function root path is required")
 	}
 
+	// Validate scale against the effective deployer: the intent (f.Deployer)
+	// when set, otherwise the deployer this function was last deployed with
+	// (f.Deploy.Deployer). The CLI resolves these before Validate runs, but
+	// other callers (the tekton pipeline provider, library consumers) may call
+	// Validate with the intent still empty on a function last deployed as
+	// keda/raw -- resolving here keeps the deployer-specific scale rules (e.g.
+	// keda's max) consistent regardless of caller.
+	scaleDeployer := f.Deployer
+	if scaleDeployer == "" {
+		scaleDeployer = f.Deploy.Deployer
+	}
+
 	var ctr int
 	errs := [][]string{
 		validateVolumes(f.Run.Volumes),
 		ValidateBuildEnvs(f.Build.BuildEnvs),
 		ValidateEnvs(f.Run.Envs),
 		validateOptions(f.Deploy.Options),
+		ValidateScale(f.Scale, scaleDeployer),
 		ValidateLabels(f.Deploy.Labels),
 		validateSource(f.Build.Source),
 		validateKafka(f.Run.Kafka, f.Invoke, f.Runtime),

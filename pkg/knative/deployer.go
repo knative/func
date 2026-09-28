@@ -492,7 +492,7 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 		},
 	}
 
-	err = setServiceOptions(&service.Spec.Template, f.Deploy.Options)
+	err = setServiceOptions(&service.Spec.Template, f.Scale, f.Deploy.Options)
 	if err != nil {
 		return service, err
 	}
@@ -551,7 +551,7 @@ func updateService(f fn.Function, previousService *servingv1.Service, newEnv []c
 		cp := &service.Spec.Template.Spec.Containers[0]
 		k8s.SetHealthEndpoints(f, cp)
 
-		err := setServiceOptions(&service.Spec.Template, f.Deploy.Options)
+		err := setServiceOptions(&service.Spec.Template, f.Scale, f.Deploy.Options)
 		if err != nil {
 			return service, err
 		}
@@ -580,38 +580,47 @@ func updateService(f fn.Function, previousService *servingv1.Service, newEnv []c
 }
 
 // setServiceOptions sets annotations on Service Revision Template or in the Service Spec
-// from values specified in function configuration options
-func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Options) error {
+// from values specified in function configuration options and scale config.
+func setServiceOptions(template *servingv1.RevisionTemplateSpec, scale *fn.ScaleOptions, options fn.Options) error {
 	toRemove := []string{}
 	toUpdate := map[string]string{}
 
-	if options.Scale != nil {
-		if options.Scale.Min != nil {
-			toUpdate[autoscaling.MinScaleAnnotationKey] = fmt.Sprintf("%d", *options.Scale.Min)
+	if scale != nil {
+		if scale.Min != nil {
+			toUpdate[autoscaling.MinScaleAnnotationKey] = fmt.Sprintf("%d", *scale.Min)
 		} else {
 			toRemove = append(toRemove, autoscaling.MinScaleAnnotationKey)
 		}
 
-		if options.Scale.Max != nil {
-			toUpdate[autoscaling.MaxScaleAnnotationKey] = fmt.Sprintf("%d", *options.Scale.Max)
+		if scale.Max != nil {
+			toUpdate[autoscaling.MaxScaleAnnotationKey] = fmt.Sprintf("%d", *scale.Max)
 		} else {
 			toRemove = append(toRemove, autoscaling.MaxScaleAnnotationKey)
 		}
 
-		if options.Scale.Metric != nil {
-			toUpdate[autoscaling.MetricAnnotationKey] = *options.Scale.Metric
+		var metric *string
+		var target *float64
+		var utilization *float64
+		if scale.KPA != nil {
+			metric = scale.KPA.Metric
+			target = scale.KPA.Target
+			utilization = scale.KPA.Utilization
+		}
+
+		if metric != nil {
+			toUpdate[autoscaling.MetricAnnotationKey] = *metric
 		} else {
 			toRemove = append(toRemove, autoscaling.MetricAnnotationKey)
 		}
 
-		if options.Scale.Target != nil {
-			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%f", *options.Scale.Target)
+		if target != nil {
+			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%f", *target)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetAnnotationKey)
 		}
 
-		if options.Scale.Utilization != nil {
-			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *options.Scale.Utilization)
+		if utilization != nil {
+			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *utilization)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetUtilizationPercentageKey)
 		}

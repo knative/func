@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v2"
 	fn "knative.dev/func/pkg/functions"
 	fnlabels "knative.dev/func/pkg/k8s/labels"
+	"knative.dev/pkg/ptr"
 
 	. "knative.dev/func/pkg/testing"
 )
@@ -78,6 +79,57 @@ func TestFunction_Validate(t *testing.T) {
 		t.Fatal(err)
 	}
 
+}
+
+// TestFunction_ValidateScaleEffectiveDeployer ensures Validate checks scale
+// against the effective deployer -- the intent (f.Deployer) when set, otherwise
+// the last-deployed deployer (f.Deploy.Deployer). A function last deployed as
+// keda but with an empty intent (e.g. a flag-less redeploy reaching Validate
+// off the CLI path) must still be checked by keda's scale rules.
+func TestFunction_ValidateScaleEffectiveDeployer(t *testing.T) {
+	// The keda-only rule: scale.max: 0 is not a valid HPA maxReplicas.
+	const kedaMaxRule = "must be >= 1 when deployer is keda"
+
+	tests := []struct {
+		name           string
+		intent         string // f.Deployer
+		observed       string // f.Deploy.Deployer
+		wantKedaMaxErr bool
+	}{
+		{"intent empty, observed keda -> keda rule applies", "", "keda", true},
+		{"intent keda, observed empty -> keda rule applies", "keda", "", true},
+		{"intent empty, observed knative -> keda rule skipped", "", "knative", false},
+		{"intent empty, observed empty -> defaults knative, skipped", "", "", false},
+		{"intent raw overrides observed keda -> keda rule skipped", "raw", "keda", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root, cleanup := Mktemp(t)
+			t.Cleanup(cleanup)
+
+			f, err := fn.NewFunction(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.Runtime = "go"
+			f.Name = "testfn"
+			f.Deployer = tt.intent
+			f.Deploy.Deployer = tt.observed
+			f.Scale = &fn.ScaleOptions{Max: ptr.Int64(0)}
+
+			// Validate bundles all errors; isolate the keda scale rule by
+			// substring rather than asserting the overall error is nil.
+			var errStr string
+			if err := f.Validate(); err != nil {
+				errStr = err.Error()
+			}
+			got := strings.Contains(errStr, kedaMaxRule)
+			if got != tt.wantKedaMaxErr {
+				t.Errorf("keda max rule applied = %v, want %v (error: %q)", got, tt.wantKedaMaxErr, errStr)
+			}
+		})
+	}
 }
 
 func TestFunction_ImageWithDigest(t *testing.T) {

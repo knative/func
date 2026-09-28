@@ -14,134 +14,6 @@ func Test_validateOptions(t *testing.T) {
 		errs    int
 	}{
 		{
-			"correct 'scale.metric' - concurrency",
-			Options{
-				Scale: &ScaleOptions{
-					Metric: ptr.String("concurrency"),
-				},
-			},
-			0,
-		},
-		{
-			"correct 'scale.metric' - rps",
-			Options{
-				Scale: &ScaleOptions{
-					Metric: ptr.String("rps"),
-				},
-			},
-			0,
-		},
-		{
-			"incorrect 'scale.metric'",
-			Options{
-				Scale: &ScaleOptions{
-					Metric: ptr.String("foo"),
-				},
-			},
-			1,
-		},
-		{
-			"correct 'scale.min'",
-			Options{
-				Scale: &ScaleOptions{
-					Min: ptr.Int64(1),
-				},
-			},
-			0,
-		},
-		{
-			"correct 'scale.max'",
-			Options{
-				Scale: &ScaleOptions{
-					Max: ptr.Int64(10),
-				},
-			},
-			0,
-		},
-		{
-			"correct  'scale.min' & 'scale.max'",
-			Options{
-				Scale: &ScaleOptions{
-					Min: ptr.Int64(0),
-					Max: ptr.Int64(10),
-				},
-			},
-			0,
-		},
-		{
-			"incorrect  'scale.min' & 'scale.max'",
-			Options{
-				Scale: &ScaleOptions{
-					Min: ptr.Int64(100),
-					Max: ptr.Int64(10),
-				},
-			},
-			1,
-		},
-		{
-			"incorrect 'scale.min' - negative value",
-			Options{
-				Scale: &ScaleOptions{
-					Min: ptr.Int64(-10),
-				},
-			},
-			1,
-		},
-		{
-			"incorrect 'scale.max' - negative value",
-			Options{
-				Scale: &ScaleOptions{
-					Max: ptr.Int64(-10),
-				},
-			},
-			1,
-		},
-		{
-			"correct 'scale.target'",
-			Options{
-				Scale: &ScaleOptions{
-					Target: ptr.Float64(50),
-				},
-			},
-			0,
-		},
-		{
-			"incorrect 'scale.target'",
-			Options{
-				Scale: &ScaleOptions{
-					Target: ptr.Float64(0),
-				},
-			},
-			1,
-		},
-		{
-			"correct 'scale.utilization'",
-			Options{
-				Scale: &ScaleOptions{
-					Utilization: ptr.Float64(50),
-				},
-			},
-			0,
-		},
-		{
-			"incorrect 'scale.utilization' - < 1",
-			Options{
-				Scale: &ScaleOptions{
-					Utilization: ptr.Float64(0),
-				},
-			},
-			1,
-		},
-		{
-			"incorrect 'scale.utilization' - > 100",
-			Options{
-				Scale: &ScaleOptions{
-					Utilization: ptr.Float64(110),
-				},
-			},
-			1,
-		},
-		{
 			"correct 'resources.requests.cpu'",
 			Options{
 				Resources: &ResourcesOptions{
@@ -263,7 +135,7 @@ func Test_validateOptions(t *testing.T) {
 			1,
 		},
 		{
-			"correct all options",
+			"correct all resource options",
 			Options{
 				Resources: &ResourcesOptions{
 					Requests: &ResourcesRequestsOptions{
@@ -276,18 +148,11 @@ func Test_validateOptions(t *testing.T) {
 						Concurrency: ptr.Int64(10),
 					},
 				},
-				Scale: &ScaleOptions{
-					Min:         ptr.Int64(0),
-					Max:         ptr.Int64(10),
-					Metric:      ptr.String("concurrency"),
-					Target:      ptr.Float64(40.5),
-					Utilization: ptr.Float64(35.5),
-				},
 			},
 			0,
 		},
 		{
-			"incorrect all options",
+			"incorrect all resource options",
 			Options{
 				Resources: &ResourcesOptions{
 					Requests: &ResourcesRequestsOptions{
@@ -300,15 +165,8 @@ func Test_validateOptions(t *testing.T) {
 						Concurrency: ptr.Int64(-1),
 					},
 				},
-				Scale: &ScaleOptions{
-					Min:         ptr.Int64(-1),
-					Max:         ptr.Int64(-1),
-					Metric:      ptr.String("foo"),
-					Target:      ptr.Float64(-1),
-					Utilization: ptr.Float64(110),
-				},
 			},
-			10,
+			5,
 		},
 	}
 
@@ -319,5 +177,131 @@ func Test_validateOptions(t *testing.T) {
 			}
 		})
 	}
+}
 
+func Test_ValidateScale(t *testing.T) {
+	tests := []struct {
+		name     string
+		scale    *ScaleOptions
+		deployer string
+		errs     int
+	}{
+		{
+			"nil scale is valid",
+			nil, "", 0,
+		},
+		{
+			"correct min",
+			&ScaleOptions{Min: ptr.Int64(1)},
+			"", 0,
+		},
+		{
+			"correct max",
+			&ScaleOptions{Max: ptr.Int64(10)},
+			"", 0,
+		},
+		{
+			"correct min & max",
+			&ScaleOptions{Min: ptr.Int64(0), Max: ptr.Int64(10)},
+			"", 0,
+		},
+		{
+			"incorrect min & max",
+			&ScaleOptions{Min: ptr.Int64(100), Max: ptr.Int64(10)},
+			"", 1,
+		},
+		{
+			"negative min",
+			&ScaleOptions{Min: ptr.Int64(-10)},
+			"", 1,
+		},
+		{
+			"negative max",
+			&ScaleOptions{Max: ptr.Int64(-10)},
+			"", 1,
+		},
+		{
+			// 2147483648 == math.MaxInt32 + 1: does not fit the int32 the
+			// deployers narrow replica counts to (would wrap to 0).
+			"min above int32 max",
+			&ScaleOptions{Min: ptr.Int64(2147483648), Max: ptr.Int64(2147483648)},
+			"", 2, // one for min, one for max
+		},
+		{
+			"max above int32 max",
+			&ScaleOptions{Max: ptr.Int64(2147483648)},
+			"", 1,
+		},
+		{
+			"valid kpa options",
+			&ScaleOptions{
+				KPA: &KPAScaleOptions{
+					Metric:      ptr.String("rps"),
+					Target:      ptr.Float64(50),
+					Utilization: ptr.Float64(80),
+				},
+			},
+			"knative", 0,
+		},
+		{
+			"invalid kpa metric",
+			&ScaleOptions{
+				KPA: &KPAScaleOptions{Metric: ptr.String("bad")},
+			},
+			"knative", 1,
+		},
+		{
+			"kpa target too low",
+			&ScaleOptions{
+				KPA: &KPAScaleOptions{Target: ptr.Float64(0)},
+			},
+			"knative", 1,
+		},
+		{
+			"kpa utilization out of range",
+			&ScaleOptions{
+				KPA: &KPAScaleOptions{Utilization: ptr.Float64(110)},
+			},
+			"knative", 1,
+		},
+		{
+			// scale.kpa on a non-knative deployer is no longer a validation
+			// error -- it is ignored with a warning at deploy time. The kpa
+			// values are still validated, so a valid metric passes here.
+			"kpa on non-knative deployer is accepted (ignored with warning)",
+			&ScaleOptions{
+				KPA: &KPAScaleOptions{Metric: ptr.String("concurrency")},
+			},
+			"raw", 0,
+		},
+		{
+			// ...but the kpa values are still validated regardless of deployer.
+			"kpa with invalid metric is rejected even on non-knative deployer",
+			&ScaleOptions{
+				KPA: &KPAScaleOptions{Metric: ptr.String("bad")},
+			},
+			"raw", 1,
+		},
+		{
+			"keda max 0 is invalid: not a valid HPA maxReplicas",
+			&ScaleOptions{Max: ptr.Int64(0)},
+			"keda", 1,
+		},
+		{
+			"knative max 0 means no limit, still valid",
+			&ScaleOptions{
+				Max: ptr.Int64(0),
+				KPA: &KPAScaleOptions{Metric: ptr.String("concurrency")},
+			},
+			"knative", 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ValidateScale(tt.scale, tt.deployer); len(got) != tt.errs {
+				t.Errorf("ValidateScale() = %v\n got %d errors but want %d", got, len(got), tt.errs)
+			}
+		})
+	}
 }

@@ -251,3 +251,64 @@ func Test_validateExposure(t *testing.T) {
 		t.Errorf("expected a nil exposer to skip exposure validation, got: %v", err)
 	}
 }
+
+func Test_replicaBounds(t *testing.T) {
+	i64 := func(v int64) *int64 { return &v }
+
+	t.Run("defaults when scale is unset", func(t *testing.T) {
+		min, max, err := replicaBounds(fn.Function{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if min != defaultMinReplicas || max != defaultMaxReplicas {
+			t.Errorf("got min=%d max=%d, want %d/%d", min, max, defaultMinReplicas, defaultMaxReplicas)
+		}
+	})
+
+	t.Run("valid values are used", func(t *testing.T) {
+		min, max, err := replicaBounds(fn.Function{Scale: &fn.ScaleOptions{Min: i64(2), Max: i64(20)}})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if min != 2 || max != 20 {
+			t.Errorf("got min=%d max=%d, want 2/20", min, max)
+		}
+	})
+
+	// ValidateScale rejects these, but Deploy is reachable without it
+	// (library callers), so replicaBounds must guard the int32 narrowing
+	// itself rather than let an out-of-range value silently wrap.
+	t.Run("out-of-range min errors instead of wrapping", func(t *testing.T) {
+		if _, _, err := replicaBounds(fn.Function{Scale: &fn.ScaleOptions{Min: i64(1 << 32)}}); err == nil {
+			t.Error("expected an error for scale.min above int32 max, got nil")
+		}
+		if _, _, err := replicaBounds(fn.Function{Scale: &fn.ScaleOptions{Min: i64(-1)}}); err == nil {
+			t.Error("expected an error for a negative scale.min, got nil")
+		}
+	})
+
+	t.Run("out-of-range max errors instead of wrapping", func(t *testing.T) {
+		if _, _, err := replicaBounds(fn.Function{Scale: &fn.ScaleOptions{Max: i64(1 << 32)}}); err == nil {
+			t.Error("expected an error for scale.max above int32 max, got nil")
+		}
+	})
+
+	// ValidateScale only compares min and max when both are set explicitly, so
+	// a min above keda's default max (max unset) reaches replicaBounds; it must
+	// reject that rather than emit an HTTPScaledObject with min > max.
+	t.Run("min above the effective default max errors", func(t *testing.T) {
+		if _, _, err := replicaBounds(fn.Function{Scale: &fn.ScaleOptions{Min: i64(int64(defaultMaxReplicas) + 5)}}); err == nil {
+			t.Error("expected an error when scale.min exceeds the defaulted scale.max, got nil")
+		}
+	})
+
+	// keda maps scale.max to the HPA maxReplicas, which must be >= 1. An
+	// explicit max: 0 is in range and passes the min > max check (0 > 0 is
+	// false), so replicaBounds must reject it on its own for library callers
+	// that bypass ValidateScale.
+	t.Run("explicit max of zero errors", func(t *testing.T) {
+		if _, _, err := replicaBounds(fn.Function{Scale: &fn.ScaleOptions{Min: i64(0), Max: i64(0)}}); err == nil {
+			t.Error("expected an error for scale.max: 0, got nil")
+		}
+	})
+}

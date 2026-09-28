@@ -256,6 +256,11 @@
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/DeploySpec",
 					"description": "Deploy defines the deployment properties for a function"
+				},
+				"scale": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/ScaleOptions",
+					"description": "Scale defines autoscaling configuration for the function."
 				}
 			},
 			"additionalProperties": false,
@@ -274,6 +279,29 @@
 			"additionalProperties": false,
 			"type": "object",
 			"description": "HealthEndpoints specify the liveness and readiness endpoints for a Runtime"
+		},
+		"KPAScaleOptions": {
+			"properties": {
+				"metric": {
+					"enum": [
+						"concurrency",
+						"rps"
+					],
+					"type": "string"
+				},
+				"target": {
+					"exclusiveMinimum": true,
+					"type": "number",
+					"minimum": 0
+				},
+				"utilization": {
+					"maximum": 100,
+					"minimum": 1,
+					"type": "number"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
 		},
 		"KafkaConfig": {
 			"required": [
@@ -423,10 +451,6 @@
 		},
 		"Options": {
 			"properties": {
-				"scale": {
-					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/ScaleOptions"
-				},
 				"resources": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/ResourcesOptions"
@@ -529,28 +553,18 @@
 		"ScaleOptions": {
 			"properties": {
 				"min": {
+					"maximum": 2147483647,
 					"type": "integer",
 					"minimum": 0
 				},
 				"max": {
+					"maximum": 2147483647,
 					"type": "integer",
 					"minimum": 0
 				},
-				"metric": {
-					"enum": [
-						"concurrency",
-						"rps"
-					],
-					"type": "string"
-				},
-				"target": {
-					"type": "number",
-					"minimum": 0
-				},
-				"utilization": {
-					"maximum": 100,
-					"minimum": 1,
-					"type": "number"
+				"kpa": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KPAScaleOptions"
 				}
 			},
 			"additionalProperties": false,

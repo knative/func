@@ -134,14 +134,37 @@ must exist in the namespace to succeed.
 
 More info: https://k8s.io/docs/tasks/configure-pod-container/configure-service-account
 
+### `scale`
+
+Top-level autoscaling configuration. `min`/`max` are shared across all deployers, but the default when left unset differs per deployer:
+
+| deployer | `min` default | `max` default | notes |
+|----------|---------------|---------------|-------|
+| `raw` | 1 | not enforced | fixed-size Deployment, no autoscaler (`min` unset or 0 means 1 replica) |
+| `knative` | 0 | 0 (no limit) | scale-to-zero, per Knative Serving's own defaults |
+| `keda` | 1 | 10 | `max: 0` is rejected (KEDA maps it to an HPA `maxReplicas`, which must be `>= 1`); a `min` above the default `max` of 10 requires setting `max` explicitly |
+
+The `kpa` sub-key holds Knative Pod Autoscaler settings and is used only with `deployer: knative`.
+
+- `min`: Minimum number of replicas. Non-negative integer. Default is 0 for `deployer: knative`, but 1 for `deployer: raw` and `deployer: keda`. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound).
+- `max`: Maximum number of replicas. Non-negative integer. Default is 0 (no limit) for `deployer: knative`, not enforced for `deployer: raw`, and 10 for `deployer: keda`. For `deployer: keda` specifically, `max: 0` is rejected (unlike `knative`, where it means no limit): KEDA maps it to an HPA `maxReplicas`, which must be `>= 1`. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/scale-bounds/#upper-bound).
+- `kpa`: Knative Pod Autoscaler config, used only with `deployer: knative`.
+  - `metric`: metric type watched by the autoscaler: `concurrency` (default) or `rps`. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).
+  - `target`: target value for the metric. Float >= 0.01. When unset, `func` writes no target annotation and the Knative autoscaler applies its own default (the hard `options.resources.limits.concurrency` limit when one is set, otherwise 100). See related [Knative docs](https://knative.dev/docs/serving/autoscaling/concurrency/#soft-limit).
+  - `utilization`: target utilization percentage before scaling up. Float 1-100, default is 70. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/concurrency/#target-utilization).
+
+```yaml
+scale:
+  min: 0
+  max: 10
+  kpa:
+    metric: concurrency
+    target: 75
+    utilization: 75
+```
+
 ### `options`
-Options allows you to set specific configuration for the deployed function, allowing you to tweak Knative Service options related to autoscaling and other properties. If these options are not set, the Knative defaults will be used.
-- `scale`
-  - `min`: Minimum number of replicas. Must me non-negative integer, default is 0. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound).
-  - `max`: Maximum number of replicas. Must me non-negative integer, default is 0 - meaning no limit. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/scale-bounds/#upper-bound).
-  - `metric`: Defines which metric type is watched by the Autoscaler. Could be `concurrency` (default) or `rps`. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).
-  - `target`: Recommendation for when to scale up based on the concurrent number of incoming request. Defaults to `options.resources.limits.concurrency` when given. Can be float value greater than 0.01, default is 100. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/concurrency/#soft-limit).
-  - `utilization`: Percentage of concurrent requests utilization before scaling up. Can be float value between 1 and 100, default is 70. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/concurrency/#target-utilization).
+Options allows you to set resource limits and requests for the deployed function container.
 - `resources`
   - `requests`
     - `cpu`: A CPU resource request for the container with deployed function. See related [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits).
@@ -152,21 +175,16 @@ Options allows you to set specific configuration for the deployed function, allo
     - `concurrency`: Hard Limit of concurrent requests to be processed by a single replica. Can be integer value greater than or equal to 0, default is 0 - meaning no limit. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/concurrency/#hard-limit).
 
 ```yaml
-options:
-  scale:
-    min: 0
-    max: 10
-    metric: concurrency
-    target: 75
-    utilization: 75
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 1000m
-      memory: 256Mi
-      concurrency: 100
+deploy:
+  options:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 1000m
+        memory: 256Mi
+        concurrency: 100
 ```
 
 ### `runtime`

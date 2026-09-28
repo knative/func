@@ -7,15 +7,26 @@ import (
 )
 
 type Options struct {
-	Scale     *ScaleOptions     `yaml:"scale,omitempty"`
 	Resources *ResourcesOptions `yaml:"resources,omitempty"`
 }
 
+// On the min/max tags below: maximum is int32 max because both deployers narrow
+// min/max to the int32 Kubernetes replica count, so ValidateScale rejects
+// anything larger -- the schema is kept in step. minimum stays in
+// jsonschema_extras rather than the jsonschema tag because the latter omits a
+// zero-valued minimum. This block is deliberately not a field doc comment (a
+// blank line separates it from ScaleOptions) so it does not leak into the
+// generated schema as a description.
+
 type ScaleOptions struct {
-	Min         *int64   `yaml:"min,omitempty" jsonschema_extras:"minimum=0"`
-	Max         *int64   `yaml:"max,omitempty" jsonschema_extras:"minimum=0"`
+	Min *int64           `yaml:"min,omitempty" jsonschema:"maximum=2147483647" jsonschema_extras:"minimum=0"`
+	Max *int64           `yaml:"max,omitempty" jsonschema:"maximum=2147483647" jsonschema_extras:"minimum=0"`
+	KPA *KPAScaleOptions `yaml:"kpa,omitempty"`
+}
+
+type KPAScaleOptions struct {
 	Metric      *string  `yaml:"metric,omitempty" jsonschema:"enum=concurrency,enum=rps"`
-	Target      *float64 `yaml:"target,omitempty" jsonschema_extras:"minimum=0.01"`
+	Target      *float64 `yaml:"target,omitempty" jsonschema:"exclusiveMinimum=true" jsonschema_extras:"minimum=0.01"` // exclusiveMinimum=true: jsonschema_extras' "minimum" truncates "0.01" to 0 via strconv.Atoi, so this at least excludes the concrete invalid value (0) ValidateScale rejects
 	Utilization *float64 `yaml:"utilization,omitempty" jsonschema:"minimum=1,maximum=100"`
 }
 
@@ -36,53 +47,9 @@ type ResourcesRequestsOptions struct {
 }
 
 // validateOptions checks that input Options are correctly set.
+// Scale validation is handled separately by ValidateScale.
 // Returns array of error messages, empty if no errors are found
 func validateOptions(options Options) (errors []string) {
-
-	// options.scale
-	if options.Scale != nil {
-		if options.Scale.Min != nil {
-			if *options.Scale.Min < 0 {
-				errors = append(errors, fmt.Sprintf("options field \"scale.min\" has invalid value set: %d, the value must be greater than \"0\"",
-					*options.Scale.Min))
-			}
-		}
-
-		if options.Scale.Max != nil {
-			if *options.Scale.Max < 0 {
-				errors = append(errors, fmt.Sprintf("options field \"scale.max\" has invalid value set: %d, the value must be greater than \"0\"",
-					*options.Scale.Max))
-			}
-		}
-
-		if options.Scale.Min != nil && options.Scale.Max != nil {
-			if *options.Scale.Max < *options.Scale.Min {
-				errors = append(errors, "options field \"scale.max\" value must be greater or equal to \"scale.min\"")
-			}
-		}
-
-		if options.Scale.Metric != nil {
-			if *options.Scale.Metric != "concurrency" && *options.Scale.Metric != "rps" {
-				errors = append(errors, fmt.Sprintf("options field \"scale.metric\" has invalid value set: %s, allowed is only \"concurrency\" or \"rps\"",
-					*options.Scale.Metric))
-			}
-		}
-
-		if options.Scale.Target != nil {
-			if *options.Scale.Target < 0.01 {
-				errors = append(errors, fmt.Sprintf("options field \"scale.target\" has value set to \"%f\", but it must not be less than 0.01",
-					*options.Scale.Target))
-			}
-		}
-
-		if options.Scale.Utilization != nil {
-			if *options.Scale.Utilization < 1 || *options.Scale.Utilization > 100 {
-				errors = append(errors,
-					fmt.Sprintf("options field \"scale.utilization\" has value set to \"%f\", but it must not be less than 1 or greater than 100",
-						*options.Scale.Utilization))
-			}
-		}
-	}
 
 	// options.resource
 	if options.Resources != nil {
