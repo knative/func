@@ -743,6 +743,19 @@ func TestValidateKafka(t *testing.T) {
 			wantSubst: "sasl.mechanism must be one of",
 		},
 		{
+			name: "empty SASL mechanism is required, not silently accepted",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9092",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{User: "u", Password: "p"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.sasl.mechanism is required",
+		},
+		{
 			name: "TLS clientCert without clientKey",
 			kafka: &fn.KafkaConfig{
 				Brokers:          "broker:9093",

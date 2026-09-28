@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -171,6 +172,69 @@ func Test_generateDeployment_ImagePullSecret(t *testing.T) {
 		secrets := deployment.Spec.Template.Spec.ImagePullSecrets
 		if secrets != nil {
 			t.Errorf("expected no ImagePullSecrets, got %v", secrets)
+		}
+	})
+}
+
+// generateDeployment narrows scale.min (int64) to the Deployment's int32
+// replica count. Function.Validate rejects out-of-range values, but Deploy is
+// reachable without it, so generateDeployment guards the narrowing itself:
+// negative values (which would otherwise be silently normalized to one replica)
+// and values above int32 (which would wrap) are rejected, while valid values
+// map straight through.
+func Test_generateDeployment_ScaleMinBounds(t *testing.T) {
+	d := &Deployer{}
+	overflow := int64(math.MaxInt32) + 1
+	negative := int64(-1)
+	valid := int64(3)
+
+	newFunc := func(min *int64) fn.Function {
+		return fn.Function{
+			Name:   "test-func",
+			Deploy: fn.DeploySpec{Image: "registry.example.com/test:latest"},
+			Scale:  &fn.ScaleOptions{Min: min},
+		}
+	}
+	gen := func(f fn.Function) (*appsv1.Deployment, error) {
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		return d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+	}
+
+	for _, tt := range []struct {
+		name string
+		min  *int64
+	}{
+		{"overflow", &overflow},
+		{"negative", &negative},
+	} {
+		t.Run(tt.name+" rejected", func(t *testing.T) {
+			if _, err := gen(newFunc(tt.min)); err == nil ||
+				!strings.Contains(err.Error(), "scale.min") ||
+				!strings.Contains(err.Error(), "out of range") {
+				t.Fatalf("expected out-of-range scale.min error, got %v", err)
+			}
+		})
+	}
+
+	t.Run("valid min sets replicas", func(t *testing.T) {
+		deployment, err := gen(newFunc(&valid))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != 3 {
+			t.Fatalf("expected 3 replicas, got %v", deployment.Spec.Replicas)
+		}
+	})
+
+	t.Run("min zero defaults to one replica", func(t *testing.T) {
+		zero := int64(0)
+		deployment, err := gen(newFunc(&zero))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != 1 {
+			t.Fatalf("expected 1 replica for min=0, got %v", deployment.Spec.Replicas)
 		}
 	})
 }
