@@ -84,22 +84,15 @@ func (d *Describer) Describe(ctx context.Context, name, namespace string) (fn.In
 	}
 
 	if !hasHTTPTrigger {
-		// Absence of an HTTPScaledObject isn't proof this is a Kafka-only
-		// function -- an http-triggered function's scaler could have been
-		// deleted externally, failed to create, or be mid-transition.
-		// Corroborate with the Kafka ScaledObject before assuming Kafka-only;
-		// if neither scaler exists, something's broken and should be reported,
-		// not silently treated as healthy.
+		// Corroborate with the Kafka ScaledObject before assuming Kafka-only; if
+		// neither scaler exists, something's broken and should be reported, not
+		// silently treated as healthy.
 		dynClient, err := k8s.NewDynamicClient()
 		if err != nil {
 			return fn.Instance{}, fmt.Errorf("unable to create dynamic client: %w", err)
 		}
-		if _, err := dynClient.Resource(scaledObjectGVR).Namespace(namespace).Get(ctx, scaledObjectName(name), metav1.GetOptions{}); err != nil {
-			if errors.IsNotFound(err) {
-				return fn.Instance{}, fmt.Errorf(
-					"function %q uses the keda deployer but has neither an HTTPScaledObject nor a Kafka ScaledObject: the scaler may have failed to create or been deleted externally", name)
-			}
-			return fn.Instance{}, fmt.Errorf("unable to get ScaledObject: %w", err)
+		if err := corroborateKafkaScaler(ctx, dynClient, namespace, name); err != nil {
+			return fn.Instance{}, err
 		}
 	}
 

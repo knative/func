@@ -110,6 +110,24 @@ func kafkaTrigger(triggers []fn.KEDATrigger) fn.KEDATrigger {
 	return fn.KEDATrigger{}
 }
 
+// corroborateKafkaScaler confirms that a keda function with no HTTPScaledObject
+// is a genuine Kafka-only function by checking its Kafka ScaledObject exists.
+// Absence of an HTTPScaledObject alone isn't proof: an http-triggered function's
+// scaler could have been deleted externally, failed to create, or be
+// mid-transition. A NotFound on the ScaledObject too means neither scaler exists
+// and the function is broken; any other error means we couldn't look. Shared by
+// the describer and lister so both report the same states identically.
+func corroborateKafkaScaler(ctx context.Context, dynClient dynamic.Interface, namespace, name string) error {
+	if _, err := dynClient.Resource(scaledObjectGVR).Namespace(namespace).Get(ctx, scaledObjectName(name), metav1.GetOptions{}); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf(
+				"function %q uses the keda deployer but has neither an HTTPScaledObject nor a Kafka ScaledObject: the scaler may have failed to create or been deleted externally", name)
+		}
+		return fmt.Errorf("unable to get ScaledObject: %w", err)
+	}
+	return nil
+}
+
 // needsTriggerAuth returns true when the Kafka config uses SASL or TLS with
 // secrets that must be referenced via a TriggerAuthentication.
 func needsTriggerAuth(kafka *fn.KafkaConfig) bool {
@@ -206,6 +224,13 @@ func buildTriggerAuth(f fn.Function, deployment *v1.Deployment, namespace string
 	}
 	if err := validateKafkaTLSPaths(kafka, f.Run.Volumes); err != nil {
 		return nil, err
+	}
+	// The plaintext/configMap SASL branches below point KEDA at an env var on
+	// the function's container by name, indexing Containers[0]. The raw deployer
+	// always produces exactly one container, but guard the index so a future
+	// change to the pod template can't turn this into a panic.
+	if len(deployment.Spec.Template.Spec.Containers) == 0 {
+		return nil, fmt.Errorf("deployment %q has no containers; cannot resolve the Kafka SASL env var reference", deployment.Name)
 	}
 
 	var secretRefs []interface{}

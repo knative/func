@@ -99,18 +99,11 @@ func (l *Lister) get(ctx context.Context, clientset *kubernetes.Clientset, httpS
 	}
 
 	if !hasHTTPTrigger {
-		// Absence of an HTTPScaledObject isn't proof this is a Kafka-only
-		// function -- an http-triggered function's scaler could have been
-		// deleted externally, failed to create, or be mid-transition.
-		// Corroborate with the Kafka ScaledObject before assuming Kafka-only;
-		// if neither scaler exists, something's broken and should be reported
+		// Corroborate with the Kafka ScaledObject before assuming Kafka-only; if
+		// neither scaler exists, something's broken and should be reported
 		// instead of silently listed as healthy.
-		if _, err := dynClient.Resource(scaledObjectGVR).Namespace(namespace).Get(ctx, scaledObjectName(name), metav1.GetOptions{}); err != nil {
-			if errors.IsNotFound(err) {
-				return fn.ListItem{}, fmt.Errorf(
-					"function %q uses the keda deployer but has neither an HTTPScaledObject nor a Kafka ScaledObject: the scaler may have failed to create or been deleted externally", name)
-			}
-			return fn.ListItem{}, fmt.Errorf("unable to get ScaledObject: %v", err)
+		if err := corroborateKafkaScaler(ctx, dynClient, namespace, name); err != nil {
+			return fn.ListItem{}, err
 		}
 	}
 

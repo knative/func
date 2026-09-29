@@ -2,6 +2,7 @@ package keda
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	v1 "k8s.io/api/apps/v1"
@@ -41,6 +42,40 @@ func unstructuredTriggerAuth(name, ns string) *unstructured.Unstructured {
 		"kind":       "TriggerAuthentication",
 		"metadata":   map[string]interface{}{"name": name, "namespace": ns},
 	}}
+}
+
+// TestCorroborateKafkaScaler exercises the describer/lister no-HTTPScaledObject
+// branch (shared via corroborateKafkaScaler): a Kafka ScaledObject present
+// confirms a kafka-only function, neither scaler present is a reported error,
+// and a lookup that fails for any other reason is surfaced, not swallowed.
+func TestCorroborateKafkaScaler(t *testing.T) {
+	const ns, name = "fn-ns", "f"
+
+	t.Run("kafka ScaledObject present", func(t *testing.T) {
+		dc := newScalingDynClient(unstructuredScaledObject(scaledObjectName(name), ns))
+		if err := corroborateKafkaScaler(t.Context(), dc, ns, name); err != nil {
+			t.Fatalf("expected no error when the Kafka ScaledObject exists, got %v", err)
+		}
+	})
+
+	t.Run("neither scaler present", func(t *testing.T) {
+		dc := newScalingDynClient()
+		err := corroborateKafkaScaler(t.Context(), dc, ns, name)
+		if err == nil || !strings.Contains(err.Error(), "neither an HTTPScaledObject nor a Kafka ScaledObject") {
+			t.Fatalf("expected the neither-scaler error, got %v", err)
+		}
+	})
+
+	t.Run("lookup fails", func(t *testing.T) {
+		dc := newScalingDynClient()
+		dc.PrependReactor("get", "scaledobjects", func(clienttesting.Action) (bool, runtime.Object, error) {
+			return true, nil, fmt.Errorf("boom")
+		})
+		err := corroborateKafkaScaler(t.Context(), dc, ns, name)
+		if err == nil || !strings.Contains(err.Error(), "unable to get ScaledObject") {
+			t.Fatalf("expected the lookup error to be surfaced, got %v", err)
+		}
+	})
 }
 
 func TestEnsureScaledObject_PreservesFinalizers(t *testing.T) {
@@ -345,6 +380,27 @@ func testDeployment() *v1.Deployment {
 				},
 			},
 		},
+	}
+}
+
+// TestBuildTriggerAuth_NoContainers verifies buildTriggerAuth returns an error
+// rather than panicking when the Deployment's pod template has no containers.
+// The env-ref (plaintext SASL) path indexes Containers[0]; the raw deployer
+// always produces exactly one container, but the guard keeps a future pod
+// template change from turning that index into a panic.
+func TestBuildTriggerAuth_NoContainers(t *testing.T) {
+	f := fn.Function{
+		Name: "test-func",
+		Run: fn.RunSpec{
+			Kafka: &fn.KafkaConfig{
+				Brokers: "broker:9093", Topic: "t", ConsumerGroup: "g",
+				// Plaintext SASL password -> the env-ref path that indexes Containers[0].
+				SASL: &fn.KafkaSASL{Mechanism: "PLAIN", Password: "literal-secret"},
+			},
+		},
+	}
+	if _, err := buildTriggerAuth(f, &v1.Deployment{}, "default"); err == nil || !strings.Contains(err.Error(), "no containers") {
+		t.Fatalf("expected a no-containers error, got %v", err)
 	}
 }
 
