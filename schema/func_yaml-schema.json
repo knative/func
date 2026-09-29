@@ -139,6 +139,15 @@
 					],
 					"type": "string",
 					"description": "Expose records the external exposure mode CURRENTLY applied on the\ncluster for raw/keda (observed state). Written after successful deploy,\ncleared on undeploy alongside Namespace and Deployer. Empty means\ncluster-local (or never exposed). User intent lives on Function.Expose."
+				},
+				"scalerType": {
+					"enum": [
+						"http",
+						"kafka",
+						""
+					],
+					"type": "string",
+					"description": "ScalerType records the KEDA scaler CURRENTLY provisioned on the cluster\n(\"http\" or \"kafka\"), observed state written after a successful keda deploy\nand cleared on undeploy alongside Namespace and Deployer. Empty for\ndeployers with no scaler concept. User intent is derived from\nFunction.Scale.KEDA.Triggers. Used by the scaler-switch gate in\nClient.Deploy and by the keda remover."
 				}
 			},
 			"additionalProperties": false,
@@ -279,6 +288,74 @@
 			"additionalProperties": false,
 			"type": "object",
 			"description": "HealthEndpoints specify the liveness and readiness endpoints for a Runtime"
+		},
+		"KEDAScaleOptions": {
+			"required": [
+				"triggers"
+			],
+			"properties": {
+				"pollingInterval": {
+					"type": "integer",
+					"description": "How often KEDA checks the trigger in seconds (default 30). Applies only to kafka triggers; it has no effect on an http trigger (which scales from interceptor-reported metrics and has no polling concept).",
+					"minimum": 1
+				},
+				"cooldownPeriod": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"triggers": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/KEDATrigger"
+					},
+					"minItems": 1,
+					"type": "array"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"KEDATrigger": {
+			"required": [
+				"type"
+			],
+			"properties": {
+				"type": {
+					"enum": [
+						"http",
+						"kafka",
+						"cron"
+					],
+					"type": "string"
+				},
+				"targetValue": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"lagThreshold": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"activationLagThreshold": {
+					"type": "integer",
+					"minimum": 0
+				},
+				"timezone": {
+					"type": "string"
+				},
+				"start": {
+					"type": "string"
+				},
+				"end": {
+					"type": "string"
+				},
+				"desiredReplicas": {
+					"type": "integer",
+					"minimum": 1
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
 		},
 		"KPAScaleOptions": {
 			"properties": {
@@ -561,6 +638,10 @@
 					"maximum": 2147483647,
 					"type": "integer",
 					"minimum": 0
+				},
+				"keda": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KEDAScaleOptions"
 				},
 				"kpa": {
 					"$schema": "http://json-schema.org/draft-04/schema#",

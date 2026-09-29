@@ -607,16 +607,17 @@ func TestValidateKafka(t *testing.T) {
 			wantErrs: 0,
 		},
 		{
-			name: "non-go runtime",
+			// Kafka is language-agnostic via the sidecar runtime: a non-Go
+			// runtime with a cloudevent invoke is valid.
+			name: "non-go runtime is allowed",
 			kafka: &fn.KafkaConfig{
 				Brokers:       "broker:9092",
 				Topic:         "my-topic",
 				ConsumerGroup: "my-group",
 			},
-			runtime:   "python",
-			invoke:    "cloudevent",
-			wantErrs:  1,
-			wantSubst: "only supported for the Go runtime",
+			runtime:  "python",
+			invoke:   "cloudevent",
+			wantErrs: 0,
 		},
 		{
 			name: "wrong invoke type",
@@ -741,6 +742,19 @@ func TestValidateKafka(t *testing.T) {
 			invoke:    "cloudevent",
 			wantErrs:  1,
 			wantSubst: "sasl.mechanism must be one of",
+		},
+		{
+			name: "empty SASL mechanism is required, not silently accepted",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9092",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{User: "u", Password: "p"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.sasl.mechanism is required",
 		},
 		{
 			name: "TLS clientCert without clientKey",

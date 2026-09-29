@@ -219,14 +219,13 @@ type KafkaSASL struct {
 	Password  string `yaml:"password,omitempty" jsonschema:"description=SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"`
 }
 
-func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string) {
+func validateKafka(kafka *KafkaConfig, invoke string) (errors []string) {
 	if kafka == nil {
 		return
 	}
-	if runtime != "go" {
-		errors = append(errors, "run.kafka is currently only supported for the Go runtime")
-		return
-	}
+	// Kafka is language-agnostic: the runtime consumes Kafka in a sidecar and
+	// delivers each record to the function as a CloudEvent over HTTP, so any
+	// runtime works. The function must still be a CloudEvents handler.
 	if invoke != "cloudevent" {
 		errors = append(errors, "run.kafka is only supported with invoke: cloudevent")
 		return
@@ -241,6 +240,16 @@ func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string)
 		errors = append(errors, "run.kafka.consumerGroup is required when Kafka is configured")
 	}
 
+	errors = append(errors, ValidateKafkaSecurity(kafka)...)
+
+	return
+}
+
+// ValidateKafkaSecurity validates the securityProtocol/TLS/SASL portion of a
+// KafkaConfig. It is exported so the keda deployer can run it as a deploy-time
+// preflight (Function.Validate is skipped in on-cluster and library deploy
+// flows). It assumes kafka is non-nil.
+func ValidateKafkaSecurity(kafka *KafkaConfig) (errors []string) {
 	validProtocols := map[string]bool{"": true, "PLAINTEXT": true, "SSL": true, "SASL_PLAINTEXT": true, "SASL_SSL": true}
 	if !validProtocols[kafka.SecurityProtocol] {
 		errors = append(errors, "run.kafka.securityProtocol must be one of: PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL")
@@ -263,9 +272,15 @@ func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string)
 		if kafka.SecurityProtocol != "SASL_PLAINTEXT" && kafka.SecurityProtocol != "SASL_SSL" {
 			errors = append(errors, "run.kafka.sasl requires securityProtocol SASL_PLAINTEXT or SASL_SSL")
 		}
-		validMechanisms := map[string]bool{"": true, "PLAIN": true, "SCRAM-SHA-256": true, "SCRAM-SHA-512": true}
-		if !validMechanisms[kafka.SASL.Mechanism] {
-			errors = append(errors, "run.kafka.sasl.mechanism must be one of: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512")
+		// mechanism is required: KEDA's TriggerAuthentication and the runtime
+		// both need a concrete SASL mechanism, there is no sensible default.
+		if kafka.SASL.Mechanism == "" {
+			errors = append(errors, "run.kafka.sasl.mechanism is required")
+		} else {
+			validMechanisms := map[string]bool{"PLAIN": true, "SCRAM-SHA-256": true, "SCRAM-SHA-512": true}
+			if !validMechanisms[kafka.SASL.Mechanism] {
+				errors = append(errors, "run.kafka.sasl.mechanism must be one of: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512")
+			}
 		}
 		if kafka.SASL.User == "" {
 			errors = append(errors, "run.kafka.sasl.user is required")
@@ -357,6 +372,14 @@ type DeploySpec struct {
 	// cleared on undeploy alongside Namespace and Deployer. Empty means
 	// cluster-local (or never exposed). User intent lives on Function.Expose.
 	Expose string `yaml:"expose,omitempty" jsonschema:"enum=route,enum=none,enum="`
+
+	// ScalerType records the KEDA scaler CURRENTLY provisioned on the cluster
+	// ("http" or "kafka"), observed state written after a successful keda deploy
+	// and cleared on undeploy alongside Namespace and Deployer. Empty for
+	// deployers with no scaler concept. User intent is derived from
+	// Function.Scale.KEDA.Triggers. Used by the scaler-switch gate in
+	// Client.Deploy and by the keda remover.
+	ScalerType string `yaml:"scalerType,omitempty" jsonschema:"enum=http,enum=kafka,enum="`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
@@ -493,10 +516,10 @@ func (f Function) Validate() error {
 		ValidateBuildEnvs(f.Build.BuildEnvs),
 		ValidateEnvs(f.Run.Envs),
 		validateOptions(f.Deploy.Options),
-		ValidateScale(f.Scale, scaleDeployer),
+		ValidateScale(f.Scale, scaleDeployer, f.Run.Kafka),
 		ValidateLabels(f.Deploy.Labels),
 		validateSource(f.Build.Source),
-		validateKafka(f.Run.Kafka, f.Invoke, f.Runtime),
+		validateKafka(f.Run.Kafka, f.Invoke),
 		validateExpose(f.Deploy.Expose, f.Expose),
 	}
 

@@ -1276,8 +1276,11 @@ func TestClient_Remove_ReturnsReconciledFunction(t *testing.T) {
 	newFn := func() fn.Function {
 		return fn.Function{
 			Name:     "fn",
-			Deployer: deployer,                                           // intent
-			Deploy:   fn.DeploySpec{Namespace: "ns", Deployer: deployer}, // state
+			Deployer: deployer, // intent
+			// state, including the observed KEDA scaler type -- treated exactly
+			// like Deploy.Deployer: cleared on a clean delete, preserved on
+			// failure so the switch gate keeps refusing until delete succeeds.
+			Deploy: fn.DeploySpec{Namespace: "ns", Deployer: deployer, ScalerType: "kafka"},
 		}
 	}
 
@@ -1297,6 +1300,9 @@ func TestClient_Remove_ReturnsReconciledFunction(t *testing.T) {
 		}
 		if got.Deploy.Deployer != "" {
 			t.Fatalf("expected Deploy.Deployer cleared on success, got %q", got.Deploy.Deployer)
+		}
+		if got.Deploy.ScalerType != "" {
+			t.Fatalf("expected Deploy.ScalerType cleared on success, got %q", got.Deploy.ScalerType)
 		}
 		// keeps the intent
 		if got.Deployer != deployer {
@@ -1320,6 +1326,12 @@ func TestClient_Remove_ReturnsReconciledFunction(t *testing.T) {
 		}
 		if got.Deploy.Deployer != deployer {
 			t.Fatalf("expected Deploy.Deployer untouched on failure, got %q", got.Deploy.Deployer)
+		}
+		// Preserving the observed scaler type on failure is what makes the
+		// switch gate fail conservatively: a cleared value would let a later
+		// deploy switch scalers and strand the leftover cluster resources.
+		if got.Deploy.ScalerType != "kafka" {
+			t.Fatalf("expected Deploy.ScalerType preserved on failure, got %q", got.Deploy.ScalerType)
 		}
 		if got.Deployer != deployer {
 			t.Fatalf("expected the intended Deployer untouched on failure, got %q", got.Deployer)
@@ -2737,5 +2749,102 @@ func TestClient_Deploy_PersistsSelfReportedDeployer(t *testing.T) {
 	}
 	if f.Deploy.Namespace != "reported-ns" {
 		t.Fatalf("expected the self-reported namespace persisted as state, got %q", f.Deploy.Namespace)
+	}
+}
+
+// TestClient_Deploy_BlocksScalerSwitch covers the KEDA scaler-switch gate:
+// switching the trigger/scaler type (http <-> kafka) in place on an
+// already-deployed function is refused (the user must func delete first), while
+// a same-type redeploy -- including a parameter-only change -- is allowed. Like
+// the deployer gate, the guard only fires when the function is already deployed
+// (Deploy.Namespace set).
+func TestClient_Deploy_BlocksScalerSwitch(t *testing.T) {
+	// scale builds a keda scale block for the given trigger type ("" = none, so
+	// the deployer defaults to the http scaler).
+	scale := func(trigger string) *fn.ScaleOptions {
+		if trigger == "" {
+			return nil
+		}
+		return &fn.ScaleOptions{KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: trigger}}}}
+	}
+
+	for _, tt := range []struct {
+		name           string
+		deployedScaler string // observed state: Deploy.ScalerType
+		requested      string // intent: the scale.keda trigger type
+		deployedNS     string // observed state: Deploy.Namespace ("" = not deployed)
+		wantBlocked    bool
+	}{
+		{"http to kafka blocked", "http", "kafka", "ns", true},
+		{"kafka to http blocked", "kafka", "http", "ns", true},
+		{"kafka to default(http) blocked", "kafka", "", "ns", true},
+
+		{"http unchanged is allowed", "http", "http", "ns", false},
+		{"kafka unchanged is allowed", "kafka", "kafka", "ns", false},
+		{"default(http) unchanged is allowed", "http", "", "ns", false},
+
+		{"undeployed is never blocked", "http", "kafka", "", false},
+		{"nothing recorded is not blocked", "", "kafka", "ns", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			deployer := mock.NewDeployer()
+			client := fn.New(fn.WithDeployer(deployer))
+
+			f := fn.Function{
+				Name:      "f",
+				Namespace: "ns",
+				Deployer:  deployers.Keda,
+				Scale:     scale(tt.requested),
+				Run:       fn.RunSpec{Kafka: &fn.KafkaConfig{Brokers: "b:9092", Topic: "t", ConsumerGroup: "g"}},
+				Deploy: fn.DeploySpec{
+					Namespace:  tt.deployedNS,
+					Deployer:   deployers.Keda,
+					ScalerType: tt.deployedScaler,
+				},
+			}
+
+			_, err := client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
+
+			if tt.wantBlocked {
+				if err == nil {
+					t.Fatalf("expected %q -> %q to be blocked, got nil", tt.deployedScaler, tt.requested)
+				}
+				if deployer.DeployInvoked {
+					t.Fatal("expected the deployer NOT to run on a blocked scaler switch")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected %q -> %q to be allowed, got: %v", tt.deployedScaler, tt.requested, err)
+			}
+			if !deployer.DeployInvoked {
+				t.Fatal("expected the deployer to run when the scaler switch is allowed")
+			}
+		})
+	}
+}
+
+// TestClient_Deploy_PersistsSelfReportedScalerType ensures the scaler type
+// recorded as observed state is the one the deployer reports having provisioned,
+// so the switch gate compares against what the cluster actually got -- mirroring
+// how Deploy.Deployer and Deploy.Namespace are taken from the result.
+func TestClient_Deploy_PersistsSelfReportedScalerType(t *testing.T) {
+	deployer := mock.NewDeployer()
+	client := fn.New(fn.WithDeployer(deployer))
+
+	f := fn.Function{
+		Name:      "f",
+		Namespace: "ns",
+		Deployer:  deployers.Keda,
+		Scale:     &fn.ScaleOptions{KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "kafka"}}}},
+		Run:       fn.RunSpec{Kafka: &fn.KafkaConfig{Brokers: "b:9092", Topic: "t", ConsumerGroup: "g"}},
+	}
+
+	f, err := client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.ScalerType != "kafka" {
+		t.Fatalf("expected the self-reported scaler type %q persisted as state, got %q", "kafka", f.Deploy.ScalerType)
 	}
 }
