@@ -471,12 +471,10 @@ func NewFunction(root string) (f Function, err error) {
 }
 
 // Validate function is logically correct, returning a bundled, and quite
-// verbose, formatted error detailing any issues.
+// verbose, formatted error detailing any issues. Where the function lives is
+// not part of its correctness: a function read from a git repository has no
+// Root, which Write requires.
 func (f Function) Validate() error {
-	if f.Root == "" {
-		return errors.New("function root path is required")
-	}
-
 	// Validate scale against the effective deployer: the intent (f.Deployer)
 	// when set, otherwise the deployer this function was last deployed with
 	// (f.Deploy.Deployer). The CLI resolves these before Validate runs, but
@@ -612,6 +610,9 @@ func (f Function) MarshalFuncYaml() ([]byte, error) {
 
 // Write Function struct (metadata) to Disk at f.Root
 func (f Function) Write() (err error) {
+	if f.Root == "" {
+		return ErrRootRequired
+	}
 	// Skip writing (and dirtying the work tree) if there were no modifications.
 	f1, _ := NewFunction(f.Root)
 	if reflect.DeepEqual(f, f1) {
@@ -759,7 +760,8 @@ func (f Function) HasScaffolding() bool {
 // https://github.com/knative/func/pull/3436) and can interfere with other
 // builders (mostly just pack).
 func WarnIfLegacyS2IScaffolding(f Function, w io.Writer) {
-	if !f.HasScaffolding() {
+	// A function without a Root has no working tree to inspect.
+	if !f.HasScaffolding() || f.Root == "" {
 		return
 	}
 	legacyAssemble := filepath.Join(f.Root, ".s2i", "bin", "assemble")
