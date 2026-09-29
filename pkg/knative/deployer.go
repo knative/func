@@ -123,6 +123,18 @@ func onClusterFix(f fn.Function) fn.Function {
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
 	f = onClusterFix(f)
+
+	// Kafka is consumed by the runtime sidecar, which is only injected by the
+	// keda deployer (via the embedded k8s deployer); the in-process path that
+	// once let any deployer run a Kafka function is retired. The knative
+	// deployer does not (yet) inject the sidecar, so reject run.kafka here
+	// rather than silently deploy a function that never receives records.
+	// Injecting the sidecar into the Knative Service is tracked as separate
+	// work.
+	if f.Run.Kafka != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("run.kafka requires deployer: keda (the Kafka runtime sidecar and consumer-lag scaling are only provisioned by the keda deployer); set deployer: keda and redeploy")
+	}
+
 	// Choosing f.Namespace vs f.Deploy.Namespace:
 	// This is minimal logic currently required of all deployer impls.
 	// If f.Namespace is defined, this is the (possibly new) target
@@ -321,10 +333,6 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
-		newEnv, err = k8s.AppendKafkaEnvs(newEnv, f.Run.Kafka, &referencedSecrets, &referencedConfigMaps)
-		if err != nil {
-			return fn.DeploymentResult{}, err
-		}
 
 		newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 		if err != nil {
@@ -438,10 +446,7 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 	if err != nil {
 		return nil, err
 	}
-	container.Env, err = k8s.AppendKafkaEnvs(newEnv, f.Run.Kafka, referencedSecrets, referencedConfigMaps)
-	if err != nil {
-		return nil, err
-	}
+	container.Env = newEnv
 	container.EnvFrom = newEnvFrom
 
 	newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)
