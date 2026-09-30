@@ -249,8 +249,11 @@ func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string)
 // ValidateKafkaSecurity validates the securityProtocol/TLS/SASL portion of a
 // KafkaConfig. It is exported so the keda deployer can run it as a deploy-time
 // preflight (Function.Validate is skipped in on-cluster and library deploy
-// flows). It assumes kafka is non-nil.
+// flows). A nil kafka has nothing to validate and returns no errors.
 func ValidateKafkaSecurity(kafka *KafkaConfig) (errors []string) {
+	if kafka == nil {
+		return
+	}
 	validProtocols := map[string]bool{"": true, "PLAINTEXT": true, "SSL": true, "SASL_PLAINTEXT": true, "SASL_SSL": true}
 	if !validProtocols[kafka.SecurityProtocol] {
 		errors = append(errors, "run.kafka.securityProtocol must be one of: PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL")
@@ -379,7 +382,7 @@ type DeploySpec struct {
 	// and cleared on undeploy alongside Namespace and Deployer. Empty for
 	// deployers with no scaler concept. User intent is derived from
 	// Function.Scale.KEDA.Triggers. Used by the scaler-switch gate in
-	// Client.Deploy and by the keda remover.
+	// Client.Deploy.
 	ScalerType string `yaml:"scalerType,omitempty" jsonschema:"enum=http,enum=kafka,enum="`
 }
 

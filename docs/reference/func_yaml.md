@@ -166,16 +166,12 @@ The scaler sub-keys are deployer-aware: `kpa` holds Knative Pod Autoscaler setti
 - `keda`: KEDA-specific scaling config, used only with `deployer: keda`. Optional: when omitted, `deployer: keda` defaults to a single `http` trigger. Provide it to configure kafka lag scaling or to tune the http trigger.
   - `pollingInterval`: how often KEDA checks triggers, in seconds. Default is 30. Only applies to `kafka` triggers (a `ScaledObject`, which polls); the `http` trigger's `HTTPScaledObject` has no polling concept — it scales from interceptor-reported metrics instead — so this setting has no effect when only an `http` trigger is configured.
   - `cooldownPeriod`: seconds to wait after the last trigger fires before scaling to min. Default is 300.
-  - `triggers`: a list of KEDA triggers. If `scale.keda` is written out, at least one trigger is required; if `scale.keda` is omitted entirely, `deployer: keda` defaults to a single `http` trigger. Each trigger has a `type` of `http`, `kafka`, or `cron`:
+  - `triggers`: a list of KEDA triggers. If `scale.keda` is written out, at least one trigger is required; if `scale.keda` is omitted entirely, `deployer: keda` defaults to a single `http` trigger. Each trigger has a `type` of `http` or `kafka`:
     - `http`: scales based on incoming HTTP request rate.
       - `targetValue`: requests per second per replica before scaling up. Default is 100.
     - `kafka`: scales based on consumer group lag. Requires [`run.kafka`](#runkafka) to be configured.
       - `lagThreshold`: average consumer lag per partition that triggers scaling up. Default is 10.
       - `activationLagThreshold`: lag below which KEDA keeps replicas at 0 when `scale.min` is 0. Default is 0.
-    - `cron`: scales based on a time window. **Not yet supported** — accepted by the schema but rejected at validation time (reserved for a future deployer implementation).
-      - `timezone`: e.g. `Europe/Istanbul`.
-      - `start`, `end`: cron expressions defining the active window, e.g. `0 8 * * *`.
-      - `desiredReplicas`: number of replicas to scale to during the active window.
 
 ```yaml
 scale:
@@ -222,9 +218,7 @@ Note: `http` and `kafka` triggers cannot currently be combined in the same
 `scale.keda.triggers` list. The keda deployer creates a separate
 `HTTPScaledObject` for `http` and a separate `ScaledObject` for `kafka`,
 both targeting the same Deployment, and KEDA only allows one scaler per
-workload. `func` rejects this combination at validation time. The `cron`
-trigger type is accepted by the schema but not yet implemented by any
-deployer; using it also fails validation.
+workload. `func` rejects this combination at validation time.
 
 ### `options`
 Options allows you to set resource limits and requests for the deployed function container.

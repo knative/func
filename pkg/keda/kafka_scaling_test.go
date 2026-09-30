@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
+	httpfake "github.com/kedacore/http-add-on/operator/generated/clientset/versioned/fake"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -74,6 +76,55 @@ func TestCorroborateKafkaScaler(t *testing.T) {
 		err := corroborateKafkaScaler(t.Context(), dc, ns, name)
 		if err == nil || !strings.Contains(err.Error(), "unable to get ScaledObject") {
 			t.Fatalf("expected the lookup error to be surfaced, got %v", err)
+		}
+	})
+}
+
+// TestRefuseConflictingScaler covers the deploy-time backstop that refuses an
+// in-place scaler-type switch from live cluster state: deploying a kafka scaler
+// while the http scaler (HTTPScaledObject) still exists, or the reverse, is
+// refused; deploying when no conflicting scaler exists is allowed (the common
+// first-deploy and same-type-redeploy case).
+func TestRefuseConflictingScaler(t *testing.T) {
+	const ns, name = "fn-ns", "f"
+
+	httpScaledObject := func() *httpv1alpha1.HTTPScaledObject {
+		return &httpv1alpha1.HTTPScaledObject{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+		}
+	}
+
+	t.Run("kafka wanted, http scaler exists -> refuse", func(t *testing.T) {
+		httpClient := httpfake.NewSimpleClientset(httpScaledObject())
+		dc := newScalingDynClient()
+		err := refuseConflictingScaler(t.Context(), httpClient, dc, ns, name, true)
+		if err == nil || !strings.Contains(err.Error(), "not supported") {
+			t.Fatalf("expected a scaler-switch refusal, got %v", err)
+		}
+	})
+
+	t.Run("kafka wanted, no http scaler -> ok", func(t *testing.T) {
+		httpClient := httpfake.NewSimpleClientset()
+		dc := newScalingDynClient()
+		if err := refuseConflictingScaler(t.Context(), httpClient, dc, ns, name, true); err != nil {
+			t.Fatalf("expected no error when no http scaler exists, got %v", err)
+		}
+	})
+
+	t.Run("http wanted, kafka scaler exists -> refuse", func(t *testing.T) {
+		httpClient := httpfake.NewSimpleClientset()
+		dc := newScalingDynClient(unstructuredScaledObject(scaledObjectName(name), ns))
+		err := refuseConflictingScaler(t.Context(), httpClient, dc, ns, name, false)
+		if err == nil || !strings.Contains(err.Error(), "not supported") {
+			t.Fatalf("expected a scaler-switch refusal, got %v", err)
+		}
+	})
+
+	t.Run("http wanted, no kafka scaler -> ok", func(t *testing.T) {
+		httpClient := httpfake.NewSimpleClientset()
+		dc := newScalingDynClient()
+		if err := refuseConflictingScaler(t.Context(), httpClient, dc, ns, name, false); err != nil {
+			t.Fatalf("expected no error when no kafka scaler exists, got %v", err)
 		}
 	})
 }

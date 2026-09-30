@@ -12,11 +12,18 @@ const (
 	ScalerTypeKafka = "kafka"
 )
 
-// intendedScalerType derives the KEDA scaler type a deploy of f would provision:
+// IntendedScalerType derives the KEDA scaler type a deploy of f would provision:
 // "kafka" when a kafka trigger is configured, otherwise "http" (the keda
 // default). Returns "" for non-keda deployers, which have no scaler concept.
-func intendedScalerType(f Function) string {
-	if f.Deployer != "keda" {
+// The deployer is read from intent (f.Deployer) falling back to the observed
+// value (f.Deploy.Deployer) so a redeploy that omits the deployer flag still
+// resolves the scaler type the function is actually deployed with.
+func IntendedScalerType(f Function) string {
+	deployer := f.Deployer
+	if deployer == "" {
+		deployer = f.Deploy.Deployer
+	}
+	if deployer != "keda" {
 		return ""
 	}
 	if f.Scale != nil && f.Scale.KEDA != nil {
@@ -136,10 +143,24 @@ func validateKEDAScale(keda *KEDAScaleOptions, kafka *KafkaConfig) (errors []str
 			if t.TargetValue != nil && *t.TargetValue < 1 {
 				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].targetValue must be >= 1", i))
 			}
+			// The lag fields belong to the kafka scaler; reject them on an http
+			// trigger rather than silently ignoring them, so a misplaced field is
+			// caught instead of quietly having no effect.
+			if t.LagThreshold != nil {
+				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].lagThreshold is only valid for a kafka trigger", i))
+			}
+			if t.ActivationLagThreshold != nil {
+				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].activationLagThreshold is only valid for a kafka trigger", i))
+			}
 		case "kafka":
 			sawKafka = true
 			if kafka == nil {
 				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d] has type kafka but run.kafka is not configured", i))
+			}
+			// targetValue is the http scaler's request-rate target; it has no
+			// meaning for a kafka trigger (which uses lagThreshold).
+			if t.TargetValue != nil {
+				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].targetValue is only valid for an http trigger", i))
 			}
 			if t.LagThreshold != nil && *t.LagThreshold < 1 {
 				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].lagThreshold must be >= 1", i))
@@ -147,8 +168,6 @@ func validateKEDAScale(keda *KEDAScaleOptions, kafka *KafkaConfig) (errors []str
 			if t.ActivationLagThreshold != nil && *t.ActivationLagThreshold < 0 {
 				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].activationLagThreshold must not be negative", i))
 			}
-		case "cron":
-			errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].type cron is not yet supported", i))
 		default:
 			errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].type has invalid value %q, allowed: http, kafka", i, t.Type))
 		}

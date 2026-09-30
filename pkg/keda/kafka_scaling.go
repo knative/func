@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kedacore/http-add-on/operator/generated/clientset/versioned"
 	v1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -126,6 +128,40 @@ func corroborateKafkaScaler(ctx context.Context, dynClient dynamic.Interface, na
 		return fmt.Errorf("unable to get ScaledObject: %w", err)
 	}
 	return nil
+}
+
+// refuseConflictingScaler refuses an in-place KEDA scaler-type switch by
+// inspecting live cluster state, before the raw Deployment is mutated. The
+// client-side gate (ValidateScalerSwitch in Client.Deploy) refuses the same
+// switch from the scaler type recorded in func.yaml, but the remote/on-cluster
+// deploy path never writes that observed state back, so a switch there would slip
+// past it. This is the deploy-time backstop that catches the switch regardless of
+// how deploy was invoked: creating a Kafka ScaledObject while an HTTPScaledObject
+// already exists (or the reverse) would leave the old scaler orphaned on the
+// shared Deployment -- the user must `func delete` first. A missing scaler CRD
+// (the http-add-on or KEDA core not installed) means the conflicting scaler
+// cannot exist, so it is treated as "no conflict" rather than an error.
+func refuseConflictingScaler(ctx context.Context, httpClient versioned.Interface, dynClient dynamic.Interface, namespace, name string, wantKafka bool) error {
+	if wantKafka {
+		_, err := httpClient.HttpV1alpha1().HTTPScaledObjects(namespace).Get(ctx, name, metav1.GetOptions{})
+		switch {
+		case err == nil:
+			return fn.ValidateScalerSwitch(fn.ScalerTypeHTTP, fn.ScalerTypeKafka)
+		case k8serrors.IsNotFound(err) || meta.IsNoMatchError(err):
+			return nil
+		default:
+			return fmt.Errorf("unable to check for an existing http scaler on function %q: %w", name, err)
+		}
+	}
+	_, err := dynClient.Resource(scaledObjectGVR).Namespace(namespace).Get(ctx, scaledObjectName(name), metav1.GetOptions{})
+	switch {
+	case err == nil:
+		return fn.ValidateScalerSwitch(fn.ScalerTypeKafka, fn.ScalerTypeHTTP)
+	case k8serrors.IsNotFound(err) || meta.IsNoMatchError(err):
+		return nil
+	default:
+		return fmt.Errorf("unable to check for an existing kafka scaler on function %q: %w", name, err)
+	}
 }
 
 // needsTriggerAuth returns true when the Kafka config uses SASL or TLS with

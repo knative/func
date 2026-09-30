@@ -389,7 +389,8 @@ func Test_ValidateScale_KEDA(t *testing.T) {
 			"keda", kafkaRun, 1,
 		},
 		{
-			"cron is not yet supported",
+			// cron was dropped from the surface; it is now just an unknown type.
+			"cron is no longer a valid type",
 			&ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "cron"}}}},
 			"keda", nil, 1,
 		},
@@ -397,6 +398,18 @@ func Test_ValidateScale_KEDA(t *testing.T) {
 			"unknown trigger type",
 			&ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "bogus"}}}},
 			"keda", nil, 1,
+		},
+		{
+			// lagThreshold on an http trigger is a cross-field error.
+			"lagThreshold rejected on http trigger",
+			&ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "http", LagThreshold: ptr.Int64(10)}}}},
+			"keda", nil, 1,
+		},
+		{
+			// targetValue on a kafka trigger is a cross-field error.
+			"targetValue rejected on kafka trigger",
+			&ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "kafka", TargetValue: ptr.Int64(10)}}}},
+			"keda", kafkaRun, 1,
 		},
 	}
 
@@ -441,10 +454,12 @@ func Test_ValidateScalerSwitch(t *testing.T) {
 	}
 }
 
-// Test_intendedScalerType covers deriving the scaler type a deploy would
+// TestIntendedScalerType covers deriving the scaler type a deploy would
 // provision: only meaningful for the keda deployer, kafka when a kafka trigger
-// is present, http otherwise (the keda default).
-func Test_intendedScalerType(t *testing.T) {
+// is present, http otherwise (the keda default). The deployer is read from
+// intent falling back to observed state so a redeploy that omits the flag still
+// resolves correctly.
+func TestIntendedScalerType(t *testing.T) {
 	tests := []struct {
 		name string
 		f    Function
@@ -468,12 +483,22 @@ func Test_intendedScalerType(t *testing.T) {
 			Function{Deployer: "keda", Scale: &ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "kafka"}}}}},
 			"kafka",
 		},
+		{
+			"deployer falls back to observed state when intent is empty",
+			Function{Deploy: DeploySpec{Deployer: "keda"}, Scale: &ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "kafka"}}}}},
+			"kafka",
+		},
+		{
+			"intent deployer wins over observed state",
+			Function{Deployer: "knative", Deploy: DeploySpec{Deployer: "keda"}},
+			"",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := intendedScalerType(tt.f); got != tt.want {
-				t.Errorf("intendedScalerType() = %q, want %q", got, tt.want)
+			if got := IntendedScalerType(tt.f); got != tt.want {
+				t.Errorf("IntendedScalerType() = %q, want %q", got, tt.want)
 			}
 		})
 	}

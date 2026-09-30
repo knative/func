@@ -45,17 +45,8 @@ func NewDeployer() *Deployer {
 			}
 			// Observed scaler type mirrors what a keda deploy would provision:
 			// kafka when a kafka trigger is configured, http otherwise (the keda
-			// default). Non-keda deployers have no scaler concept, so leave it "".
-			if f.Deployer == "keda" {
-				result.ScalerType = "http"
-				if f.Scale != nil && f.Scale.KEDA != nil {
-					for _, t := range f.Scale.KEDA.Triggers {
-						if t.Type == "kafka" {
-							result.ScalerType = "kafka"
-						}
-					}
-				}
-			}
+			// default). Non-keda deployers have no scaler concept, so it stays "".
+			result.ScalerType = fn.IntendedScalerType(f)
 			if err == nil {
 				result.Status = fn.Deployed
 			}

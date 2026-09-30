@@ -891,7 +891,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 		// scaler/trigger type (http <-> kafka) in place would leave a stale
 		// scaler orphaned on the Deployment. Refuse and expect the user to
 		// undeploy first.
-		if err := ValidateScalerSwitch(f.Deploy.ScalerType, intendedScalerType(f)); err != nil {
+		if err := ValidateScalerSwitch(f.Deploy.ScalerType, IntendedScalerType(f)); err != nil {
 			return f, fmt.Errorf("function %q: %w", f.Name, err)
 		}
 	}

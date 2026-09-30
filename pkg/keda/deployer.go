@@ -119,8 +119,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	seenTriggerTypes := map[string]bool{}
 	for i, t := range triggers {
 		if t.Type != "http" && t.Type != "kafka" {
-			// ValidateScale already rejects any type other than http/kafka
-			// (cron is explicitly unsupported; anything else is invalid),
+			// ValidateScale already rejects any type other than http/kafka,
 			// but Deploy is reachable without it first (library callers,
 			// tests): an unrecognized type makes both wantHTTP and wantKafka
 			// false, so without this check Deploy would silently skip every
@@ -243,6 +242,25 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	dynClient, err := k8s.NewDynamicClient()
 	if err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
+	// Refuse an in-place scaler-type switch from live cluster state, before the
+	// raw deploy mutates the Deployment. The client-side gate covers the local
+	// deploy path from func.yaml's recorded scaler type; this covers every path
+	// (notably the remote pipeline, which never records it) by looking at the
+	// scalers that actually exist. Resolve the target namespace the same way the
+	// raw deployer will, so the lookup checks the namespace we're about to deploy
+	// into.
+	scalerNamespace, err := k8s.DeployNamespace(f)
+	if err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("failed to resolve deploy namespace: %w", err)
+	}
+	httpScaledObjectClientset, err := NewHTTPScaledObjectClientset()
+	if err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("unable to create HTTPScaledObject client: %w", err)
+	}
+	if err := refuseConflictingScaler(ctx, httpScaledObjectClientset, dynClient, scalerNamespace, f.Name, wantKafka); err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("function %q: %w", f.Name, err)
 	}
 
 	var interceptorNS string

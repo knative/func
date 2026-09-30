@@ -43,14 +43,10 @@ type KEDAScaleOptions struct {
 }
 
 type KEDATrigger struct {
-	Type                   string `yaml:"type" jsonschema:"enum=http,enum=kafka,enum=cron"`
+	Type                   string `yaml:"type" jsonschema:"enum=http,enum=kafka"`
 	TargetValue            *int64 `yaml:"targetValue,omitempty" jsonschema_extras:"minimum=1"`
 	LagThreshold           *int64 `yaml:"lagThreshold,omitempty" jsonschema_extras:"minimum=1"`
 	ActivationLagThreshold *int64 `yaml:"activationLagThreshold,omitempty" jsonschema_extras:"minimum=0"`
-	Timezone               string `yaml:"timezone,omitempty"`
-	Start                  string `yaml:"start,omitempty"`
-	End                    string `yaml:"end,omitempty"`
-	DesiredReplicas        *int64 `yaml:"desiredReplicas,omitempty" jsonschema_extras:"minimum=1"`
 }
 
 type KPAScaleOptions struct {
