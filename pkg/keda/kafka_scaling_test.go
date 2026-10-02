@@ -1029,7 +1029,7 @@ func TestKedaSASLType(t *testing.T) {
 		"PLAIN":         "plaintext",
 		// An empty mechanism defaults to PLAIN in func-go, so the scaler must
 		// use the matching "plaintext" type rather than an empty value.
-		"": "plaintext",
+		"":        "plaintext",
 		"UNKNOWN": "",
 	}
 	for in, want := range tests {
