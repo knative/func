@@ -19,9 +19,34 @@ type Options struct {
 // generated schema as a description.
 
 type ScaleOptions struct {
-	Min *int64           `yaml:"min,omitempty" jsonschema:"maximum=2147483647" jsonschema_extras:"minimum=0"`
-	Max *int64           `yaml:"max,omitempty" jsonschema:"maximum=2147483647" jsonschema_extras:"minimum=0"`
-	KPA *KPAScaleOptions `yaml:"kpa,omitempty"`
+	Min  *int64            `yaml:"min,omitempty" jsonschema:"maximum=2147483647" jsonschema_extras:"minimum=0"`
+	Max  *int64            `yaml:"max,omitempty" jsonschema:"maximum=2147483647" jsonschema_extras:"minimum=0"`
+	KEDA *KEDAScaleOptions `yaml:"keda,omitempty"`
+	KPA  *KPAScaleOptions  `yaml:"kpa,omitempty"`
+}
+
+type KEDAScaleOptions struct {
+	// The jsonschema description avoids commas: the alecthomas/jsonschema
+	// generator splits the jsonschema tag on commas and would truncate the
+	// text at the first one.
+	PollingInterval *int32 `yaml:"pollingInterval,omitempty" jsonschema:"description=How often KEDA checks the trigger in seconds (default 30). Applies only to kafka triggers; it has no effect on an http trigger (which scales from interceptor-reported metrics and has no polling concept)." jsonschema_extras:"minimum=1"`
+	CooldownPeriod  *int32 `yaml:"cooldownPeriod,omitempty" jsonschema_extras:"minimum=1"`
+
+	// triggers has no omitempty: the schema generator derives "required" from
+	// its absence, matching ValidateScale (a written scale.keda requires >=1
+	// trigger; a nil scale.keda defaults to the http scaler) so scale: {keda: {}}
+	// is rejected at schema time too. KEDAScaleOptions is only
+	// ever serialized for deployer: keda, where triggers is always populated.
+	// (Blank line above keeps this note out of the generated schema description.)
+
+	Triggers []KEDATrigger `yaml:"triggers" jsonschema:"minItems=1"`
+}
+
+type KEDATrigger struct {
+	Type                   string `yaml:"type" jsonschema:"enum=http,enum=kafka"`
+	TargetValue            *int64 `yaml:"targetValue,omitempty" jsonschema_extras:"minimum=1"`
+	LagThreshold           *int64 `yaml:"lagThreshold,omitempty" jsonschema_extras:"minimum=1"`
+	ActivationLagThreshold *int64 `yaml:"activationLagThreshold,omitempty" jsonschema_extras:"minimum=0"`
 }
 
 type KPAScaleOptions struct {
