@@ -370,15 +370,6 @@ func TestDeploy_KafkaSASLPreflight(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "SASL_SSL with empty mechanism",
-			kafka: &fn.KafkaConfig{
-				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
-				SecurityProtocol: "SASL_SSL",
-				SASL:             &fn.KafkaSASL{User: "u", Password: "p"},
-			},
-			wantErr: "run.kafka.sasl.mechanism is required",
-		},
-		{
 			name: "SASL block with non-SASL protocol",
 			kafka: &fn.KafkaConfig{
 				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",

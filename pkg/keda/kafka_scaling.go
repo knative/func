@@ -405,7 +405,10 @@ func kedaSASLType(mechanism string) string {
 		return "scram_sha256"
 	case "SCRAM-SHA-512":
 		return "scram_sha512"
-	case "PLAIN":
+	case "PLAIN", "":
+		// An empty mechanism defaults to PLAIN in func-go's Kafka runtime, so
+		// the scaler must authenticate the same way for its lag reads to match
+		// the function's consumption.
 		return "plaintext"
 	default:
 		return ""

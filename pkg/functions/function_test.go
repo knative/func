@@ -743,7 +743,11 @@ func TestValidateKafka(t *testing.T) {
 			wantSubst: "sasl.mechanism must be one of",
 		},
 		{
-			name: "empty SASL mechanism is required, not silently accepted",
+			// An empty mechanism is accepted: func-go's runtime defaults it to
+			// PLAIN and the keda scaler maps it to "plaintext", so the two agree
+			// with nothing set. This matches a plain SASL/PLAIN broker that a raw
+			// or knative deploy consumed from before scale.keda landed.
+			name: "empty SASL mechanism defaults to PLAIN",
 			kafka: &fn.KafkaConfig{
 				Brokers:          "broker:9092",
 				Topic:            "my-topic",
@@ -751,9 +755,8 @@ func TestValidateKafka(t *testing.T) {
 				SecurityProtocol: "SASL_SSL",
 				SASL:             &fn.KafkaSASL{User: "u", Password: "p"},
 			},
-			invoke:    "cloudevent",
-			wantErrs:  1,
-			wantSubst: "run.kafka.sasl.mechanism is required",
+			invoke:   "cloudevent",
+			wantErrs: 0,
 		},
 		{
 			name: "TLS clientCert without clientKey",

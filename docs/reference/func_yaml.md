@@ -258,7 +258,7 @@ topic instead of serving HTTP requests. Requires `invoke: cloudevent` and the Go
   - `clientCert`, `clientKey`: paths to the client certificate/key PEM files, for mutual TLS.
   - `skipVerify`: skip broker certificate verification (development only).
 - `sasl`: SASL configuration, required for `SASL_PLAINTEXT` and `SASL_SSL`.
-  - `mechanism`: one of `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`.
+  - `mechanism`: one of `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`. Optional; defaults to `PLAIN` when unset.
   - `user`: SASL username. Supports `{{ secret:name:key }}` and `{{ configMap:name:key }}` syntax, or a plain value.
   - `password`: SASL password. Supports `{{ secret:name:key }}` and `{{ configMap:name:key }}` syntax, or a plain value (at least for debugging purposes).
 

@@ -276,11 +276,12 @@ func ValidateKafkaSecurity(kafka *KafkaConfig) (errors []string) {
 		if kafka.SecurityProtocol != "SASL_PLAINTEXT" && kafka.SecurityProtocol != "SASL_SSL" {
 			errors = append(errors, "run.kafka.sasl requires securityProtocol SASL_PLAINTEXT or SASL_SSL")
 		}
-		// mechanism is required: KEDA's TriggerAuthentication and the runtime
-		// both need a concrete SASL mechanism, there is no sensible default.
-		if kafka.SASL.Mechanism == "" {
-			errors = append(errors, "run.kafka.sasl.mechanism is required")
-		} else {
+		// mechanism is optional: func-go's Kafka runtime defaults an empty
+		// mechanism to PLAIN and kedaSASLType maps "" to KEDA's "plaintext", so
+		// the function container and the scaler authenticate the same way with
+		// nothing set. Only a non-empty value is constrained to the mechanisms
+		// both sides understand.
+		if kafka.SASL.Mechanism != "" {
 			validMechanisms := map[string]bool{"PLAIN": true, "SCRAM-SHA-256": true, "SCRAM-SHA-512": true}
 			if !validMechanisms[kafka.SASL.Mechanism] {
 				errors = append(errors, "run.kafka.sasl.mechanism must be one of: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512")

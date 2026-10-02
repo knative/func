@@ -1027,7 +1027,10 @@ func TestKedaSASLType(t *testing.T) {
 		"SCRAM-SHA-256": "scram_sha256",
 		"SCRAM-SHA-512": "scram_sha512",
 		"PLAIN":         "plaintext",
-		"UNKNOWN":       "",
+		// An empty mechanism defaults to PLAIN in func-go, so the scaler must
+		// use the matching "plaintext" type rather than an empty value.
+		"": "plaintext",
+		"UNKNOWN": "",
 	}
 	for in, want := range tests {
 		if got := kedaSASLType(in); got != want {
