@@ -881,6 +881,40 @@ func TestBuildScaledObject(t *testing.T) {
 	}
 }
 
+// TestBuildScaledObject_EmptyMechanismEmitsPlaintext covers the empty-mechanism
+// SASL config this PR newly accepts: func-go defaults an omitted mechanism to
+// SASL/PLAIN, so the ScaledObject must still emit sasl: plaintext. Gating the
+// sasl metadata on Mechanism != "" would leave KEDA connecting without SASL
+// while the function authenticates, so its lag reads fail and it never scales.
+func TestBuildScaledObject_EmptyMechanismEmitsPlaintext(t *testing.T) {
+	f := fn.Function{
+		Name: "test-func",
+		Run: fn.RunSpec{
+			Kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "t",
+				ConsumerGroup:    "g",
+				SecurityProtocol: "SASL_SSL",
+				// Mechanism deliberately omitted: a SASL/PLAIN broker config
+				// that relies on func-go's empty-mechanism default.
+				SASL: &fn.KafkaSASL{User: "admin", Password: "{{ secret:s:k }}"},
+			},
+		},
+	}
+	trigger := fn.KEDATrigger{Type: "kafka"}
+
+	so := buildScaledObject(f, trigger, testDeployment(), "default", 0, 10)
+	if so == nil {
+		t.Fatal("expected ScaledObject, got nil")
+	}
+	spec := so.Object["spec"].(map[string]interface{})
+	trigger0 := spec["triggers"].([]interface{})[0].(map[string]interface{})
+	meta := trigger0["metadata"].(map[string]interface{})
+	if meta["sasl"] != "plaintext" {
+		t.Errorf("sasl = %v, want plaintext for an empty SASL mechanism", meta["sasl"])
+	}
+}
+
 func TestBuildScaledObject_TLSFromSecurityProtocol(t *testing.T) {
 	// SecurityProtocol: SSL with no explicit run.kafka.tls block (relying on
 	// the system's CA trust store) must still enable KEDA's tls handshake --
