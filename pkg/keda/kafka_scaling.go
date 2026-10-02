@@ -73,15 +73,11 @@ func triggers(f fn.Function) []fn.KEDATrigger {
 	if f.Scale != nil && f.Scale.KEDA != nil {
 		return f.Scale.KEDA.Triggers
 	}
-	if f.Scale != nil && f.Scale.KPA != nil {
-		// scale.kpa is incompatible with deployer: keda (ValidateScale
-		// rejects it), but Deploy is reachable without validation first:
-		// falling back to the default http trigger here would silently
-		// treat this as "no scale.keda configured" instead of surfacing
-		// the mismatch. An empty trigger list makes Deploy's existing
-		// empty-triggers guard reject it instead.
-		return nil
-	}
+	// Anything short of an explicit scale.keda block -- including a scale.kpa
+	// block, which is deployer: knative config the keda path ignores with a
+	// warning -- gets the default http trigger. This matches IntendedScalerType,
+	// which also resolves http for a keda function with only scale.kpa, so the
+	// scaler-switch gate and the deploy agree on the scaler type.
 	return []fn.KEDATrigger{{Type: "http"}}
 }
 

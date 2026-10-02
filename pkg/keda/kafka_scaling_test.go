@@ -292,18 +292,20 @@ func TestTriggers_ExplicitlyEmpty(t *testing.T) {
 	}
 }
 
-// TestTriggers_KPAWithoutKEDA documents that a bypass caller setting
-// scale.kpa (incompatible with deployer: keda) without scale.keda must not
-// silently fall back to the default http trigger -- that would treat an
-// invalid config as valid instead of letting Deploy's empty-triggers guard
-// reject it.
+// TestTriggers_KPAWithoutKEDA documents that scale.kpa is deployer: knative
+// config the keda path ignores: with no scale.keda block, a keda function
+// carrying only scale.kpa gets the default http trigger (not an empty list, and
+// never an inferred kafka trigger). This matches IntendedScalerType, so the
+// scaler-switch gate and the deploy agree. The migration that moves legacy flat
+// fields into scale.kpa makes this a real config, and it must deploy.
 func TestTriggers_KPAWithoutKEDA(t *testing.T) {
 	f := fn.Function{
 		Name:  "test",
 		Scale: &fn.ScaleOptions{KPA: &fn.KPAScaleOptions{Metric: strPtr("concurrency")}},
 	}
-	if got := triggers(f); len(got) != 0 {
-		t.Fatalf("expected no triggers for scale.kpa without scale.keda, got %v", got)
+	got := triggers(f)
+	if len(got) != 1 || got[0].Type != "http" {
+		t.Fatalf("expected [http] fallback for scale.kpa without scale.keda, got %v", got)
 	}
 }
 

@@ -488,14 +488,6 @@ func TestDeploy_ScaleValidationPreflight(t *testing.T) {
 			scale:   &fn.ScaleOptions{KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "http", TargetValue: ptr.Int64(0)}}}},
 			wantErr: "targetValue must be >= 1",
 		},
-		{
-			name: "scale.keda and scale.kpa mutually exclusive",
-			scale: &fn.ScaleOptions{
-				KEDA: &fn.KEDAScaleOptions{Triggers: httpTrigger()},
-				KPA:  &fn.KPAScaleOptions{Metric: ptr.String("concurrency")},
-			},
-			wantErr: "mutually exclusive",
-		},
 	}
 
 	d := NewDeployer()
