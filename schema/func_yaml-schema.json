@@ -353,9 +353,8 @@
 					"type": "string"
 				},
 				"target": {
-					"exclusiveMinimum": true,
 					"type": "number",
-					"minimum": 0
+					"minimum": 0.01
 				},
 				"utilization": {
 					"maximum": 100,
