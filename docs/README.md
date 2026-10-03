@@ -25,6 +25,7 @@ Functions can be deployed on the following platforms:
 [Function Developer's Guide](https://knative.dev/docs/functions/)
 [Function Integrator's Guide](integrators_guide.md).
 [CLI Command Reference](reference/func.md)
+[The func-utils Image](func-utils-image.md)
 
 ## Contributing
 
