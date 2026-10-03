@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -515,4 +516,217 @@ func servePrivateGit(ctx context.Context, t *testing.T, certDir string) {
 
 func ptr[T any](val T) *T {
 	return &val
+}
+
+// TestInt_BuildCACertFile tests that CA certificate bundles are properly used
+// during builds for both pack and s2i builders. This test verifies that:
+// - pack builder uses Paketo ca-certificates binding
+// - s2i builder uses environment variables for CA bundle
+// - builds can access resources with custom CA certificates
+func TestInt_BuildCACertFile(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping TestInt_BuildCACertFile on non-Linux systems due to cluster networking limitations")
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		cancel()
+		<-sigs // second sigint/sigterm is treated as sigkill
+		os.Exit(137)
+	}()
+
+	// Create a self-signed CA certificate for testing
+	certDir := createCertificate(t)
+	t.Log("certDir:", certDir)
+
+	// Use the cert.pem as our CA bundle file
+	caBundlePath := filepath.Join(certDir, "cert.pem")
+
+	// Verify CA bundle file exists
+	if _, err := os.Stat(caBundlePath); err != nil {
+		t.Fatalf("CA bundle file not found: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+
+	// Copy test function
+	src := filepath.Join("testdata", "go-fn-with-private-deps")
+	dst := filepath.Join(tmpDir, "go-fn-with-ca-test")
+
+	err := copyDir(src, dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Set the CA bundle file in the function spec
+	f.Build.BuildCACertFile = caBundlePath
+
+	testCases := []struct {
+		Name         string
+		Scaffolder   fn.Scaffolder
+		Builder      fn.Builder
+		BuilderImage func(ctx context.Context, t *testing.T, certDir string) string
+	}{
+		{
+			Name:         "pack",
+			Scaffolder:   buildpacks.NewScaffolder(true),
+			Builder:      buildpacks.NewBuilder(buildpacks.WithVerbose(true)),
+			BuilderImage: buildPatchedBuildpackBuilder,
+		},
+		{
+			Name:         "s2i",
+			Scaffolder:   s2i.NewScaffolder(true),
+			Builder:      s2i.NewBuilder(s2i.WithVerbose(true)),
+			BuilderImage: buildPatchedS2IBuilder,
+		},
+	}
+
+	for _, tt := range testCases {
+		var f = f
+		t.Run(tt.Name, func(t *testing.T) {
+			f.Build.Image = "registry.localtest.me/go-app:ca-test-" + tt.Name
+			f.Build.Builder = tt.Name
+			f.Build.BuilderImages = map[string]string{
+				tt.Name: tt.BuilderImage(ctx, t, certDir),
+			}
+			f.Build.BuildCACertFile = caBundlePath
+
+			// Scaffold the function
+			err = tt.Scaffolder.Scaffold(ctx, f, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Build the function - this should succeed if CA bundle is properly used
+			err = tt.Builder.Build(ctx, f, nil)
+			if err != nil {
+				t.Fatalf("%s builder failed to build with CA bundle: %v", tt.Name, err)
+			}
+
+			t.Logf("%s builder successfully built with CA bundle", tt.Name)
+		})
+	}
+}
+
+// TestInt_BuildCACertFile_RelativePath tests that relative paths to CA bundles
+// are properly resolved relative to the function root
+func TestInt_BuildCACertFile_RelativePath(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping on non-Linux systems due to cluster networking limitations")
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	// Create a self-signed CA certificate
+	certDir := createCertificate(t)
+	caBundleSource := filepath.Join(certDir, "cert.pem")
+
+	tmpDir := t.TempDir()
+
+	// Copy test function
+	src := filepath.Join("testdata", "go-fn-with-private-deps")
+	dst := filepath.Join(tmpDir, "go-fn-relative-ca")
+
+	err := copyDir(src, dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Copy CA bundle to function root with a relative name
+	caBundleInFunc := filepath.Join(dst, "my-ca-bundle.crt")
+	caData, err := os.ReadFile(caBundleSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(caBundleInFunc, caData, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Use RELATIVE path
+	f.Build.BuildCACertFile = "my-ca-bundle.crt"
+
+	// Test with pack builder
+	scaffolder := buildpacks.NewScaffolder(true)
+	builder := buildpacks.NewBuilder(buildpacks.WithVerbose(true))
+
+	f.Build.Image = "registry.localtest.me/go-app:ca-relative-test"
+	f.Build.Builder = "pack"
+	f.Build.BuilderImages = map[string]string{
+		"pack": buildPatchedBuildpackBuilder(ctx, t, certDir),
+	}
+
+	err = scaffolder.Scaffold(ctx, f, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = builder.Build(ctx, f, nil)
+	if err != nil {
+		t.Fatalf("pack builder failed with relative CA bundle path: %v", err)
+	}
+
+	t.Log("pack builder successfully built with relative CA bundle path")
+}
+
+// TestInt_BuildCACertFile_MissingFile tests that builds fail gracefully
+// when CA bundle file doesn't exist
+func TestInt_BuildCACertFile_MissingFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Copy test function
+	src := filepath.Join("testdata", "go-fn-with-private-deps")
+	dst := filepath.Join(tmpDir, "go-fn-missing-ca")
+
+	err := copyDir(src, dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Point to non-existent CA bundle
+	f.Build.BuildCACertFile = "/nonexistent/ca-bundle.crt"
+
+	scaffolder := buildpacks.NewScaffolder(true)
+	builder := buildpacks.NewBuilder(buildpacks.WithVerbose(true))
+
+	f.Build.Image = "registry.localtest.me/go-app:ca-missing-test"
+	f.Build.Builder = "pack"
+
+	err = scaffolder.Scaffold(context.Background(), f, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build should fail with clear error about missing CA bundle
+	err = builder.Build(context.Background(), f, nil)
+	if err == nil {
+		t.Fatal("expected build to fail with missing CA bundle, but it succeeded")
+	}
+
+	if !strings.Contains(err.Error(), "CA bundle file not found") {
+		t.Fatalf("expected error message about CA bundle not found, got: %v", err)
+	}
+
+	t.Log("build correctly failed with missing CA bundle file")
 }

@@ -209,11 +209,70 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		opts.Env["BP_IMAGE_LABELS"] = strings.Join(imageLabels, " ")
 	}
 
-	var bindings = make([]string, 0, len(f.Build.Mounts))
-	for _, m := range f.Build.Mounts {
-		bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
+	// CA Certificate Bundle support for corporate proxies (build-time only)
+	// Use Paketo CA certificates buildpack binding instead of manual env vars
+	if f.Build.BuildCACertFile != "" {
+		// Resolve to absolute path if relative
+		caBundlePath := f.Build.BuildCACertFile
+		if !filepath.IsAbs(caBundlePath) {
+			caBundlePath = filepath.Join(f.Root, caBundlePath)
+		}
+
+		// Validate that the CA bundle file exists
+		if _, err := os.Stat(caBundlePath); err != nil {
+			return fmt.Errorf("CA bundle file not found: %w", err)
+		}
+
+		// Create a temporary directory for the CA certificates binding
+		caCertsBindingDir, err := os.MkdirTemp("", "func-ca-certs-*")
+		if err != nil {
+			return fmt.Errorf("failed to create CA certificates binding directory: %w", err)
+		}
+		// Note: We don't defer cleanup here because the build process needs it
+		// The directory will be cleaned up when the temp dir is cleaned by the OS
+
+		// Write the binding type file
+		if err := os.WriteFile(filepath.Join(caCertsBindingDir, "type"), []byte("ca-certificates"), 0644); err != nil {
+			return fmt.Errorf("failed to write CA certificates binding type: %w", err)
+		}
+
+		// Copy the CA bundle to the binding directory
+		caData, err := os.ReadFile(caBundlePath)
+		if err != nil {
+			return fmt.Errorf("failed to read CA bundle: %w", err)
+		}
+		if err := os.WriteFile(filepath.Join(caCertsBindingDir, "ca-certificates.crt"), caData, 0644); err != nil {
+			return fmt.Errorf("failed to write CA certificates to binding: %w", err)
+		}
+
+		// Set SERVICE_BINDING_ROOT if not already set
+		if _, ok := opts.Env["SERVICE_BINDING_ROOT"]; !ok {
+			opts.Env["SERVICE_BINDING_ROOT"] = "/platform/bindings"
+		}
+
+		// Create a local copy of mounts and add the CA certificates binding
+		// We don't modify f.Build.Mounts directly to avoid race conditions
+		mounts := make([]fn.MountSpec, len(f.Build.Mounts), len(f.Build.Mounts)+1)
+		copy(mounts, f.Build.Mounts)
+		mounts = append(mounts, fn.MountSpec{
+			Source:      caCertsBindingDir,
+			Destination: filepath.Join(opts.Env["SERVICE_BINDING_ROOT"], "ca-certificates"),
+		})
+
+		// Convert mounts to bindings format
+		var bindings = make([]string, 0, len(mounts))
+		for _, m := range mounts {
+			bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
+		}
+		opts.ContainerConfig.Volumes = bindings
+	} else {
+		// No CA bundle, just use the existing mounts
+		var bindings = make([]string, 0, len(f.Build.Mounts))
+		for _, m := range f.Build.Mounts {
+			bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
+		}
+		opts.ContainerConfig.Volumes = bindings
 	}
-	opts.ContainerConfig.Volumes = bindings
 
 	// only trust our known builders
 	opts.TrustBuilder = TrustBuilder

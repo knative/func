@@ -41,6 +41,10 @@
 					"type": "array",
 					"description": "Build Env variables to be set"
 				},
+				"buildCACertFile": {
+					"type": "string",
+					"description": "Path to CA certificate file for SSL verification during build (build-time only)"
+				},
 				"pvcSize": {
 					"type": "string",
 					"description": "PVCSize specifies the size of persistent volume claim used to store function\nwhen using deployment and remote build process (only relevant when Remote is true)."
