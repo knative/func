@@ -176,6 +176,15 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 			return fmt.Errorf("--extension (-e) is only valid with cloudevents")
 		}
 	}
+	// If --file was specified, read the file contents into cfg.Data now
+	// that all config (including interactive --confirm prompts) is finalized.
+	if cfg.File != "" {
+		content, err := os.ReadFile(cfg.File)
+		if err != nil {
+			return err
+		}
+		cfg.Data = content
+	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
@@ -196,15 +205,6 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		Data:        cfg.Data,
 		Format:      cfg.Format,
 		Extensions:  exts,
-	}
-
-	// If --file was specified, use its content for message data
-	if cfg.File != "" {
-		content, err := os.ReadFile(cfg.File)
-		if err != nil {
-			return err
-		}
-		m.Data = content
 	}
 
 	// Invoke
@@ -275,15 +275,6 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 		Verbose:     viper.GetBool("verbose"),
 		Insecure:    viper.GetBool("insecure"),
 		Extensions:  viper.GetStringSlice("extension"),
-	}
-
-	// If file was passed, read it in as data
-	if cfg.File != "" {
-		b, err := os.ReadFile(cfg.File)
-		if err != nil {
-			return cfg, err
-		}
-		cfg.Data = b
 	}
 
 	switch strings.ToLower(cfg.Format) {
