@@ -13,8 +13,6 @@ type Client struct {
 }
 
 func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadURL, webhookSecret string) error {
-	t := true
-	f := false
 	glabCli, err := gitlab.NewClient(c.PersonalAccessToken,
 		gitlab.WithBaseURL(c.BaseURL),
 		gitlab.WithRequestOptions(gitlab.WithContext(ctx)))
@@ -35,16 +33,24 @@ func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadU
 		}
 	}
 
-	webhook := &gitlab.AddProjectHookOptions{
-		EnableSSLVerification: &f,
-		PushEvents:            &t,
-		Token:                 &webhookSecret,
-		URL:                   &payloadURL,
-	}
+	webhook := projectHookOpts(payloadURL, webhookSecret)
 
 	_, _, err = glabCli.Projects.AddProjectHook(projectPath, webhook)
 	if err != nil {
 		return fmt.Errorf("cannot create gitlab webhook: %w", err)
 	}
 	return nil
+}
+
+// projectHookOpts returns REST options used by CreateWebHook with TLS
+// certificate verification enabled for the payload URL (GitLab default).
+func projectHookOpts(payloadURL, webhookSecret string) *gitlab.AddProjectHookOptions {
+	enableSSLVerify := true
+	pushEvents := true
+	return &gitlab.AddProjectHookOptions{
+		EnableSSLVerification: &enableSSLVerify,
+		PushEvents:            &pushEvents,
+		Token:                 &webhookSecret,
+		URL:                   &payloadURL,
+	}
 }
