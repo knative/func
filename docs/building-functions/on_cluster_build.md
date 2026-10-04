@@ -26,7 +26,7 @@ export NAMESPACE=<INSERT_YOUR_NAMESPACE>
 
 kubectl create role func-deployer \
   --verb=get,list,create,update,delete \
-  --resource=deployments.apps,replicasets.apps,pods,services,httpscaledobjects.http.keda.sh \
+  --resource=deployments.apps,replicasets.apps,pods,services,httpscaledobjects.http.keda.sh,scaledobjects.keda.sh,triggerauthentications.keda.sh \
   --namespace=$NAMESPACE
 
 kubectl create rolebinding func-deployer-binding \
@@ -75,7 +75,7 @@ kubectl create clusterrolebinding $NAMESPACE:knative-eventing-namespaced-admin \
 
 kubectl create role func-deployer \
   --verb=get,list,create,update,delete \
-  --resource=deployments.apps,replicasets.apps,pods,services,httpscaledobjects.http.keda.sh \
+  --resource=deployments.apps,replicasets.apps,pods,services,httpscaledobjects.http.keda.sh,scaledobjects.keda.sh,triggerauthentications.keda.sh \
   --namespace=$NAMESPACE
 
 kubectl create rolebinding func-deployer-binding \
