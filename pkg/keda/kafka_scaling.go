@@ -453,8 +453,23 @@ func buildScaledObject(f fn.Function, trigger fn.KEDATrigger, deployment *v1.Dep
 		}
 	}
 
-	if kafka.SASL != nil && kafka.SASL.Mechanism != "" {
-		triggerMeta["sasl"] = kedaSASLType(kafka.SASL.Mechanism)
+	if kafka.SecurityProtocol == "SASL_PLAINTEXT" || kafka.SecurityProtocol == "SASL_SSL" {
+		// Gate sasl on securityProtocol, mirroring func-go's Kafka runtime,
+		// which enables SASL from KAFKA_SECURITY_PROTOCOL rather than the
+		// presence of a sasl block -- and matching the tls gate above. The
+		// scaler reads the same EffectiveMechanism the function's container is
+		// wired with, so the two authenticate identically; gating on a non-empty
+		// mechanism instead would leave the scaler connecting without SASL while
+		// the function does, failing its lag reads. Validation ties a SASL_*
+		// protocol to a sasl block, but guard the deref for a direct Deploy
+		// caller that bypasses it. kedaSASLType returns "" only for a mechanism
+		// validation already rejects; skip the key in that defensive case rather
+		// than emitting an empty sasl value.
+		if kafka.SASL != nil {
+			if saslType := kedaSASLType(kafka.SASL.EffectiveMechanism()); saslType != "" {
+				triggerMeta["sasl"] = saslType
+			}
+		}
 	}
 
 	triggerSpec := map[string]interface{}{

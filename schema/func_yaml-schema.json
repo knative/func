@@ -419,7 +419,7 @@
 						"SCRAM-SHA-512"
 					],
 					"type": "string",
-					"description": "SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512"
+					"description": "SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512. Optional; defaults to PLAIN when unset."
 				},
 				"user": {
 					"type": "string",

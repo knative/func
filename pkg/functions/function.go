@@ -214,9 +214,20 @@ type KafkaTLS struct {
 }
 
 type KafkaSASL struct {
-	Mechanism string `yaml:"mechanism,omitempty" jsonschema:"description=SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512,enum=PLAIN,enum=SCRAM-SHA-256,enum=SCRAM-SHA-512"`
+	Mechanism string `yaml:"mechanism,omitempty" jsonschema:"description=SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512. Optional; defaults to PLAIN when unset.,enum=PLAIN,enum=SCRAM-SHA-256,enum=SCRAM-SHA-512"`
 	User      string `yaml:"user,omitempty" jsonschema:"description=SASL username. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"`
 	Password  string `yaml:"password,omitempty" jsonschema:"description=SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"`
+}
+
+// EffectiveMechanism returns the SASL mechanism the function actually
+// authenticates with, resolving an unset mechanism to PLAIN. Callers that wire
+// the function's container env and the keda scaler both read it so the two agree
+// on a single value rather than each re-deriving the default.
+func (s KafkaSASL) EffectiveMechanism() string {
+	if s.Mechanism == "" {
+		return "PLAIN"
+	}
+	return s.Mechanism
 }
 
 func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string) {
@@ -276,11 +287,11 @@ func ValidateKafkaSecurity(kafka *KafkaConfig) (errors []string) {
 		if kafka.SecurityProtocol != "SASL_PLAINTEXT" && kafka.SecurityProtocol != "SASL_SSL" {
 			errors = append(errors, "run.kafka.sasl requires securityProtocol SASL_PLAINTEXT or SASL_SSL")
 		}
-		// mechanism is required: KEDA's TriggerAuthentication and the runtime
-		// both need a concrete SASL mechanism, there is no sensible default.
-		if kafka.SASL.Mechanism == "" {
-			errors = append(errors, "run.kafka.sasl.mechanism is required")
-		} else {
+		// mechanism is optional: EffectiveMechanism resolves an unset mechanism
+		// to PLAIN for both the function container and the scaler, so the two
+		// authenticate the same way with nothing set. Only a non-empty value is
+		// constrained to the mechanisms both sides understand.
+		if kafka.SASL.Mechanism != "" {
 			validMechanisms := map[string]bool{"PLAIN": true, "SCRAM-SHA-256": true, "SCRAM-SHA-512": true}
 			if !validMechanisms[kafka.SASL.Mechanism] {
 				errors = append(errors, "run.kafka.sasl.mechanism must be one of: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512")

@@ -326,9 +326,7 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 			}
 		}
 		if k.SASL != nil {
-			if k.SASL.Mechanism != "" {
-				c.Env = append(c.Env, "KAFKA_SASL_MECHANISM="+k.SASL.Mechanism)
-			}
+			c.Env = append(c.Env, "KAFKA_SASL_MECHANISM="+k.SASL.EffectiveMechanism())
 			if k.SASL.User != "" {
 				c.Env = append(c.Env, "KAFKA_SASL_USER="+k.SASL.User)
 			}

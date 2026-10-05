@@ -334,9 +334,7 @@ func buildRunnerEnv(job *Job, extras map[string]string) ([]string, error) {
 			}
 		}
 		if k.SASL != nil {
-			if k.SASL.Mechanism != "" {
-				env = append(env, "KAFKA_SASL_MECHANISM="+k.SASL.Mechanism)
-			}
+			env = append(env, "KAFKA_SASL_MECHANISM="+k.SASL.EffectiveMechanism())
 			if k.SASL.User != "" {
 				env = append(env, "KAFKA_SASL_USER="+k.SASL.User)
 			}

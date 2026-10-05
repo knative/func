@@ -1042,9 +1042,7 @@ func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig, referencedS
 	}
 
 	if kafka.SASL != nil {
-		if kafka.SASL.Mechanism != "" {
-			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_SASL_MECHANISM", Value: kafka.SASL.Mechanism})
-		}
+		envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_SASL_MECHANISM", Value: kafka.SASL.EffectiveMechanism()})
 		var err error
 		if kafka.SASL.User != "" {
 			envVars, err = appendKafkaEnvValue(envVars, "KAFKA_SASL_USER", kafka.SASL.User, referencedSecrets, referencedConfigMaps)
