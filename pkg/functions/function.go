@@ -214,7 +214,7 @@ type KafkaTLS struct {
 }
 
 type KafkaSASL struct {
-	Mechanism string `yaml:"mechanism,omitempty" jsonschema:"description=SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512,enum=PLAIN,enum=SCRAM-SHA-256,enum=SCRAM-SHA-512"`
+	Mechanism string `yaml:"mechanism,omitempty" jsonschema:"description=SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512. Optional; defaults to PLAIN when unset.,enum=PLAIN,enum=SCRAM-SHA-256,enum=SCRAM-SHA-512"`
 	User      string `yaml:"user,omitempty" jsonschema:"description=SASL username. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"`
 	Password  string `yaml:"password,omitempty" jsonschema:"description=SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"`
 }

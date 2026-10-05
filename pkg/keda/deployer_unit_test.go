@@ -352,10 +352,10 @@ func TestPollingIntervalIgnored(t *testing.T) {
 // TestDeploy_KafkaSASLPreflight covers the Deploy preflight for direct callers
 // that bypass Function.Validate: an inconsistent SASL/security config must be
 // rejected before any cluster resources are created. Otherwise buildScaledObject
-// -- which only emits "sasl" trigger metadata for a non-empty mechanism -- would
-// produce a ScaledObject that connects without SASL while the function's own
-// container is configured for it. Each case returns from the pure preflight
-// before Deploy touches the cluster, so no fake clientset is needed.
+// would produce a ScaledObject whose SASL/TLS trigger metadata silently
+// disagrees with how the function's own container authenticates. Each case
+// returns from the pure preflight before Deploy touches the cluster, so no fake
+// clientset is needed.
 func TestDeploy_KafkaSASLPreflight(t *testing.T) {
 	kafkaTrigger := &fn.ScaleOptions{
 		KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "kafka"}}},

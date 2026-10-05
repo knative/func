@@ -881,11 +881,11 @@ func TestBuildScaledObject(t *testing.T) {
 	}
 }
 
-// TestBuildScaledObject_EmptyMechanismEmitsPlaintext covers the empty-mechanism
-// SASL config this PR newly accepts: func-go defaults an omitted mechanism to
-// SASL/PLAIN, so the ScaledObject must still emit sasl: plaintext. Gating the
-// sasl metadata on Mechanism != "" would leave KEDA connecting without SASL
-// while the function authenticates, so its lag reads fail and it never scales.
+// TestBuildScaledObject_EmptyMechanismEmitsPlaintext covers an omitted SASL
+// mechanism: func-go defaults it to SASL/PLAIN, so the ScaledObject must still
+// emit sasl: plaintext. Gating the sasl metadata on Mechanism != "" would leave
+// KEDA connecting without SASL while the function authenticates, so its lag
+// reads fail and it never scales.
 func TestBuildScaledObject_EmptyMechanismEmitsPlaintext(t *testing.T) {
 	f := fn.Function{
 		Name: "test-func",
