@@ -405,10 +405,7 @@ func kedaSASLType(mechanism string) string {
 		return "scram_sha256"
 	case "SCRAM-SHA-512":
 		return "scram_sha512"
-	case "PLAIN", "":
-		// An empty mechanism defaults to PLAIN in func-go's Kafka runtime, so
-		// the scaler must authenticate the same way for its lag reads to match
-		// the function's consumption.
+	case "PLAIN":
 		return "plaintext"
 	default:
 		return ""
@@ -459,21 +456,19 @@ func buildScaledObject(f fn.Function, trigger fn.KEDATrigger, deployment *v1.Dep
 	if kafka.SecurityProtocol == "SASL_PLAINTEXT" || kafka.SecurityProtocol == "SASL_SSL" {
 		// Gate sasl on securityProtocol, mirroring func-go's Kafka runtime,
 		// which enables SASL from KAFKA_SECURITY_PROTOCOL rather than the
-		// presence of a sasl block -- and matching the tls gate above. An empty
-		// mechanism maps to "plaintext" (func-go defaults it to PLAIN), so the
-		// scaler authenticates the same way; gating on Mechanism != "" instead
-		// would leave the scaler connecting without SASL while the function
-		// does, failing its lag reads. Validation ties a SASL_* protocol to a
-		// sasl block, but guard the deref for a direct Deploy caller that
-		// bypasses it. kedaSASLType returns "" only for a mechanism validation
-		// already rejects; skip the key in that defensive case rather than
-		// emitting an empty sasl value.
-		mechanism := ""
+		// presence of a sasl block -- and matching the tls gate above. The
+		// scaler reads the same EffectiveMechanism the function's container is
+		// wired with, so the two authenticate identically; gating on a non-empty
+		// mechanism instead would leave the scaler connecting without SASL while
+		// the function does, failing its lag reads. Validation ties a SASL_*
+		// protocol to a sasl block, but guard the deref for a direct Deploy
+		// caller that bypasses it. kedaSASLType returns "" only for a mechanism
+		// validation already rejects; skip the key in that defensive case rather
+		// than emitting an empty sasl value.
 		if kafka.SASL != nil {
-			mechanism = kafka.SASL.Mechanism
-		}
-		if saslType := kedaSASLType(mechanism); saslType != "" {
-			triggerMeta["sasl"] = saslType
+			if saslType := kedaSASLType(kafka.SASL.EffectiveMechanism()); saslType != "" {
+				triggerMeta["sasl"] = saslType
+			}
 		}
 	}
 

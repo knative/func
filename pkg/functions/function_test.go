@@ -743,10 +743,10 @@ func TestValidateKafka(t *testing.T) {
 			wantSubst: "sasl.mechanism must be one of",
 		},
 		{
-			// An empty mechanism is accepted: func-go's runtime defaults it to
-			// PLAIN and the keda scaler maps it to "plaintext", so the two agree
-			// with nothing set. This matches a plain SASL/PLAIN broker that a raw
-			// or knative deploy consumed from before scale.keda landed.
+			// An empty mechanism is accepted: EffectiveMechanism resolves it to
+			// PLAIN for both the container env and the keda scaler, so the two
+			// agree with nothing set. This matches a plain SASL/PLAIN broker that
+			// a raw or knative deploy consumed from before scale.keda landed.
 			name: "empty SASL mechanism defaults to PLAIN",
 			kafka: &fn.KafkaConfig{
 				Brokers:          "broker:9092",
@@ -891,6 +891,25 @@ func TestValidateKafka(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestKafkaSASL_EffectiveMechanism verifies an unset mechanism resolves to
+// PLAIN while an explicit value passes through unchanged, so the container env
+// and the keda scaler read one agreed value rather than each re-deriving the
+// default.
+func TestKafkaSASL_EffectiveMechanism(t *testing.T) {
+	tests := map[string]string{
+		"":              "PLAIN",
+		"PLAIN":         "PLAIN",
+		"SCRAM-SHA-256": "SCRAM-SHA-256",
+		"SCRAM-SHA-512": "SCRAM-SHA-512",
+	}
+	for in, want := range tests {
+		s := fn.KafkaSASL{Mechanism: in}
+		if got := s.EffectiveMechanism(); got != want {
+			t.Errorf("EffectiveMechanism() with Mechanism=%q = %q, want %q", in, got, want)
+		}
 	}
 }
 

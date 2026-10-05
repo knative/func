@@ -219,6 +219,17 @@ type KafkaSASL struct {
 	Password  string `yaml:"password,omitempty" jsonschema:"description=SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"`
 }
 
+// EffectiveMechanism returns the SASL mechanism the function actually
+// authenticates with, resolving an unset mechanism to PLAIN. Callers that wire
+// the function's container env and the keda scaler both read it so the two agree
+// on a single value rather than each re-deriving the default.
+func (s KafkaSASL) EffectiveMechanism() string {
+	if s.Mechanism == "" {
+		return "PLAIN"
+	}
+	return s.Mechanism
+}
+
 func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string) {
 	if kafka == nil {
 		return
@@ -276,11 +287,10 @@ func ValidateKafkaSecurity(kafka *KafkaConfig) (errors []string) {
 		if kafka.SecurityProtocol != "SASL_PLAINTEXT" && kafka.SecurityProtocol != "SASL_SSL" {
 			errors = append(errors, "run.kafka.sasl requires securityProtocol SASL_PLAINTEXT or SASL_SSL")
 		}
-		// mechanism is optional: func-go's Kafka runtime defaults an empty
-		// mechanism to PLAIN and kedaSASLType maps "" to KEDA's "plaintext", so
-		// the function container and the scaler authenticate the same way with
-		// nothing set. Only a non-empty value is constrained to the mechanisms
-		// both sides understand.
+		// mechanism is optional: EffectiveMechanism resolves an unset mechanism
+		// to PLAIN for both the function container and the scaler, so the two
+		// authenticate the same way with nothing set. Only a non-empty value is
+		// constrained to the mechanisms both sides understand.
 		if kafka.SASL.Mechanism != "" {
 			validMechanisms := map[string]bool{"PLAIN": true, "SCRAM-SHA-256": true, "SCRAM-SHA-512": true}
 			if !validMechanisms[kafka.SASL.Mechanism] {

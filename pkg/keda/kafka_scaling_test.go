@@ -882,10 +882,10 @@ func TestBuildScaledObject(t *testing.T) {
 }
 
 // TestBuildScaledObject_EmptyMechanismEmitsPlaintext covers an omitted SASL
-// mechanism: func-go defaults it to SASL/PLAIN, so the ScaledObject must still
-// emit sasl: plaintext. Gating the sasl metadata on Mechanism != "" would leave
-// KEDA connecting without SASL while the function authenticates, so its lag
-// reads fail and it never scales.
+// mechanism: EffectiveMechanism resolves it to PLAIN, so the ScaledObject must
+// still emit sasl: plaintext. Gating the sasl metadata on a non-empty mechanism
+// would leave KEDA connecting without SASL while the function authenticates, so
+// its lag reads fail and it never scales.
 func TestBuildScaledObject_EmptyMechanismEmitsPlaintext(t *testing.T) {
 	f := fn.Function{
 		Name: "test-func",
@@ -1061,9 +1061,9 @@ func TestKedaSASLType(t *testing.T) {
 		"SCRAM-SHA-256": "scram_sha256",
 		"SCRAM-SHA-512": "scram_sha512",
 		"PLAIN":         "plaintext",
-		// An empty mechanism defaults to PLAIN in func-go, so the scaler must
-		// use the matching "plaintext" type rather than an empty value.
-		"":        "plaintext",
+		// Callers pass KafkaSASL.EffectiveMechanism(), which never yields "",
+		// so an empty mechanism is an unmapped input like any other.
+		"":        "",
 		"UNKNOWN": "",
 	}
 	for in, want := range tests {

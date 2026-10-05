@@ -207,3 +207,39 @@ func TestBuildRunnerEnv_KafkaTLSSkipVerifyFalse(t *testing.T) {
 		t.Error("expected KAFKA_TLS_SKIP_VERIFY=false when TLS block present with SkipVerify unset")
 	}
 }
+
+// TestBuildRunnerEnv_KafkaEmptyMechanism verifies an unset SASL mechanism still
+// wires KAFKA_SASL_MECHANISM=PLAIN into the container env, matching the value the
+// keda scaler derives from EffectiveMechanism so the two authenticate the same
+// way.
+func TestBuildRunnerEnv_KafkaEmptyMechanism(t *testing.T) {
+	job := &Job{
+		Function: Function{
+			Root:    t.TempDir(),
+			Runtime: "go",
+			Run: RunSpec{
+				Kafka: &KafkaConfig{
+					Brokers:          "broker:9093",
+					Topic:            "my-topic",
+					ConsumerGroup:    "my-group",
+					SecurityProtocol: "SASL_SSL",
+					SASL:             &KafkaSASL{User: "u", Password: "p"},
+				},
+			},
+		},
+	}
+	env, err := buildRunnerEnv(job, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, e := range env {
+		if e == "KAFKA_SASL_MECHANISM=PLAIN" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected KAFKA_SASL_MECHANISM=PLAIN when SASL block present with mechanism unset")
+	}
+}
