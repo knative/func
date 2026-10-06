@@ -676,6 +676,15 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, labels, a
 		return nil, fmt.Errorf("failed to process volumes: %w", err)
 	}
 
+	// Isolate the Kafka TLS credential mounts: the volume(s) backing the
+	// run.kafka.tls.* certificate paths must be visible to the Kafka runtime
+	// sidecar only, never to the function (user) container. The volumes stay at
+	// the pod level, but the user container's mount list excludes them so Kafka
+	// certificate material -- notably the client private key -- never lands in
+	// the filesystem of application code.
+	kafkaMounts := kafkaSidecarVolumeMounts(f.Run.Kafka, volumeMounts)
+	userVolumeMounts := excludeVolumeMounts(volumeMounts, kafkaMounts)
+
 	container := corev1.Container{
 		Name:  "user-container",
 		Image: f.Deploy.Image,
@@ -687,7 +696,7 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, labels, a
 		},
 		Env:          envVars,
 		EnvFrom:      envFrom,
-		VolumeMounts: volumeMounts,
+		VolumeMounts: userVolumeMounts,
 	}
 
 	SetHealthEndpoints(f, &container)
@@ -699,7 +708,7 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, labels, a
 	// localhost. This replaces the retired in-process path (FUNC_TRANSPORT=kafka
 	// on the function container).
 	containers := []corev1.Container{container}
-	sidecar, err := kafkaSidecarContainer(f, volumeMounts, referencedSecrets, referencedConfigMaps)
+	sidecar, err := kafkaSidecarContainer(f, kafkaMounts, referencedSecrets, referencedConfigMaps)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build Kafka runtime sidecar: %w", err)
 	}
@@ -1114,9 +1123,10 @@ func kafkaRuntimeImage() string {
 //
 // The runtime receives only the volume mounts it needs -- those backing the
 // configured run.kafka.tls.* certificate paths -- not the function's full set of
-// application volumes. volumeMounts is the function's complete mount set; it is
-// filtered here (SASL credentials travel as env vars, so they need no mount).
-func kafkaSidecarContainer(f fn.Function, volumeMounts []corev1.VolumeMount, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.Container, error) {
+// application volumes. kafkaMounts is the already-filtered Kafka credential mount
+// set (see kafkaSidecarVolumeMounts); SASL credentials travel as env vars, so
+// they need no mount.
+func kafkaSidecarContainer(f fn.Function, kafkaMounts []corev1.VolumeMount, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.Container, error) {
 	kafka := f.Run.Kafka
 	if kafka == nil || kafka.Brokers == "" || kafka.Topic == "" || kafka.ConsumerGroup == "" {
 		return nil, nil
@@ -1134,7 +1144,7 @@ func kafkaSidecarContainer(f fn.Function, volumeMounts []corev1.VolumeMount, ref
 		Name:         KafkaSidecarName,
 		Image:        kafkaRuntimeImage(),
 		Env:          env,
-		VolumeMounts: kafkaSidecarVolumeMounts(kafka, volumeMounts),
+		VolumeMounts: kafkaMounts,
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -1190,6 +1200,28 @@ func kafkaSidecarVolumeMounts(kafka *fn.KafkaConfig, volumeMounts []corev1.Volum
 		}
 	}
 	return mounts
+}
+
+// excludeVolumeMounts returns the volume mounts in all that are not present in
+// exclude, matched by mount path (ProcessVolumes guarantees mount paths are
+// unique). It is used to keep Kafka TLS credential mounts out of the function
+// (user) container while leaving every other application mount intact.
+func excludeVolumeMounts(all, exclude []corev1.VolumeMount) []corev1.VolumeMount {
+	if len(exclude) == 0 {
+		return all
+	}
+	excluded := make(map[string]struct{}, len(exclude))
+	for _, vm := range exclude {
+		excluded[vm.MountPath] = struct{}{}
+	}
+	kept := make([]corev1.VolumeMount, 0, len(all))
+	for _, vm := range all {
+		if _, ok := excluded[vm.MountPath]; ok {
+			continue
+		}
+		kept = append(kept, vm)
+	}
+	return kept
 }
 
 func appendKafkaEnvValue(envVars []corev1.EnvVar, name, value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, error) {

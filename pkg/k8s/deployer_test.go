@@ -305,9 +305,20 @@ func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 		}
 	})
 
-	t.Run("kafka tls: sidecar mounts only the cert volume, not app volumes", func(t *testing.T) {
+	t.Run("kafka tls: cert volumes isolated to the sidecar, app volume stays", func(t *testing.T) {
+		// Two separate credential volumes -- a CA bundle and a client cert/key
+		// pair (mutual TLS) -- plus one unrelated application volume. The client
+		// key in particular must never reach user-container.
 		caPath, caSecret := "/etc/kafka/ca", "kafka-ca"
+		clientPath, clientSecret := "/etc/kafka/client", "kafka-client"
 		appPath, appSecret := "/etc/app", "app-config"
+		mountPaths := func(c *corev1.Container) map[string]bool {
+			m := map[string]bool{}
+			for _, vm := range c.VolumeMounts {
+				m[vm.MountPath] = true
+			}
+			return m
+		}
 		f := fn.Function{
 			Name:   "test-func",
 			Deploy: fn.DeploySpec{Image: "img:latest"},
@@ -315,10 +326,15 @@ func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 				Kafka: &fn.KafkaConfig{
 					Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
 					SecurityProtocol: "SSL",
-					TLS:              &fn.KafkaTLS{CACert: "/etc/kafka/ca/ca.crt"},
+					TLS: &fn.KafkaTLS{
+						CACert:     "/etc/kafka/ca/ca.crt",
+						ClientCert: "/etc/kafka/client/tls.crt",
+						ClientKey:  "/etc/kafka/client/tls.key",
+					},
 				},
 				Volumes: []fn.Volume{
 					{Secret: &caSecret, Path: &caPath},
+					{Secret: &clientSecret, Path: &clientPath},
 					{Secret: &appSecret, Path: &appPath},
 				},
 			},
@@ -330,22 +346,44 @@ func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// run.volumes semantics still put both volumes on the function
-		// container; the sidecar must receive only the Kafka cert volume and
-		// none of the unrelated application volumes.
+		// The sidecar must receive both Kafka cert volumes and none of the
+		// unrelated application volumes.
 		sc := containerByName(dep, KafkaSidecarName)
 		if sc == nil {
 			t.Fatal("kafka sidecar not found")
 		}
-		if len(sc.VolumeMounts) != 1 {
-			t.Fatalf("sidecar should mount only the Kafka cert volume, got %d: %+v", len(sc.VolumeMounts), sc.VolumeMounts)
+		scMounts := mountPaths(sc)
+		if !scMounts[caPath] || !scMounts[clientPath] {
+			t.Errorf("sidecar should mount both Kafka cert volumes, got %+v", sc.VolumeMounts)
 		}
-		if sc.VolumeMounts[0].MountPath != caPath {
-			t.Errorf("sidecar mount path = %q, want %q", sc.VolumeMounts[0].MountPath, caPath)
+		if scMounts[appPath] {
+			t.Error("sidecar must not receive unrelated application volumes")
 		}
-		for _, vm := range sc.VolumeMounts {
-			if vm.MountPath == appPath {
-				t.Error("sidecar must not receive unrelated application volumes")
+
+		// Conversely, the function (user) container must NOT receive either Kafka
+		// TLS volume: that credential material (notably the client private key)
+		// belongs to the sidecar only. The unrelated application volume stays.
+		uc := containerByName(dep, "user-container")
+		if uc == nil {
+			t.Fatal("user-container not found")
+		}
+		ucMounts := mountPaths(uc)
+		if ucMounts[caPath] || ucMounts[clientPath] {
+			t.Errorf("user-container must not receive Kafka TLS cert/key volumes, got %+v", uc.VolumeMounts)
+		}
+		if !ucMounts[appPath] {
+			t.Errorf("user-container should still mount the application volume %q; got %+v", appPath, uc.VolumeMounts)
+		}
+
+		// The pod-level volume list still carries every volume so each container
+		// that mounts one can find it.
+		volNames := map[string]bool{}
+		for _, v := range dep.Spec.Template.Spec.Volumes {
+			volNames[v.Name] = true
+		}
+		for _, want := range []string{"secret-" + caSecret, "secret-" + clientSecret, "secret-" + appSecret} {
+			if !volNames[want] {
+				t.Errorf("pod volumes should include %q, got %+v", want, dep.Spec.Template.Spec.Volumes)
 			}
 		}
 	})
