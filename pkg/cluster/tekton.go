@@ -35,14 +35,42 @@ func installTekton(ctx context.Context, cfg ClusterConfig, out io.Writer) error 
 		return fmt.Errorf("waiting for tekton webhook: %w", err)
 	}
 
-	// RBAC bindings (apply for idempotency)
+	// RBAC (apply for idempotency)
+	for _, manifest := range tektonRBACManifests(namespace) {
+		if err := applyManifest(ctx, out, cfg, manifest); err != nil {
+			return fmt.Errorf("applying rbac: %w", err)
+		}
+	}
+
+	success(out, "Tekton", time.Since(start))
+	return nil
+}
+
+// kedaDeployerClusterRole grants the keda deployer access to the keda.sh
+// resources used for kafka scaling. No built-in role covers
+// triggerauthentications without granting far more than needed.
+const kedaDeployerClusterRole = `apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: func-keda-deployer
+rules:
+- apiGroups: ["keda.sh"]
+  resources: ["scaledobjects", "triggerauthentications"]
+  verbs: ["get", "list", "create", "update", "delete"]
+`
+
+// tektonRBACManifests returns the RBAC manifests which grant the default
+// service account of the namespace the permissions needed by the deployers.
+func tektonRBACManifests(namespace string) []string {
+	manifests := []string{kedaDeployerClusterRole}
 	rbacBindings := []struct{ name, role string }{
 		{namespace + ":knative-serving-namespaced-admin", "knative-serving-namespaced-admin"},
 		{namespace + ":admin", "admin"},
 		{namespace + ":keda-add-ons-http-operator", "keda-add-ons-http-operator"},
+		{namespace + ":func-keda-deployer", "func-keda-deployer"},
 	}
 	for _, rb := range rbacBindings {
-		manifest := fmt.Sprintf(`apiVersion: rbac.authorization.k8s.io/v1
+		manifests = append(manifests, fmt.Sprintf(`apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: %s
@@ -54,14 +82,9 @@ subjects:
 - kind: ServiceAccount
   name: default
   namespace: %s
-`, rb.name, rb.role, namespace)
-		if err := applyManifest(ctx, out, cfg, manifest); err != nil {
-			return fmt.Errorf("applying clusterrolebinding %s: %w", rb.name, err)
-		}
+`, rb.name, rb.role, namespace))
 	}
-
-	success(out, "Tekton", time.Since(start))
-	return nil
+	return manifests
 }
 
 // installPAC installs Pipelines-as-Code and creates its ingress.

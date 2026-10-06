@@ -598,6 +598,9 @@ tekton() {
   $KUBECTL create clusterrolebinding "${namespace}:admin" --clusterrole=admin --serviceaccount="${namespace}:default"
   # Grant permissions for HTTPScaledObject Keda resources needed by keda deployer
   $KUBECTL create clusterrolebinding "${namespace}:keda-add-ons-http-operator" --clusterrole=keda-add-ons-http-operator --serviceaccount="${namespace}:default"
+  # Grant permissions for ScaledObject and TriggerAuthentication Keda resources needed by keda deployer (kafka scaling)
+  $KUBECTL create clusterrole func-keda-deployer --verb=get,list,create,update,delete --resource=scaledobjects.keda.sh,triggerauthentications.keda.sh
+  $KUBECTL create clusterrolebinding "${namespace}:func-keda-deployer" --clusterrole=func-keda-deployer --serviceaccount="${namespace}:default"
 
   echo "${green}✅ Tekton${reset}"
 }
