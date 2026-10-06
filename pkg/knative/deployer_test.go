@@ -491,6 +491,33 @@ func TestGenerateNewService_EnvsPropagated(t *testing.T) {
 	}
 }
 
+// TestDeploy_RejectsKafka verifies the knative deployer refuses a function
+// configured with run.kafka: the Kafka runtime sidecar is only injected by the
+// keda deployer, and the in-process path is retired, so deploying on knative
+// would silently produce a function that never receives records. The rejection
+// happens before any cluster client is created, so no cluster is needed here.
+func TestDeploy_RejectsKafka(t *testing.T) {
+	d := NewDeployer()
+	f := fn.Function{
+		Name:      "test-func",
+		Namespace: "default", // set so onClusterFix does not query the cluster
+		Deploy:    fn.DeploySpec{Image: "example.com/test:v1"},
+	}
+	f.Run.Kafka = &fn.KafkaConfig{
+		Brokers:       "kafka:9092",
+		Topic:         "orders",
+		ConsumerGroup: "test-func",
+	}
+
+	_, err := d.Deploy(context.Background(), f)
+	if err == nil {
+		t.Fatal("expected Deploy to reject a function with run.kafka, got nil error")
+	}
+	if !strings.Contains(err.Error(), "run.kafka requires deployer: keda") {
+		t.Errorf("expected a keda-deployer requirement error, got: %v", err)
+	}
+}
+
 func assertAuth(uname, pwd string, w http.ResponseWriter, r *http.Request) bool {
 	user, pass, ok := r.BasicAuth()
 	if ok && user == uname && pass == pwd {

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -40,6 +41,29 @@ const (
 	DefaultLivenessEndpoint  = "/health/liveness"
 	DefaultReadinessEndpoint = "/health/readiness"
 	DefaultHTTPPort          = 8080
+
+	// DefaultKafkaRuntimeImage is the image injected as the Kafka runtime
+	// sidecar. It consumes from Kafka and delivers each record to the function
+	// over localhost HTTP, so the function needs no Kafka client. Override with
+	// the FUNC_KAFKA_RUNTIME_IMAGE environment variable.
+	DefaultKafkaRuntimeImage = "docker.io/aliok/func-kafka-adapter:latest"
+
+	// kafkaRuntimeImageEnv overrides DefaultKafkaRuntimeImage at deploy time.
+	kafkaRuntimeImageEnv = "FUNC_KAFKA_RUNTIME_IMAGE"
+
+	// KafkaSidecarName is the name of the injected Kafka runtime container.
+	// Exported so the keda deployer can target it when wiring the KEDA
+	// TriggerAuthentication at the env vars this sidecar carries.
+	KafkaSidecarName = "kafka-runtime"
+
+	// kafkaRuntimeHealthPort is the port the runtime serves its own health
+	// probes on. It must differ from the function's DefaultHTTPPort because
+	// both containers share the Pod's network namespace.
+	kafkaRuntimeHealthPort = 8081
+
+	// kafkaFunctionTarget is where the runtime delivers records: the function's
+	// own CloudEvents-over-HTTP server on loopback within the Pod.
+	kafkaFunctionTarget = "http://127.0.0.1:8080/"
 
 	// RouteHostnameAnnotation records the externally-exposed hostname (if
 	// any) on the function's Service, so lister/describer can read it back
@@ -646,15 +670,20 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, labels, a
 	if err != nil {
 		return nil, fmt.Errorf("failed to process environment variables: %w", err)
 	}
-	envVars, err = AppendKafkaEnvs(envVars, f.Run.Kafka, referencedSecrets, referencedConfigMaps)
-	if err != nil {
-		return nil, fmt.Errorf("failed to process Kafka environment variables: %w", err)
-	}
 
 	volumes, volumeMounts, err := ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process volumes: %w", err)
 	}
+
+	// Isolate the Kafka TLS credential mounts: the volume(s) backing the
+	// run.kafka.tls.* certificate paths must be visible to the Kafka runtime
+	// sidecar only, never to the function (user) container. The volumes stay at
+	// the pod level, but the user container's mount list excludes them so Kafka
+	// certificate material -- notably the client private key -- never lands in
+	// the filesystem of application code.
+	kafkaMounts := kafkaSidecarVolumeMounts(f.Run.Kafka, volumeMounts)
+	userVolumeMounts := excludeVolumeMounts(volumeMounts, kafkaMounts)
 
 	container := corev1.Container{
 		Name:  "user-container",
@@ -667,11 +696,25 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, labels, a
 		},
 		Env:          envVars,
 		EnvFrom:      envFrom,
-		VolumeMounts: volumeMounts,
+		VolumeMounts: userVolumeMounts,
 	}
 
 	SetHealthEndpoints(f, &container)
 	SetSecurityContext(&container)
+
+	// When the function consumes from Kafka, inject the Kafka runtime as a
+	// sidecar container. The function stays a plain CloudEvents-over-HTTP server;
+	// the sidecar owns everything Kafka and delivers records to it over
+	// localhost. This replaces the retired in-process path (FUNC_TRANSPORT=kafka
+	// on the function container).
+	containers := []corev1.Container{container}
+	sidecar, err := kafkaSidecarContainer(f, kafkaMounts, referencedSecrets, referencedConfigMaps)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build Kafka runtime sidecar: %w", err)
+	}
+	if sidecar != nil {
+		containers = append(containers, *sidecar)
+	}
 
 	replicas := int32(1)
 	if f.Scale != nil && f.Scale.Min != nil {
@@ -707,7 +750,7 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, labels, a
 					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
-					Containers:         []corev1.Container{container},
+					Containers:         containers,
 					ServiceAccountName: f.Deploy.ServiceAccountName,
 					ImagePullSecrets:   ImagePullSecrets(f.Deploy.ImagePullSecret),
 					Volumes:            volumes,
@@ -1009,12 +1052,15 @@ func withOpenAddress(ee []fn.Env) []fn.Env {
 	return ee
 }
 
+// AppendKafkaEnvs appends the runtime's Kafka configuration (brokers, topic,
+// consumer group, and any TLS/SASL settings) to envVars. These are consumed by
+// the injected Kafka runtime sidecar, not by the function container. A nil or
+// incomplete Kafka config leaves envVars unchanged.
 func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, error) {
 	if kafka == nil || kafka.Brokers == "" || kafka.Topic == "" || kafka.ConsumerGroup == "" {
 		return envVars, nil
 	}
 	envVars = append(envVars,
-		corev1.EnvVar{Name: "FUNC_TRANSPORT", Value: "kafka"},
 		corev1.EnvVar{Name: "KAFKA_BROKERS", Value: kafka.Brokers},
 		corev1.EnvVar{Name: "KAFKA_TOPIC", Value: kafka.Topic},
 		corev1.EnvVar{Name: "KAFKA_CONSUMER_GROUP", Value: kafka.ConsumerGroup},
@@ -1059,6 +1105,123 @@ func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig, referencedS
 	}
 
 	return envVars, nil
+}
+
+// kafkaRuntimeImage returns the image to use for the Kafka runtime sidecar,
+// honoring the FUNC_KAFKA_RUNTIME_IMAGE override.
+func kafkaRuntimeImage() string {
+	if v := strings.TrimSpace(os.Getenv(kafkaRuntimeImageEnv)); v != "" {
+		return v
+	}
+	return DefaultKafkaRuntimeImage
+}
+
+// kafkaSidecarContainer builds the Kafka runtime sidecar for a function
+// configured to consume from Kafka, or returns (nil, nil) when Kafka is not
+// configured. The runtime consumes records and delivers each to the function
+// over localhost HTTP (kafkaFunctionTarget); a 2xx response commits the offset.
+//
+// The runtime receives only the volume mounts it needs -- those backing the
+// configured run.kafka.tls.* certificate paths -- not the function's full set of
+// application volumes. kafkaMounts is the already-filtered Kafka credential mount
+// set (see kafkaSidecarVolumeMounts); SASL credentials travel as env vars, so
+// they need no mount.
+func kafkaSidecarContainer(f fn.Function, kafkaMounts []corev1.VolumeMount, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.Container, error) {
+	kafka := f.Run.Kafka
+	if kafka == nil || kafka.Brokers == "" || kafka.Topic == "" || kafka.ConsumerGroup == "" {
+		return nil, nil
+	}
+
+	env := []corev1.EnvVar{
+		{Name: "FUNCTION_TARGET", Value: kafkaFunctionTarget},
+	}
+	env, err := AppendKafkaEnvs(env, kafka, referencedSecrets, referencedConfigMaps)
+	if err != nil {
+		return nil, err
+	}
+
+	container := corev1.Container{
+		Name:         KafkaSidecarName,
+		Image:        kafkaRuntimeImage(),
+		Env:          env,
+		VolumeMounts: kafkaMounts,
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: DefaultReadinessEndpoint,
+					Port: intstr.FromInt32(kafkaRuntimeHealthPort),
+				},
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: DefaultLivenessEndpoint,
+					Port: intstr.FromInt32(kafkaRuntimeHealthPort),
+				},
+			},
+		},
+	}
+	SetSecurityContext(&container)
+	return &container, nil
+}
+
+// kafkaSidecarVolumeMounts filters the function's full set of volume mounts down
+// to only those the Kafka runtime needs: the volume(s) backing the configured
+// run.kafka.tls.* certificate paths. The sidecar must not receive the function's
+// unrelated application volumes (Secrets, ConfigMaps, PVCs, emptyDirs). A mount
+// is kept when its mount path is the cert path or a parent directory of it --
+// the same path-to-volume matching the keda deployer uses to resolve these certs
+// (findSecretForPath). SASL credentials are wired as env vars, not volumes, so
+// they contribute no mount here.
+func kafkaSidecarVolumeMounts(kafka *fn.KafkaConfig, volumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
+	if kafka == nil || kafka.TLS == nil {
+		return nil
+	}
+
+	var certPaths []string
+	for _, p := range []string{kafka.TLS.CACert, kafka.TLS.ClientCert, kafka.TLS.ClientKey} {
+		if p != "" {
+			certPaths = append(certPaths, filepath.Clean(p))
+		}
+	}
+	if len(certPaths) == 0 {
+		return nil
+	}
+
+	var mounts []corev1.VolumeMount
+	for _, vm := range volumeMounts {
+		mountPath := filepath.Clean(vm.MountPath)
+		for _, cp := range certPaths {
+			if cp == mountPath || strings.HasPrefix(cp, mountPath+string(filepath.Separator)) {
+				mounts = append(mounts, vm)
+				break
+			}
+		}
+	}
+	return mounts
+}
+
+// excludeVolumeMounts returns the volume mounts in all that are not present in
+// exclude, matched by mount path (ProcessVolumes guarantees mount paths are
+// unique). It is used to keep Kafka TLS credential mounts out of the function
+// (user) container while leaving every other application mount intact.
+func excludeVolumeMounts(all, exclude []corev1.VolumeMount) []corev1.VolumeMount {
+	if len(exclude) == 0 {
+		return all
+	}
+	excluded := make(map[string]struct{}, len(exclude))
+	for _, vm := range exclude {
+		excluded[vm.MountPath] = struct{}{}
+	}
+	kept := make([]corev1.VolumeMount, 0, len(all))
+	for _, vm := range all {
+		if _, ok := excluded[vm.MountPath]; ok {
+			continue
+		}
+		kept = append(kept, vm)
+	}
+	return kept
 }
 
 func appendKafkaEnvValue(envVars []corev1.EnvVar, name, value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, error) {
