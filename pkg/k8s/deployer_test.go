@@ -259,9 +259,9 @@ func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 		}
 
 		// The sidecar owns Kafka.
-		sc := containerByName(dep, kafkaSidecarName)
+		sc := containerByName(dep, KafkaSidecarName)
 		if sc == nil {
-			t.Fatalf("%q container not found", kafkaSidecarName)
+			t.Fatalf("%q container not found", KafkaSidecarName)
 		}
 		if sc.Image != DefaultKafkaRuntimeImage {
 			t.Errorf("sidecar image = %q, want %q", sc.Image, DefaultKafkaRuntimeImage)
@@ -296,12 +296,57 @@ func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		sc := containerByName(dep, kafkaSidecarName)
+		sc := containerByName(dep, KafkaSidecarName)
 		if sc == nil {
 			t.Fatal("kafka sidecar not found")
 		}
 		if sc.Image != "example.com/custom:v1" {
 			t.Errorf("sidecar image = %q, want example.com/custom:v1", sc.Image)
+		}
+	})
+
+	t.Run("kafka tls: sidecar mounts only the cert volume, not app volumes", func(t *testing.T) {
+		caPath, caSecret := "/etc/kafka/ca", "kafka-ca"
+		appPath, appSecret := "/etc/app", "app-config"
+		f := fn.Function{
+			Name:   "test-func",
+			Deploy: fn.DeploySpec{Image: "img:latest"},
+			Run: fn.RunSpec{
+				Kafka: &fn.KafkaConfig{
+					Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+					SecurityProtocol: "SSL",
+					TLS:              &fn.KafkaTLS{CACert: "/etc/kafka/ca/ca.crt"},
+				},
+				Volumes: []fn.Volume{
+					{Secret: &caSecret, Path: &caPath},
+					{Secret: &appSecret, Path: &appPath},
+				},
+			},
+		}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// run.volumes semantics still put both volumes on the function
+		// container; the sidecar must receive only the Kafka cert volume and
+		// none of the unrelated application volumes.
+		sc := containerByName(dep, KafkaSidecarName)
+		if sc == nil {
+			t.Fatal("kafka sidecar not found")
+		}
+		if len(sc.VolumeMounts) != 1 {
+			t.Fatalf("sidecar should mount only the Kafka cert volume, got %d: %+v", len(sc.VolumeMounts), sc.VolumeMounts)
+		}
+		if sc.VolumeMounts[0].MountPath != caPath {
+			t.Errorf("sidecar mount path = %q, want %q", sc.VolumeMounts[0].MountPath, caPath)
+		}
+		for _, vm := range sc.VolumeMounts {
+			if vm.MountPath == appPath {
+				t.Error("sidecar must not receive unrelated application volumes")
+			}
 		}
 	})
 }
