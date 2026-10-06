@@ -46,7 +46,7 @@ const (
 	// sidecar. It consumes from Kafka and delivers each record to the function
 	// over localhost HTTP, so the function needs no Kafka client. Override with
 	// the FUNC_KAFKA_RUNTIME_IMAGE environment variable.
-	DefaultKafkaRuntimeImage = "ghcr.io/aliok/func-kafka-adapter:latest"
+	DefaultKafkaRuntimeImage = "docker.io/aliok/func-kafka-adapter:latest"
 
 	// kafkaRuntimeImageEnv overrides DefaultKafkaRuntimeImage at deploy time.
 	kafkaRuntimeImageEnv = "FUNC_KAFKA_RUNTIME_IMAGE"
