@@ -86,11 +86,13 @@ func ValidateScale(scale *ScaleOptions, deployer string, kafka *KafkaConfig) (er
 		errors = append(errors, "scale.max must be >= 1 when deployer is keda: 0 (\"no limit\") is not a valid value, leave scale.max unset to use keda's default")
 	}
 
-	// scale.keda and scale.kpa target different deployers and cannot both apply.
-	if scale.KEDA != nil && scale.KPA != nil {
-		errors = append(errors, "scale.keda and scale.kpa are mutually exclusive")
-		return
-	}
+	// scale.keda and scale.kpa are not mutually exclusive: each is deployer-
+	// specific and the irrelevant one is simply ignored (scale.kpa with a
+	// warning on non-knative deployers, scale.keda rejected only when the
+	// deployer isn't keda). A migration that moves legacy flat fields into
+	// scale.kpa can leave both present on a keda function; rejecting that would
+	// break the deploy for config the user never wrote.
+	//
 	// scale.keda requires the keda deployer. Unlike scale.kpa on a non-knative
 	// deployer (benign: min/max still apply, ignored with a warning at deploy
 	// time), silently dropping a scale.keda block would discard the user's whole

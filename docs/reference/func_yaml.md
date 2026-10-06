@@ -155,7 +155,7 @@ Top-level autoscaling configuration. `min`/`max` are shared across all deployers
 | `knative` | 0 | 0 (no limit) | scale-to-zero, per Knative Serving's own defaults |
 | `keda` | 1 | 10 | `max: 0` is rejected (KEDA maps it to an HPA `maxReplicas`, which must be `>= 1`); a `min` above the default `max` of 10 requires setting `max` explicitly |
 
-The scaler sub-keys are deployer-aware: `kpa` holds Knative Pod Autoscaler settings and is used only with `deployer: knative`; `keda` holds KEDA settings and is used only with `deployer: keda`. They are mutually exclusive.
+The scaler sub-keys are deployer-aware: `kpa` holds Knative Pod Autoscaler settings and is used only with `deployer: knative`; `keda` holds KEDA settings and is used only with `deployer: keda`. The sub-key that does not match the chosen deployer is ignored (`kpa` with a warning on non-knative deployers; `keda` is rejected when the deployer is not `keda`), so both may be present at once without conflict.
 
 - `min`: Minimum number of replicas. Non-negative integer. Default is 0 for `deployer: knative`, but 1 for `deployer: raw` and `deployer: keda`. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound).
 - `max`: Maximum number of replicas. Non-negative integer. Default is 0 (no limit) for `deployer: knative`, not enforced for `deployer: raw`, and 10 for `deployer: keda`. For `deployer: keda` specifically, `max: 0` is rejected (unlike `knative`, where it means no limit): KEDA maps it to an HPA `maxReplicas`, which must be `>= 1`. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/scale-bounds/#upper-bound).

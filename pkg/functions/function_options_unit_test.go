@@ -307,8 +307,9 @@ func Test_ValidateScale(t *testing.T) {
 }
 
 // Test_ValidateScale_KEDA covers the scale.keda surface: the sub-key gating
-// (keda requires deployer keda; keda and kpa are mutually exclusive) and the
-// per-trigger validation, including a kafka trigger's dependency on run.kafka.
+// (keda requires deployer keda; keda and kpa may coexist, the irrelevant one
+// is ignored) and the per-trigger validation, including a kafka trigger's
+// dependency on run.kafka.
 func Test_ValidateScale_KEDA(t *testing.T) {
 	kafkaRun := &KafkaConfig{Brokers: "b:9092", Topic: "t", ConsumerGroup: "g"}
 	httpTrigger := []KEDATrigger{{Type: "http"}}
@@ -341,12 +342,12 @@ func Test_ValidateScale_KEDA(t *testing.T) {
 			"knative", nil, 1,
 		},
 		{
-			"keda and kpa are mutually exclusive",
+			"keda and kpa coexist on keda deployer",
 			&ScaleOptions{
 				KEDA: &KEDAScaleOptions{Triggers: httpTrigger},
 				KPA:  &KPAScaleOptions{Metric: ptr.String("concurrency")},
 			},
-			"keda", nil, 1,
+			"keda", nil, 0,
 		},
 		{
 			"empty triggers is invalid",
