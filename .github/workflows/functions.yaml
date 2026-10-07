@@ -1,11 +1,6 @@
 name: Functions
 
 # To run this workflow's tests locally, see ./hack/test-full.sh
-#
-# Fork CI note (Hamr#395 external-dev / Functions#57): coverage upload goes through
-# ./.github/actions/codecov — no-ops when CODECOV_TOKEN is empty so forks without
-# the secret stay green after tests. Upstream knative/func still uploads when set.
-
 
 permissions:
   id-token: write # Required for signing
@@ -536,7 +531,9 @@ jobs:
       - test-e2e-podman
       - test-e2e-runtimes
       - test-e2e-config-ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -583,6 +580,9 @@ jobs:
   publish-utils-image:
     name: Publish Utils Image
     needs: build
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -595,6 +595,20 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Derive Image Tag
+        id: image-tag
+        # main publishes the floating tag v2; a release branch release-X.Y
+        # publishes the per-minor pinned tag X.Y (see docs/func-utils-image.md).
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            tag="v2"
+          elif [[ "${GITHUB_REF_NAME}" =~ ^release-([0-9]+\.[0-9]+)$ ]]; then
+            tag="${BASH_REMATCH[1]}"
+          else
+            echo "::error::refusing to publish func-utils from ref '${GITHUB_REF_NAME}'"
+            exit 1
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
       - name: Build and push
         id: build-images
         run: |
@@ -608,7 +622,7 @@ jobs:
             --provenance=false --sbom=false \
             --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
             --push \
-            -t "ghcr.io/knative/func-utils:v2" \
+            -t "ghcr.io/knative/func-utils:${{ steps.image-tag.outputs.tag }}" \
             --annotation index:org.opencontainers.image.description="Knative Func Utils Image" \
             --annotation index:org.opencontainers.image.source="https://github.com/knative/func" \
             --annotation index:org.opencontainers.image.vendor="https://github.com/knative/func" \
@@ -626,6 +640,7 @@ jobs:
   publish-image:
     name: Publish as Image
     needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
