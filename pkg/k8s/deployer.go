@@ -223,6 +223,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		// exposure and trigger satellites below
 		if svcGetErr == nil {
 			svc.ResourceVersion = existingService.ResourceVersion
+			preserveServiceNetworkFields(svc, existingService)
 			if svc, err = serviceClient.Update(ctx, svc, metav1.UpdateOptions{}); err != nil {
 				return fn.DeploymentResult{}, fmt.Errorf("failed to update service: %w", err)
 			}
@@ -797,6 +798,15 @@ func withoutWorkloadAnnotations(annotations map[string]string) map[string]string
 		delete(out, k)
 	}
 	return out
+}
+
+// preserveServiceNetworkFields carries forward the existing Service's
+// network configuration when preparing a generated Service for update.
+func preserveServiceNetworkFields(target, existing *corev1.Service) {
+	target.Spec.ClusterIP = existing.Spec.ClusterIP
+	target.Spec.ClusterIPs = existing.Spec.ClusterIPs
+	target.Spec.IPFamilies = existing.Spec.IPFamilies
+	target.Spec.IPFamilyPolicy = existing.Spec.IPFamilyPolicy
 }
 
 // CheckResourcesArePresent returns error if Secrets or ConfigMaps
