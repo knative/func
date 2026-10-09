@@ -130,6 +130,7 @@ var migrations = []migration{
 	{"0.37.0", migrateGitToSource},
 	{"0.38.0", migrateScaleToTopLevel},
 	{"0.39.0", migrateToRecordedDeployer},
+	{"0.40.0", migrateDeployerIntent},
 	// New Migrations Here.
 }
 
@@ -497,6 +498,22 @@ func migrateScaleToTopLevel(f Function, raw []byte, m migration) (Function, erro
 func migrateToRecordedDeployer(f Function, _ []byte, m migration) (Function, error) {
 	if f.Deploy.Namespace != "" && f.Deploy.Deployer == "" {
 		f.Deploy.Deployer = deployers.Knative
+	}
+	f.SpecVersion = m.version
+	return f, nil
+}
+
+// migrateDeployerIntent recovers deployer intent for legacy functions which
+// recorded the deployer only under deploy.deployer (the top-level deployer
+// intent field did not exist before #3953). Without it, deleting such a
+// function clears the observed Deploy.Deployer and the next deploy falls
+// back to the default deployer. An explicitly recorded top-level deployer
+// always wins: the migration only fills in missing intent, never overwriting
+// it. The observed deploy.deployer keeps its YAML tag and stays populated
+// by the primary unmarshal, so observed state is preserved.
+func migrateDeployerIntent(f Function, _ []byte, m migration) (Function, error) {
+	if f.Deployer == "" && f.Deploy.Deployer != "" {
+		f.Deployer = f.Deploy.Deployer
 	}
 	f.SpecVersion = m.version
 	return f, nil
