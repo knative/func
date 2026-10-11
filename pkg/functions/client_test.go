@@ -2516,6 +2516,10 @@ func TestFingerprint_FuncIgnoreComments(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("notes"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	notes, err := os.Stat(filepath.Join(root, "notes.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Ignore notes.txt — fingerprint should change
 	if err := os.WriteFile(filepath.Join(root, ".funcignore"), []byte("notes.txt\n"), 0644); err != nil {
@@ -2540,6 +2544,11 @@ func TestFingerprint_FuncIgnoreComments(t *testing.T) {
 
 	// Modifying notes.txt should now change the fingerprint (it is tracked again)
 	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("changed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Fingerprint tracks mtimes, which rapid writes may not advance.
+	modified := notes.ModTime().Add(2 * time.Second)
+	if err := os.Chtimes(filepath.Join(root, "notes.txt"), modified, modified); err != nil {
 		t.Fatal(err)
 	}
 	hashModified, _, err := fn.Fingerprint(root)
