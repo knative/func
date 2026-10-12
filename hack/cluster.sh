@@ -598,6 +598,37 @@ tekton() {
   $KUBECTL create clusterrolebinding "${namespace}:admin" --clusterrole=admin --serviceaccount="${namespace}:default"
   # Grant permissions for HTTPScaledObject Keda resources needed by keda deployer
   $KUBECTL create clusterrolebinding "${namespace}:keda-add-ons-http-operator" --clusterrole=keda-add-ons-http-operator --serviceaccount="${namespace}:default"
+  # Grant permissions for the core KEDA resources the keda deployer manages
+  # directly: ScaledObjects (looked up on every keda deploy and created for the
+  # kafka trigger) and TriggerAuthentications (created for a SASL/TLS kafka
+  # trigger). No built-in role covers these, and binding keda-operator would
+  # grant far more than the deployer needs, so define a narrow role. Applied as
+  # explicit YAML (not `kubectl create clusterrole --resource=...`) because the
+  # KEDA CRDs may still be installing in parallel and the imperative form needs
+  # API discovery to resolve the resource names.
+  $KUBECTL apply -f - <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: func-keda-scaler
+rules:
+- apiGroups: ["keda.sh"]
+  resources: ["scaledobjects", "triggerauthentications"]
+  verbs: ["get", "list", "create", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ${namespace}:func-keda-scaler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: func-keda-scaler
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: ${namespace}
+EOF
 
   echo "${green}✅ Tekton${reset}"
 }
