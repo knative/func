@@ -5,7 +5,7 @@
 		"repo": "net-contour"
 	},
 	"Eventing": {
-		"version": "v1.23.0",
+		"version": "v1.23.1",
 		"owner": "knative",
 		"repo": "eventing"
 	},
