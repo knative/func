@@ -26,7 +26,7 @@ export NAMESPACE=<INSERT_YOUR_NAMESPACE>
 
 kubectl create role func-deployer \
   --verb=get,list,create,update,delete \
-  --resource=deployments.apps,replicasets.apps,pods,services,httpscaledobjects.http.keda.sh \
+  --resource=deployments.apps,replicasets.apps,pods,services,httpscaledobjects.http.keda.sh,scaledobjects.keda.sh,triggerauthentications.keda.sh \
   --namespace=$NAMESPACE
 
 kubectl create rolebinding func-deployer-binding \
@@ -64,7 +64,10 @@ kubectl create rolebinding func-deployer-binding \
 
 ### Option C: Permissions only needed for the KEDA Deployer
 
-Same as for the raw deployer, but additionally permissions for the `HTTPScaledObjects`:
+Same as for the raw deployer, but additionally permissions for the KEDA
+resources the deployer manages: `HTTPScaledObjects` (http trigger),
+`ScaledObjects` (checked on every deploy, created for the kafka trigger), and
+`TriggerAuthentications` (created for a kafka trigger that uses SASL/TLS):
 
 ```bash
 export NAMESPACE=<INSERT_YOUR_NAMESPACE>
@@ -75,7 +78,7 @@ kubectl create clusterrolebinding $NAMESPACE:knative-eventing-namespaced-admin \
 
 kubectl create role func-deployer \
   --verb=get,list,create,update,delete \
-  --resource=deployments.apps,replicasets.apps,pods,services,httpscaledobjects.http.keda.sh \
+  --resource=deployments.apps,replicasets.apps,pods,services,httpscaledobjects.http.keda.sh,scaledobjects.keda.sh,triggerauthentications.keda.sh \
   --namespace=$NAMESPACE
 
 kubectl create rolebinding func-deployer-binding \
