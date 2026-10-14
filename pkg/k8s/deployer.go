@@ -46,7 +46,10 @@ const (
 	// sidecar. It consumes from Kafka and delivers each record to the function
 	// over localhost HTTP, so the function needs no Kafka client. Override with
 	// the FUNC_KAFKA_RUNTIME_IMAGE environment variable.
-	DefaultKafkaRuntimeImage = "docker.io/aliok/func-kafka-adapter:latest"
+	//
+	// This points at the nightly build while the component stabilizes; it moves
+	// to the released gcr.io/knative-releases path once a release is cut.
+	DefaultKafkaRuntimeImage = "gcr.io/knative-nightly/knative.dev/func-adapter-kafka/cmd/fkafka-runtime:latest"
 
 	// kafkaRuntimeImageEnv overrides DefaultKafkaRuntimeImage at deploy time.
 	kafkaRuntimeImageEnv = "FUNC_KAFKA_RUNTIME_IMAGE"
