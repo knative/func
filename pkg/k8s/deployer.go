@@ -1205,21 +1205,28 @@ func kafkaSidecarVolumeMounts(kafka *fn.KafkaConfig, volumeMounts []corev1.Volum
 	return mounts
 }
 
-// excludeVolumeMounts returns the volume mounts in all that are not present in
-// exclude, matched by mount path (ProcessVolumes guarantees mount paths are
-// unique). It is used to keep Kafka TLS credential mounts out of the function
-// (user) container while leaving every other application mount intact.
+// excludeVolumeMounts returns the volume mounts in all that do not reference a
+// volume used by exclude, matched by volume name. It is used to keep Kafka TLS
+// credential mounts out of the function (user) container while leaving every
+// other application mount intact.
+//
+// Matching by volume name (not mount path) matters: ProcessVolumes creates one
+// volume per Secret/ConfigMap but a separate mount for each path it is mounted
+// at, so the same Secret can back several mounts. Excluding only the
+// cert-path mount would leave another mount of the same volume on the function
+// container, re-exposing the private key. Dropping every mount of the volume
+// keeps the backing credential off the function container entirely.
 func excludeVolumeMounts(all, exclude []corev1.VolumeMount) []corev1.VolumeMount {
 	if len(exclude) == 0 {
 		return all
 	}
-	excluded := make(map[string]struct{}, len(exclude))
+	excludedNames := make(map[string]struct{}, len(exclude))
 	for _, vm := range exclude {
-		excluded[vm.MountPath] = struct{}{}
+		excludedNames[vm.Name] = struct{}{}
 	}
 	kept := make([]corev1.VolumeMount, 0, len(all))
 	for _, vm := range all {
-		if _, ok := excluded[vm.MountPath]; ok {
+		if _, ok := excludedNames[vm.Name]; ok {
 			continue
 		}
 		kept = append(kept, vm)

@@ -387,6 +387,58 @@ func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("kafka tls: credential secret mounted at a second path stays off user-container", func(t *testing.T) {
+		// A single Secret carrying the client key is mounted at two paths: the
+		// cert path referenced by run.kafka.tls, and a second, unrelated path.
+		// ProcessVolumes creates one volume for the Secret but a mount per path,
+		// so excluding only the cert-path mount would leave the second mount --
+		// backed by the same volume -- on user-container and re-expose the key.
+		// Neither mount may reach user-container.
+		certPath := "/etc/kafka/client"
+		secondPath := "/mnt/also-client"
+		clientSecret := "kafka-client"
+		mountPaths := func(c *corev1.Container) map[string]bool {
+			m := map[string]bool{}
+			for _, vm := range c.VolumeMounts {
+				m[vm.MountPath] = true
+			}
+			return m
+		}
+		f := fn.Function{
+			Name:   "test-func",
+			Deploy: fn.DeploySpec{Image: "img:latest"},
+			Run: fn.RunSpec{
+				Kafka: &fn.KafkaConfig{
+					Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+					SecurityProtocol: "SSL",
+					TLS: &fn.KafkaTLS{
+						ClientCert: "/etc/kafka/client/tls.crt",
+						ClientKey:  "/etc/kafka/client/tls.key",
+					},
+				},
+				Volumes: []fn.Volume{
+					{Secret: &clientSecret, Path: &certPath},
+					{Secret: &clientSecret, Path: &secondPath},
+				},
+			},
+		}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		uc := containerByName(dep, "user-container")
+		if uc == nil {
+			t.Fatal("user-container not found")
+		}
+		ucMounts := mountPaths(uc)
+		if ucMounts[certPath] || ucMounts[secondPath] {
+			t.Errorf("user-container must not mount the client-key secret at any path, got %+v", uc.VolumeMounts)
+		}
+	})
 }
 
 // generateDeployment narrows scale.min (int64) to the Deployment's int32

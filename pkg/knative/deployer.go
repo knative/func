@@ -130,8 +130,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	// (yet) inject the sidecar, so reject run.kafka here rather than silently
 	// deploy a function that never receives records. Injecting the sidecar
 	// into the Knative Service is tracked as separate work.
+	//
+	// The remediation notes undeploy-first because an already-deployed function
+	// cannot change its deployer in place: Client.Deploy's switch gate refuses
+	// that and expects the function to be deleted first.
 	if f.Run.Kafka != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("run.kafka is not supported on the knative deployer; the Kafka runtime sidecar is injected only by the raw and keda deployers (keda additionally provides consumer-lag autoscaling). Set deployer: keda (or raw) and redeploy")
+		return fn.DeploymentResult{}, fmt.Errorf("run.kafka is not supported on the knative deployer; the Kafka runtime sidecar is injected only by the raw and keda deployers (keda additionally provides consumer-lag autoscaling). Set deployer: keda (or raw) and redeploy; if this function is already deployed, undeploy it first (func delete), since the deployer cannot be changed in place")
 	}
 
 	// Choosing f.Namespace vs f.Deploy.Namespace:
