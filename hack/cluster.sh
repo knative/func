@@ -82,6 +82,7 @@ allocate_cluster() {
   echo "dpr:  Dapr Runtime"
   echo "tkt:  Tekton Pipelines"
   echo "keda: Keda"
+  echo "kfk:  Kafka (Strimzi)"
   echo "fop:  Func Operator"
   echo ""
 
@@ -95,6 +96,12 @@ allocate_cluster() {
   # FUNC_CLUSTER_KEDA is the same env var bound by `func cluster create --keda`.
   if [ "${FUNC_CLUSTER_KEDA:-true}" = "true" ]; then
     ( set -o pipefail; (keda && keda_http_addon) 2>&1 | sed  -e 's/^/keda /')&
+  fi
+  # Kafka (Strimzi) is opt-in (default off); only the integration-tests job needs
+  # a real broker to exercise run.kafka end to end. Installing it everywhere would
+  # waste scarce kind memory on jobs that never touch Kafka.
+  if [ "${FUNC_CLUSTER_KAFKA:-false}" = "true" ]; then
+    ( set -o pipefail; kafka 2>&1 | sed  -e 's/^/kfk /')&
   fi
   ( set -o pipefail; func_operator 2>&1 | sed  -e 's/^/fop /')&
 
@@ -808,6 +815,108 @@ keda_http_addon() {
 
   $KUBECTL get pod -n keda
   echo "${green}✅ Keda HTTP add-on${reset}"
+}
+
+kafka() {
+  echo "${blue}Installing Kafka (Strimzi)${reset}"
+  echo "Version: ${strimzi_version}"
+
+  $KUBECTL create namespace kafka --dry-run=client -o yaml | $KUBECTL apply -f -
+
+  # The release operator manifest is namespaced to "myproject"; retarget its
+  # RoleBinding/ClusterRoleBinding subjects at the "kafka" namespace. The
+  # operator watches its own namespace (STRIMZI_NAMESPACE via fieldRef), which is
+  # where the Kafka CR below is created.
+  local operator_url="https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml"
+  curl -sL "${operator_url}" | sed 's/namespace: myproject/namespace: kafka/' | $KUBECTL apply --server-side -n kafka -f -
+  echo "Waiting for the Strimzi cluster operator to become ready"
+  $KUBECTL wait deployment/strimzi-cluster-operator --timeout=-1s --for=condition=Available --namespace kafka
+
+  # Single-node KRaft broker with a TLS + SCRAM-SHA-512 listener on 9093. No
+  # authorizer is configured, so an authenticated user may read any topic/group.
+  # Resources are kept minimal for CI. Readiness only needs the broker to accept
+  # connections and assign partitions; no messages are produced here.
+  cat <<EOF | $KUBECTL apply -n kafka -f -
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: dual-role
+  labels:
+    strimzi.io/cluster: func-kafka
+spec:
+  replicas: 1
+  roles:
+    - controller
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: ephemeral
+        kraftMetadata: shared
+---
+apiVersion: kafka.strimzi.io/v1
+kind: Kafka
+metadata:
+  name: func-kafka
+spec:
+  kafka:
+    version: 4.3.1
+    metadataVersion: 4.3-IV0
+    listeners:
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+        authentication:
+          type: scram-sha-512
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 250m
+      limits:
+        memory: 1Gi
+    jvmOptions:
+      -Xms: 512m
+      -Xmx: 512m
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: test-topic
+  labels:
+    strimzi.io/cluster: func-kafka
+spec:
+  partitions: 1
+  replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaUser
+metadata:
+  name: test-kafka-user
+  labels:
+    strimzi.io/cluster: func-kafka
+spec:
+  authentication:
+    type: scram-sha-512
+EOF
+
+  echo "Waiting for the Kafka cluster to become ready"
+  $KUBECTL wait kafka/func-kafka --timeout=-1s --for=condition=Ready --namespace kafka
+  $KUBECTL wait kafkatopic/test-topic --timeout=-1s --for=condition=Ready --namespace kafka
+  $KUBECTL wait kafkauser/test-kafka-user --timeout=-1s --for=condition=Ready --namespace kafka
+
+  $KUBECTL get pod -n kafka
+  echo "${green}✅ Kafka (Strimzi)${reset}"
 }
 
 func_operator() {

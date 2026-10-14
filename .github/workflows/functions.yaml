@@ -158,6 +158,10 @@ jobs:
     timeout-minutes: 120
     env:
       FUNC_CLUSTER_RETRIES: 5
+      # Install a real Kafka broker (Strimzi) so the keda Kafka integration test
+      # can deploy a run.kafka function against a reachable broker. This is the
+      # only job that exercises Kafka, so it is the only one that opts in.
+      FUNC_CLUSTER_KAFKA: "true"
       FUNC_INT_TEKTON_ENABLED: true
       FUNC_INT_GITLAB_ENABLED: true
       FUNC_INT_GITLAB_HOSTNAME: gitlab.localtest.me
