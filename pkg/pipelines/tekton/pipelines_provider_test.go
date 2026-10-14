@@ -11,11 +11,14 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/oci"
 )
 
 func TestSourcesAsTarStream(t *testing.T) {
@@ -197,6 +200,63 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 			tt.args.f.Build.PVCSize = tt.args.size
 			if err := createPipelinePersistentVolumeClaim(tt.args.ctx, tt.args.f, tt.args.namespace, tt.args.labels); (err != nil) != tt.wantErr {
 				t.Errorf("createPipelinePersistentVolumeClaim() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestEnsureRegistrySecret ensures ensureRegistrySecret writes the function's
+// registry Secret, as k8s.NewRegistrySecret builds it, to the namespace and
+// returns its name. Without a username it writes none and returns no name, and
+// it returns the error of a failed write.
+func TestEnsureRegistrySecret(t *testing.T) {
+	f := fn.Function{Name: "my-func", Runtime: "go"}
+	const registry, namespace = "ghcr.io", "test-ns"
+	login := oci.Credentials{Username: "alice", Password: "secret"}
+	secret, err := k8s.NewRegistrySecret(f, login.Username, login.Password, registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name     string
+		creds    oci.Credentials
+		writeErr error
+		writes   int
+		wantName string
+		wantErr  bool
+	}{
+		{name: "no username", creds: oci.Credentials{}},
+		{name: "login", creds: login, writes: 1, wantName: secret.Name},
+		{name: "write fails", creds: login, writeErr: errors.New("forbidden"), writes: 1, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var written []corev1.Secret
+			old := ensureSecret
+			t.Cleanup(func() { ensureSecret = old })
+			ensureSecret = func(_ context.Context, s corev1.Secret, ns string) error {
+				if ns != namespace {
+					t.Errorf("namespace: got %q, want %q", ns, namespace)
+				}
+				written = append(written, s)
+				return tt.writeErr
+			}
+
+			got, err := ensureRegistrySecret(t.Context(), f, tt.creds, registry, namespace)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error: got %v, want error %v", err, tt.wantErr)
+			}
+			if got != tt.wantName {
+				t.Errorf("name: got %q, want %q", got, tt.wantName)
+			}
+			if len(written) != tt.writes {
+				t.Fatalf("writes: got %d, want %d", len(written), tt.writes)
+			}
+			for _, s := range written {
+				if !equality.Semantic.DeepEqual(s, secret) {
+					t.Errorf("secret: got %+v, want %+v", s, secret)
+				}
 			}
 		})
 	}
