@@ -137,6 +137,9 @@ spec:
     - name: dockerconfig-workspace
       secret:
         secretName: {{.SecretName}}
+        items:
+          - key: .dockerconfigjson
+            path: config.json
 `
 	// packRunTemplatePAC contains the Buildpacks template used for the Tekton PAC PipelineRun
 	packRunTemplatePAC = `

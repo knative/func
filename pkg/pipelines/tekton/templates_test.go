@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"text/template"
@@ -14,6 +15,7 @@ import (
 	"github.com/manifestival/manifestival"
 	"github.com/manifestival/manifestival/fake"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
@@ -613,5 +615,49 @@ func TestPipelineRunTemplatesRevision(t *testing.T) {
 				t.Error("no gitRevision param")
 			})
 		}
+	}
+}
+
+// TestPipelineRunTemplatesRegistrySecret ensures the standard runs mount the
+// .dockerconfigjson key of the registry Secret as the config.json the build
+// reads, while the PAC runs mount their own Secret, which holds config.json,
+// as it is.
+func TestPipelineRunTemplatesRegistrySecret(t *testing.T) {
+	mapped := []corev1.KeyToPath{{Key: corev1.DockerConfigJsonKey, Path: "config.json"}}
+	templates := []struct {
+		name    string
+		tmplStr string
+		items   []corev1.KeyToPath
+	}{
+		{"packRunTemplate", packRunTemplate, mapped},
+		{"s2iRunTemplate", s2iRunTemplate, mapped},
+		{"packRunTemplatePAC", packRunTemplatePAC, nil},
+		{"s2iRunTemplatePAC", s2iRunTemplatePAC, nil},
+	}
+	decode := strictTektonDecoder(t)
+	for _, tt := range templates {
+		t.Run(tt.name, func(t *testing.T) {
+			data := templateData{
+				PipelineName:    "myfunc-pipeline",
+				PipelineRunName: "myfunc-pipeline-run-",
+				SecretName:      "myfunc-secret",
+			}
+			obj, _, err := decode.Decode(renderTemplate(t, tt.name, tt.tmplStr, data), nil, nil)
+			if err != nil {
+				t.Fatalf("failed to decode PipelineRun: %v", err)
+			}
+			for _, w := range obj.(*tektonv1.PipelineRun).Spec.Workspaces {
+				if w.Name == "dockerconfig-workspace" {
+					if w.Secret == nil || w.Secret.SecretName != data.SecretName {
+						t.Fatalf("expected Secret %q, got %+v", data.SecretName, w.Secret)
+					}
+					if !slices.Equal(w.Secret.Items, tt.items) {
+						t.Errorf("expected items %+v, got %+v", tt.items, w.Secret.Items)
+					}
+					return
+				}
+			}
+			t.Error("no dockerconfig-workspace")
+		})
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"syscall"
 
@@ -12,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 )
 
@@ -83,6 +85,10 @@ func DeleteSecrets(ctx context.Context, namespaceOverride string, listOptions me
 	return client.CoreV1().Secrets(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
+// EnsureDockerRegistrySecretExist ensures a Secret holding the registry
+// credentials, of type kubernetes.io/dockerconfigjson, the standard type for
+// them, which image pull secrets require. Pipelines mount its
+// .dockerconfigjson key as the config.json the build reads.
 func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, username, password, server string) (err error) {
 	dockerConfigJSONContent, err := HandleDockerCfgJSONContent(username, password, "", server)
 	if err != nil {
@@ -96,10 +102,10 @@ func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverrid
 			Labels:      labels,
 			Annotations: annotations,
 		},
-		Type: corev1.SecretTypeOpaque,
+		Type: corev1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{},
 	}
-	secret.Data["config.json"] = dockerConfigJSONContent
+	secret.Data[corev1.DockerConfigJsonKey] = dockerConfigJSONContent
 
 	return EnsureSecretExist(ctx, secret, namespaceOverride)
 }
@@ -110,11 +116,30 @@ func EnsureSecretExist(ctx context.Context, secret corev1.Secret, namespaceOverr
 		return
 	}
 
+	return ensureSecretExist(ctx, client.CoreV1().Secrets(namespace), secret)
+}
+
+func ensureSecretExist(ctx context.Context, secrets typedcorev1.SecretInterface, secret corev1.Secret) (err error) {
 	// Check whether Secret with specified name exist
 	secretNotFound := false
-	existingSecret, err := GetSecret(ctx, secret.Name, namespace)
+	existingSecret, err := secrets.Get(ctx, secret.Name, metav1.GetOptions{})
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
+			return
+		}
+		secretNotFound = true
+	}
+
+	// The API refuses to change a Secret's type, so delete and create anew a
+	// registry Secret earlier func versions wrote. Any other Secret may be
+	// the user's, so leave it and fail.
+	if !secretNotFound && secretType(existingSecret.Type) != secretType(secret.Type) {
+		if !isOldRegistrySecret(existingSecret) {
+			return fmt.Errorf("secret %q in namespace %q has type %q, but func needs type %q: delete it so func can create it",
+				existingSecret.Name, existingSecret.Namespace, secretType(existingSecret.Type), secretType(secret.Type))
+		}
+		err = secrets.Delete(ctx, secret.Name, metav1.DeleteOptions{})
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return
 		}
 		secretNotFound = true
@@ -150,13 +175,28 @@ func EnsureSecretExist(ctx context.Context, secret corev1.Secret, namespaceOverr
 
 	if secretNotFound || !dataEqual || !labelsEqual || !annotationsEqual {
 		if secretNotFound {
-			_, err = client.CoreV1().Secrets(namespace).Create(ctx, &secret, metav1.CreateOptions{})
+			_, err = secrets.Create(ctx, &secret, metav1.CreateOptions{})
 		} else {
-			_, err = client.CoreV1().Secrets(namespace).Update(ctx, &secret, metav1.UpdateOptions{})
+			_, err = secrets.Update(ctx, &secret, metav1.UpdateOptions{})
 		}
 	}
 
 	return
+}
+
+// secretType is t as the API stores it: Opaque when empty.
+func secretType(t corev1.SecretType) corev1.SecretType {
+	if t == "" {
+		return corev1.SecretTypeOpaque
+	}
+	return t
+}
+
+// isOldRegistrySecret reports whether s has the shape earlier func versions
+// gave the registry Secret: Opaque, with only a config.json key.
+func isOldRegistrySecret(s *corev1.Secret) bool {
+	_, ok := s.Data["config.json"]
+	return ok && len(s.Data) == 1 && secretType(s.Type) == corev1.SecretTypeOpaque
 }
 
 // --- Helper methods for DockerConfigJson type of Secret
