@@ -124,15 +124,14 @@ func onClusterFix(f fn.Function) fn.Function {
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
 	f = onClusterFix(f)
 
-	// Kafka is consumed by the runtime sidecar, which is only injected by the
-	// keda deployer (via the embedded k8s deployer); the in-process path that
-	// once let any deployer run a Kafka function is retired. The knative
-	// deployer does not (yet) inject the sidecar, so reject run.kafka here
-	// rather than silently deploy a function that never receives records.
-	// Injecting the sidecar into the Knative Service is tracked as separate
-	// work.
+	// Kafka is consumed by the runtime sidecar, which is injected by the raw
+	// (Kubernetes) and keda deployers; the in-process path that once let any
+	// deployer run a Kafka function is retired. The knative deployer does not
+	// (yet) inject the sidecar, so reject run.kafka here rather than silently
+	// deploy a function that never receives records. Injecting the sidecar
+	// into the Knative Service is tracked as separate work.
 	if f.Run.Kafka != nil {
-		return fn.DeploymentResult{}, fmt.Errorf("run.kafka requires deployer: keda (the Kafka runtime sidecar and consumer-lag scaling are only provisioned by the keda deployer); set deployer: keda and redeploy")
+		return fn.DeploymentResult{}, fmt.Errorf("run.kafka is not supported on the knative deployer; the Kafka runtime sidecar is injected only by the raw and keda deployers (keda additionally provides consumer-lag autoscaling). Set deployer: keda (or raw) and redeploy")
 	}
 
 	// Choosing f.Namespace vs f.Deploy.Namespace:

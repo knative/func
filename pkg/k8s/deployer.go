@@ -7,7 +7,7 @@ import (
 	"maps"
 	"math"
 	"os"
-	"path/filepath"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -1185,7 +1185,7 @@ func kafkaSidecarVolumeMounts(kafka *fn.KafkaConfig, volumeMounts []corev1.Volum
 	var certPaths []string
 	for _, p := range []string{kafka.TLS.CACert, kafka.TLS.ClientCert, kafka.TLS.ClientKey} {
 		if p != "" {
-			certPaths = append(certPaths, filepath.Clean(p))
+			certPaths = append(certPaths, path.Clean(p))
 		}
 	}
 	if len(certPaths) == 0 {
@@ -1194,9 +1194,9 @@ func kafkaSidecarVolumeMounts(kafka *fn.KafkaConfig, volumeMounts []corev1.Volum
 
 	var mounts []corev1.VolumeMount
 	for _, vm := range volumeMounts {
-		mountPath := filepath.Clean(vm.MountPath)
+		mountPath := path.Clean(vm.MountPath)
 		for _, cp := range certPaths {
-			if cp == mountPath || strings.HasPrefix(cp, mountPath+string(filepath.Separator)) {
+			if cp == mountPath || strings.HasPrefix(cp, mountPath+"/") {
 				mounts = append(mounts, vm)
 				break
 			}

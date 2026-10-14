@@ -249,7 +249,7 @@ deploy:
 When set, the function is deployed as a Kafka consumer: a language-agnostic runtime
 sidecar consumes the topic and delivers each record to the function as a CloudEvent
 over HTTP. The function stays a plain CloudEvents-over-HTTP server, so any runtime
-works; it only requires `invoke: cloudevent`. Supported on the `kubernetes` and `keda`
+works; it only requires `invoke: cloudevent`. Supported on the `raw` and `keda`
 deployers (not on `knative`).
 
 - `brokers`: comma-separated list of Kafka broker addresses.

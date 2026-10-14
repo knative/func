@@ -492,10 +492,11 @@ func TestGenerateNewService_EnvsPropagated(t *testing.T) {
 }
 
 // TestDeploy_RejectsKafka verifies the knative deployer refuses a function
-// configured with run.kafka: the Kafka runtime sidecar is only injected by the
-// keda deployer, and the in-process path is retired, so deploying on knative
-// would silently produce a function that never receives records. The rejection
-// happens before any cluster client is created, so no cluster is needed here.
+// configured with run.kafka: the Kafka runtime sidecar is injected only by the
+// raw and keda deployers, and the in-process path is retired, so deploying on
+// knative would silently produce a function that never receives records. The
+// rejection happens before any cluster client is created, so no cluster is
+// needed here.
 func TestDeploy_RejectsKafka(t *testing.T) {
 	d := NewDeployer()
 	f := fn.Function{
@@ -513,8 +514,8 @@ func TestDeploy_RejectsKafka(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected Deploy to reject a function with run.kafka, got nil error")
 	}
-	if !strings.Contains(err.Error(), "run.kafka requires deployer: keda") {
-		t.Errorf("expected a keda-deployer requirement error, got: %v", err)
+	if !strings.Contains(err.Error(), "not supported on the knative deployer") {
+		t.Errorf("expected an unsupported-on-knative-deployer error, got: %v", err)
 	}
 }
 
