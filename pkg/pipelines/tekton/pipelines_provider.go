@@ -233,6 +233,20 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, err
 	}
 
+	// The build reads the registry login from the function's registry Secret.
+	// Without a login there is no Secret to write, and the build mounts none.
+	var secretName string
+	if creds.Username != "" {
+		secret, err := k8s.NewRegistrySecret(f, creds.Username, creds.Password, registry)
+		if err != nil {
+			return "", f, fmt.Errorf("problem in creating secret: %v", err)
+		}
+		if err = k8s.EnsureSecretExist(ctx, secret, namespace); err != nil {
+			return "", f, fmt.Errorf("problem in creating secret: %v", err)
+		}
+		secretName = secret.Name
+	}
+
 	// TODO(lkingland):  This registry defaulting logic
 	// is either incorrect or in the wrong place.  At this stage of the
 	// process registry should already be defined/defaulted, and this
@@ -245,12 +259,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		f.Registry = registry
 	}
 
-	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), namespace, labels, f.Deploy.Annotations, creds.Username, creds.Password, registry)
-	if err != nil {
-		return "", f, fmt.Errorf("problem in creating secret: %v", err)
-	}
-
-	err = createAndApplyPipelineRunTemplate(f, namespace, labels)
+	err = createAndApplyPipelineRunTemplate(f, namespace, labels, secretName)
 	if err != nil {
 		return "", f, fmt.Errorf("problem in creating pipeline run: %v", err)
 	}

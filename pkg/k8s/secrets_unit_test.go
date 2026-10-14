@@ -6,10 +6,81 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"knative.dev/pkg/ptr"
+
+	fn "knative.dev/func/pkg/functions"
+	fnlabels "knative.dev/func/pkg/k8s/labels"
 )
+
+// TestNewRegistrySecret ensures NewRegistrySecret names the Secret after the
+// function, gives it the function's labels and annotations and the type
+// kubernetes.io/dockerconfigjson, and puts the login in its only data key,
+// .dockerconfigjson. func delete finds the Secret by the function name label.
+func TestNewRegistrySecret(t *testing.T) {
+	f := fn.Function{
+		Name:    "my-func",
+		Runtime: "go",
+		Deploy: fn.DeploySpec{
+			Labels:      []fn.Label{{Key: ptr.String("team"), Value: ptr.String("blue")}},
+			Annotations: map[string]string{"note": "kept"},
+		},
+	}
+	const username, password, server = "alice", "secret", "registry.example.com"
+
+	secret, err := NewRegistrySecret(f, username, password, server)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if secret.Name != "my-func-registry-auth" {
+		t.Errorf("name: got %q, want %q", secret.Name, "my-func-registry-auth")
+	}
+	if secret.Type != corev1.SecretTypeDockerConfigJson {
+		t.Errorf("type: got %q, want %q", secret.Type, corev1.SecretTypeDockerConfigJson)
+	}
+	wantLabels := map[string]string{
+		fnlabels.FunctionNameKey:    "my-func",
+		fnlabels.FunctionRuntimeKey: "go",
+		"team":                      "blue",
+	}
+	if !maps.Equal(secret.Labels, wantLabels) {
+		t.Errorf("labels: got %v, want %v", secret.Labels, wantLabels)
+	}
+	if !maps.Equal(secret.Annotations, f.Deploy.Annotations) {
+		t.Errorf("annotations: got %v, want %v", secret.Annotations, f.Deploy.Annotations)
+	}
+	want, err := HandleDockerCfgJSONContent(username, password, "", server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(secret.Data) != 1 || !bytes.Equal(secret.Data[corev1.DockerConfigJsonKey], want) {
+		t.Errorf("data: got %q, want only %s: %s", secret.Data, corev1.DockerConfigJsonKey, want)
+	}
+}
+
+// TestNewRegistrySecret_DockerHub ensures NewRegistrySecret keys a Docker Hub
+// login by https://index.docker.io/v1/, where go-containerregistry looks for
+// it, whether the registry comes as index.docker.io or as that URL.
+func TestNewRegistrySecret_DockerHub(t *testing.T) {
+	want, err := HandleDockerCfgJSONContent("alice", "secret", "", authn.DefaultAuthKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, server := range []string{name.DefaultRegistry, authn.DefaultAuthKey} {
+		secret, err := NewRegistrySecret(fn.Function{Name: "my-func"}, "alice", "secret", server)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := secret.Data[corev1.DockerConfigJsonKey]; !bytes.Equal(got, want) {
+			t.Errorf("%s: got %s, want %s", server, got, want)
+		}
+	}
+}
 
 // TestEnsureSecretExist ensures ensureSecretExist creates a missing Secret,
 // leaves an equal one alone, updates one of the same type in place, and

@@ -8,12 +8,16 @@ import (
 	"net"
 	"syscall"
 
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
+
+	fn "knative.dev/func/pkg/functions"
 )
 
 func GetSecret(ctx context.Context, name, namespaceOverride string) (*corev1.Secret, error) {
@@ -84,29 +88,36 @@ func DeleteSecrets(ctx context.Context, namespaceOverride string, listOptions me
 	return client.CoreV1().Secrets(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-// EnsureDockerRegistrySecretExist ensures a Secret holding the registry
-// credentials, of type kubernetes.io/dockerconfigjson, the standard type for
-// them, which image pull secrets require. Pipelines mount its
-// .dockerconfigjson key as the config.json the build reads.
-func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, username, password, server string) (err error) {
+// NewRegistrySecret returns the Secret holding the registry credentials of
+// function f, of type kubernetes.io/dockerconfigjson, the standard type for
+// them, which image pull secrets require. Remote builds mount its
+// .dockerconfigjson key as the config.json the build reads. All its writers
+// build it here, so none undoes another's write. The function's labels let
+// func delete remove it.
+func NewRegistrySecret(f fn.Function, username, password, server string) (corev1.Secret, error) {
+	labels, err := f.LabelsMap()
+	if err != nil {
+		return corev1.Secret{}, err
+	}
+	// go-containerregistry, which the buildpacks build uses, finds a Docker Hub
+	// login only under Docker Hub's legacy URL, as docker login writes it.
+	if server == name.DefaultRegistry {
+		server = authn.DefaultAuthKey
+	}
 	dockerConfigJSONContent, err := HandleDockerCfgJSONContent(username, password, "", server)
 	if err != nil {
-		return
+		return corev1.Secret{}, err
 	}
 
-	// Check whether we need to create or update the Secret
-	secret := corev1.Secret{
+	return corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
+			Name:        f.Name + "-registry-auth",
 			Labels:      labels,
-			Annotations: annotations,
+			Annotations: f.Deploy.Annotations,
 		},
 		Type: corev1.SecretTypeDockerConfigJson,
-		Data: map[string][]byte{},
-	}
-	secret.Data[corev1.DockerConfigJsonKey] = dockerConfigJSONContent
-
-	return EnsureSecretExist(ctx, secret, namespaceOverride)
+		Data: map[string][]byte{corev1.DockerConfigJsonKey: dockerConfigJSONContent},
+	}, nil
 }
 
 func EnsureSecretExist(ctx context.Context, secret corev1.Secret, namespaceOverride string) (err error) {

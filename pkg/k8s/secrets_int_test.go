@@ -10,19 +10,22 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
 
-// TestInt_EnsureDockerRegistrySecretExist ensures it replaces an Opaque Secret
+// TestInt_RegistrySecret ensures EnsureSecretExist replaces an Opaque Secret
 // with the registry Secret, as the API refuses to change a Secret's type, and
 // then updates it in place.
-func TestInt_EnsureDockerRegistrySecretExist(t *testing.T) {
+func TestInt_RegistrySecret(t *testing.T) {
 	cliSet, ns, err := k8s.NewClientAndResolvedNamespace("")
 	if err != nil {
 		t.Fatal(err)
 	}
 	secrets := cliSet.CoreV1().Secrets(ns)
-	name := "testing-registry-secret-" + rand.String(5)
+	f := fn.Function{Name: "testing-" + rand.String(5)}
+	name := f.Name + "-registry-auth"
 
 	_, err = secrets.Create(t.Context(), &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -38,7 +41,11 @@ func TestInt_EnsureDockerRegistrySecretExist(t *testing.T) {
 
 	const server, username = "registry.example.com", "alice"
 	for _, password := range []string{"first", "second"} {
-		if err = k8s.EnsureDockerRegistrySecretExist(t.Context(), name, ns, nil, nil, username, password, server); err != nil {
+		secret, err := k8s.NewRegistrySecret(f, username, password, server)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = k8s.EnsureSecretExist(t.Context(), secret, ns); err != nil {
 			t.Fatal(err)
 		}
 		s, err := secrets.Get(t.Context(), name, metav1.GetOptions{})
