@@ -2538,8 +2538,24 @@ func TestFingerprint_FuncIgnoreComments(t *testing.T) {
 		t.Fatal("commenting out a pattern did not restore the file to the fingerprint")
 	}
 
-	// Modifying notes.txt should now change the fingerprint (it is tracked again)
-	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("changed"), 0644); err != nil {
+	// Modifying notes.txt should now change the fingerprint (it is tracked again).
+	// Fingerprint keys off each file's mtime, so force a distinctly later mtime
+	// rather than relying on the rewrite landing in a new mtime tick: on coarse-
+	// granularity filesystems (seen on CI) the rewrite can reuse the previous
+	// stamp, leaving the fingerprint unchanged and flaking the test. Derive the
+	// new stamp from the file's own post-write mtime plus a 10s offset -- well
+	// beyond any real filesystem's timestamp resolution (FAT's 2s is the coarsest
+	// in practice) -- so the stored mtime is guaranteed to land in a later bucket.
+	notes := filepath.Join(root, "notes.txt")
+	if err := os.WriteFile(notes, []byte("changed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(notes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	later := info.ModTime().Add(10 * time.Second)
+	if err := os.Chtimes(notes, later, later); err != nil {
 		t.Fatal(err)
 	}
 	hashModified, _, err := fn.Fingerprint(root)
