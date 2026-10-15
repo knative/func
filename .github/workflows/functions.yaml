@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
 
       - name: Check and Lint
@@ -90,7 +90,7 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --global core.autocrlf false
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
 
       - name: Run Unit Tests
@@ -124,20 +124,20 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --global core.autocrlf false
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
 
         # Toolchains
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -165,7 +165,7 @@ jobs:
       FUNC_INT_PAC_HOST: pac-ctr.localtest.me
       KUBECONFIG: ${{github.workspace}}/hack/bin/kubeconfig.yaml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -202,7 +202,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-integration
           path: ./cluster_log.txt
@@ -223,7 +223,7 @@ jobs:
       FUNC_E2E_VERBOSE: true
       FUNC_CLUSTER_KEDA: "false" # these tests don't use KEDA; skip it to free cluster CPU (PR #3914 'Insufficient cpu')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -256,7 +256,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-e2e-core
           path: ./cluster_log.txt
@@ -286,7 +286,7 @@ jobs:
       # why it is off by default.
       FUNC_CLUSTER_KEDA: "false"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -319,7 +319,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-e2e-expose
           path: ./cluster_log.txt
@@ -344,7 +344,7 @@ jobs:
       FUNC_E2E_CLEAN: false # cluster only used once
       FUNC_E2E_VERBOSE: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
 
       - uses: endersonmenezes/free-disk-space@v3
@@ -379,7 +379,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-${{ matrix.os }}-podman
           path: ./cluster_log.txt
@@ -410,7 +410,7 @@ jobs:
       FUNC_E2E_VERBOSE: true
       FUNC_E2E_MATRIX_RUNTIMES: ${{ matrix.runtime }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -423,17 +423,17 @@ jobs:
         # Install Toolchain Being Tested
       - name: Setup Python
         if: matrix.runtime == 'python'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Setup Node.js
         if: matrix.runtime == 'node' || matrix.runtime == 'typescript'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Setup Java
         if: matrix.runtime == 'quarkus' || matrix.runtime == 'springboot'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -466,7 +466,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-${{ matrix.runtime }}
           path: ./cluster_log.txt
@@ -485,7 +485,7 @@ jobs:
       FUNC_E2E_CLEAN: false
       FUNC_E2E_VERBOSE: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -518,7 +518,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-e2e-config-ci
           path: ./cluster_log.txt
@@ -540,41 +540,41 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - name: Build Platform Binaries
         run: make cross-platform
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: OSX Binary (AMD)
           path: func_darwin_amd64
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: OSX Binary (ARM)
           path: func_darwin_arm64
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Linux Binary (AMD)
           path: func_linux_amd64
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Linux Binary (ARM)
           path: func_linux_arm64
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Linux Binary (PPC64LE)
           path: func_linux_ppc64le
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Linux Binary (S390X)
           path: func_linux_s390x
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Windows Binary
           path: func_windows_amd64.exe
@@ -586,7 +586,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: docker/setup-qemu-action@v3
       - name: Login to GitHub Container Registry
@@ -629,7 +629,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: imjasonh/setup-ko@v0.6
       - run: ko build --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 -B ./cmd/func
