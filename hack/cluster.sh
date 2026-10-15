@@ -854,10 +854,13 @@ spec:
       - id: 0
         type: ephemeral
         kraftMetadata: shared
+  # Memory-bounded but no CPU request: the single-node CI cluster is already
+  # near its CPU-reservation ceiling (KEDA's HTTP add-on pods go Pending with
+  # "Insufficient cpu" otherwise), and an idle test broker needs little CPU, so
+  # let it run on overcommit rather than reserving a slice KEDA needs.
   resources:
     requests:
       memory: 512Mi
-      cpu: 250m
     limits:
       memory: 1Gi
 ---
