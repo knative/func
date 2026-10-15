@@ -830,7 +830,7 @@ kafka() {
   local operator_url="https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml"
   curl -sL "${operator_url}" | sed 's/namespace: myproject/namespace: kafka/' | $KUBECTL apply --server-side -n kafka -f -
   echo "Waiting for the Strimzi cluster operator to become ready"
-  $KUBECTL wait deployment/strimzi-cluster-operator --timeout=-1s --for=condition=Available --namespace kafka
+  $KUBECTL wait deployment/strimzi-cluster-operator --timeout=300s --for=condition=Available --namespace kafka
 
   # Single-node KRaft broker with a TLS + SCRAM-SHA-512 listener on 9093. No
   # authorizer is configured, so an authenticated user may read any topic/group.
@@ -854,6 +854,12 @@ spec:
       - id: 0
         type: ephemeral
         kraftMetadata: shared
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
 ---
 apiVersion: kafka.strimzi.io/v1
 kind: Kafka
@@ -876,12 +882,6 @@ spec:
       transaction.state.log.min.isr: 1
       default.replication.factor: 1
       min.insync.replicas: 1
-    resources:
-      requests:
-        memory: 512Mi
-        cpu: 250m
-      limits:
-        memory: 1Gi
     jvmOptions:
       -Xms: 512m
       -Xmx: 512m
@@ -910,10 +910,13 @@ spec:
     type: scram-sha-512
 EOF
 
+  # Bounded timeouts so a provisioning failure surfaces quickly rather than
+  # hanging the whole CI job (a prior run wedged for 2h on an unbounded wait
+  # for a Kafka CR that strict schema validation had rejected).
   echo "Waiting for the Kafka cluster to become ready"
-  $KUBECTL wait kafka/func-kafka --timeout=-1s --for=condition=Ready --namespace kafka
-  $KUBECTL wait kafkatopic/test-topic --timeout=-1s --for=condition=Ready --namespace kafka
-  $KUBECTL wait kafkauser/test-kafka-user --timeout=-1s --for=condition=Ready --namespace kafka
+  $KUBECTL wait kafka/func-kafka --timeout=600s --for=condition=Ready --namespace kafka
+  $KUBECTL wait kafkatopic/test-topic --timeout=300s --for=condition=Ready --namespace kafka
+  $KUBECTL wait kafkauser/test-kafka-user --timeout=300s --for=condition=Ready --namespace kafka
 
   $KUBECTL get pod -n kafka
   echo "${green}✅ Kafka (Strimzi)${reset}"
