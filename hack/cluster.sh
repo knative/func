@@ -86,11 +86,26 @@ allocate_cluster() {
   echo "fop:  Func Operator"
   echo ""
 
-  ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
-  ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
-  ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
-  ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
-  ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
+  # Each core component is opt-out (default on). A focused job can skip the ones
+  # it does not need to free the single kind node's scarce CPU/memory -- e.g. the
+  # slim Kafka integration job installs only KEDA + Kafka + the registry mirror.
+  if [ "${FUNC_CLUSTER_SERVING:-true}" = "true" ]; then
+    ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
+  fi
+  if [ "${FUNC_CLUSTER_EVENTING:-true}" = "true" ]; then
+    ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
+  fi
+  # The in-cluster registry backs the containerd localhost:5000 mirror (via
+  # hostPort), so most jobs need it even when they do not build images.
+  if [ "${FUNC_CLUSTER_REGISTRY:-true}" = "true" ]; then
+    ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
+  fi
+  if [ "${FUNC_CLUSTER_DAPR:-true}" = "true" ]; then
+    ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
+  fi
+  if [ "${FUNC_CLUSTER_TEKTON:-true}" = "true" ]; then
+    ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
+  fi
   # KEDA is opt-out (default on). Skipped when FUNC_CLUSTER_KEDA=false to free
   # CPU reservation for jobs that don't use it (e.g. Core/Metadata/Remote e2e).
   # FUNC_CLUSTER_KEDA is the same env var bound by `func cluster create --keda`.
@@ -103,15 +118,20 @@ allocate_cluster() {
   if [ "${FUNC_CLUSTER_KAFKA:-false}" = "true" ]; then
     ( set -o pipefail; kafka 2>&1 | sed  -e 's/^/kfk /')&
   fi
-  ( set -o pipefail; func_operator 2>&1 | sed  -e 's/^/fop /')&
+  if [ "${FUNC_CLUSTER_FUNC_OPERATOR:-true}" = "true" ]; then
+    ( set -o pipefail; func_operator 2>&1 | sed  -e 's/^/fop /')&
+  fi
 
   local job
   for job in $(jobs -p); do
     wait "$job"
   done
 
-  # Configure magic DNS for localtest.me after all services are up
-  magic_dns
+  # Magic DNS only matters for in-cluster resolution of *.localtest.me (knative
+  # routes); it is a serving concern, so skip it when serving is not installed.
+  if [ "${FUNC_CLUSTER_SERVING:-true}" = "true" ]; then
+    magic_dns
+  fi
 
   next_steps
 

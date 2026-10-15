@@ -318,6 +318,10 @@ templates/certs/ca-certificates.crt:
 test-integration: ## Run integration tests using an available cluster.
 	go test -cover -coverprofile=coverage.txt -tags integration -timeout 60m ./... -v -run TestInt_
 
+.PHONY: test-integration-kafka
+test-integration-kafka: ## Run the Kafka integration test (needs a cluster with KEDA + a Kafka broker).
+	go test -cover -coverprofile=coverage.txt -tags integration_kafka -timeout 30m ./pkg/keda/... -v -run TestInt_Kafka
+
 .PHONY: test-e2e
 test-e2e: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
 	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
