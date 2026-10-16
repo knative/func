@@ -208,6 +208,67 @@ jobs:
           path: ./cluster_log.txt
           retention-days: 7
 
+  # -----------------------
+  # KAFKA INTEGRATION TESTS
+  # -----------------------
+  # Exercises the run.kafka path end to end against a real Strimzi broker. It
+  # runs on its own slim cluster (only KEDA + Kafka + the registry mirror) so a
+  # real Kafka broker fits on the single kind node without competing for CPU
+  # with the full integration suite's components.
+  test-integration-kafka:
+    name: Kafka Integration Tests
+    needs: precheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FUNC_CLUSTER_RETRIES: 5
+      # Slim cluster: install only what the Kafka test needs. KEDA creates the
+      # ScaledObject/TriggerAuthentication, the broker serves run.kafka, and the
+      # registry backs the containerd image mirror. Everything else is off.
+      FUNC_CLUSTER_KAFKA: "true"
+      FUNC_CLUSTER_KEDA: "true"
+      FUNC_CLUSTER_SERVING: "false"
+      FUNC_CLUSTER_EVENTING: "false"
+      FUNC_CLUSTER_DAPR: "false"
+      FUNC_CLUSTER_TEKTON: "false"
+      FUNC_CLUSTER_FUNC_OPERATOR: "false"
+      KUBECONFIG: ${{github.workspace}}/hack/bin/kubeconfig.yaml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - uses: endersonmenezes/free-disk-space@v3
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_haskell: true
+          remove_swap: true
+          rm_cmd: "rmz" # Faster than rm
+
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/cluster.sh
+
+      - name: Run Kafka Integration Tests
+        run: make test-integration-kafka
+
+      - uses: ./.github/actions/codecov
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: integration
+
+      # Preserve Cluster Logs
+      - name: Dump Cluster Logs
+        if: always()
+        run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Archive Cluster Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs-integration-kafka
+          path: ./cluster_log.txt
+          retention-days: 7
+
   # ---------
   # E2E TESTS
   # ---------

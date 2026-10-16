@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration_kafka
 
 package keda_test
 
@@ -21,6 +21,19 @@ import (
 	testingk8s "knative.dev/func/pkg/testing/k8s"
 )
 
+// Kafka cluster provisioned by hack/cluster.sh when FUNC_CLUSTER_KAFKA=true:
+// a single-node Strimzi broker named func-kafka in the kafka namespace, with a
+// TLS + SCRAM-SHA-512 listener on 9093, a test-topic topic, and a test-kafka-user
+// user. The operator publishes the cluster CA cert and the user's SASL password
+// as secrets, which this test copies into the per-test namespace.
+const (
+	kafkaNamespace      = "kafka"
+	kafkaClusterName    = "func-kafka"
+	kafkaBootstrap      = kafkaClusterName + "-kafka-bootstrap." + kafkaNamespace + ".svc:9093"
+	kafkaCASecretName   = kafkaClusterName + "-cluster-ca-cert"
+	kafkaUserSecretName = "test-kafka-user"
+)
+
 var (
 	scaledObjectGVR = schema.GroupVersionResource{
 		Group:    "keda.sh",
@@ -40,9 +53,14 @@ var (
 // verifies that the deployer creates a ScaledObject and TriggerAuthentication
 // with the expected spec, and that both are cleaned up on removal.
 //
-// This does not require a reachable Kafka broker: KEDA admits and reconciles
-// the ScaledObject as long as the trigger metadata is well-formed, regardless
-// of whether it can actually reach the broker to read lag.
+// This requires a reachable Kafka broker. Deploy readiness is gated on the
+// injected Kafka runtime sidecar connecting to the broker and getting partitions
+// assigned (its readiness probe only reports ready once the consumer joins the
+// group), so a function pointed at an unreachable broker never becomes ready and
+// the deploy times out. The test therefore points the function at the real
+// Strimzi broker and copies its CA cert and SASL password into the test
+// namespace so the sidecar can authenticate (SCRAM-SHA-512 over TLS). No messages
+// are produced: partition assignment alone satisfies readiness.
 func TestInt_KafkaScaling(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	t.Cleanup(cancel)
@@ -55,11 +73,16 @@ func TestInt_KafkaScaling(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Copy the broker's CA cert and the user's SASL password from the operator-
+	// managed secrets in the kafka namespace into the per-test namespace, so the
+	// sidecar can actually authenticate against the real broker.
+	caCert := readClusterSecretKey(t, ctx, cliSet, kafkaNamespace, kafkaCASecretName, "ca.crt")
 	caSecretName := name + "-ca"
-	createSecretForTest(t, ctx, cliSet, ns, caSecretName, map[string][]byte{"ca.crt": []byte("placeholder-ca-cert")})
+	createSecretForTest(t, ctx, cliSet, ns, caSecretName, map[string][]byte{"ca.crt": caCert})
 
+	saslPassword := readClusterSecretKey(t, ctx, cliSet, kafkaNamespace, kafkaUserSecretName, "password")
 	userSecretName := name + "-user"
-	createSecretForTest(t, ctx, cliSet, ns, userSecretName, map[string][]byte{"password": []byte("placeholder-password")})
+	createSecretForTest(t, ctx, cliSet, ns, userSecretName, map[string][]byte{"password": saslPassword})
 
 	minScale := int64(0)
 	maxScale := int64(10)
@@ -90,7 +113,7 @@ func TestInt_KafkaScaling(t *testing.T) {
 		},
 		Run: fn.RunSpec{
 			Kafka: &fn.KafkaConfig{
-				Brokers:          "placeholder-kafka-bootstrap." + ns + ".svc:9093",
+				Brokers:          kafkaBootstrap,
 				Topic:            "test-topic",
 				ConsumerGroup:    name + "-group",
 				SecurityProtocol: "SASL_SSL",
@@ -219,6 +242,23 @@ func createSecretForTest(t *testing.T, ctx context.Context, cliSet *kubernetes.C
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// readClusterSecretKey reads a single key from a secret the Strimzi operator
+// publishes in the kafka namespace. A missing secret means the Kafka broker was
+// not provisioned (hack/cluster.sh with FUNC_CLUSTER_KAFKA=true), which is a
+// setup error for this test rather than a product failure.
+func readClusterSecretKey(t *testing.T, ctx context.Context, cliSet *kubernetes.Clientset, ns, name, key string) []byte {
+	t.Helper()
+	s, err := cliSet.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("reading secret %s/%s (is Kafka installed? set FUNC_CLUSTER_KAFKA=true): %v", ns, name, err)
+	}
+	v, ok := s.Data[key]
+	if !ok {
+		t.Fatalf("secret %s/%s has no key %q", ns, name, key)
+	}
+	return v
 }
 
 func ptrTo[T any](v T) *T {

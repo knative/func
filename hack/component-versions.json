@@ -29,6 +29,9 @@
 		"owner": "knative",
 		"repo": "serving"
 	},
+	"Strimzi": {
+		"version": "1.3.0"
+	},
 	"Tekton": {
 		"version": "v1.1.0"
 	}
