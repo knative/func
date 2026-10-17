@@ -1,0 +1,30 @@
+name: Throwaway Cut Test
+
+# Temporary. Shows which events fire when a branch is created at an existing
+# commit, the way a release branch is cut. The paths-ignore list copies
+# functions.yaml and adds this file, so the test branch differs from main only
+# in ignored files, like a real cut. Delete with the test-throwaway-gauron99*
+# branches.
+
+on:
+  push:
+    branches:
+      - 'test-throwaway-gauron99-cut*'
+    paths-ignore:
+      - 'docs/**/*.md'
+      - '*.md'
+      - 'OWNERS'
+      - 'OWNERS_ALIASES'
+      - 'LICENSE'
+      - '.github/workflows/test-throwaway-cut.yaml'
+  create:
+
+permissions: {}
+
+jobs:
+  report:
+    if: startsWith(github.ref, 'refs/heads/test-throwaway-gauron99-cut')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "event=${GITHUB_EVENT_NAME} ref=${GITHUB_REF} sha=${GITHUB_SHA}"
