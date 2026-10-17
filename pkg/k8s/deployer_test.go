@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -19,6 +20,7 @@ import (
 	dynamicfakeclient "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/utils/ptr"
 	"knative.dev/func/pkg/deployer"
 	fn "knative.dev/func/pkg/functions"
 )
@@ -1426,4 +1428,131 @@ func Test_preserveDeploymentSelector(t *testing.T) {
 			t.Error("expected the domain to stay out of the selector")
 		}
 	})
+}
+
+func TestPreserveServiceNetworkFields(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing *corev1.Service
+	}{
+		{
+			name: "IPv4 single-stack",
+			existing: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Type:           corev1.ServiceTypeClusterIP,
+					ClusterIP:      "10.96.1.42",
+					ClusterIPs:     []string{"10.96.1.42"},
+					IPFamilies:     []corev1.IPFamily{corev1.IPv4Protocol},
+					IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicySingleStack),
+				},
+			},
+		},
+		{
+			name: "IPv6 single-stack",
+			existing: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Type:           corev1.ServiceTypeClusterIP,
+					ClusterIP:      "fd00::1:42",
+					ClusterIPs:     []string{"fd00::1:42"},
+					IPFamilies:     []corev1.IPFamily{corev1.IPv6Protocol},
+					IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicySingleStack),
+				},
+			},
+		},
+		{
+			name: "dual-stack",
+			existing: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Type:           corev1.ServiceTypeClusterIP,
+					ClusterIP:      "10.96.1.42",
+					ClusterIPs:     []string{"10.96.1.42", "fd00::1:42"},
+					IPFamilies:     []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+					IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			target := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "my-func",
+					Namespace:   "default",
+					Labels:      map[string]string{"new": "label"},
+					Annotations: map[string]string{"new": "annotation"},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeClusterIP,
+					Selector: map[string]string{"new": "selector"},
+					Ports: []corev1.ServicePort{
+						{Name: "http", Port: 8080, Protocol: corev1.ProtocolTCP},
+					},
+				},
+			}
+
+			preserveServiceNetworkFields(target, tt.existing)
+
+			if target.Spec.ClusterIP != tt.existing.Spec.ClusterIP {
+				t.Errorf("expected ClusterIP %q, got %q", tt.existing.Spec.ClusterIP, target.Spec.ClusterIP)
+			}
+			if !reflect.DeepEqual(target.Spec.ClusterIPs, tt.existing.Spec.ClusterIPs) {
+				t.Errorf("expected ClusterIPs %v, got %v", tt.existing.Spec.ClusterIPs, target.Spec.ClusterIPs)
+			}
+			if !reflect.DeepEqual(target.Spec.IPFamilies, tt.existing.Spec.IPFamilies) {
+				t.Errorf("expected IPFamilies %v, got %v", tt.existing.Spec.IPFamilies, target.Spec.IPFamilies)
+			}
+			if !reflect.DeepEqual(target.Spec.IPFamilyPolicy, tt.existing.Spec.IPFamilyPolicy) {
+				t.Errorf("expected IPFamilyPolicy %v, got %v", tt.existing.Spec.IPFamilyPolicy, target.Spec.IPFamilyPolicy)
+			}
+
+			// Mutable fields already present on target must remain unchanged
+			if target.Labels["new"] != "label" {
+				t.Errorf("expected target labels unchanged, got %v", target.Labels)
+			}
+			if target.Annotations["new"] != "annotation" {
+				t.Errorf("expected target annotations unchanged, got %v", target.Annotations)
+			}
+			if target.Spec.Selector["new"] != "selector" {
+				t.Errorf("expected target selector unchanged, got %v", target.Spec.Selector)
+			}
+			if len(target.Spec.Ports) != 1 || target.Spec.Ports[0].Port != 8080 {
+				t.Errorf("expected target ports unchanged, got %v", target.Spec.Ports)
+			}
+		})
+	}
+}
+
+func TestGenerateServiceLeavesNetworkFieldsUnset(t *testing.T) {
+	d := &Deployer{}
+	f := fn.Function{
+		Name:    "test-func",
+		Runtime: "go",
+	}
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-func",
+			UID:  "test-uid",
+		},
+	}
+
+	labels, anns := testMeta(t, f)
+	svc, err := d.generateService(f, "default", labels, anns, deployment, nil)
+	if err != nil {
+		t.Fatalf("generateService failed: %v", err)
+	}
+
+	// For new service creation, ClusterIP must be left unset so Kubernetes can allocate it
+	if svc.Spec.ClusterIP != "" {
+		t.Errorf("expected empty ClusterIP on newly generated service, got %q", svc.Spec.ClusterIP)
+	}
+	if svc.Spec.ClusterIPs != nil {
+		t.Errorf("expected nil ClusterIPs on newly generated service, got %v", svc.Spec.ClusterIPs)
+	}
+	if svc.Spec.IPFamilies != nil {
+		t.Errorf("expected nil IPFamilies on newly generated service, got %v", svc.Spec.IPFamilies)
+	}
+	if svc.Spec.IPFamilyPolicy != nil {
+		t.Errorf("expected nil IPFamilyPolicy on newly generated service, got %v", svc.Spec.IPFamilyPolicy)
+	}
 }
