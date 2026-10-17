@@ -1614,6 +1614,46 @@ func TestClient_Deploy_InvalidExposeErrors(t *testing.T) {
 	}
 }
 
+// TestClient_Deploy_InvalidFunctionErrors ensures Deploy validates the function
+// before any deployer runs, so library callers that never call
+// Function.Validate get the same rejection as the CLI.
+func TestClient_Deploy_InvalidFunctionErrors(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	deployer := mock.NewDeployer()
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(deployer))
+
+	f, err := client.Init(fn.Function{Runtime: TestRuntime, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Namespace = TestNamespace
+	// Invalid: scale.max is lower than scale.min.
+	min, max := int64(5), int64(1)
+	f.Scale = &fn.ScaleOptions{Min: &min, Max: &max}
+
+	_, err = client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
+	if err == nil {
+		t.Fatal("expected an invalid function to be refused")
+	}
+	if !strings.Contains(err.Error(), "scale.max must be >= scale.min") {
+		t.Fatalf("expected a validation error, got: %v", err)
+	}
+	if deployer.DeployInvoked {
+		t.Fatal("deployer was invoked for an invalid function")
+	}
+
+	// The same function, once valid, reaches the deployer.
+	max = 10
+	if _, err = client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true)); err != nil {
+		t.Fatal(err)
+	}
+	if !deployer.DeployInvoked {
+		t.Fatal("deployer was not invoked for a valid function")
+	}
+}
+
 // TestClient_Deploy_UnbuiltErrors ensures that a call to deploy a function
 // which was not fully created (ie. was only initialized, not actually built
 // or deployed) yields the expected error.
@@ -2808,6 +2848,8 @@ func TestClient_Deploy_BlocksScalerSwitch(t *testing.T) {
 
 			f := fn.Function{
 				Name:      "f",
+				Runtime:   "go",
+				Invoke:    "cloudevent",
 				Namespace: "ns",
 				Deployer:  deployers.Keda,
 				Scale:     scale(tt.requested),
@@ -2850,6 +2892,8 @@ func TestClient_Deploy_PersistsSelfReportedScalerType(t *testing.T) {
 
 	f := fn.Function{
 		Name:      "f",
+		Runtime:   "go",
+		Invoke:    "cloudevent",
 		Namespace: "ns",
 		Deployer:  deployers.Keda,
 		Scale:     &fn.ScaleOptions{KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "kafka"}}}},

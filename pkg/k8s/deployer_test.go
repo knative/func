@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"math"
 	"os"
 	"strings"
 	"testing"
@@ -177,15 +176,10 @@ func Test_generateDeployment_ImagePullSecret(t *testing.T) {
 }
 
 // generateDeployment narrows scale.min (int64) to the Deployment's int32
-// replica count. Function.Validate rejects out-of-range values, but Deploy is
-// reachable without it, so generateDeployment guards the narrowing itself:
-// negative values (which would otherwise be silently normalized to one replica)
-// and values above int32 (which would wrap) are rejected, while valid values
-// map straight through.
+// replica count. Out-of-range values are rejected earlier by Function.Validate;
+// valid values map straight through.
 func Test_generateDeployment_ScaleMinBounds(t *testing.T) {
 	d := &Deployer{}
-	overflow := int64(math.MaxInt32) + 1
-	negative := int64(-1)
 	valid := int64(3)
 
 	newFunc := func(min *int64) fn.Function {
@@ -199,22 +193,6 @@ func Test_generateDeployment_ScaleMinBounds(t *testing.T) {
 		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
 		labels, anns := testMeta(t, f)
 		return d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
-	}
-
-	for _, tt := range []struct {
-		name string
-		min  *int64
-	}{
-		{"overflow", &overflow},
-		{"negative", &negative},
-	} {
-		t.Run(tt.name+" rejected", func(t *testing.T) {
-			if _, err := gen(newFunc(tt.min)); err == nil ||
-				!strings.Contains(err.Error(), "scale.min") ||
-				!strings.Contains(err.Error(), "out of range") {
-				t.Fatalf("expected out-of-range scale.min error, got %v", err)
-			}
-		})
 	}
 
 	t.Run("valid min sets replicas", func(t *testing.T) {
