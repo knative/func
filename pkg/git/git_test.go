@@ -74,6 +74,51 @@ func TestGitProviderName(t *testing.T) {
 			wantErr:      false,
 		},
 		{
+			name:         "GitLab repository path contains GitHub",
+			url:          "https://gitlab.com/foo/github-actions",
+			wantProvider: GitLabProvider,
+			wantErr:      false,
+		},
+		{
+			name:         "GitHub repository path contains GitLab",
+			url:          "https://github.com/foo/gitlab-runner",
+			wantProvider: GitHubProvider,
+			wantErr:      false,
+		},
+		{
+			name:         "GitHub SSH",
+			url:          "git@github.com:foo/bar.git",
+			wantProvider: GitHubProvider,
+			wantErr:      false,
+		},
+		{
+			name:         "GitLab SCP repository path contains GitHub",
+			url:          "git@gitlab.com:foo/github-actions.git",
+			wantProvider: GitLabProvider,
+			wantErr:      false,
+		},
+		{
+			name:    "Provider name only in path - not supported",
+			url:     "https://example.com/foo/github-actions",
+			wantErr: true,
+		},
+		{
+			name:    "Provider name only in username - not supported",
+			url:     "https://github@example.com/foo/bar",
+			wantErr: true,
+		},
+		{
+			name:    "Provider name is not a complete host label - not supported",
+			url:     "https://notgithub.example.com/foo/bar",
+			wantErr: true,
+		},
+		{
+			name:         "Uppercase GitLab host",
+			url:          "https://GITLAB.COM/foo/bar",
+			wantProvider: GitLabProvider,
+			wantErr:      false,
+		},
+		{
 			name: "Bitbucket Cloud - not supported",
 			url:  "https://bitbucket.com/foo/bar",
 			//wantProvider: BitBucketProvider,
