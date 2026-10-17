@@ -11,11 +11,6 @@ import (
 // SeccompProfile is set at both pod and container level (see defaultSecurityContext)
 // as defence-in-depth: pod-level covers all containers by default, container-level
 // ensures compliance even if a pod-level context is ever overridden downstream.
-//
-// RunAsGroup: 0 (root group) is retained on non-OpenShift to preserve compatibility
-// with Tekton buildpack tasks that mount volumes with group ownership 0.
-// This does not violate the restricted profile (which checks UID, not GID) but is
-// tracked for remediation in https://github.com/knative/func/issues/3517.
 func defaultPodSecurityContext() *corev1.PodSecurityContext {
 	runAsNonRoot := true
 	seccompProfile := &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}
@@ -31,8 +26,8 @@ func defaultPodSecurityContext() *corev1.PodSecurityContext {
 	}
 
 	runAsUser := int64(1001)
-	runAsGroup := int64(0) // Match Tekton buildpack task group; see doc comment above.
-	fsGroup := int64(1002) // Keep FSGroup for volume ownership
+	runAsGroup := int64(1001) // Use non-root group for better security
+	fsGroup := int64(1002)    // Keep FSGroup for volume ownership
 	return &corev1.PodSecurityContext{
 		RunAsNonRoot:   &runAsNonRoot,
 		SeccompProfile: seccompProfile,
