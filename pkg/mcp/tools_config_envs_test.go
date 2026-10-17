@@ -556,6 +556,99 @@ func TestTool_ConfigEnvsRemove(t *testing.T) {
 	}
 }
 
+// TestTool_ConfigEnvsAdd_BulkImport ensures the config_envs_add tool accepts calls without name
+// for bulk-import syntax (e.g. value='{{ secret:mySecret }}').
+func TestTool_ConfigEnvsAdd_BulkImport(t *testing.T) {
+	executor := mock.NewExecutor()
+	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
+		return []byte("Environment variables imported successfully\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_add",
+		Arguments: map[string]any{"path": ".", "value": "{{ secret:mySecret }}"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("bulk-import without name must succeed: %v", result)
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_ConfigEnvsAdd_MissingValue ensures the config_envs_add tool rejects calls without value.
+func TestTool_ConfigEnvsAdd_MissingValue(t *testing.T) {
+	executor := mock.NewExecutor()
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_add",
+		Arguments: map[string]any{"path": ".", "name": "API_KEY"},
+	})
+	// Schema validation may produce a protocol-level error or a tool-level error result.
+	if err == nil && !result.IsError {
+		t.Fatal("expected error when value is missing")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when required fields are absent")
+	}
+}
+
+// TestTool_ConfigEnvsRemove_EmptyName ensures the config_envs_remove tool rejects an empty name.
+func TestTool_ConfigEnvsRemove_EmptyName(t *testing.T) {
+	executor := mock.NewExecutor()
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_remove",
+		Arguments: map[string]any{"path": ".", "name": ""},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result when name is empty")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when name is empty")
+	}
+}
+
+// TestTool_ConfigEnvsRemove_MissingName ensures the config_envs_remove tool rejects calls without name.
+func TestTool_ConfigEnvsRemove_MissingName(t *testing.T) {
+	executor := mock.NewExecutor()
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_remove",
+		Arguments: map[string]any{"path": "."},
+	})
+	// Schema validation may produce a protocol-level error or a tool-level error result.
+	if err == nil && !result.IsError {
+		t.Fatal("expected error when name is missing")
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor must not be invoked when required fields are absent")
+	}
+}
+
 // TestTool_ConfigEnvsList_Error ensures the config_envs_list tool propagates executor errors.
 func TestTool_ConfigEnvsList_Error(t *testing.T) {
 	executor := mock.NewExecutor()
@@ -594,13 +687,16 @@ func TestTool_ConfigEnvsAdd_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_envs_add",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": ".", "name": "API_KEY", "value": "secret123"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !result.IsError {
 		t.Fatal("expected error result, got success")
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
 	}
 }
 
@@ -618,12 +714,15 @@ func TestTool_ConfigEnvsRemove_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_envs_remove",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": ".", "name": "API_KEY"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !result.IsError {
 		t.Fatal("expected error result, got success")
+	}
+	if !executor.ExecuteInvoked {
+		t.Fatal("executor was not invoked")
 	}
 }
