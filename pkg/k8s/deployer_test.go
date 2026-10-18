@@ -1879,3 +1879,29 @@ func Test_createEnvVarSource_EmptyKey(t *testing.T) {
 		t.Fatal("expected error for empty source key")
 	}
 }
+
+func Test_preserveAutoscaledReplicas(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		existing *appsv1.Deployment
+		desired  int32
+		max      *int64
+		want     int32
+	}{
+		{"live count", &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: new(int32(6))}}, 1, nil, 6},
+		{"zero becomes one", &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: new(int32(0))}}, 1, nil, 1},
+		{"raised minimum", &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: new(int32(2))}}, 5, nil, 5},
+		{"lowered maximum", &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: new(int32(8))}}, 1, new(int64(3)), 3},
+		{"zero maximum ignored", &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: new(int32(6))}}, 1, new(int64(0)), 6},
+		{"nil replicas", &appsv1.Deployment{}, 5, nil, 5},
+		{"nil deployment", nil, 5, nil, 5},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			desired := &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: &tt.desired}}
+			preserveAutoscaledReplicas(tt.existing, desired, fn.Function{Scale: &fn.ScaleOptions{Max: tt.max}})
+			if got := *desired.Spec.Replicas; got != tt.want {
+				t.Errorf("replicas = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
