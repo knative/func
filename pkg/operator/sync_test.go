@@ -2,6 +2,14 @@ package operator
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -272,5 +280,83 @@ func TestSyncFunctionCR_NoRepoURL_SkipsWithMessage(t *testing.T) {
 	}
 	if len(list.Items) != 0 {
 		t.Fatalf("expected no Function CRs, got %d", len(list.Items))
+	}
+}
+
+// TestSyncFunctionCR_PrintsServerWarnings ensures a warning the API server
+// returns for the CR, such as a field the cluster's CRD drops, is printed to
+// stderr rather than lost.
+func TestSyncFunctionCR_PrintsServerWarnings(t *testing.T) {
+	const warning = `unknown field "spec.repository.branch"`
+	gv := v1alpha1.GroupVersion.String()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api":
+			_ = json.NewEncoder(w).Encode(metav1.APIVersions{})
+		case r.URL.Path == "/apis":
+			version := metav1.GroupVersionForDiscovery{GroupVersion: gv, Version: v1alpha1.GroupVersion.Version}
+			_ = json.NewEncoder(w).Encode(metav1.APIGroupList{Groups: []metav1.APIGroup{{
+				Name:             v1alpha1.GroupVersion.Group,
+				Versions:         []metav1.GroupVersionForDiscovery{version},
+				PreferredVersion: version,
+			}}})
+		case r.URL.Path == "/apis/"+gv:
+			_ = json.NewEncoder(w).Encode(metav1.APIResourceList{
+				GroupVersion: gv,
+				APIResources: []metav1.APIResource{{Name: "functions", Kind: "Function", Namespaced: true}},
+			})
+		case r.Method == http.MethodGet:
+			_, _ = io.WriteString(w, `{"apiVersion":"`+gv+`","kind":"FunctionList","items":[]}`)
+		case r.Method == http.MethodPost:
+			w.Header().Set("Warning", "299 - "+strconv.Quote(warning))
+			w.WriteHeader(http.StatusCreated)
+			_, _ = io.Copy(w, r.Body)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	kubeconfig := filepath.Join(t.TempDir(), "kubeconfig")
+	err := os.WriteFile(kubeconfig, []byte(`apiVersion: v1
+kind: Config
+clusters:
+- name: test
+  cluster:
+    server: `+srv.URL+`
+contexts:
+- name: test
+  context:
+    cluster: test
+current-context: test
+`), 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KUBECONFIG", kubeconfig)
+
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	err = SyncFunctionCR(context.Background(), SyncConfig{
+		FunctionName: "my-func",
+		Namespace:    "default",
+		RepoURL:      "https://github.com/alice/my-func.git",
+		RepoRevision: "main",
+		RepoDir:      ".",
+	})
+
+	w.Close()
+	os.Stderr = old
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output, _ := io.ReadAll(r)
+	if !strings.Contains(string(output), "Warning: "+warning) {
+		t.Fatalf("expected server warning on stderr, got:\n%s", output)
 	}
 }
