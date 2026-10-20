@@ -1016,7 +1016,7 @@ func warnScaleKpaIgnore(w io.Writer, scale *fn.ScaleOptions, deployer string) {
 // func.yaml committed there.
 var gitFlags = []string{"remote", "source", "revision", "source-dir", "builder",
 	"registry", "registry-insecure", "registry-authfile", "namespace", "username",
-	"password", "token", "verbose"}
+	"password", "token", "management-disabled", "verbose"}
 
 // gitFunction returns the function committed to the git repository cfg
 // names, for a remote pipeline which builds the commit it was read at, and
@@ -1065,6 +1065,9 @@ func gitFunction(cmd *cobra.Command, cfg deployConfig) (f fn.Function, _ deployC
 	}
 	if flagGiven(cmd, "registry-insecure") {
 		f.RegistryInsecure = cfg.RegistryInsecure
+	}
+	if flagGiven(cmd, "management-disabled") {
+		f.Deploy.ManagementDisabled = cfg.ManagementDisabled
 	}
 	// The cluster deploys into the namespace the func.yaml names, and only
 	// without one into the namespace the pipeline runs in.

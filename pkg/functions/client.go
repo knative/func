@@ -955,13 +955,22 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	default:
 	}
 
-	if c.syncer != nil && !f.Deploy.ManagementDisabled {
-		if err := c.syncer.Sync(ctx, f); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to sync Function CR: %v\n", err)
-		}
-	}
+	c.sync(ctx, f)
 
 	return f, nil
+}
+
+// sync creates or updates the Function CR of a deployed function, unless its
+// management is disabled. Both Deploy and RunPipeline call it, so every
+// deployment treats the CR the same way. A failure only warns: the function
+// is deployed already.
+func (c *Client) sync(ctx context.Context, f Function) {
+	if c.syncer == nil || f.Deploy.ManagementDisabled {
+		return
+	}
+	if err := c.syncer.Sync(ctx, f); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to sync Function CR: %v\n", err)
+	}
 }
 
 // RunPipeline runs a Pipeline to build and deploy the function.
@@ -979,7 +988,14 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (string, Function,
 	}
 
 	// Build and deploy function using Pipeline
-	return c.pipelinesProvider.Run(ctx, f)
+	url, f, err := c.pipelinesProvider.Run(ctx, f)
+	if err != nil {
+		return url, f, err
+	}
+
+	c.sync(ctx, f)
+
+	return url, f, nil
 }
 
 // ConfigurePAC generates Pipeline resources on the local filesystem,

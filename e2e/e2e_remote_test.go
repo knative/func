@@ -41,19 +41,22 @@ func TestRemote_Deploy(t *testing.T) {
 }
 
 // TestRemote_Source ensures a remote build can be triggered which pulls
-// source from a remote repository, with no local copy of the function.
+// source from a remote repository, with no local copy of the function. Its
+// management is disabled, so it deploys with no Function CR.
 //
-//	func deploy --remote --source={url} --registry={} --builder=pack
+//	func deploy --remote --source={url} --registry={} --builder=pack --management-disabled
 func TestRemote_Source(t *testing.T) {
 	name := "func-e2e-test-remote-source"
 	_ = fromCleanEnv(t, name)
 
 	// Trigger the deploy from an empty directory: the function is read from
-	// the repository.
+	// the repository. A function whose management is disabled deploys as a
+	// plain service, with no Function CR for func-operator to act on.
 	if err := newCmd(t, "deploy", "--remote",
 		"--source", "https://github.com/functions-dev/func-e2e-tests",
 		"--registry", Registry,
 		"--builder", "pack",
+		"--management-disabled",
 	).Run(); err != nil {
 		t.Fatal(err)
 	}
@@ -65,13 +68,13 @@ func TestRemote_Source(t *testing.T) {
 		withContentMatch(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
-
+	assertNoFunctionCR(t, name)
 }
 
 // TestRemote_Ref ensures a remote build can be triggered which pulls
 // source from a specific reference (branch/tag) of a remote repository.
 // The function's metadata (name, runtime, etc) is read from that reference,
-// so no local checkout is involved.
+// so no local checkout is involved. The Function CR points at that reference.
 func TestRemote_Ref(t *testing.T) {
 	name := "func-e2e-test-remote-ref"
 	_ = fromCleanEnv(t, name)
@@ -93,11 +96,13 @@ func TestRemote_Ref(t *testing.T) {
 		withContentMatch(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
+	assertFunctionCR(t, name, "https://github.com/functions-dev/func-e2e-tests", name, ".")
 }
 
 // TestRemote_Dir ensures that remote builds can be instructed to build and
 // deploy a function located in a subdirectory of the repository. The
-// function's metadata is read from that subdirectory.
+// function's metadata is read from that subdirectory, at which the Function
+// CR points.
 //
 //	func deploy --remote --source-dir={subdir} --source={url}
 func TestRemote_Dir(t *testing.T) {
@@ -121,6 +126,7 @@ func TestRemote_Dir(t *testing.T) {
 		withContentMatch(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
+	assertFunctionCR(t, name, "https://github.com/functions-dev/func-e2e-tests", "", name)
 }
 
 // TestRemote_Deploy_InClusterRegistry ensures that the in-cluster dialer
