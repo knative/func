@@ -47,9 +47,12 @@ const (
 	// over localhost HTTP, so the function needs no Kafka client. Override with
 	// the FUNC_KAFKA_RUNTIME_IMAGE environment variable.
 	//
-	// This points at the nightly build while the component stabilizes; it moves
-	// to the released gcr.io/knative-releases path once a release is cut.
-	DefaultKafkaRuntimeImage = "gcr.io/knative-nightly/knative.dev/func-adapter-kafka/cmd/fkafka-runtime:latest"
+	// This points at the released image published from the func-adapter-kafka
+	// release-0.1 branch. The runtime is versioned on its own line like the
+	// other func middleware (func-go, func-python), independent of func and the
+	// knative release train. Pin a different version or fall back to the nightly
+	// build via FUNC_KAFKA_RUNTIME_IMAGE.
+	DefaultKafkaRuntimeImage = "gcr.io/knative-releases/knative.dev/func-adapter-kafka/cmd/fkafka-runtime:v0.1.0"
 
 	// kafkaRuntimeImageEnv overrides DefaultKafkaRuntimeImage at deploy time.
 	kafkaRuntimeImageEnv = "FUNC_KAFKA_RUNTIME_IMAGE"
