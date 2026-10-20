@@ -230,14 +230,13 @@ func (s KafkaSASL) EffectiveMechanism() string {
 	return s.Mechanism
 }
 
-func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string) {
+func validateKafka(kafka *KafkaConfig, invoke string) (errors []string) {
 	if kafka == nil {
 		return
 	}
-	if runtime != "go" {
-		errors = append(errors, "run.kafka is currently only supported for the Go runtime")
-		return
-	}
+	// Kafka is language-agnostic: the runtime consumes Kafka in a sidecar and
+	// delivers each record to the function as a CloudEvent over HTTP, so any
+	// runtime works. The function must still be a CloudEvents handler.
 	if invoke != "cloudevent" {
 		errors = append(errors, "run.kafka is only supported with invoke: cloudevent")
 		return
@@ -534,7 +533,7 @@ func (f Function) Validate() error {
 		ValidateScale(f.Scale, scaleDeployer, f.Run.Kafka),
 		ValidateLabels(f.Deploy.Labels),
 		validateSource(f.Build.Source),
-		validateKafka(f.Run.Kafka, f.Invoke, f.Runtime),
+		validateKafka(f.Run.Kafka, f.Invoke),
 		validateExpose(f.Deploy.Expose, f.Expose),
 	}
 

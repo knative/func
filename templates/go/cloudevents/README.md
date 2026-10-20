@@ -38,9 +38,12 @@ run:
     consumerGroup: "my-function-group"
 ```
 
-When deployed (or run locally with `func run`), the runtime will consume from
-the configured Kafka topic instead of listening for CloudEvents over HTTP. The
-HTTP server still runs for health checks.
+When deployed via the `raw` or `keda` deployer, a language-agnostic runtime
+sidecar consumes the configured Kafka topic and delivers each record to your
+function as a CloudEvent over the same HTTP server it already uses. Your function
+stays a plain CloudEvents-over-HTTP server -- the sidecar owns the Kafka client --
+and a 2xx response commits the record's offset. The `keda` deployer additionally
+scales the function on consumer lag.
 
 Messages that already carry CloudEvents headers (`ce_specversion`, `ce_type`,
 etc.) are passed through as-is. Plain Kafka messages are wrapped in a

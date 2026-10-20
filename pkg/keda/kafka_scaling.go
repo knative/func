@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/dynamic"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 var (
@@ -245,6 +246,22 @@ func validateKafkaTLSPaths(kafka *fn.KafkaConfig, volumes []fn.Volume) error {
 	return nil
 }
 
+// kafkaSidecarContainerName returns the name of the Kafka runtime sidecar in
+// the deployment. KEDA's env-based SASL auth reads KAFKA_SASL_USER /
+// KAFKA_SASL_PASSWORD from the container that actually carries them, which --
+// since the sidecar owns all Kafka handling -- is the runtime sidecar, not
+// user-container. Returns an error (rather than panicking) when the sidecar is
+// absent so a pod template without it fails cleanly instead of pointing KEDA at
+// a container that never receives the credentials.
+func kafkaSidecarContainerName(deployment *v1.Deployment) (string, error) {
+	for _, c := range deployment.Spec.Template.Spec.Containers {
+		if c.Name == k8s.KafkaSidecarName {
+			return c.Name, nil
+		}
+	}
+	return "", fmt.Errorf("deployment %q has no %q container; cannot resolve the Kafka SASL env var reference", deployment.Name, k8s.KafkaSidecarName)
+}
+
 // buildTriggerAuth creates the unstructured TriggerAuthentication for Kafka
 // SASL/TLS. Returns a non-nil error when a TLS path is explicitly
 // configured but doesn't resolve to any configured volume -- distinct from
@@ -257,13 +274,13 @@ func buildTriggerAuth(f fn.Function, deployment *v1.Deployment, namespace string
 	if err := validateKafkaTLSPaths(kafka, f.Run.Volumes); err != nil {
 		return nil, err
 	}
-	// The plaintext/configMap SASL branches below point KEDA at an env var on
-	// the function's container by name, indexing Containers[0]. The raw deployer
-	// always produces exactly one container, but guard the index so a future
-	// change to the pod template can't turn this into a panic.
-	if len(deployment.Spec.Template.Spec.Containers) == 0 {
-		return nil, fmt.Errorf("deployment %q has no containers; cannot resolve the Kafka SASL env var reference", deployment.Name)
-	}
+	// The plaintext/configMap SASL branches below point KEDA at an env var by
+	// name on a specific container. Those env vars (KAFKA_SASL_USER /
+	// KAFKA_SASL_PASSWORD) are set on the Kafka runtime sidecar, not on
+	// user-container -- the sidecar owns all Kafka handling -- so KEDA must read
+	// them there. Resolve the sidecar's name up front; the env-ref branches fail
+	// if it is absent, while secret-backed credentials don't need it at all.
+	sidecarName, sidecarErr := kafkaSidecarContainerName(deployment)
 
 	var secretRefs []interface{}
 	var envRefs []interface{}
@@ -278,18 +295,21 @@ func buildTriggerAuth(f fn.Function, deployment *v1.Deployment, namespace string
 			})
 		} else {
 			// Plaintext value: ends up as a literal KAFKA_SASL_PASSWORD env var
-			// on the function's container. A {{ configMap:... }} reference
+			// on the Kafka runtime sidecar. A {{ configMap:... }} reference
 			// ends up as a KAFKA_SASL_PASSWORD env var too, but backed by a
 			// ConfigMapKeyRef instead of a literal value (see
 			// appendKafkaEnvValue in pkg/k8s/deployer.go). Either way the env
-			// var name is the same, so point KEDA at that name instead of a
-			// secretTargetRef. Plaintext is allowed here, at least for
-			// debugging purposes -- func doesn't force SASL credentials
+			// var name is the same, so point KEDA at that name on the sidecar
+			// instead of a secretTargetRef. Plaintext is allowed here, at least
+			// for debugging purposes -- func doesn't force SASL credentials
 			// through Secrets.
+			if sidecarErr != nil {
+				return nil, sidecarErr
+			}
 			envRefs = append(envRefs, map[string]interface{}{
 				"parameter":     "password",
 				"name":          "KAFKA_SASL_PASSWORD",
-				"containerName": deployment.Spec.Template.Spec.Containers[0].Name,
+				"containerName": sidecarName,
 			})
 		}
 
@@ -302,10 +322,13 @@ func buildTriggerAuth(f fn.Function, deployment *v1.Deployment, namespace string
 					"key":       userKey,
 				})
 			} else {
+				if sidecarErr != nil {
+					return nil, sidecarErr
+				}
 				envRefs = append(envRefs, map[string]interface{}{
 					"parameter":     "username",
 					"name":          "KAFKA_SASL_USER",
-					"containerName": deployment.Spec.Template.Spec.Containers[0].Name,
+					"containerName": sidecarName,
 				})
 			}
 		}
