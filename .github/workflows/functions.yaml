@@ -234,7 +234,7 @@ jobs:
       FUNC_CLUSTER_FUNC_OPERATOR: "false"
       KUBECONFIG: ${{github.workspace}}/hack/bin/kubeconfig.yaml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -263,7 +263,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-integration-kafka
           path: ./cluster_log.txt
