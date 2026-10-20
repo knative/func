@@ -10,7 +10,7 @@
 		"repo": "eventing"
 	},
 	"FuncOperator": {
-		"version": "v0.2.1"
+		"version": "v0.4.1"
 	},
 	"Keda": {
 		"version": "v2.17.0"

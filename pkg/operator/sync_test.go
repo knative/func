@@ -49,8 +49,8 @@ func TestSyncFunctionCR_CreateNew(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoBranch:   "main",
-		RepoPath:     ".",
+		RepoRevision: "main",
+		RepoDir:      ".",
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
@@ -69,11 +69,11 @@ func TestSyncFunctionCR_CreateNew(t *testing.T) {
 	if fn.Spec.Repository.URL != "https://github.com/alice/my-func.git" {
 		t.Fatalf("expected repo URL, got %q", fn.Spec.Repository.URL)
 	}
-	if fn.Spec.Repository.Branch != "main" {
-		t.Fatalf("expected branch 'main', got %q", fn.Spec.Repository.Branch)
+	if fn.Spec.Repository.Revision != "main" {
+		t.Fatalf("expected revision 'main', got %q", fn.Spec.Repository.Revision)
 	}
-	if fn.Spec.Repository.Path != "." {
-		t.Fatalf("expected path '.', got %q", fn.Spec.Repository.Path)
+	if fn.Spec.Repository.Dir != "." {
+		t.Fatalf("expected dir '.', got %q", fn.Spec.Repository.Dir)
 	}
 }
 
@@ -86,8 +86,8 @@ func TestSyncFunctionCR_UpdateExistingByMetadataName(t *testing.T) {
 		},
 		Spec: v1alpha1.FunctionSpec{
 			Repository: v1alpha1.FunctionSpecRepository{
-				URL:    "https://github.com/old/repo.git",
-				Branch: "old-branch",
+				URL:      "https://github.com/old/repo.git",
+				Revision: "old-branch",
 			},
 		},
 	}
@@ -98,8 +98,8 @@ func TestSyncFunctionCR_UpdateExistingByMetadataName(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoBranch:   "main",
-		RepoPath:     "subfolder",
+		RepoRevision: "main",
+		RepoDir:      "subfolder",
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
@@ -125,8 +125,8 @@ func TestSyncFunctionCR_UpdateExistingByMetadataName(t *testing.T) {
 	if fn.Spec.Repository.URL != "https://github.com/alice/my-func.git" {
 		t.Fatalf("expected spec to be updated, but URL was %q", fn.Spec.Repository.URL)
 	}
-	if fn.Spec.Repository.Branch != "main" {
-		t.Fatalf("expected branch to be updated, but got %q", fn.Spec.Repository.Branch)
+	if fn.Spec.Repository.Revision != "main" {
+		t.Fatalf("expected revision to be updated, but got %q", fn.Spec.Repository.Revision)
 	}
 }
 
@@ -157,8 +157,8 @@ func TestSyncFunctionCR_UpdateExistingByStatusName(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoBranch:   "main",
-		RepoPath:     ".",
+		RepoRevision: "main",
+		RepoDir:      ".",
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
@@ -192,8 +192,8 @@ func TestSyncFunctionCR_NoCRD_SkipSilently(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoBranch:   "main",
-		RepoPath:     ".",
+		RepoRevision: "main",
+		RepoDir:      ".",
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
@@ -217,8 +217,8 @@ func TestSyncFunctionCR_WithRegistryCredentials(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoBranch:   "main",
-		RepoPath:     ".",
+		RepoRevision: "main",
+		RepoDir:      ".",
 		RegistryCredentials: &RegistryCredentials{
 			Username: "admin",
 			Password: "secret",
@@ -256,8 +256,8 @@ func TestSyncFunctionCR_NoRepoURL_SkipsWithMessage(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "",
-		RepoBranch:   "main",
-		RepoPath:     ".",
+		RepoRevision: "main",
+		RepoDir:      ".",
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)

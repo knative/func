@@ -29,8 +29,8 @@ type SyncConfig struct {
 	FunctionName string
 	Namespace    string
 	RepoURL      string
-	RepoBranch   string
-	RepoPath     string
+	RepoRevision string
+	RepoDir      string
 	// If set, a docker-registry secret is created and referenced from
 	// the Function CR's .spec.registry.authSecretRef.
 	RegistryCredentials *RegistryCredentials
@@ -93,9 +93,9 @@ func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.Di
 
 	desiredSpec := v1alpha1.FunctionSpec{
 		Repository: v1alpha1.FunctionSpecRepository{
-			URL:    cfg.RepoURL,
-			Branch: cfg.RepoBranch,
-			Path:   cfg.RepoPath,
+			URL:      cfg.RepoURL,
+			Revision: cfg.RepoRevision,
+			Dir:      cfg.RepoDir,
 		},
 	}
 	if registrySecretRef != nil {
