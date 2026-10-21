@@ -589,9 +589,7 @@ func TestMetadata_Subscriptions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	subscribeCmd := exec.Command(Bin, "subscribe", "--filter", "type=test.event")
-	subscribeCmd.Stdout, subscribeCmd.Stderr = os.Stdout, os.Stderr
-	if err := subscribeCmd.Run(); err != nil {
+	if err := newCmd(t, "subscribe", "--filter", "type=test.event").Run(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -650,9 +648,7 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	subscribeCmd := exec.Command(Bin, "subscribe", "--filter", "type=test.event")
-	subscribeCmd.Stdout, subscribeCmd.Stderr = os.Stdout, os.Stderr
-	if err := subscribeCmd.Run(); err != nil {
+	if err := newCmd(t, "subscribe", "--filter", "type=test.event").Run(); err != nil {
 		t.Fatal(err)
 	}
 
