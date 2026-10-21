@@ -213,6 +213,15 @@ func TestFindSecretForPath(t *testing.T) {
 	if name != "" {
 		t.Errorf("expected empty for a cert nested more than one level deep, got %q", name)
 	}
+
+	// A Secret mounted at the root resolves a cert sitting directly under it.
+	rootSecret := "root-ca"
+	rootPath := "/"
+	rootVolumes := []fn.Volume{{Secret: &rootSecret, Path: &rootPath}}
+	name, key = FindSecretForPath("/ca.crt", rootVolumes)
+	if name != "root-ca" || key != "ca.crt" {
+		t.Errorf("root mount: got (%q, %q), want (root-ca, ca.crt)", name, key)
+	}
 }
 
 func Test_generateDeployment_KafkaSidecar(t *testing.T) {

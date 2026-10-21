@@ -1203,14 +1203,17 @@ func FindSecretForPath(certPath string, volumes []fn.Volume) (secretName, key st
 		// which is OS-dependent). Mirrors validateVolumes in
 		// pkg/functions/function_volumes.go, which cleans the same vol.Path
 		// values with path.Clean.
+		//
+		// The cert must sit directly in the Secret's mount directory so its
+		// filename is a valid Secret data key: the cert's parent directory must
+		// equal the mount path and the filename component must be non-empty. This
+		// rejects the mount path itself (names the directory, not a file in it),
+		// certs nested more than one level deep, and sibling directories sharing a
+		// prefix -- and handles a root ("/") mount correctly.
 		mountPath := path.Clean(*v.Path)
-		cp := path.Clean(certPath)
-		if cp == mountPath || strings.HasPrefix(cp, mountPath+"/") {
-			rel := strings.TrimPrefix(cp, mountPath+"/")
-			if rel == "" || strings.ContainsRune(rel, '/') {
-				continue
-			}
-			return *v.Secret, rel
+		dir, file := path.Split(path.Clean(certPath))
+		if file != "" && path.Clean(dir) == mountPath {
+			return *v.Secret, file
 		}
 	}
 	return
