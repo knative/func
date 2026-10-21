@@ -7,7 +7,7 @@ import (
 	"maps"
 	"math"
 	"os"
-	"path/filepath"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -1199,14 +1199,15 @@ func FindSecretForPath(certPath string, volumes []fn.Volume) (secretName, key st
 		if v.Secret == nil || v.Path == nil {
 			continue
 		}
-		mountPath := filepath.Clean(*v.Path)
-		cp := filepath.Clean(certPath)
-		if cp == mountPath || strings.HasPrefix(cp, mountPath+string(filepath.Separator)) {
-			rel, err := filepath.Rel(mountPath, cp)
-			if err != nil {
-				continue
-			}
-			if rel == "." || strings.ContainsRune(rel, filepath.Separator) {
+		// Container paths are always POSIX, so use path (not path/filepath,
+		// which is OS-dependent). Mirrors validateVolumes in
+		// pkg/functions/function_volumes.go, which cleans the same vol.Path
+		// values with path.Clean.
+		mountPath := path.Clean(*v.Path)
+		cp := path.Clean(certPath)
+		if cp == mountPath || strings.HasPrefix(cp, mountPath+"/") {
+			rel := strings.TrimPrefix(cp, mountPath+"/")
+			if rel == "" || strings.ContainsRune(rel, '/') {
 				continue
 			}
 			return *v.Secret, rel
