@@ -71,6 +71,18 @@ const (
 	// own CloudEvents-over-HTTP server on loopback within the Pod.
 	kafkaFunctionTarget = "http://127.0.0.1:8080/"
 
+	// kafkaSidecarStartupPeriodSeconds / kafkaSidecarStartupFailureThreshold size
+	// the sidecar's startupProbe. The runtime does not begin serving its health
+	// endpoints until it has waited for the function target to accept connections
+	// (an up-to-60s FUNCTION_TARGET wait on a cold start, e.g. a JVM). Without a
+	// startupProbe the default liveness probe (failureThreshold 3 x period 10s)
+	// would restart the sidecar at ~30s -- before the wait can even finish -- so a
+	// slow-starting function restart-loops the sidecar. The startupProbe gives the
+	// runtime 15 x 10s = 150s to come up before liveness takes effect, comfortably
+	// covering the runtime's target wait plus the function's cold start.
+	kafkaSidecarStartupPeriodSeconds    = 10
+	kafkaSidecarStartupFailureThreshold = 15
+
 	// RouteHostnameAnnotation records the externally-exposed hostname (if
 	// any) on the function's Service, so lister/describer can read it back
 	// without re-deriving or re-querying the Route.
@@ -1166,6 +1178,20 @@ func kafkaSidecarContainer(f fn.Function, kafkaMounts []corev1.VolumeMount, refe
 					Port: intstr.FromInt32(kafkaRuntimeHealthPort),
 				},
 			},
+		},
+		// Defer liveness until the runtime's health server is actually up: it
+		// starts serving only after waiting for the function target, which can
+		// take the whole cold-start window on a slow function. The liveness probe
+		// takes effect only once this startupProbe first succeeds.
+		StartupProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: DefaultLivenessEndpoint,
+					Port: intstr.FromInt32(kafkaRuntimeHealthPort),
+				},
+			},
+			PeriodSeconds:    kafkaSidecarStartupPeriodSeconds,
+			FailureThreshold: kafkaSidecarStartupFailureThreshold,
 		},
 	}
 	SetSecurityContext(&container)
