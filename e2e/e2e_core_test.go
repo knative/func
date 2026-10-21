@@ -13,6 +13,7 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/keda"
 	"knative.dev/func/pkg/knative"
 )
 
@@ -99,7 +100,7 @@ func TestCore_Deploy_Basic(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, functionURL(t, name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 }
@@ -128,7 +129,7 @@ func TestCore_Deploy_Template(t *testing.T) {
 
 	// The default implementation responds with HTTP 200 and the string
 	// "testcore-deploy-template" for all requests.
-	if !waitFor(t, ksvcUrl(name),
+	if !waitFor(t, functionURL(t, name),
 		withContentMatch(name)) {
 		t.Fatal("function did not update correctly")
 	}
@@ -177,7 +178,8 @@ func TestCore_Update(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name)) {
+	url := functionURL(t, name)
+	if !waitFor(t, url) {
 		t.Fatal("function did not deploy correctly")
 	}
 
@@ -199,14 +201,16 @@ func TestCore_Update(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitFor(t, ksvcUrl(name),
+	if !waitFor(t, url,
 		withContentMatch("UPDATED")) {
 		t.Fatal("function did not update correctly")
 	}
 }
 
 // TestCore_Describe ensures that describing a function accurately represents
-// its expected state.
+// its expected state, including a route at which the function responds.
+// Other tests locate their functions by that route (see functionURL), so
+// this is the test which proves it.
 //
 //	func describe
 func TestCore_Describe(t *testing.T) {
@@ -229,10 +233,6 @@ func TestCore_Describe(t *testing.T) {
 		t.Fatalf("deploy error. %v", err)
 	}
 
-	if !waitFor(t, ksvcUrl(name)) {
-		t.Fatal("function did not deploy correctly")
-	}
-
 	// Call func describe with JSON output
 	cmd = newCmd(t, "describe", "--output=json")
 	out := bytes.Buffer{}
@@ -250,6 +250,14 @@ func TestCore_Describe(t *testing.T) {
 	// Validate that the name matches what we expect
 	if instance.Name != name {
 		t.Errorf("Expected name %q, got %q", name, instance.Name)
+	}
+
+	// Validate that the function responds at the described route
+	if instance.Route == "" {
+		t.Fatalf("describe returned no route:\n%s", out.String())
+	}
+	if !waitFor(t, instance.Route) {
+		t.Fatalf("function did not respond at described route %q", instance.Route)
 	}
 }
 
@@ -313,7 +321,7 @@ func TestCore_Invoke(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name)+"?test-echo-param&message=test-echo-param",
+	if !waitFor(t, functionURL(t, name)+"?test-echo-param&message=test-echo-param",
 		withContentMatch("test-echo-param")) {
 		t.Fatal("function did not deploy correctly")
 	}
@@ -370,7 +378,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Verify - waitFor defaults to checking for "OK"
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, functionURL(t, name)) {
 		t.Fatal("static signature function did not deploy correctly")
 	}
 }
@@ -394,13 +402,13 @@ func TestCore_Delete(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, functionURL(t, name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 
-	// Check it appears in the list
+	// Check it appears in the list. Use every deployer's lister, as func list does.
 	kc := k8s.NewClient(k8s.GetClientConfig())
-	client := fn.New(fn.WithListers(knative.NewLister(kc, false)))
+	client := fn.New(fn.WithListers(knative.NewLister(kc, false), k8s.NewLister(kc, false), keda.NewLister(kc, false)))
 	list, err := client.List(t.Context(), Namespace)
 	if err != nil {
 		t.Fatal(err)
