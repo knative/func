@@ -381,45 +381,6 @@ func TestParseSecretRef(t *testing.T) {
 	}
 }
 
-func TestFindSecretForPath(t *testing.T) {
-	secret := "my-cluster-ca"
-	path := "/etc/kafka/ca"
-	volumes := []fn.Volume{
-		{Secret: &secret, Path: &path},
-	}
-
-	name, key := k8s.FindSecretForPath("/etc/kafka/ca/ca.crt", volumes)
-	if name != "my-cluster-ca" || key != "ca.crt" {
-		t.Errorf("got (%q, %q), want (my-cluster-ca, ca.crt)", name, key)
-	}
-
-	name, _ = k8s.FindSecretForPath("/other/path", volumes)
-	if name != "" {
-		t.Errorf("expected empty for non-matching path, got %q", name)
-	}
-
-	// Sibling directory sharing a prefix must not match (e.g. "/etc/kafka/ca"
-	// is not a parent of "/etc/kafka/cab/ca.crt").
-	name, _ = k8s.FindSecretForPath("/etc/kafka/cab/ca.crt", volumes)
-	if name != "" {
-		t.Errorf("expected empty for sibling-directory path, got %q", name)
-	}
-
-	// certPath equal to the mount path names the directory, not a file in
-	// it: no valid Secret data key, so this must not match.
-	name, _ = k8s.FindSecretForPath("/etc/kafka/ca", volumes)
-	if name != "" {
-		t.Errorf("expected empty when certPath is the mount path itself, got %q", name)
-	}
-
-	// A cert nested more than one level deep resolves to a rel containing a
-	// separator, which isn't a valid Secret data key either.
-	name, _ = k8s.FindSecretForPath("/etc/kafka/ca/sub/ca.crt", volumes)
-	if name != "" {
-		t.Errorf("expected empty for a cert nested more than one level deep, got %q", name)
-	}
-}
-
 func testDeployment() *v1.Deployment {
 	return &v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

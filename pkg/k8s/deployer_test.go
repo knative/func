@@ -176,6 +176,45 @@ func Test_generateDeployment_ImagePullSecret(t *testing.T) {
 	})
 }
 
+func TestFindSecretForPath(t *testing.T) {
+	secret := "my-cluster-ca"
+	path := "/etc/kafka/ca"
+	volumes := []fn.Volume{
+		{Secret: &secret, Path: &path},
+	}
+
+	name, key := FindSecretForPath("/etc/kafka/ca/ca.crt", volumes)
+	if name != "my-cluster-ca" || key != "ca.crt" {
+		t.Errorf("got (%q, %q), want (my-cluster-ca, ca.crt)", name, key)
+	}
+
+	name, _ = FindSecretForPath("/other/path", volumes)
+	if name != "" {
+		t.Errorf("expected empty for non-matching path, got %q", name)
+	}
+
+	// Sibling directory sharing a prefix must not match (e.g. "/etc/kafka/ca"
+	// is not a parent of "/etc/kafka/cab/ca.crt").
+	name, _ = FindSecretForPath("/etc/kafka/cab/ca.crt", volumes)
+	if name != "" {
+		t.Errorf("expected empty for sibling-directory path, got %q", name)
+	}
+
+	// certPath equal to the mount path names the directory, not a file in
+	// it: no valid Secret data key, so this must not match.
+	name, _ = FindSecretForPath("/etc/kafka/ca", volumes)
+	if name != "" {
+		t.Errorf("expected empty when certPath is the mount path itself, got %q", name)
+	}
+
+	// A cert nested more than one level deep resolves to a rel containing a
+	// separator, which isn't a valid Secret data key either.
+	name, _ = FindSecretForPath("/etc/kafka/ca/sub/ca.crt", volumes)
+	if name != "" {
+		t.Errorf("expected empty for a cert nested more than one level deep, got %q", name)
+	}
+}
+
 func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 	d := &Deployer{}
 
