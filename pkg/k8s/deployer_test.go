@@ -176,6 +176,54 @@ func Test_generateDeployment_ImagePullSecret(t *testing.T) {
 	})
 }
 
+func TestFindSecretForPath(t *testing.T) {
+	secret := "my-cluster-ca"
+	path := "/etc/kafka/ca"
+	volumes := []fn.Volume{
+		{Secret: &secret, Path: &path},
+	}
+
+	name, key := FindSecretForPath("/etc/kafka/ca/ca.crt", volumes)
+	if name != "my-cluster-ca" || key != "ca.crt" {
+		t.Errorf("got (%q, %q), want (my-cluster-ca, ca.crt)", name, key)
+	}
+
+	name, _ = FindSecretForPath("/other/path", volumes)
+	if name != "" {
+		t.Errorf("expected empty for non-matching path, got %q", name)
+	}
+
+	// Sibling directory sharing a prefix must not match (e.g. "/etc/kafka/ca"
+	// is not a parent of "/etc/kafka/cab/ca.crt").
+	name, _ = FindSecretForPath("/etc/kafka/cab/ca.crt", volumes)
+	if name != "" {
+		t.Errorf("expected empty for sibling-directory path, got %q", name)
+	}
+
+	// certPath equal to the mount path names the directory, not a file in
+	// it: no valid Secret data key, so this must not match.
+	name, _ = FindSecretForPath("/etc/kafka/ca", volumes)
+	if name != "" {
+		t.Errorf("expected empty when certPath is the mount path itself, got %q", name)
+	}
+
+	// A cert nested more than one level deep resolves to a rel containing a
+	// separator, which isn't a valid Secret data key either.
+	name, _ = FindSecretForPath("/etc/kafka/ca/sub/ca.crt", volumes)
+	if name != "" {
+		t.Errorf("expected empty for a cert nested more than one level deep, got %q", name)
+	}
+
+	// A Secret mounted at the root resolves a cert sitting directly under it.
+	rootSecret := "root-ca"
+	rootPath := "/"
+	rootVolumes := []fn.Volume{{Secret: &rootSecret, Path: &rootPath}}
+	name, key = FindSecretForPath("/ca.crt", rootVolumes)
+	if name != "root-ca" || key != "ca.crt" {
+		t.Errorf("root mount: got (%q, %q), want (root-ca, ca.crt)", name, key)
+	}
+}
+
 func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 	d := &Deployer{}
 
@@ -437,6 +485,72 @@ func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 		ucMounts := mountPaths(uc)
 		if ucMounts[certPath] || ucMounts[secondPath] {
 			t.Errorf("user-container must not mount the client-key secret at any path, got %+v", uc.VolumeMounts)
+		}
+	})
+
+	t.Run("kafka tls: volume at a parent dir of the cert path stays on user-container", func(t *testing.T) {
+		// A PVC is mounted at /data and the Kafka cert Secret at /data/certs, so
+		// /data is an ancestor directory of the cert path /data/certs/ca.crt. Only
+		// the Secret actually backs the cert; the PVC must not be swept into the
+		// sidecar set and removed from the function container. This is the
+		// regression guard for #4093.
+		pvcClaim := "data-pvc"
+		pvcPath := "/data"
+		certSecret := "kafka-cert"
+		certPath := "/data/certs"
+		mountPaths := func(c *corev1.Container) map[string]bool {
+			m := map[string]bool{}
+			for _, vm := range c.VolumeMounts {
+				m[vm.MountPath] = true
+			}
+			return m
+		}
+		f := fn.Function{
+			Name:   "test-func",
+			Deploy: fn.DeploySpec{Image: "img:latest"},
+			Run: fn.RunSpec{
+				Kafka: &fn.KafkaConfig{
+					Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+					SecurityProtocol: "SSL",
+					TLS:              &fn.KafkaTLS{CACert: "/data/certs/ca.crt"},
+				},
+				Volumes: []fn.Volume{
+					{PersistentVolumeClaim: &fn.PersistentVolumeClaim{ClaimName: &pvcClaim}, Path: &pvcPath},
+					{Secret: &certSecret, Path: &certPath},
+				},
+			},
+		}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// The sidecar receives only the cert Secret, never the parent PVC.
+		sc := containerByName(dep, KafkaSidecarName)
+		if sc == nil {
+			t.Fatal("kafka sidecar not found")
+		}
+		scMounts := mountPaths(sc)
+		if !scMounts[certPath] {
+			t.Errorf("sidecar should mount the cert secret at %q, got %+v", certPath, sc.VolumeMounts)
+		}
+		if scMounts[pvcPath] {
+			t.Errorf("sidecar must not receive the PVC mounted at a parent dir %q, got %+v", pvcPath, sc.VolumeMounts)
+		}
+
+		// The function keeps its PVC; only the cert Secret is withheld.
+		uc := containerByName(dep, "user-container")
+		if uc == nil {
+			t.Fatal("user-container not found")
+		}
+		ucMounts := mountPaths(uc)
+		if !ucMounts[pvcPath] {
+			t.Errorf("user-container should still mount the PVC at %q; got %+v", pvcPath, uc.VolumeMounts)
+		}
+		if ucMounts[certPath] {
+			t.Errorf("user-container must not receive the Kafka cert secret at %q, got %+v", certPath, uc.VolumeMounts)
 		}
 	})
 }

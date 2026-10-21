@@ -3,7 +3,6 @@ package keda
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/kedacore/http-add-on/operator/generated/clientset/versioned"
@@ -190,34 +189,6 @@ func parseSecretRef(value string) (secretName, secretKey string) {
 	return matches[2], matches[3]
 }
 
-// findSecretForPath finds the volume secret name that backs a given file path.
-// It matches by checking which volume's mount path is a parent of the cert path.
-func findSecretForPath(certPath string, volumes []fn.Volume) (secretName, key string) {
-	for _, v := range volumes {
-		if v.Secret == nil || v.Path == nil {
-			continue
-		}
-		mountPath := filepath.Clean(*v.Path)
-		cp := filepath.Clean(certPath)
-		if cp == mountPath || strings.HasPrefix(cp, mountPath+string(filepath.Separator)) {
-			rel, err := filepath.Rel(mountPath, cp)
-			if err != nil {
-				continue
-			}
-			// func mounts a Secret volume at a single directory level, so its
-			// data keys are plain filenames: certPath == mountPath (rel == ".")
-			// names the directory, not a file in it, and a rel containing a
-			// separator names a file nested more than one level deep. Neither
-			// is a valid Secret data key.
-			if rel == "." || strings.ContainsRune(rel, filepath.Separator) {
-				continue
-			}
-			return *v.Secret, rel
-		}
-	}
-	return
-}
-
 // validateKafkaTLSPaths checks that any explicitly-configured
 // run.kafka.tls path (caCert/clientCert/clientKey) resolves to a
 // configured volume. Deliberately depends only on kafka/volumes -- no
@@ -229,17 +200,17 @@ func validateKafkaTLSPaths(kafka *fn.KafkaConfig, volumes []fn.Volume) error {
 		return nil
 	}
 	if kafka.TLS.CACert != "" {
-		if name, _ := findSecretForPath(kafka.TLS.CACert, volumes); name == "" {
+		if name, _ := k8s.FindSecretForPath(kafka.TLS.CACert, volumes); name == "" {
 			return fmt.Errorf("run.kafka.tls.caCert %q does not match any configured volume", kafka.TLS.CACert)
 		}
 	}
 	if kafka.TLS.ClientCert != "" {
-		if name, _ := findSecretForPath(kafka.TLS.ClientCert, volumes); name == "" {
+		if name, _ := k8s.FindSecretForPath(kafka.TLS.ClientCert, volumes); name == "" {
 			return fmt.Errorf("run.kafka.tls.clientCert %q does not match any configured volume", kafka.TLS.ClientCert)
 		}
 	}
 	if kafka.TLS.ClientKey != "" {
-		if name, _ := findSecretForPath(kafka.TLS.ClientKey, volumes); name == "" {
+		if name, _ := k8s.FindSecretForPath(kafka.TLS.ClientKey, volumes); name == "" {
 			return fmt.Errorf("run.kafka.tls.clientKey %q does not match any configured volume", kafka.TLS.ClientKey)
 		}
 	}
@@ -335,7 +306,7 @@ func buildTriggerAuth(f fn.Function, deployment *v1.Deployment, namespace string
 	}
 
 	if kafka.TLS != nil && kafka.TLS.CACert != "" {
-		caSecretName, caKey := findSecretForPath(kafka.TLS.CACert, f.Run.Volumes)
+		caSecretName, caKey := k8s.FindSecretForPath(kafka.TLS.CACert, f.Run.Volumes)
 		if caSecretName == "" {
 			return nil, fmt.Errorf("run.kafka.tls.caCert %q does not match any configured volume", kafka.TLS.CACert)
 		}
@@ -347,7 +318,7 @@ func buildTriggerAuth(f fn.Function, deployment *v1.Deployment, namespace string
 	}
 
 	if kafka.TLS != nil && kafka.TLS.ClientCert != "" {
-		certSecretName, certKey := findSecretForPath(kafka.TLS.ClientCert, f.Run.Volumes)
+		certSecretName, certKey := k8s.FindSecretForPath(kafka.TLS.ClientCert, f.Run.Volumes)
 		if certSecretName == "" {
 			return nil, fmt.Errorf("run.kafka.tls.clientCert %q does not match any configured volume", kafka.TLS.ClientCert)
 		}
@@ -359,7 +330,7 @@ func buildTriggerAuth(f fn.Function, deployment *v1.Deployment, namespace string
 	}
 
 	if kafka.TLS != nil && kafka.TLS.ClientKey != "" {
-		keySecretName, keyKey := findSecretForPath(kafka.TLS.ClientKey, f.Run.Volumes)
+		keySecretName, keyKey := k8s.FindSecretForPath(kafka.TLS.ClientKey, f.Run.Volumes)
 		if keySecretName == "" {
 			return nil, fmt.Errorf("run.kafka.tls.clientKey %q does not match any configured volume", kafka.TLS.ClientKey)
 		}

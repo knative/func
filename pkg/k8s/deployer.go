@@ -688,7 +688,7 @@ func (d *Deployer) generateDeployment(f fn.Function, namespace string, labels, a
 	// the pod level, but the user container's mount list excludes them so Kafka
 	// certificate material -- notably the client private key -- never lands in
 	// the filesystem of application code.
-	kafkaMounts := kafkaSidecarVolumeMounts(f.Run.Kafka, volumeMounts)
+	kafkaMounts := kafkaSidecarVolumeMounts(f.Run.Kafka, f.Run.Volumes, volumeMounts)
 	userVolumeMounts := excludeVolumeMounts(volumeMounts, kafkaMounts)
 
 	container := corev1.Container{
@@ -1172,37 +1172,87 @@ func kafkaSidecarContainer(f fn.Function, kafkaMounts []corev1.VolumeMount, refe
 	return &container, nil
 }
 
+// secretVolumeName is the pod-volume name ProcessVolumes assigns to the volume
+// backing a given Secret. Centralized so the sidecar mount selection can map a
+// resolved Secret name back to its volume without duplicating the prefix.
+func secretVolumeName(secret string) string {
+	return "secret-" + secret
+}
+
+// FindSecretForPath resolves the Secret that backs a given file path among the
+// function's volumes. It returns the Secret name and the data key (the filename)
+// for the path, or empty strings when no Secret backs it.
+//
+// A match requires a Secret volume whose mount path is the immediate parent
+// directory of certPath: func mounts a Secret at a single directory level, so the
+// cert must sit directly in that directory for its filename to be a valid Secret
+// data key. Non-Secret volumes (PVC/ConfigMap/emptyDir) never match, and an
+// ancestor directory that is not the immediate parent (e.g. a PVC at /data for a
+// cert at /data/certs/ca.crt) is rejected because the relative path still
+// contains a separator.
+//
+// Both the raw/k8s Kafka sidecar mount selection (kafkaSidecarVolumeMounts) and
+// the keda TriggerAuthentication wiring resolve cert paths through this one
+// function so the two paths stay genuinely in parity.
+func FindSecretForPath(certPath string, volumes []fn.Volume) (secretName, key string) {
+	for _, v := range volumes {
+		if v.Secret == nil || v.Path == nil {
+			continue
+		}
+		// Container paths are always POSIX, so use path (not path/filepath,
+		// which is OS-dependent). Mirrors validateVolumes in
+		// pkg/functions/function_volumes.go, which cleans the same vol.Path
+		// values with path.Clean.
+		//
+		// The cert must sit directly in the Secret's mount directory so its
+		// filename is a valid Secret data key: the cert's parent directory must
+		// equal the mount path and the filename component must be non-empty. This
+		// rejects the mount path itself (names the directory, not a file in it),
+		// certs nested more than one level deep, and sibling directories sharing a
+		// prefix -- and handles a root ("/") mount correctly.
+		mountPath := path.Clean(*v.Path)
+		dir, file := path.Split(path.Clean(certPath))
+		if file != "" && path.Clean(dir) == mountPath {
+			return *v.Secret, file
+		}
+	}
+	return
+}
+
 // kafkaSidecarVolumeMounts filters the function's full set of volume mounts down
-// to only those the Kafka runtime needs: the volume(s) backing the configured
-// run.kafka.tls.* certificate paths. The sidecar must not receive the function's
-// unrelated application volumes (Secrets, ConfigMaps, PVCs, emptyDirs). A mount
-// is kept when its mount path is the cert path or a parent directory of it --
-// the same path-to-volume matching the keda deployer uses to resolve these certs
-// (findSecretForPath). SASL credentials are wired as env vars, not volumes, so
-// they contribute no mount here.
-func kafkaSidecarVolumeMounts(kafka *fn.KafkaConfig, volumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
+// to only those the Kafka runtime needs: the Secret volume(s) backing the
+// configured run.kafka.tls.* certificate paths. The sidecar must not receive the
+// function's unrelated application volumes (Secrets, ConfigMaps, PVCs,
+// emptyDirs). SASL credentials are wired as env vars, not volumes, so they
+// contribute no mount here.
+//
+// Selection resolves each cert path to its backing Secret via FindSecretForPath
+// -- the same resolver the keda deployer uses -- so only the Secret that actually
+// holds the cert is selected. An unrelated volume mounted at a parent directory
+// of a cert path (e.g. a PVC at /data when the cert Secret is at /data/certs) is
+// not swept in, which previously removed that volume from the function container.
+func kafkaSidecarVolumeMounts(kafka *fn.KafkaConfig, volumes []fn.Volume, volumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
 	if kafka == nil || kafka.TLS == nil {
 		return nil
 	}
 
-	var certPaths []string
+	backingVolumes := sets.New[string]()
 	for _, p := range []string{kafka.TLS.CACert, kafka.TLS.ClientCert, kafka.TLS.ClientKey} {
-		if p != "" {
-			certPaths = append(certPaths, path.Clean(p))
+		if p == "" {
+			continue
+		}
+		if name, _ := FindSecretForPath(p, volumes); name != "" {
+			backingVolumes.Insert(secretVolumeName(name))
 		}
 	}
-	if len(certPaths) == 0 {
+	if backingVolumes.Len() == 0 {
 		return nil
 	}
 
 	var mounts []corev1.VolumeMount
 	for _, vm := range volumeMounts {
-		mountPath := path.Clean(vm.MountPath)
-		for _, cp := range certPaths {
-			if cp == mountPath || strings.HasPrefix(cp, mountPath+"/") {
-				mounts = append(mounts, vm)
-				break
-			}
+		if backingVolumes.Has(vm.Name) {
+			mounts = append(mounts, vm)
 		}
 	}
 	return mounts
@@ -1392,7 +1442,7 @@ func ProcessVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 		volumeName := ""
 
 		if vol.Secret != nil {
-			volumeName = "secret-" + *vol.Secret
+			volumeName = secretVolumeName(*vol.Secret)
 
 			if !createdVolumes.Has(volumeName) {
 				newVolumes = append(newVolumes, corev1.Volume{
