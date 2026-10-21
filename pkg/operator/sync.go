@@ -38,9 +38,29 @@ var ensureSecret = k8s.EnsureSecretExist
 // It sets up Kubernetes clients, checks if the Function CRD exists on the
 // cluster, and creates or updates the CR accordingly.
 func SyncFunctionCR(ctx context.Context, cfg SyncConfig) error {
+	cl, disc, err := newClients()
+	if err != nil {
+		return err
+	}
+	return syncFunctionCR(ctx, cl, disc, cfg)
+}
+
+// RemoveFunctionCR deletes the Function CR of the given function, if the
+// Function CRD exists on the cluster and the function has a CR.
+func RemoveFunctionCR(ctx context.Context, name, namespace string) error {
+	cl, disc, err := newClients()
+	if err != nil {
+		return err
+	}
+	return removeFunctionCR(ctx, cl, disc, name, namespace)
+}
+
+// newClients returns a client for Function CRs and a discovery client, to
+// check that the Function CRD exists.
+func newClients() (ctrlclient.Client, discovery.DiscoveryInterface, error) {
 	restCfg, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
-		return fmt.Errorf("getting kubernetes config: %w", err)
+		return nil, nil, fmt.Errorf("getting kubernetes config: %w", err)
 	}
 	// Show API server warnings, such as fields the CRD does not know and
 	// drops. Left unset, controller-runtime logs them through a logger func
@@ -49,20 +69,20 @@ func SyncFunctionCR(ctx context.Context, cfg SyncConfig) error {
 
 	disc, err := discovery.NewDiscoveryClientForConfig(restCfg)
 	if err != nil {
-		return fmt.Errorf("creating discovery client: %w", err)
+		return nil, nil, fmt.Errorf("creating discovery client: %w", err)
 	}
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("registering Function scheme: %w", err)
+		return nil, nil, fmt.Errorf("registering Function scheme: %w", err)
 	}
 
 	cl, err := ctrlclient.New(restCfg, ctrlclient.Options{Scheme: scheme})
 	if err != nil {
-		return fmt.Errorf("creating kubernetes client: %w", err)
+		return nil, nil, fmt.Errorf("creating kubernetes client: %w", err)
 	}
 
-	return syncFunctionCR(ctx, cl, disc, cfg)
+	return cl, disc, nil
 }
 
 func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.DiscoveryInterface, cfg SyncConfig) error {
@@ -131,6 +151,32 @@ func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.Di
 		return fmt.Errorf("creating Function CR: %w", err)
 	}
 	fmt.Fprintf(os.Stderr, "Function CR %q created in namespace %q\n", cfg.FunctionName, cfg.Namespace)
+	return nil
+}
+
+// removeFunctionCR deletes the CR that syncFunctionCR would update for the
+// function, so it does not outlive the function.
+func removeFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.DiscoveryInterface, name, namespace string) error {
+	hasCRD, err := hasFunctionCRD(disc)
+	if err != nil {
+		return fmt.Errorf("checking for Function CRD: %w", err)
+	}
+	if !hasCRD {
+		return nil
+	}
+
+	existing, err := findExistingCR(ctx, cl, name, namespace)
+	if err != nil {
+		return fmt.Errorf("looking up existing Function CR: %w", err)
+	}
+	if existing == nil {
+		return nil
+	}
+
+	if err := cl.Delete(ctx, existing); ctrlclient.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("deleting Function CR: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "Function CR %q deleted from namespace %q\n", existing.Name, namespace)
 	return nil
 }
 

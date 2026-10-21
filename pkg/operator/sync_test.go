@@ -15,6 +15,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakediscovery "k8s.io/client-go/discovery/fake"
@@ -367,5 +368,77 @@ current-context: test
 	output, _ := io.ReadAll(r)
 	if !strings.Contains(string(output), "Warning: "+warning) {
 		t.Fatalf("expected server warning on stderr, got:\n%s", output)
+	}
+}
+
+func TestRemoveFunctionCR_DeletesFunctionCR(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing *v1alpha1.Function
+	}{
+		{
+			name: "by metadata name",
+			existing: &v1alpha1.Function{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-func", Namespace: "default"},
+			},
+		},
+		{
+			name: "by status name",
+			existing: &v1alpha1.Function{
+				ObjectMeta: metav1.ObjectMeta{Name: "different-cr-name", Namespace: "default"},
+				Status:     v1alpha1.FunctionStatus{Name: "my-func"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			other := &v1alpha1.Function{
+				ObjectMeta: metav1.ObjectMeta{Name: "other-func", Namespace: "default"},
+			}
+			cl := fake.NewClientBuilder().
+				WithScheme(newScheme()).
+				WithObjects(tt.existing, other).
+				WithStatusSubresource(tt.existing).
+				Build()
+
+			err := removeFunctionCR(context.Background(), cl, fakeDiscoveryWithCRD(), "my-func", "default")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = cl.Get(context.Background(), ctrlclient.ObjectKeyFromObject(tt.existing), &v1alpha1.Function{})
+			if !apierrors.IsNotFound(err) {
+				t.Fatalf("expected the Function CR to be deleted, got: %v", err)
+			}
+			err = cl.Get(context.Background(), ctrlclient.ObjectKeyFromObject(other), &v1alpha1.Function{})
+			if err != nil {
+				t.Fatalf("expected the CR of another function to stay: %v", err)
+			}
+		})
+	}
+}
+
+func TestRemoveFunctionCR_NoCR(t *testing.T) {
+	cl := fake.NewClientBuilder().WithScheme(newScheme()).Build()
+
+	err := removeFunctionCR(context.Background(), cl, fakeDiscoveryWithCRD(), "my-func", "default")
+	if err != nil {
+		t.Fatalf("expected no error when the function has no CR, got: %v", err)
+	}
+}
+
+func TestRemoveFunctionCR_NoCRD_SkipSilently(t *testing.T) {
+	existing := &v1alpha1.Function{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-func", Namespace: "default"},
+	}
+	cl := fake.NewClientBuilder().WithScheme(newScheme()).WithObjects(existing).Build()
+
+	err := removeFunctionCR(context.Background(), cl, fakeDiscoveryWithoutCRD(), "my-func", "default")
+	if err != nil {
+		t.Fatalf("expected no error when CRD missing, got: %v", err)
+	}
+	err = cl.Get(context.Background(), ctrlclient.ObjectKeyFromObject(existing), &v1alpha1.Function{})
+	if err != nil {
+		t.Fatalf("expected the CR to be left alone when CRD missing: %v", err)
 	}
 }

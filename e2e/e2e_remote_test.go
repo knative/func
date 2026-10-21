@@ -102,7 +102,7 @@ func TestRemote_Ref(t *testing.T) {
 // TestRemote_Dir ensures that remote builds can be instructed to build and
 // deploy a function located in a subdirectory of the repository. The
 // function's metadata is read from that subdirectory, at which the Function
-// CR points.
+// CR points. Deleting the function deletes its Function CR.
 //
 //	func deploy --remote --source-dir={subdir} --source={url}
 func TestRemote_Dir(t *testing.T) {
@@ -127,6 +127,11 @@ func TestRemote_Dir(t *testing.T) {
 		t.Fatal("function did not deploy correctly")
 	}
 	assertFunctionCR(t, name, "https://github.com/functions-dev/func-e2e-tests", "", name)
+
+	if err := newCmd(t, "delete", name, "--namespace", Namespace).Run(); err != nil {
+		t.Fatal(err)
+	}
+	assertNoFunctionCR(t, name)
 }
 
 // TestRemote_Deploy_InClusterRegistry ensures that the in-cluster dialer

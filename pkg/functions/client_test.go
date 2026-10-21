@@ -1755,6 +1755,53 @@ func TestClient_RunPipeline_FailedNotSynced(t *testing.T) {
 	}
 }
 
+// TestClient_Remove_Unsync ensures that removing a function removes its
+// Function CR, even when removing its pipeline resources fails, but not when
+// its management is disabled or no remover removed it.
+func TestClient_Remove_Unsync(t *testing.T) {
+	tests := []struct {
+		name       string
+		disabled   bool
+		removeErr  error
+		cleanupErr error
+		removed    bool
+	}{
+		{name: "removed", removed: true},
+		{name: "management disabled", disabled: true},
+		{name: "removal failed", removeErr: errors.New("removal failed")},
+		{name: "not handled", removeErr: fn.ErrNotHandled},
+		{name: "pipeline cleanup failed", cleanupErr: errors.New("cleanup failed"), removed: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			remover := mock.NewRemover()
+			remover.RemoveFn = func(string, string) error { return tt.removeErr }
+			pipelinesProvider := mock.NewPipelinesProvider()
+			pipelinesProvider.RemoveFn = func(fn.Function) error { return tt.cleanupErr }
+
+			var name, namespace string
+			syncer := mock.NewSyncer()
+			syncer.UnsyncFn = func(n, ns string) error {
+				name, namespace = n, ns
+				return nil
+			}
+			client := fn.New(fn.WithRemovers(remover), fn.WithPipelinesProvider(pipelinesProvider), fn.WithSyncer(syncer))
+
+			f := fn.Function{Name: "f", Deploy: fn.DeploySpec{Namespace: TestNamespace, ManagementDisabled: tt.disabled}}
+			if _, err := client.Remove(t.Context(), "", "", f, true); (err != nil) != (tt.removeErr != nil || tt.cleanupErr != nil) {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if syncer.UnsyncInvoked != tt.removed {
+				t.Fatalf("expected unsync invoked to be %t, got %t", tt.removed, syncer.UnsyncInvoked)
+			}
+			if tt.removed && (name != "f" || namespace != TestNamespace) {
+				t.Errorf("expected the CR of f in %q to be removed, got %q in %q", TestNamespace, name, namespace)
+			}
+		})
+	}
+}
+
 // TestClient_New_BuilderImagesPersisted Asserts that the client preserves user-
 // provided Builder Images
 func TestClient_New_BuildersPersisted(t *testing.T) {

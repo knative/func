@@ -80,6 +80,11 @@ func (s *Syncer) registrySecret(ctx context.Context, f fn.Function) (*v1.Secret,
 	return &secret, nil
 }
 
+// Unsync deletes the Function CR of the function name in namespace.
+func (s *Syncer) Unsync(ctx context.Context, name, namespace string) error {
+	return RemoveFunctionCR(ctx, name, namespace)
+}
+
 // source returns the repository URL, revision and directory of f's source
 // code, which the Function CR points the operator at. The URL never holds
 // credentials: anyone who can read the CR can read it.

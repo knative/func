@@ -113,9 +113,11 @@ type Deployer interface {
 	Deploy(context.Context, Function) (DeploymentResult, error)
 }
 
-// FunctionSyncer syncs a Function's state to an external system after deploy.
+// FunctionSyncer syncs a Function's state to an external system after deploy,
+// and removes it from there after the function is removed.
 type FunctionSyncer interface {
 	Sync(ctx context.Context, f Function) error
+	Unsync(ctx context.Context, name, namespace string) error
 }
 
 type DeploymentResult struct {
@@ -973,6 +975,17 @@ func (c *Client) sync(ctx context.Context, f Function) {
 	}
 }
 
+// unsync removes the Function CR of a removed function, unless its management
+// is disabled. A failure only warns: the function is removed already.
+func (c *Client) unsync(ctx context.Context, name, namespace string, f Function) {
+	if c.syncer == nil || f.Deploy.ManagementDisabled {
+		return
+	}
+	if err := c.syncer.Unsync(ctx, name, namespace); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to remove Function CR: %v\n", err)
+	}
+}
+
 // RunPipeline runs a Pipeline to build and deploy the function.
 // Returned function contains applicable registry and deployed image name.
 // String is the default route.
@@ -1273,6 +1286,12 @@ func (c *Client) Remove(ctx context.Context, name, namespace string, f Function,
 	if serviceRemovalError == nil && resourceRemovalError == nil && !removeHandled.Load() {
 		// no error, but resource was not handled by any of the removers
 		return f, fmt.Errorf("no remover handled %s in %s", name, namespace)
+	}
+
+	// The function is gone once a remover removed it and none failed. Its
+	// Function CR goes with it, even if removing its pipeline resources failed.
+	if serviceRemovalError == nil && removeHandled.Load() {
+		c.unsync(ctx, name, namespace, f)
 	}
 
 	// Return a combined error
