@@ -32,8 +32,8 @@ func WithCredentialsProvider(cp oci.CredentialsProvider) SyncerOpt {
 
 func (s *Syncer) Sync(ctx context.Context, f fn.Function) error {
 	repoURL := f.Build.Source.URL
-	repoBranch := f.Build.Source.Revision
-	repoPath := f.Build.Source.Dir
+	repoRevision := f.Build.Source.Revision
+	repoDir := f.Build.Source.Dir
 
 	if repoURL == "" {
 		resolved, err := funcgit.ResolveRemoteURL(f.Root)
@@ -43,12 +43,12 @@ func (s *Syncer) Sync(ctx context.Context, f fn.Function) error {
 		repoURL = resolved
 	}
 
-	if repoBranch == "" {
-		repoBranch = funcgit.ResolveBranch(f.Root)
+	if repoRevision == "" {
+		repoRevision = funcgit.ResolveBranch(f.Root)
 	}
 
-	if repoPath == "" {
-		repoPath = "."
+	if repoDir == "" {
+		repoDir = "."
 	}
 
 	namespace := f.Deploy.Namespace
@@ -75,8 +75,8 @@ func (s *Syncer) Sync(ctx context.Context, f fn.Function) error {
 		FunctionName:        f.Name,
 		Namespace:           namespace,
 		RepoURL:             repoURL,
-		RepoBranch:          repoBranch,
-		RepoPath:            repoPath,
+		RepoRevision:        repoRevision,
+		RepoDir:             repoDir,
 		RegistryCredentials: registryCredentials,
 	})
 }

@@ -25,7 +25,7 @@ require (
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/docker-credential-helpers v0.9.6
 	github.com/docker/go-connections v0.7.0
-	github.com/functions-dev/func-operator v0.2.1
+	github.com/functions-dev/func-operator/api v0.4.1
 	github.com/go-git/go-billy/v5 v5.9.1
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/google/go-cmp v0.7.0

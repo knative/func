@@ -1234,8 +1234,8 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 	t.Cleanup(cancel)
 
 	repoURL := "https://github.com/alice/my-func.git"
-	repoBranch := "main"
-	repoPath := "."
+	repoRevision := "main"
+	repoDir := "."
 
 	client := fn.New(
 		fn.WithScaffolder(oci.NewScaffolder(true)),
@@ -1260,8 +1260,8 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 	}
 
 	f.Build.Source.URL = repoURL
-	f.Build.Source.Revision = repoBranch
-	f.Build.Source.Dir = repoPath
+	f.Build.Source.Revision = repoRevision
+	f.Build.Source.Dir = repoDir
 
 	err = client.Scaffold(ctx, f, "")
 	if err != nil {
@@ -1328,11 +1328,11 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 	if funcCR.Spec.Repository.URL != repoURL {
 		t.Fatalf("expected repo URL %q, got %q", repoURL, funcCR.Spec.Repository.URL)
 	}
-	if funcCR.Spec.Repository.Branch != repoBranch {
-		t.Fatalf("expected branch %q, got %q", repoBranch, funcCR.Spec.Repository.Branch)
+	if funcCR.Spec.Repository.Revision != repoRevision {
+		t.Fatalf("expected revision %q, got %q", repoRevision, funcCR.Spec.Repository.Revision)
 	}
-	if funcCR.Spec.Repository.Path != repoPath {
-		t.Fatalf("expected path %q, got %q", repoPath, funcCR.Spec.Repository.Path)
+	if funcCR.Spec.Repository.Dir != repoDir {
+		t.Fatalf("expected dir %q, got %q", repoDir, funcCR.Spec.Repository.Dir)
 	}
 
 	// Second deploy — should only annotate, not change spec
@@ -1349,8 +1349,8 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 	if funcCR.Spec.Repository.URL != repoURL {
 		t.Fatalf("expected spec URL unchanged %q, got %q", repoURL, funcCR.Spec.Repository.URL)
 	}
-	if funcCR.Spec.Repository.Branch != repoBranch {
-		t.Fatalf("expected spec branch unchanged %q, got %q", repoBranch, funcCR.Spec.Repository.Branch)
+	if funcCR.Spec.Repository.Revision != repoRevision {
+		t.Fatalf("expected spec revision unchanged %q, got %q", repoRevision, funcCR.Spec.Repository.Revision)
 	}
 
 	ts, ok := funcCR.Annotations["functions.knative.dev/last-deployed"]
