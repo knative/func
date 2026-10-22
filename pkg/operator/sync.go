@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
+	restclient "k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"knative.dev/func/pkg/k8s"
@@ -48,6 +49,10 @@ func SyncFunctionCR(ctx context.Context, cfg SyncConfig) error {
 	if err != nil {
 		return fmt.Errorf("getting kubernetes config: %w", err)
 	}
+	// Show API server warnings, such as fields the CRD does not know and
+	// drops. Left unset, controller-runtime logs them through a logger func
+	// never sets, so the warning is lost and a stack trace is printed.
+	restCfg.WarningHandler = restclient.NewWarningWriter(os.Stderr, restclient.WarningWriterOptions{Deduplicate: true})
 
 	disc, err := discovery.NewDiscoveryClientForConfig(restCfg)
 	if err != nil {
