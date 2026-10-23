@@ -111,13 +111,13 @@ func (f *Function) Handle(e event.Event) error {
 // recorder is a handle to a deployed recorder function.
 type recorder struct {
 	name        string
-	externalURL string // reachable from the test runner
+	route       string // described route; the test runner reaches it via httpClient
 	internalURL string // reachable from in-cluster workloads; pass as RECORDER_URL
 }
 
-// deployRecorder stands up a recorder function via the Knative deployer
-// (so it gets a public URL) and blocks until it's ready. t.Cleanup is
-// registered to delete the function at test end.
+// deployRecorder stands up a recorder function with the default deployer
+// and blocks until it's ready. t.Cleanup is registered to delete the
+// function at test end.
 func deployRecorder(t *testing.T, name string) *recorder {
 	t.Helper()
 
@@ -146,27 +146,27 @@ func deployRecorder(t *testing.T, name string) *recorder {
 	}
 	t.Cleanup(func() { clean(t, name, Namespace) })
 
-	external := ksvcUrl(name)
-	if !waitFor(t, external) {
+	route := functionURL(t, name)
+	if !waitFor(t, route) {
 		t.Fatal("recorder did not become ready")
 	}
 
 	return &recorder{
-		name:        name,
-		externalURL: external,
-		// Knative exposes ksvcs via a standard Kubernetes DNS name in the
-		// same namespace. The subscriber uses this to reach the recorder
-		// without going back out through the external ingress.
+		name:  name,
+		route: route,
+		// Every deployer gives the function a Kubernetes Service of its own
+		// name in the same namespace. The subscriber uses this to reach the
+		// recorder without going back out through an external ingress.
 		internalURL: fmt.Sprintf("http://%s.%s.svc.cluster.local", name, Namespace),
 	}
 }
 
-// awaitReceived polls the recorder's external URL until it reports that
+// awaitReceived polls the recorder's route until it reports that
 // the given event id has been recorded, or the context is canceled.
 // Returns true on observed receipt.
 func (r *recorder) awaitReceived(ctx context.Context, t *testing.T, id string) bool {
 	t.Helper()
-	url := r.externalURL + "/received?id=" + id
+	url := r.route + "/received?id=" + id
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -174,7 +174,7 @@ func (r *recorder) awaitReceived(ctx context.Context, t *testing.T, id string) b
 		if err != nil {
 			t.Fatalf("building recorder request: %v", err)
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := httpClient(t).Do(req)
 		if err == nil {
 			code := resp.StatusCode
 			resp.Body.Close()
