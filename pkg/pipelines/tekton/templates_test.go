@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"text/template"
@@ -14,6 +15,7 @@ import (
 	"github.com/manifestival/manifestival"
 	"github.com/manifestival/manifestival/fake"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
@@ -190,6 +192,11 @@ func Test_createPipelineRunTemplatePAC(t *testing.T) {
 			if !strings.Contains(string(b), want) {
 				t.Errorf("expected the pipeline run to reference the generated pipeline with %q", want)
 			}
+			// PAC setup writes its own Secret, which the PipelineRun mounts.
+			want = "secretName: " + getPipelineSecretName(f)
+			if !strings.Contains(string(b), want) {
+				t.Errorf("expected the pipeline run to mount the PAC Secret with %q", want)
+			}
 		})
 	}
 }
@@ -342,7 +349,7 @@ func Test_createAndApplyPipelineRunTemplate_NoRoot(t *testing.T) {
 	if err := createAndApplyPipelineTemplate(f, "test-ns", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := createAndApplyPipelineRunTemplate(f, "test-ns", nil); err != nil {
+	if err := createAndApplyPipelineRunTemplate(f, "test-ns", nil, ""); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -371,7 +378,7 @@ func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 			f.Image = "docker.io/alice/" + f.Name
 			f.Registry = TestRegistry
 
-			if err := createAndApplyPipelineRunTemplate(f, tt.namespace, tt.labels); (err != nil) != tt.wantErr {
+			if err := createAndApplyPipelineRunTemplate(f, tt.namespace, tt.labels, f.Name+"-registry-auth"); (err != nil) != tt.wantErr {
 				t.Errorf("createAndApplyPipelineRunTemplate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -613,5 +620,63 @@ func TestPipelineRunTemplatesRevision(t *testing.T) {
 				t.Error("no gitRevision param")
 			})
 		}
+	}
+}
+
+// TestPipelineRunTemplatesRegistrySecret ensures the standard runs mount the
+// function's registry Secret, mapping its .dockerconfigjson key to the
+// config.json the build reads, and bind no dockerconfig-workspace without a
+// login. The PAC runs mount PAC's Secret whole, as it already holds
+// config.json.
+func TestPipelineRunTemplatesRegistrySecret(t *testing.T) {
+	mapped := []corev1.KeyToPath{{Key: corev1.DockerConfigJsonKey, Path: "config.json"}}
+	templates := []struct {
+		name       string
+		tmplStr    string
+		secretName string
+		items      []corev1.KeyToPath
+	}{
+		{"packRunTemplate", packRunTemplate, "myfunc-registry-auth", mapped},
+		{"s2iRunTemplate", s2iRunTemplate, "myfunc-registry-auth", mapped},
+		{"packRunTemplate without login", packRunTemplate, "", nil},
+		{"s2iRunTemplate without login", s2iRunTemplate, "", nil},
+		{"packRunTemplatePAC", packRunTemplatePAC, "myfunc-pipeline-secret", nil},
+		{"s2iRunTemplatePAC", s2iRunTemplatePAC, "myfunc-pipeline-secret", nil},
+	}
+	decode := strictTektonDecoder(t)
+	for _, tt := range templates {
+		t.Run(tt.name, func(t *testing.T) {
+			data := templateData{
+				PipelineName:    "myfunc-pipeline",
+				PipelineRunName: "myfunc-pipeline-run-",
+				SecretName:      tt.secretName,
+			}
+			obj, _, err := decode.Decode(renderTemplate(t, tt.name, tt.tmplStr, data), nil, nil)
+			if err != nil {
+				t.Fatalf("failed to decode PipelineRun: %v", err)
+			}
+			var bound *tektonv1.WorkspaceBinding
+			workspaces := obj.(*tektonv1.PipelineRun).Spec.Workspaces
+			for i := range workspaces {
+				if workspaces[i].Name == "dockerconfig-workspace" {
+					bound = &workspaces[i]
+				}
+			}
+			if tt.secretName == "" {
+				if bound != nil {
+					t.Errorf("expected no dockerconfig-workspace, got %+v", bound)
+				}
+				return
+			}
+			if bound == nil {
+				t.Fatal("no dockerconfig-workspace")
+			}
+			if bound.Secret == nil || bound.Secret.SecretName != tt.secretName {
+				t.Fatalf("expected Secret %q, got %+v", tt.secretName, bound.Secret)
+			}
+			if !slices.Equal(bound.Secret.Items, tt.items) {
+				t.Errorf("expected items %+v, got %+v", tt.items, bound.Secret.Items)
+			}
+		})
 	}
 }

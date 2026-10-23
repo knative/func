@@ -145,9 +145,14 @@ spec:
       persistentVolumeClaim:
         claimName: {{.PvcName}}
       subPath: cache
+    {{- if .SecretName}}
     - name: dockerconfig-workspace
       secret:
         secretName: {{.SecretName}}
+        items:
+          - key: .dockerconfigjson
+            path: config.json
+    {{- end}}
 `
 	// s2iRunTemplatePAC contains the S2I template used for Tekton PAC PipelineRun
 	s2iRunTemplatePAC = `
