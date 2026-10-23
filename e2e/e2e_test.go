@@ -30,6 +30,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	fnhttp "knative.dev/func/pkg/http"
 	"knative.dev/func/pkg/k8s"
 )
@@ -1369,7 +1371,12 @@ func httpClient(t *testing.T) *http.Client {
 	if c, ok := httpClients[t]; ok {
 		return c
 	}
-	rt := fnhttp.NewRoundTripper()
+	// Start the dialer pod in the suite's namespace, where the functions are,
+	// not in the kubeconfig's current one.
+	cc := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{Context: clientcmdapi.Context{Namespace: Namespace}})
+	rt := fnhttp.NewRoundTripper(fnhttp.WithInClusterDialer(k8s.NewLazyInitInClusterDialer(cc)))
 	c := &http.Client{Transport: rt}
 	httpClients[t] = c
 	t.Cleanup(func() {
