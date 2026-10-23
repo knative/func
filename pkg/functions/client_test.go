@@ -1677,6 +1677,84 @@ func TestClient_Deploy_PrintsResultMessage(t *testing.T) {
 	}
 }
 
+// TestClient_Sync ensures that every deployment, local or by a remote
+// pipeline, syncs the Function CR of the deployed function, unless its
+// management is disabled.
+func TestClient_Sync(t *testing.T) {
+	deploys := map[string]func(context.Context, *fn.Client, fn.Function) error{
+		"local": func(ctx context.Context, c *fn.Client, f fn.Function) error {
+			_, err := c.Deploy(ctx, f, fn.WithDeploySkipBuildCheck(true))
+			return err
+		},
+		"remote": func(ctx context.Context, c *fn.Client, f fn.Function) error {
+			_, _, err := c.RunPipeline(ctx, f)
+			return err
+		},
+	}
+	for name, deploy := range deploys {
+		for _, disabled := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/managementDisabled=%t", name, disabled), func(t *testing.T) {
+				root, rm := Mktemp(t)
+				defer rm()
+				f, err := fn.New().Init(fn.Function{Runtime: TestRuntime, Name: "f", Root: root,
+					Namespace: TestNamespace, Registry: TestRegistry})
+				if err != nil {
+					t.Fatal(err)
+				}
+				f.Deploy.ManagementDisabled = disabled
+
+				var synced fn.Function
+				syncer := mock.NewSyncer()
+				syncer.SyncFn = func(f fn.Function) error {
+					synced = f
+					return nil
+				}
+				client := fn.New(
+					fn.WithDeployer(mock.NewDeployer()),
+					fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+					fn.WithSyncer(syncer))
+
+				if err := deploy(t.Context(), client, f); err != nil {
+					t.Fatal(err)
+				}
+
+				if syncer.SyncInvoked == disabled {
+					t.Fatalf("expected sync invoked to be %t, got %t", !disabled, syncer.SyncInvoked)
+				}
+				if !disabled && synced.Deploy.Namespace != TestNamespace {
+					t.Errorf("expected the deployed function to be synced, got namespace %q", synced.Deploy.Namespace)
+				}
+			})
+		}
+	}
+}
+
+// TestClient_RunPipeline_FailedNotSynced ensures a failed remote pipeline
+// leaves the Function CR alone.
+func TestClient_RunPipeline_FailedNotSynced(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	f, err := fn.New().Init(fn.Function{Runtime: TestRuntime, Name: "f", Root: root,
+		Namespace: TestNamespace, Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pipeliner := mock.NewPipelinesProvider()
+	pipeliner.RunFn = func(f fn.Function) (string, fn.Function, error) {
+		return "", f, errors.New("pipeline failed")
+	}
+	syncer := mock.NewSyncer()
+	client := fn.New(fn.WithPipelinesProvider(pipeliner), fn.WithSyncer(syncer))
+
+	if _, _, err := client.RunPipeline(t.Context(), f); err == nil {
+		t.Fatal("expected the pipeline error")
+	}
+	if syncer.SyncInvoked {
+		t.Error("expected no sync after a failed pipeline")
+	}
+}
+
 // TestClient_New_BuilderImagesPersisted Asserts that the client preserves user-
 // provided Builder Images
 func TestClient_New_BuildersPersisted(t *testing.T) {

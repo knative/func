@@ -28,10 +28,15 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 
+	v1alpha1 "github.com/functions-dev/func-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/func/pkg/k8s"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -939,6 +944,71 @@ func containsInstance(t *testing.T, list []fn.ListItem, name, namespace string) 
 		}
 	}
 	return false
+}
+
+// functionCR returns the Function CR of the named function, or nil if it has
+// none. ok is false when the cluster has no Function CRD: without
+// func-operator installed there is no CR to check.
+func functionCR(t *testing.T, name string) (cr *v1alpha1.Function, ok bool) {
+	t.Helper()
+	config, err := k8s.GetClientConfig().ClientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	disc, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = disc.ServerResourcesForGroupVersion(v1alpha1.GroupVersion.String()); apierrors.IsNotFound(err) {
+		t.Log("Function CRD not installed, skipping the Function CR check")
+		return nil, false
+	} else if err != nil {
+		t.Fatal(err)
+	}
+
+	scheme := k8sruntime.NewScheme()
+	if err = v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	cl, err := ctrlclient.New(config, ctrlclient.Options{Scheme: scheme})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cr = &v1alpha1.Function{}
+	err = cl.Get(t.Context(), ctrlclient.ObjectKey{Name: name, Namespace: Namespace}, cr)
+	if apierrors.IsNotFound(err) {
+		return nil, true
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cr, true
+}
+
+// assertFunctionCR fails the test unless the named function has a Function
+// CR pointing at the repository url, revision and dir given.
+func assertFunctionCR(t *testing.T, name, url, revision, dir string) {
+	t.Helper()
+	cr, ok := functionCR(t, name)
+	if !ok {
+		return
+	}
+	if cr == nil {
+		t.Fatalf("expected function %q to have a Function CR", name)
+	}
+	r := cr.Spec.Repository
+	if r.URL != url || r.Revision != revision || r.Dir != dir {
+		t.Fatalf("expected the Function CR of %q to point at %q %q %q, got %q %q %q",
+			name, url, revision, dir, r.URL, r.Revision, r.Dir)
+	}
+}
+
+// assertNoFunctionCR fails the test if the named function has a Function CR.
+func assertNoFunctionCR(t *testing.T, name string) {
+	t.Helper()
+	if cr, _ := functionCR(t, name); cr != nil {
+		t.Fatalf("expected function %q to have no Function CR", name)
+	}
 }
 
 // clean up by deleting the named function (via defers)
