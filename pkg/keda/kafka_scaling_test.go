@@ -1050,3 +1050,79 @@ func TestKedaSASLType(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+// TestBuildScaledObject_KafkaScalerOptions verifies the optional kafka scaler
+// options reach the trigger metadata under KEDA's key names, and that nothing
+// is emitted for options that are unset.
+func TestBuildScaledObject_KafkaScalerOptions(t *testing.T) {
+	b := func(v bool) *bool { return &v }
+	tests := []struct {
+		name    string
+		trigger fn.KEDATrigger
+		want    map[string]string
+		absent  []string
+	}{
+		{
+			name:    "none set emits none",
+			trigger: fn.KEDATrigger{Type: "kafka"},
+			absent:  []string{"offsetResetPolicy", "allowIdleConsumers", "excludePersistentLag", "scaleToZeroOnInvalidOffset", "limitToPartitionsWithLag"},
+		},
+		{
+			name:    "offsetResetPolicy earliest",
+			trigger: fn.KEDATrigger{Type: "kafka", OffsetResetPolicy: strPtr("earliest")},
+			want:    map[string]string{"offsetResetPolicy": "earliest"},
+			absent:  []string{"allowIdleConsumers", "limitToPartitionsWithLag"},
+		},
+		{
+			name: "all set true",
+			trigger: fn.KEDATrigger{
+				Type:                       "kafka",
+				OffsetResetPolicy:          strPtr("latest"),
+				AllowIdleConsumers:         b(true),
+				ExcludePersistentLag:       b(true),
+				ScaleToZeroOnInvalidOffset: b(true),
+				LimitToPartitionsWithLag:   b(true),
+			},
+			want: map[string]string{
+				"offsetResetPolicy":          "latest",
+				"allowIdleConsumers":         "true",
+				"excludePersistentLag":       "true",
+				"scaleToZeroOnInvalidOffset": "true",
+				"limitToPartitionsWithLag":   "true",
+			},
+		},
+		{
+			name:    "explicit false is emitted",
+			trigger: fn.KEDATrigger{Type: "kafka", ExcludePersistentLag: b(false)},
+			want:    map[string]string{"excludePersistentLag": "false"},
+			absent:  []string{"allowIdleConsumers"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := fn.Function{
+				Name: "test-func",
+				Run: fn.RunSpec{Kafka: &fn.KafkaConfig{
+					Brokers: "broker:9092", Topic: "t", ConsumerGroup: "g",
+				}},
+			}
+			so := buildScaledObject(f, tt.trigger, testDeployment(), "default", 0, 5)
+			if so == nil {
+				t.Fatal("expected ScaledObject, got nil")
+			}
+			spec := so.Object["spec"].(map[string]interface{})
+			trig := spec["triggers"].([]interface{})[0].(map[string]interface{})
+			meta := trig["metadata"].(map[string]interface{})
+			for k, v := range tt.want {
+				if meta[k] != v {
+					t.Errorf("metadata[%s] = %v, want %q", k, meta[k], v)
+				}
+			}
+			for _, k := range tt.absent {
+				if _, ok := meta[k]; ok {
+					t.Errorf("metadata[%s] should be absent, got %v", k, meta[k])
+				}
+			}
+		})
+	}
+}
