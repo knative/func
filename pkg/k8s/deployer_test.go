@@ -327,6 +327,26 @@ func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 			sc.ReadinessProbe.HTTPGet.Port.IntValue() != kafkaRuntimeHealthPort {
 			t.Errorf("sidecar readiness probe should target port %d", kafkaRuntimeHealthPort)
 		}
+		if sc.LivenessProbe == nil || sc.LivenessProbe.HTTPGet == nil ||
+			sc.LivenessProbe.HTTPGet.Port.IntValue() != kafkaRuntimeHealthPort {
+			t.Errorf("sidecar liveness probe should target port %d", kafkaRuntimeHealthPort)
+		}
+		// A startupProbe must defer liveness until the runtime's health server is
+		// up (it starts serving only after waiting for the function target). Its
+		// window must comfortably exceed the runtime's target wait so a slow
+		// (e.g. JVM) cold start is not restart-looped before it can come up.
+		if sc.StartupProbe == nil || sc.StartupProbe.HTTPGet == nil {
+			t.Fatal("sidecar must have a startupProbe so slow functions aren't restart-looped")
+		}
+		if sc.StartupProbe.HTTPGet.Path != DefaultLivenessEndpoint ||
+			sc.StartupProbe.HTTPGet.Port.IntValue() != kafkaRuntimeHealthPort {
+			t.Errorf("startupProbe should target %s on port %d, got %s on %d",
+				DefaultLivenessEndpoint, kafkaRuntimeHealthPort,
+				sc.StartupProbe.HTTPGet.Path, sc.StartupProbe.HTTPGet.Port.IntValue())
+		}
+		if window := sc.StartupProbe.PeriodSeconds * sc.StartupProbe.FailureThreshold; window < 60 {
+			t.Errorf("startupProbe window = %ds, want >= 60s to cover the runtime's target wait", window)
+		}
 	})
 
 	t.Run("image override via env", func(t *testing.T) {
