@@ -773,6 +773,11 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		}, buff)
 	}()
 
+	// deployer.Deploy is called directly (not through Client.Deploy), so
+	// validate up front as Client.Deploy does.
+	if err := function.Validate(); err != nil {
+		t.Fatal(err)
+	}
 	depRes, err := deployer.Deploy(ctx, function)
 	if err != nil {
 		t.Fatal(err)
@@ -859,6 +864,9 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		}, redeployLogBuff)
 	}()
 
+	if err = function.Validate(); err != nil {
+		t.Fatal(err)
+	}
 	_, err = deployer.Deploy(ctx, function)
 	if err != nil {
 		t.Fatal(err)
