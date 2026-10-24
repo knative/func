@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	giturls "github.com/chainguard-dev/git-urls"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/formatting"
 
 	"knative.dev/func/pkg/git/github"
@@ -37,16 +38,24 @@ func (sp SupportedProviders) PrettyString() string {
 	return b.String()
 }
 
-func GitProviderName(url string) (string, error) {
-	switch {
-	case strings.Contains(url, "github"):
-		return GitHubProvider, nil
-	case strings.Contains(url, "gitlab"):
-		return GitLabProvider, nil
-	case strings.Contains(url, "bitbucket-cloud"):
-		//return BitBucketProvider, nil
+func GitProviderName(rawURL string) (string, error) {
+	parsedURL, err := giturls.ParseTransport(rawURL)
+	if err != nil {
+		parsedURL, err = giturls.ParseScp(rawURL)
 	}
-	return "", fmt.Errorf("runtime for url %q is not supported, please use one of supported runtimes: %s", url, SupportedProvidersList.PrettyString())
+	if err == nil {
+		for _, label := range strings.Split(strings.ToLower(parsedURL.Hostname()), ".") {
+			switch label {
+			case GitHubProvider:
+				return GitHubProvider, nil
+			case GitLabProvider:
+				return GitLabProvider, nil
+			case BitBucketProvider:
+				//return BitBucketProvider, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("runtime for url %q is not supported, please use one of supported runtimes: %s", rawURL, SupportedProvidersList.PrettyString())
 }
 
 // RepoOwnerAndNameFromUrl for input url returns repo owner and repo name
