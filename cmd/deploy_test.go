@@ -744,6 +744,21 @@ deploy:
 		t.Errorf("expected the builder from the flag, got %q", f.Build.Builder)
 	}
 
+	// Management of the Function CR may be disabled for this deployment, by
+	// a flag or an environment variable
+	if f = deploy(t); f.Deploy.ManagementDisabled {
+		t.Error("expected management to be enabled by default")
+	}
+	if f = deploy(t, "--management-disabled"); !f.Deploy.ManagementDisabled {
+		t.Error("expected management to be disabled, as the flag says")
+	}
+	t.Run("environment", func(t *testing.T) {
+		t.Setenv("FUNC_MANAGEMENT_DISABLED", "true")
+		if f := deploy(t); !f.Deploy.ManagementDisabled {
+			t.Error("expected management to be disabled, as the environment says")
+		}
+	})
+
 	// The namespace may be given if the func.yaml names none or the same one
 	if f = deploy(t, "--revision=bare", "--namespace=flag-ns"); f.Namespace != "flag-ns" {
 		t.Errorf("expected the namespace from the flag, got %q", f.Namespace)
