@@ -18,13 +18,6 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-// RegistryCredentials holds resolved credentials for a container registry.
-type RegistryCredentials struct {
-	Username string
-	Password string
-	Server   string
-}
-
 // SyncConfig holds the parameters for creating/updating a Function CR.
 type SyncConfig struct {
 	FunctionName string
@@ -32,14 +25,14 @@ type SyncConfig struct {
 	RepoURL      string
 	RepoRevision string
 	RepoDir      string
-	// If set, a docker-registry secret is created and referenced from
+	// If set, SyncFunctionCR creates or updates this Secret and names it in
 	// the Function CR's .spec.registry.authSecretRef.
-	RegistryCredentials *RegistryCredentials
+	RegistrySecret *v1.Secret
 }
 
-// ensureRegistrySecret creates or updates a docker-registry Secret.
-// Defaults to k8s.EnsureDockerRegistrySecretExist; overridden in tests.
-var ensureRegistrySecret = k8s.EnsureDockerRegistrySecretExist
+// ensureSecret creates or updates a Secret.
+// Defaults to k8s.EnsureSecretExist; overridden in tests.
+var ensureSecret = k8s.EnsureSecretExist
 
 // SyncFunctionCR creates or updates a Function CR for the given function.
 // It sets up Kubernetes clients, checks if the Function CRD exists on the
@@ -87,13 +80,11 @@ func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.Di
 
 	// Build desired spec
 	var registrySecretRef *v1.LocalObjectReference
-	if cfg.RegistryCredentials != nil {
-		secretName := cfg.FunctionName + "-registry-auth"
-		if err := ensureRegistrySecret(ctx, secretName, cfg.Namespace, nil, nil,
-			cfg.RegistryCredentials.Username, cfg.RegistryCredentials.Password, cfg.RegistryCredentials.Server); err != nil {
+	if cfg.RegistrySecret != nil {
+		if err := ensureSecret(ctx, *cfg.RegistrySecret, cfg.Namespace); err != nil {
 			return fmt.Errorf("creating registry secret: %w", err)
 		}
-		registrySecretRef = &v1.LocalObjectReference{Name: secretName}
+		registrySecretRef = &v1.LocalObjectReference{Name: cfg.RegistrySecret.Name}
 	}
 
 	desiredSpec := v1alpha1.FunctionSpec{

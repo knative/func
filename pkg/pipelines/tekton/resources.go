@@ -71,10 +71,6 @@ func getPipelineRunGenerateName(f fn.Function) string {
 	return fmt.Sprintf("%s-run-", getPipelineName(f))
 }
 
-func getPipelineSecretName(f fn.Function) string {
-	return fmt.Sprintf("%s-secret", getPipelineName(f))
-}
-
 func getPipelinePvcName(f fn.Function) string {
 	return fmt.Sprintf("%s-pvc", getPipelineName(f))
 }

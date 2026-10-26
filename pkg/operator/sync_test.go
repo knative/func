@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakediscovery "k8s.io/client-go/discovery/fake"
@@ -210,33 +212,40 @@ func TestSyncFunctionCR_NoCRD_SkipSilently(t *testing.T) {
 	}
 }
 
-func TestSyncFunctionCR_WithRegistryCredentials(t *testing.T) {
-	original := ensureRegistrySecret
-	ensureRegistrySecret = func(_ context.Context, _, _ string, _, _ map[string]string, _, _, _ string) error {
+func TestSyncFunctionCR_WithRegistrySecret(t *testing.T) {
+	var ensured []v1.Secret
+	original := ensureSecret
+	ensureSecret = func(_ context.Context, secret v1.Secret, _ string) error {
+		ensured = append(ensured, secret)
 		return nil
 	}
-	t.Cleanup(func() { ensureRegistrySecret = original })
+	t.Cleanup(func() { ensureSecret = original })
 
 	scheme := newScheme()
 	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 	disc := fakeDiscoveryWithCRD()
 
+	secret := v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-func-registry-auth"},
+		Type:       v1.SecretTypeDockerConfigJson,
+		Data:       map[string][]byte{v1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
+	}
 	cfg := SyncConfig{
-		FunctionName: "my-func",
-		Namespace:    "default",
-		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoRevision: "main",
-		RepoDir:      ".",
-		RegistryCredentials: &RegistryCredentials{
-			Username: "admin",
-			Password: "secret",
-			Server:   "ghcr.io",
-		},
+		FunctionName:   "my-func",
+		Namespace:      "default",
+		RepoURL:        "https://github.com/alice/my-func.git",
+		RepoRevision:   "main",
+		RepoDir:        ".",
+		RegistrySecret: &secret,
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if len(ensured) != 1 || !equality.Semantic.DeepEqual(ensured[0], secret) {
+		t.Fatalf("expected the registry secret to be ensured as given, got %+v", ensured)
 	}
 
 	var fn v1alpha1.Function

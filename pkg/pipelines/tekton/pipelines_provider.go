@@ -233,6 +233,13 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, err
 	}
 
+	// The build reads the registry login from the function's registry Secret.
+	// Without a login there is no Secret to write, and the build mounts none.
+	secretName, err := ensureRegistrySecret(ctx, f, creds, registry, namespace)
+	if err != nil {
+		return "", f, err
+	}
+
 	// TODO(lkingland):  This registry defaulting logic
 	// is either incorrect or in the wrong place.  At this stage of the
 	// process registry should already be defined/defaulted, and this
@@ -245,12 +252,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		f.Registry = registry
 	}
 
-	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), namespace, labels, f.Deploy.Annotations, creds.Username, creds.Password, registry)
-	if err != nil {
-		return "", f, fmt.Errorf("problem in creating secret: %v", err)
-	}
-
-	err = createAndApplyPipelineRunTemplate(f, namespace, labels)
+	err = createAndApplyPipelineRunTemplate(f, namespace, labels, secretName)
 	if err != nil {
 		return "", f, fmt.Errorf("problem in creating pipeline run: %v", err)
 	}
@@ -665,4 +667,24 @@ func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, nam
 		return fmt.Errorf("problem creating persistent volume claim: %v", err)
 	}
 	return nil
+}
+
+// ensureSecret creates or updates a Secret. Tests replace it.
+var ensureSecret = k8s.EnsureSecretExist
+
+// ensureRegistrySecret writes the registry Secret of f, holding the login creds
+// for registry, and returns its name. Without a login it writes none and
+// returns "".
+func ensureRegistrySecret(ctx context.Context, f fn.Function, creds oci.Credentials, registry, namespace string) (string, error) {
+	if creds.Username == "" {
+		return "", nil
+	}
+	secret, err := k8s.NewRegistrySecret(f, creds.Username, creds.Password, registry)
+	if err != nil {
+		return "", fmt.Errorf("problem in creating secret: %v", err)
+	}
+	if err = ensureSecret(ctx, secret, namespace); err != nil {
+		return "", fmt.Errorf("problem in creating secret: %v", err)
+	}
+	return secret.Name, nil
 }
