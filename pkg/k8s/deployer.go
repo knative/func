@@ -42,18 +42,6 @@ const (
 	DefaultReadinessEndpoint = "/health/readiness"
 	DefaultHTTPPort          = 8080
 
-	// DefaultKafkaRuntimeImage is the image injected as the Kafka runtime
-	// sidecar. It consumes from Kafka and delivers each record to the function
-	// over localhost HTTP, so the function needs no Kafka client. Override with
-	// the FUNC_KAFKA_RUNTIME_IMAGE environment variable.
-	//
-	// This points at the released image published from the func-adapter-kafka
-	// release-0.1 branch. The runtime is versioned on its own line like the
-	// other func middleware (func-go, func-python), independent of func and the
-	// knative release train. Pin a different version or fall back to the nightly
-	// build via FUNC_KAFKA_RUNTIME_IMAGE.
-	DefaultKafkaRuntimeImage = "gcr.io/knative-releases/knative.dev/func-adapter-kafka/cmd/fkafka-runtime:v0.1.0"
-
 	// kafkaRuntimeImageEnv overrides DefaultKafkaRuntimeImage at deploy time.
 	kafkaRuntimeImageEnv = "FUNC_KAFKA_RUNTIME_IMAGE"
 
@@ -100,6 +88,19 @@ const (
 	managedByAnnotation = "func.knative.dev/managed-by"
 	managedByValue      = "func-raw-deployer"
 )
+
+// DefaultKafkaRuntimeImage is the image injected as the Kafka runtime
+// sidecar. It consumes from Kafka and delivers each record to the function
+// over localhost HTTP, so the function needs no Kafka client. Override with
+// the FUNC_KAFKA_RUNTIME_IMAGE environment variable or at build time with
+// ldflags.
+//
+// This points at the released image published from the func-adapter-kafka
+// release-0.1 branch. The runtime is versioned on its own line like the
+// other func middleware (func-go, func-python), independent of func and the
+// knative release train. Pin a different version or fall back to the nightly
+// build via FUNC_KAFKA_RUNTIME_IMAGE.
+var DefaultKafkaRuntimeImage = "gcr.io/knative-releases/knative.dev/func-adapter-kafka/cmd/fkafka-runtime:v0.1.0"
 
 type DeployerOpt func(*Deployer)
 
