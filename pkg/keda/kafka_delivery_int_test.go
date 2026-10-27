@@ -37,10 +37,9 @@ import (
 //  2. func deploy (builds the Python image, pushes to the in-cluster registry,
 //     injects the sidecar) against the real Strimzi broker
 //  3. produce one record carrying a unique token to test-topic
-//  4. assert the Python user-container logged that exact token (the handler is
-//     instrumented to echo the received payload, so this confirms our specific
-//     record was delivered and decoded intact -- not merely that a request
-//     arrived)
+//  4. assert the Python user-container logged that exact token (a test handler
+//     fixture echoes the received payload, so this confirms our specific record
+//     was delivered and decoded intact -- not merely that a request arrived)
 //  5. assert the consumer group drains to lag 0 (the sidecar commits the offset
 //     only on a 2xx from the function, so lag 0 independently confirms the
 //     function acked the delivery)
@@ -62,10 +61,10 @@ func TestInt_KafkaPythonDelivery(t *testing.T) {
 
 	name := "func-int-kafka-py-" + rand.String(5)
 	group := name + "-group"
-	// A unique per-run token carried in the record payload. The instrumented
-	// handler echoes the received data, so finding this token in the function's
-	// logs proves it received *our* specific record (payload intact), not merely
-	// that some request arrived.
+	// A unique per-run token carried in the record payload. The handler fixture
+	// echoes the received data, so finding this token in the function's logs
+	// proves it received *our* specific record (payload intact), not merely that
+	// some request arrived.
 	token := "e2e-" + rand.String(10)
 	ns := testingk8s.Namespace(t, ctx)
 
@@ -91,9 +90,10 @@ func TestInt_KafkaPythonDelivery(t *testing.T) {
 	funcDir := t.TempDir()
 	runFunc(t, ctx, funcBin, funcDir, nil, "create", "-l", "python", "-t", "cloudevents", funcDir)
 
-	// Echo the received payload from the handler so delivery of our specific
-	// record can be verified (see token above).
-	instrumentPythonHandler(t, funcDir)
+	// Replace the scaffolded handler with a test fixture that echoes the received
+	// payload, so delivery of our specific record can be verified (see token
+	// above). The stock template only logs "Request Received" without the payload.
+	installHandlerFixture(t, funcDir)
 
 	// Configure the generated function: deploy via keda with the sidecar, invoke
 	// as cloudevent, keep one replica up so the consumer stays joined, and point
@@ -174,29 +174,26 @@ func TestInt_KafkaPythonDelivery(t *testing.T) {
 	waitForZeroLag(t, ctx, cliSet, strimziImg, group)
 }
 
-// instrumentPythonHandler edits the scaffolded Python handler to log the
-// received CloudEvent's data. This is test-only instrumentation of our own
-// scaffold (not the shipped template): it lets the test assert that the function
-// received the exact payload we produced, rather than only that a request
-// arrived.
-func instrumentPythonHandler(t *testing.T, funcDir string) {
+// installHandlerFixture overwrites the scaffolded Python handler with the
+// committed test fixture (testdata/kafka_python_delivery/func.py), which echoes
+// the received CloudEvent's data to the log. This lets the test assert the
+// function received the exact payload we produced, rather than only that a
+// request arrived. The fixture is a reviewable file rather than inline source
+// surgery; func create still scaffolds everything else (func.yaml, deps).
+func installHandlerFixture(t *testing.T, funcDir string) {
 	t.Helper()
-	p := filepath.Join(funcDir, "function", "func.py")
-	b, err := os.ReadFile(p)
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot determine source file path")
+	}
+	src := filepath.Join(filepath.Dir(thisFile), "testdata", "kafka_python_delivery", "func.py")
+	b, err := os.ReadFile(src)
 	if err != nil {
-		t.Fatalf("reading scaffolded handler: %v", err)
+		t.Fatalf("reading handler fixture: %v", err)
 	}
-	// Anchor on the line that binds the decoded event; append an echo right after
-	// it so `request` is in scope.
-	const anchor = `request = scope["event"]`
-	src := string(b)
-	if !strings.Contains(src, anchor) {
-		t.Fatalf("scaffolded handler missing %q; template changed, update this test", anchor)
-	}
-	echo := anchor + "\n        logging.info(f\"FUNC-E2E-RECEIVED data={request.get_data()!r}\")"
-	src = strings.Replace(src, anchor, echo, 1)
-	if err := os.WriteFile(p, []byte(src), 0o644); err != nil {
-		t.Fatalf("writing instrumented handler: %v", err)
+	dst := filepath.Join(funcDir, "function", "func.py")
+	if err := os.WriteFile(dst, b, 0o644); err != nil {
+		t.Fatalf("installing handler fixture into scaffold: %v", err)
 	}
 }
 
