@@ -35,7 +35,7 @@ func TestRemote_Deploy(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, functionURL(t, name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 }
@@ -61,7 +61,7 @@ func TestRemote_Source(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name),
+	if !waitFor(t, functionURL(t, name),
 		withContentMatch(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
@@ -89,7 +89,7 @@ func TestRemote_Ref(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name),
+	if !waitFor(t, functionURL(t, name),
 		withContentMatch(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
@@ -117,7 +117,7 @@ func TestRemote_Dir(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name),
+	if !waitFor(t, functionURL(t, name),
 		withContentMatch(name)) {
 		t.Fatal("function did not deploy correctly")
 	}
@@ -141,7 +141,7 @@ func TestRemote_Deploy_InClusterRegistry(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, functionURL(t, name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 }
@@ -168,7 +168,8 @@ func TestRemote_Update(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name), withWaitTimeout(5*time.Minute)) {
+	url := functionURL(t, name)
+	if !waitFor(t, url, withWaitTimeout(5*time.Minute)) {
 		t.Fatal("function did not deploy correctly")
 	}
 
@@ -191,7 +192,7 @@ func TestRemote_Update(t *testing.T) {
 	if err := newCmd(t, "deploy", "--remote", "--builder=pack", fmt.Sprintf("--registry=%s", Registry)).Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitFor(t, ksvcUrl(name),
+	if !waitFor(t, url,
 		withContentMatch("UPDATED"),
 		withWaitTimeout(5*time.Minute)) {
 		t.Fatal("function did not update correctly via remote redeploy")
