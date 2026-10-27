@@ -88,7 +88,13 @@ func TestInt_KafkaQuarkusDelivery(t *testing.T) {
 	// Build the func CLI from the repo under test, then scaffold a Quarkus
 	// cloudevents function with it.
 	funcBin := buildFuncCLI(t)
-	funcDir := t.TempDir()
+	// func create derives the function name from the directory's basename, and
+	// t.TempDir()'s leaf is numeric (e.g. "002"), which is not a valid function
+	// name. Nest the function in a validly-named subdirectory.
+	funcDir := filepath.Join(t.TempDir(), name)
+	if err := os.MkdirAll(funcDir, 0o755); err != nil {
+		t.Fatalf("creating function dir: %v", err)
+	}
 	runFunc(t, ctx, funcBin, funcDir, nil, "create", "-l", "quarkus", "-t", "cloudevents", funcDir)
 
 	// Replace the scaffolded handler (and the unit test that referenced its old
