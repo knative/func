@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRootCmd(t *testing.T) {
@@ -170,6 +171,70 @@ func startTCPEcho(t *testing.T) (addr string) {
 		l.Close()
 	})
 	return addr
+}
+
+// startTCPReplyAndClose starts a server that writes reply to each connection
+// and closes it without reading anything.
+func startTCPReplyAndClose(t *testing.T, reply string) (addr string) {
+	l, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				if errors.Is(err, net.ErrClosed) {
+					return
+				}
+				panic(err)
+			}
+			_, _ = conn.Write([]byte(reply))
+			_ = conn.Close()
+		}
+	}()
+	t.Cleanup(func() {
+		l.Close()
+	})
+	return l.Addr().String()
+}
+
+// TestExitAfterPeerCloses ensures socat exits once the TCP peer closes, even
+// though stdin stays open, as the in-cluster dialer relies on that to see
+// the connection end.
+func TestExitAfterPeerCloses(t *testing.T) {
+	addr := startTCPReplyAndClose(t, "reply")
+
+	stdIn, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		w.Close()
+	})
+
+	var out bytes.Buffer
+	done := make(chan error, 1)
+	go func() {
+		cmd := newSocatCmd()
+		cmd.SetIn(stdIn)
+		cmd.SetOut(&testWriter{Writer: &out})
+		cmd.SetErr(io.Discard)
+		cmd.SetArgs([]string{"-dd", "-", "TCP:" + addr})
+		done <- cmd.Execute()
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("socat did not exit after the peer closed the connection")
+	}
+	if out.String() != "reply" {
+		t.Errorf("bad data: %q", out.String())
+	}
 }
 
 func TestNewRootCmdWithPipe(t *testing.T) {

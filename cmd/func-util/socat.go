@@ -1,14 +1,15 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
 )
 
 func newSocatCmd() *cobra.Command {
@@ -21,7 +22,8 @@ func newSocatCmd() *cobra.Command {
 		Short: "Minimalistic socat.",
 		Long: `Minimalistic socat.
 Implements only TCP, OPEN and stdio ("-") addresses with no options.
-Only supported flag is -u.`,
+Only supported flag is -u. Exits half a second after one direction
+ends.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			stdio := rwc{
@@ -77,25 +79,37 @@ func createConnection(address string, stdio connection) (connection, error) {
 	}
 }
 
-func connect(left, right connection, uniDir bool) error {
-	g := errgroup.Group{}
-	g.SetLimit(2)
+// closeTimeout is how long connect keeps copying in one direction after the
+// other has ended. It is the default of socat's -t option, though socat
+// restarts it whenever data moves.
+const closeTimeout = 500 * time.Millisecond
 
-	if !uniDir {
-		g.Go(func() error {
-			_, err := io.Copy(left, right)
-			tryCloseWriteSide(left)
-			return err
-		})
+func connect(left, right connection, uniDir bool) error {
+	errs := make(chan error, 2)
+	pipe := func(dst, src connection) {
+		_, err := io.Copy(dst, src)
+		tryCloseWriteSide(dst)
+		errs <- err
 	}
 
-	g.Go(func() error {
-		_, err := io.Copy(right, left)
-		tryCloseWriteSide(right)
-		return err
-	})
+	go pipe(right, left)
+	if uniDir {
+		return <-errs
+	}
+	go pipe(left, right)
 
-	return g.Wait()
+	// Once one direction is done, give the other closeTimeout to finish,
+	// then return so the caller closes both sides. The in-cluster dialer
+	// sees a connection end only when socat exits, and its client keeps
+	// stdin open, so waiting for both directions would hide a peer's close
+	// from it.
+	err := <-errs
+	select {
+	case err2 := <-errs:
+		return errors.Join(err, err2)
+	case <-time.After(closeTimeout):
+		return err
+	}
 }
 
 type connection interface {
