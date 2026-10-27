@@ -36,10 +36,14 @@ import (
 //  1. func create -l python -t cloudevents, add run.kafka + a kafka KEDA trigger
 //  2. func deploy (builds the Python image, pushes to the in-cluster registry,
 //     injects the sidecar) against the real Strimzi broker
-//  3. produce one record to test-topic
-//  4. assert the Python user-container logged receipt ("Request Received")
+//  3. produce one record carrying a unique token to test-topic
+//  4. assert the Python user-container logged that exact token (the handler is
+//     instrumented to echo the received payload, so this confirms our specific
+//     record was delivered and decoded intact -- not merely that a request
+//     arrived)
 //  5. assert the consumer group drains to lag 0 (the sidecar commits the offset
-//     only on a 2xx from the function, so lag 0 confirms delivery succeeded)
+//     only on a 2xx from the function, so lag 0 independently confirms the
+//     function acked the delivery)
 //
 // Environment: the Strimzi broker provisioned by hack/cluster.sh with
 // FUNC_CLUSTER_KAFKA=true (TLS + SCRAM-SHA-512 on 9093, topic test-topic, user
@@ -58,6 +62,11 @@ func TestInt_KafkaPythonDelivery(t *testing.T) {
 
 	name := "func-int-kafka-py-" + rand.String(5)
 	group := name + "-group"
+	// A unique per-run token carried in the record payload. The instrumented
+	// handler echoes the received data, so finding this token in the function's
+	// logs proves it received *our* specific record (payload intact), not merely
+	// that some request arrived.
+	token := "e2e-" + rand.String(10)
 	ns := testingk8s.Namespace(t, ctx)
 
 	cliSet, err := k8s.NewKubernetesClientset()
@@ -81,6 +90,10 @@ func TestInt_KafkaPythonDelivery(t *testing.T) {
 	funcBin := buildFuncCLI(t)
 	funcDir := t.TempDir()
 	runFunc(t, ctx, funcBin, funcDir, nil, "create", "-l", "python", "-t", "cloudevents", funcDir)
+
+	// Echo the received payload from the handler so delivery of our specific
+	// record can be verified (see token above).
+	instrumentPythonHandler(t, funcDir)
 
 	// Configure the generated function: deploy via keda with the sidecar, invoke
 	// as cloudevent, keep one replica up so the consumer stays joined, and point
@@ -149,14 +162,42 @@ func TestInt_KafkaPythonDelivery(t *testing.T) {
 	// assigned partitions. So by now the consumer is live and -- because it reads
 	// from the newest offset -- a record produced now will be seen.
 	strimziImg := strimziKafkaImage(t, ctx, cliSet)
-	produceRecord(t, ctx, cliSet, strimziImg, "hello from python e2e")
+	produceRecord(t, ctx, cliSet, strimziImg, "payload-"+token)
 
-	// Assert the Python function received the CloudEvent.
-	waitForFunctionLog(t, ctx, cliSet, ns, name, "Request Received")
+	// Assert the Python function received our specific record: the instrumented
+	// handler echoes the payload, so the unique token appears in its logs only if
+	// the record was delivered and decoded intact.
+	waitForFunctionLog(t, ctx, cliSet, ns, name, token)
 
 	// Assert the consumer group drains to lag 0 (offset committed => 2xx
 	// delivery confirmed).
 	waitForZeroLag(t, ctx, cliSet, strimziImg, group)
+}
+
+// instrumentPythonHandler edits the scaffolded Python handler to log the
+// received CloudEvent's data. This is test-only instrumentation of our own
+// scaffold (not the shipped template): it lets the test assert that the function
+// received the exact payload we produced, rather than only that a request
+// arrived.
+func instrumentPythonHandler(t *testing.T, funcDir string) {
+	t.Helper()
+	p := filepath.Join(funcDir, "function", "func.py")
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("reading scaffolded handler: %v", err)
+	}
+	// Anchor on the line that binds the decoded event; append an echo right after
+	// it so `request` is in scope.
+	const anchor = `request = scope["event"]`
+	src := string(b)
+	if !strings.Contains(src, anchor) {
+		t.Fatalf("scaffolded handler missing %q; template changed, update this test", anchor)
+	}
+	echo := anchor + "\n        logging.info(f\"FUNC-E2E-RECEIVED data={request.get_data()!r}\")"
+	src = strings.Replace(src, anchor, echo, 1)
+	if err := os.WriteFile(p, []byte(src), 0o644); err != nil {
+		t.Fatalf("writing instrumented handler: %v", err)
+	}
 }
 
 // buildFuncCLI compiles the func binary from the repo under test and returns its
