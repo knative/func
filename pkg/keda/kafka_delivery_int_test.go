@@ -146,11 +146,14 @@ func TestInt_KafkaPythonDelivery(t *testing.T) {
 		t.Fatalf("writing function config: %v", err)
 	}
 
-	// Build + push + deploy. Use the in-cluster registry mirror (insecure), and
-	// honor a FUNC_KAFKA_RUNTIME_IMAGE override if the caller set one (otherwise
+	// Build + push + deploy. Push to the in-cluster registry via localhost:5000
+	// (its hostPort), not registry.localtest.me: the latter is only reachable
+	// through the Contour ingress, which the slim Kafka cluster skips (no
+	// serving). The node still pulls localhost:5000 through the same hostPort.
+	// Honor a FUNC_KAFKA_RUNTIME_IMAGE override if the caller set one (otherwise
 	// the deployer's built-in default sidecar image is used).
 	deployEnv := []string{
-		"FUNC_REGISTRY=registry.localtest.me/func",
+		"FUNC_REGISTRY=localhost:5000/func",
 		"FUNC_REGISTRY_INSECURE=true",
 	}
 	if img := os.Getenv("FUNC_KAFKA_RUNTIME_IMAGE"); img != "" {
