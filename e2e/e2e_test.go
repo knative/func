@@ -1377,7 +1377,11 @@ func httpClient(t *testing.T) *http.Client {
 		clientcmd.NewDefaultClientConfigLoadingRules(),
 		&clientcmd.ConfigOverrides{Context: clientcmdapi.Context{Namespace: Namespace}})
 	rt := fnhttp.NewRoundTripper(fnhttp.WithInClusterDialer(k8s.NewLazyInitInClusterDialer(cc)))
-	c := &http.Client{Transport: rt}
+	// Bound each request so one that never gets an answer fails and waitFor
+	// can retry. The first fallback request also starts the dialer pod, which
+	// gives up after a minute, and a failed start stays failed for the test,
+	// so the timeout is not shorter than that minute.
+	c := &http.Client{Transport: rt, Timeout: time.Minute}
 	httpClients[t] = c
 	t.Cleanup(func() {
 		delete(httpClients, t)
