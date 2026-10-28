@@ -129,13 +129,18 @@ func runS2IGenerate(ctx context.Context, c genConfig) error {
 		}
 	}
 
+	scriptsURL, err := resolveScriptsURL(c.imageScriptUrl, funcRoot)
+	if err != nil {
+		return err
+	}
+
 	s2iConfig := api.Config{
 		Source: &git.URL{
 			URL:  url.URL{Path: funcRoot},
 			Type: git.URLTypeLocal,
 		},
 		BuilderImage:    c.builderImage,
-		ImageScriptsURL: c.imageScriptUrl,
+		ImageScriptsURL: scriptsURL,
 		KeepSymlinks:    true,
 		Environment:     envs,
 		AsDockerfile:    filepath.Join(c.target, "Dockerfile.gen"),
