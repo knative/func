@@ -15,6 +15,7 @@ The Functions MCP server is currently running in **read-only mode**.
 
 **Disabled operations:**
 - Configure Functions (envs, labels, volumes add/remove)
+- Configure Git source settings and pipeline resources (config_git_set, config_git_remove)
 - Deploy to cluster
 - Delete from cluster
 - Push a built image to a registry (`build` with `push` enabled)
