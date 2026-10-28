@@ -8,7 +8,7 @@
 set_versions() {
 	# Note: Kubernetes Version node image per Kind releases (full hash is suggested):
 	# https://github.com/kubernetes-sigs/kind/releases
-	kind_node_version=v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+	kind_node_version=v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
 
 	# find source-of-truth in component-versions.json to add/modify components
 	knative_serving_version="v1.24.0"
