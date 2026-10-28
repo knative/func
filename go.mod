@@ -72,11 +72,11 @@ require (
 	k8s.io/client-go v0.36.5
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
-	knative.dev/client/pkg v0.0.0-20261023133654-82489f8f9847
-	knative.dev/eventing v0.50.1-0.20261023155537-5272bfed8203
+	knative.dev/client/pkg v0.0.0-20261027143018-f2bfc7f36474
+	knative.dev/eventing v0.51.0
 	knative.dev/hack v0.0.0-20261023132104-4a15c76c8f70
-	knative.dev/pkg v0.0.0-20261023132203-c36432dafbb3
-	knative.dev/serving v0.50.1-0.20261024031535-d01fc4f997c0
+	knative.dev/pkg v0.0.0-20261026113028-cfa0ac991c5a
+	knative.dev/serving v0.51.0
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/yaml v1.6.0
 )
@@ -207,7 +207,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
-	github.com/klauspost/compress v1.19.1 // indirect
+	github.com/klauspost/compress v1.20.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
@@ -252,7 +252,7 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/client_golang v1.24.1 // indirect
+	github.com/prometheus/client_golang v1.25.0 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/common v0.72.0 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
@@ -325,7 +325,7 @@ require (
 	k8s.io/cli-runtime v0.34.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
 	k8s.io/streaming v0.36.5 // indirect
-	knative.dev/networking v0.0.0-20261023013436-7de3b18e6b69 // indirect
+	knative.dev/networking v0.0.0-20261026130131-cfc431598730 // indirect
 	sigs.k8s.io/gateway-api v1.5.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.0 // indirect
