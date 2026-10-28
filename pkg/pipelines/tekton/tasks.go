@@ -5,10 +5,12 @@ import (
 	_ "embed"
 	"strings"
 	"text/template"
+
+	"knative.dev/func/pkg/version"
 )
 
 var (
-	FuncUtilImage = "ghcr.io/knative/func-utils:v2"
+	FuncUtilImage = version.FuncUtilsImage
 	DeployerImage string
 	ScaffoldImage string
 	S2IImage      string

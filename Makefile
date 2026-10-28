@@ -40,10 +40,13 @@ KVER         ?= $(shell git describe --tags --match 'knative-*' 2>/dev/null)
 
 LDFLAGS      := -X knative.dev/func/pkg/version.Vers=$(VERS) -X knative.dev/func/pkg/version.Kver=$(KVER) -X knative.dev/func/pkg/version.Hash=$(HASH)
 
-FUNC_UTILS_IMG ?= ghcr.io/knative/func-utils:v2
+# Overrides the func-utils image; the default is version.FuncUtilsImage.
+FUNC_UTILS_IMG ?=
+ifneq ($(FUNC_UTILS_IMG),)
 LDFLAGS += -X knative.dev/func/pkg/k8s.SocatImage=$(FUNC_UTILS_IMG)
 LDFLAGS += -X knative.dev/func/pkg/k8s.TarImage=$(FUNC_UTILS_IMG)
 LDFLAGS += -X knative.dev/func/pkg/pipelines/tekton.FuncUtilImage=$(FUNC_UTILS_IMG)
+endif
 
 GOFLAGS      := "-ldflags=$(LDFLAGS)"
 export GOFLAGS
@@ -380,6 +383,13 @@ func-instrumented-bin: # func binary instrumented with coverage reporting
 
 .PHONY: cross-platform
 cross-platform: darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 linux-ppc64le linux-s390x windows ## Build all distributable (cross-platform) binaries
+
+.PHONY: func-utils-image
+func-utils-image: ## Print the func-utils image reference builds embed
+	@if [ -n "$(FUNC_UTILS_IMG)" ]; then echo "$(FUNC_UTILS_IMG)"; exit; fi; \
+	ref="$$(sed -n 's/^const FuncUtilsImage = "\(.*\)"$$/\1/p' pkg/version/version.go)"; \
+	if [ -z "$$ref" ]; then echo "no FuncUtilsImage constant in pkg/version/version.go" >&2; exit 1; fi; \
+	echo "$$ref"
 
 .PHONY: darwin-arm64
 darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1

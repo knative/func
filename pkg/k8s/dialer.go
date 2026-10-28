@@ -26,9 +26,11 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"knative.dev/func/pkg/version"
 )
 
-var SocatImage = "ghcr.io/knative/func-utils:v2"
+var SocatImage = version.FuncUtilsImage
 
 // NewInClusterDialer creates context dialer that will dial TCP connections via POD running in k8s cluster.
 // This is useful when accessing k8s services that are not exposed outside cluster (e.g. openshift image registry).

@@ -21,6 +21,21 @@ VALIDATION_TESTS="make test"
 
 source "$(go run knative.dev/hack/cmd/script release.sh)"
 
+# A vX.Y.Z release must embed the func-utils image pinned for X.Y, and that
+# image must exist. Both hold when release-X.Y is cut from main: main embeds
+# the minor in development and its green pushes publish that image (see
+# docs/func-utils-image.md).
+function check_func_utils_image() {
+  local want actual
+  want="ghcr.io/knative/func-utils:$(major_minor_version "$1")"
+  actual="$(make -s --no-print-directory func-utils-image)"
+  [[ "${actual}" == "${want}" ]] \
+    || abort "release $1 would embed func-utils image '${actual}', want '${want}'; see docs/func-utils-image.md"
+  go run github.com/google/go-containerregistry/cmd/crane digest "${want}" > /dev/null \
+    || abort "func-utils image '${want}' does not exist"
+  echo "🧰 func-utils image: ${want}"
+}
+
 function build_release() {
   echo "🚧 🐧 Building cross platform binaries: Linux 🐧 (amd64 / arm64 / ppc64le / s390x), MacOS 🍏, and Windows 🎠"
 
@@ -35,6 +50,7 @@ function build_release() {
     else
       # Release build: convert knative version to go module version
       go_module_version="v0.$(( $(minor_version "$TAG") + 27 )).$(patch_version "$TAG")"
+      check_func_utils_image "${TAG}"
     fi
   else
     knative_version="$(git describe --tags --match 'knative-*')"
