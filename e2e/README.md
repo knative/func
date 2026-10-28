@@ -165,17 +165,8 @@ the test suite will run tests for all supported permutations. Defaults to
 tests. Accepts a comma-separated list (e.g., "http,cloudevents"). By default,
 both "http" and "cloudevents" templates are tested when matrix tests are enabled.
 
-`FUNC_E2E_DOMAIN`: specifies the DNS domain suffix used for function URLs
-during tests. Defaults to "localtest.me". When using a custom domain, ensure
-it is configured in both the cluster's CoreDNS setup and Knative serving
-config-domain ConfigMap. The URL pattern is `http://{function}.{namespace}.{domain}`.
-For local development, "localtest.me" is recommended as it automatically resolves
-to 127.0.0.1 without additional DNS configuration.
-
 `FUNC_E2E_NAMESPACE`: specifies the Kubernetes namespace where functions will be
-deployed during tests. Defaults to "default". When using a custom namespace,
-ensure DNS is configured for `{function}.{namespace}.{domain}` patterns.
-This requires corresponding DNS or ingress configuration in your cluster.
+deployed during tests. Defaults to "default".
 
 `FUNC_E2E_PODMAN`: enables tests specifically for the Podman container engine.
 When set to "true", tests will verify that functions can be built and deployed

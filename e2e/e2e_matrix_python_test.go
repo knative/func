@@ -58,7 +58,7 @@ func TestMatrix_Python_StaticSignature(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, functionURL(t, name)) {
 		t.Fatal("static Python function did not deploy correctly")
 	}
 }
@@ -123,13 +123,14 @@ func TestMatrix_Python_LegacyParliament(t *testing.T) {
 				clean(t, name, Namespace)
 			}()
 
+			url := functionURL(t, name)
 			if tc.template == "cloudevents" {
-				if !waitFor(t, ksvcUrl(name), withTemplate("cloudevents")) {
+				if !waitFor(t, url, withTemplate("cloudevents")) {
 					t.Fatalf("legacy parliament cloudevents function did not deploy correctly with %s builder", tc.builder)
 				}
 			} else {
 				// The parliament http template echoes the query as JSON.
-				if !waitFor(t, ksvcUrl(name)+"?foo=bar", withContentMatch(`{"foo": "bar"}`)) {
+				if !waitFor(t, url+"?foo=bar", withContentMatch(`{"foo": "bar"}`)) {
 					t.Fatalf("legacy parliament http function did not deploy correctly with %s builder", tc.builder)
 				}
 			}
@@ -158,7 +159,8 @@ func TestMatrix_Python_Update(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name),
+	url := functionURL(t, name)
+	if !waitFor(t, url,
 		withWaitTimeout(5*time.Minute)) {
 		t.Fatal("function did not deploy correctly")
 	}
@@ -192,7 +194,7 @@ class Function:
 	if err := newCmd(t, "deploy", "--builder", "pack").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitFor(t, ksvcUrl(name),
+	if !waitFor(t, url,
 		withWaitTimeout(5*time.Minute),
 		withContentMatch("UPDATED")) {
 		t.Fatal("function did not update correctly (issue #3079: poetry-venv cache not invalidated on source change)")
@@ -221,12 +223,13 @@ func TestMatrix_Python_InstancedHTTP(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name), withContentMatch("request:")) {
+	url := functionURL(t, name)
+	if !waitFor(t, url, withContentMatch("request:")) {
 		t.Fatal("instanced HTTP function did not become ready")
 	}
 
-	first := requestCount(t, ksvcUrl(name))
-	second := requestCount(t, ksvcUrl(name))
+	first := requestCount(t, url)
+	second := requestCount(t, url)
 	if second <= first {
 		t.Fatalf("instanced counter did not increase across requests (state should persist): first=%d second=%d", first, second)
 	}
@@ -288,7 +291,7 @@ func TestMatrix_Python_UserDepsRemote(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !waitFor(t, ksvcUrl(name),
+	if !waitFor(t, functionURL(t, name),
 		withWaitTimeout(5*time.Minute),
 		withContentMatch("hello from mylib")) {
 		t.Fatal("function did not return mylib greeting — user code not preserved in remote build")

@@ -30,6 +30,7 @@ set_versions() {
 	keda_version="v2.17.0"
 	keda_http_addon_version="v0.11.1"
 	func_operator_version="v0.2.1"
+	strimzi_version="1.3.0"
 }
 `
 
@@ -63,6 +64,9 @@ const expectedJson string = `{
 		"version": "v1.19.0",
 		"owner": "knative",
 		"repo": "serving"
+	},
+	"Strimzi": {
+		"version": "1.3.0"
 	},
 	"Tekton": {
 		"version": "v1.1.0"
@@ -131,6 +135,9 @@ func TestWrite(t *testing.T) {
 		},
 		"KedaHTTPAddOn": {
 			Version: "v0.11.1",
+		},
+		"Strimzi": {
+			Version: "1.3.0",
 		},
 	}
 

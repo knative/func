@@ -12,33 +12,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
+	restclient "k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"knative.dev/func/pkg/k8s"
 )
-
-// RegistryCredentials holds resolved credentials for a container registry.
-type RegistryCredentials struct {
-	Username string
-	Password string
-	Server   string
-}
 
 // SyncConfig holds the parameters for creating/updating a Function CR.
 type SyncConfig struct {
 	FunctionName string
 	Namespace    string
 	RepoURL      string
-	RepoBranch   string
-	RepoPath     string
-	// If set, a docker-registry secret is created and referenced from
+	RepoRevision string
+	RepoDir      string
+	// If set, SyncFunctionCR creates or updates this Secret and names it in
 	// the Function CR's .spec.registry.authSecretRef.
-	RegistryCredentials *RegistryCredentials
+	RegistrySecret *v1.Secret
 }
 
-// ensureRegistrySecret creates or updates a docker-registry Secret.
-// Defaults to k8s.EnsureDockerRegistrySecretExist; overridden in tests.
-var ensureRegistrySecret = k8s.EnsureDockerRegistrySecretExist
+// ensureSecret creates or updates a Secret.
+// Defaults to k8s.EnsureSecretExist; overridden in tests.
+var ensureSecret = k8s.EnsureSecretExist
 
 // SyncFunctionCR creates or updates a Function CR for the given function.
 // It sets up Kubernetes clients, checks if the Function CRD exists on the
@@ -48,6 +42,10 @@ func SyncFunctionCR(ctx context.Context, cfg SyncConfig) error {
 	if err != nil {
 		return fmt.Errorf("getting kubernetes config: %w", err)
 	}
+	// Show API server warnings, such as fields the CRD does not know and
+	// drops. Left unset, controller-runtime logs them through a logger func
+	// never sets, so the warning is lost and a stack trace is printed.
+	restCfg.WarningHandler = restclient.NewWarningWriter(os.Stderr, restclient.WarningWriterOptions{Deduplicate: true})
 
 	disc, err := discovery.NewDiscoveryClientForConfig(restCfg)
 	if err != nil {
@@ -82,20 +80,18 @@ func syncFunctionCR(ctx context.Context, cl ctrlclient.Client, disc discovery.Di
 
 	// Build desired spec
 	var registrySecretRef *v1.LocalObjectReference
-	if cfg.RegistryCredentials != nil {
-		secretName := cfg.FunctionName + "-registry-auth"
-		if err := ensureRegistrySecret(ctx, secretName, cfg.Namespace, nil, nil,
-			cfg.RegistryCredentials.Username, cfg.RegistryCredentials.Password, cfg.RegistryCredentials.Server); err != nil {
+	if cfg.RegistrySecret != nil {
+		if err := ensureSecret(ctx, *cfg.RegistrySecret, cfg.Namespace); err != nil {
 			return fmt.Errorf("creating registry secret: %w", err)
 		}
-		registrySecretRef = &v1.LocalObjectReference{Name: secretName}
+		registrySecretRef = &v1.LocalObjectReference{Name: cfg.RegistrySecret.Name}
 	}
 
 	desiredSpec := v1alpha1.FunctionSpec{
 		Repository: v1alpha1.FunctionSpecRepository{
-			URL:    cfg.RepoURL,
-			Branch: cfg.RepoBranch,
-			Path:   cfg.RepoPath,
+			URL:      cfg.RepoURL,
+			Revision: cfg.RepoRevision,
+			Dir:      cfg.RepoDir,
 		},
 	}
 	if registrySecretRef != nil {

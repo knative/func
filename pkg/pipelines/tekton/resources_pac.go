@@ -113,3 +113,10 @@ func deletePACRepositories(ctx context.Context, namespaceOverride string, listOp
 func getPipelineRepositoryName(f fn.Function) string {
 	return fmt.Sprintf("%s-repo", getPipelineName(f))
 }
+
+// getPipelineSecretName returns the name of the Secret PAC setup writes: the
+// registry login with the git provider token and webhook secret. Standard
+// runs mount the function's registry Secret instead (k8s.NewRegistrySecret).
+func getPipelineSecretName(f fn.Function) string {
+	return fmt.Sprintf("%s-secret", getPipelineName(f))
+}

@@ -5,14 +5,20 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"syscall"
 
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
+
+	fn "knative.dev/func/pkg/functions"
 )
 
 func GetSecret(ctx context.Context, name, namespaceOverride string) (*corev1.Secret, error) {
@@ -83,25 +89,36 @@ func DeleteSecrets(ctx context.Context, namespaceOverride string, listOptions me
 	return client.CoreV1().Secrets(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, username, password, server string) (err error) {
+// NewRegistrySecret returns the Secret holding the registry credentials of
+// function f, of type kubernetes.io/dockerconfigjson, the standard type for
+// them, which image pull secrets require. Remote builds mount its
+// .dockerconfigjson key as the config.json the build reads. All its writers
+// build it here, so none undoes another's write. The function's labels let
+// func delete remove it.
+func NewRegistrySecret(f fn.Function, username, password, server string) (corev1.Secret, error) {
+	labels, err := f.LabelsMap()
+	if err != nil {
+		return corev1.Secret{}, err
+	}
+	// go-containerregistry, which the buildpacks build uses, finds a Docker Hub
+	// login only under Docker Hub's legacy URL, as docker login writes it.
+	if server == name.DefaultRegistry {
+		server = authn.DefaultAuthKey
+	}
 	dockerConfigJSONContent, err := HandleDockerCfgJSONContent(username, password, "", server)
 	if err != nil {
-		return
+		return corev1.Secret{}, err
 	}
 
-	// Check whether we need to create or update the Secret
-	secret := corev1.Secret{
+	return corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
+			Name:        f.Name + "-registry-auth",
 			Labels:      labels,
-			Annotations: annotations,
+			Annotations: f.Deploy.Annotations,
 		},
-		Type: corev1.SecretTypeOpaque,
-		Data: map[string][]byte{},
-	}
-	secret.Data["config.json"] = dockerConfigJSONContent
-
-	return EnsureSecretExist(ctx, secret, namespaceOverride)
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{corev1.DockerConfigJsonKey: dockerConfigJSONContent},
+	}, nil
 }
 
 func EnsureSecretExist(ctx context.Context, secret corev1.Secret, namespaceOverride string) (err error) {
@@ -110,11 +127,30 @@ func EnsureSecretExist(ctx context.Context, secret corev1.Secret, namespaceOverr
 		return
 	}
 
+	return ensureSecretExist(ctx, client.CoreV1().Secrets(namespace), secret)
+}
+
+func ensureSecretExist(ctx context.Context, secrets typedcorev1.SecretInterface, secret corev1.Secret) (err error) {
 	// Check whether Secret with specified name exist
 	secretNotFound := false
-	existingSecret, err := GetSecret(ctx, secret.Name, namespace)
+	existingSecret, err := secrets.Get(ctx, secret.Name, metav1.GetOptions{})
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
+			return
+		}
+		secretNotFound = true
+	}
+
+	// The API refuses to change a Secret's type, so delete and create anew a
+	// registry Secret earlier func versions wrote. Any other Secret may be
+	// the user's, so leave it and fail.
+	if !secretNotFound && secretType(existingSecret.Type) != secretType(secret.Type) {
+		if !isOldRegistrySecret(existingSecret) {
+			return fmt.Errorf("secret %q in namespace %q has type %q, but func needs type %q: delete it so func can create it",
+				existingSecret.Name, existingSecret.Namespace, secretType(existingSecret.Type), secretType(secret.Type))
+		}
+		err = secrets.Delete(ctx, secret.Name, metav1.DeleteOptions{})
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return
 		}
 		secretNotFound = true
@@ -150,13 +186,28 @@ func EnsureSecretExist(ctx context.Context, secret corev1.Secret, namespaceOverr
 
 	if secretNotFound || !dataEqual || !labelsEqual || !annotationsEqual {
 		if secretNotFound {
-			_, err = client.CoreV1().Secrets(namespace).Create(ctx, &secret, metav1.CreateOptions{})
+			_, err = secrets.Create(ctx, &secret, metav1.CreateOptions{})
 		} else {
-			_, err = client.CoreV1().Secrets(namespace).Update(ctx, &secret, metav1.UpdateOptions{})
+			_, err = secrets.Update(ctx, &secret, metav1.UpdateOptions{})
 		}
 	}
 
 	return
+}
+
+// secretType is t as the API stores it: Opaque when empty.
+func secretType(t corev1.SecretType) corev1.SecretType {
+	if t == "" {
+		return corev1.SecretTypeOpaque
+	}
+	return t
+}
+
+// isOldRegistrySecret reports whether s has the shape earlier func versions
+// gave the registry Secret: Opaque, with only a config.json key.
+func isOldRegistrySecret(s *corev1.Secret) bool {
+	_, ok := s.Data["config.json"]
+	return ok && len(s.Data) == 1 && secretType(s.Type) == corev1.SecretTypeOpaque
 }
 
 // --- Helper methods for DockerConfigJson type of Secret

@@ -540,7 +540,7 @@ deploy:
 		if migrated.Scale.KPA.Metric == nil || *migrated.Scale.KPA.Metric != "concurrency" {
 			t.Errorf("scale.kpa.metric = %v, want concurrency", migrated.Scale.KPA.Metric)
 		}
-		if errs := ValidateScale(migrated.Scale, "raw"); len(errs) != 0 {
+		if errs := ValidateScale(migrated.Scale, "raw", migrated.Run.Kafka); len(errs) != 0 {
 			t.Errorf("expected the migrated scale to pass validation, got: %v", errs)
 		}
 	})
@@ -570,7 +570,7 @@ deploy:
 		if migrated.Scale.KPA.Metric == nil || *migrated.Scale.KPA.Metric != "concurrency" {
 			t.Errorf("scale.kpa.metric = %v, want concurrency", migrated.Scale.KPA.Metric)
 		}
-		if errs := ValidateScale(migrated.Scale, "keda"); len(errs) != 0 {
+		if errs := ValidateScale(migrated.Scale, "keda", migrated.Run.Kafka); len(errs) != 0 {
 			t.Errorf("expected the migrated scale to pass keda validation, got: %v", errs)
 		}
 	})

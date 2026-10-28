@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"text/template"
 	"time"
 
 	fn "knative.dev/func/pkg/functions"
@@ -31,6 +30,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	fnhttp "knative.dev/func/pkg/http"
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -80,11 +82,6 @@ const (
 	// FUNC_E2E_BROKER_HOST environment variable.
 	DefaultBrokerHost = "broker.localtest.me"
 
-	// DefaultDomain for E2E tests. Defaults to "localtest.me" but can be
-	// overridden using FUNC_E2E_DOMAIN environment variable. This domain
-	// must be properly configured in the cluster's DNS and Knative serving.
-	DefaultDomain = "localtest.me"
-
 	// DefaultRegistry to use when running the e2e tests.  This is the URL
 	// of the registry created by default when using the cluster.sh script
 	// to set up a local testing cluster, but can be customized with
@@ -127,13 +124,6 @@ var (
 	// Can be set with FUNC_E2E_DOCKER_HOST.
 	DockerHost string
 
-	// Domain is the DNS domain suffix used for constructing function URLs
-	// during tests. Defaults to "localtest.me". When using a custom domain,
-	// ensure it is configured in the cluster's CoreDNS and Knative serving
-	// config-domain. The pattern is: http://{function}.{namespace}.{domain}
-	// Can be set with FUNC_E2E_DOMAIN
-	Domain string
-
 	// Gocoverdir is the path to the directory which will be used for Go's
 	// coverage reporting, provided to the test binary as GOCOVERDIR.  By
 	// default the current user's environment is not used, and by default this
@@ -169,8 +159,7 @@ var (
 	BrokerHost string
 
 	// Namespace is the Kubernetes namespace where functions will be deployed
-	// during tests. Defaults to "default". When using a custom namespace,
-	// ensure DNS is configured for {function}.{namespace}.{domain} patterns.
+	// during tests. Defaults to "default".
 	// Can be set with FUNC_E2E_NAMESPACE
 	Namespace string
 
@@ -272,7 +261,6 @@ func init() {
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_CLEAN_IMAGES=%v\n", os.Getenv("FUNC_E2E_CLEAN_IMAGES"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_DOCKER_HOST=%v\n", os.Getenv("FUNC_E2E_DOCKER_HOST"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_BROKER_HOST=%v\n", os.Getenv("FUNC_E2E_BROKER_HOST"))
-	fmt.Fprintf(os.Stderr, "  FUNC_E2E_DOMAIN=%v\n", os.Getenv("FUNC_E2E_DOMAIN"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_GOCOVERDIR=%v\n", os.Getenv("FUNC_E2E_GOCOVERDIR"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_HOME=%v\n", os.Getenv("FUNC_E2E_HOME"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_KUBECONFIG=%v\n", os.Getenv("FUNC_E2E_KUBECONFIG"))
@@ -304,7 +292,6 @@ func init() {
 	fmt.Fprintf(os.Stderr, "  Clean=%v\n", Clean)
 	fmt.Fprintf(os.Stderr, "  CleanImages=%v\n", CleanImages)
 	fmt.Fprintf(os.Stderr, "  DockerHost=%v\n", DockerHost)
-	fmt.Fprintf(os.Stderr, "  Domain=%v\n", Domain)
 	fmt.Fprintf(os.Stderr, "  Gocoverdir=%v\n", Gocoverdir)
 	fmt.Fprintf(os.Stderr, "  Kubeconfig=%v\n", Kubeconfig)
 	fmt.Fprintf(os.Stderr, "  Matrix=%v\n", Matrix)
@@ -353,9 +340,6 @@ func readEnvs() {
 
 	// DockerHost - the DOCKER_HOST to use for container operations (not including podman-specific tests)
 	DockerHost, _ = getEnv("FUNC_E2E_DOCKER_HOST", "", "")
-
-	// Domain - the DNS domain suffix for function URLs
-	Domain, _ = getEnv("FUNC_E2E_DOMAIN", "", DefaultDomain)
 
 	// Gocoverdir - the coverage directory to use while testing the go binary.
 	Gocoverdir = getEnvPath("FUNC_E2E_GOCOVERDIR", "", DefaultGocoverdir)
@@ -687,7 +671,7 @@ func waitForCloudevent(t *testing.T, address string, options ...waitOption) (ok 
 		o(&cfg)
 	}
 
-	client := &http.Client{}
+	client := httpClient(t)
 
 	startTime := time.Now()
 	lastWarnTime := time.Time{}
@@ -817,6 +801,8 @@ func waitForContent(t *testing.T, address, content, errMsg string, options ...wa
 		mismatchReported = false // note that the given content was reported
 	)
 
+	client := httpClient(t)
+
 	startTime := time.Now()
 	lastWarnTime := time.Time{}
 	attemptCount := 0
@@ -824,7 +810,7 @@ func waitForContent(t *testing.T, address, content, errMsg string, options ...wa
 	for time.Since(startTime) < cfg.timeout {
 		attemptCount++
 		time.Sleep(cfg.interval)
-		res, err := http.Get(address)
+		res, err := client.Get(address)
 		if err != nil {
 			elapsed := time.Since(startTime)
 			if elapsed > cfg.warnThreshold && time.Since(lastWarnTime) >= cfg.warnInterval {
@@ -1345,21 +1331,59 @@ func parseRunJSON(t *testing.T, cmd *exec.Cmd) string {
 	return address
 }
 
-func ksvcUrl(name string) string {
-	// TODO get `default-external-scheme` from the config in cluster
-	const ksvcDefaultExternalScheme = `http`
-	// TODO get `domain-template` from the config in cluster
-	const ksvcDomainTemplate = `{{.Name}}-{{.Namespace}}-ksvc.{{.Domain}}`
-	t, err := template.New("").Parse(ksvcDomainTemplate)
-	if err != nil {
-		panic(err)
+// functionURL returns the route of the named deployed function as reported
+// by `func describe`. Each deployer reports its own: the Knative Service URL,
+// the Route host when exposed, or the cluster-local Service URL
+// (http://{name}.{namespace}.svc) otherwise. Reach it with httpClient, which
+// can dial a cluster-local URL from outside the cluster.
+//
+// Describe only locates the function; a test still proves the deploy by the
+// function's response.
+func functionURL(t *testing.T, name string) string {
+	t.Helper()
+	cmd := newCmd(t, "describe", name, "--namespace", Namespace, "--output=json")
+	out := bytes.Buffer{}
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("describe of %q failed, so its route is unknown: %v", name, err)
 	}
-	var buf bytes.Buffer
-	err = t.Execute(&buf, struct {
-		Name, Namespace, Domain string
-	}{name, Namespace, Domain})
-	if err != nil {
-		panic(err)
+	var instance fn.Instance
+	if err := json.Unmarshal(out.Bytes(), &instance); err != nil {
+		t.Fatalf("error unmarshaling describe output of %q: %v\n%s", name, err, out.String())
 	}
-	return ksvcDefaultExternalScheme + `://` + buf.String()
+	if instance.Route == "" {
+		t.Fatalf("describe of %q returned no route:\n%s", name, out.String())
+	}
+	return instance.Route
+}
+
+// httpClients needs a mutex if these tests are ever run in parallel.
+var httpClients = map[*testing.T]*http.Client{}
+
+// httpClient returns the test's HTTP client for reaching functions. It dials
+// normally and falls back to an in-cluster dialer pod when the host does not
+// resolve, which is how a cluster-local route is reached from the test
+// runner. The pod starts on the first fallback only, so a test whose routes
+// all resolve never creates one. One client per test, closed at its end, so
+// a dialer that failed to start affects that test only.
+func httpClient(t *testing.T) *http.Client {
+	t.Helper()
+	if c, ok := httpClients[t]; ok {
+		return c
+	}
+	// Start the dialer pod in the suite's namespace, where the functions are,
+	// not in the kubeconfig's current one.
+	cc := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{Context: clientcmdapi.Context{Namespace: Namespace}})
+	rt := fnhttp.NewRoundTripper(fnhttp.WithInClusterDialer(k8s.NewLazyInitInClusterDialer(cc)))
+	c := &http.Client{Transport: rt}
+	httpClients[t] = c
+	t.Cleanup(func() {
+		delete(httpClients, t)
+		if err := rt.Close(); err != nil {
+			t.Logf("error closing in-cluster dialer: %v", err)
+		}
+	})
+	return c
 }

@@ -379,7 +379,8 @@ func sourceRevision(f fn.Function) (fetch, label string) {
 
 // createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build
 // all resources are created on the fly, if there's a PipelineRun defined in the project directory, it is used instead
-func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string) error {
+// secretName is the registry Secret the build mounts its login from; empty leaves the build without one
+func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string, secretName string) error {
 	contextDir := f.Build.Source.Dir
 	if contextDir == "" && f.Build.Builder == builders.S2I {
 		// TODO(lkingland): could instead update S2I to interpret empty string
@@ -429,7 +430,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		PipelineName:    getPipelineName(f),
 		PipelineRunName: getPipelineRunGenerateName(f),
 		PvcName:         getPipelinePvcName(f),
-		SecretName:      getPipelineSecretName(f),
+		SecretName:      secretName,
 
 		S2iImageScriptsUrl: s2iImageScriptsUrl,
 		TlsVerify:          tlsVerify,

@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -625,5 +626,63 @@ func TestTool_ConfigEnvsRemove_Error(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected error result, got success")
+	}
+}
+
+// TestTool_ConfigEnvsAdd_Readonly ensures the config_envs_add tool is blocked in readonly mode.
+func TestTool_ConfigEnvsAdd_Readonly(t *testing.T) {
+	executor := mock.NewExecutor()
+
+	client, server, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly.Store(true)
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_add",
+		Arguments: map[string]any{"path": ".", "name": "KEY", "value": "VAL"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result in readonly mode, got success")
+	}
+	got := resultToString(result)
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor should not be invoked in readonly mode")
+	}
+}
+
+// TestTool_ConfigEnvsRemove_Readonly ensures the config_envs_remove tool is blocked in readonly mode.
+func TestTool_ConfigEnvsRemove_Readonly(t *testing.T) {
+	executor := mock.NewExecutor()
+
+	client, server, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly.Store(true)
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_envs_remove",
+		Arguments: map[string]any{"path": ".", "name": "KEY"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result in readonly mode, got success")
+	}
+	got := resultToString(result)
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor should not be invoked in readonly mode")
 	}
 }

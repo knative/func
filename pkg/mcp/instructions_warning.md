@@ -8,21 +8,22 @@ The Functions MCP server is currently running in **read-only mode**.
 
 **Available operations:**
 - Create Functions
-- Build Functions
-- Configure Functions (envs, labels, volumes)
+- Build Functions (without pushing the image)
 - Inspect Functions
+- List Function configuration
 - Run/stop Functions locally (not cluster operations, so unaffected by read-only mode)
 
 **Disabled operations:**
+- Configure Functions (envs, labels, volumes add/remove)
 - Deploy to cluster
 - Delete from cluster
 - Push a built image to a registry (`build` with `push` enabled)
 
-These write operations are disabled to prevent unintended cluster modifications.
+These write operations are disabled to prevent unintended local or cluster modifications.
 
 ## Enabling Write Mode
 
-If the user needs to deploy or delete Functions, or push a built image to a registry, you MUST inform them to enable write mode:
+If the user needs to deploy, delete, or configure Functions, or push a built image to a registry, you MUST inform them to enable write mode:
 
 1. Close/exit this application completely
 2. Set the environment variable: `FUNC_ENABLE_MCP_WRITE=true`

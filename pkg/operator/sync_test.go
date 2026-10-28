@@ -2,9 +2,19 @@ package operator
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakediscovery "k8s.io/client-go/discovery/fake"
@@ -49,8 +59,8 @@ func TestSyncFunctionCR_CreateNew(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoBranch:   "main",
-		RepoPath:     ".",
+		RepoRevision: "main",
+		RepoDir:      ".",
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
@@ -69,11 +79,11 @@ func TestSyncFunctionCR_CreateNew(t *testing.T) {
 	if fn.Spec.Repository.URL != "https://github.com/alice/my-func.git" {
 		t.Fatalf("expected repo URL, got %q", fn.Spec.Repository.URL)
 	}
-	if fn.Spec.Repository.Branch != "main" {
-		t.Fatalf("expected branch 'main', got %q", fn.Spec.Repository.Branch)
+	if fn.Spec.Repository.Revision != "main" {
+		t.Fatalf("expected revision 'main', got %q", fn.Spec.Repository.Revision)
 	}
-	if fn.Spec.Repository.Path != "." {
-		t.Fatalf("expected path '.', got %q", fn.Spec.Repository.Path)
+	if fn.Spec.Repository.Dir != "." {
+		t.Fatalf("expected dir '.', got %q", fn.Spec.Repository.Dir)
 	}
 }
 
@@ -86,8 +96,8 @@ func TestSyncFunctionCR_UpdateExistingByMetadataName(t *testing.T) {
 		},
 		Spec: v1alpha1.FunctionSpec{
 			Repository: v1alpha1.FunctionSpecRepository{
-				URL:    "https://github.com/old/repo.git",
-				Branch: "old-branch",
+				URL:      "https://github.com/old/repo.git",
+				Revision: "old-branch",
 			},
 		},
 	}
@@ -98,8 +108,8 @@ func TestSyncFunctionCR_UpdateExistingByMetadataName(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoBranch:   "main",
-		RepoPath:     "subfolder",
+		RepoRevision: "main",
+		RepoDir:      "subfolder",
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
@@ -125,8 +135,8 @@ func TestSyncFunctionCR_UpdateExistingByMetadataName(t *testing.T) {
 	if fn.Spec.Repository.URL != "https://github.com/alice/my-func.git" {
 		t.Fatalf("expected spec to be updated, but URL was %q", fn.Spec.Repository.URL)
 	}
-	if fn.Spec.Repository.Branch != "main" {
-		t.Fatalf("expected branch to be updated, but got %q", fn.Spec.Repository.Branch)
+	if fn.Spec.Repository.Revision != "main" {
+		t.Fatalf("expected revision to be updated, but got %q", fn.Spec.Repository.Revision)
 	}
 }
 
@@ -157,8 +167,8 @@ func TestSyncFunctionCR_UpdateExistingByStatusName(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoBranch:   "main",
-		RepoPath:     ".",
+		RepoRevision: "main",
+		RepoDir:      ".",
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
@@ -192,8 +202,8 @@ func TestSyncFunctionCR_NoCRD_SkipSilently(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoBranch:   "main",
-		RepoPath:     ".",
+		RepoRevision: "main",
+		RepoDir:      ".",
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
@@ -202,33 +212,40 @@ func TestSyncFunctionCR_NoCRD_SkipSilently(t *testing.T) {
 	}
 }
 
-func TestSyncFunctionCR_WithRegistryCredentials(t *testing.T) {
-	original := ensureRegistrySecret
-	ensureRegistrySecret = func(_ context.Context, _, _ string, _, _ map[string]string, _, _, _ string) error {
+func TestSyncFunctionCR_WithRegistrySecret(t *testing.T) {
+	var ensured []v1.Secret
+	original := ensureSecret
+	ensureSecret = func(_ context.Context, secret v1.Secret, _ string) error {
+		ensured = append(ensured, secret)
 		return nil
 	}
-	t.Cleanup(func() { ensureRegistrySecret = original })
+	t.Cleanup(func() { ensureSecret = original })
 
 	scheme := newScheme()
 	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 	disc := fakeDiscoveryWithCRD()
 
+	secret := v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-func-registry-auth"},
+		Type:       v1.SecretTypeDockerConfigJson,
+		Data:       map[string][]byte{v1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
+	}
 	cfg := SyncConfig{
-		FunctionName: "my-func",
-		Namespace:    "default",
-		RepoURL:      "https://github.com/alice/my-func.git",
-		RepoBranch:   "main",
-		RepoPath:     ".",
-		RegistryCredentials: &RegistryCredentials{
-			Username: "admin",
-			Password: "secret",
-			Server:   "ghcr.io",
-		},
+		FunctionName:   "my-func",
+		Namespace:      "default",
+		RepoURL:        "https://github.com/alice/my-func.git",
+		RepoRevision:   "main",
+		RepoDir:        ".",
+		RegistrySecret: &secret,
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if len(ensured) != 1 || !equality.Semantic.DeepEqual(ensured[0], secret) {
+		t.Fatalf("expected the registry secret to be ensured as given, got %+v", ensured)
 	}
 
 	var fn v1alpha1.Function
@@ -256,8 +273,8 @@ func TestSyncFunctionCR_NoRepoURL_SkipsWithMessage(t *testing.T) {
 		FunctionName: "my-func",
 		Namespace:    "default",
 		RepoURL:      "",
-		RepoBranch:   "main",
-		RepoPath:     ".",
+		RepoRevision: "main",
+		RepoDir:      ".",
 	}
 
 	err := syncFunctionCR(context.Background(), cl, disc, cfg)
@@ -272,5 +289,83 @@ func TestSyncFunctionCR_NoRepoURL_SkipsWithMessage(t *testing.T) {
 	}
 	if len(list.Items) != 0 {
 		t.Fatalf("expected no Function CRs, got %d", len(list.Items))
+	}
+}
+
+// TestSyncFunctionCR_PrintsServerWarnings ensures a warning the API server
+// returns for the CR, such as a field the cluster's CRD drops, is printed to
+// stderr rather than lost.
+func TestSyncFunctionCR_PrintsServerWarnings(t *testing.T) {
+	const warning = `unknown field "spec.repository.branch"`
+	gv := v1alpha1.GroupVersion.String()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api":
+			_ = json.NewEncoder(w).Encode(metav1.APIVersions{})
+		case r.URL.Path == "/apis":
+			version := metav1.GroupVersionForDiscovery{GroupVersion: gv, Version: v1alpha1.GroupVersion.Version}
+			_ = json.NewEncoder(w).Encode(metav1.APIGroupList{Groups: []metav1.APIGroup{{
+				Name:             v1alpha1.GroupVersion.Group,
+				Versions:         []metav1.GroupVersionForDiscovery{version},
+				PreferredVersion: version,
+			}}})
+		case r.URL.Path == "/apis/"+gv:
+			_ = json.NewEncoder(w).Encode(metav1.APIResourceList{
+				GroupVersion: gv,
+				APIResources: []metav1.APIResource{{Name: "functions", Kind: "Function", Namespaced: true}},
+			})
+		case r.Method == http.MethodGet:
+			_, _ = io.WriteString(w, `{"apiVersion":"`+gv+`","kind":"FunctionList","items":[]}`)
+		case r.Method == http.MethodPost:
+			w.Header().Set("Warning", "299 - "+strconv.Quote(warning))
+			w.WriteHeader(http.StatusCreated)
+			_, _ = io.Copy(w, r.Body)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	kubeconfig := filepath.Join(t.TempDir(), "kubeconfig")
+	err := os.WriteFile(kubeconfig, []byte(`apiVersion: v1
+kind: Config
+clusters:
+- name: test
+  cluster:
+    server: `+srv.URL+`
+contexts:
+- name: test
+  context:
+    cluster: test
+current-context: test
+`), 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KUBECONFIG", kubeconfig)
+
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	err = SyncFunctionCR(context.Background(), SyncConfig{
+		FunctionName: "my-func",
+		Namespace:    "default",
+		RepoURL:      "https://github.com/alice/my-func.git",
+		RepoRevision: "main",
+		RepoDir:      ".",
+	})
+
+	w.Close()
+	os.Stderr = old
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output, _ := io.ReadAll(r)
+	if !strings.Contains(string(output), "Warning: "+warning) {
+		t.Fatalf("expected server warning on stderr, got:\n%s", output)
 	}
 }

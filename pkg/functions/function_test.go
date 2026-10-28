@@ -607,16 +607,17 @@ func TestValidateKafka(t *testing.T) {
 			wantErrs: 0,
 		},
 		{
-			name: "non-go runtime",
+			// Kafka is language-agnostic via the sidecar runtime: a non-Go
+			// runtime with a cloudevent invoke is valid.
+			name: "non-go runtime is allowed",
 			kafka: &fn.KafkaConfig{
 				Brokers:       "broker:9092",
 				Topic:         "my-topic",
 				ConsumerGroup: "my-group",
 			},
-			runtime:   "python",
-			invoke:    "cloudevent",
-			wantErrs:  1,
-			wantSubst: "only supported for the Go runtime",
+			runtime:  "python",
+			invoke:   "cloudevent",
+			wantErrs: 0,
 		},
 		{
 			name: "wrong invoke type",
@@ -741,6 +742,22 @@ func TestValidateKafka(t *testing.T) {
 			invoke:    "cloudevent",
 			wantErrs:  1,
 			wantSubst: "sasl.mechanism must be one of",
+		},
+		{
+			// An empty mechanism is accepted: EffectiveMechanism resolves it to
+			// PLAIN for both the container env and the keda scaler, so the two
+			// agree with nothing set. This matches a plain SASL/PLAIN broker that
+			// a raw or knative deploy consumed from before scale.keda landed.
+			name: "empty SASL mechanism defaults to PLAIN",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9092",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{User: "u", Password: "p"},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
 		},
 		{
 			name: "TLS clientCert without clientKey",
@@ -875,6 +892,25 @@ func TestValidateKafka(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestKafkaSASL_EffectiveMechanism verifies an unset mechanism resolves to
+// PLAIN while an explicit value passes through unchanged, so the container env
+// and the keda scaler read one agreed value rather than each re-deriving the
+// default.
+func TestKafkaSASL_EffectiveMechanism(t *testing.T) {
+	tests := map[string]string{
+		"":              "PLAIN",
+		"PLAIN":         "PLAIN",
+		"SCRAM-SHA-256": "SCRAM-SHA-256",
+		"SCRAM-SHA-512": "SCRAM-SHA-512",
+	}
+	for in, want := range tests {
+		s := fn.KafkaSASL{Mechanism: in}
+		if got := s.EffectiveMechanism(); got != want {
+			t.Errorf("EffectiveMechanism() with Mechanism=%q = %q, want %q", in, got, want)
+		}
 	}
 }
 

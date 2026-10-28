@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,7 +57,7 @@ func lifecycleSource(t *testing.T, runtime, hook string, rt *lifecycleRuntime) [
 // getBody performs a single HTTP GET and returns the response body as a string.
 func getBody(t *testing.T, url string) string {
 	t.Helper()
-	resp, err := http.Get(url) //nolint:noctx
+	resp, err := httpClient(t).Get(url) //nolint:noctx
 	if err != nil {
 		t.Fatalf("getBody: GET %s: %v", url, err)
 	}
@@ -126,7 +125,7 @@ func TestLifecycle_Hooks(t *testing.T) {
 				defer cleanImages(t, funcName)
 			}
 
-			url := ksvcUrl(funcName)
+			url := functionURL(t, funcName)
 
 			// Phase 1: Start hook — verify it fired and received config
 			t.Run("start", func(t *testing.T) {
@@ -224,7 +223,7 @@ func TestLifecycle_Stop(t *testing.T) {
 				defer cleanImages(t, funcName)
 			}
 
-			if !waitFor(t, ksvcUrl(funcName), withWaitTimeout(5*time.Minute)) {
+			if !waitFor(t, functionURL(t, funcName), withWaitTimeout(5*time.Minute)) {
 				t.Fatal("notifier function did not deploy correctly")
 			}
 

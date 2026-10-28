@@ -12,11 +12,12 @@ set_versions() {
 
 	# find source-of-truth in component-versions.json to add/modify components
 	knative_serving_version="v1.23.0"
-	knative_eventing_version="v1.23.0"
+	knative_eventing_version="v1.23.1"
 	contour_version="v1.23.0"
 	tekton_version="v1.1.0"
 	pac_version="v0.35.2"
 	keda_version="v2.17.0"
 	keda_http_addon_version="v0.12.0"
-	func_operator_version="v0.2.1"
+	func_operator_version="v0.4.1"
+	strimzi_version="1.3.0"
 }

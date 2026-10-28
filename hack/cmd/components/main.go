@@ -59,6 +59,7 @@ set_versions() {
 	keda_version="{{.Keda.Version}}"
 	keda_http_addon_version="{{.KedaHTTPAddOn.Version}}"
 	func_operator_version="{{.FuncOperator.Version}}"
+	strimzi_version="{{.Strimzi.Version}}"
 }
 `
 )
