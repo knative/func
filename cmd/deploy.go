@@ -1090,15 +1090,8 @@ func gitFunction(cmd *cobra.Command, cfg deployConfig) (f fn.Function, _ deployC
 	}
 
 	// The client is configured by cfg, whose defaults came from the current
-	// directory. The deployer is the one the cluster deploys with: the
-	// function's, else the one it was last deployed with, else the default.
-	deployer := f.Deployer
-	if deployer == "" {
-		deployer = f.Deploy.Deployer
-	}
-	if deployer == "" {
-		deployer = deployers.Default
-	}
+	// directory. The deployer is the one the cluster deploys with.
+	deployer := deployers.Resolve(f.Deployer, f.Deploy.Deployer)
 	cfg.Builder, cfg.Registry, cfg.RegistryInsecure, cfg.Deployer = f.Build.Builder, f.Registry, f.RegistryInsecure, deployer
 	return f, cfg, nil
 }
