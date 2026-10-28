@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"knative.dev/func/pkg/deployers"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -157,14 +158,10 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 	}
 	f.Deploy.Image = image
 
-	// Deployer is either the intended deployer (f.Deployer) or the one it was
-	// last deployed with (f.Deploy.Deployer). Recorded so a remote deploy is
-	// remembered in func.yaml, mirroring Namespace and Image above.
-	deployer := f.Deployer
-	if deployer == "" {
-		deployer = f.Deploy.Deployer
-	}
-	f.Deploy.Deployer = deployer
+	// The deployer func-util deploys with, resolved the same way. Recorded so a
+	// remote deploy is remembered in func.yaml, mirroring Namespace and Image
+	// above, and so the describer below matches it.
+	f.Deploy.Deployer = deployers.Resolve(f.Deployer, f.Deploy.Deployer)
 	// Intent (f.Deployer) is deliberately left alone: func-util selects the
 	// deployer from it, and Validate/ValidateScale already fall back to
 	// f.Deploy.Deployer when intent is empty, so a flag-less redeploy of a

@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"gopkg.in/yaml.v2"
 
+	"knative.dev/func/pkg/deployers"
 	fnlabels "knative.dev/func/pkg/k8s/labels"
 	"knative.dev/func/pkg/version"
 	"knative.dev/pkg/ptr"
@@ -651,17 +652,13 @@ func NewFunction(root string) (f Function, err error) {
 // not part of its correctness: a function read from a git repository has no
 // Root, which Write requires.
 func (f Function) Validate() error {
-	// Validate scale against the effective deployer: the intent (f.Deployer)
-	// when set, otherwise the deployer this function was last deployed with
-	// (f.Deploy.Deployer). The CLI resolves these before Validate runs, but
-	// other callers (the tekton pipeline provider, library consumers) may call
-	// Validate with the intent still empty on a function last deployed as
-	// keda/raw -- resolving here keeps the deployer-specific scale rules (e.g.
-	// keda's max) consistent regardless of caller.
-	scaleDeployer := f.Deployer
-	if scaleDeployer == "" {
-		scaleDeployer = f.Deploy.Deployer
-	}
+	// Validate scale against the effective deployer. The CLI resolves it
+	// before Validate runs, but other callers (the tekton pipeline provider,
+	// library consumers) may call Validate with the intent still empty on a
+	// function last deployed as keda/raw -- resolving here keeps the
+	// deployer-specific scale rules (e.g. keda's max) consistent regardless
+	// of caller.
+	scaleDeployer := deployers.Resolve(f.Deployer, f.Deploy.Deployer)
 
 	var ctr int
 	errs := [][]string{
