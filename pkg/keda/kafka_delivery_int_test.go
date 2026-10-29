@@ -378,16 +378,25 @@ func runKafkaToolPod(t *testing.T, ctx context.Context, cliSet *kubernetes.Clien
 		_ = cliSet.CoreV1().Pods(kafkaNamespace).Delete(context.Background(), podName, metav1.DeleteOptions{})
 	}()
 
+	var phase corev1.PodPhase
 	err := wait.PollUntilContextTimeout(ctx, time.Second*2, time.Minute*2, true, func(ctx context.Context) (bool, error) {
 		p, err := cliSet.CoreV1().Pods(kafkaNamespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
-		return p.Status.Phase == corev1.PodSucceeded || p.Status.Phase == corev1.PodFailed, nil
+		phase = p.Status.Phase
+		return phase == corev1.PodSucceeded || phase == corev1.PodFailed, nil
 	})
 	logs := podLogs(ctx, cliSet, kafkaNamespace, podName, "")
 	if err != nil {
 		t.Fatalf("tool pod %s did not complete: %v\n%s", podName, err, logs)
+	}
+	// Treat a failed pod as a test failure, surfacing its logs immediately.
+	// Otherwise a failed producer or consumer-group command would return here
+	// as if it succeeded, only to resurface minutes later as a misleading
+	// delivery timeout or a false "did not drain to lag 0".
+	if phase != corev1.PodSucceeded {
+		t.Fatalf("tool pod %s failed (phase %s):\n%s", podName, phase, logs)
 	}
 	return logs
 }
