@@ -144,7 +144,7 @@ func wrapInvokeError(err error) error {
 	return err
 }
 
-// wrapSubsrcibeError wraps errors from subscribe command with CLI-specific guidance
+// wrapSubscribeError wraps errors from subscribe command with CLI-specific guidance
 func wrapSubscribeError(err error) error {
 	if err == nil {
 		return nil
@@ -533,11 +533,12 @@ You need to be inside a function directory to invoke it (or use --path).
 Try this:
 	func create --language go myfunction    Create a new function
 	cd myfunction                           Go into the function directory
-	func invoke                            Invoke the function
+	func invoke                             Invoke the function
 
-Of if you have an existing function:
-	cd path/to/you/function                 Go to your function directory
-	func invoke                            Invoke the function
+Or if you have an existing function:
+	cd path/to/your/function                Go to your function directory
+	func invoke                             Invoke the function
+
 For more options, run 'func invoke --help'`, e.Err)
 
 	case "subscribe":
@@ -550,7 +551,7 @@ Try this:
 	cd myfunction                           Go into the function directory
 	func subscribe --filter type=example    Subscribe to events
 
-Of if you have an existing function:
+Or if you have an existing function:
 	cd path/to/your/function                Go to your function directory
 	func subscribe --filter type=example    Subscribe to events
 
@@ -570,7 +571,7 @@ Or if you have an existing function:
 	cd path/to/your/function                Go to your function directory
 	func config                             Manage function configuration
 
-For more options, run 'func config --help`, e.Err)
+For more options, run 'func config --help'`, e.Err)
 
 	default:
 		return e.Err.Error()
