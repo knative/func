@@ -24,8 +24,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -1003,6 +1005,29 @@ func TestSyncKnativeTriggers_ForeignOwnerSurvives(t *testing.T) {
 	if len(client.deleted) != 0 || len(client.updated) != 0 {
 		t.Fatalf("foreign owner deleted %v updated %d", client.deleted, len(client.updated))
 	}
+}
+
+func TestSyncKnativeTriggers_ForbiddenWithoutSubscriptions(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	forbidden := apierrors.NewForbidden(
+		schema.GroupResource{Group: "eventing.knative.dev", Resource: "triggers"},
+		"",
+		errors.New("no"),
+	)
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(&eventingv1.TriggerList{}, forbidden)
+
+	err := syncKnativeTriggers(t.Context(), client, ksvc, map[string]*eventingv1.Trigger{})
+	if !apierrors.IsForbidden(err) {
+		t.Fatalf("expected forbidden to stay wrapped, got %v", err)
+	}
+	if got := ignoreTriggerSyncForbidden(err, false, "gitlab-test"); got != nil {
+		t.Fatalf("expected no-subscription forbidden to be ignored, got %v", got)
+	}
+	if got := ignoreTriggerSyncForbidden(err, true, "gitlab-test"); got == nil {
+		t.Fatal("expected forbidden to fail when subscriptions are declared")
+	}
+	client.Recorder().Validate()
 }
 
 func TestSyncKnativeTriggers_RecreatedServiceDeletesStale(t *testing.T) {

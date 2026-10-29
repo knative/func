@@ -402,7 +402,23 @@ func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.K
 		}
 	}
 
-	return syncKnativeTriggers(ctx, eventingClient, ksvc, desiredTriggers)
+	err = syncKnativeTriggers(ctx, eventingClient, ksvc, desiredTriggers)
+	return ignoreTriggerSyncForbidden(err, len(f.Deploy.Subscriptions) > 0, f.Deploy.Namespace)
+}
+
+// ignoreTriggerSyncForbidden lets a function with no subscriptions deploy
+// when the caller cannot list triggers. The on-cluster deploy account is
+// often only knative-serving-namespaced-admin, and listing triggers is
+// unconditional so that removing the last subscription can delete orphans.
+// A function that declares subscriptions still fails closed.
+func ignoreTriggerSyncForbidden(err error, hasSubscriptions bool, namespace string) error {
+	if err == nil || hasSubscriptions || !errors.IsForbidden(err) {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "Warning: cannot sync eventing triggers (permission denied) - skipping; "+
+		"grant access to triggers.eventing.knative.dev in namespace %q to manage function subscriptions; "+
+		"if you are not using func subscriptions, you can safely ignore this message\n", namespace)
+	return nil
 }
 
 func newKnativeTrigger(ksvc *servingv1.Service, sub fn.KnativeSubscription, index int) *eventingv1.Trigger {
@@ -448,7 +464,7 @@ func syncKnativeTriggers(ctx context.Context, eventingClient clienteventingv1.Kn
 		if errors.IsNotFound(err) || isEventingUnavailable(err) {
 			return nil
 		}
-		return fmt.Errorf("knative deployer failed to list triggers for cleanup: %v", err)
+		return fmt.Errorf("knative deployer failed to list triggers for cleanup: %w", err)
 	}
 	if existingTriggers == nil {
 		return nil
