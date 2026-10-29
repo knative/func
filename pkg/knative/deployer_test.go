@@ -597,3 +597,52 @@ func TestWaitForReadyOrPrivateRegistry_DelayedSuccess(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 }
+
+// The waiter must have left waitForService before we return. Cancel alone is
+// not enough: a goroutine can still be unwinding after Deploy has returned.
+func TestWaitForReadyOrPrivateRegistry_PrivateRegistryJoinsWaiter(t *testing.T) {
+	var exited atomic.Bool
+	waitForService := func(ctx context.Context) error {
+		<-ctx.Done()
+		time.Sleep(150 * time.Millisecond)
+		exited.Store(true)
+		return ctx.Err()
+	}
+	isPrivateRegistry := func(context.Context) bool {
+		return true
+	}
+	err := waitForReadyOrPrivateRegistry(t.Context(), waitForService, isPrivateRegistry, time.Millisecond)
+	if !errors.Is(err, errPrivateRegistry) {
+		t.Fatalf("expected errPrivateRegistry, got %v", err)
+	}
+	if !exited.Load() {
+		t.Fatal("waitForService still running after return")
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_CallerCancelJoinsWaiter(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	started := make(chan struct{})
+	var exited atomic.Bool
+	waitForService := func(ctx context.Context) error {
+		close(started)
+		<-ctx.Done()
+		time.Sleep(150 * time.Millisecond)
+		exited.Store(true)
+		return ctx.Err()
+	}
+	isPrivateRegistry := func(context.Context) bool {
+		return false
+	}
+	go func() {
+		<-started
+		cancel()
+	}()
+	err := waitForReadyOrPrivateRegistry(ctx, waitForService, isPrivateRegistry, time.Hour)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+	if !exited.Load() {
+		t.Fatal("waitForService still running after caller cancel")
+	}
+}

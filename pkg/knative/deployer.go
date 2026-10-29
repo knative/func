@@ -215,8 +215,9 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 	}
 	since := time.Now()
 	deployCtx, cancelDeploy := context.WithCancel(ctx)
-	defer cancelDeploy()
+	logsDone := make(chan struct{})
 	go func() {
+		defer close(logsDone)
 		_ = GetKServiceLogs(deployCtx, LogsOptions{
 			Name:      f.Name,
 			Namespace: namespace,
@@ -224,6 +225,12 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			Since:     &since,
 			Follow:    true,
 		}, out)
+	}()
+	// Stop the log follower before Deploy returns. Cancel first: Follow blocks
+	// until the context is done, and waiting without cancelling would deadlock.
+	defer func() {
+		cancelDeploy()
+		<-logsDone
 	}()
 
 	previousService, err := client.GetService(ctx, f.Name)
@@ -887,23 +894,31 @@ func waitForReadyOrPrivateRegistry(
 	defer ticker.Stop()
 
 	cherr := make(chan error, 1)
-
+	waitDone := make(chan struct{})
 	go func() {
+		defer close(waitDone)
 		cherr <- waitForService(waitCtx)
 	}()
 
+	var err error
+loop:
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
-		case err := <-cherr:
-			cancel()
-			return err
+			err = ctx.Err()
+			break loop
+		case err = <-cherr:
+			break loop
 		case <-ticker.C:
 			if isPrivateRegistry(waitCtx) {
-				cancel()
-				return errPrivateRegistry
+				err = errPrivateRegistry
+				break loop
 			}
 		}
 	}
+	// Cancel before joining. Otherwise a WaitForService that blocks on
+	// waitCtx never closes waitDone, and this wait deadlocks.
+	cancel()
+	<-waitDone
+	return err
 }
