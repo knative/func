@@ -221,12 +221,12 @@ func relativePathArgs(schema any) map[string]any {
 		if name == "path" {
 			continue
 		}
-		args[name] = dummyForSchemaType(doc.Properties[name])
+		args[name] = placeholderForSchemaType(doc.Properties[name])
 	}
 	return args
 }
 
-func dummyForSchemaType(raw json.RawMessage) any {
+func placeholderForSchemaType(raw json.RawMessage) any {
 	var prop struct {
 		Type any `json:"type"`
 	}
