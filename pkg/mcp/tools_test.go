@@ -146,6 +146,137 @@ func TestValidatePath(t *testing.T) {
 	}
 }
 
+// TestRegistry_RejectsRelativePath lists every registered tool whose input
+// schema has a "path" property and asserts a relative path is rejected.
+// A new tool that takes a path and forgets validatePath fails here.
+func TestRegistry_RejectsRelativePath(t *testing.T) {
+	client, _, err := newTestPair(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := client.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var checked []string
+	for _, tool := range listed.Tools {
+		if !schemaHasPath(tool.InputSchema) {
+			continue
+		}
+		checked = append(checked, tool.Name)
+		result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+			Name:      tool.Name,
+			Arguments: relativePathArgs(tool.InputSchema),
+		})
+		if err != nil {
+			t.Fatalf("tool %q: call failed: %v", tool.Name, err)
+		}
+		if !result.IsError {
+			t.Errorf("tool %q: relative path was accepted", tool.Name)
+			continue
+		}
+		got := resultToString(result)
+		if !strings.Contains(got, "absolute") {
+			t.Errorf("tool %q: expected an absolute-path error, got %q", tool.Name, got)
+		}
+	}
+	if len(checked) == 0 {
+		t.Fatal("no registered tools expose a path input; schema discovery is broken")
+	}
+	for _, name := range []string{
+		"config_ci", "config_git_set", "config_git_remove", "invoke", "run", "run_stop",
+		"describe", "logs", "build", "deploy", "create",
+	} {
+		found := false
+		for _, c := range checked {
+			if c == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected tool %q to be covered by the registry check", name)
+		}
+	}
+	t.Logf("checked %d path-taking tools", len(checked))
+}
+
+// relativePathArgs sets path to "." and fills every other required property
+// so schema validation reaches the handler's validatePath check.
+func relativePathArgs(schema any) map[string]any {
+	args := map[string]any{"path": "."}
+	raw, err := json.Marshal(schema)
+	if err != nil {
+		return args
+	}
+	var doc struct {
+		Required   []string                   `json:"required"`
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return args
+	}
+	for _, name := range doc.Required {
+		if name == "path" {
+			continue
+		}
+		args[name] = dummyForSchemaType(doc.Properties[name])
+	}
+	return args
+}
+
+func dummyForSchemaType(raw json.RawMessage) any {
+	var prop struct {
+		Type any `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &prop); err != nil {
+		return "x"
+	}
+	types := schemaTypes(prop.Type)
+	for _, typ := range types {
+		switch typ {
+		case "boolean":
+			return false
+		case "number", "integer":
+			return 0
+		}
+	}
+	return "x"
+}
+
+func schemaTypes(v any) []string {
+	switch t := v.(type) {
+	case string:
+		return []string{t}
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, item := range t {
+			if s, ok := item.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func schemaHasPath(schema any) bool {
+	raw, err := json.Marshal(schema)
+	if err != nil {
+		return false
+	}
+	var doc struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return false
+	}
+	_, ok := doc.Properties["path"]
+	return ok
+}
+
 // buildInputArgs constructs the input arguments map for CallTool from test data.
 func buildInputArgs(stringFlags map[string]struct {
 	jsonKey string

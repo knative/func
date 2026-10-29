@@ -20,6 +20,9 @@ var runTool = &mcp.Tool{
 }
 
 func (s *Server) runHandler(ctx context.Context, r *mcp.CallToolRequest, input RunInput) (result *mcp.CallToolResult, output RunOutput, err error) {
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	path, err := resolveRunPath(input.Path)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve function path: %w", err)

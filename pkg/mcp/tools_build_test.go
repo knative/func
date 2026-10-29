@@ -44,7 +44,7 @@ func TestTool_Build_ReadonlyWithoutPushAllowed(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "build",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)

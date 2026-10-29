@@ -88,6 +88,9 @@ func (s *Server) configGitSetHandler(ctx context.Context, r *mcp.CallToolRequest
 		err = fmt.Errorf("'path' is required")
 		return
 	}
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	if input.GitURL == "" {
 		err = fmt.Errorf("'git_url' is required")
 		return
@@ -155,6 +158,9 @@ type ConfigGitRemoveOutput struct {
 func (s *Server) configGitRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigGitRemoveInput) (result *mcp.CallToolResult, output ConfigGitRemoveOutput, err error) {
 	if input.Path == "" {
 		err = fmt.Errorf("'path' is required")
+		return
+	}
+	if err = validatePath(input.Path); err != nil {
 		return
 	}
 

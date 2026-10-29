@@ -11,12 +11,13 @@ import (
 
 // TestTool_ConfigCI ensures the config_ci tool executes with all arguments forwarded.
 func TestTool_ConfigCI(t *testing.T) {
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path":                         {"path", "--path", "."},
+		"path":                         {"path", "--path", path},
 		"branch":                       {"branch", "--branch", "main"},
 		"workflowName":                 {"workflowName", "--workflow-name", "Func Deploy"},
 		"kubeconfigSecretName":         {"kubeconfigSecretName", "--kubeconfig-secret-name", "KUBECONFIG"},
@@ -82,13 +83,14 @@ func TestTool_ConfigCI(t *testing.T) {
 // TestTool_ConfigCI_MinimalArgs ensures the config_ci tool executes with only the
 // required 'path' parameter, omitting all optional flags.
 func TestTool_ConfigCI_MinimalArgs(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "config" {
 			t.Fatalf("expected subcommand 'config', got %q", subcommand)
 		}
 
-		// "ci" + "--path" + "." = 3 args
+		// "ci" + "--path" + <abs> = 3 args
 		if len(args) != 3 {
 			t.Fatalf("expected 3 args, got %d: %v", len(args), args)
 		}
@@ -97,8 +99,8 @@ func TestTool_ConfigCI_MinimalArgs(t *testing.T) {
 		}
 
 		argsMap := argsToMap(args[1:])
-		if val, ok := argsMap["--path"]; !ok || val != "." {
-			t.Fatalf("expected --path='.', got %q", val)
+		if val, ok := argsMap["--path"]; !ok || val != path {
+			t.Fatalf("expected --path=%q, got %q", path, val)
 		}
 
 		return []byte("GitHub workflow generated successfully\n"), nil
@@ -111,7 +113,7 @@ func TestTool_ConfigCI_MinimalArgs(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_ci",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": path},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -127,6 +129,7 @@ func TestTool_ConfigCI_MinimalArgs(t *testing.T) {
 // TestTool_ConfigCI_Error ensures the config_ci tool propagates executor errors,
 // such as the "unknown command" error returned when FUNC_ENABLE_CI_CONFIG is not set.
 func TestTool_ConfigCI_Error(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		return []byte(`unknown command "ci" for "config"`), errors.New("executor error")
@@ -139,7 +142,7 @@ func TestTool_ConfigCI_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_ci",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": path},
 	})
 	if err != nil {
 		t.Fatal(err)
