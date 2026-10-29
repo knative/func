@@ -21,7 +21,7 @@ func TestTool_Logs_Args_ByPath(t *testing.T) {
 		flag    string
 		value   string
 	}{
-		"path":  {"path", "--path", "/home/user/myfunc"},
+		"path":  {"path", "--path", testAbsPath("myfunc")},
 		"since": {"since", "--since", "10m"},
 	}
 
@@ -159,7 +159,7 @@ func TestTool_Logs_MutuallyExclusive(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "logs",
 		Arguments: map[string]any{
-			"path": "/home/user/myfunc",
+			"path": testAbsPath("myfunc"),
 			"name": "my-function",
 		},
 	})
@@ -204,11 +204,12 @@ func TestTool_Logs_RequiresPathOrName(t *testing.T) {
 // and ignores the flag), so rejecting it here would make the tool enforce a
 // rule 'func logs' does not.
 func TestTool_Logs_NamespaceWithPath(t *testing.T) {
+	path := testAbsPath("myfunc")
 	executor := mock.NewExecutor()
 	executor.ExecuteSplitFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, []byte, error) {
 		argsMap := argsToMap(args)
-		if got := argsMap["--path"]; got != "/home/user/myfunc" {
-			t.Fatalf("expected --path /home/user/myfunc, got %q", got)
+		if got := argsMap["--path"]; got != path {
+			t.Fatalf("expected --path %q, got %q", path, got)
 		}
 		if got := argsMap["--namespace"]; got != "prod" {
 			t.Fatalf("expected --namespace prod, got %q", got)
@@ -224,7 +225,7 @@ func TestTool_Logs_NamespaceWithPath(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "logs",
 		Arguments: map[string]any{
-			"path":      "/home/user/myfunc",
+			"path":      path,
 			"namespace": "prod",
 		},
 	})
