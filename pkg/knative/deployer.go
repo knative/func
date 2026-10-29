@@ -413,7 +413,7 @@ func newKnativeTrigger(ksvc *servingv1.Service, sub fn.KnativeSubscription, inde
 
 	return &eventingv1.Trigger{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s-function-trigger-%d", ksvc.GetName(), index),
+			Name: knativeTriggerName(ksvc.GetName(), index),
 			Annotations: map[string]string{
 				knativeTriggerManagedByAnnotation: knativeTriggerManagedByValue,
 			},
@@ -454,9 +454,8 @@ func syncKnativeTriggers(ctx context.Context, eventingClient clienteventingv1.Kn
 		return nil
 	}
 
-	triggerPrefix := fmt.Sprintf("%s-function-trigger-", ksvc.GetName())
 	for _, trigger := range existingTriggers.Items {
-		if !strings.HasPrefix(trigger.Name, triggerPrefix) || !isOwnedKnativeTrigger(trigger, ksvc) {
+		if !isOwnedKnativeTrigger(trigger, ksvc) {
 			continue
 		}
 
@@ -490,17 +489,90 @@ func isEventingUnavailable(err error) bool {
 	return strings.HasPrefix(err.Error(), "no or newer Knative Eventing API found on the backend")
 }
 
+func knativeTriggerName(serviceName string, index int) string {
+	return fmt.Sprintf("%s-function-trigger-%d", serviceName, index)
+}
+
+// isKnativeFunctionTriggerName reports whether name is exactly the
+// index-based trigger this deployer creates for serviceName. A prefix
+// match is not enough: the trigger for a function named
+// "foo-function-trigger-extra" starts with "foo-function-trigger-".
+func isKnativeFunctionTriggerName(serviceName, name string) bool {
+	if serviceName == "" {
+		return false
+	}
+	rest, ok := strings.CutPrefix(name, serviceName+"-function-trigger-")
+	if !ok || rest == "" {
+		return false
+	}
+	// %d never writes leading zeros, so "01" is not one of ours.
+	if len(rest) > 1 && rest[0] == '0' {
+		return false
+	}
+	for _, r := range rest {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// isOwnedKnativeTrigger reports whether this deployer may update or
+// delete the trigger. The managed-by annotation is the same on every
+// function's triggers, so it is not ownership by itself, and an empty
+// Service UID must not match every owner ref.
 func isOwnedKnativeTrigger(trigger eventingv1.Trigger, ksvc *servingv1.Service) bool {
-	if trigger.Annotations[knativeTriggerManagedByAnnotation] == knativeTriggerManagedByValue {
+	if ksvc == nil || !isKnativeFunctionTriggerName(ksvc.GetName(), trigger.Name) {
+		return false
+	}
+	// Another Service already owns this object. Leave it alone even
+	// when the name and annotation look like ours.
+	if hasOtherServiceOwner(trigger, ksvc) {
+		return false
+	}
+	if referencesThisService(trigger, ksvc) {
 		return true
 	}
-	return hasKnativeOwnerReference(trigger, ksvc)
+	return trigger.Annotations[knativeTriggerManagedByAnnotation] == knativeTriggerManagedByValue
+}
+
+// referencesThisService reports whether an owner ref points at this
+// Knative Service by name. The UID may differ when the Service was
+// recreated; triggerNeedsUpdate refreshes it. An empty UID on either
+// side is not a match.
+func referencesThisService(trigger eventingv1.Trigger, ksvc *servingv1.Service) bool {
+	if ksvc.GetName() == "" || ksvc.GetUID() == "" {
+		return false
+	}
+	for _, owner := range trigger.OwnerReferences {
+		if owner.APIVersion == ksvc.APIVersion && owner.Kind == ksvc.Kind &&
+			owner.Name == ksvc.GetName() && owner.UID != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasOtherServiceOwner(trigger eventingv1.Trigger, ksvc *servingv1.Service) bool {
+	for _, owner := range trigger.OwnerReferences {
+		if owner.APIVersion != ksvc.APIVersion || owner.Kind != ksvc.Kind {
+			continue
+		}
+		if owner.Name != ksvc.GetName() {
+			return true
+		}
+	}
+	return false
 }
 
 func hasKnativeOwnerReference(trigger eventingv1.Trigger, ksvc *servingv1.Service) bool {
+	if ksvc.GetUID() == "" {
+		return false
+	}
 	for _, owner := range trigger.OwnerReferences {
-		if owner.APIVersion == ksvc.APIVersion && owner.Kind == ksvc.Kind && owner.Name == ksvc.GetName() {
-			return ksvc.GetUID() == "" || owner.UID == ksvc.GetUID()
+		if owner.APIVersion == ksvc.APIVersion && owner.Kind == ksvc.Kind &&
+			owner.Name == ksvc.GetName() && owner.UID == ksvc.GetUID() {
+			return true
 		}
 	}
 	return false
