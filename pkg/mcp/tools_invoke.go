@@ -24,6 +24,9 @@ func (s *Server) invokeHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 	// Note: invoke is intentionally allowed in readonly mode. Readonly mode
 	// only disables operations that mutate cluster state (deploy, delete,
 	// build); invoking a Function does not itself modify the cluster.
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "invoke", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))

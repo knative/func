@@ -30,6 +30,11 @@ func (s *Server) deleteHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 		err = fmt.Errorf("exactly one of 'path' or 'name' must be provided")
 		return
 	}
+	if input.Path != nil {
+		if err = validatePath(*input.Path); err != nil {
+			return
+		}
+	}
 
 	// Execute
 	out, err := s.executor.Execute(ctx, "delete", input.Args()...)

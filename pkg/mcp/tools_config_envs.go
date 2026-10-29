@@ -36,6 +36,9 @@ type ConfigEnvsListOutput struct {
 }
 
 func (s *Server) configEnvsListHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsListInput) (result *mcp.CallToolResult, output ConfigEnvsListOutput, err error) {
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
@@ -146,6 +149,9 @@ func (s *Server) configEnvsAddHandler(ctx context.Context, r *mcp.CallToolReques
 		err = fmt.Errorf("the server is currently in readonly mode. Please set %s and restart the MCP server", EnvMCPWrite)
 		return
 	}
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	if err = input.validate(); err != nil {
 		return
 	}
@@ -192,6 +198,9 @@ type ConfigEnvsRemoveOutput struct {
 func (s *Server) configEnvsRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigEnvsRemoveInput) (result *mcp.CallToolResult, output ConfigEnvsRemoveOutput, err error) {
 	if s.readonly.Load() {
 		err = fmt.Errorf("the server is currently in readonly mode. Please set %s and restart the MCP server", EnvMCPWrite)
+		return
+	}
+	if err = validatePath(input.Path); err != nil {
 		return
 	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)

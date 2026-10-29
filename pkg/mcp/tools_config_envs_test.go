@@ -12,12 +12,13 @@ import (
 
 // TestTool_ConfigEnvsAdd ensures the config_envs_add tool executes with all arguments.
 func TestTool_ConfigEnvsAdd(t *testing.T) {
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path":  {"path", "--path", "."},
+		"path":  {"path", "--path", path},
 		"name":  {"name", "--name", "API_KEY"},
 		"value": {"value", "--value", "secret123"},
 	}
@@ -76,6 +77,7 @@ func TestTool_ConfigEnvsAdd(t *testing.T) {
 // TestTool_ConfigEnvsAdd_SecretKey ensures secret-key-sourced env vars produce
 // the correct "{{ secret:name:key }}" value template.
 func TestTool_ConfigEnvsAdd_SecretKey(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "config" {
@@ -103,7 +105,7 @@ func TestTool_ConfigEnvsAdd_SecretKey(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":       ".",
+			"path":       path,
 			"name":       "API_KEY",
 			"secretName": "my-secret",
 			"secretKey":  "MY_KEY",
@@ -123,6 +125,7 @@ func TestTool_ConfigEnvsAdd_SecretKey(t *testing.T) {
 // TestTool_ConfigEnvsAdd_SecretAllKeys ensures importing all keys from a Secret
 // produces the "{{ secret:name }}" value template without --name.
 func TestTool_ConfigEnvsAdd_SecretAllKeys(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "config" {
@@ -150,7 +153,7 @@ func TestTool_ConfigEnvsAdd_SecretAllKeys(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":       ".",
+			"path":       path,
 			"secretName": "my-secret",
 		},
 	})
@@ -168,6 +171,7 @@ func TestTool_ConfigEnvsAdd_SecretAllKeys(t *testing.T) {
 // TestTool_ConfigEnvsAdd_ConfigMapKey ensures configmap-key-sourced env vars produce
 // the correct "{{ configMap:name:key }}" value template.
 func TestTool_ConfigEnvsAdd_ConfigMapKey(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "config" {
@@ -195,7 +199,7 @@ func TestTool_ConfigEnvsAdd_ConfigMapKey(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":          ".",
+			"path":          path,
 			"name":          "DATABASE_HOST",
 			"configMapName": "my-config",
 			"configMapKey":  "DB_HOST",
@@ -215,6 +219,7 @@ func TestTool_ConfigEnvsAdd_ConfigMapKey(t *testing.T) {
 // TestTool_ConfigEnvsAdd_ConfigMapAllKeys ensures importing all keys from a ConfigMap
 // produces the "{{ configMap:name }}" value template without --name.
 func TestTool_ConfigEnvsAdd_ConfigMapAllKeys(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "config" {
@@ -242,7 +247,7 @@ func TestTool_ConfigEnvsAdd_ConfigMapAllKeys(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":          ".",
+			"path":          path,
 			"configMapName": "my-config",
 		},
 	})
@@ -274,7 +279,7 @@ func TestTool_ConfigEnvsAdd_ValueAndSecretMutuallyExclusive(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":       ".",
+			"path":       t.TempDir(),
 			"name":       "MY_VAR",
 			"value":      "explicit-value",
 			"secretName": "my-secret",
@@ -308,7 +313,7 @@ func TestTool_ConfigEnvsAdd_NameWithSecretAllKeys(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":       ".",
+			"path":       t.TempDir(),
 			"name":       "MY_VAR",
 			"secretName": "my-secret",
 		},
@@ -341,7 +346,7 @@ func TestTool_ConfigEnvsAdd_NameWithConfigMapAllKeys(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":          ".",
+			"path":          t.TempDir(),
 			"name":          "MY_VAR",
 			"configMapName": "my-config",
 		},
@@ -374,7 +379,7 @@ func TestTool_ConfigEnvsAdd_BothSecretAndConfigMap(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":          ".",
+			"path":          t.TempDir(),
 			"name":          "MY_VAR",
 			"secretName":    "my-secret",
 			"configMapName": "my-config",
@@ -408,7 +413,7 @@ func TestTool_ConfigEnvsAdd_SecretKeyWithoutSecretName(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":      ".",
+			"path":      t.TempDir(),
 			"name":      "MY_VAR",
 			"secretKey": "MY_KEY",
 		},
@@ -441,7 +446,7 @@ func TestTool_ConfigEnvsAdd_ConfigMapKeyWithoutConfigMapName(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_envs_add",
 		Arguments: map[string]any{
-			"path":         ".",
+			"path":         t.TempDir(),
 			"name":         "MY_VAR",
 			"configMapKey": "MY_KEY",
 		},
@@ -459,13 +464,14 @@ func TestTool_ConfigEnvsAdd_ConfigMapKeyWithoutConfigMapName(t *testing.T) {
 
 // TestTool_ConfigEnvsList ensures the config_envs_list tool lists environment variables.
 func TestTool_ConfigEnvsList(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "config" {
 			t.Fatalf("expected subcommand 'config', got %q", subcommand)
 		}
 
-		// "envs" + "--path" + "." = 3 args
+		// "envs" + "--path" + path = 3 args
 		if len(args) != 3 {
 			t.Fatalf("expected 3 args, got %d: %v", len(args), args)
 		}
@@ -474,8 +480,8 @@ func TestTool_ConfigEnvsList(t *testing.T) {
 		}
 
 		argsMap := argsToMap(args[1:])
-		if val, ok := argsMap["--path"]; !ok || val != "." {
-			t.Fatalf("expected --path='.', got %q", val)
+		if val, ok := argsMap["--path"]; !ok || val != path {
+			t.Fatalf("expected --path=%q, got %q", path, val)
 		}
 
 		return []byte("DATABASE_URL=postgres://localhost\nAPI_KEY=secret\n"), nil
@@ -488,7 +494,7 @@ func TestTool_ConfigEnvsList(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_envs_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": path},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -503,12 +509,13 @@ func TestTool_ConfigEnvsList(t *testing.T) {
 
 // TestTool_ConfigEnvsRemove ensures the config_envs_remove tool removes an environment variable.
 func TestTool_ConfigEnvsRemove(t *testing.T) {
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path": {"path", "--path", "."},
+		"path": {"path", "--path", path},
 		"name": {"name", "--name", "API_KEY"},
 	}
 
@@ -571,7 +578,7 @@ func TestTool_ConfigEnvsList_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_envs_list",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -595,7 +602,7 @@ func TestTool_ConfigEnvsAdd_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_envs_add",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -619,7 +626,7 @@ func TestTool_ConfigEnvsRemove_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_envs_remove",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": t.TempDir()},
 	})
 	if err != nil {
 		t.Fatal(err)

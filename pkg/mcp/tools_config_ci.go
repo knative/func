@@ -67,6 +67,9 @@ type ConfigCIOutput struct {
 }
 
 func (s *Server) configCIHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigCIInput) (result *mcp.CallToolResult, output ConfigCIOutput, err error) {
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))

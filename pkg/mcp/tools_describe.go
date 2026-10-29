@@ -27,6 +27,11 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 		err = fmt.Errorf("exactly one of 'path' or 'name' must be provided")
 		return
 	}
+	if input.Path != nil {
+		if err = validatePath(*input.Path); err != nil {
+			return
+		}
+	}
 
 	// Validate: namespace only makes sense alongside 'name'. When describing
 	// by 'path', the Function's name and namespace are read from its own
