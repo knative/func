@@ -108,7 +108,7 @@ EXAMPLES
 			"data", "content-type", "request-type", "file", "insecure",
 			"confirm", "verbose", "extension"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInvoke(cmd, args, newClient)
+			return wrapInvokeError(runInvoke(cmd, args, newClient))
 		},
 	}
 
@@ -163,7 +163,7 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	if !f.Initialized() {
-		return fmt.Errorf("no function found in current directory.\nYou need to be inside a function directory to invoke it.\n\nTry this:\n  func create --language go myfunction    Create a new function\n  cd myfunction                          Go into the function directory\n  func invoke                            Now you can invoke it\n\nOr if you have an existing function:\n  cd path/to/your/function              Go to your function directory\n  func invoke                           Invoke the function")
+		return NewErrNotInitializedFromPath(f.Root, "invoke")
 	}
 
 	// If extensions were provided, ensure the format is cloudevent, otherwise return an error.
