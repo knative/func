@@ -319,8 +319,22 @@ certs: templates/certs/ca-certificates.crt ## Update root certificates
 
 .PHONY: templates/certs/ca-certificates.crt
 templates/certs/ca-certificates.crt:
-	# Updating root certificates
-	curl --output templates/certs/ca-certificates.crt https://curl.se/ca/cacert.pem
+	@echo "Updating root certificates..."
+	curl --fail --silent --show-error --output $@.tmp https://curl.se/ca/cacert.pem || { rm -f $@.tmp; exit 1; }
+	mv $@.tmp $@
+
+# Run by hack/update-deps.sh when the dependency bot runs it. make builds
+# these prerequisites in the order listed, and a failed one stops the rest.
+# The order matters: the embedded filesystem is rebuilt last, from the updated
+# templates. make -j would build them all at once; nothing runs this with -j,
+# but if that changes, run them as $(MAKE) lines in the recipe instead.
+.PHONY: update-templates
+update-templates: certs update-middleware generate/zz_filesystem_generated.go ## Update template middleware and root certificates
+
+.PHONY: update-middleware
+update-middleware: ## Update middleware versions in templates
+	@echo "Updating middleware..."
+	go run ./hack/cmd/update-middleware
 
 ###################
 ##@ Extended Testing (cluster required)
