@@ -17,6 +17,8 @@ import (
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	fn "knative.dev/func/pkg/functions"
 )
@@ -363,9 +365,8 @@ func newHostConfig(host, port string, f fn.Function, errOut io.Writer) (c contai
 // volumeMounts converts func.yaml volume definitions into Docker mount specs.
 // Volumes that cannot be mapped locally emit a warning on errOut and are
 // skipped rather than aborting the run. A nil errOut is treated as io.Discard.
-// An empty secret or configMap directory gets a hint: the directory is created
-// so the bind succeeds, but the container sees nothing until the user puts
-// files there.
+// Creating a secret or configMap directory prints one line: the directory is
+// empty until the user adds a file per key.
 func volumeMounts(root string, volumes []fn.Volume, errOut io.Writer) []mount.Mount {
 	if errOut == nil {
 		errOut = io.Discard
@@ -376,46 +377,47 @@ func volumeMounts(root string, volumes []fn.Volume, errOut io.Writer) []mount.Mo
 			fmt.Fprintf(errOut, "warning: skipping volume %s: missing path\n", vol.String())
 			continue
 		}
+		kind, src, isBind := localBind(root, vol)
+		fresh := false
+		if isBind {
+			_, err := os.Stat(src)
+			fresh = os.IsNotExist(err)
+		}
 		m, err := toMount(root, vol)
 		if err != nil {
 			fmt.Fprintf(errOut, "warning: skipping volume %s: %v\n", vol.String(), err)
 			continue
 		}
-		if vol.Secret != nil {
-			hintEmptyBind(errOut, "secret", m.Source)
-		}
-		if vol.ConfigMap != nil {
-			hintEmptyBind(errOut, "configMap", m.Source)
+		if fresh {
+			fmt.Fprintf(errOut, "created empty local %s dir %s; add files named after the %s's keys to populate it\n", kind, src, kind)
 		}
 		mounts = append(mounts, m)
 	}
 	return mounts
 }
 
-// hintEmptyBind tells the user to fill a freshly created secret or configMap
-// directory. The files must be readable by the container user, which is often
-// not the host owner.
-func hintEmptyBind(errOut io.Writer, kind, src string) {
-	entries, err := os.ReadDir(src)
-	if err != nil || len(entries) > 0 {
-		return
+// localBind is the host path toMount will use for a secret or configMap.
+// The kind is the word used in the create-time message.
+func localBind(root string, vol fn.Volume) (kind, src string, ok bool) {
+	runDir := filepath.Join(root, fn.RunDataDir, "run")
+	switch {
+	case vol.Secret != nil:
+		return "secret", filepath.Join(runDir, "secrets", *vol.Secret), true
+	case vol.ConfigMap != nil:
+		return "configmap", filepath.Join(runDir, "configmaps", *vol.ConfigMap), true
+	default:
+		return "", "", false
 	}
-	fmt.Fprintf(errOut, "hint: %s directory %q is empty; add files readable by the container user\n", kind, src)
 }
 
-// safeLocalName rejects an empty name, any path separator, and a name that is
-// itself the ".." segment. Secret and ConfigMap names are file-path components;
-// "../../etc" would otherwise escape the .func tree. Consecutive dots
-// ("foo..bar") are not traversal and are allowed.
+// safeLocalName accepts only a DNS-1123 subdomain, the same rule Kubernetes
+// uses for Secret and ConfigMap names. That rejects empty, ".", "..",
+// uppercase, separators, and consecutive dots. "." is not just a bad name:
+// filepath.Join collapses it to the parent directory and the bind would
+// expose every local secret at once.
 func safeLocalName(name string) error {
-	if name == "" {
-		return fmt.Errorf("name must not be empty")
-	}
-	if strings.ContainsAny(name, "/\\") {
-		return fmt.Errorf("name %q must not contain path separators", name)
-	}
-	if name == ".." {
-		return fmt.Errorf("name %q must not be a \"..\" path segment", name)
+	if errs := validation.IsDNS1123Subdomain(name); len(errs) > 0 {
+		return fmt.Errorf("name %q must be a DNS-1123 subdomain: %s", name, strings.Join(errs, "; "))
 	}
 	return nil
 }
@@ -453,12 +455,21 @@ func ensureContainerReadable(path, runDir string) error {
 // Mapping rules:
 //   - Secret    → read-only bind from <runDir>/secrets/<name> (created 0755 if absent)
 //   - ConfigMap → read-only bind from <runDir>/configmaps/<name> (created 0755 if absent)
-//   - EmptyDir  → tmpfs for both default and Memory mediums (matches ephemeral pod semantics)
-//   - PVC       → named Docker volume keyed by claimName (shared across functions, matches k8s semantics)
+//   - EmptyDir  → tmpfs for both default and Memory mediums. A sizeLimit, when
+//     set, becomes TmpfsOptions.SizeBytes. This is not an anonymous volume:
+//     those persist across runs and leak storage.
+//   - PVC       → named Docker volume keyed by claimName (not a bind under
+//     .func/run/pvcs). Shared across functions, matching Kubernetes. ReadOnly
+//     is forwarded from the claim.
 //
-// Directories are 0755, not 0700. Function images often run as a uid other than
-// the host owner, and a 0700 bind is invisible to that user. chmod is applied
-// after mkdir so the process umask cannot strip the other-access bits.
+// Directories are 0755, not 0700. Function images run as a non-root user, and
+// rootless Podman maps that uid away from the host owner, so a 0700 bind is
+// unreadable. chmod is applied after mkdir so the process umask cannot strip
+// the other-access bits.
+//
+// SELinux: mount.Mount has no relabel field, so these binds are not created
+// with the :z suffix. On an enforcing host the bind can be denied regardless
+// of mode.
 func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 	if vol.Path == nil {
 		return mount.Mount{}, fmt.Errorf("missing path")
@@ -492,7 +503,15 @@ func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 	if vol.EmptyDir != nil {
 		// Both mediums map to tmpfs locally: EmptyDir is ephemeral (pod-lifetime)
 		// and anonymous Docker volumes persist across runs, leaking storage.
-		return mount.Mount{Type: mount.TypeTmpfs, Target: target}, nil
+		m := mount.Mount{Type: mount.TypeTmpfs, Target: target}
+		if vol.EmptyDir.SizeLimit != nil && *vol.EmptyDir.SizeLimit != "" {
+			q, err := resource.ParseQuantity(*vol.EmptyDir.SizeLimit)
+			if err != nil {
+				return mount.Mount{}, fmt.Errorf("emptyDir sizeLimit: %w", err)
+			}
+			m.TmpfsOptions = &mount.TmpfsOptions{SizeBytes: q.Value()}
+		}
+		return m, nil
 	}
 
 	if vol.PersistentVolumeClaim != nil {

@@ -119,6 +119,20 @@ func TestToMount_EmptyDir_Default(t *testing.T) {
 	}
 }
 
+// TestToMount_EmptyDir_SizeLimit verifies sizeLimit becomes tmpfs SizeBytes.
+func TestToMount_EmptyDir_SizeLimit(t *testing.T) {
+	root := t.TempDir()
+	limit := "1Mi"
+	vol := fn.Volume{EmptyDir: &fn.EmptyDir{SizeLimit: &limit}, Path: ptr("/tmp/scratch")}
+	m, err := toMount(root, vol)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m.TmpfsOptions == nil || m.TmpfsOptions.SizeBytes != 1024*1024 {
+		t.Fatalf("sizeBytes: got %#v, want %d", m.TmpfsOptions, 1024*1024)
+	}
+}
+
 // TestToMount_PVC verifies that a PVC volume produces a named Docker volume
 // keyed by claimName, so multiple functions referencing the same claim share data.
 func TestToMount_PVC(t *testing.T) {
@@ -185,7 +199,7 @@ func TestToMount_UnrecognizedType(t *testing.T) {
 // path traversal sequences is rejected to prevent escaping the .func tree.
 func TestToMount_Secret_TraversalRejected(t *testing.T) {
 	root := t.TempDir()
-	for _, name := range []string{"", "..", "../evil", "../../etc/passwd", "a/b", `a\b`} {
+	for _, name := range []string{"", ".", "..", "Upper", "foo..bar", "../evil", "../../etc/passwd", "a/b", `a\b`, "../x"} {
 		vol := fn.Volume{Secret: ptr(name), Path: ptr("/mnt")}
 		if _, err := toMount(root, vol); err == nil {
 			t.Errorf("expected error for secret name %q, got nil", name)
@@ -193,16 +207,16 @@ func TestToMount_Secret_TraversalRejected(t *testing.T) {
 	}
 }
 
-// TestToMount_Secret_ConsecutiveDotsAllowed verifies that ".." as a substring
-// is not treated as traversal. foo..bar is a legal name.
-func TestToMount_Secret_ConsecutiveDotsAllowed(t *testing.T) {
+// TestToMount_Secret_DNSSubdomain verifies a dotted lowercase name is accepted.
+// DNS-1123 allows dots that are not a ".." segment.
+func TestToMount_Secret_DNSSubdomain(t *testing.T) {
 	root := t.TempDir()
-	vol := fn.Volume{Secret: ptr("foo..bar"), Path: ptr("/mnt")}
+	vol := fn.Volume{Secret: ptr("my.secret"), Path: ptr("/mnt")}
 	m, err := toMount(root, vol)
 	if err != nil {
-		t.Fatalf("foo..bar should be allowed, got %v", err)
+		t.Fatalf("my.secret should be accepted, got %v", err)
 	}
-	if !strings.HasSuffix(m.Source, filepath.Join("secrets", "foo..bar")) {
+	if !strings.HasSuffix(m.Source, filepath.Join("secrets", "my.secret")) {
 		t.Errorf("source %q does not end in the secret name", m.Source)
 	}
 }
@@ -211,7 +225,7 @@ func TestToMount_Secret_ConsecutiveDotsAllowed(t *testing.T) {
 // containing path traversal sequences is rejected.
 func TestToMount_ConfigMap_TraversalRejected(t *testing.T) {
 	root := t.TempDir()
-	for _, name := range []string{"", "..", "../evil", "../../etc/passwd", "a/b", `a\b`} {
+	for _, name := range []string{"", ".", "..", "Upper", "foo..bar", "../evil", "../../etc/passwd", "a/b", `a\b`, "../x"} {
 		vol := fn.Volume{ConfigMap: ptr(name), Path: ptr("/mnt")}
 		if _, err := toMount(root, vol); err == nil {
 			t.Errorf("expected error for configMap name %q, got nil", name)
@@ -288,21 +302,19 @@ func TestVolumeMounts_HintsWhenEmpty(t *testing.T) {
 	}
 	volumeMounts(root, vols, &out)
 	got := out.String()
-	if !strings.Contains(got, "hint:") || !strings.Contains(got, "my-secret") {
-		t.Errorf("expected a secret hint, got %q", got)
+	secretDir := filepath.Join(root, fn.RunDataDir, "run", "secrets", "my-secret")
+	configDir := filepath.Join(root, fn.RunDataDir, "run", "configmaps", "app-config")
+	if !strings.Contains(got, "created empty local secret dir "+secretDir) {
+		t.Errorf("expected the secret create line, got %q", got)
 	}
-	if !strings.Contains(got, "app-config") {
-		t.Errorf("expected a configMap hint, got %q", got)
+	if !strings.Contains(got, "created empty local configmap dir "+configDir) {
+		t.Errorf("expected the configmap create line, got %q", got)
 	}
 
-	secretDir := filepath.Join(root, fn.RunDataDir, "run", "secrets", "my-secret")
-	if err := os.WriteFile(filepath.Join(secretDir, "token"), []byte("x"), 0644); err != nil {
-		t.Fatal(err)
-	}
 	out.Reset()
 	volumeMounts(root, vols[:1], &out)
-	if strings.Contains(out.String(), "hint:") {
-		t.Errorf("populated secret should not hint, got %q", out.String())
+	if strings.Contains(out.String(), "created empty") {
+		t.Errorf("an existing directory should not be announced again, got %q", out.String())
 	}
 }
 
