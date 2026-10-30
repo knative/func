@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -613,13 +614,13 @@ func setServiceOptions(template *servingv1.RevisionTemplateSpec, scale *fn.Scale
 		}
 
 		if target != nil {
-			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%g", *target)
+			toUpdate[autoscaling.TargetAnnotationKey] = strconv.FormatFloat(*target, 'f', -1, 64)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetAnnotationKey)
 		}
 
 		if utilization != nil {
-			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%g", *utilization)
+			toUpdate[autoscaling.TargetUtilizationPercentageKey] = strconv.FormatFloat(*utilization, 'f', -1, 64)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetUtilizationPercentageKey)
 		}

@@ -47,8 +47,8 @@ func TestSetServiceOptions_KPAAnnotations(t *testing.T) {
 			autoscaling.MinScaleAnnotationKey:          "1",
 			autoscaling.MaxScaleAnnotationKey:          "10",
 			autoscaling.MetricAnnotationKey:            "concurrency",
-			autoscaling.TargetAnnotationKey:            "50.000000",
-			autoscaling.TargetUtilizationPercentageKey: "80.000000",
+			autoscaling.TargetAnnotationKey:            "50",
+			autoscaling.TargetUtilizationPercentageKey: "80",
 		}
 		for k, want := range wantPresent {
 			if got := a[k]; got != want {

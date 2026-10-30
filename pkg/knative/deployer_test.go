@@ -640,31 +640,44 @@ func TestDeploy_RejectsKafka(t *testing.T) {
 }
 
 func TestSetServiceOptions_ScaleAnnotationFormat(t *testing.T) {
-	target := 100.0
-	utilization := 70.0
-	template := &servingv1.RevisionTemplateSpec{
-		Spec: servingv1.RevisionSpec{
-			PodSpec: corev1.PodSpec{
-				Containers: []corev1.Container{{}},
-			},
-		},
+	tests := []struct {
+		name            string
+		target          float64
+		utilization     float64
+		wantTarget      string
+		wantUtilization string
+	}{
+		{name: "integers", target: 100.0, utilization: 70.0, wantTarget: "100", wantUtilization: "70"},
+		{name: "fractional", target: 70.5, utilization: 70.5, wantTarget: "70.5", wantUtilization: "70.5"},
+		{name: "large target no exponent", target: 1000000.0, utilization: 70.0, wantTarget: "1000000", wantUtilization: "70"},
 	}
-	scale := &fn.ScaleOptions{
-		KPA: &fn.KPAScaleOptions{
-			Target:      &target,
-			Utilization: &utilization,
-		},
-	}
-
-	if err := setServiceOptions(template, scale, fn.Options{}); err != nil {
-		t.Fatalf("setServiceOptions returned unexpected error: %v", err)
-	}
-
-	if got := template.Annotations[autoscaling.TargetAnnotationKey]; got != "100" {
-		t.Errorf("expected target annotation to be %q, got %q", "100", got)
-	}
-	if got := template.Annotations[autoscaling.TargetUtilizationPercentageKey]; got != "70" {
-		t.Errorf("expected utilization annotation to be %q, got %q", "70", got)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			target := tc.target
+			utilization := tc.utilization
+			template := &servingv1.RevisionTemplateSpec{
+				Spec: servingv1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{}},
+					},
+				},
+			}
+			scale := &fn.ScaleOptions{
+				KPA: &fn.KPAScaleOptions{
+					Target:      &target,
+					Utilization: &utilization,
+				},
+			}
+			if err := setServiceOptions(template, scale, fn.Options{}); err != nil {
+				t.Fatalf("setServiceOptions returned unexpected error: %v", err)
+			}
+			if got := template.Annotations[autoscaling.TargetAnnotationKey]; got != tc.wantTarget {
+				t.Errorf("target annotation = %q, want %q", got, tc.wantTarget)
+			}
+			if got := template.Annotations[autoscaling.TargetUtilizationPercentageKey]; got != tc.wantUtilization {
+				t.Errorf("utilization annotation = %q, want %q", got, tc.wantUtilization)
+			}
+		})
 	}
 }
 
