@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -346,5 +347,65 @@ func TestTool_ConfigGitRemove_Error(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected error result, got success")
+	}
+}
+
+func TestTool_ConfigGitSet_Readonly(t *testing.T) {
+	executor := mock.NewExecutor()
+
+	client, server, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly.Store(true)
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_git_set",
+		Arguments: map[string]any{
+			"path":       ".",
+			"git_url":    "https://github.com/user/repo",
+			"git_branch": "main",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatalf("expected error result in readonly mode, got success (executor invoked: %t)", executor.ExecuteInvoked)
+	}
+	got := resultToString(result)
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor should not be invoked in readonly mode")
+	}
+}
+
+func TestTool_ConfigGitRemove_Readonly(t *testing.T) {
+	executor := mock.NewExecutor()
+
+	client, server, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly.Store(true)
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_git_remove",
+		Arguments: map[string]any{"path": ".", "delete_cluster": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatalf("expected error result in readonly mode, got success (executor invoked: %t)", executor.ExecuteInvoked)
+	}
+	got := resultToString(result)
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor should not be invoked in readonly mode")
 	}
 }
