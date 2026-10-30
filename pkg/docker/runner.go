@@ -257,7 +257,7 @@ func choosePort(host, preferredPort string, dialTimeout time.Duration) string {
 
 }
 
-func newContainer(ctx context.Context, c DockerClient, f fn.Function, host, port string, verbose bool, out io.Writer) (id string, err error) {
+func newContainer(ctx context.Context, c DockerClient, f fn.Function, host, port string, verbose bool, errOut io.Writer) (id string, err error) {
 	var (
 		containerCfg container.Config
 		hostCfg      container.HostConfig
@@ -265,7 +265,7 @@ func newContainer(ctx context.Context, c DockerClient, f fn.Function, host, port
 	if containerCfg, err = newContainerConfig(f, port, verbose); err != nil {
 		return
 	}
-	if hostCfg, err = newHostConfig(host, port, f, out); err != nil {
+	if hostCfg, err = newHostConfig(host, port, f, errOut); err != nil {
 		return
 	}
 	t, err := c.ContainerCreate(ctx, client.ContainerCreateOptions{
@@ -342,7 +342,7 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	return
 }
 
-func newHostConfig(host, port string, f fn.Function, out io.Writer) (c container.HostConfig, err error) {
+func newHostConfig(host, port string, f fn.Function, errOut io.Writer) (c container.HostConfig, err error) {
 	httpPort := network.MustParsePort("8080/tcp")
 	hostIP, err := netip.ParseAddr(host)
 	if err != nil {
@@ -356,28 +356,86 @@ func newHostConfig(host, port string, f fn.Function, out io.Writer) (c container
 			},
 		},
 	}
-	mounts := volumeMounts(f.Root, f.Run.Volumes, out)
+	mounts := volumeMounts(f.Root, f.Run.Volumes, errOut)
 	return container.HostConfig{PortBindings: ports, Mounts: mounts}, nil
 }
 
 // volumeMounts converts func.yaml volume definitions into Docker mount specs.
-// Volumes that cannot be mapped locally emit a warning and are skipped rather
-// than aborting the run.
-func volumeMounts(root string, volumes []fn.Volume, out io.Writer) []mount.Mount {
+// Volumes that cannot be mapped locally emit a warning on errOut and are
+// skipped rather than aborting the run. A nil errOut is treated as io.Discard.
+// An empty secret or configMap directory gets a hint: the directory is created
+// so the bind succeeds, but the container sees nothing until the user puts
+// files there.
+func volumeMounts(root string, volumes []fn.Volume, errOut io.Writer) []mount.Mount {
+	if errOut == nil {
+		errOut = io.Discard
+	}
 	var mounts []mount.Mount
 	for _, vol := range volumes {
 		if vol.Path == nil {
-			fmt.Fprintf(out, "warning: skipping volume %s: missing path\n", vol.String())
+			fmt.Fprintf(errOut, "warning: skipping volume %s: missing path\n", vol.String())
 			continue
 		}
 		m, err := toMount(root, vol)
 		if err != nil {
-			fmt.Fprintf(out, "warning: skipping volume %s: %v\n", vol.String(), err)
+			fmt.Fprintf(errOut, "warning: skipping volume %s: %v\n", vol.String(), err)
 			continue
+		}
+		if vol.Secret != nil {
+			hintEmptyBind(errOut, "secret", m.Source)
+		}
+		if vol.ConfigMap != nil {
+			hintEmptyBind(errOut, "configMap", m.Source)
 		}
 		mounts = append(mounts, m)
 	}
 	return mounts
+}
+
+// hintEmptyBind tells the user to fill a freshly created secret or configMap
+// directory. The files must be readable by the container user, which is often
+// not the host owner.
+func hintEmptyBind(errOut io.Writer, kind, src string) {
+	entries, err := os.ReadDir(src)
+	if err != nil || len(entries) > 0 {
+		return
+	}
+	fmt.Fprintf(errOut, "hint: %s directory %q is empty; add files readable by the container user\n", kind, src)
+}
+
+// safeLocalName rejects an empty name, any path separator, and a name that is
+// itself the ".." segment. Secret and ConfigMap names are file-path components;
+// "../../etc" would otherwise escape the .func tree. Consecutive dots
+// ("foo..bar") are not traversal and are allowed.
+func safeLocalName(name string) error {
+	if name == "" {
+		return fmt.Errorf("name must not be empty")
+	}
+	if strings.ContainsAny(name, "/\\") {
+		return fmt.Errorf("name %q must not contain path separators", name)
+	}
+	if name == ".." {
+		return fmt.Errorf("name %q must not be a \"..\" path segment", name)
+	}
+	return nil
+}
+
+// ensureContainerReadable creates path and makes the run subtree traversable
+// by a non-root container user. chmod after mkdir so umask cannot leave the
+// directory owner-only.
+func ensureContainerReadable(path string) error {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return err
+	}
+	for p := path; filepath.Dir(p) != p; p = filepath.Dir(p) {
+		if err := os.Chmod(p, 0755); err != nil {
+			return err
+		}
+		if filepath.Base(p) == "run" {
+			return nil
+		}
+	}
+	return fmt.Errorf("volume directory %q is not under a run directory", path)
 }
 
 // toMount maps a single Volume spec to a Docker mount.Mount.
@@ -386,22 +444,18 @@ func volumeMounts(root string, volumes []fn.Volume, out io.Writer) []mount.Mount
 // scopes local state for the run subcommand away from build artifacts).
 //
 // Mapping rules:
-//   - Secret    → bind mount from <runDir>/secrets/<name>   (created if absent, mode 0700)
-//   - ConfigMap → bind mount from <runDir>/configmaps/<name> (created if absent, mode 0750)
+//   - Secret    → read-only bind from <runDir>/secrets/<name> (created 0755 if absent)
+//   - ConfigMap → read-only bind from <runDir>/configmaps/<name> (created 0755 if absent)
 //   - EmptyDir  → tmpfs for both default and Memory mediums (matches ephemeral pod semantics)
 //   - PVC       → named Docker volume keyed by claimName (shared across functions, matches k8s semantics)
 //
-// safeLocalName rejects names that contain path separators or traversal
-// sequences. Secret and ConfigMap names are used as file-path components; an
-// adversarial name such as "../../etc" would otherwise escape the .func tree.
-func safeLocalName(name string) error {
-	if strings.ContainsAny(name, "/\\") || strings.Contains(name, "..") {
-		return fmt.Errorf("name %q must not contain path separators or \"..\"", name)
-	}
-	return nil
-}
-
+// Directories are 0755, not 0700. Function images often run as a uid other than
+// the host owner, and a 0700 bind is invisible to that user. chmod is applied
+// after mkdir so the process umask cannot strip the other-access bits.
 func toMount(root string, vol fn.Volume) (mount.Mount, error) {
+	if vol.Path == nil {
+		return mount.Mount{}, fmt.Errorf("missing path")
+	}
 	target := *vol.Path
 	// fn.RunDataDir = ".func"; the "run" subdirectory scopes local run state.
 	runDir := filepath.Join(root, fn.RunDataDir, "run")
@@ -411,10 +465,10 @@ func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 			return mount.Mount{}, fmt.Errorf("secret: %w", err)
 		}
 		src := filepath.Join(runDir, "secrets", *vol.Secret)
-		if err := os.MkdirAll(src, 0700); err != nil {
+		if err := ensureContainerReadable(src); err != nil {
 			return mount.Mount{}, fmt.Errorf("cannot create local secret dir %q: %w", src, err)
 		}
-		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target}, nil
+		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target, ReadOnly: true}, nil
 	}
 
 	if vol.ConfigMap != nil {
@@ -422,10 +476,10 @@ func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 			return mount.Mount{}, fmt.Errorf("configMap: %w", err)
 		}
 		src := filepath.Join(runDir, "configmaps", *vol.ConfigMap)
-		if err := os.MkdirAll(src, 0750); err != nil {
+		if err := ensureContainerReadable(src); err != nil {
 			return mount.Mount{}, fmt.Errorf("cannot create local configmap dir %q: %w", src, err)
 		}
-		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target}, nil
+		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target, ReadOnly: true}, nil
 	}
 
 	if vol.EmptyDir != nil {
