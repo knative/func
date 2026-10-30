@@ -37,12 +37,11 @@ func TestToMount_Secret(t *testing.T) {
 	if !m.ReadOnly {
 		t.Error("secret mount should be read-only, matching Kubernetes")
 	}
-	assertContainerReadable(t, root, m.Source)
+	assertContainerReadable(t, m.Source)
 }
 
-// TestToMount_Secret_NamedRun verifies a secret named "run" still leaves the
-// parent directories traversable. The permission walk must stop at .func/run,
-// not at the first path component named run.
+// TestToMount_Secret_NamedRun verifies a secret whose name is "run" still
+// bind-mounts that directory. The name is not special.
 func TestToMount_Secret_NamedRun(t *testing.T) {
 	root := t.TempDir()
 	vol := fn.Volume{Secret: ptr("run"), Path: ptr("/etc/secret")}
@@ -50,14 +49,30 @@ func TestToMount_Secret_NamedRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	assertContainerReadable(t, root, m.Source)
-	secrets := filepath.Join(root, fn.RunDataDir, "run", "secrets")
-	info, err := os.Stat(secrets)
+	assertContainerReadable(t, m.Source)
+}
+
+// TestToMount_Secret_ExistingModeKept verifies a directory the user already
+// created keeps its mode.
+func TestToMount_Secret_ExistingModeKept(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, fn.RunDataDir, "run", "secrets", "my-secret")
+	if err := os.MkdirAll(src, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(src, 0700); err != nil {
+		t.Fatal(err)
+	}
+	vol := fn.Volume{Secret: ptr("my-secret"), Path: ptr("/etc/secret")}
+	if _, err := toMount(root, vol); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(src)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm()&0055 != 0055 {
-		t.Errorf("secrets dir mode %o is not traversable", info.Mode().Perm())
+	if info.Mode().Perm() != 0700 {
+		t.Errorf("existing mode changed to %o", info.Mode().Perm())
 	}
 }
 
@@ -84,7 +99,7 @@ func TestToMount_ConfigMap(t *testing.T) {
 	if !m.ReadOnly {
 		t.Error("configMap mount should be read-only, matching Kubernetes")
 	}
-	assertContainerReadable(t, root, m.Source)
+	assertContainerReadable(t, m.Source)
 }
 
 // TestToMount_EmptyDir_Memory verifies that an EmptyDir with Memory medium maps to tmpfs.
@@ -320,22 +335,13 @@ func TestVolumeMounts_HintsWhenEmpty(t *testing.T) {
 
 // assertContainerReadable fails when a non-root container user could not
 // traverse the bind. 0755 has the other read and execute bits; 0700 does not.
-func assertContainerReadable(t *testing.T, root, path string) {
+func assertContainerReadable(t *testing.T, path string) {
 	t.Helper()
-	runDir := filepath.Join(root, fn.RunDataDir, "run")
-	for p := path; ; p = filepath.Dir(p) {
-		info, err := os.Stat(p)
-		if err != nil {
-			t.Fatalf("stat %s: %v", p, err)
-		}
-		if info.Mode().Perm()&0055 != 0055 {
-			t.Errorf("%s mode %o is not readable by a non-root container user", p, info.Mode().Perm())
-		}
-		if p == runDir {
-			return
-		}
-		if filepath.Dir(p) == p {
-			t.Fatalf("%s is not under %s", path, runDir)
-		}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat %s: %v", path, err)
+	}
+	if info.Mode().Perm()&0055 != 0055 {
+		t.Errorf("%s mode %o is not readable by a non-root container user", path, info.Mode().Perm())
 	}
 }

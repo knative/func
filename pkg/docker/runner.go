@@ -422,29 +422,24 @@ func safeLocalName(name string) error {
 	return nil
 }
 
-// ensureContainerReadable creates path and makes every directory from path
-// through runDir traversable by a non-root container user. chmod after mkdir
-// so umask cannot leave a directory owner-only. The walk stops at runDir
-// itself, not at a path component named "run" (a secret may be named run).
-func ensureContainerReadable(path, runDir string) error {
-	rel, err := filepath.Rel(runDir, path)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return fmt.Errorf("volume directory %q is not under %q", path, runDir)
+// prepareBindDir creates src when it is missing and makes that directory
+// readable by a non-root container user. An existing directory keeps the
+// mode the user set. Only the leaf matters: the engine bind-mounts src, so
+// the container does not walk the host ancestors. chmod after mkdir so a
+// tight umask cannot leave the new directory owner-only.
+func prepareBindDir(src string) (created bool, err error) {
+	if _, err := os.Stat(src); err == nil {
+		return false, nil
+	} else if !os.IsNotExist(err) {
+		return false, err
 	}
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return err
+	if err := os.MkdirAll(src, 0755); err != nil {
+		return false, err
 	}
-	for p := path; ; p = filepath.Dir(p) {
-		if err := os.Chmod(p, 0755); err != nil {
-			return err
-		}
-		if p == runDir {
-			return nil
-		}
-		if filepath.Dir(p) == p {
-			return fmt.Errorf("volume directory %q is not under %q", path, runDir)
-		}
+	if err := os.Chmod(src, 0755); err != nil {
+		return false, err
 	}
+	return true, nil
 }
 
 // toMount maps a single Volume spec to a Docker mount.Mount.
@@ -462,10 +457,11 @@ func ensureContainerReadable(path, runDir string) error {
 //     .func/run/pvcs). Shared across functions, matching Kubernetes. ReadOnly
 //     is forwarded from the claim.
 //
-// Directories are 0755, not 0700. Function images run as a non-root user, and
-// rootless Podman maps that uid away from the host owner, so a 0700 bind is
-// unreadable. chmod is applied after mkdir so the process umask cannot strip
-// the other-access bits.
+// A newly created directory is 0755, not 0700. Function images run as a
+// non-root user, and rootless Podman maps that uid away from the host owner,
+// so a 0700 bind is unreadable. An existing directory is left alone. The
+// engine bind-mounts the directory itself, so parent modes on the host do
+// not matter to the container.
 //
 // SELinux: mount.Mount has no relabel field, so these binds are not created
 // with the :z suffix. On an enforcing host the bind can be denied regardless
@@ -483,7 +479,7 @@ func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 			return mount.Mount{}, fmt.Errorf("secret: %w", err)
 		}
 		src := filepath.Join(runDir, "secrets", *vol.Secret)
-		if err := ensureContainerReadable(src, runDir); err != nil {
+		if _, err := prepareBindDir(src); err != nil {
 			return mount.Mount{}, fmt.Errorf("cannot create local secret dir %q: %w", src, err)
 		}
 		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target, ReadOnly: true}, nil
@@ -494,7 +490,7 @@ func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 			return mount.Mount{}, fmt.Errorf("configMap: %w", err)
 		}
 		src := filepath.Join(runDir, "configmaps", *vol.ConfigMap)
-		if err := ensureContainerReadable(src, runDir); err != nil {
+		if _, err := prepareBindDir(src); err != nil {
 			return mount.Mount{}, fmt.Errorf("cannot create local configmap dir %q: %w", src, err)
 		}
 		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target, ReadOnly: true}, nil
