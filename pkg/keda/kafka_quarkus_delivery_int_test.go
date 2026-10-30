@@ -148,10 +148,15 @@ func TestInt_KafkaQuarkusDelivery(t *testing.T) {
 	}
 
 	// Build + push + deploy. Force the pack builder (the host builder does not
-	// support Quarkus), use the in-cluster registry mirror (insecure), and honor
-	// a FUNC_KAFKA_RUNTIME_IMAGE override if the caller set one.
+	// support Quarkus). Push to the in-cluster registry via localhost:5001, not
+	// registry.localtest.me: the latter is only reachable through the Contour
+	// ingress, which the slim Kafka cluster skips (no serving). hack/cluster.sh
+	// maps host port 5001 to the node's registry for serving-less clusters (5001
+	// rather than 5000 to avoid the macOS AirPlay receiver on :5000), and a
+	// containerd mirror resolves localhost:5001 to the same registry so the node
+	// can pull. Honor a FUNC_KAFKA_RUNTIME_IMAGE override if the caller set one.
 	deployEnv := []string{
-		"FUNC_REGISTRY=registry.localtest.me/func",
+		"FUNC_REGISTRY=localhost:5001/func",
 		"FUNC_REGISTRY_INSECURE=true",
 	}
 	if img := os.Getenv("FUNC_KAFKA_RUNTIME_IMAGE"); img != "" {
