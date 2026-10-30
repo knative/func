@@ -10,7 +10,6 @@ import (
 	"maps"
 	"net/http"
 	"os"
-	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -478,9 +477,21 @@ func syncKnativeTriggers(ctx context.Context, eventingClient clienteventingv1.Kn
 		desiredTrigger, ok := desiredTriggers[trigger.Name]
 		if !ok {
 			fmt.Fprintf(os.Stderr, "Deleting stale trigger: %s\n", trigger.Name)
-			delErr := eventingClient.DeleteTrigger(ctx, trigger.Name)
-			if delErr != nil && !errors.IsNotFound(delErr) {
-				return fmt.Errorf("knative deployer failed to delete stale trigger %s: %v", trigger.Name, delErr)
+			if err := deleteKnativeTrigger(ctx, eventingClient, trigger.Name); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// Eventing v0.51.0 Trigger.CheckImmutableFields rejects any
+		// change to spec.broker. Delete and recreate instead of update.
+		if trigger.Spec.Broker != desiredTrigger.Spec.Broker {
+			fmt.Fprintf(os.Stderr, "Replacing trigger %s: spec.broker is immutable\n", trigger.Name)
+			if err := deleteKnativeTrigger(ctx, eventingClient, trigger.Name); err != nil {
+				return err
+			}
+			if err := eventingClient.CreateTrigger(ctx, desiredTrigger); err != nil && !errors.IsAlreadyExists(err) {
+				return fmt.Errorf("knative deployer failed to recreate trigger %s: %v", trigger.Name, err)
 			}
 			continue
 		}
@@ -594,10 +605,64 @@ func hasKnativeOwnerReference(trigger eventingv1.Trigger, ksvc *servingv1.Servic
 	return false
 }
 
+func deleteKnativeTrigger(ctx context.Context, eventingClient clienteventingv1.KnEventingClient, name string) error {
+	if err := eventingClient.DeleteTrigger(ctx, name); err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("knative deployer failed to delete stale trigger %s: %v", name, err)
+	}
+	return nil
+}
+
+// triggerNeedsUpdate reports whether an in-place update is required.
+// Only the fields this deployer writes are compared. The API server
+// defaults others (subscriber.ref.namespace, delivery), and a full
+// Spec deep-equal would update every trigger on every deploy.
 func triggerNeedsUpdate(existing eventingv1.Trigger, desired *eventingv1.Trigger, ksvc *servingv1.Service) bool {
-	return !reflect.DeepEqual(existing.Spec, desired.Spec) ||
+	return knativeTriggerSpecDrift(existing, desired) ||
 		existing.Annotations[knativeTriggerManagedByAnnotation] != knativeTriggerManagedByValue ||
 		!hasKnativeOwnerReference(existing, ksvc)
+}
+
+func knativeTriggerSpecDrift(existing eventingv1.Trigger, desired *eventingv1.Trigger) bool {
+	if existing.Spec.Broker != desired.Spec.Broker {
+		return true
+	}
+	if !ownedSubscriberEqual(existing.Spec.Subscriber, desired.Spec.Subscriber) {
+		return true
+	}
+	return !filterAttributesEqual(existing.Spec.Filter, desired.Spec.Filter)
+}
+
+func ownedSubscriberEqual(existing, desired duckv1.Destination) bool {
+	got, want := existing.Ref, desired.Ref
+	if want == nil {
+		return got == nil
+	}
+	if got == nil {
+		return false
+	}
+	return got.APIVersion == want.APIVersion && got.Kind == want.Kind && got.Name == want.Name
+}
+
+func filterAttributesEqual(existing, desired *eventingv1.TriggerFilter) bool {
+	var got, want map[string]string
+	if existing != nil {
+		got = existing.Attributes
+	}
+	if desired != nil {
+		want = desired.Attributes
+	}
+	if len(got) == 0 && len(want) == 0 {
+		return true
+	}
+	if len(got) != len(want) {
+		return false
+	}
+	for key, value := range got {
+		if want[key] != value {
+			return false
+		}
+	}
+	return true
 }
 
 func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprInstalled bool, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string]) (*servingv1.Service, error) {
