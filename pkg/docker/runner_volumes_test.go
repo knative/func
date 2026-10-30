@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -263,10 +264,13 @@ func TestVolumeMounts_SkipsNilPath(t *testing.T) {
 		{Secret: ptr("s"), Path: nil},         // no path — should be skipped
 		{Secret: ptr("s2"), Path: ptr("/ok")}, // valid
 	}
-	mounts := volumeMounts(root, vols, &out)
+	binds, mounts := volumeMounts(root, vols, &out)
 
-	if len(mounts) != 1 {
-		t.Errorf("expected 1 mount, got %d", len(mounts))
+	if len(binds) != 1 || len(mounts) != 0 {
+		t.Fatalf("expected the valid secret on Binds only, binds=%d mounts=%d", len(binds), len(mounts))
+	}
+	if !strings.HasSuffix(binds[0], ":/ok:ro,z") {
+		t.Errorf("bind %q should end with :/ok:ro,z", binds[0])
 	}
 	if !strings.Contains(out.String(), "missing path") {
 		t.Errorf("expected warning about missing path, got: %q", out.String())
@@ -284,10 +288,10 @@ func TestVolumeMounts_SkipsOnError(t *testing.T) {
 		// Valid secret
 		{Secret: ptr("good"), Path: ptr("/good")},
 	}
-	mounts := volumeMounts(root, vols, &out)
+	binds, mounts := volumeMounts(root, vols, &out)
 
-	if len(mounts) != 1 {
-		t.Errorf("expected 1 mount, got %d", len(mounts))
+	if len(binds) != 1 || len(mounts) != 0 {
+		t.Errorf("expected the valid secret on Binds only, binds=%d mounts=%d", len(binds), len(mounts))
 	}
 	if !strings.Contains(out.String(), "warning") {
 		t.Errorf("expected warning in output, got: %q", out.String())
@@ -306,9 +310,63 @@ func TestToMount_NilPath(t *testing.T) {
 func TestVolumeMounts_NilWriter(t *testing.T) {
 	root := t.TempDir()
 	vols := []fn.Volume{{Secret: ptr("s"), Path: ptr("/ok")}}
-	mounts := volumeMounts(root, vols, nil)
-	if len(mounts) != 1 {
-		t.Fatalf("expected 1 mount, got %d", len(mounts))
+	binds, mounts := volumeMounts(root, vols, nil)
+	if len(binds) != 1 || len(mounts) != 0 {
+		t.Fatalf("expected the secret on Binds only, binds=%d mounts=%d", len(binds), len(mounts))
+	}
+}
+
+// TestVolumeMounts_BindsAndMounts verifies secret and configMap are Binds
+// with ro,z, emptyDir and PVC stay on Mounts, and no target appears twice.
+func TestVolumeMounts_BindsAndMounts(t *testing.T) {
+	root := t.TempDir()
+	limit := "1Mi"
+	vols := []fn.Volume{
+		{Secret: ptr("my-secret"), Path: ptr("/etc/secret")},
+		{ConfigMap: ptr("app-config"), Path: ptr("/etc/config")},
+		{EmptyDir: &fn.EmptyDir{SizeLimit: &limit}, Path: ptr("/tmp/scratch")},
+		{PersistentVolumeClaim: &fn.PersistentVolumeClaim{ClaimName: ptr("data"), ReadOnly: true}, Path: ptr("/data")},
+	}
+	binds, mounts := volumeMounts(root, vols, io.Discard)
+	if len(binds) != 2 {
+		t.Fatalf("binds: got %d (%v), want 2", len(binds), binds)
+	}
+	if len(mounts) != 2 {
+		t.Fatalf("mounts: got %d, want 2", len(mounts))
+	}
+	secretSrc := filepath.Join(root, fn.RunDataDir, "run", "secrets", "my-secret")
+	configSrc := filepath.Join(root, fn.RunDataDir, "run", "configmaps", "app-config")
+	wantBinds := map[string]bool{
+		secretSrc + ":/etc/secret:ro,z": false,
+		configSrc + ":/etc/config:ro,z": false,
+	}
+	for _, b := range binds {
+		if _, ok := wantBinds[b]; !ok {
+			t.Errorf("unexpected bind %q", b)
+			continue
+		}
+		wantBinds[b] = true
+	}
+	for b, seen := range wantBinds {
+		if !seen {
+			t.Errorf("missing bind %q", b)
+		}
+	}
+	seen := map[string]bool{}
+	for _, m := range mounts {
+		if m.Type == mount.TypeBind {
+			t.Errorf("bind %s must not also be a Mount", m.Target)
+		}
+		if seen[m.Target] {
+			t.Errorf("duplicate mount target %s", m.Target)
+		}
+		seen[m.Target] = true
+	}
+	if seen["/etc/secret"] || seen["/etc/config"] {
+		t.Errorf("secret or configMap target also present on Mounts: %v", seen)
+	}
+	if !seen["/tmp/scratch"] || !seen["/data"] {
+		t.Errorf("emptyDir or PVC missing from Mounts: %v", seen)
 	}
 }
 

@@ -358,20 +358,22 @@ func newHostConfig(host, port string, f fn.Function, errOut io.Writer) (c contai
 			},
 		},
 	}
-	mounts := volumeMounts(f.Root, f.Run.Volumes, errOut)
-	return container.HostConfig{PortBindings: ports, Mounts: mounts}, nil
+	binds, mounts := volumeMounts(f.Root, f.Run.Volumes, errOut)
+	return container.HostConfig{PortBindings: ports, Binds: binds, Mounts: mounts}, nil
 }
 
-// volumeMounts converts func.yaml volume definitions into Docker mount specs.
+// volumeMounts converts func.yaml volume definitions into Docker host config.
+// Secret and ConfigMap binds go on Binds as "src:dst:ro,z" so Docker and Podman
+// relabel for SELinux; non-SELinux hosts ignore the z flag. emptyDir and PVC
+// stay on Mounts (tmpfs and named volumes). mount.Mount has no relabel field.
 // Volumes that cannot be mapped locally emit a warning on errOut and are
 // skipped rather than aborting the run. A nil errOut is treated as io.Discard.
 // Creating a secret or configMap directory prints one line: the directory is
 // empty until the user adds a file per key.
-func volumeMounts(root string, volumes []fn.Volume, errOut io.Writer) []mount.Mount {
+func volumeMounts(root string, volumes []fn.Volume, errOut io.Writer) (binds []string, mounts []mount.Mount) {
 	if errOut == nil {
 		errOut = io.Discard
 	}
-	var mounts []mount.Mount
 	for _, vol := range volumes {
 		if vol.Path == nil {
 			fmt.Fprintf(errOut, "warning: skipping volume %s: missing path\n", vol.String())
@@ -391,9 +393,13 @@ func volumeMounts(root string, volumes []fn.Volume, errOut io.Writer) []mount.Mo
 		if fresh {
 			fmt.Fprintf(errOut, "created empty local %s dir %s; add files named after the %s's keys to populate it\n", kind, src, kind)
 		}
+		if m.Type == mount.TypeBind {
+			binds = append(binds, m.Source+":"+m.Target+":ro,z")
+			continue
+		}
 		mounts = append(mounts, m)
 	}
-	return mounts
+	return binds, mounts
 }
 
 // localBind is the host path toMount will use for a secret or configMap.
@@ -448,8 +454,10 @@ func prepareBindDir(src string) (created bool, err error) {
 // scopes local state for the run subcommand away from build artifacts).
 //
 // Mapping rules:
-//   - Secret    → read-only bind from <runDir>/secrets/<name> (created 0755 if absent)
-//   - ConfigMap → read-only bind from <runDir>/configmaps/<name> (created 0755 if absent)
+//   - Secret    → read-only bind from <runDir>/secrets/<name> (created 0755 if absent),
+//     placed on HostConfig.Binds as src:dst:ro,z
+//   - ConfigMap → read-only bind from <runDir>/configmaps/<name> (created 0755 if absent),
+//     placed on HostConfig.Binds as src:dst:ro,z
 //   - EmptyDir  → tmpfs for both default and Memory mediums. A sizeLimit, when
 //     set, becomes TmpfsOptions.SizeBytes. This is not an anonymous volume:
 //     those persist across runs and leak storage.
@@ -463,9 +471,9 @@ func prepareBindDir(src string) (created bool, err error) {
 // engine bind-mounts the directory itself, so parent modes on the host do
 // not matter to the container.
 //
-// SELinux: mount.Mount has no relabel field, so these binds are not created
-// with the :z suffix. On an enforcing host the bind can be denied regardless
-// of mode.
+// SELinux: secret and ConfigMap binds use HostConfig.Binds with the :z
+// relabel suffix, which Docker and Podman honor and non-SELinux hosts
+// ignore. emptyDir and PVC stay on Mounts, which has no relabel field.
 func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 	if vol.Path == nil {
 		return mount.Mount{}, fmt.Errorf("missing path")
