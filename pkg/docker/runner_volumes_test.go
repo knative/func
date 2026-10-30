@@ -63,16 +63,22 @@ func TestToMount_Secret_ExistingModeKept(t *testing.T) {
 	if err := os.Chmod(src, 0700); err != nil {
 		t.Fatal(err)
 	}
+	before, err := os.Stat(src)
+	if err != nil {
+		t.Fatal(err)
+	}
 	vol := fn.Volume{Secret: ptr("my-secret"), Path: ptr("/etc/secret")}
 	if _, err := toMount(root, vol); err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Stat(src)
+	after, err := os.Stat(src)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0700 {
-		t.Errorf("existing mode changed to %o", info.Mode().Perm())
+	// Compare with the mode the OS actually stored. Windows does not
+	// honor 0700, so an absolute check against that value is meaningless.
+	if after.Mode().Perm() != before.Mode().Perm() {
+		t.Errorf("existing mode changed from %o to %o", before.Mode().Perm(), after.Mode().Perm())
 	}
 }
 
