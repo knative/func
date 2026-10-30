@@ -146,14 +146,16 @@ func TestInt_KafkaPythonDelivery(t *testing.T) {
 		t.Fatalf("writing function config: %v", err)
 	}
 
-	// Build + push + deploy. Push to the in-cluster registry via localhost:5000
-	// (its hostPort), not registry.localtest.me: the latter is only reachable
-	// through the Contour ingress, which the slim Kafka cluster skips (no
-	// serving). The node still pulls localhost:5000 through the same hostPort.
-	// Honor a FUNC_KAFKA_RUNTIME_IMAGE override if the caller set one (otherwise
-	// the deployer's built-in default sidecar image is used).
+	// Build + push + deploy. Push to the in-cluster registry via localhost:5001,
+	// not registry.localtest.me: the latter is only reachable through the Contour
+	// ingress, which the slim Kafka cluster skips (no serving). hack/cluster.sh
+	// maps host port 5001 to the node's registry for serving-less clusters (5001
+	// rather than 5000 to avoid the macOS AirPlay receiver on :5000), and a
+	// containerd mirror resolves localhost:5001 to the same registry so the node
+	// can pull. Honor a FUNC_KAFKA_RUNTIME_IMAGE override if the caller set one
+	// (otherwise the deployer's built-in default sidecar image is used).
 	deployEnv := []string{
-		"FUNC_REGISTRY=localhost:5000/func",
+		"FUNC_REGISTRY=localhost:5001/func",
 		"FUNC_REGISTRY_INSECURE=true",
 	}
 	if img := os.Getenv("FUNC_KAFKA_RUNTIME_IMAGE"); img != "" {

@@ -139,6 +139,25 @@ allocate_cluster() {
 }
 
 kubernetes() {
+  # The in-cluster registry's hostPort (5000 on the node) is reachable from the
+  # host only through the Contour ingress (registry.localtest.me), which ships
+  # with serving. Slim clusters that skip serving (e.g. the Kafka integration
+  # job) have no ingress, so a host-side `func deploy` build+push cannot reach
+  # the registry. For those, map a host port straight to the node's registry.
+  # Use host port 5001 rather than 5000: on macOS the AirPlay Receiver listens
+  # on *:5000, which makes `kind create cluster` fail to bind a 5000 mapping --
+  # so a plain 5000 mapping would break cluster creation for every developer on
+  # a Mac, not just the Kafka job. The node still serves the registry on
+  # containerPort 5000; a containerd mirror teaches it that localhost:5001
+  # (how pushed images are tagged) resolves to that same registry. Full
+  # clusters push through the ingress and need no host mapping at all.
+  local registry_host_mapping=""
+  local registry_mirror_patch=""
+  if [ "${FUNC_CLUSTER_SERVING:-true}" != "true" ]; then
+    registry_host_mapping=$'\n    - containerPort: 5000\n      hostPort: 5001\n      listenAddress: "127.0.0.1"\n    - containerPort: 5000\n      hostPort: 5001\n      listenAddress: "::1"'
+    registry_mirror_patch=$'\n  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]\n    endpoint = ["http://localhost:5000"]'
+  fi
+
   cat <<EOF | $KIND create cluster --name=func --kubeconfig="${KUBECONFIG}" --wait=60s --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -157,13 +176,6 @@ nodes:
     - containerPort: 30022
       hostPort: 30022
       listenAddress: "127.0.0.1"
-    # Expose the in-cluster registry's hostPort (5000) to the host. Pushing to
-    # registry.localtest.me normally goes through the Contour ingress (installed
-    # with serving); on slim clusters that skip serving (e.g. the Kafka job), the
-    # ingress is absent, so a host-side build+push needs localhost:5000 directly.
-    - containerPort: 5000
-      hostPort: 5000
-      listenAddress: "127.0.0.1"
     - containerPort: 80
       hostPort: 80
       listenAddress: "::1"
@@ -172,10 +184,7 @@ nodes:
       listenAddress: "::1"
     - containerPort: 30022
       hostPort: 30022
-      listenAddress: "::1"
-    - containerPort: 5000
-      hostPort: 5000
-      listenAddress: "::1"
+      listenAddress: "::1"${registry_host_mapping}
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.localtest.me"]
@@ -185,7 +194,7 @@ containerdConfigPatches:
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."ghcr.io"]
     endpoint = ["http://localhost:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
-    endpoint = ["http://localhost:5000"]
+    endpoint = ["http://localhost:5000"]${registry_mirror_patch}
 EOF
   sleep 10
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
