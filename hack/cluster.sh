@@ -157,6 +157,13 @@ nodes:
     - containerPort: 30022
       hostPort: 30022
       listenAddress: "127.0.0.1"
+    # Expose the in-cluster registry's hostPort (5000) to the host. Pushing to
+    # registry.localtest.me normally goes through the Contour ingress (installed
+    # with serving); on slim clusters that skip serving (e.g. the Kafka job), the
+    # ingress is absent, so a host-side build+push needs localhost:5000 directly.
+    - containerPort: 5000
+      hostPort: 5000
+      listenAddress: "127.0.0.1"
     - containerPort: 80
       hostPort: 80
       listenAddress: "::1"
@@ -165,6 +172,9 @@ nodes:
       listenAddress: "::1"
     - containerPort: 30022
       hostPort: 30022
+      listenAddress: "::1"
+    - containerPort: 5000
+      hostPort: 5000
       listenAddress: "::1"
 containerdConfigPatches:
 - |-
