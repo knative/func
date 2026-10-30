@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -265,13 +266,7 @@ func TestVolumeMounts_SkipsNilPath(t *testing.T) {
 		{Secret: ptr("s2"), Path: ptr("/ok")}, // valid
 	}
 	binds, mounts := volumeMounts(root, vols, &out)
-
-	if len(binds) != 1 || len(mounts) != 0 {
-		t.Fatalf("expected the valid secret on Binds only, binds=%d mounts=%d", len(binds), len(mounts))
-	}
-	if !strings.HasSuffix(binds[0], ":/ok:ro,z") {
-		t.Errorf("bind %q should end with :/ok:ro,z", binds[0])
-	}
+	expectSecretPlaced(t, binds, mounts, ":/ok:ro,z")
 	if !strings.Contains(out.String(), "missing path") {
 		t.Errorf("expected warning about missing path, got: %q", out.String())
 	}
@@ -289,10 +284,7 @@ func TestVolumeMounts_SkipsOnError(t *testing.T) {
 		{Secret: ptr("good"), Path: ptr("/good")},
 	}
 	binds, mounts := volumeMounts(root, vols, &out)
-
-	if len(binds) != 1 || len(mounts) != 0 {
-		t.Errorf("expected the valid secret on Binds only, binds=%d mounts=%d", len(binds), len(mounts))
-	}
+	expectSecretPlaced(t, binds, mounts, ":/good:ro,z")
 	if !strings.Contains(out.String(), "warning") {
 		t.Errorf("expected warning in output, got: %q", out.String())
 	}
@@ -311,9 +303,7 @@ func TestVolumeMounts_NilWriter(t *testing.T) {
 	root := t.TempDir()
 	vols := []fn.Volume{{Secret: ptr("s"), Path: ptr("/ok")}}
 	binds, mounts := volumeMounts(root, vols, nil)
-	if len(binds) != 1 || len(mounts) != 0 {
-		t.Fatalf("expected the secret on Binds only, binds=%d mounts=%d", len(binds), len(mounts))
-	}
+	expectSecretPlaced(t, binds, mounts, ":/ok:ro,z")
 }
 
 // TestVolumeMounts_BindsAndMounts verifies secret and configMap are Binds
@@ -328,6 +318,27 @@ func TestVolumeMounts_BindsAndMounts(t *testing.T) {
 		{PersistentVolumeClaim: &fn.PersistentVolumeClaim{ClaimName: ptr("data"), ReadOnly: true}, Path: ptr("/data")},
 	}
 	binds, mounts := volumeMounts(root, vols, io.Discard)
+	if runtime.GOOS == "windows" {
+		if len(binds) != 0 {
+			t.Fatalf("windows drive letters must stay off Binds, got %v", binds)
+		}
+		if len(mounts) != 4 {
+			t.Fatalf("mounts: got %d, want 4", len(mounts))
+		}
+		readonly := map[string]bool{}
+		for _, m := range mounts {
+			if m.Type == mount.TypeBind {
+				if !m.ReadOnly {
+					t.Errorf("%s bind should be read-only", m.Target)
+				}
+				readonly[m.Target] = true
+			}
+		}
+		if !readonly["/etc/secret"] || !readonly["/etc/config"] {
+			t.Errorf("secret and configMap should be read-only Mounts, got %v", readonly)
+		}
+		return
+	}
 	if len(binds) != 2 {
 		t.Fatalf("binds: got %d (%v), want 2", len(binds), binds)
 	}
@@ -367,6 +378,50 @@ func TestVolumeMounts_BindsAndMounts(t *testing.T) {
 	}
 	if !seen["/tmp/scratch"] || !seen["/data"] {
 		t.Errorf("emptyDir or PVC missing from Mounts: %v", seen)
+	}
+}
+
+// TestVolumeMounts_ColonSkipsRelabel verifies a path containing ":" stays a
+// read-only Mount. The Linux daemon splits a bind spec on colon, so Binds
+// would fail container create. Windows forbids ":" in a name, and every
+// drive-letter path already takes this branch.
+func TestVolumeMounts_ColonSkipsRelabel(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(`":" is illegal in a Windows path segment`)
+	}
+	root := filepath.Join(t.TempDir(), "a:b")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	vols := []fn.Volume{{Secret: ptr("my-secret"), Path: ptr("/etc/secret")}}
+	binds, mounts := volumeMounts(root, vols, &out)
+	if len(binds) != 0 {
+		t.Fatalf("colon path must not use Binds, got %v", binds)
+	}
+	if len(mounts) != 1 || mounts[0].Type != mount.TypeBind || !mounts[0].ReadOnly {
+		t.Fatalf("expected one read-only bind Mount, got %#v", mounts)
+	}
+	if !strings.Contains(out.String(), "bound without SELinux relabel") {
+		t.Errorf("expected relabel warning, got %q", out.String())
+	}
+}
+
+// expectSecretPlaced accepts either a Binds entry or, when the host path
+// contains a colon, one read-only Mount.
+func expectSecretPlaced(t *testing.T, binds []string, mounts []mount.Mount, suffix string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		if len(binds) != 0 || len(mounts) != 1 || !mounts[0].ReadOnly {
+			t.Fatalf("windows: want one read-only Mount, binds=%v mounts=%#v", binds, mounts)
+		}
+		return
+	}
+	if len(binds) != 1 || len(mounts) != 0 {
+		t.Fatalf("want one Bind and no Mount, binds=%v mounts=%d", binds, len(mounts))
+	}
+	if !strings.HasSuffix(binds[0], suffix) {
+		t.Errorf("bind %q should end with %s", binds[0], suffix)
 	}
 }
 

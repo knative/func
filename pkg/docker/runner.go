@@ -364,7 +364,10 @@ func newHostConfig(host, port string, f fn.Function, errOut io.Writer) (c contai
 
 // volumeMounts converts func.yaml volume definitions into Docker host config.
 // Secret and ConfigMap binds go on Binds as "src:dst:ro,z" so Docker and Podman
-// relabel for SELinux; non-SELinux hosts ignore the z flag. emptyDir and PVC
+// relabel for SELinux; non-SELinux hosts ignore the z flag. A source or target
+// that contains ":" stays a read-only Mount instead: the Linux daemon splits a
+// bind spec on colon, so a drive letter or a colon in the path would make
+// container create fail, and :z buys nothing on Windows. emptyDir and PVC
 // stay on Mounts (tmpfs and named volumes). mount.Mount has no relabel field.
 // Volumes that cannot be mapped locally emit a warning on errOut and are
 // skipped rather than aborting the run. A nil errOut is treated as io.Discard.
@@ -394,6 +397,11 @@ func volumeMounts(root string, volumes []fn.Volume, errOut io.Writer) (binds []s
 			fmt.Fprintf(errOut, "created empty local %s dir %s; add files named after the %s's keys to populate it\n", kind, src, kind)
 		}
 		if m.Type == mount.TypeBind {
+			if strings.Contains(m.Source, ":") || strings.Contains(m.Target, ":") {
+				fmt.Fprintf(errOut, "warning: %s bound without SELinux relabel (path contains ':')\n", vol.String())
+				mounts = append(mounts, m)
+				continue
+			}
 			binds = append(binds, m.Source+":"+m.Target+":ro,z")
 			continue
 		}
