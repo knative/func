@@ -37,7 +37,28 @@ func TestToMount_Secret(t *testing.T) {
 	if !m.ReadOnly {
 		t.Error("secret mount should be read-only, matching Kubernetes")
 	}
-	assertContainerReadable(t, m.Source)
+	assertContainerReadable(t, root, m.Source)
+}
+
+// TestToMount_Secret_NamedRun verifies a secret named "run" still leaves the
+// parent directories traversable. The permission walk must stop at .func/run,
+// not at the first path component named run.
+func TestToMount_Secret_NamedRun(t *testing.T) {
+	root := t.TempDir()
+	vol := fn.Volume{Secret: ptr("run"), Path: ptr("/etc/secret")}
+	m, err := toMount(root, vol)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertContainerReadable(t, root, m.Source)
+	secrets := filepath.Join(root, fn.RunDataDir, "run", "secrets")
+	info, err := os.Stat(secrets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm()&0055 != 0055 {
+		t.Errorf("secrets dir mode %o is not traversable", info.Mode().Perm())
+	}
 }
 
 // TestToMount_ConfigMap verifies that a ConfigMap volume produces a bind mount
@@ -63,7 +84,7 @@ func TestToMount_ConfigMap(t *testing.T) {
 	if !m.ReadOnly {
 		t.Error("configMap mount should be read-only, matching Kubernetes")
 	}
-	assertContainerReadable(t, m.Source)
+	assertContainerReadable(t, root, m.Source)
 }
 
 // TestToMount_EmptyDir_Memory verifies that an EmptyDir with Memory medium maps to tmpfs.
@@ -287,8 +308,9 @@ func TestVolumeMounts_HintsWhenEmpty(t *testing.T) {
 
 // assertContainerReadable fails when a non-root container user could not
 // traverse the bind. 0755 has the other read and execute bits; 0700 does not.
-func assertContainerReadable(t *testing.T, path string) {
+func assertContainerReadable(t *testing.T, root, path string) {
 	t.Helper()
+	runDir := filepath.Join(root, fn.RunDataDir, "run")
 	for p := path; ; p = filepath.Dir(p) {
 		info, err := os.Stat(p)
 		if err != nil {
@@ -297,11 +319,11 @@ func assertContainerReadable(t *testing.T, path string) {
 		if info.Mode().Perm()&0055 != 0055 {
 			t.Errorf("%s mode %o is not readable by a non-root container user", p, info.Mode().Perm())
 		}
-		if filepath.Base(p) == "run" {
+		if p == runDir {
 			return
 		}
 		if filepath.Dir(p) == p {
-			t.Fatalf("%s is not under a run directory", path)
+			t.Fatalf("%s is not under %s", path, runDir)
 		}
 	}
 }

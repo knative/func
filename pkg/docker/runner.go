@@ -420,22 +420,29 @@ func safeLocalName(name string) error {
 	return nil
 }
 
-// ensureContainerReadable creates path and makes the run subtree traversable
-// by a non-root container user. chmod after mkdir so umask cannot leave the
-// directory owner-only.
-func ensureContainerReadable(path string) error {
+// ensureContainerReadable creates path and makes every directory from path
+// through runDir traversable by a non-root container user. chmod after mkdir
+// so umask cannot leave a directory owner-only. The walk stops at runDir
+// itself, not at a path component named "run" (a secret may be named run).
+func ensureContainerReadable(path, runDir string) error {
+	rel, err := filepath.Rel(runDir, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("volume directory %q is not under %q", path, runDir)
+	}
 	if err := os.MkdirAll(path, 0755); err != nil {
 		return err
 	}
-	for p := path; filepath.Dir(p) != p; p = filepath.Dir(p) {
+	for p := path; ; p = filepath.Dir(p) {
 		if err := os.Chmod(p, 0755); err != nil {
 			return err
 		}
-		if filepath.Base(p) == "run" {
+		if p == runDir {
 			return nil
 		}
+		if filepath.Dir(p) == p {
+			return fmt.Errorf("volume directory %q is not under %q", path, runDir)
+		}
 	}
-	return fmt.Errorf("volume directory %q is not under a run directory", path)
 }
 
 // toMount maps a single Volume spec to a Docker mount.Mount.
@@ -465,7 +472,7 @@ func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 			return mount.Mount{}, fmt.Errorf("secret: %w", err)
 		}
 		src := filepath.Join(runDir, "secrets", *vol.Secret)
-		if err := ensureContainerReadable(src); err != nil {
+		if err := ensureContainerReadable(src, runDir); err != nil {
 			return mount.Mount{}, fmt.Errorf("cannot create local secret dir %q: %w", src, err)
 		}
 		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target, ReadOnly: true}, nil
@@ -476,7 +483,7 @@ func toMount(root string, vol fn.Volume) (mount.Mount, error) {
 			return mount.Mount{}, fmt.Errorf("configMap: %w", err)
 		}
 		src := filepath.Join(runDir, "configmaps", *vol.ConfigMap)
-		if err := ensureContainerReadable(src); err != nil {
+		if err := ensureContainerReadable(src, runDir); err != nil {
 			return mount.Mount{}, fmt.Errorf("cannot create local configmap dir %q: %w", src, err)
 		}
 		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target, ReadOnly: true}, nil
