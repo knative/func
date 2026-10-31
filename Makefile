@@ -301,19 +301,6 @@ test-typescript: ## Test Typescript templates
 ##@ Scaffolding
 ###############
 
-# Pulls runtimes then rebuilds the embedded filesystem
-.PHONY: update-runtimes
-update-runtimes:  update-runtime-go generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
-
-.PHONY: update-runtime-go
-update-runtime-go:
-	@echo "Updating Go runtime..."
-	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http
-	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
-	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
-	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
-
-
 .PHONY: certs
 certs: templates/certs/ca-certificates.crt ## Update root certificates
 

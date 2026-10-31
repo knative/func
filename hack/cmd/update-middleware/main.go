@@ -2,6 +2,8 @@
 // their newest compatible releases. Middleware is what
 // pkg/scaffolding/middleware_version.go detects for each runtime:
 //
+//   - go: func-go moves to the release that the go command calls its
+//     latest. A v2 or later has a new module path, so a person moves to it.
 //   - python: func-python moves to the release that PyPI calls its latest.
 //   - quarkus: the Quarkus platform moves to the newest final release of its
 //     current major version.
@@ -9,11 +11,12 @@
 //     version, and Spring Cloud to the newest patch of its current release
 //     train.
 //
-// We maintain func-python ourselves, so it moves to new major versions too. A
-// new Spring Boot minor needs a matching Spring Cloud train, and a new major
-// version of Quarkus or Spring Boot may need the templates ported, so a person
-// makes those moves. Node and TypeScript (faas-js-runtime) are left out
-// because their package-lock.json files need npm to update.
+// We maintain func-go and func-python ourselves, so they move to new major
+// versions too. A new Spring Boot minor needs a matching Spring Cloud train,
+// and a new major version of Quarkus or Spring Boot may need the templates
+// ported, so a person makes those moves. Node and TypeScript
+// (faas-js-runtime) are left out because their package-lock.json files need
+// npm to update.
 //
 // Every middleware is tried, even after one fails, and the tool then exits 1
 // if any failed. That fails the dependency bot's run, which alerts us, so a
@@ -48,6 +51,7 @@ type middleware struct {
 // middlewares returns the middlewares, each updated from the servers in src.
 func middlewares(src sources) []middleware {
 	return []middleware{
+		{"go", "func-go", updateGo},
 		{"python", "func-python", src.updatePython},
 		{"quarkus", "Quarkus platform", src.updateQuarkus},
 		{"springboot", "Spring Boot and Spring Cloud", src.updateSpringBoot},
@@ -55,7 +59,7 @@ func middlewares(src sources) []middleware {
 }
 
 // sources are the servers the tool asks about releases. Tests point them at
-// fake servers.
+// fake servers. The go command finds func-go itself, through GOPROXY.
 type sources struct {
 	// maven is a Maven repository, for Spring Boot and Spring Cloud.
 	maven string
