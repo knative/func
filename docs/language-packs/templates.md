@@ -8,25 +8,13 @@ To make use of more complex initial function implementations, or to define runti
 
 ## External Git Repositories
 
-When creating a new function, a Git repository can be specified as the source for the template files.  For example, the the [knative-extensions/func-tastic repository](https://github.com/knative-extensions/func-tastic) contains a set of example functions which can be used during project creation.
-
-For example, the func-tastic repository contains an example ["metacontroller"](https://metacontroller.github.io/metacontroller) function implementation for Node.js.  To use this template via the CLI, use the flags:
-
-func create <name> --template metacontroller --repository https://github.com/knative-extensions/func-tastic
+When creating a new function, a Git repository can be specified as the source for the template files using the `--repository` flag. Use `--template` to select a template from that repository.
 
 ## Locally Installing Repositories
 
 Template repositories can also be installed locally by placing them in the functions configuration directory.
 
-To install the func-tastic templates locally, for example, use the `func repository add` command:
-
-```
-func repository add https://github.com/knative-extensions/func-tastic
-```
-
-Once installed, the metacontroller template can be specified:
-
-func create <name> --template func-tastic/metacontroller
+Use the [`func repository add`](../reference/func_repository.md) command to install a template repository locally. Once installed, select a template by prefixing its name with the repository name: `--template <repository-name>/<template-name>`.
 
 ## Language Packs
 
