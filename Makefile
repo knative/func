@@ -83,8 +83,28 @@ help:
 build: $(BIN) ## (default) Build binary for current OS
 
 .PHONY: $(BIN)
-$(BIN): generate/zz_filesystem_generated.go
+$(BIN): generate/zz_filesystem_generated.go kafka-runtime-embed
 	env CGO_ENABLED=0 go build ./cmd/$(BIN)
+
+# Kafka runtime adapter embedded for local `func run` (pkg/kafkaruntime).
+# Version is sourced from the Go constant so it stays in lockstep with the
+# on-cluster image (pkg/k8s/deployer.go).
+KAFKA_RUNTIME_MODULE  := knative.dev/func-adapter-kafka/cmd/fkafka-runtime
+KAFKA_RUNTIME_VERSION := $(shell grep -oE 'Version = "v[0-9]+\.[0-9]+\.[0-9]+"' pkg/kafkaruntime/kafkaruntime.go | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+')
+
+.PHONY: kafka-runtime-embed
+kafka-runtime-embed: ## Build+embed the pinned Kafka runtime adapter for the host platform (POC: host-only)
+	@os=$$(go env GOOS); arch=$$(go env GOARCH); \
+	out="pkg/kafkaruntime/bin/fkafka-runtime_$${os}_$${arch}"; \
+	if [ "$$os" = "windows" ]; then out="$$out.exe"; fi; \
+	if [ -f "$$out" ]; then echo "Kafka runtime adapter already embedded ($$out)"; exit 0; fi; \
+	echo "Embedding Kafka runtime adapter $(KAFKA_RUNTIME_VERSION) for $${os}/$${arch}..."; \
+	tmp=$$(mktemp -d); \
+	GOBIN="$$tmp" CGO_ENABLED=0 go install -trimpath -ldflags "-w -s" $(KAFKA_RUNTIME_MODULE)@$(KAFKA_RUNTIME_VERSION) || { rm -rf "$$tmp"; exit 1; }; \
+	cp "$$tmp"/fkafka-runtime* "$$out"; \
+	chmod 0755 "$$out"; \
+	rm -rf "$$tmp"; \
+	echo "  -> $$out"
 
 .PHONY: test
 test: generate/zz_filesystem_generated.go ## Run core unit tests

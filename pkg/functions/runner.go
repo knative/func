@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"knative.dev/func/pkg/kafkaruntime"
 )
 
 const (
@@ -80,9 +82,163 @@ func (r *defaultRunner) Run(ctx context.Context, f Function, address string, sta
 		return
 	}
 
-	// Wait for it to become available before returning the metadata.
-	err = waitFor(ctx, job, startTimeout)
+	// Start the Kafka runtime adapter as a sub-process when run.kafka is
+	// configured. It consumes Kafka and delivers each record to the function
+	// over loopback HTTP -- the local counterpart of the on-cluster sidecar.
+	kafkaReadinessURI, err := startKafkaAdapter(ctx, job)
+	if err != nil {
+		return
+	}
+
+	// Wait for the function to become available before returning the metadata.
+	if err = waitFor(ctx, job, startTimeout); err != nil {
+		return
+	}
+
+	// Gate on the adapter too: its readiness goes green only once the consumer
+	// has connected and been assigned partitions, so a bad broker or bad
+	// credentials fails `func run` fast here rather than silently delivering
+	// nothing.
+	if kafkaReadinessURI != "" {
+		err = waitForURI(ctx, kafkaReadinessURI, startTimeout, job.verbose)
+	}
 	return
+}
+
+// startKafkaAdapter runs the language-agnostic Kafka runtime adapter as a child
+// process next to the function when run.kafka is configured. The adapter
+// consumes Kafka and POSTs each record to the function over loopback HTTP,
+// committing only on a 2xx -- the same delivery contract as the on-cluster
+// sidecar, so local `func run` works for every language with no in-process
+// code. It is wired to the run context (torn down on Ctrl-C) and feeds the same
+// job.Errors channel, so an adapter crash surfaces like a function crash.
+//
+// It returns the adapter's readiness URI (empty when no adapter was started) so
+// the caller can gate startup on the consumer connecting.
+func startKafkaAdapter(ctx context.Context, job *Job) (readinessURI string, err error) {
+	k := job.Function.Run.Kafka
+	if k == nil || k.Brokers == "" || k.Topic == "" || k.ConsumerGroup == "" {
+		return "", nil // no Kafka configured
+	}
+
+	bin, err := kafkaruntime.Extract()
+	if errors.Is(err, kafkaruntime.ErrUnavailable) {
+		fmt.Fprintf(os.Stderr, "[kafka] local Kafka runtime unavailable on this platform (%s/%s); records will not be delivered locally\n", runtime.GOOS, runtime.GOARCH)
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("extracting kafka runtime adapter: %w", err)
+	}
+
+	// Pick a free loopback port for the adapter's health server, distinct from
+	// the function's port.
+	healthPort, err := freeLoopbackPort()
+	if err != nil {
+		return "", fmt.Errorf("choosing kafka adapter port: %w", err)
+	}
+	listenAddr := net.JoinHostPort(defaultRunHost, healthPort)
+
+	cmd := exec.CommandContext(ctx, bin)
+	cmd.Env = kafkaAdapterEnv(job, listenAddr)
+	cmd.Stdout = newPrefixWriter(os.Stdout, "[kafka] ")
+	cmd.Stderr = newPrefixWriter(os.Stderr, "[kafka] ")
+	cmd.Cancel = func() error {
+		if runtime.GOOS == "windows" {
+			return cmd.Process.Kill()
+		}
+		return cmd.Process.Signal(os.Interrupt)
+	}
+	cmd.WaitDelay = 5 * time.Second
+
+	if job.verbose {
+		fmt.Printf("Starting kafka runtime adapter: %v (health %v, target http://%v/)\n",
+			bin, listenAddr, net.JoinHostPort(job.Host, job.Port))
+	}
+
+	// Running asynchronously mirrors the function child; the adapter self-waits
+	// for FUNCTION_TARGET, so starting it after the function is a harmless race.
+	go func() {
+		job.Errors <- cmd.Run()
+	}()
+
+	return fmt.Sprintf("http://%s%s", listenAddr, readinessEndpoint), nil
+}
+
+// kafkaAdapterEnv builds the environment for the Kafka runtime adapter: the
+// parent environment, the target/health wiring, and the KAFKA_* config relocated
+// from the function (the function no longer consumes Kafka in-process).
+//
+// TODO(wip): run the credential values through Interpolate (as buildRunnerEnv
+// does for Run.Envs) so {{ env:NAME }} resolves locally, and warn on an
+// unresolved cluster {{ secret:... }} reference. Kept as raw passthrough here to
+// match the pre-relocation behavior exactly.
+func kafkaAdapterEnv(job *Job, listenAddr string) []string {
+	k := job.Function.Run.Kafka
+	env := os.Environ()
+	env = append(env,
+		"FUNCTION_TARGET=http://"+net.JoinHostPort(job.Host, job.Port)+"/",
+		"LISTEN_ADDRESS="+listenAddr,
+		"KAFKA_BROKERS="+k.Brokers,
+		"KAFKA_TOPIC="+k.Topic,
+		"KAFKA_CONSUMER_GROUP="+k.ConsumerGroup,
+	)
+	if k.SecurityProtocol != "" {
+		env = append(env, "KAFKA_SECURITY_PROTOCOL="+k.SecurityProtocol)
+	}
+	if k.TLS != nil {
+		if k.TLS.CACert != "" {
+			env = append(env, "KAFKA_TLS_CA_CERT="+k.TLS.CACert)
+		}
+		if k.TLS.ClientCert != "" {
+			env = append(env, "KAFKA_TLS_CLIENT_CERT="+k.TLS.ClientCert)
+		}
+		if k.TLS.ClientKey != "" {
+			env = append(env, "KAFKA_TLS_CLIENT_KEY="+k.TLS.ClientKey)
+		}
+		if k.TLS.SkipVerify {
+			env = append(env, "KAFKA_TLS_SKIP_VERIFY=true")
+		} else {
+			env = append(env, "KAFKA_TLS_SKIP_VERIFY=false")
+		}
+	}
+	if k.SASL != nil {
+		env = append(env, "KAFKA_SASL_MECHANISM="+k.SASL.EffectiveMechanism())
+		if k.SASL.User != "" {
+			env = append(env, "KAFKA_SASL_USER="+k.SASL.User)
+		}
+		if k.SASL.Password != "" {
+			env = append(env, "KAFKA_SASL_PASSWORD="+k.SASL.Password)
+		}
+	}
+	return env
+}
+
+// prefixWriter prefixes every line written to it, so interleaved adapter output
+// is distinguishable from the function's in `func run` logs.
+type prefixWriter struct {
+	w      io.Writer
+	prefix string
+	atBOL  bool
+}
+
+func newPrefixWriter(w io.Writer, prefix string) *prefixWriter {
+	return &prefixWriter{w: w, prefix: prefix, atBOL: true}
+}
+
+func (p *prefixWriter) Write(b []byte) (int, error) {
+	for _, c := range b {
+		if p.atBOL {
+			if _, err := io.WriteString(p.w, p.prefix); err != nil {
+				return 0, err
+			}
+			p.atBOL = false
+		}
+		if _, err := p.w.Write([]byte{c}); err != nil {
+			return 0, err
+		}
+		p.atBOL = c == '\n'
+	}
+	return len(b), nil
 }
 
 // getRunFunc returns a function which will run the user's Function based on
@@ -307,53 +463,25 @@ func buildRunnerEnv(job *Job, extras map[string]string) ([]string, error) {
 		env = append(env, k+"="+v)
 	}
 
-	if k := job.Function.Run.Kafka; k != nil && k.Brokers != "" && k.Topic != "" && k.ConsumerGroup != "" {
-		env = append(env,
-			"FUNC_TRANSPORT=kafka",
-			"KAFKA_BROKERS="+k.Brokers,
-			"KAFKA_TOPIC="+k.Topic,
-			"KAFKA_CONSUMER_GROUP="+k.ConsumerGroup,
-		)
-		if k.SecurityProtocol != "" {
-			env = append(env, "KAFKA_SECURITY_PROTOCOL="+k.SecurityProtocol)
-		}
-		if k.TLS != nil {
-			if k.TLS.CACert != "" {
-				env = append(env, "KAFKA_TLS_CA_CERT="+k.TLS.CACert)
-			}
-			if k.TLS.ClientCert != "" {
-				env = append(env, "KAFKA_TLS_CLIENT_CERT="+k.TLS.ClientCert)
-			}
-			if k.TLS.ClientKey != "" {
-				env = append(env, "KAFKA_TLS_CLIENT_KEY="+k.TLS.ClientKey)
-			}
-			if k.TLS.SkipVerify {
-				env = append(env, "KAFKA_TLS_SKIP_VERIFY=true")
-			} else {
-				env = append(env, "KAFKA_TLS_SKIP_VERIFY=false")
-			}
-		}
-		if k.SASL != nil {
-			env = append(env, "KAFKA_SASL_MECHANISM="+k.SASL.EffectiveMechanism())
-			if k.SASL.User != "" {
-				env = append(env, "KAFKA_SASL_USER="+k.SASL.User)
-			}
-			if k.SASL.Password != "" {
-				env = append(env, "KAFKA_SASL_PASSWORD="+k.SASL.Password)
-			}
-		}
-	}
+	// NOTE: Kafka delivery no longer runs in-process inside the function. The
+	// KAFKA_* config is set on the Kafka runtime adapter sub-process instead
+	// (see kafkaAdapterEnv / startKafkaAdapter), and FUNC_TRANSPORT is gone.
 
 	return env, nil
 }
 
 func waitFor(ctx context.Context, job *Job, timeout time.Duration) error {
-	var (
-		uri      = fmt.Sprintf("http://%s%s", net.JoinHostPort(job.Host, job.Port), readinessEndpoint)
-		interval = 500 * time.Millisecond
-	)
+	uri := fmt.Sprintf("http://%s%s", net.JoinHostPort(job.Host, job.Port), readinessEndpoint)
+	return waitForURI(ctx, uri, timeout, job.verbose)
+}
 
-	if job.verbose {
+// waitForURI polls uri's readiness endpoint until it returns 200, the timeout
+// elapses, or the context is canceled. It is used for both the function and the
+// Kafka runtime adapter.
+func waitForURI(ctx context.Context, uri string, timeout time.Duration, verbose bool) error {
+	interval := 500 * time.Millisecond
+
+	if verbose {
 		fmt.Printf("Waiting for %v\n", uri)
 	}
 
@@ -361,7 +489,7 @@ func waitFor(ctx context.Context, job *Job, timeout time.Duration) error {
 	defer cancel()
 
 	for {
-		ok, err := isReady(ctx, uri, timeout, job.verbose)
+		ok, err := isReady(ctx, uri, timeout, verbose)
 		if ok || err != nil {
 			return err
 		}
@@ -449,6 +577,21 @@ func choosePort(iface, preferredPort string, explicitPort bool) (string, error) 
 		return "", fmt.Errorf("cannot parse port: %w", err)
 	}
 	return port, nil
+}
+
+// freeLoopbackPort returns an OS-chosen free port on the loopback interface.
+// Unlike choosePort, it resolves the actual bound port (choosePort returns the
+// requested value verbatim when that value binds successfully). There is an
+// inherent close-then-reuse race, acceptable here as the adapter binds right
+// after.
+func freeLoopbackPort() (string, error) {
+	l, err := net.Listen("tcp", net.JoinHostPort(defaultRunHost, "0"))
+	if err != nil {
+		return "", err
+	}
+	defer l.Close()
+	_, port, err := net.SplitHostPort(l.Addr().String())
+	return port, err
 }
 
 func pythonCmd() string {
