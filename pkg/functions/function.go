@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -225,7 +226,7 @@ type DeliverySpec struct {
 	// attempts = retry + 1). A nil value (field omitted) means unlimited retries;
 	// 0 means a single attempt with no retry. A pointer is used so the "unset =
 	// unlimited" default is distinguishable from an explicit 0.
-	Retry *int `yaml:"retry,omitempty" jsonschema:"description=Retries after the first delivery attempt. Omit for unlimited; 0 means a single attempt with no retry.,minimum=0"`
+	Retry *int `yaml:"retry,omitempty" jsonschema:"description=Retries after the first delivery attempt. Omit for unlimited; 0 means a single attempt with no retry." jsonschema_extras:"minimum=0"`
 	// BackoffPolicy is how the inter-retry delay grows: exponential (default) or
 	// linear.
 	BackoffPolicy string `yaml:"backoffPolicy,omitempty" jsonschema:"description=How the inter-retry delay grows: exponential (default) or linear,enum=exponential,enum=linear"`
@@ -237,6 +238,18 @@ type DeliverySpec struct {
 	// Timeout is the per-attempt request timeout as a Go duration (default 30s).
 	Timeout string `yaml:"timeout,omitempty" jsonschema:"description=Per-attempt request timeout as a Go duration e.g. 30s (default 30s)"`
 }
+
+// defaultDeliveryBackoffDelay and defaultDeliveryBackoffMaxDelay are the base
+// and maximum inter-retry delays the runtime applies when the respective field
+// is omitted. They are duplicated here (the runtime sidecar is a separate
+// module/repo) only to let ValidateKafkaDelivery reject a locally-detectable
+// contradiction -- e.g. an explicit backoffDelay above the default
+// backoffMaxDelay -- at deploy time instead of deferring it to a runtime
+// startup failure. Keep these in sync with the adapter's delivery defaults.
+const (
+	defaultDeliveryBackoffDelay    = 100 * time.Millisecond
+	defaultDeliveryBackoffMaxDelay = 30 * time.Second
+)
 
 type KafkaTLS struct {
 	CACert     string `yaml:"caCert,omitempty" jsonschema:"description=Path to CA certificate PEM file for verifying broker certificate"`
@@ -295,22 +308,34 @@ func validateKafka(kafka *KafkaConfig, invoke string) (errors []string) {
 // flows). A nil kafka or nil delivery has nothing to validate.
 //
 // Only locally-checkable rules are enforced here: each value is well-formed and
-// non-negative, and backoffMaxDelay >= backoffDelay when both are set. A
-// cross-check against the runtime's defaults (e.g. a backoffDelay above the
-// default backoffMaxDelay when the latter is omitted) is left to the runtime,
-// which rejects it at startup, rather than duplicating the defaults here.
+// in range, and the effective backoffMaxDelay is >= the effective backoffDelay.
+// The cross-check applies the runtime's defaults for an omitted side (see
+// defaultDeliveryBackoffDelay / defaultDeliveryBackoffMaxDelay), so an explicit
+// backoffDelay above the default backoffMaxDelay -- or a backoffMaxDelay below
+// the default backoffDelay -- is caught here at deploy time rather than only at
+// runtime startup.
 func ValidateKafkaDelivery(kafka *KafkaConfig) (errors []string) {
 	if kafka == nil || kafka.Delivery == nil {
 		return
 	}
 	d := kafka.Delivery
 
-	if d.Retry != nil && *d.Retry < 0 {
-		errors = append(errors, "run.kafka.delivery.retry must not be negative (omit it for unlimited retries)")
+	if d.Retry != nil {
+		if *d.Retry < 0 {
+			errors = append(errors, "run.kafka.delivery.retry must not be negative (omit it for unlimited retries)")
+		} else if *d.Retry == math.MaxInt {
+			// math.MaxInt is the sentinel the runtime uses for "unlimited"; a
+			// configured value equal to it is rejected so an explicit finite budget
+			// can never be silently reinterpreted as unlimited.
+			errors = append(errors, fmt.Sprintf("run.kafka.delivery.retry must be less than %d (omit it for unlimited retries)", math.MaxInt))
+		}
 	}
 
 	if d.BackoffPolicy != "" {
-		switch strings.ToLower(d.BackoffPolicy) {
+		// Match the runtime's env contract exactly: it compares the raw value
+		// against the lowercase tokens, so accept only the canonical lowercase
+		// spellings here rather than silently tolerating e.g. "Exponential".
+		switch d.BackoffPolicy {
 		case "exponential", "linear":
 		default:
 			errors = append(errors, "run.kafka.delivery.backoffPolicy must be one of: exponential, linear")
@@ -321,8 +346,24 @@ func ValidateKafkaDelivery(kafka *KafkaConfig) (errors []string) {
 	max, maxOK := validateDeliveryDuration("run.kafka.delivery.backoffMaxDelay", d.BackoffMaxDelay, &errors)
 	validateDeliveryDuration("run.kafka.delivery.timeout", d.Timeout, &errors)
 
-	if baseOK && maxOK && max < base {
-		errors = append(errors, "run.kafka.delivery.backoffMaxDelay must be >= run.kafka.delivery.backoffDelay")
+	// Compare effective values: a field left unset takes the runtime default, so
+	// a one-sided override is still checked. Skip the comparison for a side that
+	// was provided but malformed -- validateDeliveryDuration already reported it,
+	// and a parse failure there would otherwise masquerade as the default.
+	baseMalformed := d.BackoffDelay != "" && !baseOK
+	maxMalformed := d.BackoffMaxDelay != "" && !maxOK
+	if !baseMalformed && !maxMalformed {
+		effBase := defaultDeliveryBackoffDelay
+		if baseOK {
+			effBase = base
+		}
+		effMax := defaultDeliveryBackoffMaxDelay
+		if maxOK {
+			effMax = max
+		}
+		if effMax < effBase {
+			errors = append(errors, fmt.Sprintf("run.kafka.delivery.backoffMaxDelay (effective %s) must be >= run.kafka.delivery.backoffDelay (effective %s); an omitted side uses the runtime default (backoffDelay %s, backoffMaxDelay %s)", effMax, effBase, defaultDeliveryBackoffDelay, defaultDeliveryBackoffMaxDelay))
+		}
 	}
 
 	return

@@ -70,7 +70,8 @@
 			"properties": {
 				"retry": {
 					"type": "integer",
-					"description": "Retries after the first delivery attempt. Omit for unlimited; 0 means a single attempt with no retry."
+					"description": "Retries after the first delivery attempt. Omit for unlimited; 0 means a single attempt with no retry.",
+					"minimum": 0
 				},
 				"backoffPolicy": {
 					"enum": [

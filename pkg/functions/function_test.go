@@ -2,6 +2,7 @@ package functions_test
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -962,12 +963,28 @@ func TestValidateKafka(t *testing.T) {
 			wantErrs: 0,
 		},
 		{
-			name: "delivery backoffPolicy is case-insensitive",
+			// The runtime compares the raw env value against the lowercase tokens,
+			// so only the canonical lowercase spellings are accepted; a mixed-case
+			// value that would silently fall through to the runtime default is
+			// rejected here instead.
+			name: "delivery backoffPolicy mixed case is rejected",
 			kafka: &fn.KafkaConfig{
 				Brokers:       "broker:9092",
 				Topic:         "my-topic",
 				ConsumerGroup: "my-group",
 				Delivery:      &fn.DeliverySpec{BackoffPolicy: "Linear"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.delivery.backoffPolicy must be one of",
+		},
+		{
+			name: "delivery backoffPolicy linear lowercase is valid",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{BackoffPolicy: "linear"},
 			},
 			invoke:   "cloudevent",
 			wantErrs: 0,
@@ -1042,7 +1059,51 @@ func TestValidateKafka(t *testing.T) {
 			},
 			invoke:    "cloudevent",
 			wantErrs:  1,
-			wantSubst: "run.kafka.delivery.backoffMaxDelay must be >= run.kafka.delivery.backoffDelay",
+			wantSubst: "run.kafka.delivery.backoffMaxDelay (effective 1s) must be >= run.kafka.delivery.backoffDelay (effective 10s)",
+		},
+		{
+			// Only backoffDelay is set, above the default backoffMaxDelay (30s). The
+			// effective-value cross-check applies the runtime default for the omitted
+			// max and catches it, instead of deferring to a runtime startup failure.
+			name: "delivery backoffDelay above default backoffMaxDelay",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{BackoffDelay: "60s"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.delivery.backoffMaxDelay (effective 30s) must be >= run.kafka.delivery.backoffDelay (effective 1m0s)",
+		},
+		{
+			// Only backoffMaxDelay is set, below the default backoffDelay (100ms). The
+			// omitted base takes its default, so the contradiction is still caught.
+			name: "delivery backoffMaxDelay below default backoffDelay",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{BackoffMaxDelay: "50ms"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.delivery.backoffMaxDelay (effective 50ms) must be >= run.kafka.delivery.backoffDelay (effective 100ms)",
+		},
+		{
+			// A finite retry equal to math.MaxInt collides with the runtime's
+			// "unlimited" sentinel, so an explicit finite budget could be silently
+			// reinterpreted as unlimited; reject it.
+			name: "delivery retry equal to max int is rejected",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{Retry: retryPtr(math.MaxInt)},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.delivery.retry must be less than",
 		},
 	}
 	for _, tt := range tests {
