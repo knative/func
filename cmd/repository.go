@@ -104,44 +104,46 @@ COMMANDS
 	    $ {{rootCmdUse}} repository remove <name>
 
 EXAMPLES
+	Replace the example repository URL and template names with your own.
+
 	o Run in confirmation mode (interactive prompts) using the --confirm flag
 	  $ {{rootCmdUse}} repository -c
 
 	o Add a repository and create a new function using a template from it:
-	  $ {{rootCmdUse}} repository add functastic https://github.com/knative-extensions/func-tastic
+	  $ {{rootCmdUse}} repository add custom https://example.com/function-templates
 	  $ {{rootCmdUse}} repository list
 	  default
-	  functastic
-	  $ {{rootCmdUse}} create -l go -t functastic/hello-world
+	  custom
+	  $ {{rootCmdUse}} create -l go -t custom/hello-world
 	  ...
 
-		o Add a repository specifying the branch to use (metacontroller):
-	  $ {{rootCmdUse}} repository add metacontroller https://github.com/knative-extensions/func-tastic#metacontroler
+	o Add a repository specifying the branch to use:
+	  $ {{rootCmdUse}} repository add custom-branch https://example.com/function-templates#my-branch
 	  $ {{rootCmdUse}} repository list
 	  default
-	  metacontroller
-	  $ {{rootCmdUse}} create -l node -t metacontroller/metacontroller
+	  custom-branch
+	  $ {{rootCmdUse}} create -l node -t custom-branch/events
 	  ...
 
 	o List all repositories including the URL from which remotes were installed
 	  $ {{rootCmdUse}} repository list -v
 	  default
-	  metacontroller	https://github.com/knative-extensions/func-tastic#metacontroller
+	  custom	https://example.com/function-templates
 
 	o Rename an installed repository
 	  $ {{rootCmdUse}} repository list
 	  default
-	  boson
-	  $ {{rootCmdUse}} repository rename boson functastic
+	  custom
+	  $ {{rootCmdUse}} repository rename custom team-templates
 	  $ {{rootCmdUse}} repository list
 	  default
-	  functastic
+	  team-templates
 
 	o Remove an installed repository
 	  $ {{rootCmdUse}} repository list
 	  default
-	  functastic
-	  $ {{rootCmdUse}} repository remove functastic
+	  team-templates
+	  $ {{rootCmdUse}} repository remove team-templates
 	  $ {{rootCmdUse}} repository list
 	  default
 `,
