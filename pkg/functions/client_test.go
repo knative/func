@@ -1984,6 +1984,7 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 		message = fn.NewInvokeMessage() // message to send to the function
 		evt     *cloudevents.Event      // A pointer to the received event
 	)
+	message.Extensions = map[string]string{"myext": "myvalue"}
 
 	// A CloudEvent Receiver which masquarades as a running function and
 	// verifies the invoker sent the message as a populated CloudEvent.
@@ -1991,6 +1992,9 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 		invoked = true
 		if event.ID() != message.ID {
 			t.Fatalf("expected event ID '%v', got '%v'", message.ID, event.ID())
+		}
+		if v := event.Extensions()["myext"]; v != "myvalue" {
+			t.Errorf("expected extension myext=myvalue, got %v", v)
 		}
 		evt = &event
 		return evt

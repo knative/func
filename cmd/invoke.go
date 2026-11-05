@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -316,12 +317,18 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 	return
 }
 
+// extensionName matches the CloudEvents spec restriction on attribute names.
+var extensionName = regexp.MustCompile(`^[a-z0-9]+$`)
+
 func (c invokeConfig) parseExtensions() (map[string]string, error) {
 	result := make(map[string]string)
 	for _, ext := range c.Extensions {
 		parts := strings.SplitN(ext, "=", 2)
 		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
 			return nil, fmt.Errorf("invalid --extension %q: must be in key=value format", ext)
+		}
+		if !extensionName.MatchString(parts[0]) {
+			return nil, fmt.Errorf("invalid --extension %q: name must consist of lower-case letters (a-z) or digits (0-9)", ext)
 		}
 		result[parts[0]] = parts[1]
 	}
