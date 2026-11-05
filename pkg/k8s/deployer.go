@@ -10,6 +10,7 @@ import (
 	"path"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1126,6 +1127,38 @@ func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig, referencedS
 	return envVars, nil
 }
 
+// AppendKafkaDeliveryEnvs appends the delivery-tuning environment variables that
+// configure how the Kafka runtime sidecar delivers a record to the function.
+// Each variable maps 1:1 to a run.kafka.delivery field (same name, same
+// semantics); an unset field is omitted so the runtime applies its own default.
+// A nil kafka or nil delivery appends nothing.
+func AppendKafkaDeliveryEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig) []corev1.EnvVar {
+	if kafka == nil || kafka.Delivery == nil {
+		return envVars
+	}
+	d := kafka.Delivery
+
+	// retry is a pointer: nil means "omit, run unlimited", while 0 is an explicit
+	// single-attempt budget that must be injected.
+	if d.Retry != nil {
+		envVars = append(envVars, corev1.EnvVar{Name: "FUNCTION_DELIVERY_RETRY", Value: strconv.Itoa(*d.Retry)})
+	}
+	if d.BackoffPolicy != "" {
+		envVars = append(envVars, corev1.EnvVar{Name: "FUNCTION_DELIVERY_BACKOFF_POLICY", Value: d.BackoffPolicy})
+	}
+	if d.BackoffDelay != "" {
+		envVars = append(envVars, corev1.EnvVar{Name: "FUNCTION_DELIVERY_BACKOFF_DELAY", Value: d.BackoffDelay})
+	}
+	if d.BackoffMaxDelay != "" {
+		envVars = append(envVars, corev1.EnvVar{Name: "FUNCTION_DELIVERY_BACKOFF_MAX_DELAY", Value: d.BackoffMaxDelay})
+	}
+	// timeout maps to the runtime's existing per-attempt request timeout knob.
+	if d.Timeout != "" {
+		envVars = append(envVars, corev1.EnvVar{Name: "FUNCTION_REQUEST_TIMEOUT", Value: d.Timeout})
+	}
+	return envVars
+}
+
 // kafkaRuntimeImage returns the image to use for the Kafka runtime sidecar,
 // honoring the FUNC_KAFKA_RUNTIME_IMAGE override.
 func kafkaRuntimeImage() string {
@@ -1158,6 +1191,7 @@ func kafkaSidecarContainer(f fn.Function, kafkaMounts []corev1.VolumeMount, refe
 	if err != nil {
 		return nil, err
 	}
+	env = AppendKafkaDeliveryEnvs(env, kafka)
 
 	container := corev1.Container{
 		Name:         KafkaSidecarName,

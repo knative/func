@@ -204,6 +204,38 @@ type KafkaConfig struct {
 	SecurityProtocol string     `yaml:"securityProtocol,omitempty" jsonschema:"description=Security protocol: PLAINTEXT SSL SASL_PLAINTEXT or SASL_SSL,enum=PLAINTEXT,enum=SSL,enum=SASL_PLAINTEXT,enum=SASL_SSL"`
 	TLS              *KafkaTLS  `yaml:"tls,omitempty" jsonschema:"description=TLS configuration for SSL or SASL_SSL"`
 	SASL             *KafkaSASL `yaml:"sasl,omitempty" jsonschema:"description=SASL authentication for SASL_PLAINTEXT or SASL_SSL"`
+
+	// Delivery tunes how a consumed record is delivered to the function
+	// (retry budget, backoff, per-attempt timeout). Optional; when unset the
+	// runtime applies its own defaults.
+	Delivery *DeliverySpec `yaml:"delivery,omitempty" jsonschema:"description=Tunes delivery of consumed records to the function (retry budget / backoff / per-attempt timeout)"`
+}
+
+// DeliverySpec configures how a consumed event is delivered to the function.
+// Field names and semantics mirror Knative's DeliverySpec so the on-cluster
+// vocabulary is consistent. It is a standalone type (not inlined into
+// KafkaConfig) so other event sources can reuse it later.
+//
+// Every field is optional; an unset field is not injected into the runtime, so
+// the runtime applies its own default. The defaults reproduce the behavior from
+// before this block existed: unlimited exponential retries from 100ms to 30s,
+// with a 30s per-attempt timeout.
+type DeliverySpec struct {
+	// Retry is the number of retries AFTER the first delivery attempt (so total
+	// attempts = retry + 1). A nil value (field omitted) means unlimited retries;
+	// 0 means a single attempt with no retry. A pointer is used so the "unset =
+	// unlimited" default is distinguishable from an explicit 0.
+	Retry *int `yaml:"retry,omitempty" jsonschema:"description=Retries after the first delivery attempt. Omit for unlimited; 0 means a single attempt with no retry.,minimum=0"`
+	// BackoffPolicy is how the inter-retry delay grows: exponential (default) or
+	// linear.
+	BackoffPolicy string `yaml:"backoffPolicy,omitempty" jsonschema:"description=How the inter-retry delay grows: exponential (default) or linear,enum=exponential,enum=linear"`
+	// BackoffDelay is the base inter-retry delay as a Go duration (default 100ms).
+	BackoffDelay string `yaml:"backoffDelay,omitempty" jsonschema:"description=Base inter-retry delay as a Go duration e.g. 100ms (default 100ms)"`
+	// BackoffMaxDelay caps the computed inter-retry delay as a Go duration
+	// (default 30s).
+	BackoffMaxDelay string `yaml:"backoffMaxDelay,omitempty" jsonschema:"description=Maximum inter-retry delay as a Go duration e.g. 30s (default 30s)"`
+	// Timeout is the per-attempt request timeout as a Go duration (default 30s).
+	Timeout string `yaml:"timeout,omitempty" jsonschema:"description=Per-attempt request timeout as a Go duration e.g. 30s (default 30s)"`
 }
 
 type KafkaTLS struct {
@@ -252,8 +284,69 @@ func validateKafka(kafka *KafkaConfig, invoke string) (errors []string) {
 	}
 
 	errors = append(errors, ValidateKafkaSecurity(kafka)...)
+	errors = append(errors, ValidateKafkaDelivery(kafka)...)
 
 	return
+}
+
+// ValidateKafkaDelivery validates the run.kafka.delivery portion of a
+// KafkaConfig. It is exported so the keda deployer can run it as a deploy-time
+// preflight (Function.Validate is skipped in on-cluster and library deploy
+// flows). A nil kafka or nil delivery has nothing to validate.
+//
+// Only locally-checkable rules are enforced here: each value is well-formed and
+// non-negative, and backoffMaxDelay >= backoffDelay when both are set. A
+// cross-check against the runtime's defaults (e.g. a backoffDelay above the
+// default backoffMaxDelay when the latter is omitted) is left to the runtime,
+// which rejects it at startup, rather than duplicating the defaults here.
+func ValidateKafkaDelivery(kafka *KafkaConfig) (errors []string) {
+	if kafka == nil || kafka.Delivery == nil {
+		return
+	}
+	d := kafka.Delivery
+
+	if d.Retry != nil && *d.Retry < 0 {
+		errors = append(errors, "run.kafka.delivery.retry must not be negative (omit it for unlimited retries)")
+	}
+
+	if d.BackoffPolicy != "" {
+		switch strings.ToLower(d.BackoffPolicy) {
+		case "exponential", "linear":
+		default:
+			errors = append(errors, "run.kafka.delivery.backoffPolicy must be one of: exponential, linear")
+		}
+	}
+
+	base, baseOK := validateDeliveryDuration("run.kafka.delivery.backoffDelay", d.BackoffDelay, &errors)
+	max, maxOK := validateDeliveryDuration("run.kafka.delivery.backoffMaxDelay", d.BackoffMaxDelay, &errors)
+	validateDeliveryDuration("run.kafka.delivery.timeout", d.Timeout, &errors)
+
+	if baseOK && maxOK && max < base {
+		errors = append(errors, "run.kafka.delivery.backoffMaxDelay must be >= run.kafka.delivery.backoffDelay")
+	}
+
+	return
+}
+
+// validateDeliveryDuration parses an optional Go-duration field, appending an
+// error for a malformed or negative value. An empty value is valid (the field is
+// optional) and reported as absent (ok=false) so the caller skips any cross-field
+// comparison. It returns the parsed duration and whether a valid, non-empty value
+// was present.
+func validateDeliveryDuration(field, value string, errs *[]string) (time.Duration, bool) {
+	if value == "" {
+		return 0, false
+	}
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		*errs = append(*errs, fmt.Sprintf("%s must be a valid Go duration (e.g. 100ms, 30s)", field))
+		return 0, false
+	}
+	if d < 0 {
+		*errs = append(*errs, fmt.Sprintf("%s must not be negative", field))
+		return 0, false
+	}
+	return d, true
 }
 
 // ValidateKafkaSecurity validates the securityProtocol/TLS/SASL portion of a

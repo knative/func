@@ -581,6 +581,62 @@ func TestKafkaConfig_YAMLRoundTrip(t *testing.T) {
 	}
 }
 
+// retryPtr returns a pointer to a delivery retry count, so a test can express
+// "retry set to N" distinctly from "retry omitted" (nil = unlimited).
+func retryPtr(n int) *int { return &n }
+
+// TestDeliverySpec_YAMLRoundTrip verifies the delivery block survives a
+// marshal/unmarshal cycle, and in particular that an explicit retry: 0 round-trips
+// as a non-nil pointer (single attempt) rather than collapsing to the nil/unset
+// "unlimited" default -- the whole reason retry is a pointer.
+func TestDeliverySpec_YAMLRoundTrip(t *testing.T) {
+	original := fn.Function{
+		Name:    "test-kafka",
+		Runtime: "go",
+		Run: fn.RunSpec{
+			Kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery: &fn.DeliverySpec{
+					Retry:           retryPtr(0),
+					BackoffPolicy:   "linear",
+					BackoffDelay:    "250ms",
+					BackoffMaxDelay: "5s",
+					Timeout:         "15s",
+				},
+			},
+		},
+	}
+
+	data, err := yaml.Marshal(original)
+	if err != nil {
+		t.Fatalf("failed to marshal: %v", err)
+	}
+
+	var loaded fn.Function
+	if err := yaml.Unmarshal(data, &loaded); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	d := loaded.Run.Kafka.Delivery
+	if d == nil {
+		t.Fatal("expected Delivery to be non-nil after round-trip")
+	}
+	if d.Retry == nil {
+		t.Fatal("expected Retry to survive as a non-nil pointer (explicit 0), got nil")
+	}
+	if *d.Retry != 0 {
+		t.Errorf("Retry: expected 0, got %d", *d.Retry)
+	}
+	if d.BackoffPolicy != "linear" {
+		t.Errorf("BackoffPolicy: expected %q, got %q", "linear", d.BackoffPolicy)
+	}
+	if d.BackoffDelay != "250ms" || d.BackoffMaxDelay != "5s" || d.Timeout != "15s" {
+		t.Errorf("durations round-tripped wrong: delay=%q maxDelay=%q timeout=%q", d.BackoffDelay, d.BackoffMaxDelay, d.Timeout)
+	}
+}
+
 func TestValidateKafka(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -861,6 +917,132 @@ func TestValidateKafka(t *testing.T) {
 			},
 			invoke:   "cloudevent",
 			wantErrs: 0,
+		},
+		{
+			name: "valid full delivery block",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery: &fn.DeliverySpec{
+					Retry:           retryPtr(3),
+					BackoffPolicy:   "exponential",
+					BackoffDelay:    "200ms",
+					BackoffMaxDelay: "10s",
+					Timeout:         "30s",
+				},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
+		{
+			// An empty delivery block is valid: every field is optional and falls
+			// back to the runtime's default.
+			name: "empty delivery block is valid",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
+		{
+			// retry: 0 is a valid explicit single-attempt budget (distinct from an
+			// omitted retry, which means unlimited).
+			name: "delivery retry zero is valid",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{Retry: retryPtr(0)},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
+		{
+			name: "delivery backoffPolicy is case-insensitive",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{BackoffPolicy: "Linear"},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
+		{
+			name: "delivery negative retry",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{Retry: retryPtr(-1)},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.delivery.retry must not be negative",
+		},
+		{
+			name: "delivery unknown backoffPolicy",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{BackoffPolicy: "fibonacci"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.delivery.backoffPolicy must be one of",
+		},
+		{
+			name: "delivery malformed backoffDelay",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{BackoffDelay: "soon"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.delivery.backoffDelay must be a valid Go duration",
+		},
+		{
+			name: "delivery negative backoffDelay",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{BackoffDelay: "-1s"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.delivery.backoffDelay must not be negative",
+		},
+		{
+			name: "delivery malformed timeout",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{Timeout: "whenever"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.delivery.timeout must be a valid Go duration",
+		},
+		{
+			name: "delivery backoffMaxDelay below backoffDelay",
+			kafka: &fn.KafkaConfig{
+				Brokers:       "broker:9092",
+				Topic:         "my-topic",
+				ConsumerGroup: "my-group",
+				Delivery:      &fn.DeliverySpec{BackoffDelay: "10s", BackoffMaxDelay: "1s"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.delivery.backoffMaxDelay must be >= run.kafka.delivery.backoffDelay",
 		},
 	}
 	for _, tt := range tests {

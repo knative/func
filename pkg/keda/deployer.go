@@ -219,6 +219,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		if errs := fn.ValidateKafkaSecurity(f.Run.Kafka); len(errs) > 0 {
 			return fn.DeploymentResult{}, fmt.Errorf("function %q: %s", f.Name, strings.Join(errs, "; "))
 		}
+		// Validate the delivery block here too, so a malformed retry/backoff/
+		// timeout value injected onto the sidecar is caught before deploy rather
+		// than crash-looping the runtime at startup.
+		if errs := fn.ValidateKafkaDelivery(f.Run.Kafka); len(errs) > 0 {
+			return fn.DeploymentResult{}, fmt.Errorf("function %q: %s", f.Name, strings.Join(errs, "; "))
+		}
 	}
 
 	// Final sweep with the shared scale validator, for direct callers that
