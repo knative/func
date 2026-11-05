@@ -324,17 +324,22 @@ func ValidateKafkaDelivery(kafka *KafkaConfig) (errors []string) {
 		if *d.Retry < 0 {
 			errors = append(errors, "run.kafka.delivery.retry must not be negative (omit it for unlimited retries)")
 		} else if *d.Retry == math.MaxInt {
-			// math.MaxInt is the sentinel the runtime uses for "unlimited"; a
-			// configured value equal to it is rejected so an explicit finite budget
-			// can never be silently reinterpreted as unlimited.
+			// The runtime computes total attempts as retry + 1; math.MaxInt + 1
+			// overflows to a negative budget, so the first failed delivery is
+			// immediately treated as exhausted and the record dropped. math.MaxInt
+			// is the single value that overflows, so reject exactly it (the runtime
+			// rejects it too). An effectively-unlimited budget this large should
+			// omit the field instead.
 			errors = append(errors, fmt.Sprintf("run.kafka.delivery.retry must be less than %d (omit it for unlimited retries)", math.MaxInt))
 		}
 	}
 
 	if d.BackoffPolicy != "" {
-		// Match the runtime's env contract exactly: it compares the raw value
-		// against the lowercase tokens, so accept only the canonical lowercase
-		// spellings here rather than silently tolerating e.g. "Exponential".
+		// Deliberately stricter than the runtime, which is case-insensitive (it
+		// lowercases the value before matching). We accept only the canonical
+		// lowercase spellings -- the documented form and the JSON-schema enum --
+		// so func.yaml stays consistent, rather than mirroring the runtime and
+		// silently tolerating e.g. "Exponential".
 		switch d.BackoffPolicy {
 		case "exponential", "linear":
 		default:
@@ -342,8 +347,8 @@ func ValidateKafkaDelivery(kafka *KafkaConfig) (errors []string) {
 		}
 	}
 
-	base, baseOK := validateDeliveryDuration("run.kafka.delivery.backoffDelay", d.BackoffDelay, &errors)
-	max, maxOK := validateDeliveryDuration("run.kafka.delivery.backoffMaxDelay", d.BackoffMaxDelay, &errors)
+	baseVal, baseOK := validateDeliveryDuration("run.kafka.delivery.backoffDelay", d.BackoffDelay, &errors)
+	maxVal, maxOK := validateDeliveryDuration("run.kafka.delivery.backoffMaxDelay", d.BackoffMaxDelay, &errors)
 	validateDeliveryDuration("run.kafka.delivery.timeout", d.Timeout, &errors)
 
 	// Compare effective values: a field left unset takes the runtime default, so
@@ -355,11 +360,11 @@ func ValidateKafkaDelivery(kafka *KafkaConfig) (errors []string) {
 	if !baseMalformed && !maxMalformed {
 		effBase := defaultDeliveryBackoffDelay
 		if baseOK {
-			effBase = base
+			effBase = baseVal
 		}
 		effMax := defaultDeliveryBackoffMaxDelay
 		if maxOK {
-			effMax = max
+			effMax = maxVal
 		}
 		if effMax < effBase {
 			errors = append(errors, fmt.Sprintf("run.kafka.delivery.backoffMaxDelay (effective %s) must be >= run.kafka.delivery.backoffDelay (effective %s); an omitted side uses the runtime default (backoffDelay %s, backoffMaxDelay %s)", effMax, effBase, defaultDeliveryBackoffDelay, defaultDeliveryBackoffMaxDelay))

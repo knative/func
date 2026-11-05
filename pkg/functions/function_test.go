@@ -963,10 +963,11 @@ func TestValidateKafka(t *testing.T) {
 			wantErrs: 0,
 		},
 		{
-			// The runtime compares the raw env value against the lowercase tokens,
-			// so only the canonical lowercase spellings are accepted; a mixed-case
-			// value that would silently fall through to the runtime default is
-			// rejected here instead.
+			// func is deliberately stricter than the runtime (which is
+			// case-insensitive): only the canonical lowercase spellings -- the
+			// documented form and the schema enum -- are accepted, so a mixed-case
+			// value the runtime would normalize-and-accept is rejected here to keep
+			// func.yaml consistent.
 			name: "delivery backoffPolicy mixed case is rejected",
 			kafka: &fn.KafkaConfig{
 				Brokers:       "broker:9092",
@@ -1091,9 +1092,10 @@ func TestValidateKafka(t *testing.T) {
 			wantSubst: "run.kafka.delivery.backoffMaxDelay (effective 50ms) must be >= run.kafka.delivery.backoffDelay (effective 100ms)",
 		},
 		{
-			// A finite retry equal to math.MaxInt collides with the runtime's
-			// "unlimited" sentinel, so an explicit finite budget could be silently
-			// reinterpreted as unlimited; reject it.
+			// retry == math.MaxInt overflows the runtime's total-attempts
+			// computation (retry + 1 wraps negative), which would drop the first
+			// failed record after a single attempt. It is the one value that
+			// overflows, so reject exactly it.
 			name: "delivery retry equal to max int is rejected",
 			kafka: &fn.KafkaConfig{
 				Brokers:       "broker:9092",
