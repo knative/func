@@ -39,8 +39,23 @@ func TestGetRunFuncErrors(t *testing.T) {
 	}
 }
 
-func TestBuildRunnerEnv_KafkaConfig(t *testing.T) {
+// envHas reports whether env contains an exact "key=value" entry.
+func envHas(env []string, kv string) bool {
+	for _, e := range env {
+		if e == kv {
+			return true
+		}
+	}
+	return false
+}
+
+// TestKafkaAdapterEnv_Config verifies the KAFKA_* config plus the target/health
+// wiring is placed on the adapter sub-process env, and that FUNC_TRANSPORT (the
+// retired in-process selector) is gone.
+func TestKafkaAdapterEnv_Config(t *testing.T) {
 	job := &Job{
+		Host: "127.0.0.1",
+		Port: "8080",
 		Function: Function{
 			Root:    t.TempDir(),
 			Runtime: "go",
@@ -53,26 +68,22 @@ func TestBuildRunnerEnv_KafkaConfig(t *testing.T) {
 			},
 		},
 	}
-	env, err := buildRunnerEnv(job, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	env := kafkaAdapterEnv(job, "127.0.0.1:8081")
 	want := map[string]string{
-		"FUNC_TRANSPORT":       "kafka",
+		"FUNCTION_TARGET":      "http://127.0.0.1:8080/",
+		"LISTEN_ADDRESS":       "127.0.0.1:8081",
 		"KAFKA_BROKERS":        "broker1:9092",
 		"KAFKA_TOPIC":          "my-topic",
 		"KAFKA_CONSUMER_GROUP": "my-group",
 	}
 	for key, val := range want {
-		found := false
-		for _, e := range env {
-			if e == key+"="+val {
-				found = true
-				break
-			}
+		if !envHas(env, key+"="+val) {
+			t.Errorf("expected %s=%s in adapter env, not found", key, val)
 		}
-		if !found {
-			t.Errorf("expected %s=%s in env, not found", key, val)
+	}
+	for _, e := range env {
+		if e == "FUNC_TRANSPORT=kafka" {
+			t.Error("FUNC_TRANSPORT should no longer be set; the in-process path is retired")
 		}
 	}
 }
@@ -122,8 +133,10 @@ func TestBuildRunnerEnv_KafkaIncomplete(t *testing.T) {
 	}
 }
 
-func TestBuildRunnerEnv_KafkaTLSSASL(t *testing.T) {
+func TestKafkaAdapterEnv_TLSSASL(t *testing.T) {
 	job := &Job{
+		Host: "127.0.0.1",
+		Port: "8080",
 		Function: Function{
 			Root:    t.TempDir(),
 			Runtime: "go",
@@ -148,10 +161,7 @@ func TestBuildRunnerEnv_KafkaTLSSASL(t *testing.T) {
 			},
 		},
 	}
-	env, err := buildRunnerEnv(job, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	env := kafkaAdapterEnv(job, "127.0.0.1:8081")
 	want := map[string]string{
 		"KAFKA_SECURITY_PROTOCOL": "SASL_SSL",
 		"KAFKA_TLS_CA_CERT":       "/ca.crt",
@@ -163,21 +173,16 @@ func TestBuildRunnerEnv_KafkaTLSSASL(t *testing.T) {
 		"KAFKA_SASL_PASSWORD":     "my-pass",
 	}
 	for key, val := range want {
-		found := false
-		for _, e := range env {
-			if e == key+"="+val {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected %s=%s in env, not found", key, val)
+		if !envHas(env, key+"="+val) {
+			t.Errorf("expected %s=%s in adapter env, not found", key, val)
 		}
 	}
 }
 
-func TestBuildRunnerEnv_KafkaTLSSkipVerifyFalse(t *testing.T) {
+func TestKafkaAdapterEnv_TLSSkipVerifyFalse(t *testing.T) {
 	job := &Job{
+		Host: "127.0.0.1",
+		Port: "8080",
 		Function: Function{
 			Root:    t.TempDir(),
 			Runtime: "go",
@@ -192,28 +197,20 @@ func TestBuildRunnerEnv_KafkaTLSSkipVerifyFalse(t *testing.T) {
 			},
 		},
 	}
-	env, err := buildRunnerEnv(job, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, e := range env {
-		if e == "KAFKA_TLS_SKIP_VERIFY=false" {
-			found = true
-			break
-		}
-	}
-	if !found {
+	env := kafkaAdapterEnv(job, "127.0.0.1:8081")
+	if !envHas(env, "KAFKA_TLS_SKIP_VERIFY=false") {
 		t.Error("expected KAFKA_TLS_SKIP_VERIFY=false when TLS block present with SkipVerify unset")
 	}
 }
 
-// TestBuildRunnerEnv_KafkaEmptyMechanism verifies an unset SASL mechanism still
-// wires KAFKA_SASL_MECHANISM=PLAIN into the container env, matching the value the
+// TestKafkaAdapterEnv_EmptyMechanism verifies an unset SASL mechanism still
+// wires KAFKA_SASL_MECHANISM=PLAIN into the adapter env, matching the value the
 // keda scaler derives from EffectiveMechanism so the two authenticate the same
 // way.
-func TestBuildRunnerEnv_KafkaEmptyMechanism(t *testing.T) {
+func TestKafkaAdapterEnv_EmptyMechanism(t *testing.T) {
 	job := &Job{
+		Host: "127.0.0.1",
+		Port: "8080",
 		Function: Function{
 			Root:    t.TempDir(),
 			Runtime: "go",
@@ -228,18 +225,8 @@ func TestBuildRunnerEnv_KafkaEmptyMechanism(t *testing.T) {
 			},
 		},
 	}
-	env, err := buildRunnerEnv(job, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, e := range env {
-		if e == "KAFKA_SASL_MECHANISM=PLAIN" {
-			found = true
-			break
-		}
-	}
-	if !found {
+	env := kafkaAdapterEnv(job, "127.0.0.1:8081")
+	if !envHas(env, "KAFKA_SASL_MECHANISM=PLAIN") {
 		t.Error("expected KAFKA_SASL_MECHANISM=PLAIN when SASL block present with mechanism unset")
 	}
 }

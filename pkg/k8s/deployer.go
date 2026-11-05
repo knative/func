@@ -31,6 +31,7 @@ import (
 	"knative.dev/func/pkg/deployer"
 	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/kafkaruntime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
@@ -100,7 +101,11 @@ const (
 // other func middleware (func-go, func-python), independent of func and the
 // knative release train. Pin a different version or fall back to the nightly
 // build via FUNC_KAFKA_RUNTIME_IMAGE.
-var DefaultKafkaRuntimeImage = "gcr.io/knative-releases/knative.dev/func-adapter-kafka/cmd/fkafka-runtime:v0.1.0"
+//
+// The version is sourced from kafkaruntime.Version so the on-cluster image and
+// the binary embedded for local `func run` (pkg/kafkaruntime) stay in lockstep
+// — a deployed function and a local run use the identical adapter.
+var DefaultKafkaRuntimeImage = "gcr.io/knative-releases/knative.dev/func-adapter-kafka/cmd/fkafka-runtime:" + kafkaruntime.Version
 
 type DeployerOpt func(*Deployer)
 
