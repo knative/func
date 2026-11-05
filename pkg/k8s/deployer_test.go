@@ -1009,6 +1009,37 @@ func TestKafkaSidecarContainer_DeliveryEnv(t *testing.T) {
 	}
 }
 
+// TestKafkaSidecarContainer_RejectsInvalidDelivery verifies the sidecar build
+// enforces delivery validation itself, as a backstop for deployer paths that do
+// not run a preflight. The raw k8s Deployer.Deploy/Client.Deploy paths never
+// call Function.Validate, so without this check a direct raw deploy with a
+// malformed value (e.g. backoffDelay "soon") would bake it into a Deployment env
+// var and crash-loop the adapter at startup. kafkaSidecarContainer is the single
+// chokepoint every deployer builds the sidecar through, so the check belongs here.
+func TestKafkaSidecarContainer_RejectsInvalidDelivery(t *testing.T) {
+	f := fn.Function{
+		Name: "fn",
+		Run: fn.RunSpec{
+			Kafka: &fn.KafkaConfig{
+				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+				Delivery: &fn.DeliverySpec{BackoffDelay: "soon"},
+			},
+		},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	c, err := kafkaSidecarContainer(f, nil, &secrets, &configMaps)
+	if err == nil {
+		t.Fatal("expected an error for an invalid run.kafka.delivery, got nil")
+	}
+	if c != nil {
+		t.Error("expected no container when delivery is invalid")
+	}
+	if !strings.Contains(err.Error(), "run.kafka.delivery.backoffDelay") {
+		t.Errorf("error %q does not mention the offending field", err.Error())
+	}
+}
+
 func TestAppendKafkaDeliveryEnvs_Nil(t *testing.T) {
 	base := []corev1.EnvVar{{Name: "EXISTING", Value: "value"}}
 

@@ -1184,6 +1184,19 @@ func kafkaSidecarContainer(f fn.Function, kafkaMounts []corev1.VolumeMount, refe
 		return nil, nil
 	}
 
+	// Validate the delivery block before building its env. This function is the
+	// single chokepoint for the runtime sidecar across every deployer (the raw
+	// k8s deployer, and keda via embedding), but only the keda deployer runs a
+	// deploy-time preflight -- the raw Deployer.Deploy/Client.Deploy paths do not
+	// call Function.Validate. Checking here means a malformed value (e.g.
+	// backoffDelay "soon") is rejected before it is baked into a Deployment env
+	// var that would crash-loop the adapter at startup, on every path. The keda
+	// preflight still runs the same check earlier, so it can fail before the raw
+	// Deployment is created; this is the backstop that guarantees enforcement.
+	if errs := fn.ValidateKafkaDelivery(kafka); len(errs) > 0 {
+		return nil, fmt.Errorf("invalid run.kafka.delivery: %s", strings.Join(errs, "; "))
+	}
+
 	env := []corev1.EnvVar{
 		{Name: "FUNCTION_TARGET", Value: kafkaFunctionTarget},
 	}
