@@ -403,6 +403,65 @@ func TestDeploy_KafkaSASLPreflight(t *testing.T) {
 	}
 }
 
+// TestDeploy_KafkaSidecarConfigPreflightWithoutKafkaTrigger verifies the
+// run.kafka sidecar-config preflight (required fields, security, delivery) runs
+// whenever run.kafka is set -- even for a function whose only scaler trigger is
+// http. The embedded k8s deployer injects the runtime sidecar (and its
+// broker/TLS/SASL/delivery env) whenever f.Run.Kafka is set, independent of the
+// scaler, so gating these checks on a kafka trigger let an invalid run.kafka on
+// an http-triggered function reach the cluster and crash-loop the sidecar. Each
+// case must be rejected in the pure preflight, before any cluster call.
+func TestDeploy_KafkaSidecarConfigPreflightWithoutKafkaTrigger(t *testing.T) {
+	httpTrigger := &fn.ScaleOptions{
+		KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "http"}}},
+	}
+	base := func(k *fn.KafkaConfig) fn.Function {
+		return fn.Function{Name: testFnName, Scale: httpTrigger, Run: fn.RunSpec{Kafka: k}}
+	}
+
+	tests := []struct {
+		name    string
+		kafka   *fn.KafkaConfig
+		wantErr string
+	}{
+		{
+			name:    "missing required fields",
+			kafka:   &fn.KafkaConfig{Topic: "t", ConsumerGroup: "g"},
+			wantErr: "run.kafka is missing required field(s): brokers",
+		},
+		{
+			name: "invalid delivery backoff",
+			kafka: &fn.KafkaConfig{
+				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+				Delivery: &fn.DeliverySpec{BackoffDelay: "10s", BackoffMaxDelay: "1s"},
+			},
+			wantErr: "run.kafka.delivery.backoffMaxDelay",
+		},
+		{
+			name: "invalid security",
+			kafka: &fn.KafkaConfig{
+				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+				SecurityProtocol: "SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: "p"},
+			},
+			wantErr: "run.kafka.sasl requires securityProtocol",
+		},
+	}
+
+	d := NewDeployer()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := d.Deploy(context.Background(), base(tt.kafka))
+			if err == nil {
+				t.Fatalf("expected Deploy to reject %s, got nil error", tt.name)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("error %q does not contain %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
 // TestDeploy_KafkaResourceNamePreflight covers the Deploy preflight guard for a
 // function whose name is too long for the Kafka scaler resources: the
 // ScaledObject (<name>-kafka) and TriggerAuthentication (<name>-kafka-auth)

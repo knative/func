@@ -264,6 +264,7 @@ deployers (not on `knative`).
   - `mechanism`: one of `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`. Optional; defaults to `PLAIN` when unset.
   - `user`: SASL username. Supports `{{ secret:name:key }}` and `{{ configMap:name:key }}` syntax, or a plain value.
   - `password`: SASL password. Supports `{{ secret:name:key }}` and `{{ configMap:name:key }}` syntax, or a plain value (at least for debugging purposes).
+- `delivery`: tunes how the runtime delivers each consumed record to the function. Optional; every field is optional and falls back to the runtime default (see [Delivery tuning](#delivery-tuning) below).
 
 ```yaml
 run:
@@ -281,6 +282,41 @@ run:
   volumes:
     - secret: my-cluster-cluster-ca-cert
       path: /etc/kafka/ca
+```
+
+#### Delivery tuning
+
+The runtime delivers each record as a CloudEvent over HTTP and commits the
+record's offset only after the function acknowledges it with a 2xx response, so
+delivery is at-least-once. A failed attempt (non-2xx, a timeout, or a dropped
+connection) is retried; the offset is not advanced until the record is either
+acknowledged or its retry budget is exhausted. `run.kafka.delivery` tunes that
+behavior:
+
+- `retry`: the number of retries *after* the first attempt (so total attempts = `retry` + 1). Omit for unlimited retries; `0` means a single attempt with no retry. Must be `>= 0`.
+- `backoffPolicy`: how the inter-retry delay grows, `exponential` (default) or `linear`. Lowercase only.
+- `backoffDelay`: the base inter-retry delay as a Go duration, e.g. `100ms` (default `100ms`).
+- `backoffMaxDelay`: the maximum inter-retry delay as a Go duration, e.g. `30s` (default `30s`). Must be `>=` the effective `backoffDelay`.
+- `timeout`: the per-attempt request timeout as a Go duration, e.g. `30s` (default `30s`).
+
+With the defaults (unlimited retries), a failing record blocks its partition
+until the function recovers, which preserves ordering and loses nothing. When a
+finite `retry` budget is set and exhausted, the record is dropped (logged) and
+its offset committed so a single poison-pill record cannot wedge the partition
+forever; dead-letter routing is not yet available.
+
+```yaml
+run:
+  kafka:
+    brokers: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9093"
+    topic: "my-topic"
+    consumerGroup: "my-function-group"
+    delivery:
+      retry: 5
+      backoffPolicy: exponential
+      backoffDelay: 200ms
+      backoffMaxDelay: 10s
+      timeout: 30s
 ```
 
 **Scaling a Kafka consumer.** What a function consumes (`run.kafka`) is

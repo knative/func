@@ -965,6 +965,149 @@ func TestAppendKafkaEnvs_AllFields(t *testing.T) {
 	}
 }
 
+// deliveryRetryPtr returns a pointer to a delivery retry count so a test can
+// express an explicit value (including 0) distinctly from an omitted field.
+func deliveryRetryPtr(n int) *int { return &n }
+
+// envValue returns the value of the named env var and whether it was present.
+func envValue(envs []corev1.EnvVar, name string) (string, bool) {
+	for _, e := range envs {
+		if e.Name == name {
+			return e.Value, true
+		}
+	}
+	return "", false
+}
+
+// TestKafkaSidecarContainer_DeliveryEnv verifies the delivery block reaches the
+// sidecar container the deployer builds -- i.e. kafkaSidecarContainer wires
+// AppendKafkaDeliveryEnvs through, not just that the helper works in isolation.
+func TestKafkaSidecarContainer_DeliveryEnv(t *testing.T) {
+	f := fn.Function{
+		Name: "fn",
+		Run: fn.RunSpec{
+			Kafka: &fn.KafkaConfig{
+				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+				Delivery: &fn.DeliverySpec{Retry: deliveryRetryPtr(2), BackoffPolicy: "exponential"},
+			},
+		},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	c, err := kafkaSidecarContainer(f, nil, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c == nil {
+		t.Fatal("expected a sidecar container, got nil")
+	}
+	if v, ok := envValue(c.Env, "FUNCTION_DELIVERY_RETRY"); !ok || v != "2" {
+		t.Errorf("sidecar FUNCTION_DELIVERY_RETRY: got (%q, present=%v), want %q", v, ok, "2")
+	}
+	if v, ok := envValue(c.Env, "FUNCTION_DELIVERY_BACKOFF_POLICY"); !ok || v != "exponential" {
+		t.Errorf("sidecar FUNCTION_DELIVERY_BACKOFF_POLICY: got (%q, present=%v), want %q", v, ok, "exponential")
+	}
+}
+
+// TestKafkaSidecarContainer_RejectsInvalidDelivery verifies the sidecar build
+// enforces delivery validation itself, as a backstop for deployer paths that do
+// not run a preflight. The raw k8s Deployer.Deploy/Client.Deploy paths never
+// call Function.Validate, so without this check a direct raw deploy with a
+// malformed value (e.g. backoffDelay "soon") would bake it into a Deployment env
+// var and crash-loop the adapter at startup. kafkaSidecarContainer is the single
+// chokepoint every deployer builds the sidecar through, so the check belongs here.
+func TestKafkaSidecarContainer_RejectsInvalidDelivery(t *testing.T) {
+	f := fn.Function{
+		Name: "fn",
+		Run: fn.RunSpec{
+			Kafka: &fn.KafkaConfig{
+				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+				Delivery: &fn.DeliverySpec{BackoffDelay: "soon"},
+			},
+		},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	c, err := kafkaSidecarContainer(f, nil, &secrets, &configMaps)
+	if err == nil {
+		t.Fatal("expected an error for an invalid run.kafka.delivery, got nil")
+	}
+	if c != nil {
+		t.Error("expected no container when delivery is invalid")
+	}
+	if !strings.Contains(err.Error(), "run.kafka.delivery.backoffDelay") {
+		t.Errorf("error %q does not mention the offending field", err.Error())
+	}
+}
+
+func TestAppendKafkaDeliveryEnvs_Nil(t *testing.T) {
+	base := []corev1.EnvVar{{Name: "EXISTING", Value: "value"}}
+
+	// nil kafka and a kafka with no delivery block both append nothing.
+	for _, kafka := range []*fn.KafkaConfig{nil, {Brokers: "b:9092", Topic: "t", ConsumerGroup: "g"}} {
+		got := AppendKafkaDeliveryEnvs(base, kafka)
+		if len(got) != 1 || got[0].Name != "EXISTING" {
+			t.Errorf("expected only the existing env var for kafka %+v, got %v", kafka, got)
+		}
+	}
+}
+
+func TestAppendKafkaDeliveryEnvs_AllFields(t *testing.T) {
+	kafka := &fn.KafkaConfig{
+		Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+		Delivery: &fn.DeliverySpec{
+			Retry:           deliveryRetryPtr(3),
+			BackoffPolicy:   "linear",
+			BackoffDelay:    "200ms",
+			BackoffMaxDelay: "10s",
+			Timeout:         "15s",
+		},
+	}
+	got := AppendKafkaDeliveryEnvs(nil, kafka)
+
+	expected := map[string]string{
+		"FUNCTION_DELIVERY_RETRY":             "3",
+		"FUNCTION_DELIVERY_BACKOFF_POLICY":    "linear",
+		"FUNCTION_DELIVERY_BACKOFF_DELAY":     "200ms",
+		"FUNCTION_DELIVERY_BACKOFF_MAX_DELAY": "10s",
+		// timeout maps to the runtime's existing per-attempt timeout knob.
+		"FUNCTION_REQUEST_TIMEOUT": "15s",
+	}
+	if len(got) != len(expected) {
+		t.Fatalf("expected %d env vars, got %d (%v)", len(expected), len(got), got)
+	}
+	for name, want := range expected {
+		if v, ok := envValue(got, name); !ok || v != want {
+			t.Errorf("env %s: got (%q, present=%v), want %q", name, v, ok, want)
+		}
+	}
+}
+
+// retry: 0 must be injected (explicit single attempt), not dropped like an unset
+// field -- that is the whole point of the pointer.
+func TestAppendKafkaDeliveryEnvs_RetryZeroInjected(t *testing.T) {
+	kafka := &fn.KafkaConfig{
+		Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+		Delivery: &fn.DeliverySpec{Retry: deliveryRetryPtr(0)},
+	}
+	got := AppendKafkaDeliveryEnvs(nil, kafka)
+	if v, ok := envValue(got, "FUNCTION_DELIVERY_RETRY"); !ok || v != "0" {
+		t.Errorf("FUNCTION_DELIVERY_RETRY: got (%q, present=%v), want %q", v, ok, "0")
+	}
+}
+
+// An empty delivery block injects nothing: every unset field falls back to the
+// runtime default rather than being pinned here.
+func TestAppendKafkaDeliveryEnvs_OmitsUnsetFields(t *testing.T) {
+	kafka := &fn.KafkaConfig{
+		Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+		Delivery: &fn.DeliverySpec{},
+	}
+	if got := AppendKafkaDeliveryEnvs(nil, kafka); len(got) != 0 {
+		t.Errorf("expected no env vars for an empty delivery block, got %v", got)
+	}
+}
+
 func TestAppendKafkaEnvs_MissingBrokers(t *testing.T) {
 	base := []corev1.EnvVar{
 		{Name: "EXISTING", Value: "value"},
