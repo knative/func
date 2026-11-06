@@ -49,5 +49,12 @@ func main() {
 }
 ```
 
+## Kafka functions
 
+A function can be configured to consume a Kafka topic by setting the `Run.Kafka`
+field on the `Function` struct (the programmatic equivalent of the `run.kafka`
+block in `func.yaml`). On deploy, a language-agnostic runtime sidecar is injected
+to consume the topic and deliver each record to the function as a CloudEvent. See
+[Kafka functions](kafka-functions/README.md) for the concepts, configuration, and
+guides, and [`run.kafka`](reference/func_yaml.md#runkafka) for the full schema.
 
