@@ -11,6 +11,7 @@ delete_resources() {
   $KIND delete cluster --name=func --kubeconfig="${KUBECONFIG}"
   echo "${red}NOTE:${reset}  The following changes have not been undone:"
   echo " - Config setting registry.localtest.me as insecure"
+  echo " - /etc/docker/certs.d/registry.localtest.me/hosts.toml (Linux)"
   echo " - Downloaded container images were not removed"
   echo "${green}DONE${reset}"
 }
