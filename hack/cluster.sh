@@ -278,8 +278,11 @@ loadbalancer() {
   fi
 
 
+  # MetalLB's webhook can refuse or time out for a while after its pods are
+  # Ready, so retry until it accepts the pool.
   echo "Setting up address pool."
-  $KUBECTL apply -f - <<EOF
+  local i=0 n=30
+  until $KUBECTL apply -f - <<EOF
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
 metadata:
@@ -294,6 +297,15 @@ metadata:
   name: empty
   namespace: metallb-system
 EOF
+  do
+    (( i+=1 ))
+    if (( i>=n )); then
+      echo "Unable to set up the address pool"
+      exit 1
+    fi
+    echo 'Retrying...'
+    sleep 5
+  done
   echo "${green}✅ Loadbalancer${reset}"
 }
 
@@ -989,6 +1001,9 @@ next_steps() {
   echo -e "  - macOS: ~/.docker/daemon.json (or via Docker Desktop settings)"
   echo -e "Add the following configuration:"
   echo -e "${reset}{ \"insecure-registries\": [ \"registry.localtest.me\" ] }"
+  echo -e ""
+  echo -e "${grey}On Linux, also create /etc/docker/certs.d/registry.localtest.me/hosts.toml with:"
+  echo -e "${reset}server = \"http://registry.localtest.me\""
   echo -e ""
   echo -e "${grey}For podman, edit /etc/container/registries.conf to include:"
   echo -e "${reset}[[registry]]\nlocation = \"registry.localtest.me\"\ninsecure = true\n"

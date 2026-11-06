@@ -102,7 +102,30 @@ set_registry_insecure() {
     else
         # Linux: Skip restart to avoid breaking func-registry container
         echo "Skipping Docker restart on Linux (daemon.json updated, restart will break func-registry)"
+        set_registry_hosts_toml
     fi
+}
+
+# The containerd image store, the default for fresh installs since Docker 29,
+# uses HTTPS for registry.localtest.me unless a hosts.toml says otherwise.
+# It reads hosts.toml on every push and pull, so no restart is needed. The
+# classic image store ignores the file.
+set_registry_hosts_toml() {
+    HOSTS_TOML="/etc/docker/certs.d/registry.localtest.me/hosts.toml"
+    SERVER_LINE='server = "http://registry.localtest.me"'
+
+    if sudo test -f "$HOSTS_TOML"; then
+        if sudo grep -qxF "$SERVER_LINE" "$HOSTS_TOML"; then
+            echo "OK $HOSTS_TOML"
+        else
+            echo "${yellow}Warning: $HOSTS_TOML exists, leaving it as is. Pushes to the local registry need it to contain: $SERVER_LINE${reset}"
+        fi
+        return 0
+    fi
+
+    sudo mkdir -p "$(dirname "$HOSTS_TOML")"
+    echo "$SERVER_LINE" | sudo tee "$HOSTS_TOML" > /dev/null
+    echo "OK $HOSTS_TOML"
 }
 
 set_registry_insecure_podman() {
