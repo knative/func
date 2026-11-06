@@ -252,13 +252,17 @@ over HTTP. The function stays a plain CloudEvents-over-HTTP server, so any runti
 works; it only requires `invoke: cloudevent`. Supported on the `raw` and `keda`
 deployers (not on `knative`).
 
+For a conceptual overview, a getting-started walkthrough, and guides on delivery,
+scaling, idempotency, and troubleshooting, see
+[Kafka functions](../kafka-functions/README.md).
+
 - `brokers`: comma-separated list of Kafka broker addresses.
 - `topic`: the topic to consume.
 - `consumerGroup`: the Kafka consumer group ID.
 - `securityProtocol`: one of `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL`.
 - `tls`: TLS configuration, only valid for `SSL` and `SASL_SSL`. Optional for both: if unset, the broker certificate is verified against the system's CA trust store. Set it to use a custom CA certificate or mutual TLS.
   - `caCert`: path to the CA certificate PEM file used to verify the broker certificate. Typically mounted via [`volumes`](#volumes).
-  - `clientCert`, `clientKey`: paths to the client certificate/key PEM files, for mutual TLS.
+  - `clientCert`, `clientKey`: paths to the client certificate/key PEM files, for mutual TLS. Both must be set together, or both left empty.
   - `skipVerify`: skip broker certificate verification (development only).
 - `sasl`: SASL configuration, required for `SASL_PLAINTEXT` and `SASL_SSL`.
   - `mechanism`: one of `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`. Optional; defaults to `PLAIN` when unset.
