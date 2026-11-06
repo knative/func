@@ -338,6 +338,25 @@
 				"activationLagThreshold": {
 					"type": "integer",
 					"minimum": 0
+				},
+				"offsetResetPolicy": {
+					"enum": [
+						"earliest",
+						"latest"
+					],
+					"type": "string"
+				},
+				"allowIdleConsumers": {
+					"type": "boolean"
+				},
+				"excludePersistentLag": {
+					"type": "boolean"
+				},
+				"scaleToZeroOnInvalidOffset": {
+					"type": "boolean"
+				},
+				"limitToPartitionsWithLag": {
+					"type": "boolean"
 				}
 			},
 			"additionalProperties": false,

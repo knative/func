@@ -172,6 +172,11 @@ The scaler sub-keys are deployer-aware: `kpa` holds Knative Pod Autoscaler setti
     - `kafka`: scales based on consumer group lag. Requires [`run.kafka`](#runkafka) to be configured.
       - `lagThreshold`: average consumer lag per partition that triggers scaling up. Default is 10.
       - `activationLagThreshold`: lag below which KEDA keeps replicas at 0 when `scale.min` is 0. Default is 0.
+      - `offsetResetPolicy`: where the scaler starts when the consumer group has no committed offset: `earliest` or `latest`. KEDA defaults to `latest`.
+      - `allowIdleConsumers`: boolean. Allow more replicas than the topic has partitions. KEDA defaults to false. Cannot be combined with `limitToPartitionsWithLag`.
+      - `excludePersistentLag`: boolean. Ignore partitions whose lag has not changed since the last poll, so stuck consumers do not keep the function scaled up. KEDA defaults to false.
+      - `scaleToZeroOnInvalidOffset`: boolean. Scale to zero when a partition has an invalid offset and the reset policy is `latest`. KEDA defaults to false.
+      - `limitToPartitionsWithLag`: boolean. Cap replicas at the number of partitions that have lag. KEDA defaults to false. Cannot be combined with `allowIdleConsumers`.
 
 ```yaml
 scale:

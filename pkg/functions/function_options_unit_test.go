@@ -380,6 +380,37 @@ func Test_ValidateScale_KEDA(t *testing.T) {
 			"keda", kafkaRun, 1,
 		},
 		{
+			"kafka scaler options all valid",
+			&ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{
+				Type:                       "kafka",
+				OffsetResetPolicy:          ptr.String("earliest"),
+				AllowIdleConsumers:         ptr.Bool(true),
+				ExcludePersistentLag:       ptr.Bool(true),
+				ScaleToZeroOnInvalidOffset: ptr.Bool(true),
+			}}}},
+			"keda", kafkaRun, 0,
+		},
+		{
+			"kafka invalid offsetResetPolicy",
+			&ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "kafka", OffsetResetPolicy: ptr.String("oldest")}}}},
+			"keda", kafkaRun, 1,
+		},
+		{
+			"kafka allowIdleConsumers with limitToPartitionsWithLag",
+			&ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "kafka", AllowIdleConsumers: ptr.Bool(true), LimitToPartitionsWithLag: ptr.Bool(true)}}}},
+			"keda", kafkaRun, 1,
+		},
+		{
+			"kafka allowIdleConsumers false with limitToPartitionsWithLag",
+			&ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "kafka", AllowIdleConsumers: ptr.Bool(false), LimitToPartitionsWithLag: ptr.Bool(true)}}}},
+			"keda", kafkaRun, 0,
+		},
+		{
+			"kafka scaler options rejected on http trigger",
+			&ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "http", OffsetResetPolicy: ptr.String("latest"), ExcludePersistentLag: ptr.Bool(true)}}}},
+			"keda", nil, 2,
+		},
+		{
 			"repeated http trigger",
 			&ScaleOptions{KEDA: &KEDAScaleOptions{Triggers: []KEDATrigger{{Type: "http"}, {Type: "http"}}}},
 			"keda", nil, 1,

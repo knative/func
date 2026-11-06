@@ -3,6 +3,7 @@ package keda
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kedacore/http-add-on/operator/generated/clientset/versioned"
@@ -423,6 +424,22 @@ func buildScaledObject(f fn.Function, trigger fn.KEDATrigger, deployment *v1.Dep
 
 	if trigger.ActivationLagThreshold != nil {
 		triggerMeta["activationLagThreshold"] = fmt.Sprintf("%d", *trigger.ActivationLagThreshold)
+	}
+
+	// Optional KEDA kafka scaler settings: sent only when set so KEDA's own
+	// defaults apply otherwise.
+	if trigger.OffsetResetPolicy != nil {
+		triggerMeta["offsetResetPolicy"] = *trigger.OffsetResetPolicy
+	}
+	for key, v := range map[string]*bool{
+		"allowIdleConsumers":         trigger.AllowIdleConsumers,
+		"excludePersistentLag":       trigger.ExcludePersistentLag,
+		"scaleToZeroOnInvalidOffset": trigger.ScaleToZeroOnInvalidOffset,
+		"limitToPartitionsWithLag":   trigger.LimitToPartitionsWithLag,
+	} {
+		if v != nil {
+			triggerMeta[key] = strconv.FormatBool(*v)
+		}
 	}
 
 	if kafka.SecurityProtocol == "SSL" || kafka.SecurityProtocol == "SASL_SSL" {

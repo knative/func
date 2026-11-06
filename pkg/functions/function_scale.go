@@ -154,6 +154,9 @@ func validateKEDAScale(keda *KEDAScaleOptions, kafka *KafkaConfig) (errors []str
 			if t.ActivationLagThreshold != nil {
 				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].activationLagThreshold is only valid for a kafka trigger", i))
 			}
+			for _, name := range t.kafkaScalerFields() {
+				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].%s is only valid for a kafka trigger", i, name))
+			}
 		case "kafka":
 			sawKafka = true
 			if kafka == nil {
@@ -169,6 +172,13 @@ func validateKEDAScale(keda *KEDAScaleOptions, kafka *KafkaConfig) (errors []str
 			}
 			if t.ActivationLagThreshold != nil && *t.ActivationLagThreshold < 0 {
 				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].activationLagThreshold must not be negative", i))
+			}
+			if t.OffsetResetPolicy != nil && *t.OffsetResetPolicy != "earliest" && *t.OffsetResetPolicy != "latest" {
+				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].offsetResetPolicy has invalid value %q, allowed: earliest, latest", i, *t.OffsetResetPolicy))
+			}
+			// KEDA documents these two as mutually exclusive.
+			if t.AllowIdleConsumers != nil && *t.AllowIdleConsumers && t.LimitToPartitionsWithLag != nil && *t.LimitToPartitionsWithLag {
+				errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].limitToPartitionsWithLag cannot be combined with allowIdleConsumers", i))
 			}
 		default:
 			errors = append(errors, fmt.Sprintf("scale.keda.triggers[%d].type has invalid value %q, allowed: http, kafka", i, t.Type))
@@ -189,6 +199,27 @@ func validateKPAScale(kpa *KPAScaleOptions) (errors []string) {
 	}
 	if kpa.Utilization != nil && (*kpa.Utilization < 1 || *kpa.Utilization > 100) {
 		errors = append(errors, fmt.Sprintf("scale.kpa.utilization must be 1-100, got %f", *kpa.Utilization))
+	}
+	return
+}
+
+// kafkaScalerFields returns the yaml names of the kafka-scaler options set on t
+// (not lagThreshold/activationLagThreshold, which are checked separately).
+func (t KEDATrigger) kafkaScalerFields() (set []string) {
+	if t.OffsetResetPolicy != nil {
+		set = append(set, "offsetResetPolicy")
+	}
+	if t.AllowIdleConsumers != nil {
+		set = append(set, "allowIdleConsumers")
+	}
+	if t.ExcludePersistentLag != nil {
+		set = append(set, "excludePersistentLag")
+	}
+	if t.ScaleToZeroOnInvalidOffset != nil {
+		set = append(set, "scaleToZeroOnInvalidOffset")
+	}
+	if t.LimitToPartitionsWithLag != nil {
+		set = append(set, "limitToPartitionsWithLag")
 	}
 	return
 }
