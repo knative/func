@@ -67,6 +67,10 @@ type ConfigCIOutput struct {
 }
 
 func (s *Server) configCIHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigCIInput) (result *mcp.CallToolResult, output ConfigCIOutput, err error) {
+	if s.readonly.Load() {
+		err = fmt.Errorf("the server is currently in readonly mode. Please set %s and restart the MCP server", EnvMCPWrite)
+		return
+	}
 	if err = validatePath(input.Path); err != nil {
 		return
 	}
