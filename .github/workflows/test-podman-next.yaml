@@ -35,6 +35,9 @@ jobs:
       - uses: knative/actions/setup-go@main
       - name: Install Binaries
         run: ./hack/binaries.sh
+      - name: Raise inotify Limits
+        # Kind's nodes and pods share the host's inotify limits (actions/runner-images#15108).
+        run: sudo sysctl -w fs.inotify.max_user_instances=1280 fs.inotify.max_user_watches=655360
       - name: Allocate Cluster
         run: ./hack/cluster.sh
       - name: Local Registry
