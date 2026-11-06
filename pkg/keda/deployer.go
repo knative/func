@@ -3,9 +3,7 @@ package keda
 import (
 	"context"
 	"fmt"
-	"math"
 	"os"
-	"strings"
 	"time"
 
 	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
@@ -102,50 +100,13 @@ func (k *kedaDeployerDecorator) UpdateLabels(function fn.Function, labels map[st
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+	// Function.Validate (run by Client.Deploy, the CLI and Tekton) has already
+	// checked the scale.keda block: trigger types, duplicates, the http+kafka
+	// combination, polling/cooldown bounds and the run.kafka settings. Only
+	// deploy-specific checks remain here.
 	triggers := triggers(f)
-	if len(triggers) == 0 {
-		// triggers(f) only returns empty when scale.keda is present with an
-		// explicitly empty triggers list (the nil-Scale/nil-KEDA case falls
-		// back to a plain http trigger). ValidateScale already rejects this,
-		// but Deploy is reachable without Function.Validate first (library
-		// callers, tests): without this check, Deploy would silently skip
-		// both the HTTPScaledObject and Kafka ScaledObject paths and deploy
-		// with no scaler at all.
-		return fn.DeploymentResult{}, fmt.Errorf("function %q: deployer keda requires at least one trigger in scale.keda.triggers", f.Name)
-	}
 	wantHTTP := hasHTTPTrigger(triggers)
 	wantKafka := hasKafkaTrigger(triggers)
-
-	seenTriggerTypes := map[string]bool{}
-	for i, t := range triggers {
-		if t.Type != "http" && t.Type != "kafka" {
-			// ValidateScale already rejects any type other than http/kafka,
-			// but Deploy is reachable without it first (library callers,
-			// tests): an unrecognized type makes both wantHTTP and wantKafka
-			// false, so without this check Deploy would silently skip every
-			// scaler path and deploy the raw workload with no scaling at all.
-			return fn.DeploymentResult{}, fmt.Errorf(
-				"function %q: scale.keda.triggers[%d].type has invalid value %q, allowed: http, kafka", f.Name, i, t.Type)
-		}
-		if seenTriggerTypes[t.Type] {
-			// ValidateScale already rejects a repeated type, but Deploy is
-			// reachable without it first: kafkaTrigger()/the http targetValue
-			// lookup both only ever use the first match, so a second trigger
-			// of the same type would silently have its settings ignored.
-			return fn.DeploymentResult{}, fmt.Errorf(
-				"function %q: scale.keda.triggers[%d].type %q is repeated: only one trigger of each type is supported", f.Name, i, t.Type)
-		}
-		seenTriggerTypes[t.Type] = true
-	}
-	if wantHTTP && wantKafka {
-		// ValidateScale already rejects this combination, but Deploy is
-		// reachable without it first: the deployer creates a separate
-		// HTTPScaledObject for "http" and a separate ScaledObject for "kafka",
-		// both targeting the same Deployment, and KEDA only allows one scaler
-		// per workload.
-		return fn.DeploymentResult{}, fmt.Errorf(
-			"function %q: scale.keda.triggers must not combine type http with type kafka: they cannot scale the same Deployment together, not yet supported", f.Name)
-	}
 
 	if pollingIntervalIgnored(f, wantHTTP, wantKafka) {
 		// Not fatal: the value is inert, not invalid. httpScaledObject scales
@@ -172,65 +133,18 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 
 	// replicaBounds is a pure function of f -- no cluster state -- so it runs
-	// before d.Deployer.Deploy creates anything. It rejects scale.min/max
-	// values that would not survive narrowing to int32, a keda max < 1, and an
-	// effective min > max, with clear messages, before the raw Deployment
-	// exists. ValidateScale covers the same ground, but Deploy is reachable
-	// without going through Function.Validate first (library callers, tests).
+	// before d.Deployer.Deploy creates anything.
 	minScale, maxScale, err := replicaBounds(f)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
 	if wantKafka {
-		// The following are all pure functions of f, run before the raw deploy
-		// creates anything: failing before the Deployment/Service exist, rather
-		// than after, avoids leaving a partial workload behind with no Kafka
-		// scaler and no error pointing at why.
-		if f.Run.Kafka == nil {
-			return fn.DeploymentResult{}, fmt.Errorf("function %q: scale.keda.triggers has a kafka trigger but run.kafka is not configured", f.Name)
-		}
-		// buildScaledObject sets these directly as KEDA trigger metadata
-		// (bootstrapServers/topic/consumerGroup); an empty value produces a
-		// ScaledObject that can't connect to any broker.
-		var missing []string
-		if f.Run.Kafka.Brokers == "" {
-			missing = append(missing, "brokers")
-		}
-		if f.Run.Kafka.Topic == "" {
-			missing = append(missing, "topic")
-		}
-		if f.Run.Kafka.ConsumerGroup == "" {
-			missing = append(missing, "consumerGroup")
-		}
-		if len(missing) > 0 {
-			return fn.DeploymentResult{}, fmt.Errorf("function %q: run.kafka is missing required field(s): %s", f.Name, strings.Join(missing, ", "))
-		}
 		// buildTriggerAuth's TLS-path resolution only depends on
 		// f.Run.Kafka/f.Run.Volumes -- no live deployment needed -- so it runs
-		// here, before the raw Deployment/Service exist.
+		// here, before the raw Deployment/Service exist. Function.Validate does
+		// not resolve secret/config paths against run.volumes.
 		if err := validateKafkaTLSPaths(f.Run.Kafka, f.Run.Volumes); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("function %q: %w", f.Name, err)
-		}
-		// Validate the securityProtocol/TLS/SASL consistency with the same
-		// rules Function.Validate applies, so a direct Deploy caller that
-		// bypasses it can't create a ScaledObject whose SASL/TLS metadata
-		// silently disagrees with how the function's own container
-		// authenticates.
-		if errs := fn.ValidateKafkaSecurity(f.Run.Kafka); len(errs) > 0 {
-			return fn.DeploymentResult{}, fmt.Errorf("function %q: %s", f.Name, strings.Join(errs, "; "))
-		}
-	}
-
-	// Final sweep with the shared scale validator, for direct callers that
-	// bypass Function.Validate. The tailored guards above cover the cases worth
-	// a deploy-specific message; this catches the remaining ValidateScale
-	// checks they don't -- pollingInterval/cooldownPeriod bounds and per-trigger
-	// threshold bounds. Gated on an explicit scale.keda: a scale.kpa block is
-	// deployer: knative config the keda path ignores (triggers() falls back to
-	// the default http trigger), so it must not trip "keda requires a trigger".
-	if f.Scale != nil && f.Scale.KEDA != nil {
-		if errs := fn.ValidateScale(f.Scale, KedaDeployerName, f.Run.Kafka); len(errs) > 0 {
-			return fn.DeploymentResult{}, fmt.Errorf("function %q: %s", f.Name, strings.Join(errs, "; "))
 		}
 	}
 
@@ -557,30 +471,19 @@ const (
 // deployers.
 func replicaBounds(f fn.Function) (min, max int32, err error) {
 	min, max = defaultMinReplicas, defaultMaxReplicas
+	// Function.Validate (ValidateScale) already rejects values outside
+	// [0, MaxInt32], so the narrowing below cannot wrap.
 	if scale := f.Scale; scale != nil {
-		// scale.min/max are int64 in func.yaml but the HTTPScaledObject
-		// replica counts are int32. ValidateScale rejects out-of-range values,
-		// but Deploy is reachable without it (library callers), so guard here
-		// too: a value outside [0, MaxInt32] would otherwise wrap on narrowing
-		// -- e.g. int32(1<<32) == 0. Mirrors the preflight check in the raw
-		// deployer.
 		if scale.Min != nil {
-			if *scale.Min < 0 || *scale.Min > math.MaxInt32 {
-				return 0, 0, fmt.Errorf("function %q: scale.min %d is out of range [0, %d]", f.Name, *scale.Min, math.MaxInt32)
-			}
 			min = int32(*scale.Min)
 		}
 		if scale.Max != nil {
-			if *scale.Max < 0 || *scale.Max > math.MaxInt32 {
-				return 0, 0, fmt.Errorf("function %q: scale.max %d is out of range [0, %d]", f.Name, *scale.Max, math.MaxInt32)
-			}
 			max = int32(*scale.Max)
 		}
 	}
 	// keda maps scale.max straight to the HPA's maxReplicas, which must be >= 1.
-	// ValidateScale rejects an explicit scale.max: 0 for keda, but Deploy is
-	// reachable without it (library callers), so guard the effective value here
-	// too -- otherwise min: 0, max: 0 also slips past the min > max check below.
+	// ValidateScale only rejects an explicit max of 0 once the function's
+	// deployer resolves to keda, so check the effective value here.
 	if max < 1 {
 		return 0, 0, fmt.Errorf("function %q: scale.max %d is invalid; keda requires a maximum of at least 1 (leave scale.max unset to use keda's default)", f.Name, max)
 	}
