@@ -9,6 +9,9 @@ func Test_validateLabels(t *testing.T) {
 	key := "name"
 	key2 := "name-two"
 	key3 := "prefix.io/name3"
+	key4 := "name4"
+	key5 := "name5"
+	key6 := "name6"
 	value := "value"
 	value2 := "value2"
 	value3 := "value3"
@@ -148,11 +151,11 @@ func Test_validateLabels(t *testing.T) {
 					Value: &valueLocalEnv,
 				},
 				{
-					Key:   &key,
+					Key:   &key2,
 					Value: &valueLocalEnv2,
 				},
 				{
-					Key:   &key,
+					Key:   &key3,
 					Value: &valueLocalEnv3,
 				},
 			},
@@ -166,15 +169,15 @@ func Test_validateLabels(t *testing.T) {
 					Value: &valueLocalEnv,
 				},
 				{
-					Key:   &key,
+					Key:   &key2,
 					Value: &valueLocalEnvIncorrect,
 				},
 				{
-					Key:   &key,
+					Key:   &key3,
 					Value: &valueLocalEnvIncorrect2,
 				},
 				{
-					Key:   &key,
+					Key:   &key4,
 					Value: &valueLocalEnvIncorrect3,
 				},
 			},
@@ -225,19 +228,47 @@ func Test_validateLabels(t *testing.T) {
 					Value: &value3,
 				},
 				{
-					Key:   &key,
+					Key:   &key4,
 					Value: &valueLocalEnv,
 				},
 				{
-					Key:   &key,
+					Key:   &key5,
 					Value: &valueLocalEnv2,
 				},
 				{
-					Key:   &key,
+					Key:   &key6,
 					Value: &valueLocalEnv3,
 				},
 			},
 			0,
+		},
+		{
+			"incorrect entry - duplicate label keys",
+			[]Label{
+				{
+					Key:   &key,
+					Value: &value,
+				},
+				{
+					Key:   &key,
+					Value: &value2,
+				},
+			},
+			1,
+		},
+		{
+			"incorrect entry - duplicate prefixed label keys",
+			[]Label{
+				{
+					Key:   &key3,
+					Value: &value,
+				},
+				{
+					Key:   &key3,
+					Value: &value2,
+				},
+			},
+			1,
 		},
 	}
 

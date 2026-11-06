@@ -46,7 +46,16 @@ func (l Label) String() string {
 //   - key: EXAMPLE2                 				# label from the local ENV var
 //     value: {{ env:MY_ENV }}
 func ValidateLabels(labels []Label) (errors []string) {
+	seenKeys := make(map[string]int)
 	for i, label := range labels {
+		if label.Key != nil {
+			key := *label.Key
+			if firstIdx, seen := seenKeys[key]; seen {
+				errors = append(errors, fmt.Sprintf("label entry #%d has duplicate key %q (first defined at entry #%d)", i, key, firstIdx))
+			} else {
+				seenKeys[key] = i
+			}
+		}
 		if label.Key == nil && label.Value == nil {
 			errors = append(errors, fmt.Sprintf("label entry #%d is not properly set", i))
 		} else if label.Key == nil && label.Value != nil {
