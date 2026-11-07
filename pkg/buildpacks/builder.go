@@ -3,12 +3,17 @@ package buildpacks
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -215,6 +220,15 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	}
 	opts.ContainerConfig.Volumes = bindings
 
+	// Trust a custom CA during the build via a Paketo ca-certificates binding.
+	if f.Build.CAFile != "" {
+		var cleanup func()
+		if cleanup, err = addCABinding(f, &opts); err != nil {
+			return err
+		}
+		defer cleanup()
+	}
+
 	// only trust our known builders
 	opts.TrustBuilder = TrustBuilder
 
@@ -283,6 +297,100 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		}
 	}
 	return
+}
+
+const (
+	// serviceBindingRootEnv is the environment variable buildpacks read to
+	// locate service bindings.
+	serviceBindingRootEnv = "SERVICE_BINDING_ROOT"
+	// defaultServiceBindingRoot is the CNB platform default binding root.
+	defaultServiceBindingRoot = "/platform/bindings"
+	// caBindingName is the name of the binding directory holding the CA
+	// certificates given with f.Build.CAFile.
+	caBindingName = "func-build-ca"
+)
+
+// addCABinding makes the CA certificates in f.Build.CAFile trusted during the
+// build. It writes a service binding of type "ca-certificates", as read by the
+// Paketo CA Certificates buildpack, into a temporary directory with one PEM
+// certificate per file, and mounts it read-only under the service binding
+// root. A relative f.Build.CAFile is resolved against f.Root. The binding root
+// is the SERVICE_BINDING_ROOT build env when set, else the CNB default, which
+// is then also exported to the build. The returned cleanup function removes
+// the temporary directory and must be called once the build has returned.
+func addCABinding(f fn.Function, opts *pack.BuildOptions) (cleanup func(), err error) {
+	caPath := f.Build.CAFile
+	if !filepath.IsAbs(caPath) {
+		caPath = filepath.Join(f.Root, caPath)
+	}
+	certs, err := readCACerts(caPath)
+	if err != nil {
+		return nil, err
+	}
+
+	dir, err := os.MkdirTemp("", "func-build-ca-")
+	if err != nil {
+		return nil, fmt.Errorf("cannot create CA binding directory: %w", err)
+	}
+	cleanup = func() { _ = os.RemoveAll(dir) }
+	defer func() {
+		if err != nil {
+			cleanup()
+		}
+	}()
+	// MkdirTemp creates 0700; the build runs as a different user.
+	if err = os.Chmod(dir, 0755); err != nil {
+		return nil, fmt.Errorf("cannot set CA binding directory permissions: %w", err)
+	}
+	if err = os.WriteFile(filepath.Join(dir, "type"), []byte("ca-certificates"), 0644); err != nil {
+		return nil, fmt.Errorf("cannot write CA binding type: %w", err)
+	}
+	for i, c := range certs {
+		name := filepath.Join(dir, fmt.Sprintf("ca-%d.pem", i))
+		data := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Raw})
+		if err = os.WriteFile(name, data, 0644); err != nil {
+			return nil, fmt.Errorf("cannot write CA certificate: %w", err)
+		}
+	}
+
+	root := opts.Env[serviceBindingRootEnv]
+	if root == "" {
+		root = defaultServiceBindingRoot
+		opts.Env[serviceBindingRootEnv] = root
+	}
+	// Copy so neither f.Build.Mounts nor a caller's slice is modified.
+	opts.ContainerConfig.Volumes = append(slices.Clone(opts.ContainerConfig.Volumes),
+		fmt.Sprintf("%s:%s:ro", dir, path.Join(root, caBindingName)))
+	return cleanup, nil
+}
+
+// readCACerts returns every certificate in the PEM file at path. It fails if
+// a certificate block cannot be parsed or the file holds none.
+func readCACerts(path string) ([]*x509.Certificate, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read build CA file: %w", err)
+	}
+	var certs []*x509.Certificate
+	for {
+		var block *pem.Block
+		block, data = pem.Decode(data)
+		if block == nil {
+			break
+		}
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		c, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("invalid certificate in build CA file %q: %w", path, err)
+		}
+		certs = append(certs, c)
+	}
+	if len(certs) == 0 {
+		return nil, fmt.Errorf("no PEM certificates found in build CA file %q", path)
+	}
+	return certs, nil
 }
 
 func isPodmanV43(ctx context.Context, cli docker.DockerClient) (b bool, err error) {
