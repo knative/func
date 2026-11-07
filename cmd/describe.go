@@ -116,6 +116,9 @@ func newDescribeConfig(cmd *cobra.Command, args []string) (cfg describeConfig, e
 		Path:      viper.GetString("path"),
 		Verbose:   viper.GetBool("verbose"),
 	}
+	if err = validateOutputFormat(cfg.Output); err != nil {
+		return
+	}
 	if cfg.Name == "" && cmd.Flags().Changed("namespace") {
 		// logically inconsistent to supply only a namespace.
 		// Either use the function's local state in its entirety, or specify

@@ -114,6 +114,9 @@ func newListConfig(cmd *cobra.Command) (cfg listConfig, err error) {
 		Output:    viper.GetString("output"),
 		Verbose:   viper.GetBool("verbose"),
 	}
+	if err = validateOutputFormat(cfg.Output); err != nil {
+		return
+	}
 	// If --all-namespaces, zero out any value for namespace (such as)
 	// "all" to the lister.
 	if viper.GetBool("all-namespaces") {
