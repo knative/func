@@ -95,6 +95,12 @@ func TestBuild_BaseImage(t *testing.T) {
 	testBaseImage(NewBuildCmd, t)
 }
 
+// TestBuild_BuildCAFile ensures that --build-cafile is accepted with the pack
+// builder only and persists to f.Build.CAFile.
+func TestBuild_BuildCAFile(t *testing.T) {
+	testBuildCAFile(NewBuildCmd, t)
+}
+
 // TestBuild_Push ensures that the build command properly pushes and respects
 // the --push flag.
 // - Push triggered after a successful build
@@ -150,5 +156,76 @@ func TestBuild_Push(t *testing.T) {
 	// Assert push was not invoked when the build failed
 	if pusher.PushInvoked {
 		t.Fatal("push should not be invoked on a failed build")
+	}
+}
+
+// testBuildCAFile ensures the build CA file is read from func.yaml, the
+// FUNC_BUILD_CAFILE env and the --build-cafile flag, reaches the builder,
+// is persisted, and is rejected for builders other than pack.
+func testBuildCAFile(cmdFn commandConstructor, t *testing.T) {
+	tests := []struct {
+		name     string
+		builder  string
+		funcYAML string // value already in func.yaml
+		env      string // FUNC_BUILD_CAFILE
+		args     []string
+		want     string
+		wantErr  error
+	}{
+		{name: "flag", builder: "pack", args: []string{"--build-cafile=certs/ca.pem"}, want: "certs/ca.pem"},
+		{name: "env", builder: "pack", env: "/etc/corp/ca.pem", want: "/etc/corp/ca.pem"},
+		{name: "func.yaml", builder: "pack", funcYAML: "ca.pem", want: "ca.pem"},
+		{name: "flag overrides func.yaml", builder: "pack", funcYAML: "ca.pem", args: []string{"--build-cafile=other.pem"}, want: "other.pem"},
+		{name: "s2i rejected", builder: "s2i", args: []string{"--build-cafile=ca.pem"}, wantErr: ErrBuildCAFileRequiresPack},
+		{name: "host rejected", builder: "host", args: []string{"--build-cafile=ca.pem"}, wantErr: ErrBuildCAFileRequiresPack},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry,
+				Build: fn.BuildSpec{CAFile: tt.funcYAML}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = f.Write(); err != nil {
+				t.Fatal(err)
+			}
+			if tt.env != "" {
+				t.Setenv("FUNC_BUILD_CAFILE", tt.env)
+			}
+
+			builder := mock.NewBuilder()
+			builder.BuildFn = func(f fn.Function) error {
+				if f.Build.CAFile != tt.want {
+					t.Errorf("expected builder to receive CA file %q, got %q", tt.want, f.Build.CAFile)
+				}
+				return nil
+			}
+			cmd := cmdFn(NewTestClient(
+				fn.WithBuilder(builder),
+				fn.WithDeployer(mock.NewDeployer()),
+				fn.WithRegistry(TestRegistry),
+			))
+			cmd.SetArgs(append([]string{"--builder=" + tt.builder}, tt.args...))
+			err = cmd.Execute()
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("expected error %v, got %v", tt.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !builder.BuildInvoked {
+				t.Fatal("builder was not invoked")
+			}
+			if f, err = fn.NewFunction(root); err != nil {
+				t.Fatal(err)
+			}
+			if f.Build.CAFile != tt.want {
+				t.Fatalf("expected func.yaml build.caFile %q, got %q", tt.want, f.Build.CAFile)
+			}
+		})
 	}
 }

@@ -15,6 +15,7 @@ SYNOPSIS
 	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
 	             [--service-account] [-c|--confirm] [-v|--verbose]
 	             [--registry-insecure] [--registry-authfile] [--remote-storage-class]
+	             [--build-cafile]
 
 DESCRIPTION
 
@@ -134,6 +135,7 @@ func deploy
 ```
       --base-image string                  Override the base image for your function (host builder only)
       --build string[="true"]              Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-cafile string                Path to a PEM file with one or more CA certificates to trust during the build, for example the CA of a TLS-intercepting proxy. Used at build time only and not added to the function image. Pack builder only. A relative path is resolved against the function directory. ($FUNC_BUILD_CAFILE)
       --build-timestamp[=true|false]       Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
   -b, --builder string                     Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
       --builder-image string               Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)

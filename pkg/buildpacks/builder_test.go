@@ -1,12 +1,23 @@
 package buildpacks
 
 import (
+	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	pack "github.com/buildpacks/pack/pkg/client"
 	"knative.dev/func/pkg/builders"
@@ -381,4 +392,182 @@ type mockImpl struct {
 
 func (i mockImpl) Build(ctx context.Context, opts pack.BuildOptions) error {
 	return i.BuildFn(ctx, opts)
+}
+
+// writeCAFile writes a PEM bundle of n self-signed CA certificates to path.
+func writeCAFile(t *testing.T, path string, n int) {
+	t.Helper()
+	var buf bytes.Buffer
+	for i := 0; i < n; i++ {
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tmpl := &x509.Certificate{
+			SerialNumber:          big.NewInt(int64(i + 1)),
+			Subject:               pkix.Name{CommonName: fmt.Sprintf("test-ca-%d", i)},
+			NotBefore:             time.Now(),
+			NotAfter:              time.Now().Add(time.Hour),
+			IsCA:                  true,
+			BasicConstraintsValid: true,
+			KeyUsage:              x509.KeyUsageCertSign,
+		}
+		der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = pem.Encode(&buf, &pem.Block{Type: "CERTIFICATE", Bytes: der}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// caBindingDir returns the host directory mounted at dest in opts.
+func caBindingDir(t *testing.T, opts pack.BuildOptions, dest string) string {
+	t.Helper()
+	suffix := ":" + dest + ":ro"
+	for _, v := range opts.ContainerConfig.Volumes {
+		if strings.HasSuffix(v, suffix) {
+			return strings.TrimSuffix(v, suffix)
+		}
+	}
+	t.Fatalf("no volume mounted at %q in %v", dest, opts.ContainerConfig.Volumes)
+	return ""
+}
+
+// TestBuild_CAFile ensures a CA file is provided to the build as a Paketo
+// ca-certificates binding at the default binding root, one certificate per
+// file, and that the binding directory is removed after the build.
+func TestBuild_CAFile(t *testing.T) {
+	root := t.TempDir()
+	writeCAFile(t, filepath.Join(root, "bundle.pem"), 3)
+
+	var (
+		i       = &mockImpl{}
+		b       = NewBuilder(WithImpl(i))
+		f       = fn.Function{Runtime: "node", Root: root, Build: fn.BuildSpec{CAFile: "bundle.pem"}}
+		bindDir string
+	)
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		if got := opts.Env["SERVICE_BINDING_ROOT"]; got != "/platform/bindings" {
+			t.Errorf("expected SERVICE_BINDING_ROOT /platform/bindings, got %q", got)
+		}
+		bindDir = caBindingDir(t, opts, "/platform/bindings/func-build-ca")
+
+		typ, err := os.ReadFile(filepath.Join(bindDir, "type"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(typ) != "ca-certificates" {
+			t.Errorf("expected binding type ca-certificates, got %q", typ)
+		}
+		entries, err := os.ReadDir(bindDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 4 { // type + 3 certificates
+			t.Fatalf("expected 4 files in binding, got %v", entries)
+		}
+		for n := 0; n < 3; n++ {
+			data, err := os.ReadFile(filepath.Join(bindDir, fmt.Sprintf("ca-%d.pem", n)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			block, rest := pem.Decode(data)
+			if block == nil || block.Type != "CERTIFICATE" || len(bytes.TrimSpace(rest)) != 0 {
+				t.Fatalf("ca-%d.pem must hold exactly one certificate", n)
+			}
+			c, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := fmt.Sprintf("test-ca-%d", n); c.Subject.CommonName != want {
+				t.Errorf("ca-%d.pem: expected %q, got %q", n, want, c.Subject.CommonName)
+			}
+		}
+		return nil
+	}
+	if err := b.Build(t.Context(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(bindDir); !os.IsNotExist(err) {
+		t.Fatalf("expected binding dir %q to be removed after build, got %v", bindDir, err)
+	}
+}
+
+// TestBuild_CAFileBindingRoot ensures a user-defined SERVICE_BINDING_ROOT is
+// respected, the user's own mounts are kept and f.Build.Mounts is unchanged.
+// It also uses an absolute CA file path outside of the function directory.
+func TestBuild_CAFileBindingRoot(t *testing.T) {
+	caFile := filepath.Join(t.TempDir(), "ca.pem")
+	writeCAFile(t, caFile, 1)
+
+	var (
+		name   = "SERVICE_BINDING_ROOT"
+		value  = "/bindings"
+		mounts = []fn.MountSpec{{Source: "/tmp/git-creds", Destination: "/bindings/git-binding"}}
+		f      = fn.Function{
+			Runtime: "node",
+			Root:    t.TempDir(),
+			Build: fn.BuildSpec{
+				CAFile:    caFile,
+				BuildEnvs: []fn.Env{{Name: &name, Value: &value}},
+				Mounts:    slices.Clone(mounts),
+			},
+		}
+		i = &mockImpl{}
+		b = NewBuilder(WithImpl(i))
+	)
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		if got := opts.Env["SERVICE_BINDING_ROOT"]; got != "/bindings" {
+			t.Errorf("expected SERVICE_BINDING_ROOT /bindings, got %q", got)
+		}
+		if !slices.Contains(opts.ContainerConfig.Volumes, "/tmp/git-creds:/bindings/git-binding") {
+			t.Errorf("user mount missing from %v", opts.ContainerConfig.Volumes)
+		}
+		dir := caBindingDir(t, opts, "/bindings/func-build-ca")
+		if _, err := os.Stat(filepath.Join(dir, "ca-0.pem")); err != nil {
+			t.Error(err)
+		}
+		return nil
+	}
+	if err := b.Build(t.Context(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(f.Build.Mounts, mounts) {
+		t.Fatalf("f.Build.Mounts was modified: %v", f.Build.Mounts)
+	}
+}
+
+// TestBuild_CAFileErrors ensures an unusable CA file fails the build before
+// the pack build is started.
+func TestBuild_CAFileErrors(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "empty.pem"), []byte("not a certificate\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	bad := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("garbage")})
+	if err := os.WriteFile(filepath.Join(root, "bad.pem"), bad, 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct{ name, file string }{
+		{"missing", "missing.pem"},
+		{"no certificates", "empty.pem"},
+		{"invalid certificate", "bad.pem"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			i := &mockImpl{BuildFn: func(context.Context, pack.BuildOptions) error {
+				t.Fatal("pack build must not run with an unusable CA file")
+				return nil
+			}}
+			f := fn.Function{Runtime: "node", Root: root, Build: fn.BuildSpec{CAFile: tt.file}}
+			err := NewBuilder(WithImpl(i)).Build(t.Context(), f, nil)
+			if err == nil || !strings.Contains(err.Error(), tt.file) {
+				t.Fatalf("expected an error naming %q, got %v", tt.file, err)
+			}
+		})
+	}
 }
