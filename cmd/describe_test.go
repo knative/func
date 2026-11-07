@@ -190,3 +190,24 @@ func TestDescribe_WrapsNotInitialized(t *testing.T) {
 	}
 
 }
+
+// TestDescribe_InvalidOutputFormat ensures that describe fails early when an
+// invalid output format is specified without invoking the describer.
+func TestDescribe_InvalidOutputFormat(t *testing.T) {
+	_ = FromTempDirectory(t)
+	describer := mock.NewDescriber()
+
+	cmd := NewDescribeCmd(NewTestClient(fn.WithDescribers(describer)))
+	cmd.SetArgs([]string{"--output", "invalid-format"})
+	err := cmd.Execute()
+
+	if err == nil {
+		t.Fatal("expected an error for invalid output format, got nil")
+	}
+	if !strings.Contains(err.Error(), "format not recognized: invalid-format") {
+		t.Fatalf("expected format not recognized error, got %v", err)
+	}
+	if describer.DescribeInvoked {
+		t.Fatal("describer should not be invoked when invalid output format is specified")
+	}
+}
