@@ -132,6 +132,9 @@ type Function struct {
 	// Deploy defines the deployment properties for a function
 	Deploy DeploySpec `yaml:"deploy,omitempty"`
 
+	// Scale defines autoscaling configuration for the function.
+	Scale *ScaleOptions `yaml:"scale,omitempty"`
+
 	Local Local `yaml:"-"`
 }
 
@@ -143,8 +146,9 @@ type KnativeSubscription struct {
 
 // BuildSpec
 type BuildSpec struct {
-	// Git stores information about an optionally associated git repository.
-	Git Git `yaml:"git,omitempty"`
+	// Source is the repository the function is built from on the cluster,
+	// when it is not the local directory: url, revision and dir.
+	Source Source `yaml:"source,omitempty"`
 
 	// BuilderImages define optional explicit builder images to use by
 	// builder implementations in leau of the in-code defaults.  They key
@@ -194,19 +198,45 @@ type MountSpec struct {
 // When set, the runtime consumes messages from Kafka and delivers them
 // as CloudEvents to the function's handler.
 type KafkaConfig struct {
-	Brokers       string `yaml:"brokers" jsonschema:"description=Comma-separated list of Kafka broker addresses"`
-	Topic         string `yaml:"topic" jsonschema:"description=Kafka topic to consume from"`
-	ConsumerGroup string `yaml:"consumerGroup" jsonschema:"description=Kafka consumer group ID"`
+	Brokers          string     `yaml:"brokers" jsonschema:"description=Comma-separated list of Kafka broker addresses"`
+	Topic            string     `yaml:"topic" jsonschema:"description=Kafka topic to consume from"`
+	ConsumerGroup    string     `yaml:"consumerGroup" jsonschema:"description=Kafka consumer group ID"`
+	SecurityProtocol string     `yaml:"securityProtocol,omitempty" jsonschema:"description=Security protocol: PLAINTEXT SSL SASL_PLAINTEXT or SASL_SSL,enum=PLAINTEXT,enum=SSL,enum=SASL_PLAINTEXT,enum=SASL_SSL"`
+	TLS              *KafkaTLS  `yaml:"tls,omitempty" jsonschema:"description=TLS configuration for SSL or SASL_SSL"`
+	SASL             *KafkaSASL `yaml:"sasl,omitempty" jsonschema:"description=SASL authentication for SASL_PLAINTEXT or SASL_SSL"`
 }
 
-func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string) {
+type KafkaTLS struct {
+	CACert     string `yaml:"caCert,omitempty" jsonschema:"description=Path to CA certificate PEM file for verifying broker certificate"`
+	ClientCert string `yaml:"clientCert,omitempty" jsonschema:"description=Path to client certificate PEM file for mutual TLS"`
+	ClientKey  string `yaml:"clientKey,omitempty" jsonschema:"description=Path to client private key PEM file for mutual TLS"`
+	SkipVerify bool   `yaml:"skipVerify,omitempty" jsonschema:"description=Skip broker certificate verification (development only)"`
+}
+
+type KafkaSASL struct {
+	Mechanism string `yaml:"mechanism,omitempty" jsonschema:"description=SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512. Optional; defaults to PLAIN when unset.,enum=PLAIN,enum=SCRAM-SHA-256,enum=SCRAM-SHA-512"`
+	User      string `yaml:"user,omitempty" jsonschema:"description=SASL username. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"`
+	Password  string `yaml:"password,omitempty" jsonschema:"description=SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"`
+}
+
+// EffectiveMechanism returns the SASL mechanism the function actually
+// authenticates with, resolving an unset mechanism to PLAIN. Callers that wire
+// the function's container env and the keda scaler both read it so the two agree
+// on a single value rather than each re-deriving the default.
+func (s KafkaSASL) EffectiveMechanism() string {
+	if s.Mechanism == "" {
+		return "PLAIN"
+	}
+	return s.Mechanism
+}
+
+func validateKafka(kafka *KafkaConfig, invoke string) (errors []string) {
 	if kafka == nil {
 		return
 	}
-	if runtime != "go" {
-		errors = append(errors, "run.kafka is currently only supported for the Go runtime")
-		return
-	}
+	// Kafka is language-agnostic: the runtime consumes Kafka in a sidecar and
+	// delivers each record to the function as a CloudEvent over HTTP, so any
+	// runtime works. The function must still be a CloudEvents handler.
 	if invoke != "cloudevent" {
 		errors = append(errors, "run.kafka is only supported with invoke: cloudevent")
 		return
@@ -219,6 +249,71 @@ func validateKafka(kafka *KafkaConfig, invoke, runtime string) (errors []string)
 	}
 	if kafka.ConsumerGroup == "" {
 		errors = append(errors, "run.kafka.consumerGroup is required when Kafka is configured")
+	}
+
+	errors = append(errors, ValidateKafkaSecurity(kafka)...)
+
+	return
+}
+
+// ValidateKafkaSecurity validates the securityProtocol/TLS/SASL portion of a
+// KafkaConfig. It is exported so the keda deployer can run it as a deploy-time
+// preflight (Function.Validate is skipped in on-cluster and library deploy
+// flows). A nil kafka has nothing to validate and returns no errors.
+func ValidateKafkaSecurity(kafka *KafkaConfig) (errors []string) {
+	if kafka == nil {
+		return
+	}
+	validProtocols := map[string]bool{"": true, "PLAINTEXT": true, "SSL": true, "SASL_PLAINTEXT": true, "SASL_SSL": true}
+	if !validProtocols[kafka.SecurityProtocol] {
+		errors = append(errors, "run.kafka.securityProtocol must be one of: PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL")
+	}
+
+	if kafka.TLS != nil {
+		if kafka.SecurityProtocol != "SSL" && kafka.SecurityProtocol != "SASL_SSL" {
+			errors = append(errors, "run.kafka.tls requires securityProtocol SSL or SASL_SSL")
+		}
+		if (kafka.TLS.ClientCert == "") != (kafka.TLS.ClientKey == "") {
+			errors = append(errors, "run.kafka.tls.clientCert and run.kafka.tls.clientKey must both be set or both be empty")
+		}
+	}
+
+	if (kafka.SecurityProtocol == "SASL_PLAINTEXT" || kafka.SecurityProtocol == "SASL_SSL") && kafka.SASL == nil {
+		errors = append(errors, "run.kafka.sasl is required when securityProtocol is SASL_PLAINTEXT or SASL_SSL")
+	}
+
+	if kafka.SASL != nil {
+		if kafka.SecurityProtocol != "SASL_PLAINTEXT" && kafka.SecurityProtocol != "SASL_SSL" {
+			errors = append(errors, "run.kafka.sasl requires securityProtocol SASL_PLAINTEXT or SASL_SSL")
+		}
+		// mechanism is optional: EffectiveMechanism resolves an unset mechanism
+		// to PLAIN for both the function container and the scaler, so the two
+		// authenticate the same way with nothing set. Only a non-empty value is
+		// constrained to the mechanisms both sides understand.
+		if kafka.SASL.Mechanism != "" {
+			validMechanisms := map[string]bool{"PLAIN": true, "SCRAM-SHA-256": true, "SCRAM-SHA-512": true}
+			if !validMechanisms[kafka.SASL.Mechanism] {
+				errors = append(errors, "run.kafka.sasl.mechanism must be one of: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512")
+			}
+		}
+		if kafka.SASL.User == "" {
+			errors = append(errors, "run.kafka.sasl.user is required")
+		}
+		if kafka.SASL.Password == "" {
+			errors = append(errors, "run.kafka.sasl.password is required")
+		}
+		errors = append(errors, validateTemplateRef("run.kafka.sasl.user", kafka.SASL.User)...)
+		errors = append(errors, validateTemplateRef("run.kafka.sasl.password", kafka.SASL.Password)...)
+	}
+
+	return
+}
+
+var TemplateRefPattern = regexp.MustCompile(`^\{\{\s*(secret|configMap):([^:{}\s]+):([^:{}\s]+)\s*\}\}$`)
+
+func validateTemplateRef(field, value string) (errors []string) {
+	if strings.HasPrefix(value, "{{") && !TemplateRefPattern.MatchString(value) {
+		errors = append(errors, fmt.Sprintf("%s has invalid reference format, expected {{ secret:name:key }} or {{ configMap:name:key }}", field))
 	}
 	return
 }
@@ -291,6 +386,14 @@ type DeploySpec struct {
 	// cleared on undeploy alongside Namespace and Deployer. Empty means
 	// cluster-local (or never exposed). User intent lives on Function.Expose.
 	Expose string `yaml:"expose,omitempty" jsonschema:"enum=route,enum=none,enum="`
+
+	// ScalerType records the KEDA scaler CURRENTLY provisioned on the cluster
+	// ("http" or "kafka"), observed state written after a successful keda deploy
+	// and cleared on undeploy alongside Namespace and Deployer. Empty for
+	// deployers with no scaler concept. User intent is derived from
+	// Function.Scale.KEDA.Triggers. Used by the scaler-switch gate in
+	// Client.Deploy.
+	ScalerType string `yaml:"scalerType,omitempty" jsonschema:"enum=http,enum=kafka,enum="`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
@@ -405,10 +508,20 @@ func NewFunction(root string) (f Function, err error) {
 }
 
 // Validate function is logically correct, returning a bundled, and quite
-// verbose, formatted error detailing any issues.
+// verbose, formatted error detailing any issues. Where the function lives is
+// not part of its correctness: a function read from a git repository has no
+// Root, which Write requires.
 func (f Function) Validate() error {
-	if f.Root == "" {
-		return errors.New("function root path is required")
+	// Validate scale against the effective deployer: the intent (f.Deployer)
+	// when set, otherwise the deployer this function was last deployed with
+	// (f.Deploy.Deployer). The CLI resolves these before Validate runs, but
+	// other callers (the tekton pipeline provider, library consumers) may call
+	// Validate with the intent still empty on a function last deployed as
+	// keda/raw -- resolving here keeps the deployer-specific scale rules (e.g.
+	// keda's max) consistent regardless of caller.
+	scaleDeployer := f.Deployer
+	if scaleDeployer == "" {
+		scaleDeployer = f.Deploy.Deployer
 	}
 
 	var ctr int
@@ -417,9 +530,10 @@ func (f Function) Validate() error {
 		ValidateBuildEnvs(f.Build.BuildEnvs),
 		ValidateEnvs(f.Run.Envs),
 		validateOptions(f.Deploy.Options),
+		ValidateScale(f.Scale, scaleDeployer, f.Run.Kafka),
 		ValidateLabels(f.Deploy.Labels),
-		validateGit(f.Build.Git),
-		validateKafka(f.Run.Kafka, f.Invoke, f.Runtime),
+		validateSource(f.Build.Source),
+		validateKafka(f.Run.Kafka, f.Invoke),
 		validateExpose(f.Deploy.Expose, f.Expose),
 	}
 
@@ -533,6 +647,9 @@ func (f Function) MarshalFuncYaml() ([]byte, error) {
 
 // Write Function struct (metadata) to Disk at f.Root
 func (f Function) Write() (err error) {
+	if f.Root == "" {
+		return ErrRootRequired
+	}
 	// Skip writing (and dirtying the work tree) if there were no modifications.
 	f1, _ := NewFunction(f.Root)
 	if reflect.DeepEqual(f, f1) {
@@ -680,7 +797,8 @@ func (f Function) HasScaffolding() bool {
 // https://github.com/knative/func/pull/3436) and can interfere with other
 // builders (mostly just pack).
 func WarnIfLegacyS2IScaffolding(f Function, w io.Writer) {
-	if !f.HasScaffolding() {
+	// A function without a Root has no working tree to inspect.
+	if !f.HasScaffolding() || f.Root == "" {
 		return
 	}
 	legacyAssemble := filepath.Join(f.Root, ".s2i", "bin", "assemble")
@@ -924,6 +1042,9 @@ func (f Function) ImageNameWithDigest(newDigest string) string {
 		return f.Build.Image
 	}
 	image := f.Build.Image
+	if image == "" {
+		return ""
+	}
 
 	// overwrite current digest
 	shaIndex := strings.Index(image, "@sha256:")

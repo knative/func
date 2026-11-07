@@ -12,12 +12,13 @@ import (
 // TestTool_Invoke_Args ensures the invoke tool executes with all arguments passed correctly.
 func TestTool_Invoke_Args(t *testing.T) {
 	// Test data - defined once and used for both input and validation
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path":        {"path", "--path", "."},
+		"path":        {"path", "--path", path},
 		"target":      {"target", "--target", "remote"},
 		"format":      {"format", "--format", "http"},
 		"id":          {"id", "--id", "test-id"},
@@ -74,13 +75,14 @@ func TestTool_Invoke_Args(t *testing.T) {
 // TestTool_Invoke_Extensions ensures CloudEvent extension attributes are
 // passed as repeated, deterministically-ordered '--extension key=value' flags.
 func TestTool_Invoke_Extensions(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "invoke" {
 			t.Fatalf("expected subcommand 'invoke', got %q", subcommand)
 		}
 		want := []string{
-			"--path", ".",
+			"--path", path,
 			"--extension", "priority=high",
 			"--extension", "region=us-east",
 		}
@@ -103,7 +105,7 @@ func TestTool_Invoke_Extensions(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "invoke",
 		Arguments: map[string]any{
-			"path": ".",
+			"path": path,
 			"extensions": map[string]any{
 				"region":   "us-east",
 				"priority": "high",
@@ -125,12 +127,13 @@ func TestTool_Invoke_Extensions(t *testing.T) {
 // the required 'path' argument, relying on defaults for everything else
 // (target auto-discovers between local and remote).
 func TestTool_Invoke_MinimalArgs(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		if subcommand != "invoke" {
 			t.Fatalf("expected subcommand 'invoke', got %q", subcommand)
 		}
-		want := []string{"--path", "."}
+		want := []string{"--path", path}
 		if len(args) != len(want) || args[0] != want[0] || args[1] != want[1] {
 			t.Fatalf("expected args %v, got %v", want, args)
 		}
@@ -144,7 +147,7 @@ func TestTool_Invoke_MinimalArgs(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "invoke",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": path},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -185,6 +188,7 @@ func TestTool_Invoke_MissingPath(t *testing.T) {
 // readonly mode, since invoking a Function does not itself mutate cluster
 // state (unlike deploy, delete, and build, which readonly mode disables).
 func TestTool_Invoke_Readonly(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		return []byte("OK\n"), nil
@@ -197,7 +201,7 @@ func TestTool_Invoke_Readonly(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "invoke",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": path},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -213,6 +217,7 @@ func TestTool_Invoke_Readonly(t *testing.T) {
 // TestTool_Invoke_Error ensures a failing invocation (e.g. non-2xx response)
 // is surfaced as a tool error, allowing agents to detect invocation failures.
 func TestTool_Invoke_Error(t *testing.T) {
+	path := t.TempDir()
 	executor := mock.NewExecutor()
 	executor.ExecuteFn = func(ctx context.Context, subcommand string, args ...string) ([]byte, error) {
 		return []byte(""), errors.New("failure invoking function (HTTP 500)")
@@ -225,7 +230,7 @@ func TestTool_Invoke_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "invoke",
-		Arguments: map[string]any{"path": "."},
+		Arguments: map[string]any{"path": path},
 	})
 	if err != nil {
 		t.Fatal(err)

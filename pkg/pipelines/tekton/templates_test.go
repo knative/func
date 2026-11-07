@@ -2,13 +2,20 @@ package tekton
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"text/template"
+	"time"
 
+	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/manifestival/manifestival"
 	"github.com/manifestival/manifestival/fake"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
@@ -169,6 +176,27 @@ func Test_createPipelineRunTemplatePAC(t *testing.T) {
 				t.Errorf("a pipeline run should be generated in %s", fp)
 				return
 			}
+			if tt.wantErr {
+				return
+			}
+
+			// Pipelines-as-Code applies no Pipeline itself: the PipelineRun
+			// must tell it to fetch the one generated next to it, or its
+			// pipelineRef resolves only if a Pipeline of that name already
+			// exists on the cluster.
+			b, err := os.ReadFile(fp)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "pipelinesascode.tekton.dev/pipeline: " + resourcesDirectory + "/" + pipelineFileNamePAC
+			if !strings.Contains(string(b), want) {
+				t.Errorf("expected the pipeline run to reference the generated pipeline with %q", want)
+			}
+			// PAC setup writes its own Secret, which the PipelineRun mounts.
+			want = "secretName: " + getPipelineSecretName(f)
+			if !strings.Contains(string(b), want) {
+				t.Errorf("expected the pipeline run to mount the PAC Secret with %q", want)
+			}
 		})
 	}
 }
@@ -297,6 +325,35 @@ var testData = []struct {
 	},
 }
 
+// Test_createAndApplyPipelineRunTemplate_NoRoot ensures a function loaded
+// from a git repository, which has no Root, yields a Pipeline and a
+// PipelineRun: nothing is read from a project directory in that case.
+func Test_createAndApplyPipelineRunTemplate_NoRoot(t *testing.T) {
+	old := manifestivalClient
+	defer func() { manifestivalClient = old }()
+	manifestivalClient = func() (manifestival.Client, error) {
+		return fake.New(), nil
+	}
+
+	f := fn.Function{
+		Name:     "remote-fn",
+		Runtime:  "go",
+		Registry: TestRegistry,
+		Build: fn.BuildSpec{
+			Builder: builders.Pack,
+			Source:  fn.Source{URL: "https://example.com/alice/remote-fn.git", Revision: "main"},
+		},
+	}
+	f.Deploy.Image = "docker.io/alice/remote-fn"
+
+	if err := createAndApplyPipelineTemplate(f, "test-ns", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := createAndApplyPipelineRunTemplate(f, "test-ns", nil, ""); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
@@ -321,11 +378,74 @@ func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 			f.Image = "docker.io/alice/" + f.Name
 			f.Registry = TestRegistry
 
-			if err := createAndApplyPipelineRunTemplate(f, tt.namespace, tt.labels); (err != nil) != tt.wantErr {
+			if err := createAndApplyPipelineRunTemplate(f, tt.namespace, tt.labels, f.Name+"-registry-auth"); (err != nil) != tt.wantErr {
 				t.Errorf("createAndApplyPipelineRunTemplate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
+}
+
+// Test_sourceRevision ensures a function read from its repository makes the
+// cluster fetch, and label the image with, the commit it was read at, while
+// any other function keeps the configured revision and the local HEAD.
+func Test_sourceRevision(t *testing.T) {
+	const hash = "0123456789abcdef0123456789abcdef01234567"
+
+	f := fn.Function{Build: fn.BuildSpec{Source: fn.Source{URL: "https://example.com/repo.git", Revision: "main", Commit: hash}}}
+	if fetch, label := sourceRevision(f); fetch != hash || label != hash[:7] {
+		t.Errorf("read from git: expected %q, %q; got %q, %q", hash, hash[:7], fetch, label)
+	}
+
+	f = fn.Function{Build: fn.BuildSpec{Source: fn.Source{URL: "https://example.com/repo.git", Revision: "v1"}}}
+	if fetch, _ := sourceRevision(f); fetch != "v1" {
+		t.Errorf("git without a resolved commit: expected the revision as configured, got %q", fetch)
+	}
+
+	f = fn.Function{Root: t.TempDir()} // no git history, no repository
+	if fetch, label := sourceRevision(f); fetch != "main" || label != "" {
+		t.Errorf("upload without history: expected \"main\", \"\"; got %q, %q", fetch, label)
+	}
+
+	// A commit shorter than the label must not panic.
+	f = fn.Function{Build: fn.BuildSpec{Source: fn.Source{URL: "https://example.com/repo.git", Commit: "abc"}}}
+	if fetch, label := sourceRevision(f); fetch != "abc" || label != "abc" {
+		t.Errorf("short commit: expected \"abc\", \"abc\"; got %q, %q", fetch, label)
+	}
+
+	// With no Root there is no working tree to label from, even when func
+	// runs inside some unrelated repository.
+	t.Chdir(gitRepoWithCommit(t))
+	f = fn.Function{Build: fn.BuildSpec{Source: fn.Source{URL: "https://example.com/repo.git", Revision: "v1"}}}
+	if fetch, label := sourceRevision(f); fetch != "v1" || label != "" {
+		t.Errorf("rootless without a commit: expected \"v1\", \"\"; got %q, %q", fetch, label)
+	}
+}
+
+// gitRepoWithCommit returns a new directory holding a git repository with
+// one commit.
+func gitRepoWithCommit(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	repo, err := gogit.PlainInit(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(dir, "README.md"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = wt.Add("README.md"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = wt.Commit("initial", &gogit.CommitOptions{
+		Author: &object.Signature{Name: "test", Email: "test@example.com", When: time.Now()},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }
 
 // strictTektonDecoder returns a strict deserializer that rejects unknown fields
@@ -452,6 +572,110 @@ func TestPipelineRunTemplatesValidate(t *testing.T) {
 			}
 			if _, ok := obj.(*tektonv1.PipelineRun); !ok {
 				t.Fatalf("expected *PipelineRun, got %T", obj)
+			}
+		})
+	}
+}
+
+// TestPipelineRunTemplatesRevision ensures the revision reaches the
+// PipelineRun as the string it is, including a git ref with a quote in it
+// and a commit hash or ref which YAML would otherwise read as a number or a
+// boolean.
+func TestPipelineRunTemplatesRevision(t *testing.T) {
+	revisions := []string{
+		`feature"quoted`,
+		"0123456789012345678901234567890123456789",
+		"1e10",
+		"yes",
+	}
+	templates := []struct {
+		name    string
+		tmplStr string
+	}{
+		{"packRunTemplate", packRunTemplate},
+		{"s2iRunTemplate", s2iRunTemplate},
+	}
+	decode := strictTektonDecoder(t)
+	for _, tt := range templates {
+		for _, revision := range revisions {
+			t.Run(tt.name+"/"+revision, func(t *testing.T) {
+				data := templateData{
+					PipelineName:    "myfunc-pipeline",
+					PipelineRunName: "myfunc-pipeline-run-",
+					RepoUrl:         "https://example.com/repo",
+					Revision:        revision,
+				}
+				obj, _, err := decode.Decode(renderTemplate(t, tt.name, tt.tmplStr, data), nil, nil)
+				if err != nil {
+					t.Fatalf("failed to decode PipelineRun: %v", err)
+				}
+				for _, p := range obj.(*tektonv1.PipelineRun).Spec.Params {
+					if p.Name == "gitRevision" {
+						if p.Value.StringVal != revision {
+							t.Errorf("expected gitRevision %q, got %q", revision, p.Value.StringVal)
+						}
+						return
+					}
+				}
+				t.Error("no gitRevision param")
+			})
+		}
+	}
+}
+
+// TestPipelineRunTemplatesRegistrySecret ensures the standard runs mount the
+// function's registry Secret, mapping its .dockerconfigjson key to the
+// config.json the build reads, and bind no dockerconfig-workspace without a
+// login. The PAC runs mount PAC's Secret whole, as it already holds
+// config.json.
+func TestPipelineRunTemplatesRegistrySecret(t *testing.T) {
+	mapped := []corev1.KeyToPath{{Key: corev1.DockerConfigJsonKey, Path: "config.json"}}
+	templates := []struct {
+		name       string
+		tmplStr    string
+		secretName string
+		items      []corev1.KeyToPath
+	}{
+		{"packRunTemplate", packRunTemplate, "myfunc-registry-auth", mapped},
+		{"s2iRunTemplate", s2iRunTemplate, "myfunc-registry-auth", mapped},
+		{"packRunTemplate without login", packRunTemplate, "", nil},
+		{"s2iRunTemplate without login", s2iRunTemplate, "", nil},
+		{"packRunTemplatePAC", packRunTemplatePAC, "myfunc-pipeline-secret", nil},
+		{"s2iRunTemplatePAC", s2iRunTemplatePAC, "myfunc-pipeline-secret", nil},
+	}
+	decode := strictTektonDecoder(t)
+	for _, tt := range templates {
+		t.Run(tt.name, func(t *testing.T) {
+			data := templateData{
+				PipelineName:    "myfunc-pipeline",
+				PipelineRunName: "myfunc-pipeline-run-",
+				SecretName:      tt.secretName,
+			}
+			obj, _, err := decode.Decode(renderTemplate(t, tt.name, tt.tmplStr, data), nil, nil)
+			if err != nil {
+				t.Fatalf("failed to decode PipelineRun: %v", err)
+			}
+			var bound *tektonv1.WorkspaceBinding
+			workspaces := obj.(*tektonv1.PipelineRun).Spec.Workspaces
+			for i := range workspaces {
+				if workspaces[i].Name == "dockerconfig-workspace" {
+					bound = &workspaces[i]
+				}
+			}
+			if tt.secretName == "" {
+				if bound != nil {
+					t.Errorf("expected no dockerconfig-workspace, got %+v", bound)
+				}
+				return
+			}
+			if bound == nil {
+				t.Fatal("no dockerconfig-workspace")
+			}
+			if bound.Secret == nil || bound.Secret.SecretName != tt.secretName {
+				t.Fatalf("expected Secret %q, got %+v", tt.secretName, bound.Secret)
+			}
+			if !slices.Equal(bound.Secret.Items, tt.items) {
+				t.Errorf("expected items %+v, got %+v", tt.items, bound.Secret.Items)
 			}
 		})
 	}

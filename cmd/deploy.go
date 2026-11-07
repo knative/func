@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client/pkg/util"
 	"knative.dev/func/cmd/common"
@@ -34,7 +37,7 @@ NAME
 
 SYNOPSIS
 	{{rootCmdUse}} deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
-	             [-e|--env] [-g|--git-url] [-t|--git-branch] [-d|--git-dir]
+	             [-e|--env] [-s|--source] [-t|--revision] [-d|--source-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
 	             [--service-account] [-c|--confirm] [-v|--verbose]
@@ -79,8 +82,20 @@ DESCRIPTION
 	  invoked in the remote.  Deploying with '{{rootCmdUse}} deploy --remote' will
 	  send the function's source code to be built and deployed by the cluster,
 	  eliminating the need for a local container engine.  To trigger deployment
-	  of a git repository instead of local source, combine with '--git-url':
-	  '{{rootCmdUse}} deploy --remote --git-url=git.example.com/alice/f.git'
+	  of a git repository instead of local source, combine with '--source':
+	  '{{rootCmdUse}} deploy --remote --source=git.example.com/alice/f.git'
+	  A branch, tag or commit is given with '--revision':
+	  '{{rootCmdUse}} deploy --remote --source=git.example.com/alice/f.git --revision=v1.2.0'
+	  The function is then read from the repository, so no local copy is
+	  needed, and nothing is written locally: to change the function, clone
+	  the repository, edit it and deploy the working tree.  Choose the
+	  directory within the repository with '--source-dir'.  The function is
+	  deployed as configured by the func.yaml committed there: of the flags
+	  which configure a function, only '--builder', '--registry',
+	  '--registry-insecure' and '--namespace' apply, the latter only if the
+	  func.yaml names no other namespace.  A repository set in the local
+	  func.yaml (build.source) instead of with '--source' is built with the
+	  local function's settings.
 
 	Domain
 	  When deploying, a function's route is automatically generated using the
@@ -120,7 +135,7 @@ EXAMPLES
 
 	o Trigger a remote deploy, which instructs the cluster to build and deploy
 	  the function in the specified git repository.
-	  $ {{rootCmdUse}} deploy --remote --git-url=https://example.com/alice/myfunc.git
+	  $ {{rootCmdUse}} deploy --remote --source=https://example.com/alice/myfunc.git
 
 	o Deploy the function, rebuilding the image even if no changes have been
 	  detected in the local filesystem (source).
@@ -138,8 +153,8 @@ EXAMPLES
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE: bindEnv("build", "build-timestamp", "builder", "builder-image",
-			"base-image", "confirm", "domain", "env", "git-branch", "git-dir",
-			"git-url", "image", "image-pull-secret", "management-disabled",
+			"base-image", "confirm", "domain", "env", "revision", "source-dir",
+			"source", "image", "image-pull-secret", "management-disabled",
 			"namespace", "path", "platform", "push", "pvc-size", "service-account",
 			"deployer", "expose", "registry", "registry-insecure", "registry-authfile",
 			"remote", "username", "password", "token", "verbose", "remote-storage-class"),
@@ -168,7 +183,7 @@ EXAMPLES
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().String("deployer", cfg.Deployer,
-		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service, '%s' for Kubernetes Deployment, or '%s' for Deployment with a KEDA HTTP scaler ($FUNC_DEPLOYER)", deployers.Knative, deployers.Kubernetes, deployers.Keda))
+		fmt.Sprintf("Type of deployment to use: '%s' for Knative Service, '%s' for Kubernetes Deployment, or '%s' for Deployment scaled by KEDA (HTTP or Kafka triggers) ($FUNC_DEPLOYER)", deployers.Knative, deployers.Kubernetes, deployers.Keda))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)")
@@ -191,12 +206,12 @@ EXAMPLES
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().String("domain", f.Domain,
 		"Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)")
-	cmd.Flags().StringP("git-url", "g", f.Build.Git.URL,
-		"Repository url containing the function to build ($FUNC_GIT_URL)")
-	cmd.Flags().StringP("git-branch", "t", f.Build.Git.Revision,
-		"Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)")
-	cmd.Flags().StringP("git-dir", "d", f.Build.Git.ContextDir,
-		"Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)")
+	cmd.Flags().StringP("source", "s", f.Build.Source.URL,
+		"Repository to build the function from on the cluster, instead of the local directory ($FUNC_SOURCE)")
+	cmd.Flags().StringP("revision", "t", f.Build.Source.Revision,
+		"Revision of --source to build: a branch, a tag or a commit (default is the repository's default branch) ($FUNC_REVISION)")
+	cmd.Flags().StringP("source-dir", "d", f.Build.Source.Dir,
+		"Directory within --source containing the function (default is the root) ($FUNC_SOURCE_DIR)")
 	cmd.Flags().BoolP("remote", "R", f.Local.Remote,
 		"Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)")
 	cmd.Flags().StringP("remote-storage-class", "", f.Build.RemoteStorageClass,
@@ -268,50 +283,55 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Initialize config first
 	cfg = newDeployConfig(cmd)
 
-	// Create function object to check if initialized
-	if f, err = fn.NewFunction(cfg.Path); err != nil {
-		return
-	}
+	// Only a repository given as a flag or environment variable deploys by
+	// reference. One in the local func.yaml (build.source) is built with the
+	// local function's settings, as before.
+	if cfg.Remote && cfg.Source != "" && flagGiven(cmd, "source") {
+		// A function deployed by reference: read from the repository, never
+		// from nor to the current directory, so its Root is empty.
+		if f, cfg, err = gitFunction(cmd, cfg); err != nil {
+			return
+		}
+	} else {
+		// Create function object to check if initialized
+		if f, err = fn.NewFunction(cfg.Path); err != nil {
+			return
+		}
 
-	// Check if function exists BEFORE prompting for config
-	if !f.Initialized() {
-		if !cfg.Remote || f.Build.Git.URL == "" {
-			// Only error if this is not a fully remote build
+		// Check if function exists BEFORE prompting for config
+		if !f.Initialized() {
 			return NewErrNotInitializedFromPath(f.Root, "deploy")
-		} else {
-			// TODO: this case is not supported because the pipeline
-			// implementation requires the function's name, which is in the
-			// remote repository.  We should inspect the remote repository.
-			// For now, give a more helpful error.
-			return errors.New("please ensure the function's source is also available locally")
 		}
-	}
 
-	// Now that we know function exists, proceed with prompting
-	if cfg, err = cfg.Prompt(); err != nil {
-		if errors.Is(err, fn.ErrRegistryRequired) {
-			return NewErrRegistryRequired(err, "deploy")
+		// Now that we know function exists, proceed with prompting
+		if cfg, err = cfg.Prompt(); err != nil {
+			if errors.Is(err, fn.ErrRegistryRequired) {
+				return NewErrRegistryRequired(err, "deploy")
+			}
+			return
 		}
-		return
-	}
-	if err = cfg.Validate(cmd); err != nil {
-		return wrapValidateError(err, "deploy")
-	}
+		if err = cfg.Validate(cmd); err != nil {
+			return wrapValidateError(err, "deploy")
+		}
 
-	// Warn if registry changed but registryInsecure is still true
-	warnRegistryInsecureChange(cmd.OutOrStderr(), cfg.Registry, f)
+		// Warn if registry changed but registryInsecure is still true
+		warnRegistryInsecureChange(cmd.OutOrStderr(), cfg.Registry, f)
 
-	// Warn if expose flag is used with deployer where it has no effect
-	warnExposeIgnore(cmd.OutOrStderr(), cfg.Expose, cfg.Deployer)
+		// Warn if expose flag is used with deployer where it has no effect
+		warnExposeIgnore(cmd.OutOrStderr(), cfg.Expose, cfg.Deployer)
 
-	// Back-compat: a function deployed before the deployer was recorded has a
-	// namespace but no deployer, which historically could only mean knative.
-	if f.Deploy.Namespace != "" && f.Deploy.Deployer == "" {
-		f.Deploy.Deployer = deployers.Knative
-	}
+		// Warn if scale.kpa is set with a deployer that ignores it
+		warnScaleKpaIgnore(cmd.OutOrStderr(), f.Scale, cfg.Deployer)
 
-	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
-		return
+		// Back-compat: a function deployed before the deployer was recorded has a
+		// namespace but no deployer, which historically could only mean knative.
+		if f.Deploy.Namespace != "" && f.Deploy.Deployer == "" {
+			f.Deploy.Deployer = deployers.Knative
+		}
+
+		if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
+			return
+		}
 	}
 	if err = f.Validate(); err != nil {
 		return
@@ -436,6 +456,12 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return wrapDeploymentError(err)
 		}
+	}
+
+	// A function deployed by reference is not written: to change it, clone
+	// the repository, edit it and deploy the working tree.
+	if f.Root == "" {
+		return nil
 	}
 
 	// Write
@@ -564,14 +590,14 @@ type deployConfig struct {
 	// the FWDN.  Example `func delete www.example.com`
 	Domain string
 
-	// Git branch for remote builds
-	GitBranch string
+	// Revision of Source to build for remote builds
+	Revision string
 
-	// Directory in the git repo where the function is located
-	GitDir string
+	// Directory within Source where the function is located
+	SourceDir string
 
-	// Git repo url for remote builds
-	GitURL string
+	// Source repository for remote builds
+	Source string
 
 	// Namespace override for the deployed function.  If provided, the
 	// underlying platform will be instructed to deploy the function to the given
@@ -622,9 +648,9 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		Build:              viper.GetString("build"),
 		Env:                viper.GetStringSlice("env"),
 		Domain:             viper.GetString("domain"),
-		GitBranch:          viper.GetString("git-branch"),
-		GitDir:             viper.GetString("git-dir"),
-		GitURL:             viper.GetString("git-url"),
+		Revision:           viper.GetString("revision"),
+		SourceDir:          viper.GetString("source-dir"),
+		Source:             viper.GetString("source"),
 		Namespace:          viper.GetString("namespace"),
 		Remote:             viper.GetBool("remote"),
 		RemoteStorageClass: viper.GetString("remote-storage-class"),
@@ -664,9 +690,9 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	// Configure basic members
 	f.Domain = c.Domain
 	f.Namespace = c.Namespace
-	f.Build.Git.URL = c.GitURL
-	f.Build.Git.ContextDir = c.GitDir
-	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
+	f.Build.Source.URL = c.Source
+	f.Build.Source.Dir = c.SourceDir
+	f.Build.Source.Revision = c.Revision
 	f.Build.RemoteStorageClass = c.RemoteStorageClass
 	f.Deploy.ServiceAccountName = c.ServiceAccountName
 	f.Deploy.ImagePullSecret = c.ImagePullSecret
@@ -696,9 +722,9 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	// TODO: the system should support specifying revision (refSpec) as a URL
 	// fragment (<url>[#<refspec>]) throughout, which, when implemented, removes
 	// the need for the below split into separate members:
-	if parts := strings.SplitN(c.GitURL, "#", 2); len(parts) == 2 {
-		f.Build.Git.URL = parts[0]
-		f.Build.Git.Revision = parts[1]
+	if parts := strings.SplitN(c.Source, "#", 2); len(parts) == 2 {
+		f.Build.Source.URL = parts[0]
+		f.Build.Source.Revision = parts[1]
 	}
 	return f, nil
 }
@@ -753,10 +779,10 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 	if c.Remote {
 		qs = []*survey.Question{
 			{
-				Name: "GitURL",
+				Name: "Source",
 				Prompt: &survey.Input{
-					Message: "URL to Git Repository for the remote to use (default is to send local source code)",
-					Default: c.GitURL,
+					Message: "Repository to build from on the cluster (default is to send the local source code)",
+					Default: c.Source,
 				},
 			},
 		}
@@ -765,8 +791,8 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 		}
 	}
 
-	// TODO: prompt for optional additional git settings here:
-	// if c.GitURL != "" {
+	// TODO: prompt for optional additional source settings here:
+	// if c.Source != "" {
 	// }
 
 	return c, err
@@ -831,14 +857,14 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Git references can only be supplied explicitly when coupled with --remote
 	// See `printDeployMessages` which issues informative messages to the user
 	// regarding this potentially confusing nuance.
-	if !c.Remote && (cmd.Flags().Changed("git-url") || cmd.Flags().Changed("git-dir") || cmd.Flags().Changed("git-branch")) {
-		return errors.New("git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)")
+	if !c.Remote && (cmd.Flags().Changed("source") || cmd.Flags().Changed("source-dir") || cmd.Flags().Changed("revision")) {
+		return errors.New("source settings (--source, --revision and --source-dir) are only applicable when triggering remote deployments (--remote)")
 	}
 
-	// Git URL can contain at maximum one '#'
-	urlParts := strings.Split(c.GitURL, "#")
+	// Source can contain at maximum one '#'
+	urlParts := strings.Split(c.Source, "#")
 	if len(urlParts) > 2 {
-		return fmt.Errorf("invalid --git-url '%v'", c.GitURL)
+		return fmt.Errorf("invalid --source '%v'", c.Source)
 	}
 
 	// NOTE: There is no explicit check for --registry or --image here, because
@@ -922,29 +948,28 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	// present.
 	//
 	// However, when building _locally_ thereafter, the deploy command should
-	// prefer the local source code, ignoring the values for --git-url etc.
+	// prefer the local source code, ignoring the values for --source etc.
 	// Since this might be confusing, a warning is issued below that the local
 	// function source does include a reference to a git repository, but that it
 	// will be ignored in favor of the local source code since --remote was not
 	// specified.
-
-	// TODO update names of these to Source--Revision--Dir
-	if !f.Local.Remote && (f.Build.Git.URL != "" || f.Build.Git.Revision != "" || f.Build.Git.ContextDir != "") {
-		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
+	if !f.Local.Remote && (f.Build.Source.URL != "" || f.Build.Source.Revision != "" || f.Build.Source.Dir != "") {
+		fmt.Fprintf(out, "Warning: source settings are only applicable when running with --remote.  Local source code will be used.")
 	}
 
 	// Git Branch Mismatch
 	// -------------------
-	// When doing a remote build with --git-branch, warn if the local branch
+	// When doing a remote build with --revision, warn if the local branch
 	// doesn't match, as this can lead to confusion about which func.yaml is used.
-	if f.Local.Remote && f.Build.Git.URL != "" && f.Build.Git.Revision != "" {
+	// A function read from the repository (no Root) has no local func.yaml.
+	if f.Root != "" && f.Local.Remote && f.Build.Source.URL != "" && f.Build.Source.Revision != "" {
 		// Doing a remote build, specified a git repository to pull from, and
 		// specified a reference within that remote.
 		currentBranch, err := common.DefaultCurrentBranch(f.Root)
 		if err != nil {
 			fmt.Fprintf(out, "Warning: unable to verify local and remote references match. %v\n", err)
-		} else if currentBranch != f.Build.Git.Revision {
-			fmt.Fprintf(out, "Warning: Local git branch '%s' does not match --git-branch '%s'. The local func.yaml will be used for function metadata (name, runtime, etc). Ensure your local branch matches the remote branch to avoid deployment issues.\n", currentBranch, f.Build.Git.Revision)
+		} else if currentBranch != f.Build.Source.Revision {
+			fmt.Fprintf(out, "Warning: Local git branch '%s' does not match --revision '%s'. The local func.yaml will be used for function metadata (name, runtime, etc). Ensure your local branch matches the remote branch to avoid deployment issues.\n", currentBranch, f.Build.Source.Revision)
 		}
 	}
 }
@@ -970,4 +995,120 @@ func warnExposeIgnore(w io.Writer, expose, deployer string) {
 		fmt.Fprintf(w, "warning: expose %q is ignored - only the raw and keda deployers "+
 			"support external exposure via this field.\n", expose)
 	}
+}
+
+// warnScaleKpaIgnore warns when scale.kpa is set with a deployer that ignores
+// it. Only the knative deployer consumes scale.kpa (concurrency/rps
+// autoscaling) via setServiceOptions; the raw and keda deployers ignore it. An
+// empty deployer means the default (knative), which honors it.
+func warnScaleKpaIgnore(w io.Writer, scale *fn.ScaleOptions, deployer string) {
+	if scale != nil && scale.KPA != nil && deployer != "" &&
+		deployer != knative.KnativeDeployerName {
+		fmt.Fprintf(w, "warning: scale.kpa is ignored - only the knative deployer "+
+			"supports kpa (concurrency/rps) autoscaling.\n")
+	}
+}
+
+// gitFlags are the only flags a deployment from a git repository takes:
+// those which locate the function, those which the pipeline alone uses or
+// which depend on where the function is deployed, and those which are not
+// its settings. The function is otherwise deployed as configured by the
+// func.yaml committed there.
+var gitFlags = []string{"remote", "source", "revision", "source-dir", "builder",
+	"registry", "registry-insecure", "registry-authfile", "namespace", "username",
+	"password", "token", "verbose"}
+
+// gitFunction returns the function committed to the git repository cfg
+// names, for a remote pipeline which builds the commit it was read at, and
+// cfg configured for it. The function is read into memory and has no Root.
+// Settings it leaves empty default as for any function, never to those of a
+// function in the current directory.
+func gitFunction(cmd *cobra.Command, cfg deployConfig) (f fn.Function, _ deployConfig, err error) {
+	var extra []string
+	cmd.Flags().VisitAll(func(fl *pflag.Flag) {
+		if flagGiven(cmd, fl.Name) && !slices.Contains(gitFlags, fl.Name) {
+			extra = append(extra, "--"+fl.Name)
+		}
+	})
+	if len(extra) > 0 {
+		return f, cfg, fmt.Errorf("%s cannot be used with --source: the function is deployed as "+
+			"configured by the func.yaml in the repository. To change it, clone the "+
+			"repository, edit it and deploy the working tree", strings.Join(extra, ", "))
+	}
+
+	// The revision may also be given as the URL's fragment (<url>#<revision>),
+	// which then wins, as it does in Configure.
+	source := fn.Source{URL: cfg.Source, Revision: cfg.Revision, Dir: cfg.SourceDir}
+	if parts := strings.SplitN(cfg.Source, "#", 2); len(parts) == 2 {
+		source.URL, source.Revision = parts[0], parts[1]
+	}
+	if f, err = fn.NewFunctionFromGit(cmd.Context(), source); err != nil {
+		return f, cfg, err
+	}
+	f.Local.Remote = true
+
+	global, err := config.NewDefault()
+	if err != nil {
+		return f, cfg, err
+	}
+	if flagGiven(cmd, "builder") {
+		f.Build.Builder = cfg.Builder
+	}
+	if f.Build.Builder == "" {
+		f.Build.Builder = global.Builder
+	}
+	if flagGiven(cmd, "registry") {
+		f.Registry = cfg.Registry
+	}
+	if f.Registry == "" {
+		f.Registry = global.Registry
+	}
+	if flagGiven(cmd, "registry-insecure") {
+		f.RegistryInsecure = cfg.RegistryInsecure
+	}
+	// The cluster deploys into the namespace the func.yaml names, and only
+	// without one into the namespace the pipeline runs in.
+	if flagGiven(cmd, "namespace") {
+		committed := f.Namespace
+		if committed == "" {
+			committed = f.Deploy.Namespace
+		}
+		if committed != "" && committed != cfg.Namespace {
+			return f, cfg, fmt.Errorf("--namespace %q conflicts with the namespace %q in the "+
+				"repository's func.yaml, which the function is deployed into", cfg.Namespace, committed)
+		}
+		f.Namespace = cfg.Namespace
+	} else {
+		f.Namespace = defaultNamespace(f, cfg.Verbose)
+	}
+
+	// Check the namespace and domain the function is deployed with, as a
+	// local deployment checks them in deployConfig.Validate. Function.Validate
+	// checks the rest.
+	if f.Namespace != "" && utils.ValidateNamespace(f.Namespace) != nil {
+		return f, cfg, wrapValidateError(fn.ErrInvalidNamespace, "deploy")
+	}
+	if f.Domain != "" && utils.ValidateDomain(f.Domain) != nil {
+		return f, cfg, wrapValidateError(fn.ErrInvalidDomain, "deploy")
+	}
+
+	// The client is configured by cfg, whose defaults came from the current
+	// directory. The deployer is the one the cluster deploys with: the
+	// function's, else the one it was last deployed with, else the default.
+	deployer := f.Deployer
+	if deployer == "" {
+		deployer = f.Deploy.Deployer
+	}
+	if deployer == "" {
+		deployer = deployers.Default
+	}
+	cfg.Builder, cfg.Registry, cfg.RegistryInsecure, cfg.Deployer = f.Build.Builder, f.Registry, f.RegistryInsecure, deployer
+	return f, cfg, nil
+}
+
+// flagGiven reports whether the flag was set on the command line or with its
+// environment variable, as opposed to taking its default.
+func flagGiven(cmd *cobra.Command, flag string) bool {
+	env := "FUNC_" + strings.ToUpper(strings.ReplaceAll(flag, "-", "_"))
+	return cmd.Flags().Changed(flag) || os.Getenv(env) != ""
 }

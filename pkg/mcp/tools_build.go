@@ -24,6 +24,9 @@ func (s *Server) buildHandler(ctx context.Context, r *mcp.CallToolRequest, input
 		err = fmt.Errorf("pushing images is not allowed in read-only mode; set %s=true to enable write operations", EnvMCPWrite)
 		return
 	}
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	out, err := s.executor.Execute(ctx, "build", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))

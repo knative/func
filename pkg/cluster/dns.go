@@ -27,17 +27,14 @@ func configureMagicDNS(ctx context.Context, cfg ClusterConfig, out io.Writer) er
 		return err
 	}
 
-	// Deployment patch triggers a rolling restart. Sleep so the new pods
-	// enter NotReady before we wait for Ready — otherwise the old pods
-	// still satisfy the condition and we return before the restart lands.
-	if err := wait(ctx, 5*time.Second); err != nil {
-		return err
-	}
+	// The deployment patch triggers a rolling restart. Wait for the rollout
+	// itself: the new pods are available and the old ones are gone. Waiting
+	// for every kube-system pod to be Ready instead raced with the old
+	// coredns pods, which are terminating and never become Ready again.
 	if err := run(ctx, out, "",
-		cfg.kubectl(), "wait", "pod",
-		"--for=condition=Ready", "-l", "!job-name",
-		"-n", "kube-system", "--timeout=60s"); err != nil {
-		return fmt.Errorf("waiting for coredns: %w", err)
+		cfg.kubectl(), "rollout", "status", "deployment/coredns",
+		"-n", "kube-system", "--timeout=120s"); err != nil {
+		return fmt.Errorf("waiting for coredns rollout: %w", err)
 	}
 
 	success(out, "Magic DNS", time.Since(start))

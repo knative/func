@@ -1,0 +1,618 @@
+package keda
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/kedacore/http-add-on/operator/generated/clientset/versioned"
+	v1 "k8s.io/api/apps/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/dynamic"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
+)
+
+var (
+	scaledObjectGVR = schema.GroupVersionResource{
+		Group:    "keda.sh",
+		Version:  "v1alpha1",
+		Resource: "scaledobjects",
+	}
+	triggerAuthGVR = schema.GroupVersionResource{
+		Group:    "keda.sh",
+		Version:  "v1alpha1",
+		Resource: "triggerauthentications",
+	}
+)
+
+func scaledObjectName(funcName string) string {
+	return funcName + "-kafka"
+}
+
+func triggerAuthName(funcName string) string {
+	return funcName + "-kafka-auth"
+}
+
+// validateKafkaResourceNames refuses a function whose Kafka scaler resource
+// names would not be valid DNS-1035 labels. buildScaledObject names the
+// ScaledObject <name>-kafka and, when credentials are configured,
+// buildTriggerAuth names the TriggerAuthentication <name>-kafka-auth -- suffixes
+// that push a ~63-character function name past the 63-character limit, so the
+// API server rejects the resource for an otherwise valid function. This is the
+// Kafka-path counterpart to validateBridgeName on the HTTP path; needAuth
+// selects the longest suffix that will actually be created.
+func validateKafkaResourceNames(name string, needAuth bool) error {
+	// triggerAuthName's suffix is the longer of the two, so when auth is
+	// configured its name is the binding constraint; otherwise only the
+	// ScaledObject is created.
+	longest := scaledObjectName(name)
+	if needAuth {
+		longest = triggerAuthName(name)
+	}
+	if errs := validation.IsDNS1035Label(longest); len(errs) > 0 {
+		return fmt.Errorf(
+			"function name %q is too long for the keda deployer: its Kafka scaler resource would be named %q, which is not a valid name (%s)",
+			name, longest, strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// triggers returns the function's explicitly configured KEDA triggers, or a
+// plain http trigger when none are configured at all. This only matters for
+// callers of Deploy that bypass fn.Function.Validate (which requires
+// deployer: keda to declare triggers explicitly) -- e.g. tests and other
+// direct API consumers. It never infers a kafka trigger: that decision is
+// never made silently, on any path.
+func triggers(f fn.Function) []fn.KEDATrigger {
+	if f.Scale != nil && f.Scale.KEDA != nil {
+		return f.Scale.KEDA.Triggers
+	}
+	// Anything short of an explicit scale.keda block -- including a scale.kpa
+	// block, which is deployer: knative config the keda path ignores with a
+	// warning -- gets the default http trigger. This matches IntendedScalerType,
+	// which also resolves http for a keda function with only scale.kpa, so the
+	// scaler-switch gate and the deploy agree on the scaler type.
+	return []fn.KEDATrigger{{Type: "http"}}
+}
+
+func hasHTTPTrigger(triggers []fn.KEDATrigger) bool {
+	for _, t := range triggers {
+		if t.Type == "http" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasKafkaTrigger(triggers []fn.KEDATrigger) bool {
+	for _, t := range triggers {
+		if t.Type == "kafka" {
+			return true
+		}
+	}
+	return false
+}
+
+func kafkaTrigger(triggers []fn.KEDATrigger) fn.KEDATrigger {
+	for _, t := range triggers {
+		if t.Type == "kafka" {
+			return t
+		}
+	}
+	return fn.KEDATrigger{}
+}
+
+// corroborateKafkaScaler confirms that a keda function with no HTTPScaledObject
+// is a genuine Kafka-only function by checking its Kafka ScaledObject exists.
+// Absence of an HTTPScaledObject alone isn't proof: an http-triggered function's
+// scaler could have been deleted externally, failed to create, or be
+// mid-transition. A NotFound on the ScaledObject too means neither scaler exists
+// and the function is broken; any other error means we couldn't look. Shared by
+// the describer and lister so both report the same states identically.
+func corroborateKafkaScaler(ctx context.Context, dynClient dynamic.Interface, namespace, name string) error {
+	if _, err := dynClient.Resource(scaledObjectGVR).Namespace(namespace).Get(ctx, scaledObjectName(name), metav1.GetOptions{}); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf(
+				"function %q uses the keda deployer but has neither an HTTPScaledObject nor a Kafka ScaledObject: the scaler may have failed to create or been deleted externally", name)
+		}
+		return fmt.Errorf("unable to get ScaledObject: %w", err)
+	}
+	return nil
+}
+
+// refuseConflictingScaler refuses an in-place KEDA scaler-type switch by
+// inspecting live cluster state, before the raw Deployment is mutated. The
+// client-side gate (ValidateScalerSwitch in Client.Deploy) refuses the same
+// switch from the scaler type recorded in func.yaml, but the remote/on-cluster
+// deploy path never writes that observed state back, so a switch there would slip
+// past it. This is the deploy-time backstop that catches the switch regardless of
+// how deploy was invoked: creating a Kafka ScaledObject while an HTTPScaledObject
+// already exists (or the reverse) would leave the old scaler orphaned on the
+// shared Deployment -- the user must `func delete` first. A missing scaler CRD
+// (the http-add-on or KEDA core not installed) means the conflicting scaler
+// cannot exist, so it is treated as "no conflict" rather than an error.
+func refuseConflictingScaler(ctx context.Context, httpClient versioned.Interface, dynClient dynamic.Interface, namespace, name string, wantKafka bool) error {
+	if wantKafka {
+		_, err := httpClient.HttpV1alpha1().HTTPScaledObjects(namespace).Get(ctx, name, metav1.GetOptions{})
+		switch {
+		case err == nil:
+			return fn.ValidateScalerSwitch(fn.ScalerTypeHTTP, fn.ScalerTypeKafka)
+		case k8serrors.IsNotFound(err) || meta.IsNoMatchError(err):
+			return nil
+		default:
+			return fmt.Errorf("unable to check for an existing http scaler on function %q: %w", name, err)
+		}
+	}
+	_, err := dynClient.Resource(scaledObjectGVR).Namespace(namespace).Get(ctx, scaledObjectName(name), metav1.GetOptions{})
+	switch {
+	case err == nil:
+		return fn.ValidateScalerSwitch(fn.ScalerTypeKafka, fn.ScalerTypeHTTP)
+	case k8serrors.IsNotFound(err) || meta.IsNoMatchError(err):
+		return nil
+	default:
+		return fmt.Errorf("unable to check for an existing kafka scaler on function %q: %w", name, err)
+	}
+}
+
+// needsTriggerAuth returns true when the Kafka config uses SASL or TLS with
+// secrets that must be referenced via a TriggerAuthentication.
+func needsTriggerAuth(kafka *fn.KafkaConfig) bool {
+	if kafka == nil {
+		return false
+	}
+	if kafka.SASL != nil && kafka.SASL.Password != "" {
+		return true
+	}
+	if kafka.TLS != nil && (kafka.TLS.CACert != "" || kafka.TLS.ClientCert != "" || kafka.TLS.ClientKey != "") {
+		return true
+	}
+	return false
+}
+
+// parseSecretRef extracts the secret name and key from a {{ secret:name:key }}
+// reference. Returns empty strings if the value is not a secret reference.
+// Uses fn.TemplateRefPattern -- the same pattern fn.Function.Validate and
+// pkg/k8s/deployer.go's env wiring match against -- so a malformed
+// {{ ... }} value is treated the same way everywhere instead of being
+// accepted here via ad-hoc trim/split and looked up as a mismatched secret.
+func parseSecretRef(value string) (secretName, secretKey string) {
+	matches := fn.TemplateRefPattern.FindStringSubmatch(value)
+	if matches == nil || matches[1] != "secret" {
+		return
+	}
+	return matches[2], matches[3]
+}
+
+// validateKafkaTLSPaths checks that any explicitly-configured
+// run.kafka.tls path (caCert/clientCert/clientKey) resolves to a
+// configured volume. Deliberately depends only on kafka/volumes -- no
+// live deployment object -- so it can run as a Deploy preflight guard,
+// before the raw Deployment/Service exist, and not just inside
+// buildTriggerAuth once one does.
+func validateKafkaTLSPaths(kafka *fn.KafkaConfig, volumes []fn.Volume) error {
+	if kafka == nil || kafka.TLS == nil {
+		return nil
+	}
+	if kafka.TLS.CACert != "" {
+		if name, _ := k8s.FindSecretForPath(kafka.TLS.CACert, volumes); name == "" {
+			return fmt.Errorf("run.kafka.tls.caCert %q does not match any configured volume", kafka.TLS.CACert)
+		}
+	}
+	if kafka.TLS.ClientCert != "" {
+		if name, _ := k8s.FindSecretForPath(kafka.TLS.ClientCert, volumes); name == "" {
+			return fmt.Errorf("run.kafka.tls.clientCert %q does not match any configured volume", kafka.TLS.ClientCert)
+		}
+	}
+	if kafka.TLS.ClientKey != "" {
+		if name, _ := k8s.FindSecretForPath(kafka.TLS.ClientKey, volumes); name == "" {
+			return fmt.Errorf("run.kafka.tls.clientKey %q does not match any configured volume", kafka.TLS.ClientKey)
+		}
+	}
+	return nil
+}
+
+// kafkaSidecarContainerName returns the name of the Kafka runtime sidecar in
+// the deployment. KEDA's env-based SASL auth reads KAFKA_SASL_USER /
+// KAFKA_SASL_PASSWORD from the container that actually carries them, which --
+// since the sidecar owns all Kafka handling -- is the runtime sidecar, not
+// user-container. Returns an error (rather than panicking) when the sidecar is
+// absent so a pod template without it fails cleanly instead of pointing KEDA at
+// a container that never receives the credentials.
+func kafkaSidecarContainerName(deployment *v1.Deployment) (string, error) {
+	for _, c := range deployment.Spec.Template.Spec.Containers {
+		if c.Name == k8s.KafkaSidecarName {
+			return c.Name, nil
+		}
+	}
+	return "", fmt.Errorf("deployment %q has no %q container; cannot resolve the Kafka SASL env var reference", deployment.Name, k8s.KafkaSidecarName)
+}
+
+// buildTriggerAuth creates the unstructured TriggerAuthentication for Kafka
+// SASL/TLS. Returns a non-nil error when a TLS path is explicitly
+// configured but doesn't resolve to any configured volume -- distinct from
+// a field that was never set at all, which is silently skipped.
+func buildTriggerAuth(f fn.Function, deployment *v1.Deployment, namespace string) (*unstructured.Unstructured, error) {
+	kafka := f.Run.Kafka
+	if kafka == nil {
+		return nil, nil
+	}
+	if err := validateKafkaTLSPaths(kafka, f.Run.Volumes); err != nil {
+		return nil, err
+	}
+	// The plaintext/configMap SASL branches below point KEDA at an env var by
+	// name on a specific container. Those env vars (KAFKA_SASL_USER /
+	// KAFKA_SASL_PASSWORD) are set on the Kafka runtime sidecar, not on
+	// user-container -- the sidecar owns all Kafka handling -- so KEDA must read
+	// them there. Resolve the sidecar's name up front; the env-ref branches fail
+	// if it is absent, while secret-backed credentials don't need it at all.
+	sidecarName, sidecarErr := kafkaSidecarContainerName(deployment)
+
+	var secretRefs []interface{}
+	var envRefs []interface{}
+
+	if kafka.SASL != nil && kafka.SASL.Password != "" {
+		secretName, secretKey := parseSecretRef(kafka.SASL.Password)
+		if secretName != "" {
+			secretRefs = append(secretRefs, map[string]interface{}{
+				"parameter": "password",
+				"name":      secretName,
+				"key":       secretKey,
+			})
+		} else {
+			// Plaintext value: ends up as a literal KAFKA_SASL_PASSWORD env var
+			// on the Kafka runtime sidecar. A {{ configMap:... }} reference
+			// ends up as a KAFKA_SASL_PASSWORD env var too, but backed by a
+			// ConfigMapKeyRef instead of a literal value (see
+			// appendKafkaEnvValue in pkg/k8s/deployer.go). Either way the env
+			// var name is the same, so point KEDA at that name on the sidecar
+			// instead of a secretTargetRef. Plaintext is allowed here, at least
+			// for debugging purposes -- func doesn't force SASL credentials
+			// through Secrets.
+			if sidecarErr != nil {
+				return nil, sidecarErr
+			}
+			envRefs = append(envRefs, map[string]interface{}{
+				"parameter":     "password",
+				"name":          "KAFKA_SASL_PASSWORD",
+				"containerName": sidecarName,
+			})
+		}
+
+		if kafka.SASL.User != "" {
+			userName, userKey := parseSecretRef(kafka.SASL.User)
+			if userName != "" {
+				secretRefs = append(secretRefs, map[string]interface{}{
+					"parameter": "username",
+					"name":      userName,
+					"key":       userKey,
+				})
+			} else {
+				if sidecarErr != nil {
+					return nil, sidecarErr
+				}
+				envRefs = append(envRefs, map[string]interface{}{
+					"parameter":     "username",
+					"name":          "KAFKA_SASL_USER",
+					"containerName": sidecarName,
+				})
+			}
+		}
+	}
+
+	if kafka.TLS != nil && kafka.TLS.CACert != "" {
+		caSecretName, caKey := k8s.FindSecretForPath(kafka.TLS.CACert, f.Run.Volumes)
+		if caSecretName == "" {
+			return nil, fmt.Errorf("run.kafka.tls.caCert %q does not match any configured volume", kafka.TLS.CACert)
+		}
+		secretRefs = append(secretRefs, map[string]interface{}{
+			"parameter": "ca",
+			"name":      caSecretName,
+			"key":       caKey,
+		})
+	}
+
+	if kafka.TLS != nil && kafka.TLS.ClientCert != "" {
+		certSecretName, certKey := k8s.FindSecretForPath(kafka.TLS.ClientCert, f.Run.Volumes)
+		if certSecretName == "" {
+			return nil, fmt.Errorf("run.kafka.tls.clientCert %q does not match any configured volume", kafka.TLS.ClientCert)
+		}
+		secretRefs = append(secretRefs, map[string]interface{}{
+			"parameter": "cert",
+			"name":      certSecretName,
+			"key":       certKey,
+		})
+	}
+
+	if kafka.TLS != nil && kafka.TLS.ClientKey != "" {
+		keySecretName, keyKey := k8s.FindSecretForPath(kafka.TLS.ClientKey, f.Run.Volumes)
+		if keySecretName == "" {
+			return nil, fmt.Errorf("run.kafka.tls.clientKey %q does not match any configured volume", kafka.TLS.ClientKey)
+		}
+		secretRefs = append(secretRefs, map[string]interface{}{
+			"parameter": "key",
+			"name":      keySecretName,
+			"key":       keyKey,
+		})
+	}
+
+	if len(secretRefs) == 0 && len(envRefs) == 0 {
+		return nil, nil
+	}
+
+	spec := map[string]interface{}{}
+	if len(secretRefs) > 0 {
+		spec["secretTargetRef"] = secretRefs
+	}
+	if len(envRefs) > 0 {
+		spec["env"] = envRefs
+	}
+
+	ta := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "keda.sh/v1alpha1",
+			"kind":       "TriggerAuthentication",
+			"metadata": map[string]interface{}{
+				"name":      triggerAuthName(f.Name),
+				"namespace": namespace,
+				"ownerReferences": []interface{}{
+					map[string]interface{}{
+						// blockOwnerDeletion deliberately omitted: it only
+						// takes effect for foreground cascading deletion
+						// (unused here), but makes the
+						// OwnerReferencesPermissionEnforcement admission
+						// plugin require update on the owner's finalizers
+						// subresource -- a grant the deploying/pipeline
+						// service account doesn't hold by default, so the
+						// create is rejected outright on OpenShift, which
+						// enables that plugin (KinD doesn't). Same reasoning
+						// as the Service owner reference in
+						// pkg/k8s/deployer.go.
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
+						"name":       deployment.Name,
+						"uid":        string(deployment.UID),
+						"controller": true,
+					},
+				},
+			},
+			"spec": spec,
+		},
+	}
+
+	return ta, nil
+}
+
+// kedaSASLType maps func.yaml SASL mechanism names to KEDA trigger metadata values.
+func kedaSASLType(mechanism string) string {
+	switch mechanism {
+	case "SCRAM-SHA-256":
+		return "scram_sha256"
+	case "SCRAM-SHA-512":
+		return "scram_sha512"
+	case "PLAIN":
+		return "plaintext"
+	default:
+		return ""
+	}
+}
+
+// buildScaledObject creates the unstructured ScaledObject for Kafka consumer-lag scaling.
+func buildScaledObject(f fn.Function, trigger fn.KEDATrigger, deployment *v1.Deployment, namespace string, minScale, maxScale int32) *unstructured.Unstructured {
+	kafka := f.Run.Kafka
+	if kafka == nil {
+		return nil
+	}
+
+	lagThreshold := int64(10)
+	if trigger.LagThreshold != nil {
+		lagThreshold = *trigger.LagThreshold
+	}
+
+	triggerMeta := map[string]interface{}{
+		"bootstrapServers": kafka.Brokers,
+		"consumerGroup":    kafka.ConsumerGroup,
+		"topic":            kafka.Topic,
+		"lagThreshold":     fmt.Sprintf("%d", lagThreshold),
+	}
+
+	if trigger.ActivationLagThreshold != nil {
+		triggerMeta["activationLagThreshold"] = fmt.Sprintf("%d", *trigger.ActivationLagThreshold)
+	}
+
+	if kafka.SecurityProtocol == "SSL" || kafka.SecurityProtocol == "SASL_SSL" {
+		// Enable KEDA's TLS handshake based on securityProtocol, not the
+		// presence of run.kafka.tls: a valid config can set SSL/SASL_SSL and
+		// rely on the system's CA trust store, with no explicit tls block at
+		// all. Gating on kafka.TLS != nil would leave KEDA attempting a
+		// plaintext connection for that config.
+		triggerMeta["tls"] = "enable"
+
+		if kafka.TLS != nil && kafka.TLS.SkipVerify {
+			// SkipVerify is propagated to the function's own container (see
+			// pkg/functions/runner.go), but KEDA's scaler connects to the
+			// broker independently -- without this, a self-signed broker
+			// lets the app's consumer connect while the scaler's own TLS
+			// handshake fails and the ScaledObject never scales, silently.
+			triggerMeta["unsafeSsl"] = "true"
+		}
+	}
+
+	if kafka.SecurityProtocol == "SASL_PLAINTEXT" || kafka.SecurityProtocol == "SASL_SSL" {
+		// Gate sasl on securityProtocol, mirroring func-go's Kafka runtime,
+		// which enables SASL from KAFKA_SECURITY_PROTOCOL rather than the
+		// presence of a sasl block -- and matching the tls gate above. The
+		// scaler reads the same EffectiveMechanism the function's container is
+		// wired with, so the two authenticate identically; gating on a non-empty
+		// mechanism instead would leave the scaler connecting without SASL while
+		// the function does, failing its lag reads. Validation ties a SASL_*
+		// protocol to a sasl block, but guard the deref for a direct Deploy
+		// caller that bypasses it. kedaSASLType returns "" only for a mechanism
+		// validation already rejects; skip the key in that defensive case rather
+		// than emitting an empty sasl value.
+		if kafka.SASL != nil {
+			if saslType := kedaSASLType(kafka.SASL.EffectiveMechanism()); saslType != "" {
+				triggerMeta["sasl"] = saslType
+			}
+		}
+	}
+
+	triggerSpec := map[string]interface{}{
+		"type":     "kafka",
+		"metadata": triggerMeta,
+	}
+
+	if needsTriggerAuth(kafka) {
+		triggerSpec["authenticationRef"] = map[string]interface{}{
+			"name": triggerAuthName(f.Name),
+		}
+	}
+
+	so := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "keda.sh/v1alpha1",
+			"kind":       "ScaledObject",
+			"metadata": map[string]interface{}{
+				"name":      scaledObjectName(f.Name),
+				"namespace": namespace,
+				"ownerReferences": []interface{}{
+					map[string]interface{}{
+						// blockOwnerDeletion deliberately omitted: it only
+						// takes effect for foreground cascading deletion
+						// (unused here), but makes the
+						// OwnerReferencesPermissionEnforcement admission
+						// plugin require update on the owner's finalizers
+						// subresource -- a grant the deploying/pipeline
+						// service account doesn't hold by default, so the
+						// create is rejected outright on OpenShift, which
+						// enables that plugin (KinD doesn't). Same reasoning
+						// as the Service owner reference in
+						// pkg/k8s/deployer.go.
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
+						"name":       deployment.Name,
+						"uid":        string(deployment.UID),
+						"controller": true,
+					},
+				},
+			},
+			"spec": buildScaledObjectSpec(f, deployment.Name, minScale, maxScale, triggerSpec),
+		},
+	}
+
+	return so
+}
+
+func buildScaledObjectSpec(f fn.Function, deploymentName string, minScale, maxScale int32, triggerSpec map[string]interface{}) map[string]interface{} {
+	cooldown := int64(300)
+	polling := int64(30)
+	if f.Scale != nil && f.Scale.KEDA != nil {
+		if f.Scale.KEDA.CooldownPeriod != nil {
+			cooldown = int64(*f.Scale.KEDA.CooldownPeriod)
+		}
+		if f.Scale.KEDA.PollingInterval != nil {
+			polling = int64(*f.Scale.KEDA.PollingInterval)
+		}
+	}
+
+	return map[string]interface{}{
+		"scaleTargetRef": map[string]interface{}{
+			"kind": "Deployment",
+			"name": deploymentName,
+		},
+		"minReplicaCount": int64(minScale),
+		"maxReplicaCount": int64(maxScale),
+		"cooldownPeriod":  cooldown,
+		"pollingInterval": polling,
+		"triggers": []interface{}{
+			triggerSpec,
+		},
+	}
+}
+
+// ensureScaledObject creates or updates a KEDA ScaledObject for Kafka scaling.
+func ensureScaledObject(ctx context.Context, dynClient dynamic.Interface, so *unstructured.Unstructured) error {
+	ns := so.GetNamespace()
+	name := so.GetName()
+	client := dynClient.Resource(scaledObjectGVR).Namespace(ns)
+
+	existing, err := client.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			if _, err := client.Create(ctx, so, metav1.CreateOptions{}); err != nil {
+				return fmt.Errorf("failed to create ScaledObject %s/%s: %w", ns, name, err)
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to get ScaledObject %s/%s: %w", ns, name, err)
+	}
+
+	so.SetResourceVersion(existing.GetResourceVersion())
+	// KEDA attaches its own finalizer to a ScaledObject it's managing; this
+	// Update is a full replace, so without carrying it over, a redeploy
+	// would silently strip it and let a later delete bypass KEDA's cleanup
+	// ordering (see the note on this in kafka_scaling_int_test.go).
+	so.SetFinalizers(existing.GetFinalizers())
+	if _, err := client.Update(ctx, so, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update ScaledObject %s/%s: %w", ns, name, err)
+	}
+	return nil
+}
+
+// ensureTriggerAuth creates or updates a KEDA TriggerAuthentication.
+func ensureTriggerAuth(ctx context.Context, dynClient dynamic.Interface, ta *unstructured.Unstructured) error {
+	ns := ta.GetNamespace()
+	name := ta.GetName()
+	client := dynClient.Resource(triggerAuthGVR).Namespace(ns)
+
+	existing, err := client.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			if _, err := client.Create(ctx, ta, metav1.CreateOptions{}); err != nil {
+				return fmt.Errorf("failed to create TriggerAuthentication %s/%s: %w", ns, name, err)
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to get TriggerAuthentication %s/%s: %w", ns, name, err)
+	}
+
+	ta.SetResourceVersion(existing.GetResourceVersion())
+	// Same reasoning as ensureScaledObject: preserve KEDA's own finalizer
+	// across this full-replace Update instead of silently dropping it.
+	ta.SetFinalizers(existing.GetFinalizers())
+	if _, err := client.Update(ctx, ta, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update TriggerAuthentication %s/%s: %w", ns, name, err)
+	}
+	return nil
+}
+
+// deleteScaledObject removes a ScaledObject if it exists. A nil return
+// means the delete was accepted, not that the object is actually gone yet:
+// KEDA attaches its own finalizer to this resource, so removal completes
+// asynchronously once KEDA's controller processes it. Callers that
+// immediately create a replacement scaler accept this as a rare,
+// self-correcting race rather than polling for actual removal here.
+func deleteScaledObject(ctx context.Context, dynClient dynamic.Interface, ns, name string) error {
+	client := dynClient.Resource(scaledObjectGVR).Namespace(ns)
+	err := client.Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete ScaledObject %s/%s: %w", ns, name, err)
+	}
+	return nil
+}
+
+// deleteTriggerAuth removes a TriggerAuthentication if it exists. Same
+// finalizer/async-removal caveat as deleteScaledObject.
+func deleteTriggerAuth(ctx context.Context, dynClient dynamic.Interface, ns, name string) error {
+	client := dynClient.Resource(triggerAuthGVR).Namespace(ns)
+	err := client.Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete TriggerAuthentication %s/%s: %w", ns, name, err)
+	}
+	return nil
+}

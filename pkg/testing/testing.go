@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -224,6 +225,67 @@ func WithExecutable(t *testing.T, name, goSrc string) {
 		t.Log(string(o))
 		t.Fatal(err)
 	}
+}
+
+// ServeGitRepository serves over HTTP, as ServeRepo does, a new repository
+// with one commit per branch. branches maps a branch name to the files that
+// commit writes (slash-separated path to content); main is created first,
+// with its files or none, is the default branch, and every other branch
+// starts from main. Returned are the repository's URL and the head of each
+// branch as a full hash. Requires the git binary.
+func ServeGitRepository(t *testing.T, branches map[string]map[string]string) (url string, heads map[string]string) {
+	t.Helper()
+	root := t.TempDir()
+	work := filepath.Join(t.TempDir(), "work")
+	if err := os.MkdirAll(work, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	git := func(dir string, args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	commit := func(files map[string]string, msg string) string {
+		t.Helper()
+		for name, content := range files {
+			p := filepath.Join(work, filepath.FromSlash(name))
+			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		git(work, "add", "-A")
+		git(work, "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", msg)
+		return git(work, "rev-parse", "HEAD")
+	}
+
+	git(work, "init", "-q", "-b", "main")
+	heads = map[string]string{"main": commit(branches["main"], "main")}
+	names := make([]string, 0, len(branches))
+	for name := range branches {
+		if name != "main" {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		git(work, "checkout", "-q", "-b", name, "main")
+		heads[name] = commit(branches[name], name)
+	}
+	// The bare clone takes its HEAD, the default branch, from the worktree.
+	git(work, "checkout", "-q", "main")
+	git(root, "clone", "-q", "--bare", work, "repository.git")
+	return RunGitServer(root, t) + "/repository.git", heads
 }
 
 // RunGitServer starts serving git HTTP server and returns its address

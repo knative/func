@@ -4,7 +4,6 @@ package e2e
 
 import (
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -62,7 +61,7 @@ class Function:
 // sendRequest performs a single HTTP GET and returns the body as a string.
 func sendRequest(t *testing.T, url string) string {
 	t.Helper()
-	res, err := http.Get(url)
+	res, err := httpClient(t).Get(url)
 	if err != nil {
 		t.Fatalf("sendRequest GET %s: %v", url, err)
 	}
@@ -110,14 +109,15 @@ func TestCore_InstancedGoHTTP(t *testing.T) {
 	}()
 
 	// Wait for readiness by matching the "request:" PREFIX
-	if !waitFor(t, ksvcUrl(name), withContentMatch("request:")) {
+	url := functionURL(t, name)
+	if !waitFor(t, url, withContentMatch("request:")) {
 		t.Fatal("instanced HTTP function did not become ready")
 	}
 
 	// Dont check for exact match because we poll function first to check if
 	// its live + some health checks send requests too, this is simpler
-	first := requestCount(t, ksvcUrl(name))
-	second := requestCount(t, ksvcUrl(name))
+	first := requestCount(t, url)
+	second := requestCount(t, url)
 	if second <= first {
 		t.Fatalf("instanced counter did not increase across requests (state should persist): first=%d second=%d", first, second)
 	}

@@ -607,16 +607,17 @@ func TestValidateKafka(t *testing.T) {
 			wantErrs: 0,
 		},
 		{
-			name: "non-go runtime",
+			// Kafka is language-agnostic via the sidecar runtime: a non-Go
+			// runtime with a cloudevent invoke is valid.
+			name: "non-go runtime is allowed",
 			kafka: &fn.KafkaConfig{
 				Brokers:       "broker:9092",
 				Topic:         "my-topic",
 				ConsumerGroup: "my-group",
 			},
-			runtime:   "python",
-			invoke:    "cloudevent",
-			wantErrs:  1,
-			wantSubst: "only supported for the Go runtime",
+			runtime:  "python",
+			invoke:   "cloudevent",
+			wantErrs: 0,
 		},
 		{
 			name: "wrong invoke type",
@@ -666,6 +667,201 @@ func TestValidateKafka(t *testing.T) {
 			wantErrs:  3,
 			wantSubst: "required",
 		},
+		{
+			name: "valid SASL_SSL config",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				TLS:              &fn.KafkaTLS{CACert: "/etc/kafka/ca/ca.crt"},
+				SASL:             &fn.KafkaSASL{Mechanism: "SCRAM-SHA-512", User: "u", Password: "p"},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
+		{
+			name: "valid SSL config",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SSL",
+				TLS:              &fn.KafkaTLS{CACert: "/etc/kafka/ca/ca.crt"},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
+		{
+			name: "invalid security protocol",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9092",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "BOGUS",
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "securityProtocol must be one of",
+		},
+		{
+			name: "tls without SSL protocol",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9092",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "PLAINTEXT",
+				TLS:              &fn.KafkaTLS{CACert: "/ca.crt"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.tls requires securityProtocol SSL or SASL_SSL",
+		},
+		{
+			name: "sasl without SASL protocol",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9092",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: "p"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.sasl requires securityProtocol SASL_PLAINTEXT or SASL_SSL",
+		},
+		{
+			name: "invalid SASL mechanism",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9092",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "OAUTHBEARER"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "sasl.mechanism must be one of",
+		},
+		{
+			// An empty mechanism is accepted: EffectiveMechanism resolves it to
+			// PLAIN for both the container env and the keda scaler, so the two
+			// agree with nothing set. This matches a plain SASL/PLAIN broker that
+			// a raw or knative deploy consumed from before scale.keda landed.
+			name: "empty SASL mechanism defaults to PLAIN",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9092",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{User: "u", Password: "p"},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
+		{
+			name: "TLS clientCert without clientKey",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SSL",
+				TLS:              &fn.KafkaTLS{CACert: "/ca.crt", ClientCert: "/client.crt"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "must both be set or both be empty",
+		},
+		{
+			name: "TLS clientKey without clientCert",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SSL",
+				TLS:              &fn.KafkaTLS{CACert: "/ca.crt", ClientKey: "/client.key"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "must both be set or both be empty",
+		},
+		{
+			name: "malformed secret ref in SASL password",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: "{{ secret:s:k }}extra"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "invalid reference format",
+		},
+		{
+			name: "malformed secret ref with trailing braces in SASL password",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: "{{ secret:s:k }}junk}}"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "invalid reference format",
+		},
+		{
+			name: "SASL protocol without sasl block",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.sasl is required",
+		},
+		{
+			name: "SASL with empty user",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "", Password: "p"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.sasl.user is required",
+		},
+		{
+			name: "SASL with empty password",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: ""},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "run.kafka.sasl.password is required",
+		},
+		{
+			name: "valid secret ref in SASL password",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				TLS:              &fn.KafkaTLS{CACert: "/ca.crt"},
+				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: "{{ secret:my-user:password }}"},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -696,6 +892,25 @@ func TestValidateKafka(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestKafkaSASL_EffectiveMechanism verifies an unset mechanism resolves to
+// PLAIN while an explicit value passes through unchanged, so the container env
+// and the keda scaler read one agreed value rather than each re-deriving the
+// default.
+func TestKafkaSASL_EffectiveMechanism(t *testing.T) {
+	tests := map[string]string{
+		"":              "PLAIN",
+		"PLAIN":         "PLAIN",
+		"SCRAM-SHA-256": "SCRAM-SHA-256",
+		"SCRAM-SHA-512": "SCRAM-SHA-512",
+	}
+	for in, want := range tests {
+		s := fn.KafkaSASL{Mechanism: in}
+		if got := s.EffectiveMechanism(); got != want {
+			t.Errorf("EffectiveMechanism() with Mechanism=%q = %q, want %q", in, got, want)
+		}
 	}
 }
 

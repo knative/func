@@ -135,7 +135,7 @@ func TestMetadata_Envs_Add(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, functionURL(t, name)) {
 		t.Fatal("handler failed")
 	}
 }
@@ -193,7 +193,8 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name)) {
+	url := functionURL(t, name)
+	if !waitFor(t, url) {
 		t.Fatal("handler failed")
 	}
 
@@ -230,7 +231,7 @@ func TestMetadata_Envs_Remove(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, url) {
 		t.Fatal("handler failed")
 	}
 }
@@ -267,7 +268,7 @@ func TestMetadata_Labels_Add(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, functionURL(t, name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 
@@ -317,7 +318,8 @@ func TestMetadata_Labels_Remove(t *testing.T) {
 	defer func() {
 		clean(t, name, Namespace)
 	}()
-	if !waitFor(t, ksvcUrl(name)) {
+	url := functionURL(t, name)
+	if !waitFor(t, url) {
 		t.Fatal("function did not deploy correctly")
 	}
 
@@ -349,7 +351,7 @@ func TestMetadata_Labels_Remove(t *testing.T) {
 	if err := newCmd(t, "deploy").Run(); err != nil {
 		t.Fatal(err)
 	}
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, url) {
 		t.Fatal("function did not redeploy correctly")
 	}
 
@@ -495,7 +497,8 @@ func (f *Function) Handle(w http.ResponseWriter, _ *http.Request) {
 	}()
 
 	// Verify the function has access to all volumes
-	if !waitFor(t, ksvcUrl(name)) {
+	url := functionURL(t, name)
+	if !waitFor(t, url) {
 		t.Fatal("function failed to access volumes correctly")
 	}
 
@@ -557,7 +560,7 @@ func (f *Function) Handle(w http.ResponseWriter, _ *http.Request) {
 		t.Fatal(err)
 	}
 
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, url) {
 		t.Fatal("function failed after volume removal")
 	}
 }
@@ -586,9 +589,7 @@ func TestMetadata_Subscriptions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	subscribeCmd := exec.Command(Bin, "subscribe", "--filter", "type=test.event")
-	subscribeCmd.Stdout, subscribeCmd.Stderr = os.Stdout, os.Stderr
-	if err := subscribeCmd.Run(); err != nil {
+	if err := newCmd(t, "subscribe", "--filter", "type=test.event").Run(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -627,9 +628,9 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 
 	uniqueEventID := fmt.Sprintf("e2e-test-%d", time.Now().UnixNano())
 
-	// The recorder is deployed via Knative (public URL) regardless of the
-	// subscriber's deployer — the test runner reaches the recorder over its
-	// external URL while the raw-deployed subscriber reaches it over its
+	// The recorder is deployed with the default deployer regardless of the
+	// subscriber's. The test runner reaches the recorder at its described
+	// route while the raw-deployed subscriber reaches it over its
 	// cluster-internal URL.
 	rec := deployRecorder(t, "func-e2e-test-recorder-raw")
 
@@ -647,9 +648,7 @@ func TestMetadata_Subscriptions_Raw(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	subscribeCmd := exec.Command(Bin, "subscribe", "--filter", "type=test.event")
-	subscribeCmd.Stdout, subscribeCmd.Stderr = os.Stdout, os.Stderr
-	if err := subscribeCmd.Run(); err != nil {
+	if err := newCmd(t, "subscribe", "--filter", "type=test.event").Run(); err != nil {
 		t.Fatal(err)
 	}
 

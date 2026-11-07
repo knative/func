@@ -894,8 +894,8 @@ func TestExpose_RemoteKedaRoute(t *testing.T) {
 }
 
 // liveInterceptorNamespace is where the interceptor Service actually is:
-// openshift-keda on CMA, keda on the upstream chart. Skip if neither answers;
-// this test has nothing to say without an interceptor.
+// openshift-keda on CMA, keda on the upstream chart. Fail if neither answers,
+// as the other keda Route tests do without keda.
 func liveInterceptorNamespace(t *testing.T) string {
 	t.Helper()
 	// Same Service keda.interceptorNamespace looks for.
@@ -910,7 +910,7 @@ func liveInterceptorNamespace(t *testing.T) string {
 			return ns
 		}
 	}
-	t.Skip("keda interceptor Service not found in openshift-keda or keda")
+	t.Fatal("keda interceptor Service not found in openshift-keda or keda")
 	return ""
 }
 

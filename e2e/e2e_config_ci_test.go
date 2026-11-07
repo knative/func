@@ -47,7 +47,7 @@ func TestConfigCI_DeployFuncViaGeneratedGitHubWorkflow(t *testing.T) {
 
 			runGitHubWorkflow(t, root)
 
-			if !waitFor(t, ksvcUrl(name)) {
+			if !waitFor(t, functionURL(t, name)) {
 				t.Fatal("deployed function not reachable")
 			}
 		})

@@ -107,7 +107,7 @@ spec:
     - name: gitRepository
       value: "{{.RepoUrl}}"
     - name: gitRevision
-      value: {{.Revision}}
+      value: {{printf "%q" .Revision}}
     - name: contextDir
       value: "{{.ContextDir}}"
     - name: imageName
@@ -134,9 +134,14 @@ spec:
       persistentVolumeClaim:
         claimName: {{.PvcName}}
       subPath: cache
+    {{- if .SecretName}}
     - name: dockerconfig-workspace
       secret:
         secretName: {{.SecretName}}
+        items:
+          - key: .dockerconfigjson
+            path: config.json
+    {{- end}}
 `
 	// packRunTemplatePAC contains the Buildpacks template used for the Tekton PAC PipelineRun
 	packRunTemplatePAC = `
@@ -155,6 +160,9 @@ metadata:
 
     # The branch or tag we are targeting (ie: main, refs/tags/*)
     pipelinesascode.tekton.dev/on-target-branch: "[{{.PipelinesTargetBranch}}]"
+
+    # Fetch the pipeline definition from the .tekton directory
+    pipelinesascode.tekton.dev/pipeline: {{.PipelineYamlURL}}
 
     # How many runs we want to keep attached to this event
     pipelinesascode.tekton.dev/max-keep-runs: "5"

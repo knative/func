@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -131,6 +132,11 @@ func TestResource_Help(t *testing.T) {
 			wantArgs: []string{"delete", "--help"},
 		},
 		{
+			name:     "run help",
+			uri:      "func://help/run",
+			wantArgs: []string{"run", "--help"},
+		},
+		{
 			name:     "config volumes help",
 			uri:      "func://help/config/volumes",
 			wantArgs: []string{"config", "volumes", "--help"},
@@ -210,6 +216,42 @@ func TestResource_Help(t *testing.T) {
 				t.Fatal("executor was not invoked")
 			}
 		})
+	}
+}
+
+// TestResource_HelpInstructionsRegistered verifies that every help resource
+// URI referenced in the server instructions is actually registered, so an
+// agent following the instructions never hits "resource not found".
+func TestResource_HelpInstructionsRegistered(t *testing.T) {
+	client, _, err := newTestPair(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	listed, err := client.ListResources(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registered := make(map[string]bool, len(listed.Resources))
+	for _, r := range listed.Resources {
+		registered[r.URI] = true
+	}
+
+	// Both the readonly and non-readonly instructions must be covered.
+	re := regexp.MustCompile(`func://help(?:/[a-z0-9-]+)*`)
+	for name, text := range map[string]string{
+		"instructions":          instructionsBody,
+		"readonly instructions": readonlyWarning + instructionsBody,
+	} {
+		uris := re.FindAllString(text, -1)
+		if len(uris) == 0 {
+			t.Fatalf("%s: no func://help URIs found; is the pattern stale?", name)
+		}
+		for _, uri := range uris {
+			if !registered[uri] {
+				t.Errorf("%s references %q, which is not a registered resource", name, uri)
+			}
+		}
 	}
 }
 

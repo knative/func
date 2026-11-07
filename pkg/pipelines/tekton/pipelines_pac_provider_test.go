@@ -70,7 +70,7 @@ func Test_deleteAllPipelineTemplates(t *testing.T) {
 	}
 
 	f.Build.Builder = builders.Pack
-	f.Build.Git.URL = "https://foo.bar/repo/function"
+	f.Build.Source.URL = "https://foo.bar/repo/function"
 	f.Image = "docker.io/alice/" + f.Name
 	f.Registry = TestRegistry
 

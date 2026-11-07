@@ -389,6 +389,21 @@ func newDataTarball(root, target string, ignored []string, verbose bool) error {
 		header.Name = slashpath.Join("/func", filepath.ToSlash(relPath))
 		header.Uid = DefaultUid
 		header.Gid = DefaultGid
+		// Normalize permissions so the image works on platforms that run
+		// containers with an arbitrary UID (e.g. OpenShift's restricted SCC).
+		// The on-disk mode is not portable: e.g. a project directory created
+		// under a stricter umask can be non-traversable by group/other, which
+		// would make /func (and thus /func/f) inaccessible to any UID other
+		// than the image's configured one. Directories and executables get
+		// 0755, regular files 0644. Symlink modes are not meaningful and are
+		// left untouched.
+		if info.Mode()&fs.ModeSymlink == 0 {
+			if info.IsDir() || info.Mode()&0o111 != 0 {
+				header.Mode = (header.Mode & ^int64(fs.ModePerm)) | 0o755
+			} else {
+				header.Mode = (header.Mode & ^int64(fs.ModePerm)) | 0o644
+			}
+		}
 
 		if err := tw.WriteHeader(header); err != nil {
 			return err
@@ -510,6 +525,9 @@ func newCertsTarball(source, target string, verbose bool) error {
 		header.Name = path
 		header.Uid = DefaultUid
 		header.Gid = DefaultGid
+		// Certs must be world-readable so any UID can read them (see the
+		// arbitrary-UID note in newDataTarball).
+		header.Mode = (header.Mode & ^int64(fs.ModePerm)) | 0o644
 
 		if err := tw.WriteHeader(header); err != nil {
 			return err

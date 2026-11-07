@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,20 +17,34 @@ var unknownFieldsOnce sync.Once
 // version of the function.  It is the caller's responsibility to
 // .Write() the function to persist to disk. Additionally it will warn on
 // up-to-date spec but wrong func.yaml (eg. extraneous fields)
+//
+// Migrations need the function as it was serialized, which Migrate reads
+// from the func.yaml at f.Root. See migrate for functions without a Root.
 func (f Function) Migrate() (migrated Function, err error) {
+	var raw []byte
+	if f.Root != "" {
+		if raw, err = os.ReadFile(filepath.Join(f.Root, FunctionFile)); err != nil && !os.IsNotExist(err) {
+			return f, err
+		}
+	}
+	return f.migrate(raw)
+}
+
+// migrate applies any necessary migrations to f, whose serialized form (the
+// content of its func.yaml) is raw. Migrations read the previous structure
+// from raw, so a function needs no working tree to be migrated.
+func (f Function) migrate(raw []byte) (migrated Function, err error) {
 	// Return immediately if the function indicates it has already been
 	// migrated.
 	if f.Migrated() {
-		// Already at the latest spec — check for unknown fields
-		if f.Root != "" {
-			if bb, readErr := os.ReadFile(filepath.Join(f.Root, FunctionFile)); readErr == nil {
-				unknownFieldsOnce.Do(func() {
-					var strict Function
-					if strictErr := yaml.UnmarshalStrict(bb, &strict); strictErr != nil {
-						fmt.Fprintf(os.Stderr, "Warning (unknown fields will be ignored):\n %v\n.\n", formatUnmarshalError(strictErr))
-					}
-				})
-			}
+		// Already at the latest spec: check for unknown fields
+		if raw != nil {
+			unknownFieldsOnce.Do(func() {
+				var strict Function
+				if strictErr := yaml.UnmarshalStrict(raw, &strict); strictErr != nil {
+					fmt.Fprintf(os.Stderr, "Warning (unknown fields will be ignored):\n %v\n.\n", formatUnmarshalError(strictErr))
+				}
+			})
 		}
 		return f, nil
 	}
@@ -45,7 +58,7 @@ func (f Function) Migrate() (migrated Function, err error) {
 		}
 		// Apply this migration when the function's specVersion is less than that which
 		// the migration will impart.
-		migrated, err = m.migrate(migrated, m)
+		migrated, err = m.migrate(migrated, raw, m)
 		if err != nil {
 			return // fail fast on any migration errors
 		}
@@ -61,7 +74,20 @@ type migration struct {
 }
 
 // migrator is a function which returns a migrated copy of an inbound function.
-type migrator func(Function, migration) (Function, error)
+// It receives the function's serialized form to read the previous structure.
+type migrator func(f Function, raw []byte, m migration) (Function, error)
+
+// unmarshalPrevious loads the pertinent parts of a previous schema version
+// from the serialized function raw, on behalf of the named migration.
+func unmarshalPrevious(raw []byte, migration string, previous interface{}) error {
+	if raw == nil {
+		return fmt.Errorf("migration '%s' error: the serialized function is required", migration)
+	}
+	if err := yaml.Unmarshal(raw, previous); err != nil {
+		return fmt.Errorf("migration '%s' error: %w", migration, err)
+	}
+	return nil
+}
 
 // Migrated returns whether the function has been migrated to the highest
 // level the currently executing system is aware of (or beyond).
@@ -99,6 +125,8 @@ var migrations = []migration{
 	{"0.34.0", migrateToSpecsStructure},
 	{"0.35.0", migrateFromInvokeStructure},
 	{"0.36.0", migratePersistentVolumeTypoFixup},
+	{"0.37.0", migrateGitToSource},
+	{"0.38.0", migrateScaleToTopLevel},
 	// New Migrations Here.
 }
 
@@ -125,7 +153,7 @@ var migrations = []migration{
 // created stamp.  Otherwise, this is an in-memory (new) function that is
 // currently in the process of being created and as such need not be mutated
 // to consider this migration having been evaluated.
-func migrateToCreationStamp(f Function, m migration) (Function, error) {
+func migrateToCreationStamp(f Function, _ []byte, m migration) (Function, error) {
 	// For functions with no creation timestamp, but appear to have been pre-
 	// existing, populate their created stamp and version.
 	// Yes, it's a little gnarly, but bootstrapping into the loveliness of a
@@ -172,16 +200,11 @@ func migrateToCreationStamp(f Function, m migration) (Function, error) {
 // a customized builder image, that value is preserved as the builder image
 // for the 'pack' builder in the new version (s2i did not exist prior).
 // See associated unit tests.
-func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
+func migrateToBuilderImages(f1 Function, raw []byte, m migration) (Function, error) {
 	// Load the function using pertinent parts of the previous version's schema:
-	f0Filename := filepath.Join(f1.Root, FunctionFile)
-	bb, err := os.ReadFile(f0Filename)
-	if err != nil {
-		return f1, errors.New("migration 'migrateToBuilderImages' error: " + err.Error())
-	}
 	f0 := migrateToBuilderImages_previousFunction{}
-	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f1, errors.New("migration 'migrateToBuilderImages' error: " + err.Error())
+	if err := unmarshalPrevious(raw, "migrateToBuilderImages", &f0); err != nil {
+		return f1, err
 	}
 
 	// At time of this migration, the default pack builder image for all language
@@ -205,18 +228,11 @@ func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
 
 // migrateToSpecVersion updates a func.yaml file to use SpecVersion
 // instead of Version to track the migration numbers
-func migrateToSpecVersion(f Function, m migration) (Function, error) {
+func migrateToSpecVersion(f Function, raw []byte, m migration) (Function, error) {
 	// Load the function func.yaml file
-	f0Filename := filepath.Join(f.Root, FunctionFile)
-	bb, err := os.ReadFile(f0Filename)
-	if err != nil {
-		return f, errors.New("migration 'migrateToSpecVersion' error: " + err.Error())
-	}
-
-	// Only handle the Version field if it exists
 	f0 := migrateToSpecVersion_previousFunction{}
-	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f, errors.New("migration 'migrateToSpecVersion' error: " + err.Error())
+	if err := unmarshalPrevious(raw, "migrateToSpecVersion", &f0); err != nil {
+		return f, err
 	}
 
 	f.SpecVersion = m.version
@@ -226,26 +242,21 @@ func migrateToSpecVersion(f Function, m migration) (Function, error) {
 // migrateToSpecsStructure migration makes sure use the sub-specs structs for build, run and deploy phases.
 // To avoid unmarshalling issues with the old format this migration needs to be executed first.
 // Further migrations will operate on this new struct with sub-specs
-func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
+func migrateToSpecsStructure(f1 Function, raw []byte, m migration) (Function, error) {
 	// Load the Function using pertinent parts of the previous version's schema:
-	f0Filename := filepath.Join(f1.Root, FunctionFile)
-	bb, err := os.ReadFile(f0Filename)
-	if err != nil {
-		return f1, errors.New("migration 'migrateToSpecsStructure' error: " + err.Error())
-	}
 	f0 := migrateToSpecs_previousFunction{}
-	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f1, errors.New("migration 'migrateToSpecsStructure' error: " + err.Error())
+	if err := unmarshalPrevious(raw, "migrateToSpecsStructure", &f0); err != nil {
+		return f1, err
 	}
 
 	if f0.Git.URL != "" {
-		f1.Build.Git.URL = f0.Git.URL
+		f1.Build.Source.URL = f0.Git.URL
 	}
 	if f0.Git.Revision != "" {
-		f1.Build.Git.Revision = f0.Git.Revision
+		f1.Build.Source.Revision = f0.Git.Revision
 	}
 	if f0.Git.ContextDir != "" {
-		f1.Build.Git.ContextDir = f0.Git.ContextDir
+		f1.Build.Source.Dir = f0.Git.ContextDir
 	}
 	//Append BuilderImages from old format, without destroying previous migrations
 	if f0.BuilderImages != nil {
@@ -278,9 +289,9 @@ func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
 		f1.Deploy.Options.Resources = f0.Options.Resources
 	}
 
-	if f0.Options.Scale != nil {
-		f1.Deploy.Options.Scale = f0.Options.Scale
-	}
+	// Any pre-0.34 top-level options.scale is left in the func.yaml for
+	// migrateScaleToTopLevel to read and lift into the top-level scale field;
+	// it is not staged onto Options here (Options no longer carries scale).
 
 	if f0.Labels != nil {
 		f1.Deploy.Labels = append(f1.Deploy.Labels, f0.Labels...)
@@ -305,16 +316,11 @@ func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
 // file. When Invoke now holds default value (http) it will not show up in
 // func.yaml as the default value is implicitly expected. Otherwise if Invoke
 // is non-default value, it will be written in func.yaml.
-func migrateFromInvokeStructure(f1 Function, m migration) (Function, error) {
+func migrateFromInvokeStructure(f1 Function, raw []byte, m migration) (Function, error) {
 	// Load the Function using pertinent parts of the previous version's schema:
-	f0Filename := filepath.Join(f1.Root, FunctionFile)
-	bb, err := os.ReadFile(f0Filename)
-	if err != nil {
-		return f1, errors.New("migration 'migrateFromInvokeStructure' error: " + err.Error())
-	}
 	f0 := migrateFromInvokeStructure_previousFunction{}
-	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f1, errors.New("migration 'migrateFromInvokeStructure' error: " + err.Error())
+	if err := unmarshalPrevious(raw, "migrateFromInvokeStructure", &f0); err != nil {
+		return f1, err
 	}
 
 	if f0.Invocation.Format != "" && f0.Invocation.Format != "http" {
@@ -326,13 +332,7 @@ func migrateFromInvokeStructure(f1 Function, m migration) (Function, error) {
 	return f1, nil
 }
 
-func migratePersistentVolumeTypoFixup(fn Function, m migration) (Function, error) {
-	f, err := os.Open(filepath.Join(fn.Root, FunctionFile))
-	if err != nil {
-		return Function{}, fmt.Errorf("cannot open func.yaml: %w", err)
-	}
-	defer f.Close()
-
+func migratePersistentVolumeTypoFixup(fn Function, raw []byte, m migration) (Function, error) {
 	data := struct {
 		Run struct {
 			Volumes []struct {
@@ -340,11 +340,8 @@ func migratePersistentVolumeTypoFixup(fn Function, m migration) (Function, error
 			} `yaml:"volumes,omitempty"`
 		}
 	}{}
-
-	dec := yaml.NewDecoder(f)
-	err = dec.Decode(&data)
-	if err != nil {
-		return Function{}, fmt.Errorf("cannot deserialize old sub-structure: %w", err)
+	if err := unmarshalPrevious(raw, "migratePersistentVolumeTypoFixup", &data); err != nil {
+		return fn, err
 	}
 
 	for idx, volume := range data.Run.Volumes {
@@ -356,6 +353,140 @@ func migratePersistentVolumeTypoFixup(fn Function, m migration) (Function, error
 	return fn, nil
 }
 
+// migrateGitToSource
+// The repository a function is built from was build.git, with url, revision
+// and contextDir. It is build.source, with url, revision and dir: the flags
+// are --source, --revision and --source-dir, and nothing about the values
+// is specific to git. The old keys are carried over; the next write stores
+// the new ones.
+func migrateGitToSource(fn Function, raw []byte, m migration) (Function, error) {
+	// Before the specs structure (0.34.0), build was the build type as a
+	// string, so the key is read loosely.
+	data := struct {
+		Build interface{} `yaml:"build"`
+	}{}
+	if err := unmarshalPrevious(raw, "migrateGitToSource", &data); err != nil {
+		return fn, err
+	}
+
+	if fn.Build.Source.URL == "" {
+		fn.Build.Source.URL = nestedString(data.Build, "git", "url")
+	}
+	if fn.Build.Source.Revision == "" {
+		fn.Build.Source.Revision = nestedString(data.Build, "git", "revision")
+	}
+	if fn.Build.Source.Dir == "" {
+		fn.Build.Source.Dir = nestedString(data.Build, "git", "contextDir")
+	}
+	fn.SpecVersion = m.version
+	return fn, nil
+}
+
+// nestedString returns the string at the given path of keys within a
+// decoded YAML value, or "" when the path does not lead to a string.
+func nestedString(v interface{}, keys ...string) string {
+	for _, key := range keys {
+		m, ok := v.(map[interface{}]interface{})
+		if !ok {
+			return ""
+		}
+		v = m[key]
+	}
+	s, _ := v.(string)
+	return s
+}
+
+// migrateScaleToTopLevel moves scale config from deploy.options.scale to the
+// top-level scale field and moves the flat metric/target/utilization fields
+// (from pre-0.38.0 func.yaml files) into the kpa sub-key.
+func migrateScaleToTopLevel(f Function, raw []byte, m migration) (Function, error) {
+	// Read the serialized func.yaml to capture pre-migration fields that no
+	// longer deserialize under their current shape: the flat KPA fields
+	// (Metric, Target, Utilization), which no longer exist on ScaleOptions.
+	// Both scale locations are read: the current deploy.options.scale, and the
+	// pre-0.34 top-level options.scale (still in raw when this runs -- see the
+	// fallback below).
+	type oldScale struct {
+		Min         *int64   `yaml:"min,omitempty"`
+		Max         *int64   `yaml:"max,omitempty"`
+		Metric      *string  `yaml:"metric,omitempty"`
+		Target      *float64 `yaml:"target,omitempty"`
+		Utilization *float64 `yaml:"utilization,omitempty"`
+	}
+	type oldOptions struct {
+		Scale *oldScale `yaml:"scale,omitempty"`
+	}
+	type oldDeploy struct {
+		Options oldOptions `yaml:"options,omitempty"`
+	}
+	var disk struct {
+		Deploy  oldDeploy     `yaml:"deploy,omitempty"`
+		Options oldOptions    `yaml:"options,omitempty"`
+		Scale   *ScaleOptions `yaml:"scale,omitempty"`
+	}
+
+	// As before, a func.yaml which cannot be read this way is not an error:
+	// there is then nothing to lift.
+	_ = yaml.Unmarshal(raw, &disk)
+
+	// Prefer the current-spec location (deploy.options.scale). Fall back to the
+	// pre-0.34 top-level options.scale: it is still in raw when this runs,
+	// because each migration reads the original func.yaml and
+	// migrateToSpecsStructure no longer stages that block onto Options
+	// in-memory. Reading it here with oldScale (rather than through the current
+	// ScaleOptions) also recovers the pre-0.34 flat metric/target/utilization
+	// fields, which the specs migration would otherwise drop.
+	old := disk.Deploy.Options.Scale
+	if old == nil {
+		old = disk.Options.Scale
+	}
+
+	if old != nil {
+		newScale := &ScaleOptions{
+			Min: old.Min,
+			Max: old.Max,
+		}
+
+		// Lift the flat metric/target/utilization fields into scale.kpa for
+		// every deployer, without inspecting the deployer. These were only ever
+		// consumed by the knative deployer's setServiceOptions; raw reads only
+		// min and keda only min/max, so both ignore them regardless -- there is
+		// no correctness reason to gate the lift. A scale.kpa left on a
+		// non-knative function is reported as an ignored-with-warning case at
+		// deploy time (see warnScaleKpaIgnore), not dropped here.
+		if old.Metric != nil || old.Target != nil || old.Utilization != nil {
+			newScale.KPA = &KPAScaleOptions{
+				Metric:      old.Metric,
+				Target:      old.Target,
+				Utilization: old.Utilization,
+			}
+		}
+
+		// Only keep a top-level scale if something survived. A newScale with
+		// all-nil fields -- e.g. a deploy.options.scale that was present but
+		// empty -- would otherwise serialize as an empty "scale: {}" block on
+		// the next write.
+		if newScale.Min != nil || newScale.Max != nil || newScale.KPA != nil {
+			f.Scale = newScale
+		}
+	}
+
+	// If there was already a top-level scale in the file (shouldn't happen
+	// in practice, but be defensive), the value in the file wins.
+	if disk.Scale != nil {
+		f.Scale = disk.Scale
+	}
+
+	// The old deploy.options.scale location no longer exists on the Options
+	// struct, so it is dropped from the next write automatically -- nothing to
+	// clear in-memory. deploy.deployer/deploy.expose keep their YAML tags and
+	// are already populated by the primary unmarshal, so this migration leaves
+	// them untouched.
+
+	f.SpecVersion = m.version
+	return f, nil
+}
+
 // The pertinent aspects of the Function's schema prior the 1.0.0 version migrations
 type migrateToSpecs_previousFunction struct {
 
@@ -364,7 +495,11 @@ type migrateToSpecs_previousFunction struct {
 
 	// Git stores information about remote git repository,
 	// in case build type "git" is being used
-	Git Git `yaml:"git"`
+	Git struct {
+		URL        string `yaml:"url"`
+		Revision   string `yaml:"revision"`
+		ContextDir string `yaml:"contextDir"`
+	} `yaml:"git"`
 
 	// BuilderImages define optional explicit builder images to use by
 	// builder implementations in leau of the in-code defaults.  They key

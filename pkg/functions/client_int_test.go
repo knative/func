@@ -149,15 +149,17 @@ func TestInt_Deploy_WithOptions(t *testing.T) {
 	verbose := false
 
 	f := fn.Function{Runtime: "go", Name: "test-deploy-with-options", Root: root, Namespace: DefaultIntTestNamespace}
+	f.Scale = &fn.ScaleOptions{
+		Min: ptr.Int64(1),
+		Max: ptr.Int64(10),
+		KPA: &fn.KPAScaleOptions{
+			Metric:      ptr.String("concurrency"),
+			Target:      ptr.Float64(5),
+			Utilization: ptr.Float64(5),
+		},
+	}
 	f.Deploy = fn.DeploySpec{
 		Options: fn.Options{
-			Scale: &fn.ScaleOptions{
-				Min:         ptr.Int64(1),
-				Max:         ptr.Int64(10),
-				Metric:      ptr.String("concurrency"),
-				Target:      ptr.Float64(5),
-				Utilization: ptr.Float64(5),
-			},
 			Resources: &fn.ResourcesOptions{
 				Requests: &fn.ResourcesRequestsOptions{
 					CPU:    ptr.String("10m"),

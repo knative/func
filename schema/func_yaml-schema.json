@@ -4,10 +4,10 @@
 	"definitions": {
 		"BuildSpec": {
 			"properties": {
-				"git": {
+				"source": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/Git",
-					"description": "Git stores information about an optionally associated git repository."
+					"$ref": "#/definitions/Source",
+					"description": "Source is the repository the function is built from on the cluster,\nwhen it is not the local directory: url, revision and dir."
 				},
 				"builderImages": {
 					"patternProperties": {
@@ -139,6 +139,15 @@
 					],
 					"type": "string",
 					"description": "Expose records the external exposure mode CURRENTLY applied on the\ncluster for raw/keda (observed state). Written after successful deploy,\ncleared on undeploy alongside Namespace and Deployer. Empty means\ncluster-local (or never exposed). User intent lives on Function.Expose."
+				},
+				"scalerType": {
+					"enum": [
+						"http",
+						"kafka",
+						""
+					],
+					"type": "string",
+					"description": "ScalerType records the KEDA scaler CURRENTLY provisioned on the cluster\n(\"http\" or \"kafka\"), observed state written after a successful keda deploy\nand cleared on undeploy alongside Namespace and Deployer. Empty for\ndeployers with no scaler concept. User intent is derived from\nFunction.Scale.KEDA.Triggers. Used by the scaler-switch gate in\nClient.Deploy."
 				}
 			},
 			"additionalProperties": false,
@@ -256,26 +265,16 @@
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/DeploySpec",
 					"description": "Deploy defines the deployment properties for a function"
+				},
+				"scale": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/ScaleOptions",
+					"description": "Scale defines autoscaling configuration for the function."
 				}
 			},
 			"additionalProperties": false,
 			"type": "object",
 			"description": "Function"
-		},
-		"Git": {
-			"properties": {
-				"url": {
-					"type": "string"
-				},
-				"revision": {
-					"type": "string"
-				},
-				"contextDir": {
-					"type": "string"
-				}
-			},
-			"additionalProperties": false,
-			"type": "object"
 		},
 		"HealthEndpoints": {
 			"properties": {
@@ -289,6 +288,83 @@
 			"additionalProperties": false,
 			"type": "object",
 			"description": "HealthEndpoints specify the liveness and readiness endpoints for a Runtime"
+		},
+		"KEDAScaleOptions": {
+			"required": [
+				"triggers"
+			],
+			"properties": {
+				"pollingInterval": {
+					"type": "integer",
+					"description": "How often KEDA checks the trigger in seconds (default 30). Applies only to kafka triggers; it has no effect on an http trigger (which scales from interceptor-reported metrics and has no polling concept).",
+					"minimum": 1
+				},
+				"cooldownPeriod": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"triggers": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/KEDATrigger"
+					},
+					"minItems": 1,
+					"type": "array"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"KEDATrigger": {
+			"required": [
+				"type"
+			],
+			"properties": {
+				"type": {
+					"enum": [
+						"http",
+						"kafka"
+					],
+					"type": "string"
+				},
+				"targetValue": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"lagThreshold": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"activationLagThreshold": {
+					"type": "integer",
+					"minimum": 0
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"KPAScaleOptions": {
+			"properties": {
+				"metric": {
+					"enum": [
+						"concurrency",
+						"rps"
+					],
+					"type": "string"
+				},
+				"target": {
+					"exclusiveMinimum": true,
+					"type": "number",
+					"minimum": 0
+				},
+				"utilization": {
+					"maximum": 100,
+					"minimum": 1,
+					"type": "number"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
 		},
 		"KafkaConfig": {
 			"required": [
@@ -308,11 +384,76 @@
 				"consumerGroup": {
 					"type": "string",
 					"description": "Kafka consumer group ID"
+				},
+				"securityProtocol": {
+					"enum": [
+						"PLAINTEXT",
+						"SSL",
+						"SASL_PLAINTEXT",
+						"SASL_SSL"
+					],
+					"type": "string",
+					"description": "Security protocol: PLAINTEXT SSL SASL_PLAINTEXT or SASL_SSL"
+				},
+				"tls": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KafkaTLS",
+					"description": "TLS configuration for SSL or SASL_SSL"
+				},
+				"sasl": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KafkaSASL",
+					"description": "SASL authentication for SASL_PLAINTEXT or SASL_SSL"
 				}
 			},
 			"additionalProperties": false,
 			"type": "object",
 			"description": "KafkaConfig specifies the Kafka event source configuration."
+		},
+		"KafkaSASL": {
+			"properties": {
+				"mechanism": {
+					"enum": [
+						"PLAIN",
+						"SCRAM-SHA-256",
+						"SCRAM-SHA-512"
+					],
+					"type": "string",
+					"description": "SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512. Optional; defaults to PLAIN when unset."
+				},
+				"user": {
+					"type": "string",
+					"description": "SASL username. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"
+				},
+				"password": {
+					"type": "string",
+					"description": "SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"KafkaTLS": {
+			"properties": {
+				"caCert": {
+					"type": "string",
+					"description": "Path to CA certificate PEM file for verifying broker certificate"
+				},
+				"clientCert": {
+					"type": "string",
+					"description": "Path to client certificate PEM file for mutual TLS"
+				},
+				"clientKey": {
+					"type": "string",
+					"description": "Path to client private key PEM file for mutual TLS"
+				},
+				"skipVerify": {
+					"type": "boolean",
+					"description": "Skip broker certificate verification (development only)"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
 		},
 		"KnativeSubscription": {
 			"required": [
@@ -373,10 +514,6 @@
 		},
 		"Options": {
 			"properties": {
-				"scale": {
-					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/ScaleOptions"
-				},
 				"resources": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/ResourcesOptions"
@@ -479,32 +616,45 @@
 		"ScaleOptions": {
 			"properties": {
 				"min": {
+					"maximum": 2147483647,
 					"type": "integer",
 					"minimum": 0
 				},
 				"max": {
+					"maximum": 2147483647,
 					"type": "integer",
 					"minimum": 0
 				},
-				"metric": {
-					"enum": [
-						"concurrency",
-						"rps"
-					],
-					"type": "string"
+				"keda": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KEDAScaleOptions"
 				},
-				"target": {
-					"type": "number",
-					"minimum": 0
-				},
-				"utilization": {
-					"maximum": 100,
-					"minimum": 1,
-					"type": "number"
+				"kpa": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/KPAScaleOptions"
 				}
 			},
 			"additionalProperties": false,
 			"type": "object"
+		},
+		"Source": {
+			"properties": {
+				"url": {
+					"type": "string",
+					"description": "URL of the repository."
+				},
+				"revision": {
+					"type": "string",
+					"description": "Revision to build: a branch, a tag or a commit, as git's fetch takes it.\nEmpty means the remote's default branch."
+				},
+				"dir": {
+					"type": "string",
+					"description": "Dir is the directory within the repository holding the function.\nEmpty means the repository root."
+				}
+			},
+			"additionalProperties": false,
+			"type": "object",
+			"description": "Source is the repository a function is built from on the cluster: the values of --source, --revision and --source-dir."
 		},
 		"Volume": {
 			"properties": {

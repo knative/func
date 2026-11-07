@@ -51,10 +51,13 @@ ifneq ($(HASH),)
 LDFLAGS      += -X knative.dev/func/pkg/version.Hash=$(HASH)
 endif
 
-FUNC_UTILS_IMG ?= ghcr.io/knative/func-utils:v2
+# Overrides the func-utils image; the default is version.FuncUtilsImage.
+FUNC_UTILS_IMG ?=
+ifneq ($(FUNC_UTILS_IMG),)
 LDFLAGS += -X knative.dev/func/pkg/k8s.SocatImage=$(FUNC_UTILS_IMG)
 LDFLAGS += -X knative.dev/func/pkg/k8s.TarImage=$(FUNC_UTILS_IMG)
 LDFLAGS += -X knative.dev/func/pkg/pipelines/tekton.FuncUtilImage=$(FUNC_UTILS_IMG)
+endif
 
 GOFLAGS      := "-ldflags=$(LDFLAGS)"
 export GOFLAGS
@@ -329,6 +332,10 @@ templates/certs/ca-certificates.crt:
 test-integration: ## Run integration tests using an available cluster.
 	go test -cover -coverprofile=coverage.txt -tags integration -timeout 60m ./... -v -run TestInt_
 
+.PHONY: test-integration-kafka
+test-integration-kafka: ## Run the Kafka integration test (needs a cluster with KEDA + a Kafka broker).
+	go test -cover -coverprofile=coverage.txt -tags integration_kafka -timeout 30m ./pkg/keda/... -v -run TestInt_Kafka
+
 .PHONY: test-e2e
 test-e2e: func-instrumented-bin ## Basic E2E tests (includes core, metadata and remote tests)
 	# Runtime and other options can be configured using the FUNC_E2E_* environment variables. see e2e_test.go
@@ -387,6 +394,13 @@ func-instrumented-bin: # func binary instrumented with coverage reporting
 
 .PHONY: cross-platform
 cross-platform: darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 linux-ppc64le linux-s390x windows ## Build all distributable (cross-platform) binaries
+
+.PHONY: func-utils-image
+func-utils-image: ## Print the func-utils image reference builds embed
+	@if [ -n "$(FUNC_UTILS_IMG)" ]; then echo "$(FUNC_UTILS_IMG)"; exit; fi; \
+	ref="$$(sed -n 's/^const FuncUtilsImage = "\(.*\)"$$/\1/p' pkg/version/version.go)"; \
+	if [ -z "$$ref" ]; then echo "no FuncUtilsImage constant in pkg/version/version.go" >&2; exit 1; fi; \
+	echo "$$ref"
 
 .PHONY: darwin-arm64
 darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1

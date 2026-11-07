@@ -31,7 +31,7 @@ type Server struct {
 	OnInit    func(context.Context) // Invoked when the server is initialized
 	prefix    string                // Command prefix ("func" or "kn func")
 	version   string                // Computed once at construction; used by healthcheck
-	readonly  atomic.Bool           // disables deploy, delete, and build when true
+	readonly  atomic.Bool           // disables mutation tools when true
 	executor  executor
 	transport mcp.Transport  // Transport to use (defaults to StdioTransport)
 	impl      *mcp.Server    // implements the protocol
@@ -189,6 +189,7 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "Describe Help", "help for 'describe'", "describe"))
 	i.AddResource(newHelpResource(s, "Logs Help", "help for 'logs'", "logs"))
 	i.AddResource(newHelpResource(s, "Delete Help", "help for delete", "delete"))
+	i.AddResource(newHelpResource(s, "Run Help", "help for 'run'", "run"))
 
 	i.AddResource(newHelpResource(s, "Volumes Help", "general help for volumes", "config", "volumes"))
 	i.AddResource(newHelpResource(s, "Volumes Add Help", "help for 'config volumes add'", "config", "volumes", "add"))

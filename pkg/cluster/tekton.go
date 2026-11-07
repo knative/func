@@ -60,6 +60,39 @@ subjects:
 		}
 	}
 
+	// Core KEDA resources the keda deployer manages directly: ScaledObjects
+	// (looked up on every keda deploy and created for the kafka trigger) and
+	// TriggerAuthentications (created for a SASL/TLS kafka trigger). No built-in
+	// role covers these, and binding keda-operator would grant far more than the
+	// deployer needs, so define a narrow role. Declared with explicit apiGroups
+	// (rather than resolved via discovery) because the KEDA CRDs may still be
+	// installing in parallel when this runs.
+	kedaScalerRBAC := fmt.Sprintf(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: func-keda-scaler
+rules:
+- apiGroups: ["keda.sh"]
+  resources: ["scaledobjects", "triggerauthentications"]
+  verbs: ["get", "list", "create", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: %s:func-keda-scaler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: func-keda-scaler
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: %s
+`, namespace, namespace)
+	if err := applyManifest(ctx, out, cfg, kedaScalerRBAC); err != nil {
+		return fmt.Errorf("applying func-keda-scaler rbac: %w", err)
+	}
+
 	success(out, "Tekton", time.Since(start))
 	return nil
 }

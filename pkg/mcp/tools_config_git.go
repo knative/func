@@ -84,8 +84,15 @@ type ConfigGitSetOutput struct {
 }
 
 func (s *Server) configGitSetHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigGitSetInput) (result *mcp.CallToolResult, output ConfigGitSetOutput, err error) {
+	if s.readonly.Load() {
+		err = fmt.Errorf("the server is currently in readonly mode. Please set %s and restart the MCP server", EnvMCPWrite)
+		return
+	}
 	if input.Path == "" {
 		err = fmt.Errorf("'path' is required")
+		return
+	}
+	if err = validatePath(input.Path); err != nil {
 		return
 	}
 	if input.GitURL == "" {
@@ -153,8 +160,15 @@ type ConfigGitRemoveOutput struct {
 }
 
 func (s *Server) configGitRemoveHandler(ctx context.Context, r *mcp.CallToolRequest, input ConfigGitRemoveInput) (result *mcp.CallToolResult, output ConfigGitRemoveOutput, err error) {
+	if s.readonly.Load() {
+		err = fmt.Errorf("the server is currently in readonly mode. Please set %s and restart the MCP server", EnvMCPWrite)
+		return
+	}
 	if input.Path == "" {
 		err = fmt.Errorf("'path' is required")
+		return
+	}
+	if err = validatePath(input.Path); err != nil {
 		return
 	}
 

@@ -30,7 +30,7 @@ func TestPodman_Pack(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, functionURL(t, name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 }
@@ -59,7 +59,7 @@ func TestPodman_S2I(t *testing.T) {
 		clean(t, name, Namespace)
 	}()
 
-	if !waitFor(t, ksvcUrl(name)) {
+	if !waitFor(t, functionURL(t, name)) {
 		t.Fatal("function did not deploy correctly")
 	}
 }

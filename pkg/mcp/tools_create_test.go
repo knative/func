@@ -14,12 +14,13 @@ import (
 func TestTool_Create_Args(t *testing.T) {
 	// Test data - defined once and used for both input and validation
 	// Note: language (-l) is required and handled separately
+	path := t.TempDir()
 	stringFlags := map[string]struct {
 		jsonKey string
 		flag    string
 		value   string
 	}{
-		"path":       {"path", "--path", "."},
+		"path":       {"path", "--path", path},
 		"template":   {"template", "--template", "cloudevents"},
 		"repository": {"repository", "--repository", "https://example.com/repo"},
 	}
@@ -82,9 +83,6 @@ func TestTool_Create_Args(t *testing.T) {
 	}
 }
 
-// TestCreate_PathValidation is removed - path validation no longer exists
-// Create now operates in current working directory
-
 // TestCreate_BinaryFailure ensures errors from the func binary are returned as MCP errors
 func TestTool_Create_BinaryFailure(t *testing.T) {
 	executor := mock.NewExecutor()
@@ -103,7 +101,7 @@ func TestTool_Create_BinaryFailure(t *testing.T) {
 		Name: "create",
 		Arguments: map[string]any{
 			"language": "go",
-			"path":     ".",
+			"path":     t.TempDir(),
 		},
 	})
 	if err != nil {

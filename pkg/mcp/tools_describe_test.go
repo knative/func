@@ -183,7 +183,7 @@ func TestTool_Describe_PathAndNameMutuallyExclusive(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "describe",
 		Arguments: map[string]any{
-			"path": "/tmp/my-function",
+			"path": testAbsPath("my-function"),
 			"name": "my-function",
 		},
 	})
@@ -214,7 +214,7 @@ func TestTool_Describe_PathAndNamespaceRejected(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "describe",
 		Arguments: map[string]any{
-			"path":      "/tmp/my-function",
+			"path":      testAbsPath("my-function"),
 			"namespace": "prod",
 		},
 	})

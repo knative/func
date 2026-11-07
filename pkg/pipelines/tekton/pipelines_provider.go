@@ -123,6 +123,12 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, err
 	}
 
+	// The source is either a git repository or the local working tree, which
+	// is uploaded. A function loaded from git has no Root.
+	if f.Build.Source.URL == "" && f.Root == "" {
+		return "", f, errors.New("a local function directory is required to upload sources; set a git URL to build from a repository")
+	}
+
 	// Warn if the func-generated legacy .s2i/bin/assemble exists; it will be
 	// uploaded to the PVC and can interfere with the in-cluster build.
 	// Remote deploy doesn't go through Client.Build, so we re-check here.
@@ -159,6 +165,11 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		deployer = f.Deploy.Deployer
 	}
 	f.Deploy.Deployer = deployer
+	// Intent (f.Deployer) is deliberately left alone: func-util selects the
+	// deployer from it, and Validate/ValidateScale already fall back to
+	// f.Deploy.Deployer when intent is empty, so a flag-less redeploy of a
+	// previously-deployed keda/raw function still validates correctly without
+	// overwriting the user's recorded intent here.
 
 	// Applied exposure (f.Deploy.Expose) is deliberately NOT derived from intent
 	// here: the pipeline runs a published func-util image this build does not
@@ -186,7 +197,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, err
 	}
 
-	if f.Build.Git.URL == "" {
+	if f.Build.Source.URL == "" {
 		// Use direct upload to PVC if Git is not set up.
 
 		// The uploaded func.yaml is synthesized from this in-memory f (see
@@ -222,6 +233,13 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		return "", f, err
 	}
 
+	// The build reads the registry login from the function's registry Secret.
+	// Without a login there is no Secret to write, and the build mounts none.
+	secretName, err := ensureRegistrySecret(ctx, f, creds, registry, namespace)
+	if err != nil {
+		return "", f, err
+	}
+
 	// TODO(lkingland):  This registry defaulting logic
 	// is either incorrect or in the wrong place.  At this stage of the
 	// process registry should already be defined/defaulted, and this
@@ -234,12 +252,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn
 		f.Registry = registry
 	}
 
-	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), namespace, labels, f.Deploy.Annotations, creds.Username, creds.Password, registry)
-	if err != nil {
-		return "", f, fmt.Errorf("problem in creating secret: %v", err)
-	}
-
-	err = createAndApplyPipelineRunTemplate(f, namespace, labels)
+	err = createAndApplyPipelineRunTemplate(f, namespace, labels, secretName)
 	if err != nil {
 		return "", f, fmt.Errorf("problem in creating pipeline run: %v", err)
 	}
@@ -654,4 +667,24 @@ func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, nam
 		return fmt.Errorf("problem creating persistent volume claim: %v", err)
 	}
 	return nil
+}
+
+// ensureSecret creates or updates a Secret. Tests replace it.
+var ensureSecret = k8s.EnsureSecretExist
+
+// ensureRegistrySecret writes the registry Secret of f, holding the login creds
+// for registry, and returns its name. Without a login it writes none and
+// returns "".
+func ensureRegistrySecret(ctx context.Context, f fn.Function, creds oci.Credentials, registry, namespace string) (string, error) {
+	if creds.Username == "" {
+		return "", nil
+	}
+	secret, err := k8s.NewRegistrySecret(f, creds.Username, creds.Password, registry)
+	if err != nil {
+		return "", fmt.Errorf("problem in creating secret: %v", err)
+	}
+	if err = ensureSecret(ctx, secret, namespace); err != nil {
+		return "", fmt.Errorf("problem in creating secret: %v", err)
+	}
+	return secret.Name, nil
 }

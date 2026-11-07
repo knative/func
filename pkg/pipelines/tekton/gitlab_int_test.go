@@ -85,7 +85,7 @@ func TestInt_Gitlab(t *testing.T) {
 		Created:          time.Now(),
 		Invoke:           "none",
 		Build: fn.BuildSpec{
-			Git: fn.Git{
+			Source: fn.Source{
 				URL:      strings.TrimSuffix(glabEnv.HTTPProjectURL, ".git"),
 				Revision: "devel",
 			},

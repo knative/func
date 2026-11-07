@@ -21,6 +21,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
+
+	"knative.dev/func/pkg/version"
 )
 
 func GetPersistentVolumeClaim(ctx context.Context, name, namespaceOverride string) (*corev1.PersistentVolumeClaim, error) {
@@ -72,7 +74,7 @@ func DeletePersistentVolumeClaims(ctx context.Context, namespaceOverride string,
 	return client.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-var TarImage = "ghcr.io/knative/func-utils:v2"
+var TarImage = version.FuncUtilsImage
 
 // UploadToVolume uploads files (passed in form of tar stream) into volume.
 func UploadToVolume(ctx context.Context, content io.Reader, claimName, namespace string) error {

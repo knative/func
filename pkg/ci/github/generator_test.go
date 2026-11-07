@@ -9,6 +9,7 @@ import (
 
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
+	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/ci/github"
 	fn "knative.dev/func/pkg/functions"
 )
@@ -518,6 +519,74 @@ func TestCIGenerator_BuilderForRuntime(t *testing.T) {
 	}
 }
 
+func TestCIGenerator_BuilderConfiguredInFuncYaml(t *testing.T) {
+	testCases := []struct {
+		name    string
+		runtime string
+		builder string
+	}{
+		{
+			name:    "node function with s2i builder configured",
+			runtime: "node",
+			builder: "s2i",
+		},
+		{
+			name:    "python function with pack builder configured",
+			runtime: "python",
+			builder: "pack",
+		},
+		{
+			name:    "quarkus function with s2i builder configured",
+			runtime: "quarkus",
+			builder: "s2i",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// GIVEN
+			opts := defaultOpts()
+			opts.goFn.Runtime = tc.runtime
+			opts.goFn.Build.Builder = tc.builder
+
+			// WHEN
+			result := runGenerateWorkflow(t, opts)
+
+			// THEN
+			assert.NilError(t, result.executeErr)
+			assert.Assert(t, strings.Contains(result.gwYamlString, "FUNC_BUILDER: "+tc.builder))
+		})
+	}
+}
+
+func TestCIGenerator_WorkflowConfigBuilderTakesPriorityOverFuncYaml(t *testing.T) {
+	// GIVEN
+	opts := defaultOpts()
+	opts.goFn.Runtime = "node"
+	opts.goFn.Build.Builder = "s2i"
+	opts.cfg.Builder = "pack"
+
+	// WHEN
+	result := runGenerateWorkflow(t, opts)
+
+	// THEN
+	assert.NilError(t, result.executeErr)
+	assert.Assert(t, strings.Contains(result.gwYamlString, "FUNC_BUILDER: "+opts.cfg.Builder))
+}
+
+func TestCIGenerator_HostBuilderWithRemoteErrors(t *testing.T) {
+	// GIVEN
+	opts := defaultOpts()
+	opts.cfg.Builder = builders.Host
+	opts.cfg.RemoteBuild = true
+
+	// WHEN
+	result := runGenerateWorkflow(t, opts)
+
+	// THEN
+	assert.Error(t, result.executeErr, `builder "host" is incompatible with remote builds`)
+}
+
 func TestCIGenerator_BuilderForRuntimeError(t *testing.T) {
 	// GIVEN
 	opts := defaultOpts()
@@ -528,6 +597,31 @@ func TestCIGenerator_BuilderForRuntimeError(t *testing.T) {
 
 	// THEN
 	assert.Error(t, result.executeErr, "no builder support for runtime: zig")
+}
+
+func TestCIGenerator_UnsupportedRuntimeErrorsEvenWithExplicitBuilder(t *testing.T) {
+	// GIVEN
+	opts := defaultOpts()
+	opts.goFn.Runtime = "zig"
+	opts.goFn.Build.Builder = "pack"
+
+	// WHEN
+	result := runGenerateWorkflow(t, opts)
+
+	// THEN
+	assert.Error(t, result.executeErr, "no builder support for runtime: zig")
+}
+
+func TestCIGenerator_InvalidBuilderErrors(t *testing.T) {
+	// GIVEN
+	opts := defaultOpts()
+	opts.goFn.Build.Builder = "pakc"
+
+	// WHEN
+	result := runGenerateWorkflow(t, opts)
+
+	// THEN
+	assert.Error(t, result.executeErr, `"pakc" is not a known builder. Available builders are "host", "pack" and "s2i"`)
 }
 
 // ---------------------
@@ -566,6 +660,7 @@ func defaultOpts() opts {
 		RegistryUserVar:        github.DefaultRegistryUserVariableName,
 		RegistryPassSecret:     github.DefaultRegistryPassSecretName,
 		RegistryUrlVar:         github.DefaultRegistryUrlVariableName,
+		FuncCliVersion:         github.DefaultFuncCliVersion,
 		RegistryLogin:          github.DefaultRegistryLogin,
 		SelfHostedRunner:       github.DefaultSelfHostedRunner,
 		RemoteBuild:            github.DefaultRemoteBuild,
@@ -643,7 +738,7 @@ func assertDefaultWorkflow(t *testing.T, actualGw string) {
 
 	assert.Assert(t, yamlContains(actualGw, "Install func cli"))
 	assert.Assert(t, yamlContains(actualGw, "functions-dev/action@main"))
-	assert.Assert(t, yamlContains(actualGw, "version: knative-v1.22.0"))
+	assert.Assert(t, yamlContains(actualGw, "version: "+github.DefaultFuncCliVersion))
 	assert.Assert(t, yamlContains(actualGw, "name: func"))
 
 	assert.Assert(t, yamlContains(actualGw, "Deploy function"))
@@ -676,7 +771,7 @@ func assertSemiDefaultWorkflow(t *testing.T, actualGw string) {
 
 	assert.Assert(t, yamlContains(actualGw, "Install func cli"))
 	assert.Assert(t, yamlContains(actualGw, "functions-dev/action@main"))
-	assert.Assert(t, yamlContains(actualGw, "version: knative-v1.22.0"))
+	assert.Assert(t, yamlContains(actualGw, "version: "+github.DefaultFuncCliVersion))
 	assert.Assert(t, yamlContains(actualGw, "name: func"))
 
 	assert.Assert(t, yamlContains(actualGw, "Deploy function"))

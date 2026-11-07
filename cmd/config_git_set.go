@@ -68,8 +68,15 @@ func NewConfigGitSetCmd(newClient ClientFactory) *cobra.Command {
 		fmt.Sprintf("The type of the Git platform provider to setup webhook. This value is usually automatically generated from input URL, use this parameter to override this setting. Currently supported providers are %s.", git.SupportedProvidersList.PrettyString()))
 	cmd.Flags().StringP("git-url", "g", "",
 		"Repository url containing the function to build ($FUNC_GIT_URL)")
+	// TODO: this appears to be a trigger filter, not a revision. Pipelines-as-Code
+	// matches it against the ref of each push (a branch name, or a pattern
+	// such as refs/tags/*), and the commit to build comes from the push
+	// event. It shares build.source.revision with deploy's --revision, which
+	// names one commit to build now, only because both persist to the same
+	// key. It should become a key of its own, and the PAC deploy step should
+	// take the revision it stamps from the event, not from func.yaml.
 	cmd.Flags().StringP("git-branch", "t", "",
-		"Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)")
+		"Git branch whose pushes Pipelines-as-Code builds and deploys ($FUNC_GIT_BRANCH)")
 	cmd.Flags().StringP("git-dir", "d", "",
 		"Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)")
 
@@ -157,7 +164,7 @@ func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 
 	// prompt if git URL hasn't been set previously
 	if c.GitURL == "" {
-		url := f.Build.Git.URL
+		url := f.Build.Source.URL
 		if gitInfo.URL != "" {
 			url = gitInfo.URL
 		}
@@ -172,7 +179,7 @@ func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 
 	// prompt if git revision hasn't been set previously
 	if c.GitRevision == "" {
-		revision := f.Build.Git.Revision
+		revision := f.Build.Source.Revision
 		if gitInfo.Branch != "" {
 			revision = gitInfo.Branch
 		}
@@ -188,7 +195,7 @@ func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 
 	// prompt if contextDir hasn't been set previously
 	if c.GitContextDir == "" {
-		contextDir := f.Build.Git.ContextDir
+		contextDir := f.Build.Source.Dir
 		if err := survey.AskOne(&survey.Input{
 			Message: "A subpath within the repository:",
 			Help:    "A subpath within the repository where the source code of a function is located.",
@@ -270,9 +277,9 @@ func (c configGitSetConfig) Configure(f fn.Function) (fn.Function, error) {
 	f = c.buildConfig.Configure(f) // also configures .buildConfig.Global
 
 	// Configure basic members
-	f.Build.Git.URL = c.GitURL
-	f.Build.Git.ContextDir = c.GitContextDir
-	f.Build.Git.Revision = c.GitRevision // TODO: should match; perhaps "refSpec"
+	f.Build.Source.URL = c.GitURL
+	f.Build.Source.Dir = c.GitContextDir
+	f.Build.Source.Revision = c.GitRevision
 
 	// Save the function which has now been updated with flags/config
 	if err = f.Write(); err != nil { // TODO: remove when client API uses 'f'

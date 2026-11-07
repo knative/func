@@ -87,44 +87,46 @@ COMMANDS
 	    $ func repository remove <name>
 
 EXAMPLES
+	Replace the example repository URL and template names with your own.
+
 	o Run in confirmation mode (interactive prompts) using the --confirm flag
 	  $ func repository -c
 
 	o Add a repository and create a new function using a template from it:
-	  $ func repository add functastic https://github.com/knative-extensions/func-tastic
+	  $ func repository add custom https://example.com/function-templates
 	  $ func repository list
 	  default
-	  functastic
-	  $ func create -l go -t functastic/hello-world
+	  custom
+	  $ func create -l go -t custom/hello-world
 	  ...
 
-		o Add a repository specifying the branch to use (metacontroller):
-	  $ func repository add metacontroller https://github.com/knative-extensions/func-tastic#metacontroler
+	o Add a repository specifying the branch to use:
+	  $ func repository add custom-branch https://example.com/function-templates#my-branch
 	  $ func repository list
 	  default
-	  metacontroller
-	  $ func create -l node -t metacontroller/metacontroller
+	  custom-branch
+	  $ func create -l node -t custom-branch/events
 	  ...
 
 	o List all repositories including the URL from which remotes were installed
 	  $ func repository list -v
 	  default
-	  metacontroller	https://github.com/knative-extensions/func-tastic#metacontroller
+	  custom	https://example.com/function-templates
 
 	o Rename an installed repository
 	  $ func repository list
 	  default
-	  boson
-	  $ func repository rename boson functastic
+	  custom
+	  $ func repository rename custom team-templates
 	  $ func repository list
 	  default
-	  functastic
+	  team-templates
 
 	o Remove an installed repository
 	  $ func repository list
 	  default
-	  functastic
-	  $ func repository remove functastic
+	  team-templates
+	  $ func repository remove team-templates
 	  $ func repository list
 	  default
 

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
@@ -491,6 +492,34 @@ func TestGenerateNewService_EnvsPropagated(t *testing.T) {
 	}
 }
 
+// TestDeploy_RejectsKafka verifies the knative deployer refuses a function
+// configured with run.kafka: the Kafka runtime sidecar is injected only by the
+// raw and keda deployers, and the in-process path is retired, so deploying on
+// knative would silently produce a function that never receives records. The
+// rejection happens before any cluster client is created, so no cluster is
+// needed here.
+func TestDeploy_RejectsKafka(t *testing.T) {
+	d := NewDeployer()
+	f := fn.Function{
+		Name:      "test-func",
+		Namespace: "default", // set so onClusterFix does not query the cluster
+		Deploy:    fn.DeploySpec{Image: "example.com/test:v1"},
+	}
+	f.Run.Kafka = &fn.KafkaConfig{
+		Brokers:       "kafka:9092",
+		Topic:         "orders",
+		ConsumerGroup: "test-func",
+	}
+
+	_, err := d.Deploy(context.Background(), f)
+	if err == nil {
+		t.Fatal("expected Deploy to reject a function with run.kafka, got nil error")
+	}
+	if !strings.Contains(err.Error(), "not supported on the knative deployer") {
+		t.Errorf("expected an unsupported-on-knative-deployer error, got: %v", err)
+	}
+}
+
 func assertAuth(uname, pwd string, w http.ResponseWriter, r *http.Request) bool {
 	user, pass, ok := r.BasicAuth()
 	if ok && user == uname && pass == pwd {
@@ -500,4 +529,120 @@ func assertAuth(uname, pwd string, w http.ResponseWriter, r *http.Request) bool 
 	w.WriteHeader(401)
 	_, _ = fmt.Fprintln(w, "Unauthorised.")
 	return false
+}
+
+func TestWaitForReadyOrPrivateRegistry_Success(t *testing.T) {
+	waitForService := func(context.Context) error {
+		return nil // returns immediately with success
+	}
+	isPrivateRegistry := func(context.Context) bool {
+		return false
+	}
+	err := waitForReadyOrPrivateRegistry(t.Context(), waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_WaitError(t *testing.T) {
+	expectedErr := errors.New("timeout waiting for service")
+	waitForService := func(context.Context) error {
+		return expectedErr // returns immediately with error
+	}
+	isPrivateRegistry := func(context.Context) bool {
+		return false
+	}
+	err := waitForReadyOrPrivateRegistry(t.Context(), waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected error %v, got %v", expectedErr, err)
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_PrivateRegistry(t *testing.T) {
+	waitCanceled := make(chan struct{})
+	waitForService := func(ctx context.Context) error {
+		<-ctx.Done()
+		close(waitCanceled)
+		return ctx.Err()
+	}
+	isPrivate := false
+	isPrivateRegistry := func(context.Context) bool {
+		isPrivate = true
+		return true // instantly return true
+	}
+	err := waitForReadyOrPrivateRegistry(t.Context(), waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if !errors.Is(err, errPrivateRegistry) {
+		t.Fatalf("expected errPrivateRegistry, got %v", err)
+	}
+	if !isPrivate {
+		t.Fatalf("expected isPrivateRegistry to be called")
+	}
+	select {
+	case <-waitCanceled:
+	case <-time.After(time.Second):
+		t.Fatal("expected waitForService context to be canceled")
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_DelayedSuccess(t *testing.T) {
+	waitForService := func(context.Context) error {
+		time.Sleep(50 * time.Millisecond)
+		return nil
+	}
+	isPrivateRegistry := func(context.Context) bool {
+		return false // never private
+	}
+	err := waitForReadyOrPrivateRegistry(t.Context(), waitForService, isPrivateRegistry, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+}
+
+// The waiter must have left waitForService before we return. Cancel alone is
+// not enough: a goroutine can still be unwinding after Deploy has returned.
+func TestWaitForReadyOrPrivateRegistry_PrivateRegistryJoinsWaiter(t *testing.T) {
+	var exited atomic.Bool
+	waitForService := func(ctx context.Context) error {
+		<-ctx.Done()
+		time.Sleep(150 * time.Millisecond)
+		exited.Store(true)
+		return ctx.Err()
+	}
+	isPrivateRegistry := func(context.Context) bool {
+		return true
+	}
+	err := waitForReadyOrPrivateRegistry(t.Context(), waitForService, isPrivateRegistry, time.Millisecond)
+	if !errors.Is(err, errPrivateRegistry) {
+		t.Fatalf("expected errPrivateRegistry, got %v", err)
+	}
+	if !exited.Load() {
+		t.Fatal("waitForService still running after return")
+	}
+}
+
+func TestWaitForReadyOrPrivateRegistry_CallerCancelJoinsWaiter(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	started := make(chan struct{})
+	var exited atomic.Bool
+	waitForService := func(ctx context.Context) error {
+		close(started)
+		<-ctx.Done()
+		time.Sleep(150 * time.Millisecond)
+		exited.Store(true)
+		return ctx.Err()
+	}
+	isPrivateRegistry := func(context.Context) bool {
+		return false
+	}
+	go func() {
+		<-started
+		cancel()
+	}()
+	err := waitForReadyOrPrivateRegistry(ctx, waitForService, isPrivateRegistry, time.Hour)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+	if !exited.Load() {
+		t.Fatal("waitForService still running after caller cancel")
+	}
 }

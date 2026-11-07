@@ -133,7 +133,7 @@ func (c configGitRemoveConfig) Configure(f fn.Function) (fn.Function, error) {
 	var err error
 
 	if c.metadata.ConfigureLocalResources {
-		f.Build.Git = fn.Git{}
+		f.Build.Source = fn.Source{}
 	}
 
 	// Save the function which has now been updated with flags/config

@@ -55,7 +55,7 @@ func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace str
 			Annotations: f.Deploy.Annotations,
 		},
 		Spec: v1alpha1.RepositorySpec{
-			URL: f.Build.Git.URL,
+			URL: f.Build.Source.URL,
 			GitProvider: &v1alpha1.GitProvider{
 				Type: metadata.GitProvider,
 				Secret: &v1alpha1.Secret{
@@ -112,4 +112,11 @@ func deletePACRepositories(ctx context.Context, namespaceOverride string, listOp
 // getPipelineRepositoryName generates name for Repository CR
 func getPipelineRepositoryName(f fn.Function) string {
 	return fmt.Sprintf("%s-repo", getPipelineName(f))
+}
+
+// getPipelineSecretName returns the name of the Secret PAC setup writes: the
+// registry login with the git provider token and webhook secret. Standard
+// runs mount the function's registry Secret instead (k8s.NewRegistrySecret).
+func getPipelineSecretName(f fn.Function) string {
+	return fmt.Sprintf("%s-secret", getPipelineName(f))
 }

@@ -65,6 +65,11 @@ func (s *Server) logsHandler(ctx context.Context, r *mcp.CallToolRequest, input 
 		err = fmt.Errorf("exactly one of 'path' or 'name' must be provided")
 		return
 	}
+	if input.Path != nil {
+		if err = validatePath(*input.Path); err != nil {
+			return
+		}
+	}
 
 	// ExecuteSplit (rather than Execute/CombinedOutput) is required here so
 	// that the log content is clean stdout only.  `func logs` uses stderr for

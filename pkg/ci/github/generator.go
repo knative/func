@@ -78,23 +78,28 @@ func (g *workflowGenerator) Generate(ctx context.Context, f fn.Function) error {
 		return fmt.Errorf("function root path can not be empty")
 	}
 
-	githubWorkflow, err := newGitHubWorkflow(g.cfg, f.Runtime, g.messageWriter)
+	cfg := g.cfg
+	if cfg.Builder == "" {
+		cfg.Builder = f.Build.Builder
+	}
+
+	githubWorkflow, err := newGitHubWorkflow(cfg, f.Runtime, g.messageWriter)
 	if err != nil {
 		return err
 	}
 
-	if err := githubWorkflow.Export(g.cfg.fnGitHubWorkflowFilepath(f.Root), g.workflowWriter, g.cfg.Force, g.messageWriter); err != nil {
+	if err := githubWorkflow.Export(cfg.fnGitHubWorkflowFilepath(f.Root), g.workflowWriter, cfg.Force, g.messageWriter); err != nil {
 		return err
 	}
 
 	if g.verbose {
 		// best-effort user message; errors are non-critical
-		_ = PrintConfiguration(g.cfg, f.Runtime, g.messageWriter)
+		_ = PrintConfiguration(cfg, f.Runtime, g.messageWriter)
 		return nil
 	}
 
 	// best-effort user message; errors are non-critical
-	_ = PrintPostExportMessage(g.cfg, g.messageWriter)
+	_ = PrintPostExportMessage(cfg, g.messageWriter)
 	return nil
 }
 

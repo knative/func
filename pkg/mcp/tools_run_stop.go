@@ -20,6 +20,9 @@ var runStopTool = &mcp.Tool{
 }
 
 func (s *Server) runStopHandler(ctx context.Context, r *mcp.CallToolRequest, input RunStopInput) (result *mcp.CallToolResult, output RunStopOutput, err error) {
+	if err = validatePath(input.Path); err != nil {
+		return
+	}
 	path, err := resolveRunPath(input.Path)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve function path: %w", err)

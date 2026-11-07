@@ -82,29 +82,56 @@ allocate_cluster() {
   echo "dpr:  Dapr Runtime"
   echo "tkt:  Tekton Pipelines"
   echo "keda: Keda"
+  echo "kfk:  Kafka (Strimzi)"
   echo "fop:  Func Operator"
   echo ""
 
-  ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
-  ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
-  ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
-  ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
-  ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
+  # Each core component is opt-out (default on). A focused job can skip the ones
+  # it does not need to free the single kind node's scarce CPU/memory -- e.g. the
+  # slim Kafka integration job installs only KEDA + Kafka + the registry mirror.
+  if [ "${FUNC_CLUSTER_SERVING:-true}" = "true" ]; then
+    ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
+  fi
+  if [ "${FUNC_CLUSTER_EVENTING:-true}" = "true" ]; then
+    ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
+  fi
+  # The in-cluster registry backs the containerd localhost:5000 mirror (via
+  # hostPort), so most jobs need it even when they do not build images.
+  if [ "${FUNC_CLUSTER_REGISTRY:-true}" = "true" ]; then
+    ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
+  fi
+  if [ "${FUNC_CLUSTER_DAPR:-true}" = "true" ]; then
+    ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
+  fi
+  if [ "${FUNC_CLUSTER_TEKTON:-true}" = "true" ]; then
+    ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
+  fi
   # KEDA is opt-out (default on). Skipped when FUNC_CLUSTER_KEDA=false to free
   # CPU reservation for jobs that don't use it (e.g. Core/Metadata/Remote e2e).
   # FUNC_CLUSTER_KEDA is the same env var bound by `func cluster create --keda`.
   if [ "${FUNC_CLUSTER_KEDA:-true}" = "true" ]; then
     ( set -o pipefail; (keda && keda_http_addon) 2>&1 | sed  -e 's/^/keda /')&
   fi
-  ( set -o pipefail; func_operator 2>&1 | sed  -e 's/^/fop /')&
+  # Kafka (Strimzi) is opt-in (default off); only the integration-tests job needs
+  # a real broker to exercise run.kafka end to end. Installing it everywhere would
+  # waste scarce kind memory on jobs that never touch Kafka.
+  if [ "${FUNC_CLUSTER_KAFKA:-false}" = "true" ]; then
+    ( set -o pipefail; kafka 2>&1 | sed  -e 's/^/kfk /')&
+  fi
+  if [ "${FUNC_CLUSTER_FUNC_OPERATOR:-true}" = "true" ]; then
+    ( set -o pipefail; func_operator 2>&1 | sed  -e 's/^/fop /')&
+  fi
 
   local job
   for job in $(jobs -p); do
     wait "$job"
   done
 
-  # Configure magic DNS for localtest.me after all services are up
-  magic_dns
+  # Magic DNS only matters for in-cluster resolution of *.localtest.me (knative
+  # routes); it is a serving concern, so skip it when serving is not installed.
+  if [ "${FUNC_CLUSTER_SERVING:-true}" = "true" ]; then
+    magic_dns
+  fi
 
   next_steps
 
@@ -112,6 +139,25 @@ allocate_cluster() {
 }
 
 kubernetes() {
+  # The in-cluster registry's hostPort (5000 on the node) is reachable from the
+  # host only through the Contour ingress (registry.localtest.me), which ships
+  # with serving. Slim clusters that skip serving (e.g. the Kafka integration
+  # job) have no ingress, so a host-side `func deploy` build+push cannot reach
+  # the registry. For those, map a host port straight to the node's registry.
+  # Use host port 5001 rather than 5000: on macOS the AirPlay Receiver listens
+  # on *:5000, which makes `kind create cluster` fail to bind a 5000 mapping --
+  # so a plain 5000 mapping would break cluster creation for every developer on
+  # a Mac, not just the Kafka job. The node still serves the registry on
+  # containerPort 5000; a containerd mirror teaches it that localhost:5001
+  # (how pushed images are tagged) resolves to that same registry. Full
+  # clusters push through the ingress and need no host mapping at all.
+  local registry_host_mapping=""
+  local registry_mirror_patch=""
+  if [ "${FUNC_CLUSTER_SERVING:-true}" != "true" ]; then
+    registry_host_mapping=$'\n    - containerPort: 5000\n      hostPort: 5001\n      listenAddress: "127.0.0.1"\n    - containerPort: 5000\n      hostPort: 5001\n      listenAddress: "::1"'
+    registry_mirror_patch=$'\n  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]\n    endpoint = ["http://localhost:5000"]'
+  fi
+
   cat <<EOF | $KIND create cluster --name=func --kubeconfig="${KUBECONFIG}" --wait=60s --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -138,7 +184,7 @@ nodes:
       listenAddress: "::1"
     - containerPort: 30022
       hostPort: 30022
-      listenAddress: "::1"
+      listenAddress: "::1"${registry_host_mapping}
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.localtest.me"]
@@ -148,7 +194,7 @@ containerdConfigPatches:
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."ghcr.io"]
     endpoint = ["http://localhost:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
-    endpoint = ["http://localhost:5000"]
+    endpoint = ["http://localhost:5000"]${registry_mirror_patch}
 EOF
   sleep 10
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
@@ -598,6 +644,37 @@ tekton() {
   $KUBECTL create clusterrolebinding "${namespace}:admin" --clusterrole=admin --serviceaccount="${namespace}:default"
   # Grant permissions for HTTPScaledObject Keda resources needed by keda deployer
   $KUBECTL create clusterrolebinding "${namespace}:keda-add-ons-http-operator" --clusterrole=keda-add-ons-http-operator --serviceaccount="${namespace}:default"
+  # Grant permissions for the core KEDA resources the keda deployer manages
+  # directly: ScaledObjects (looked up on every keda deploy and created for the
+  # kafka trigger) and TriggerAuthentications (created for a SASL/TLS kafka
+  # trigger). No built-in role covers these, and binding keda-operator would
+  # grant far more than the deployer needs, so define a narrow role. Applied as
+  # explicit YAML (not `kubectl create clusterrole --resource=...`) because the
+  # KEDA CRDs may still be installing in parallel and the imperative form needs
+  # API discovery to resolve the resource names.
+  $KUBECTL apply -f - <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: func-keda-scaler
+rules:
+- apiGroups: ["keda.sh"]
+  resources: ["scaledobjects", "triggerauthentications"]
+  verbs: ["get", "list", "create", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ${namespace}:func-keda-scaler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: func-keda-scaler
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: ${namespace}
+EOF
 
   echo "${green}✅ Tekton${reset}"
 }
@@ -777,6 +854,114 @@ keda_http_addon() {
 
   $KUBECTL get pod -n keda
   echo "${green}✅ Keda HTTP add-on${reset}"
+}
+
+kafka() {
+  echo "${blue}Installing Kafka (Strimzi)${reset}"
+  echo "Version: ${strimzi_version}"
+
+  $KUBECTL create namespace kafka --dry-run=client -o yaml | $KUBECTL apply -f -
+
+  # The release operator manifest is namespaced to "myproject"; retarget its
+  # RoleBinding/ClusterRoleBinding subjects at the "kafka" namespace. The
+  # operator watches its own namespace (STRIMZI_NAMESPACE via fieldRef), which is
+  # where the Kafka CR below is created.
+  local operator_url="https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml"
+  curl -sL "${operator_url}" | sed 's/namespace: myproject/namespace: kafka/' | $KUBECTL apply --server-side -n kafka -f -
+  echo "Waiting for the Strimzi cluster operator to become ready"
+  $KUBECTL wait deployment/strimzi-cluster-operator --timeout=300s --for=condition=Available --namespace kafka
+
+  # Single-node KRaft broker with a TLS + SCRAM-SHA-512 listener on 9093. No
+  # authorizer is configured, so an authenticated user may read any topic/group.
+  # Resources are kept minimal for CI. Readiness only needs the broker to accept
+  # connections and assign partitions; no messages are produced here.
+  cat <<EOF | $KUBECTL apply -n kafka -f -
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: dual-role
+  labels:
+    strimzi.io/cluster: func-kafka
+spec:
+  replicas: 1
+  roles:
+    - controller
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: ephemeral
+        kraftMetadata: shared
+  # Memory-bounded but no CPU request: the single-node CI cluster is already
+  # near its CPU-reservation ceiling (KEDA's HTTP add-on pods go Pending with
+  # "Insufficient cpu" otherwise), and an idle test broker needs little CPU, so
+  # let it run on overcommit rather than reserving a slice KEDA needs.
+  resources:
+    requests:
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+---
+apiVersion: kafka.strimzi.io/v1
+kind: Kafka
+metadata:
+  name: func-kafka
+spec:
+  kafka:
+    version: 4.3.1
+    metadataVersion: 4.3-IV0
+    listeners:
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+        authentication:
+          type: scram-sha-512
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+    jvmOptions:
+      -Xms: 512m
+      -Xmx: 512m
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: test-topic
+  labels:
+    strimzi.io/cluster: func-kafka
+spec:
+  partitions: 1
+  replicas: 1
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaUser
+metadata:
+  name: test-kafka-user
+  labels:
+    strimzi.io/cluster: func-kafka
+spec:
+  authentication:
+    type: scram-sha-512
+EOF
+
+  # Bounded timeouts so a provisioning failure surfaces quickly rather than
+  # hanging the whole CI job (a prior run wedged for 2h on an unbounded wait
+  # for a Kafka CR that strict schema validation had rejected).
+  echo "Waiting for the Kafka cluster to become ready"
+  $KUBECTL wait kafka/func-kafka --timeout=600s --for=condition=Ready --namespace kafka
+  $KUBECTL wait kafkatopic/test-topic --timeout=300s --for=condition=Ready --namespace kafka
+  $KUBECTL wait kafkauser/test-kafka-user --timeout=300s --for=condition=Ready --namespace kafka
+
+  $KUBECTL get pod -n kafka
+  echo "${green}✅ Kafka (Strimzi)${reset}"
 }
 
 func_operator() {

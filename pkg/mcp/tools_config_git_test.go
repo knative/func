@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -17,7 +18,7 @@ func TestTool_ConfigGitSet_Args(t *testing.T) {
 		flag    string
 		value   string
 	}{
-		"path":       {"path", "--path", "/home/user/myfunc"},
+		"path":       {"path", "--path", testAbsPath("myfunc")},
 		"git_url":    {"git_url", "--git-url", "https://github.com/user/repo"},
 		"git_branch": {"git_branch", "--git-branch", "main"},
 		"git_dir":    {"git_dir", "--git-dir", "functions/myfunc"},
@@ -97,7 +98,7 @@ func TestTool_ConfigGitSet_DefaultGitDir(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_git_set",
 		Arguments: map[string]any{
-			"path":       "/home/user/myfunc",
+			"path":       testAbsPath("myfunc"),
 			"git_url":    "https://github.com/user/repo",
 			"git_branch": "main",
 		},
@@ -131,7 +132,7 @@ func TestTool_ConfigGitSet_AntiHang_ConfigLocal(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_git_set",
 		Arguments: map[string]any{
-			"path":       "/home/user/myfunc",
+			"path":       testAbsPath("myfunc"),
 			"git_url":    "https://github.com/user/repo",
 			"git_branch": "main",
 		},
@@ -161,7 +162,7 @@ func TestTool_ConfigGitSet_MissingGitURL(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_git_set",
 		Arguments: map[string]any{
-			"path":       "/home/user/myfunc",
+			"path":       testAbsPath("myfunc"),
 			"git_branch": "main",
 		},
 	})
@@ -192,7 +193,7 @@ func TestTool_ConfigGitSet_MissingGitBranch(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_git_set",
 		Arguments: map[string]any{
-			"path":    "/home/user/myfunc",
+			"path":    testAbsPath("myfunc"),
 			"git_url": "https://github.com/user/repo",
 		},
 	})
@@ -221,7 +222,7 @@ func TestTool_ConfigGitSet_Error(t *testing.T) {
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name: "config_git_set",
 		Arguments: map[string]any{
-			"path":       "/home/user/myfunc",
+			"path":       testAbsPath("myfunc"),
 			"git_url":    "https://github.com/user/repo",
 			"git_branch": "main",
 		},
@@ -242,7 +243,7 @@ func TestTool_ConfigGitRemove_Args(t *testing.T) {
 		flag    string
 		value   string
 	}{
-		"path": {"path", "--path", "/home/user/myfunc"},
+		"path": {"path", "--path", testAbsPath("myfunc")},
 	}
 
 	boolFlags := map[string]string{
@@ -315,7 +316,7 @@ func TestTool_ConfigGitRemove_AntiHang_DeleteLocal(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_git_remove",
-		Arguments: map[string]any{"path": "/home/user/myfunc"},
+		Arguments: map[string]any{"path": testAbsPath("myfunc")},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -339,12 +340,72 @@ func TestTool_ConfigGitRemove_Error(t *testing.T) {
 
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
 		Name:      "config_git_remove",
-		Arguments: map[string]any{"path": "/home/user/myfunc"},
+		Arguments: map[string]any{"path": testAbsPath("myfunc")},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !result.IsError {
 		t.Fatal("expected error result, got success")
+	}
+}
+
+func TestTool_ConfigGitSet_Readonly(t *testing.T) {
+	executor := mock.NewExecutor()
+
+	client, server, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly.Store(true)
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_git_set",
+		Arguments: map[string]any{
+			"path":       ".",
+			"git_url":    "https://github.com/user/repo",
+			"git_branch": "main",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatalf("expected error result in readonly mode, got success (executor invoked: %t)", executor.ExecuteInvoked)
+	}
+	got := resultToString(result)
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor should not be invoked in readonly mode")
+	}
+}
+
+func TestTool_ConfigGitRemove_Readonly(t *testing.T) {
+	executor := mock.NewExecutor()
+
+	client, server, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly.Store(true)
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name:      "config_git_remove",
+		Arguments: map[string]any{"path": ".", "delete_cluster": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatalf("expected error result in readonly mode, got success (executor invoked: %t)", executor.ExecuteInvoked)
+	}
+	got := resultToString(result)
+	if !strings.Contains(got, "readonly mode") {
+		t.Fatalf("expected readonly-mode error, got: %q", got)
+	}
+	if executor.ExecuteInvoked {
+		t.Fatal("executor should not be invoked in readonly mode")
 	}
 }

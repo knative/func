@@ -46,6 +46,8 @@ const (
 	KnativeDeployerName = deployers.Knative
 )
 
+var errPrivateRegistry = stdErrors.New("your function image is unreachable. It is possible that your docker registry is private. If so, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
+
 type DeployerOpt func(*Deployer)
 
 type Deployer struct {
@@ -123,6 +125,21 @@ func onClusterFix(f fn.Function) fn.Function {
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
 	f = onClusterFix(f)
+
+	// Kafka is consumed by the runtime sidecar, which is injected by the raw
+	// (Kubernetes) and keda deployers; the in-process path that once let any
+	// deployer run a Kafka function is retired. The knative deployer does not
+	// (yet) inject the sidecar, so reject run.kafka here rather than silently
+	// deploy a function that never receives records. Injecting the sidecar
+	// into the Knative Service is tracked as separate work.
+	//
+	// The remediation notes undeploy-first because an already-deployed function
+	// cannot change its deployer in place: Client.Deploy's switch gate refuses
+	// that and expects the function to be deleted first.
+	if f.Run.Kafka != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("run.kafka is not supported on the knative deployer; the Kafka runtime sidecar is injected only by the raw and keda deployers (keda additionally provides consumer-lag autoscaling). Set deployer: keda (or raw) and redeploy; if this function is already deployed, undeploy it first (func delete), since the deployer cannot be changed in place")
+	}
+
 	// Choosing f.Namespace vs f.Deploy.Namespace:
 	// This is minimal logic currently required of all deployer impls.
 	// If f.Namespace is defined, this is the (possibly new) target
@@ -197,14 +214,23 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		out = os.Stderr
 	}
 	since := time.Now()
+	deployCtx, cancelDeploy := context.WithCancel(ctx)
+	logsDone := make(chan struct{})
 	go func() {
-		_ = GetKServiceLogs(ctx, LogsOptions{
+		defer close(logsDone)
+		_ = GetKServiceLogs(deployCtx, LogsOptions{
 			Name:      f.Name,
 			Namespace: namespace,
 			Image:     f.Deploy.Image,
 			Since:     &since,
 			Follow:    true,
 		}, out)
+	}()
+	// Stop the log follower before Deploy returns. Cancel first: Follow blocks
+	// until the context is done, and waiting without cancelling would deadlock.
+	defer func() {
+		cancelDeploy()
+		<-logsDone
 	}()
 
 	previousService, err := client.GetService(ctx, f.Name)
@@ -239,44 +265,21 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 			if d.verbose {
 				fmt.Println("Waiting for Knative Service to become ready")
 			}
-			chprivate := make(chan bool)
-			cherr := make(chan error)
-			go func() {
-				private := false
-				for !private {
-					time.Sleep(5 * time.Second)
-					private = d.isImageInPrivateRegistry(ctx, client, f)
-					chprivate <- private
-				}
-				close(chprivate)
-			}()
-			go func() {
+			waitForService := func(ctx context.Context) error {
 				err, _ := client.WaitForService(ctx, f.Name,
 					clientservingv1.WaitConfig{Timeout: k8s.DefaultWaitingTimeout, ErrorWindow: k8s.DefaultErrorWindowTimeout},
 					wait.NoopMessageCallback())
-				cherr <- err
-				close(cherr)
-			}()
+				return err
+			}
+			isPrivateRegistry := func(ctx context.Context) bool {
+				return d.isImageInPrivateRegistry(ctx, client, f)
+			}
 
-			presumePrivate := false
-		main:
-			// Wait for either a timeout or a container condition signaling the image is unreachable
-			for {
-				select {
-				case private := <-chprivate:
-					if private {
-						presumePrivate = true
-						break main
-					}
-				case err = <-cherr:
-					break main
-				}
-			}
-			if presumePrivate {
-				err := fmt.Errorf("your function image is unreachable. It is possible that your docker registry is private. If so, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
-				return fn.DeploymentResult{}, err
-			}
+			err = waitForReadyOrPrivateRegistry(deployCtx, waitForService, isPrivateRegistry, 5*time.Second)
 			if err != nil {
+				if stdErrors.Is(err, errPrivateRegistry) {
+					return fn.DeploymentResult{}, err
+				}
 				err = fmt.Errorf("knative deployer failed to wait for the Knative Service to become ready: %v", err)
 				if !d.verbose {
 					fmt.Fprintln(os.Stderr, "\nService output:")
@@ -321,7 +324,6 @@ consider using the --image-pull-secret flag, or setting up pull secrets manually
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
-		newEnv = k8s.AppendKafkaEnvs(newEnv, f.Run.Kafka)
 
 		newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 		if err != nil {
@@ -435,7 +437,7 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 	if err != nil {
 		return nil, err
 	}
-	container.Env = k8s.AppendKafkaEnvs(newEnv, f.Run.Kafka)
+	container.Env = newEnv
 	container.EnvFrom = newEnvFrom
 
 	newVolumes, newVolumeMounts, err := k8s.ProcessVolumes(f.Run.Volumes, referencedSecrets, referencedConfigMaps, referencedPVCs)
@@ -486,7 +488,7 @@ func generateNewService(f fn.Function, decorator deployer.DeployDecorator, daprI
 		},
 	}
 
-	err = setServiceOptions(&service.Spec.Template, f.Deploy.Options)
+	err = setServiceOptions(&service.Spec.Template, f.Scale, f.Deploy.Options)
 	if err != nil {
 		return service, err
 	}
@@ -545,7 +547,7 @@ func updateService(f fn.Function, previousService *servingv1.Service, newEnv []c
 		cp := &service.Spec.Template.Spec.Containers[0]
 		k8s.SetHealthEndpoints(f, cp)
 
-		err := setServiceOptions(&service.Spec.Template, f.Deploy.Options)
+		err := setServiceOptions(&service.Spec.Template, f.Scale, f.Deploy.Options)
 		if err != nil {
 			return service, err
 		}
@@ -574,38 +576,47 @@ func updateService(f fn.Function, previousService *servingv1.Service, newEnv []c
 }
 
 // setServiceOptions sets annotations on Service Revision Template or in the Service Spec
-// from values specified in function configuration options
-func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Options) error {
+// from values specified in function configuration options and scale config.
+func setServiceOptions(template *servingv1.RevisionTemplateSpec, scale *fn.ScaleOptions, options fn.Options) error {
 	toRemove := []string{}
 	toUpdate := map[string]string{}
 
-	if options.Scale != nil {
-		if options.Scale.Min != nil {
-			toUpdate[autoscaling.MinScaleAnnotationKey] = fmt.Sprintf("%d", *options.Scale.Min)
+	if scale != nil {
+		if scale.Min != nil {
+			toUpdate[autoscaling.MinScaleAnnotationKey] = fmt.Sprintf("%d", *scale.Min)
 		} else {
 			toRemove = append(toRemove, autoscaling.MinScaleAnnotationKey)
 		}
 
-		if options.Scale.Max != nil {
-			toUpdate[autoscaling.MaxScaleAnnotationKey] = fmt.Sprintf("%d", *options.Scale.Max)
+		if scale.Max != nil {
+			toUpdate[autoscaling.MaxScaleAnnotationKey] = fmt.Sprintf("%d", *scale.Max)
 		} else {
 			toRemove = append(toRemove, autoscaling.MaxScaleAnnotationKey)
 		}
 
-		if options.Scale.Metric != nil {
-			toUpdate[autoscaling.MetricAnnotationKey] = *options.Scale.Metric
+		var metric *string
+		var target *float64
+		var utilization *float64
+		if scale.KPA != nil {
+			metric = scale.KPA.Metric
+			target = scale.KPA.Target
+			utilization = scale.KPA.Utilization
+		}
+
+		if metric != nil {
+			toUpdate[autoscaling.MetricAnnotationKey] = *metric
 		} else {
 			toRemove = append(toRemove, autoscaling.MetricAnnotationKey)
 		}
 
-		if options.Scale.Target != nil {
-			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%f", *options.Scale.Target)
+		if target != nil {
+			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%f", *target)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetAnnotationKey)
 		}
 
-		if options.Scale.Utilization != nil {
-			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *options.Scale.Utilization)
+		if utilization != nil {
+			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *utilization)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetUtilizationPercentageKey)
 		}
@@ -866,4 +877,48 @@ func wrapK8sConnectionError(err error) error {
 	}
 
 	return nil
+}
+
+// waitForReadyOrPrivateRegistry handles polling for a private registry image pull error
+// or successfully waiting for the service to become ready.
+func waitForReadyOrPrivateRegistry(
+	ctx context.Context,
+	waitForService func(context.Context) error,
+	isPrivateRegistry func(context.Context) bool,
+	pollInterval time.Duration,
+) error {
+	waitCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	cherr := make(chan error, 1)
+	waitDone := make(chan struct{})
+	go func() {
+		defer close(waitDone)
+		cherr <- waitForService(waitCtx)
+	}()
+
+	var err error
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			break loop
+		case err = <-cherr:
+			break loop
+		case <-ticker.C:
+			if isPrivateRegistry(waitCtx) {
+				err = errPrivateRegistry
+				break loop
+			}
+		}
+	}
+	// Cancel before joining. Otherwise a WaitForService that blocks on
+	// waitCtx never closes waitDone, and this wait deadlocks.
+	cancel()
+	<-waitDone
+	return err
 }

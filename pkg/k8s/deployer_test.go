@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -171,6 +172,468 @@ func Test_generateDeployment_ImagePullSecret(t *testing.T) {
 		secrets := deployment.Spec.Template.Spec.ImagePullSecrets
 		if secrets != nil {
 			t.Errorf("expected no ImagePullSecrets, got %v", secrets)
+		}
+	})
+}
+
+func TestFindSecretForPath(t *testing.T) {
+	secret := "my-cluster-ca"
+	path := "/etc/kafka/ca"
+	volumes := []fn.Volume{
+		{Secret: &secret, Path: &path},
+	}
+
+	name, key := FindSecretForPath("/etc/kafka/ca/ca.crt", volumes)
+	if name != "my-cluster-ca" || key != "ca.crt" {
+		t.Errorf("got (%q, %q), want (my-cluster-ca, ca.crt)", name, key)
+	}
+
+	name, _ = FindSecretForPath("/other/path", volumes)
+	if name != "" {
+		t.Errorf("expected empty for non-matching path, got %q", name)
+	}
+
+	// Sibling directory sharing a prefix must not match (e.g. "/etc/kafka/ca"
+	// is not a parent of "/etc/kafka/cab/ca.crt").
+	name, _ = FindSecretForPath("/etc/kafka/cab/ca.crt", volumes)
+	if name != "" {
+		t.Errorf("expected empty for sibling-directory path, got %q", name)
+	}
+
+	// certPath equal to the mount path names the directory, not a file in
+	// it: no valid Secret data key, so this must not match.
+	name, _ = FindSecretForPath("/etc/kafka/ca", volumes)
+	if name != "" {
+		t.Errorf("expected empty when certPath is the mount path itself, got %q", name)
+	}
+
+	// A cert nested more than one level deep resolves to a rel containing a
+	// separator, which isn't a valid Secret data key either.
+	name, _ = FindSecretForPath("/etc/kafka/ca/sub/ca.crt", volumes)
+	if name != "" {
+		t.Errorf("expected empty for a cert nested more than one level deep, got %q", name)
+	}
+
+	// A Secret mounted at the root resolves a cert sitting directly under it.
+	rootSecret := "root-ca"
+	rootPath := "/"
+	rootVolumes := []fn.Volume{{Secret: &rootSecret, Path: &rootPath}}
+	name, key = FindSecretForPath("/ca.crt", rootVolumes)
+	if name != "root-ca" || key != "ca.crt" {
+		t.Errorf("root mount: got (%q, %q), want (root-ca, ca.crt)", name, key)
+	}
+}
+
+func Test_generateDeployment_KafkaSidecar(t *testing.T) {
+	d := &Deployer{}
+
+	hasEnv := func(c corev1.Container, name string) bool {
+		for _, e := range c.Env {
+			if e.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+	envValue := func(c corev1.Container, name string) string {
+		for _, e := range c.Env {
+			if e.Name == name {
+				return e.Value
+			}
+		}
+		return ""
+	}
+	containerByName := func(dep *appsv1.Deployment, name string) *corev1.Container {
+		for i := range dep.Spec.Template.Spec.Containers {
+			if dep.Spec.Template.Spec.Containers[i].Name == name {
+				return &dep.Spec.Template.Spec.Containers[i]
+			}
+		}
+		return nil
+	}
+
+	t.Run("no kafka: single container, no kafka envs", func(t *testing.T) {
+		f := fn.Function{Name: "test-func", Deploy: fn.DeploySpec{Image: "img:latest"}}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := len(dep.Spec.Template.Spec.Containers); got != 1 {
+			t.Fatalf("expected 1 container, got %d", got)
+		}
+		user := containerByName(dep, "user-container")
+		if user == nil {
+			t.Fatal("user-container not found")
+		}
+		if hasEnv(*user, "FUNC_TRANSPORT") || hasEnv(*user, "KAFKA_BROKERS") {
+			t.Error("function container must not carry Kafka env when Kafka is unconfigured")
+		}
+	})
+
+	t.Run("kafka configured: sidecar injected, function stays plain", func(t *testing.T) {
+		f := fn.Function{
+			Name:    "test-func",
+			Runtime: "go",
+			Invoke:  "cloudevent",
+			Deploy:  fn.DeploySpec{Image: "img:latest"},
+			Run: fn.RunSpec{
+				Kafka: &fn.KafkaConfig{
+					Brokers:       "broker:9092",
+					Topic:         "my-topic",
+					ConsumerGroup: "my-group",
+				},
+			},
+		}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := len(dep.Spec.Template.Spec.Containers); got != 2 {
+			t.Fatalf("expected 2 containers (function + kafka sidecar), got %d", got)
+		}
+
+		// The function container must remain a plain CE server: no Kafka env,
+		// no FUNC_TRANSPORT.
+		user := containerByName(dep, "user-container")
+		if user == nil {
+			t.Fatal("user-container not found")
+		}
+		if hasEnv(*user, "FUNC_TRANSPORT") || hasEnv(*user, "KAFKA_BROKERS") {
+			t.Error("function container must not carry Kafka env in the sidecar model")
+		}
+
+		// The sidecar owns Kafka.
+		sc := containerByName(dep, KafkaSidecarName)
+		if sc == nil {
+			t.Fatalf("%q container not found", KafkaSidecarName)
+		}
+		if sc.Image != DefaultKafkaRuntimeImage {
+			t.Errorf("sidecar image = %q, want %q", sc.Image, DefaultKafkaRuntimeImage)
+		}
+		if got := envValue(*sc, "FUNCTION_TARGET"); got != kafkaFunctionTarget {
+			t.Errorf("FUNCTION_TARGET = %q, want %q", got, kafkaFunctionTarget)
+		}
+		if got := envValue(*sc, "KAFKA_BROKERS"); got != "broker:9092" {
+			t.Errorf("KAFKA_BROKERS = %q, want broker:9092", got)
+		}
+		if hasEnv(*sc, "FUNC_TRANSPORT") {
+			t.Error("sidecar must not carry FUNC_TRANSPORT (in-process selector is retired)")
+		}
+		if sc.ReadinessProbe == nil || sc.ReadinessProbe.HTTPGet == nil ||
+			sc.ReadinessProbe.HTTPGet.Port.IntValue() != kafkaRuntimeHealthPort {
+			t.Errorf("sidecar readiness probe should target port %d", kafkaRuntimeHealthPort)
+		}
+		if sc.LivenessProbe == nil || sc.LivenessProbe.HTTPGet == nil ||
+			sc.LivenessProbe.HTTPGet.Port.IntValue() != kafkaRuntimeHealthPort {
+			t.Errorf("sidecar liveness probe should target port %d", kafkaRuntimeHealthPort)
+		}
+		// A startupProbe must defer liveness until the runtime's health server is
+		// up (it starts serving only after waiting for the function target). Its
+		// window must comfortably exceed the runtime's target wait so a slow
+		// (e.g. JVM) cold start is not restart-looped before it can come up.
+		if sc.StartupProbe == nil || sc.StartupProbe.HTTPGet == nil {
+			t.Fatal("sidecar must have a startupProbe so slow functions aren't restart-looped")
+		}
+		if sc.StartupProbe.HTTPGet.Path != DefaultLivenessEndpoint ||
+			sc.StartupProbe.HTTPGet.Port.IntValue() != kafkaRuntimeHealthPort {
+			t.Errorf("startupProbe should target %s on port %d, got %s on %d",
+				DefaultLivenessEndpoint, kafkaRuntimeHealthPort,
+				sc.StartupProbe.HTTPGet.Path, sc.StartupProbe.HTTPGet.Port.IntValue())
+		}
+		if window := sc.StartupProbe.PeriodSeconds * sc.StartupProbe.FailureThreshold; window < 60 {
+			t.Errorf("startupProbe window = %ds, want >= 60s to cover the runtime's target wait", window)
+		}
+	})
+
+	t.Run("image override via env", func(t *testing.T) {
+		t.Setenv(kafkaRuntimeImageEnv, "example.com/custom:v1")
+		f := fn.Function{
+			Name:   "test-func",
+			Deploy: fn.DeploySpec{Image: "img:latest"},
+			Run: fn.RunSpec{
+				Kafka: &fn.KafkaConfig{Brokers: "b:9092", Topic: "t", ConsumerGroup: "g"},
+			},
+		}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sc := containerByName(dep, KafkaSidecarName)
+		if sc == nil {
+			t.Fatal("kafka sidecar not found")
+		}
+		if sc.Image != "example.com/custom:v1" {
+			t.Errorf("sidecar image = %q, want example.com/custom:v1", sc.Image)
+		}
+	})
+
+	t.Run("kafka tls: cert volumes isolated to the sidecar, app volume stays", func(t *testing.T) {
+		// Two separate credential volumes -- a CA bundle and a client cert/key
+		// pair (mutual TLS) -- plus one unrelated application volume. The client
+		// key in particular must never reach user-container.
+		caPath, caSecret := "/etc/kafka/ca", "kafka-ca"
+		clientPath, clientSecret := "/etc/kafka/client", "kafka-client"
+		appPath, appSecret := "/etc/app", "app-config"
+		mountPaths := func(c *corev1.Container) map[string]bool {
+			m := map[string]bool{}
+			for _, vm := range c.VolumeMounts {
+				m[vm.MountPath] = true
+			}
+			return m
+		}
+		f := fn.Function{
+			Name:   "test-func",
+			Deploy: fn.DeploySpec{Image: "img:latest"},
+			Run: fn.RunSpec{
+				Kafka: &fn.KafkaConfig{
+					Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+					SecurityProtocol: "SSL",
+					TLS: &fn.KafkaTLS{
+						CACert:     "/etc/kafka/ca/ca.crt",
+						ClientCert: "/etc/kafka/client/tls.crt",
+						ClientKey:  "/etc/kafka/client/tls.key",
+					},
+				},
+				Volumes: []fn.Volume{
+					{Secret: &caSecret, Path: &caPath},
+					{Secret: &clientSecret, Path: &clientPath},
+					{Secret: &appSecret, Path: &appPath},
+				},
+			},
+		}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// The sidecar must receive both Kafka cert volumes and none of the
+		// unrelated application volumes.
+		sc := containerByName(dep, KafkaSidecarName)
+		if sc == nil {
+			t.Fatal("kafka sidecar not found")
+		}
+		scMounts := mountPaths(sc)
+		if !scMounts[caPath] || !scMounts[clientPath] {
+			t.Errorf("sidecar should mount both Kafka cert volumes, got %+v", sc.VolumeMounts)
+		}
+		if scMounts[appPath] {
+			t.Error("sidecar must not receive unrelated application volumes")
+		}
+
+		// Conversely, the function (user) container must NOT receive either Kafka
+		// TLS volume: that credential material (notably the client private key)
+		// belongs to the sidecar only. The unrelated application volume stays.
+		uc := containerByName(dep, "user-container")
+		if uc == nil {
+			t.Fatal("user-container not found")
+		}
+		ucMounts := mountPaths(uc)
+		if ucMounts[caPath] || ucMounts[clientPath] {
+			t.Errorf("user-container must not receive Kafka TLS cert/key volumes, got %+v", uc.VolumeMounts)
+		}
+		if !ucMounts[appPath] {
+			t.Errorf("user-container should still mount the application volume %q; got %+v", appPath, uc.VolumeMounts)
+		}
+
+		// The pod-level volume list still carries every volume so each container
+		// that mounts one can find it.
+		volNames := map[string]bool{}
+		for _, v := range dep.Spec.Template.Spec.Volumes {
+			volNames[v.Name] = true
+		}
+		for _, want := range []string{"secret-" + caSecret, "secret-" + clientSecret, "secret-" + appSecret} {
+			if !volNames[want] {
+				t.Errorf("pod volumes should include %q, got %+v", want, dep.Spec.Template.Spec.Volumes)
+			}
+		}
+	})
+
+	t.Run("kafka tls: credential secret mounted at a second path stays off user-container", func(t *testing.T) {
+		// A single Secret carrying the client key is mounted at two paths: the
+		// cert path referenced by run.kafka.tls, and a second, unrelated path.
+		// ProcessVolumes creates one volume for the Secret but a mount per path,
+		// so excluding only the cert-path mount would leave the second mount --
+		// backed by the same volume -- on user-container and re-expose the key.
+		// Neither mount may reach user-container.
+		certPath := "/etc/kafka/client"
+		secondPath := "/mnt/also-client"
+		clientSecret := "kafka-client"
+		mountPaths := func(c *corev1.Container) map[string]bool {
+			m := map[string]bool{}
+			for _, vm := range c.VolumeMounts {
+				m[vm.MountPath] = true
+			}
+			return m
+		}
+		f := fn.Function{
+			Name:   "test-func",
+			Deploy: fn.DeploySpec{Image: "img:latest"},
+			Run: fn.RunSpec{
+				Kafka: &fn.KafkaConfig{
+					Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+					SecurityProtocol: "SSL",
+					TLS: &fn.KafkaTLS{
+						ClientCert: "/etc/kafka/client/tls.crt",
+						ClientKey:  "/etc/kafka/client/tls.key",
+					},
+				},
+				Volumes: []fn.Volume{
+					{Secret: &clientSecret, Path: &certPath},
+					{Secret: &clientSecret, Path: &secondPath},
+				},
+			},
+		}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		uc := containerByName(dep, "user-container")
+		if uc == nil {
+			t.Fatal("user-container not found")
+		}
+		ucMounts := mountPaths(uc)
+		if ucMounts[certPath] || ucMounts[secondPath] {
+			t.Errorf("user-container must not mount the client-key secret at any path, got %+v", uc.VolumeMounts)
+		}
+	})
+
+	t.Run("kafka tls: volume at a parent dir of the cert path stays on user-container", func(t *testing.T) {
+		// A PVC is mounted at /data and the Kafka cert Secret at /data/certs, so
+		// /data is an ancestor directory of the cert path /data/certs/ca.crt. Only
+		// the Secret actually backs the cert; the PVC must not be swept into the
+		// sidecar set and removed from the function container. This is the
+		// regression guard for #4093.
+		pvcClaim := "data-pvc"
+		pvcPath := "/data"
+		certSecret := "kafka-cert"
+		certPath := "/data/certs"
+		mountPaths := func(c *corev1.Container) map[string]bool {
+			m := map[string]bool{}
+			for _, vm := range c.VolumeMounts {
+				m[vm.MountPath] = true
+			}
+			return m
+		}
+		f := fn.Function{
+			Name:   "test-func",
+			Deploy: fn.DeploySpec{Image: "img:latest"},
+			Run: fn.RunSpec{
+				Kafka: &fn.KafkaConfig{
+					Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
+					SecurityProtocol: "SSL",
+					TLS:              &fn.KafkaTLS{CACert: "/data/certs/ca.crt"},
+				},
+				Volumes: []fn.Volume{
+					{PersistentVolumeClaim: &fn.PersistentVolumeClaim{ClaimName: &pvcClaim}, Path: &pvcPath},
+					{Secret: &certSecret, Path: &certPath},
+				},
+			},
+		}
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		dep, err := d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// The sidecar receives only the cert Secret, never the parent PVC.
+		sc := containerByName(dep, KafkaSidecarName)
+		if sc == nil {
+			t.Fatal("kafka sidecar not found")
+		}
+		scMounts := mountPaths(sc)
+		if !scMounts[certPath] {
+			t.Errorf("sidecar should mount the cert secret at %q, got %+v", certPath, sc.VolumeMounts)
+		}
+		if scMounts[pvcPath] {
+			t.Errorf("sidecar must not receive the PVC mounted at a parent dir %q, got %+v", pvcPath, sc.VolumeMounts)
+		}
+
+		// The function keeps its PVC; only the cert Secret is withheld.
+		uc := containerByName(dep, "user-container")
+		if uc == nil {
+			t.Fatal("user-container not found")
+		}
+		ucMounts := mountPaths(uc)
+		if !ucMounts[pvcPath] {
+			t.Errorf("user-container should still mount the PVC at %q; got %+v", pvcPath, uc.VolumeMounts)
+		}
+		if ucMounts[certPath] {
+			t.Errorf("user-container must not receive the Kafka cert secret at %q, got %+v", certPath, uc.VolumeMounts)
+		}
+	})
+}
+
+// generateDeployment narrows scale.min (int64) to the Deployment's int32
+// replica count. Function.Validate rejects out-of-range values, but Deploy is
+// reachable without it, so generateDeployment guards the narrowing itself:
+// negative values (which would otherwise be silently normalized to one replica)
+// and values above int32 (which would wrap) are rejected, while valid values
+// map straight through.
+func Test_generateDeployment_ScaleMinBounds(t *testing.T) {
+	d := &Deployer{}
+	overflow := int64(math.MaxInt32) + 1
+	negative := int64(-1)
+	valid := int64(3)
+
+	newFunc := func(min *int64) fn.Function {
+		return fn.Function{
+			Name:   "test-func",
+			Deploy: fn.DeploySpec{Image: "registry.example.com/test:latest"},
+			Scale:  &fn.ScaleOptions{Min: min},
+		}
+	}
+	gen := func(f fn.Function) (*appsv1.Deployment, error) {
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		labels, anns := testMeta(t, f)
+		return d.generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+	}
+
+	for _, tt := range []struct {
+		name string
+		min  *int64
+	}{
+		{"overflow", &overflow},
+		{"negative", &negative},
+	} {
+		t.Run(tt.name+" rejected", func(t *testing.T) {
+			if _, err := gen(newFunc(tt.min)); err == nil ||
+				!strings.Contains(err.Error(), "scale.min") ||
+				!strings.Contains(err.Error(), "out of range") {
+				t.Fatalf("expected out-of-range scale.min error, got %v", err)
+			}
+		})
+	}
+
+	t.Run("valid min sets replicas", func(t *testing.T) {
+		deployment, err := gen(newFunc(&valid))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != 3 {
+			t.Fatalf("expected 3 replicas, got %v", deployment.Spec.Replicas)
+		}
+	})
+
+	t.Run("min zero defaults to one replica", func(t *testing.T) {
+		zero := int64(0)
+		deployment, err := gen(newFunc(&zero))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != 1 {
+			t.Fatalf("expected 1 replica for min=0, got %v", deployment.Spec.Replicas)
 		}
 	})
 }
@@ -453,7 +916,12 @@ func TestAppendKafkaEnvs_Nil(t *testing.T) {
 	base := []corev1.EnvVar{
 		{Name: "EXISTING", Value: "value"},
 	}
-	got := AppendKafkaEnvs(base, nil)
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(base, nil, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 1 {
 		t.Fatalf("expected 1 env var, got %d", len(got))
 	}
@@ -471,12 +939,16 @@ func TestAppendKafkaEnvs_AllFields(t *testing.T) {
 		Topic:         "my-topic",
 		ConsumerGroup: "my-group",
 	}
-	got := AppendKafkaEnvs(base, kafka)
-	if len(got) != 5 {
-		t.Fatalf("expected 5 env vars (1 existing + 4 kafka), got %d", len(got))
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(base, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 4 {
+		t.Fatalf("expected 4 env vars (1 existing + 3 kafka), got %d", len(got))
 	}
 	expected := map[string]string{
-		"FUNC_TRANSPORT":       "kafka",
 		"KAFKA_BROKERS":        "broker1:9092,broker2:9092",
 		"KAFKA_TOPIC":          "my-topic",
 		"KAFKA_CONSUMER_GROUP": "my-group",
@@ -502,7 +974,12 @@ func TestAppendKafkaEnvs_MissingBrokers(t *testing.T) {
 		Topic:         "my-topic",
 		ConsumerGroup: "my-group",
 	}
-	got := AppendKafkaEnvs(base, kafka)
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(base, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 1 {
 		t.Fatalf("expected 1 env var (unchanged), got %d", len(got))
 	}
@@ -517,9 +994,143 @@ func TestAppendKafkaEnvs_MissingTopic(t *testing.T) {
 		Topic:         "",
 		ConsumerGroup: "my-group",
 	}
-	got := AppendKafkaEnvs(base, kafka)
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(base, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 1 {
 		t.Fatalf("expected 1 env var (unchanged), got %d", len(got))
+	}
+}
+
+func TestAppendKafkaEnvs_SASL_SSL(t *testing.T) {
+	kafka := &fn.KafkaConfig{
+		Brokers:          "broker:9093",
+		Topic:            "my-topic",
+		ConsumerGroup:    "my-group",
+		SecurityProtocol: "SASL_SSL",
+		TLS:              &fn.KafkaTLS{CACert: "/etc/kafka/ca/ca.crt"},
+		SASL:             &fn.KafkaSASL{Mechanism: "SCRAM-SHA-512", User: "alice", Password: "s3cret"},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(nil, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envMap := make(map[string]string)
+	for _, ev := range got {
+		envMap[ev.Name] = ev.Value
+	}
+	if envMap["KAFKA_SECURITY_PROTOCOL"] != "SASL_SSL" {
+		t.Errorf("KAFKA_SECURITY_PROTOCOL = %q", envMap["KAFKA_SECURITY_PROTOCOL"])
+	}
+	if envMap["KAFKA_TLS_CA_CERT"] != "/etc/kafka/ca/ca.crt" {
+		t.Errorf("KAFKA_TLS_CA_CERT = %q", envMap["KAFKA_TLS_CA_CERT"])
+	}
+	if envMap["KAFKA_SASL_MECHANISM"] != "SCRAM-SHA-512" {
+		t.Errorf("KAFKA_SASL_MECHANISM = %q", envMap["KAFKA_SASL_MECHANISM"])
+	}
+	if envMap["KAFKA_SASL_USER"] != "alice" {
+		t.Errorf("KAFKA_SASL_USER = %q", envMap["KAFKA_SASL_USER"])
+	}
+	if envMap["KAFKA_SASL_PASSWORD"] != "s3cret" {
+		t.Errorf("KAFKA_SASL_PASSWORD = %q", envMap["KAFKA_SASL_PASSWORD"])
+	}
+}
+
+func TestAppendKafkaEnvs_SecretRef(t *testing.T) {
+	kafka := &fn.KafkaConfig{
+		Brokers:          "broker:9093",
+		Topic:            "my-topic",
+		ConsumerGroup:    "my-group",
+		SecurityProtocol: "SASL_SSL",
+		SASL: &fn.KafkaSASL{
+			Mechanism: "PLAIN",
+			User:      "{{ secret:my-kafka-user:username }}",
+			Password:  "{{ secret:my-kafka-user:password }}",
+		},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(nil, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	envByName := make(map[string]corev1.EnvVar, len(got))
+	for _, ev := range got {
+		envByName[ev.Name] = ev
+	}
+
+	userEnv, ok := envByName["KAFKA_SASL_USER"]
+	if !ok {
+		t.Fatal("KAFKA_SASL_USER not found in env vars")
+	}
+	if userEnv.ValueFrom == nil || userEnv.ValueFrom.SecretKeyRef == nil {
+		t.Fatal("KAFKA_SASL_USER should have ValueFrom with SecretKeyRef")
+	}
+	if userEnv.ValueFrom.SecretKeyRef.Name != "my-kafka-user" {
+		t.Errorf("secret name = %q, want my-kafka-user", userEnv.ValueFrom.SecretKeyRef.Name)
+	}
+	if userEnv.ValueFrom.SecretKeyRef.Key != "username" {
+		t.Errorf("secret key = %q, want username", userEnv.ValueFrom.SecretKeyRef.Key)
+	}
+
+	passEnv, ok := envByName["KAFKA_SASL_PASSWORD"]
+	if !ok {
+		t.Fatal("KAFKA_SASL_PASSWORD not found in env vars")
+	}
+	if passEnv.ValueFrom == nil || passEnv.ValueFrom.SecretKeyRef == nil {
+		t.Fatal("KAFKA_SASL_PASSWORD should have ValueFrom with SecretKeyRef")
+	}
+	if passEnv.ValueFrom.SecretKeyRef.Key != "password" {
+		t.Errorf("secret key = %q, want password", passEnv.ValueFrom.SecretKeyRef.Key)
+	}
+	if !secrets.Has("my-kafka-user") {
+		t.Error("secret my-kafka-user should be tracked in referencedSecrets")
+	}
+}
+
+func TestAppendKafkaEnvs_MalformedSecretRef(t *testing.T) {
+	kafka := &fn.KafkaConfig{
+		Brokers:          "broker:9093",
+		Topic:            "my-topic",
+		ConsumerGroup:    "my-group",
+		SecurityProtocol: "SASL_SSL",
+		SASL: &fn.KafkaSASL{
+			Mechanism: "PLAIN",
+			User:      "{{ secret:my-user:name }}trailing",
+			Password:  "p",
+		},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	_, err := AppendKafkaEnvs(nil, kafka, &secrets, &configMaps)
+	if err == nil {
+		t.Fatal("expected error for malformed secret reference with trailing content")
+	}
+}
+
+func TestAppendKafkaEnvs_MalformedSecretRefTrailingBraces(t *testing.T) {
+	kafka := &fn.KafkaConfig{
+		Brokers:          "broker:9093",
+		Topic:            "my-topic",
+		ConsumerGroup:    "my-group",
+		SecurityProtocol: "SASL_SSL",
+		SASL: &fn.KafkaSASL{
+			Mechanism: "PLAIN",
+			User:      "u",
+			Password:  "{{ secret:s:k }}junk}}",
+		},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	_, err := AppendKafkaEnvs(nil, kafka, &secrets, &configMaps)
+	if err == nil {
+		t.Fatal("expected error for malformed secret reference with trailing braces")
 	}
 }
 
@@ -1213,4 +1824,58 @@ func Test_preserveDeploymentSelector(t *testing.T) {
 			t.Error("expected the domain to stay out of the selector")
 		}
 	})
+}
+
+func Test_ProcessEnvs_ErrorCheckBeforeAppend(t *testing.T) {
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+
+	name := "MY_VAR"
+	// empty secret name in the template should cause an error
+	value := "{{ secret::key }}"
+	envs := []fn.Env{{Name: &name, Value: &value}}
+
+	envVars, _, err := ProcessEnvs(envs, &referencedSecrets, &referencedConfigMaps)
+	if err == nil {
+		t.Fatal("expected error for empty secret name")
+	}
+	if envVars != nil {
+		t.Fatalf("expected nil envVars on error, got %d entries", len(envVars))
+	}
+}
+
+func Test_createEnvFromSource_EmptyName(t *testing.T) {
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+
+	_, err := createEnvFromSource("{{ secret: }}", &referencedSecrets, &referencedConfigMaps)
+	if err == nil {
+		t.Fatal("expected error for empty source name")
+	}
+	if referencedSecrets.Has("") {
+		t.Fatal("empty string was inserted into referencedSecrets before validation")
+	}
+}
+
+func Test_createEnvVarSource_EmptyName(t *testing.T) {
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+
+	_, err := createEnvVarSource([]string{"secret", "", "key"}, &referencedSecrets, &referencedConfigMaps)
+	if err == nil {
+		t.Fatal("expected error for empty source name")
+	}
+	if referencedSecrets.Has("") {
+		t.Fatal("empty string was inserted into referencedSecrets before validation")
+	}
+}
+
+func Test_createEnvVarSource_EmptyKey(t *testing.T) {
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+
+	_, err := createEnvVarSource([]string{"secret", "my-secret", ""}, &referencedSecrets, &referencedConfigMaps)
+	if err == nil {
+		t.Fatal("expected error for empty source key")
+	}
 }

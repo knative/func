@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
 
       - name: Check and Lint
@@ -90,7 +90,7 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --global core.autocrlf false
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
 
       - name: Run Unit Tests
@@ -124,20 +124,20 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --global core.autocrlf false
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
 
         # Toolchains
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -165,7 +165,7 @@ jobs:
       FUNC_INT_PAC_HOST: pac-ctr.localtest.me
       KUBECONFIG: ${{github.workspace}}/hack/bin/kubeconfig.yaml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -202,9 +202,70 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-integration
+          path: ./cluster_log.txt
+          retention-days: 7
+
+  # -----------------------
+  # KAFKA INTEGRATION TESTS
+  # -----------------------
+  # Exercises the run.kafka path end to end against a real Strimzi broker. It
+  # runs on its own slim cluster (only KEDA + Kafka + the registry mirror) so a
+  # real Kafka broker fits on the single kind node without competing for CPU
+  # with the full integration suite's components.
+  test-integration-kafka:
+    name: Kafka Integration Tests
+    needs: precheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FUNC_CLUSTER_RETRIES: 5
+      # Slim cluster: install only what the Kafka test needs. KEDA creates the
+      # ScaledObject/TriggerAuthentication, the broker serves run.kafka, and the
+      # registry backs the containerd image mirror. Everything else is off.
+      FUNC_CLUSTER_KAFKA: "true"
+      FUNC_CLUSTER_KEDA: "true"
+      FUNC_CLUSTER_SERVING: "false"
+      FUNC_CLUSTER_EVENTING: "false"
+      FUNC_CLUSTER_DAPR: "false"
+      FUNC_CLUSTER_TEKTON: "false"
+      FUNC_CLUSTER_FUNC_OPERATOR: "false"
+      KUBECONFIG: ${{github.workspace}}/hack/bin/kubeconfig.yaml
+    steps:
+      - uses: actions/checkout@v5
+      - uses: knative/actions/setup-go@main
+      - uses: endersonmenezes/free-disk-space@v3
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_haskell: true
+          remove_swap: true
+          rm_cmd: "rmz" # Faster than rm
+
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/cluster.sh
+
+      - name: Run Kafka Integration Tests
+        run: make test-integration-kafka
+
+      - uses: ./.github/actions/codecov
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: integration
+
+      # Preserve Cluster Logs
+      - name: Dump Cluster Logs
+        if: always()
+        run: ./hack/dump-logs.sh cluster_log.txt
+      - name: Archive Cluster Logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cluster-logs-integration-kafka
           path: ./cluster_log.txt
           retention-days: 7
 
@@ -223,7 +284,7 @@ jobs:
       FUNC_E2E_VERBOSE: true
       FUNC_CLUSTER_KEDA: "false" # these tests don't use KEDA; skip it to free cluster CPU (PR #3914 'Insufficient cpu')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -256,7 +317,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-e2e-core
           path: ./cluster_log.txt
@@ -286,7 +347,7 @@ jobs:
       # why it is off by default.
       FUNC_CLUSTER_KEDA: "false"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -319,7 +380,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-e2e-expose
           path: ./cluster_log.txt
@@ -344,7 +405,7 @@ jobs:
       FUNC_E2E_CLEAN: false # cluster only used once
       FUNC_E2E_VERBOSE: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
 
       - uses: endersonmenezes/free-disk-space@v3
@@ -379,7 +440,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-${{ matrix.os }}-podman
           path: ./cluster_log.txt
@@ -410,7 +471,7 @@ jobs:
       FUNC_E2E_VERBOSE: true
       FUNC_E2E_MATRIX_RUNTIMES: ${{ matrix.runtime }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -423,17 +484,17 @@ jobs:
         # Install Toolchain Being Tested
       - name: Setup Python
         if: matrix.runtime == 'python'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Setup Node.js
         if: matrix.runtime == 'node' || matrix.runtime == 'typescript'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Setup Java
         if: matrix.runtime == 'quarkus' || matrix.runtime == 'springboot'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
@@ -466,7 +527,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-${{ matrix.runtime }}
           path: ./cluster_log.txt
@@ -485,7 +546,7 @@ jobs:
       FUNC_E2E_CLEAN: false
       FUNC_E2E_VERBOSE: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: endersonmenezes/free-disk-space@v3
         with:
@@ -518,7 +579,7 @@ jobs:
         run: ./hack/dump-logs.sh cluster_log.txt
       - name: Archive Cluster Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-logs-e2e-config-ci
           path: ./cluster_log.txt
@@ -536,45 +597,47 @@ jobs:
       - test-e2e-podman
       - test-e2e-runtimes
       - test-e2e-config-ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - name: Build Platform Binaries
         run: make cross-platform
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: OSX Binary (AMD)
           path: func_darwin_amd64
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: OSX Binary (ARM)
           path: func_darwin_arm64
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Linux Binary (AMD)
           path: func_linux_amd64
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Linux Binary (ARM)
           path: func_linux_arm64
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Linux Binary (PPC64LE)
           path: func_linux_ppc64le
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Linux Binary (S390X)
           path: func_linux_s390x
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: Windows Binary
           path: func_windows_amd64.exe
@@ -586,17 +649,40 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Derive Image Tag
+        id: image-tag
+        # Publish the tag the source embeds: the next minor on main, X.Y on
+        # release-X.Y (see docs/func-utils-image.md). Once release-X.Y is cut,
+        # main skips the publish until it moves to the next minor, unless its
+        # commit is the branch head (the cut commit's own run).
+        run: |
+          ref="$(make -s --no-print-directory func-utils-image)"
+          tag="${ref##*:}"
+          if [[ "${GITHUB_REF_NAME}" == release-* && "${GITHUB_REF_NAME}" != "release-${tag}" ]]; then
+            echo "::error::${GITHUB_REF_NAME} embeds ${ref}; it must embed its own minor"
+            exit 1
+          fi
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            head="$(git ls-remote origin "refs/heads/release-${tag}")"
+            head="${head%%$'\t'*}"
+            if [[ -n "${head}" && "${head}" != "${GITHUB_SHA}" ]]; then
+              echo "::notice::release-${tag} is cut, so only that branch publishes ${ref}; merge the PR that moves main to the next minor"
+              exit 0
+            fi
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
       - name: Build and push
         id: build-images
+        if: steps.image-tag.outputs.tag != ''
         run: |
           for a in amd64 arm64 ppc64le s390x; do
             CGO_ENABLED=0 GOARCH="${a}" go build -buildvcs=false -o "func-util-$a" -trimpath -ldflags '-w -s' ./cmd/func-util
@@ -608,7 +694,7 @@ jobs:
             --provenance=false --sbom=false \
             --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
             --push \
-            -t "ghcr.io/knative/func-utils:v2" \
+            -t "ghcr.io/knative/func-utils:${{ steps.image-tag.outputs.tag }}" \
             --annotation index:org.opencontainers.image.description="Knative Func Utils Image" \
             --annotation index:org.opencontainers.image.source="https://github.com/knative/func" \
             --annotation index:org.opencontainers.image.vendor="https://github.com/knative/func" \
@@ -617,6 +703,7 @@ jobs:
           DIGEST="$(jq -r '."containerimage.digest"' build-metadata.json)"
           echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
       - name: Attest Build Provenance
+        if: steps.image-tag.outputs.tag != ''
         uses: actions/attest-build-provenance@v3
         with:
           subject-name: "ghcr.io/knative/func-utils"
@@ -626,10 +713,11 @@ jobs:
   publish-image:
     name: Publish as Image
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: knative/actions/setup-go@main
       - uses: imjasonh/setup-ko@v0.6
       - run: ko build --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 -B ./cmd/func

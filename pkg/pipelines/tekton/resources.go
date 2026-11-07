@@ -54,7 +54,7 @@ func getBuilderImage(f fn.Function) (name string) {
 
 func getPipelineName(f fn.Function) string {
 	var source string
-	if f.Build.Git.URL == "" {
+	if f.Build.Source.URL == "" {
 		source = "upload"
 	} else {
 		source = "git"
@@ -69,10 +69,6 @@ func getPipelineName(f fn.Function) string {
 
 func getPipelineRunGenerateName(f fn.Function) string {
 	return fmt.Sprintf("%s-run-", getPipelineName(f))
-}
-
-func getPipelineSecretName(f fn.Function) string {
-	return fmt.Sprintf("%s-secret", getPipelineName(f))
 }
 
 func getPipelinePvcName(f fn.Function) string {

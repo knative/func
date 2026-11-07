@@ -10,7 +10,7 @@ NAME
 
 SYNOPSIS
 	func deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
-	             [-e|--env] [-g|--git-url] [-t|--git-branch] [-d|--git-dir]
+	             [-e|--env] [-s|--source] [-t|--revision] [-d|--source-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
 	             [--service-account] [-c|--confirm] [-v|--verbose]
@@ -55,8 +55,20 @@ DESCRIPTION
 	  invoked in the remote.  Deploying with 'func deploy --remote' will
 	  send the function's source code to be built and deployed by the cluster,
 	  eliminating the need for a local container engine.  To trigger deployment
-	  of a git repository instead of local source, combine with '--git-url':
-	  'func deploy --remote --git-url=git.example.com/alice/f.git'
+	  of a git repository instead of local source, combine with '--source':
+	  'func deploy --remote --source=git.example.com/alice/f.git'
+	  A branch, tag or commit is given with '--revision':
+	  'func deploy --remote --source=git.example.com/alice/f.git --revision=v1.2.0'
+	  The function is then read from the repository, so no local copy is
+	  needed, and nothing is written locally: to change the function, clone
+	  the repository, edit it and deploy the working tree.  Choose the
+	  directory within the repository with '--source-dir'.  The function is
+	  deployed as configured by the func.yaml committed there: of the flags
+	  which configure a function, only '--builder', '--registry',
+	  '--registry-insecure' and '--namespace' apply, the latter only if the
+	  func.yaml names no other namespace.  A repository set in the local
+	  func.yaml (build.source) instead of with '--source' is built with the
+	  local function's settings.
 
 	Domain
 	  When deploying, a function's route is automatically generated using the
@@ -96,7 +108,7 @@ EXAMPLES
 
 	o Trigger a remote deploy, which instructs the cluster to build and deploy
 	  the function in the specified git repository.
-	  $ func deploy --remote --git-url=https://example.com/alice/myfunc.git
+	  $ func deploy --remote --source=https://example.com/alice/myfunc.git
 
 	o Deploy the function, rebuilding the image even if no changes have been
 	  detected in the local filesystem (source).
@@ -126,13 +138,10 @@ func deploy
   -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
       --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
-      --deployer string               Type of deployment to use: 'knative' for Knative Service, 'raw' for Kubernetes Deployment, or 'keda' for Deployment with a KEDA HTTP scaler ($FUNC_DEPLOYER) (default "knative")
+      --deployer string               Type of deployment to use: 'knative' for Knative Service, 'raw' for Kubernetes Deployment, or 'keda' for Deployment scaled by KEDA (HTTP or Kafka triggers) ($FUNC_DEPLOYER) (default "knative")
       --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
   -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
       --expose string                 External exposure mode: 'route' for an OpenShift Route (OpenShift clusters only), 'none' for cluster-local. Default: no exposure. Raw and keda deployers only. ($FUNC_EXPOSE)
-  -t, --git-branch string             Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
-  -d, --git-dir string                Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
-  -g, --git-url string                Repository url containing the function to build ($FUNC_GIT_URL)
   -h, --help                          help for deploy
   -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
       --image-pull-secret string      Image pull secret to use when the function's image is in a private registry ($FUNC_IMAGE_PULL_SECRET)
@@ -148,7 +157,10 @@ func deploy
       --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)
   -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
       --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
+  -t, --revision string               Revision of --source to build: a branch, a tag or a commit (default is the repository's default branch) ($FUNC_REVISION)
       --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -s, --source string                 Repository to build the function from on the cluster, instead of the local directory ($FUNC_SOURCE)
+  -d, --source-dir string             Directory within --source containing the function (default is the root) ($FUNC_SOURCE_DIR)
       --token string                  Token to use when pushing to the registry. ($FUNC_TOKEN)
       --username string               Username to use when pushing to the registry. ($FUNC_USERNAME)
   -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
