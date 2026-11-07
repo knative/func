@@ -6,21 +6,34 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
+	"io"
+	"log"
 	"math/big"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
 
+	"golang.org/x/mod/module"
+	"golang.org/x/mod/sumdb/dirhash"
+	modzip "golang.org/x/mod/zip"
 	"golang.org/x/term"
 
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -30,6 +43,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/buildpacks"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -155,9 +169,14 @@ password=nbusr123
 				}},
 		},
 		{
-			Name:         "pack",
-			Scaffolder:   buildpacks.NewScaffolder(true),
-			Builder:      buildpacks.NewBuilder(buildpacks.WithVerbose(true)),
+			Name:       "pack",
+			Scaffolder: buildpacks.NewScaffolder(true),
+			Builder:    buildpacks.NewBuilder(buildpacks.WithVerbose(true)),
+			// The private module is fetched by git, which in jammy is linked
+			// against gnutls and ignores SSL_CERT_DIR, where the Paketo CA
+			// Certificates buildpack adds a CA given with f.Build.CAFile.
+			// So this case still needs a builder image that trusts our CA.
+			// See TestInt_PackBuildTrustsCAFile for f.Build.CAFile.
 			BuilderImage: buildPatchedBuildpackBuilder,
 			Envs: []fn.Env{
 				{
@@ -195,6 +214,289 @@ password=nbusr123
 			}
 		})
 	}
+}
+
+// TestInt_PackBuildTrustsCAFile ensures that a CA given with f.Build.CAFile is
+// trusted during a pack build with a stock builder image. The function
+// depends on a module served by a Go module proxy over TLS with a certificate
+// signed by a custom CA, as with a TLS-intercepting proxy. The same build
+// fails without the CA file.
+func TestInt_PackBuildTrustsCAFile(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		// The pack build container reaches the proxy on 127.0.0.1 through
+		// host networking, which the pack builder only uses on Linux.
+		t.Skip("Skipping TestInt_PackBuildTrustsCAFile on non-Linux systems due to host networking")
+	}
+	const stockBuilder = "ghcr.io/knative/builder-jammy-tiny:v2"
+
+	caCert, caKey, caPEM := newTestCA(t, "func-test-ca")
+	_, _, otherPEM := newTestCA(t, "func-test-unrelated-ca")
+	proxy := serveGoModuleProxy(t, caCert, caKey)
+
+	caFile := filepath.Join(t.TempDir(), "ca.pem") // outside the function tree
+	if err := os.WriteFile(caFile, caPEM, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name    string
+		caFile  func(root string) string // returns f.Build.CAFile, may write into root
+		wantErr bool
+	}{
+		{
+			name:   "with-ca",
+			caFile: func(string) string { return caFile },
+		},
+		{
+			name:    "without-ca",
+			caFile:  func(string) string { return "" },
+			wantErr: true,
+		},
+		{
+			// A bundle with an unrelated CA first, as corporate bundles hold
+			// many CAs, given relative to the function root.
+			name: "bundle",
+			caFile: func(root string) string {
+				bundle := append(append([]byte{}, otherPEM...), caPEM...)
+				if err := os.WriteFile(filepath.Join(root, "bundle.pem"), bundle, 0644); err != nil {
+					t.Fatal(err)
+				}
+				return "bundle.pem"
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			f := newCADepFunction(t, proxy)
+			// Unique per run so that no module cache of an earlier build is reused.
+			f.Build.Image = fmt.Sprintf("registry.localtest.me/go-cadep:test-%s-%d", tt.name, time.Now().UnixNano())
+			f.Build.Builder = builders.Pack
+			f.Build.BuilderImages = map[string]string{builders.Pack: stockBuilder}
+			f.Build.CAFile = tt.caFile(f.Root)
+
+			zips, handshakeErrors := proxy.zips.Load(), proxy.handshakeErrors.Load()
+			if err := buildpacks.NewScaffolder(true).Scaffold(ctx, f, ""); err != nil {
+				t.Fatal(err)
+			}
+			err := buildpacks.NewBuilder(buildpacks.WithVerbose(true)).Build(ctx, f, nil)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected the build to fail without the CA file")
+				}
+				// The proxy sees the build reject its certificate.
+				if proxy.handshakeErrors.Load() == handshakeErrors {
+					t.Fatalf("expected a TLS handshake error at the module proxy, build error: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if proxy.zips.Load() == zips {
+				t.Fatal("expected the module to be downloaded from the TLS module proxy")
+			}
+		})
+	}
+}
+
+const (
+	caDepModule  = "example.localtest.me/cadep"
+	caDepVersion = "v1.0.0"
+)
+
+// goModuleProxy is a Go module proxy serving caDepModule over TLS.
+type goModuleProxy struct {
+	url   string
+	goSum string // go.sum lines of caDepModule
+	zips  atomic.Int64
+	// handshakeErrors counts TLS handshakes rejected by clients.
+	handshakeErrors atomic.Int64
+}
+
+// serveGoModuleProxy serves a Go module proxy with caDepModule on
+// https://127.0.0.1:<random port>, with a certificate signed by the given CA.
+// Unknown paths return 404, which makes go try the next proxy in GOPROXY.
+func serveGoModuleProxy(t *testing.T, ca *x509.Certificate, caKey *ecdsa.PrivateKey) *goModuleProxy {
+	t.Helper()
+	m := module.Version{Path: caDepModule, Version: caDepVersion}
+	modData := []byte("module " + caDepModule + "\n\ngo 1.22\n")
+
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "go.mod"), modData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	code := "package cadep\n\n// Answer returns the answer.\nfunc Answer() int { return 42 }\n"
+	if err := os.WriteFile(filepath.Join(src, "cadep.go"), []byte(code), 0644); err != nil {
+		t.Fatal(err)
+	}
+	zipFile := filepath.Join(t.TempDir(), "cadep.zip")
+	zf, err := os.Create(zipFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = modzip.CreateFromDir(zf, m, src); err != nil {
+		t.Fatal(err)
+	}
+	if err = zf.Close(); err != nil {
+		t.Fatal(err)
+	}
+	zipData, err := os.ReadFile(zipFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zipHash, err := dirhash.HashZip(zipFile, dirhash.Hash1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	modHash, err := dirhash.Hash1([]string{"go.mod"}, func(string) (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(modData)), nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p := &goModuleProxy{
+		goSum: fmt.Sprintf("%s %s %s\n%s %s/go.mod %s\n", caDepModule, caDepVersion, zipHash, caDepModule, caDepVersion, modHash),
+	}
+	escaped, err := module.EscapePath(caDepModule)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := "/" + escaped + "/@v/"
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case prefix + "list":
+			fmt.Fprintln(w, caDepVersion)
+		case prefix + caDepVersion + ".info":
+			fmt.Fprintf(w, `{"Version":%q,"Time":"2025-01-01T00:00:00Z"}`, caDepVersion)
+		case prefix + caDepVersion + ".mod":
+			_, _ = w.Write(modData)
+		case prefix + caDepVersion + ".zip":
+			p.zips.Add(1)
+			_, _ = w.Write(zipData)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	srv := httptest.NewUnstartedServer(handler)
+	srv.TLS = &tls.Config{Certificates: []tls.Certificate{newServerCert(t, ca, caKey)}}
+	srv.Config.ErrorLog = log.New(handshakeErrorCounter{&p.handshakeErrors}, "", 0)
+	srv.StartTLS() // listens on 127.0.0.1
+	t.Cleanup(srv.Close)
+	p.url = srv.URL
+	return p
+}
+
+// handshakeErrorCounter counts TLS handshake errors logged by http.Server.
+type handshakeErrorCounter struct{ n *atomic.Int64 }
+
+func (c handshakeErrorCounter) Write(p []byte) (int, error) {
+	if bytes.Contains(p, []byte("TLS handshake error")) {
+		c.n.Add(1)
+	}
+	return len(p), nil
+}
+
+// newCADepFunction writes a Go function into a new directory which imports
+// caDepModule, with a complete go.sum, and build envs which fetch modules
+// from the given proxy first.
+func newCADepFunction(t *testing.T, proxy *goModuleProxy) fn.Function {
+	t.Helper()
+	root := t.TempDir()
+	files := map[string]string{
+		"func.yaml": "specVersion: 0.36.0\nname: go-cadep\nruntime: go\ncreated: 2025-01-01T00:00:00Z\n",
+		"go.mod":    "module function\n\ngo 1.22\n\nrequire " + caDepModule + " " + caDepVersion + "\n",
+		"go.sum":    proxy.goSum,
+		"function.go": `package function
+
+import (
+	"fmt"
+	"net/http"
+
+	"` + caDepModule + `"
+)
+
+type Function struct{}
+
+func New() *Function { return &Function{} }
+
+// Handle an HTTP Request.
+func (f *Function) Handle(w http.ResponseWriter, r *http.Request) {
+	_, _ = fmt.Fprintf(w, "The answer is: %d", cadep.Answer())
+}
+`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Build.BuildEnvs = []fn.Env{
+		// Our proxy first; it returns 404 for other modules so that they are
+		// fetched from the public proxy. A TLS error is not retried there.
+		{Name: ptr("GOPROXY"), Value: ptr(proxy.url + ",https://proxy.golang.org")},
+		{Name: ptr("GOSUMDB"), Value: ptr("off")},
+	}
+	return f
+}
+
+// newTestCA returns a new self-signed CA certificate, its key and its PEM.
+func newTestCA(t *testing.T, cn string) (*x509.Certificate, *ecdsa.PrivateKey, []byte) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          randSN(),
+		Subject:               pkix.Name{CommonName: cn},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().AddDate(0, 0, 1),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cert, key, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+}
+
+// newServerCert returns a TLS certificate for localhost and 127.0.0.1 signed
+// by the given CA.
+func newServerCert(t *testing.T, ca *x509.Certificate, caKey *ecdsa.PrivateKey) tls.Certificate {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: randSN(),
+		Subject:      pkix.Name{CommonName: "localhost"},
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().AddDate(0, 0, 1),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca, &key.PublicKey, caKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
 }
 
 // Generates self-signed certificate used for our private git repository.

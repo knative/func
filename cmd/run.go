@@ -30,7 +30,7 @@ NAME
 SYNOPSIS
 	{{rootCmdUse}} run [-r|--registry] [-i|--image] [-e|--env] [--build]
 				 [-b|--builder] [--builder-image] [-c|--confirm]
-	             [--address] [--json] [-v|--verbose]
+	             [--address] [--json] [-v|--verbose] [--build-cafile]
 
 DESCRIPTION
 	Run the function locally.
@@ -74,7 +74,7 @@ EXAMPLES
 		SuggestFor: []string{"rnu"},
 		PreRunE: bindEnv("build", "builder", "builder-image", "base-image",
 			"confirm", "env", "image", "path", "registry",
-			"start-timeout", "verbose", "address", "json"),
+			"start-timeout", "verbose", "address", "json", "build-cafile"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runRun(cmd, newClient)
 		},
@@ -108,6 +108,7 @@ EXAMPLES
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("base-image", "", f.Build.BaseImage,
 		"Override the base image for your function (host builder only)")
+	cmd.Flags().String("build-cafile", f.Build.CAFile, buildCAFileFlagUsage)
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag]. This option takes precedence over --registry. Specifying tag is optional. ($FUNC_IMAGE)")
 	cmd.Flags().StringArrayP("env", "e", []string{},
