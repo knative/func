@@ -2728,6 +2728,34 @@ func Test_isDigested(t *testing.T) {
 	}
 }
 
+// TestDeploy_BuildCAFile ensures that --build-cafile is accepted with the pack
+// builder only and persists to f.Build.CAFile.
+func TestDeploy_BuildCAFile(t *testing.T) {
+	testBuildCAFile(NewDeployCmd, t)
+}
+
+// TestDeploy_BuildCAFileRemote ensures that --build-cafile is rejected for
+// remote (on-cluster) builds, which do not support it.
+func TestDeploy_BuildCAFileRemote(t *testing.T) {
+	root := FromTempDirectory(t)
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+	pipelinesProvider := mock.NewPipelinesProvider()
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithPipelinesProvider(pipelinesProvider),
+		fn.WithRegistry(TestRegistry),
+	))
+	cmd.SetArgs([]string{"--remote", "--builder=pack", "--build-cafile=ca.pem"})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "remote") {
+		t.Fatalf("expected an error about remote builds, got %v", err)
+	}
+	if pipelinesProvider.RunInvoked {
+		t.Fatal("pipeline must not run")
+	}
+}
+
 func TestDeploy_BaseImage(t *testing.T) {
 	testBaseImage(NewDeployCmd, t)
 }

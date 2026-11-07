@@ -184,6 +184,11 @@ type BuildSpec struct {
 	// BaseImage defines an override for the function to be built upon (host builder only)
 	BaseImage string `yaml:"baseImage,omitempty"`
 
+	// CAFile is a path to a PEM file with one or more CA certificates to
+	// trust during the build (pack builder only). A relative path is
+	// resolved against the function's root directory.
+	CAFile string `yaml:"caFile,omitempty"`
+
 	// Mounts used in build phase. This is useful in particular for paketo bindings.
 	Mounts []MountSpec `yaml:"volumes,omitempty"`
 }

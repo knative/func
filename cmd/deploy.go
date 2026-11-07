@@ -42,6 +42,7 @@ SYNOPSIS
 	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
 	             [--service-account] [-c|--confirm] [-v|--verbose]
 	             [--registry-insecure] [--registry-authfile] [--remote-storage-class]
+	             [--build-cafile]
 
 DESCRIPTION
 
@@ -157,7 +158,8 @@ EXAMPLES
 			"source", "image", "image-pull-secret", "management-disabled",
 			"namespace", "path", "platform", "push", "pvc-size", "service-account",
 			"deployer", "expose", "registry", "registry-insecure", "registry-authfile",
-			"remote", "username", "password", "token", "verbose", "remote-storage-class"),
+			"remote", "username", "password", "token", "verbose", "remote-storage-class",
+			"build-cafile"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -197,6 +199,7 @@ EXAMPLES
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("base-image", "", f.Build.BaseImage,
 		"Override the base image for your function (host builder only)")
+	cmd.Flags().String("build-cafile", f.Build.CAFile, buildCAFileFlagUsage)
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)")
 
@@ -859,6 +862,12 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// regarding this potentially confusing nuance.
 	if !c.Remote && (cmd.Flags().Changed("source") || cmd.Flags().Changed("source-dir") || cmd.Flags().Changed("revision")) {
 		return errors.New("source settings (--source, --revision and --source-dir) are only applicable when triggering remote deployments (--remote)")
+	}
+
+	// A build CA file is only applied to local pack builds; the on-cluster
+	// pipelines do not support it yet.
+	if c.Remote && c.BuildCAFile != "" {
+		return errors.New("--build-cafile is not supported for remote (on-cluster) builds yet")
 	}
 
 	// Source can contain at maximum one '#'
