@@ -39,9 +39,15 @@ type processStarter interface {
 	// idempotent and safe to call even if the process has already exited on
 	// its own.
 	//
+	// It also returns an exited channel which is closed once the process
+	// has exited for any reason (stopped via stop, crashed, or killed
+	// externally), so that callers can learn of a self-exit without having
+	// to call stop. A nil exited channel means the process never reports
+	// its exit.
+	//
 	// On error, any process that was started is terminated before
 	// returning; no process is left running.
-	Start(ctx context.Context, subcommand string, args ...string) (pid int, host, port string, stop func() error, err error)
+	Start(ctx context.Context, subcommand string, args ...string) (pid int, host, port string, stop func() error, exited <-chan struct{}, err error)
 }
 
 // defaultProcessStarter starts subprocesses using the server's configured
@@ -50,7 +56,7 @@ type defaultProcessStarter struct {
 	s *Server
 }
 
-func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, args ...string) (pid int, host, port string, stop func() error, err error) {
+func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, args ...string) (pid int, host, port string, stop func() error, exited <-chan struct{}, err error) {
 	cmdParts := buildArgs(d.s.prefix, subcommand, args)
 
 	// The subprocess must outlive this call (and the request context that
@@ -76,21 +82,21 @@ func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, arg
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		cancel()
-		return 0, "", "", nil, fmt.Errorf("unable to create stdout pipe: %w", err)
+		return 0, "", "", nil, nil, fmt.Errorf("unable to create stdout pipe: %w", err)
 	}
 	tail := newTailBuffer(tailBufferSize)
 	cmd.Stderr = tail
 
 	if err = cmd.Start(); err != nil {
 		cancel()
-		return 0, "", "", nil, fmt.Errorf("unable to start %q: %w", strings.Join(cmdParts, " "), err)
+		return 0, "", "", nil, nil, fmt.Errorf("unable to start %q: %w", strings.Join(cmdParts, " "), err)
 	}
 
-	exited := make(chan struct{})
+	done := make(chan struct{})
 	var waitErr error
 	go func() {
 		waitErr = cmd.Wait()
-		close(exited)
+		close(done)
 	}()
 
 	ready := make(chan readyResult, 1)
@@ -100,25 +106,25 @@ func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, arg
 	stop = func() error {
 		stopOnce.Do(func() {
 			select {
-			case <-exited:
+			case <-done:
 				return // already exited; nothing to signal
 			default:
 			}
 			cancel()
-			<-exited
+			<-done
 		})
 		return nil
 	}
 
 	select {
 	case r := <-ready:
-		return cmd.Process.Pid, r.host, r.port, stop, nil
-	case <-exited:
+		return cmd.Process.Pid, r.host, r.port, stop, done, nil
+	case <-done:
 		_ = stop()
-		return 0, "", "", nil, fmt.Errorf("process exited before becoming ready (%v)\noutput:\n%s", waitErr, tail.String())
+		return 0, "", "", nil, nil, fmt.Errorf("process exited before becoming ready (%v)\noutput:\n%s", waitErr, tail.String())
 	case <-ctx.Done():
 		_ = stop()
-		return 0, "", "", nil, fmt.Errorf("timed out waiting for function to become ready\noutput so far:\n%s", tail.String())
+		return 0, "", "", nil, nil, fmt.Errorf("timed out waiting for function to become ready\noutput so far:\n%s", tail.String())
 	}
 }
 
@@ -249,10 +255,25 @@ func (r *runRegistry) reserve(path string) error {
 
 // activate fills in the pid/stop for a path previously reserve'd, marking it
 // as an active run.
-func (r *runRegistry) activate(path string, pid int, stop func() error) {
+//
+// If exited is non-nil, the entry is dropped from the registry as soon as
+// exited is closed, so that a process which dies on its own (crash, killed
+// externally) does not leave a stale entry behind blocking later runs for the
+// same path. Only this exact entry is dropped: if it has already been removed
+// and the path re-reserved by a newer run, that newer run is left untouched.
+func (r *runRegistry) activate(path string, pid int, stop func() error, exited <-chan struct{}) {
+	entry := &runEntry{pid: pid, stop: stop}
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.byPath[path] = &runEntry{pid: pid, stop: stop}
+	r.byPath[path] = entry
+	r.mu.Unlock()
+
+	if exited == nil {
+		return
+	}
+	go func() {
+		<-exited
+		r.removeEntry(path, entry)
+	}()
 }
 
 // release removes a reservation for path, used when Start fails after a
@@ -277,6 +298,18 @@ func (r *runRegistry) remove(path string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.byPath, path)
+}
+
+// removeEntry removes the registry entry for path only if it is still
+// exactly entry. This guards against a late removal (for example run_stop
+// finishing after the process already exited and a newer run claimed the
+// path) deleting an unrelated, newer entry.
+func (r *runRegistry) removeEntry(path string, entry *runEntry) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.byPath[path] == entry {
+		delete(r.byPath, path)
+	}
 }
 
 // stopAll stops every currently active run and clears the registry. It is
