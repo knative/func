@@ -28,26 +28,26 @@ main() {
   local max_attempts="${FUNC_CLUSTER_RETRIES:-1}"
   local attempt=0
 
-  if [ $max_attempts -gt 1 ]; then
+  if [ "$max_attempts" -gt 1 ]; then
     echo "${blue}Cluster allocation will retry up to ${max_attempts} time(s)${reset}"
   fi
 
-  until [ $attempt -ge $max_attempts ]
+  until [ "$attempt" -ge "$max_attempts" ]
   do
     attempt=$((attempt+1))
 
-    if [ $max_attempts -gt 1 ]; then
+    if [ "$max_attempts" -gt 1 ]; then
       echo "${blue}------------------ Attempt $attempt ------------------${reset}"
     fi
 
     if allocate_cluster; then
-      if [ $max_attempts -gt 1 ]; then
+      if [ "$max_attempts" -gt 1 ]; then
         echo "${green}------------------ Success! Cluster allocated ------------------${reset}"
       fi
       return 0
     fi
 
-    if [ $max_attempts -gt 1 ]; then
+    if [ "$max_attempts" -gt 1 ]; then
       echo "${red}------------------ Allocation failed, cleaning up... ------------------${reset}"
     fi
 
@@ -57,7 +57,7 @@ main() {
       "${script_dir}/delete.sh" || true
     fi
 
-    if [ $attempt -lt $max_attempts ]; then
+    if [ "$attempt" -lt "$max_attempts" ]; then
       echo "${yellow}------------------ Sleeping for 5 minutes before retry ------------------${reset}"
       sleep 300
     fi
@@ -205,12 +205,12 @@ serving() {
   echo "${blue}Installing Serving${reset}"
   echo "Version: ${knative_serving_version}"
 
-  $KUBECTL apply --filename https://github.com/knative/serving/releases/download/knative-$knative_serving_version/serving-crds.yaml
+  $KUBECTL apply --filename "https://github.com/knative/serving/releases/download/knative-${knative_serving_version}/serving-crds.yaml"
 
   sleep 2
   $KUBECTL wait --for=condition=Established --all crd --timeout=5m
 
-  curl -L -s https://github.com/knative/serving/releases/download/knative-$knative_serving_version/serving-core.yaml | $KUBECTL apply -f -
+  curl -L -s "https://github.com/knative/serving/releases/download/knative-${knative_serving_version}/serving-core.yaml" | $KUBECTL apply -f -
 
   sleep 2
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
@@ -338,22 +338,22 @@ eventing() {
   echo "Version: ${knative_eventing_version}"
 
   # CRDs
-  $KUBECTL apply -f https://github.com/knative/eventing/releases/download/knative-$knative_eventing_version/eventing-crds.yaml
+  $KUBECTL apply -f "https://github.com/knative/eventing/releases/download/knative-${knative_eventing_version}/eventing-crds.yaml"
   sleep 5
   $KUBECTL wait --for=condition=Established --all crd --timeout=5m
 
   # Core
-  curl -L -s https://github.com/knative/eventing/releases/download/knative-$knative_eventing_version/eventing-core.yaml | $KUBECTL apply -f -
+  curl -L -s "https://github.com/knative/eventing/releases/download/knative-${knative_eventing_version}/eventing-core.yaml" | $KUBECTL apply -f -
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-eventing --timeout=5m
 
   # Channel
-  curl -L -s https://github.com/knative/eventing/releases/download/knative-$knative_eventing_version/in-memory-channel.yaml | $KUBECTL apply -f -
+  curl -L -s "https://github.com/knative/eventing/releases/download/knative-${knative_eventing_version}/in-memory-channel.yaml" | $KUBECTL apply -f -
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-eventing --timeout=5m
 
   # Broker
-  curl -L -s https://github.com/knative/eventing/releases/download/knative-$knative_eventing_version/mt-channel-broker.yaml | $KUBECTL apply -f -
+  curl -L -s "https://github.com/knative/eventing/releases/download/knative-${knative_eventing_version}/mt-channel-broker.yaml" | $KUBECTL apply -f -
   sleep 5
   $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n knative-eventing --timeout=5m
 
@@ -823,8 +823,8 @@ keda() {
   echo "${blue}Installing Keda${reset}"
   echo "Version: ${keda_version}"
 
-  $KUBECTL apply --server-side -f https://github.com/kedacore/keda/releases/download/${keda_version}/keda-${keda_version:1}.yaml
-  $KUBECTL apply --server-side -f https://github.com/kedacore/keda/releases/download/${keda_version}/keda-${keda_version:1}-core.yaml
+  $KUBECTL apply --server-side -f "https://github.com/kedacore/keda/releases/download/${keda_version}/keda-${keda_version:1}.yaml"
+  $KUBECTL apply --server-side -f "https://github.com/kedacore/keda/releases/download/${keda_version}/keda-${keda_version:1}-core.yaml"
   echo "Waiting for Keda to become ready"
   $KUBECTL wait deployment --all --timeout=-1s --for=condition=Available --namespace keda
 
@@ -836,8 +836,8 @@ keda_http_addon() {
   echo "${blue}Installing Keda HTTP add-on${reset}"
   echo "Version: ${keda_http_addon_version}"
 
-  $KUBECTL apply --server-side -f https://github.com/kedacore/http-add-on/releases/download/${keda_http_addon_version}/keda-add-ons-http-${keda_http_addon_version:1}-crds.yaml
-  $KUBECTL apply --server-side -f https://github.com/kedacore/http-add-on/releases/download/${keda_http_addon_version}/keda-add-ons-http-${keda_http_addon_version:1}.yaml
+  $KUBECTL apply --server-side -f "https://github.com/kedacore/http-add-on/releases/download/${keda_http_addon_version}/keda-add-ons-http-${keda_http_addon_version:1}-crds.yaml"
+  $KUBECTL apply --server-side -f "https://github.com/kedacore/http-add-on/releases/download/${keda_http_addon_version}/keda-add-ons-http-${keda_http_addon_version:1}.yaml"
   echo "Waiting for Keda HTTP add-on to become ready"
   $KUBECTL wait deployment --all --timeout=-1s --for=condition=Available --namespace keda
 

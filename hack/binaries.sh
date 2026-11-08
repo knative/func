@@ -120,7 +120,7 @@ install_dapr() {
 install_helm() {
   echo '=== helm'
     curl -sSL "https://get.helm.sh/helm-v$helm_version-${OS}-${ARCH}.tar.gz" | \
-      tar fxz - -C "${bin}" ${OS}-"${ARCH}"/helm
+      tar fxz - -C "${bin}" "${OS}-${ARCH}/helm"
     mv "${bin}/${OS}-${ARCH}"/helm "${bin}" && rmdir "${bin}/${OS}-${ARCH}"
     "${bin}"/helm version
 }
