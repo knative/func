@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -114,6 +115,31 @@ func TestInvokeExtensionsMapMalformed(t *testing.T) {
 				t.Fatalf("expected error for %v, got nil", tc.exts)
 			}
 		})
+	}
+}
+
+// TestInvoke_ValidationErrorNotPrinted ensures invoke returns a validation
+// error without also printing it to stdout. The CLI prints returned errors
+// once, so printing here showed the same error twice.
+func TestInvoke_ValidationErrorNotPrinted(t *testing.T) {
+	root := FromTempDirectory(t)
+	// An env entry with a name but no value fails validation.
+	funcYaml := "name: myfunc\nruntime: go\nrun:\n  envs:\n  - name: FOO\n"
+	if err := os.WriteFile(filepath.Join(root, fn.FunctionFile), []byte(funcYaml), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewInvokeCmd(NewTestClient())
+	cmd.SetArgs([]string{})
+	stdout := piped(t)
+	err := cmd.Execute()
+	out := stdout()
+
+	if err == nil || !strings.Contains(err.Error(), "missing value field") {
+		t.Fatalf("expected the validation error to be returned, got: %v", err)
+	}
+	if out != "" {
+		t.Fatalf("expected nothing on stdout, got: %q", out)
 	}
 }
 
