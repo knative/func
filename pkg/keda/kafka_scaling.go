@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
 	"github.com/kedacore/http-add-on/operator/generated/clientset/versioned"
 	v1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -158,6 +159,57 @@ func refuseConflictingScaler(ctx context.Context, httpClient versioned.Interface
 	default:
 		return fmt.Errorf("unable to check for an existing kafka scaler on function %q: %w", name, err)
 	}
+}
+
+// setScalerMin updates the function's existing scaler (the Kafka ScaledObject
+// when wantKafka, else the HTTPScaledObject) from a minimum of `from` to `to`
+// and reports whether it did. A missing scaler or another minimum is a no-op.
+// It uses Update, not Patch: the documented deploy roles do not grant patch.
+func setScalerMin(ctx context.Context, httpClient versioned.Interface, dynClient dynamic.Interface, namespace, name string, wantKafka bool, from, to int64) (bool, error) {
+	if wantKafka {
+		client := dynClient.Resource(scaledObjectGVR).Namespace(namespace)
+		so, err := client.Get(ctx, scaledObjectName(name), metav1.GetOptions{})
+		if k8serrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, fmt.Errorf("unable to get ScaledObject: %w", err)
+		}
+		if cur, _, _ := unstructured.NestedInt64(so.Object, "spec", "minReplicaCount"); cur != from {
+			return false, nil
+		}
+		if err := unstructured.SetNestedField(so.Object, to, "spec", "minReplicaCount"); err != nil {
+			return false, err
+		}
+		if _, err := client.Update(ctx, so, metav1.UpdateOptions{}); err != nil {
+			return false, fmt.Errorf("unable to update ScaledObject: %w", err)
+		}
+		return true, nil
+	}
+	client := httpClient.HttpV1alpha1().HTTPScaledObjects(namespace)
+	hso, err := client.Get(ctx, name, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("unable to get HTTPScaledObject: %w", err)
+	}
+	var cur int64
+	if hso.Spec.Replicas != nil && hso.Spec.Replicas.Min != nil {
+		cur = int64(*hso.Spec.Replicas.Min)
+	}
+	if cur != from {
+		return false, nil
+	}
+	if hso.Spec.Replicas == nil {
+		hso.Spec.Replicas = &httpv1alpha1.ReplicaStruct{}
+	}
+	min := int32(to)
+	hso.Spec.Replicas.Min = &min
+	if _, err := client.Update(ctx, hso, metav1.UpdateOptions{}); err != nil {
+		return false, fmt.Errorf("unable to update HTTPScaledObject: %w", err)
+	}
+	return true, nil
 }
 
 // needsTriggerAuth returns true when the Kafka config uses SASL or TLS with

@@ -1050,3 +1050,29 @@ func TestKedaSASLType(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+func TestSetScalerMin(t *testing.T) {
+	const ns, name = "fn-ns", "f"
+
+	t.Run("an unset minimum counts as 0", func(t *testing.T) {
+		c := httpfake.NewSimpleClientset(&httpv1alpha1.HTTPScaledObject{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}})
+		changed, err := setScalerMin(t.Context(), c, newScalingDynClient(), ns, name, false, 0, 1)
+		if err != nil || !changed {
+			t.Fatalf("http: changed=%v err=%v, want patched", changed, err)
+		}
+		dc := newScalingDynClient(unstructuredScaledObject(scaledObjectName(name), ns))
+		changed, err = setScalerMin(t.Context(), httpfake.NewSimpleClientset(), dc, ns, name, true, 0, 1)
+		if err != nil || !changed {
+			t.Fatalf("kafka: changed=%v err=%v, want patched", changed, err)
+		}
+	})
+
+	t.Run("no scaler is a no-op", func(t *testing.T) {
+		for _, kafka := range []bool{false, true} {
+			changed, err := setScalerMin(t.Context(), httpfake.NewSimpleClientset(), newScalingDynClient(), ns, name, kafka, 0, 1)
+			if err != nil || changed {
+				t.Fatalf("kafka=%v: changed=%v err=%v, want no-op", kafka, changed, err)
+			}
+		}
+	})
+}
