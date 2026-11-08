@@ -291,11 +291,9 @@ func TestRunRegistry_ExitDoesNotDropNewerEntry(t *testing.T) {
 	}
 	r.activate("/a", 2, func() error { return nil }, nil)
 
-	// Neither the exit notification nor a late removeEntry for the old
-	// entry may touch the new one.
+	// Run the old entry's exit watcher to completion, synchronously.
 	close(oldExited)
-	r.removeEntry("/a", oldEntry)
-	time.Sleep(50 * time.Millisecond) // let the exit watcher run
+	r.dropOnExit("/a", oldEntry, oldExited)
 
 	entry, ok := r.get("/a")
 	if !ok || entry.pid != 2 {
@@ -304,7 +302,8 @@ func TestRunRegistry_ExitDoesNotDropNewerEntry(t *testing.T) {
 }
 
 // TestRunRegistry_ExitAfterStopAll verifies that the exit watcher is a
-// no-op once stopAll has already cleared the registry.
+// no-op once stopAll has already cleared the registry, including when a
+// newer run has since claimed the path.
 func TestRunRegistry_ExitAfterStopAll(t *testing.T) {
 	r := newRunRegistry()
 	exited := make(chan struct{})
@@ -313,15 +312,22 @@ func TestRunRegistry_ExitAfterStopAll(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.activate("/a", 1, func() error { close(exited); return nil }, exited)
+	oldEntry, _ := r.get("/a")
 
-	r.stopAll() // stop closes exited, waking the watcher
-	time.Sleep(50 * time.Millisecond)
-
+	r.stopAll() // stop closes exited
 	if _, ok := r.get("/a"); ok {
-		t.Fatal("expected registry to stay empty")
+		t.Fatal("expected registry to be empty after stopAll")
 	}
+
 	if err := r.reserve("/a"); err != nil {
 		t.Fatalf("unexpected error reserving after stopAll: %v", err)
+	}
+	r.activate("/a", 2, func() error { return nil }, nil)
+
+	r.dropOnExit("/a", oldEntry, exited) // exited is already closed
+	entry, ok := r.get("/a")
+	if !ok || entry.pid != 2 {
+		t.Fatalf("expected the newer entry (pid 2) to remain, got %+v (ok=%v)", entry, ok)
 	}
 }
 
@@ -395,5 +401,58 @@ func TestDefaultProcessStarter_ExitedClosesOnStop(t *testing.T) {
 	case <-exited:
 	default:
 		t.Fatal("expected exited to be closed once stop returned")
+	}
+}
+
+// TestDefaultProcessStarter_ExitedClosesWithSurvivingChild verifies that
+// exited closes when the process dies even though a child it spawned is
+// still running and holds the inherited stderr descriptor. Otherwise a
+// crashed "func run" whose runner outlives it would leave a stale registry
+// entry behind.
+func TestDefaultProcessStarter_ExitedClosesWithSurvivingChild(t *testing.T) {
+	script := writeTestScript(t, 0)
+	body := "#!/bin/sh\necho '{\"host\":\"127.0.0.1\",\"port\":\"9999\"}'\nsleep 10 &\nexit 1\n"
+	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	starter := newTestStarter(t, script)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	_, _, _, stop, exited, err := starter.Start(ctx, "run")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case <-exited:
+	case <-time.After(3 * time.Second):
+		t.Fatal("exited not closed after the process died while a child still holds its stderr")
+	}
+	if err = stop(); err != nil {
+		t.Fatalf("unexpected error from stop after self-exit: %v", err)
+	}
+}
+
+// TestDefaultProcessStarter_ExitsBeforeReadyIncludesStderr verifies that
+// the stderr a process wrote before dying is part of the start error.
+func TestDefaultProcessStarter_ExitsBeforeReadyIncludesStderr(t *testing.T) {
+	script := writeTestScript(t, 0)
+	body := "#!/bin/sh\necho 'boom on stderr' >&2\nexit 3\n"
+	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	starter := newTestStarter(t, script)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	_, _, _, _, _, err := starter.Start(ctx, "run")
+	if err == nil {
+		t.Fatal("expected an error when the process exits before becoming ready")
+	}
+	if !strings.Contains(err.Error(), "boom on stderr") {
+		t.Fatalf("expected stderr output in the error, got: %v", err)
 	}
 }

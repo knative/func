@@ -46,6 +46,17 @@ func (s *Server) runHandler(ctx context.Context, r *mcp.CallToolRequest, input R
 		return
 	}
 
+	// The process may have died between becoming ready and now. Don't hand
+	// back a URL that is already dead; the exit watcher started by activate
+	// would otherwise only clean the registry up after the fact.
+	select {
+	case <-exited: // a nil channel never fires
+		s.runs.release(path)
+		err = fmt.Errorf("unable to run function: process (pid %d) exited right after becoming ready", pid)
+		return
+	default:
+	}
+
 	s.runs.activate(path, pid, stop, exited)
 
 	output = RunOutput{

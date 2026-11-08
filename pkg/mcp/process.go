@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,10 @@ var runReadyTimeout = 3 * time.Minute
 // tailBufferSize is the number of recent output lines retained for
 // inclusion in diagnostic error messages.
 const tailBufferSize = 200
+
+// stderrDrainTimeout bounds how long Start waits, after the subprocess has
+// exited, for its remaining stderr output to be captured for diagnostics.
+const stderrDrainTimeout = 500 * time.Millisecond
 
 // processStarter starts a long-lived background subcommand (e.g. "func
 // run") and waits for it to signal readiness: a line of JSON containing
@@ -85,11 +90,46 @@ func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, arg
 		return 0, "", "", nil, nil, fmt.Errorf("unable to create stdout pipe: %w", err)
 	}
 	tail := newTailBuffer(tailBufferSize)
-	cmd.Stderr = tail
+
+	// Stderr is wired through an os.Pipe we own rather than handing the
+	// tailBuffer to cmd.Stderr directly. With a non-*os.File writer, exec
+	// starts a copying goroutine and cmd.Wait does not return until every
+	// holder of the pipe's write end has closed it. A child of the
+	// subprocess (a runner, a container) that outlives its parent would
+	// then keep Wait blocked, and the exited channel below would never
+	// close for a crashed or killed process. With a *os.File, exec passes
+	// the descriptor through and Wait returns as soon as the process exits.
+	stderrR, stderrW, err := os.Pipe()
+	if err != nil {
+		cancel()
+		_ = stdout.Close()
+		return 0, "", "", nil, nil, fmt.Errorf("unable to create stderr pipe: %w", err)
+	}
+	cmd.Stderr = stderrW
 
 	if err = cmd.Start(); err != nil {
 		cancel()
+		_ = stderrR.Close()
+		_ = stderrW.Close()
 		return 0, "", "", nil, nil, fmt.Errorf("unable to start %q: %w", strings.Join(cmdParts, " "), err)
+	}
+	// The child holds its own copy; close ours so the reader sees EOF once
+	// the child (and anything it spawned) is gone.
+	_ = stderrW.Close()
+	stderrDone := make(chan struct{})
+	go func() {
+		defer close(stderrDone)
+		defer stderrR.Close()
+		_, _ = io.Copy(tail, stderrR)
+	}()
+	// drainStderr gives the copier a brief chance to flush what the dead
+	// process wrote, so failure messages include its final stderr output.
+	// It is bounded because a surviving child may hold the pipe open.
+	drainStderr := func() {
+		select {
+		case <-stderrDone:
+		case <-time.After(stderrDrainTimeout):
+		}
 	}
 
 	done := make(chan struct{})
@@ -121,9 +161,11 @@ func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, arg
 		return cmd.Process.Pid, r.host, r.port, stop, done, nil
 	case <-done:
 		_ = stop()
+		drainStderr()
 		return 0, "", "", nil, nil, fmt.Errorf("process exited before becoming ready (%v)\noutput:\n%s", waitErr, tail.String())
 	case <-ctx.Done():
 		_ = stop()
+		drainStderr()
 		return 0, "", "", nil, nil, fmt.Errorf("timed out waiting for function to become ready\noutput so far:\n%s", tail.String())
 	}
 }
@@ -270,10 +312,16 @@ func (r *runRegistry) activate(path string, pid int, stop func() error, exited <
 	if exited == nil {
 		return
 	}
-	go func() {
-		<-exited
-		r.removeEntry(path, entry)
-	}()
+	go r.dropOnExit(path, entry, exited)
+}
+
+// dropOnExit blocks until exited is closed and then removes entry from the
+// registry, provided it is still the entry registered for path. It is run
+// in its own goroutine by activate; it is a separate method so tests can
+// call it synchronously.
+func (r *runRegistry) dropOnExit(path string, entry *runEntry, exited <-chan struct{}) {
+	<-exited
+	r.removeEntry(path, entry)
 }
 
 // release removes a reservation for path, used when Start fails after a
@@ -317,6 +365,11 @@ func (r *runRegistry) removeEntry(path string, entry *runEntry) {
 // canceling the server's context) so that no "func run" subprocess is left
 // behind holding a port. It does nothing useful on a hard kill of the
 // server itself (e.g. SIGKILL), where OS process reaping applies instead.
+//
+// Exit watchers started by activate outlive this call and fire once each
+// stopped process exits. They are harmless: a watcher only ever removes the
+// exact entry it was created for (see removeEntry), and every entry has
+// been dropped from the map here.
 func (r *runRegistry) stopAll() {
 	r.mu.Lock()
 	entries := make([]*runEntry, 0, len(r.byPath))

@@ -238,8 +238,8 @@ func TestTool_Run_AfterSelfExit(t *testing.T) {
 }
 
 // TestTool_Run_ExitedBeforeActivate covers a process that has already
-// exited by the time Start returns to the handler: the entry must not stay
-// behind.
+// exited by the time Start returns to the handler: run must report an
+// error rather than a dead URL, and no entry may stay behind.
 func TestTool_Run_ExitedBeforeActivate(t *testing.T) {
 	exited := make(chan struct{})
 	close(exited)
@@ -259,12 +259,15 @@ func TestTool_Run_ExitedBeforeActivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.IsError {
-		t.Fatalf("unexpected error: %v", result)
+	if !result.IsError {
+		t.Fatalf("expected an error for a process that already exited, got: %v", result)
+	}
+	if text := resultToString(result); !strings.Contains(text, "exited right after becoming ready") {
+		t.Fatalf("unexpected error text: %q", text)
 	}
 
-	waitFor(t, "registry to drop the already-exited run", func() bool {
-		_, ok := server.runs.get(path)
-		return !ok
-	})
+	// Synchronous: the handler released the reservation before returning.
+	if err := server.runs.reserve(path); err != nil {
+		t.Fatalf("expected path to be free after the failed run, got: %v", err)
+	}
 }
