@@ -150,8 +150,10 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	if err != nil {
 		return
 	}
+	if !f.Initialized() {
+		return NewErrNotInitializedFromPath(f.Root, "invoke")
+	}
 	if err = f.Validate(); err != nil {
-		fmt.Printf("error validating function at '%v'. %v\n", f.Root, err)
 		return err
 	}
 
@@ -160,10 +162,6 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 			"Warning: invoking as %q, but function declares type %q in func.yaml.\n"+
 				"   This may fail unless you rebuild or update func.yaml with `invoke: %s`.\n\n",
 			cfg.Format, f.Invoke, cfg.Format)
-	}
-
-	if !f.Initialized() {
-		return NewErrNotInitializedFromPath(f.Root, "invoke")
 	}
 
 	// If extensions were provided, ensure the format is cloudevent, otherwise return an error.
