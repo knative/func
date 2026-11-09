@@ -210,6 +210,36 @@ func TestDefaultProcessStarter_ExitsBeforeReady(t *testing.T) {
 	}
 }
 
+// TestDefaultProcessStarter_ReadyThenImmediateExit verifies that a process
+// which emits its readiness line and dies at once is still reported as
+// started, and that its exit is signalled. The readiness line is read by a
+// goroutine which can deliver it only after the process has been reaped,
+// and losing that race must not be mistaken for never becoming ready.
+func TestDefaultProcessStarter_ReadyThenImmediateExit(t *testing.T) {
+	// Repeated: the failure mode is a race.
+	for i := 0; i < 20; i++ {
+		func() {
+			starter := newScriptStarter(t, readyEcho+"exit 1\n")
+
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+			defer cancel()
+
+			proc, err := starter.Start(ctx, "run")
+			if err != nil {
+				t.Fatalf("iteration %d: unexpected error: %v", i, err)
+			}
+			if proc.Host != "127.0.0.1" || proc.Port != "9999" {
+				t.Fatalf("iteration %d: got host %q port %q", i, proc.Host, proc.Port)
+			}
+			select {
+			case <-proc.Exited:
+			case <-time.After(10 * time.Second):
+				t.Fatalf("iteration %d: expected the exit to be reported", i)
+			}
+		}()
+	}
+}
+
 // TestDefaultProcessStarter_Timeout verifies that Start gives up and returns
 // an error if the process never becomes ready within the given context.
 func TestDefaultProcessStarter_Timeout(t *testing.T) {

@@ -80,7 +80,9 @@ type startedProcess = struct {
 type processStarter interface {
 	// Start begins running subcommand with args in the background. It
 	// blocks until the process reports readiness, exits, errors, or ctx is
-	// done, whichever happens first.
+	// done, whichever happens first. A process which reported readiness and
+	// then exited at once is returned successfully, with Exited closed; the
+	// caller decides what to make of a run that is already gone.
 	//
 	// On error, any process that was started is terminated before
 	// returning; no process is left running.
@@ -204,8 +206,7 @@ func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, arg
 		return nil
 	}
 
-	select {
-	case r := <-ready:
+	started := func(r readyResult) startedProcess {
 		return startedProcess{
 			Pid:    cmd.Process.Pid,
 			Host:   r.host,
@@ -213,10 +214,30 @@ func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, arg
 			Stop:   stop,
 			Exited: exited,
 			Output: tail.Snapshot,
-		}, nil
+		}
+	}
+
+	select {
+	case r := <-ready:
+		return started(r), nil
 	case <-done:
 		_ = stop()
-		<-exited // bounded; lets the failure message include final output
+		// Both waits are bounded (see outputDrainTimeout, which closes the
+		// read ends and thereby unblocks the readers). They let the failure
+		// message include the final output, and settle whether a readiness
+		// line was read.
+		<-exited
+		<-readersDone
+		// A process can print its readiness line and then exit immediately,
+		// in which case the stdout reader may deliver that line only after
+		// cmd.Wait has returned. Such a process did become ready, so report
+		// it as started rather than discarding the line: the caller sees it
+		// is already gone via Exited, which is closed.
+		select {
+		case r := <-ready:
+			return started(r), nil
+		default:
+		}
 		out, _ := truncateTail(tail.String(), maxErrorOutputBytes)
 		return startedProcess{}, fmt.Errorf("process exited before becoming ready (%v)\noutput:\n%s", waitErr, out)
 	case <-ctx.Done():
