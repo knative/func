@@ -288,10 +288,12 @@ run:
 
 The runtime delivers each record as a CloudEvent over HTTP and commits the
 record's offset only after the function acknowledges it with a 2xx response, so
-delivery is at-least-once. A failed attempt (non-2xx, a timeout, or a dropped
-connection) is retried; the offset is not advanced until the record is either
-acknowledged or its retry budget is exhausted. `run.kafka.delivery` tunes that
-behavior:
+delivery is at-least-once. A failed attempt is retried; the offset is not
+advanced until the record is acknowledged. A failure attributable to the record
+-- a non-2xx response or a per-attempt timeout -- counts toward the finite
+`retry` budget; a failure where the function was simply unreachable (a dropped
+connection during a restart or scale-up) does not, and is retried until the
+function recovers. `run.kafka.delivery` tunes that behavior:
 
 - `retry`: the number of retries *after* the first attempt (so total attempts = `retry` + 1). Omit for unlimited retries; `0` means a single attempt with no retry. Must be `>= 0`.
 - `backoffPolicy`: how the inter-retry delay grows, `exponential` (default) or `linear`. Lowercase only.
@@ -301,9 +303,10 @@ behavior:
 
 With the defaults (unlimited retries), a failing record blocks its partition
 until the function recovers, which preserves ordering and loses nothing. When a
-finite `retry` budget is set and exhausted, the record is dropped (logged) and
-its offset committed so a single poison-pill record cannot wedge the partition
-forever; dead-letter routing is not yet available.
+finite `retry` budget is set and exhausted by record-attributable failures, the
+record is dropped (logged) and its offset committed so a single poison-pill
+record cannot wedge the partition forever; dead-letter routing is not yet
+available.
 
 ```yaml
 run:
