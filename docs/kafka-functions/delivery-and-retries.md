@@ -57,16 +57,21 @@ per-attempt timeout.
 
 ### What counts toward the budget
 
-The finite budget is spent **only on a non-2xx response** — a case where your
-function received the record and actively rejected it (a "poison pill"). Failures
-where the function was **unreachable or unresponsive** — a dropped connection
-(for example during a rollout, crash, or scale-up) or a per-attempt timeout — do
-**not** consume the budget: they are retried indefinitely until the function comes
-back.
+The finite budget is spent only on failures **attributable to the record** — ones
+where your function received the request but could not process it:
+
+- **A non-2xx response** — the function got the record and actively rejected it
+  (a "poison pill").
+- **A per-attempt timeout** — the function got the request but did not respond
+  within `timeout`, so it is unresponsive while handling *this* record.
+
+A failure where the function was simply **unreachable** — a dropped connection, for
+example during a rollout, crash, or scale-up — does **not** consume the budget: the
+record is retried indefinitely until the function comes back.
 
 This keeps at-least-once intact across an outage: a restart that lasts longer than
 your backoff schedule will not burn the budget and drop good records. The budget
-exists to skip a record the function *keeps rejecting*, not to give up because the
+exists to skip a record the function cannot process, not to give up because the
 function was temporarily down.
 
 ### Backoff (`backoffPolicy`, `backoffDelay`, `backoffMaxDelay`)
@@ -86,24 +91,26 @@ attempts.
 
 `timeout` bounds a **single** delivery attempt. If the function does not respond
 within it, the runtime cancels that attempt and treats it as a failure: the offset
-is not advanced and backoff is applied before the next attempt. A timeout means the
-function was unresponsive (not that it rejected the record), so — like a dropped
-connection — it does **not** consume the finite retry budget (see [What counts
-toward the budget](#what-counts-toward-the-budget)). It is not a total deadline
-across all retries.
+is not advanced and backoff is applied before the next attempt. Because the function
+received the request but hung on it, a timeout **does** consume the finite retry
+budget — just like a non-2xx rejection, and unlike a dropped connection (see [What
+counts toward the budget](#what-counts-toward-the-budget)). It is not a total
+deadline across all retries.
 
 ## Exhaustion: what a bounded budget does
 
 With the default unlimited budget there is no exhaustion — a persistently failing
 record simply keeps being retried.
 
-When you set a **finite** `retry` and a record is **rejected** (non-2xx) that many
-times, the runtime **skips the record and commits its offset**, emitting a loud
-warning log. The partition then moves on to the next record. This is deliberate: a
-finite budget is how you prevent a single unprocessable record (a "poison pill")
-from wedging a partition forever. Only rejections count toward exhaustion — a
-record is never skipped merely because the function was temporarily unreachable
-(see [What counts toward the budget](#what-counts-toward-the-budget)).
+When you set a **finite** `retry` and a record fails that many times with a
+record-attributable failure — a non-2xx **rejection** or a per-attempt
+**timeout** — the runtime **skips the record and commits its offset**, emitting a
+loud warning log. The partition then moves on to the next record. This is
+deliberate: a finite budget is how you prevent a single unprocessable record (a
+"poison pill") from wedging a partition forever. Only these record-attributable
+failures count toward exhaustion — a record is never skipped merely because the
+function was temporarily unreachable (see [What counts toward the
+budget](#what-counts-toward-the-budget)).
 
 > Skipping means the record is **dropped** — it is neither processed nor stored
 > anywhere. Dead-letter routing (sending exhausted records to another topic
@@ -122,12 +129,13 @@ The choice is between never losing a record and never getting stuck:
   when steady progress matters more than processing every single record, and pair
   it with monitoring so you notice the warning logs.
 
-Because an unreachable or unresponsive function never consumes the budget, you do
-**not** need a generous budget to survive restarts or transient outages — those are
-always ridden out. Size `retry` only for how many times you are willing to re-offer
-a record the function actively **rejects** before giving up on it. A small bound
-(say `retry: 3`) is often enough; raise it only if your handler legitimately returns
-non-2xx for records that later become processable.
+Because an **unreachable** function never consumes the budget, you do **not** need a
+generous budget to survive restarts or transient outages — those are always ridden
+out. Size `retry` only for how many times you are willing to re-offer a record the
+function cannot process — one it **rejects** (non-2xx) or **hangs on** (timeout) —
+before giving up on it. A small bound (say `retry: 3`) is often enough; raise it only
+if your handler legitimately rejects or times out on records that later become
+processable.
 
 ## Validation
 
