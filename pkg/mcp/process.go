@@ -21,12 +21,56 @@ import (
 var runReadyTimeout = 3 * time.Minute
 
 // tailBufferSize is the number of recent output lines retained for
-// inclusion in diagnostic error messages.
+// inclusion in diagnostic error messages and for the run_logs tool.
 const tailBufferSize = 200
 
-// stderrDrainTimeout bounds how long Start waits, after the subprocess has
-// exited, for its remaining stderr output to be captured for diagnostics.
-const stderrDrainTimeout = 500 * time.Millisecond
+// maxLineBytes bounds a single retained output line. Together with
+// tailBufferSize it bounds the memory held per run: a Function printing one
+// huge line must not be able to pin hundreds of megabytes in the registry
+// (retained output outlives the process until its path is run again).
+const maxLineBytes = 4 * 1024
+
+// lineTruncatedMarker is appended to a retained line which exceeded
+// maxLineBytes.
+const lineTruncatedMarker = " [line truncated]"
+
+// maxErrorOutputBytes bounds the process output quoted in error messages.
+const maxErrorOutputBytes = 16 * 1024
+
+// outputDrainTimeout bounds how long, after the subprocess has exited, we
+// wait for the remainder of its stdout and stderr to be captured. It is
+// bounded because a child of the subprocess (a runner, a container) may
+// outlive its parent and keep the pipes open indefinitely; once it elapses
+// the pipes are closed and whatever was captured is what is reported.
+const outputDrainTimeout = 500 * time.Millisecond
+
+// startedProcess describes a process returned by processStarter.Start. It is
+// an alias for an unnamed struct, rather than a named type, so that the mock
+// in pkg/mcp/mock can declare an identical type without importing this
+// package; the compiler enforces that the two stay in sync.
+type startedProcess = struct {
+	// Pid is the process ID.
+	Pid int
+	// Host and Port are where the process reported itself to be serving.
+	Host, Port string
+	// Stop gracefully terminates the process (SIGTERM only, no forced
+	// kill) and blocks until it has fully exited. It is idempotent and safe
+	// to call even if the process has already exited on its own.
+	Stop func() error
+	// Exited is closed once the process has exited for any reason (stopped
+	// via Stop, crashed, or killed externally) and its remaining output has
+	// been captured (waiting for that is bounded; see outputDrainTimeout).
+	// Callers can thereby learn of a self-exit without calling Stop. A nil
+	// channel means the process never reports its exit.
+	Exited <-chan struct{}
+	// Output snapshots the most recent output (stdout and stderr, each line
+	// prefixed with its stream) the process has produced so far, bounded to
+	// the last tailBufferSize lines of at most maxLineBytes each. truncated
+	// reports whether older lines were dropped to stay within that bound.
+	// Output remains callable after the process has exited. A nil Output
+	// means the process output is not retained.
+	Output func() (lines string, truncated bool)
+}
 
 // processStarter starts a long-lived background subcommand (e.g. "func
 // run") and waits for it to signal readiness: a line of JSON containing
@@ -38,28 +82,9 @@ type processStarter interface {
 	// blocks until the process reports readiness, exits, errors, or ctx is
 	// done, whichever happens first.
 	//
-	// On success it returns the process ID, host, and port, along with a
-	// stop function which gracefully terminates the process (SIGTERM only,
-	// no forced kill) and blocks until it has fully exited. stop is
-	// idempotent and safe to call even if the process has already exited on
-	// its own.
-	//
-	// It also returns an exited channel which is closed once the process
-	// has exited for any reason (stopped via stop, crashed, or killed
-	// externally), so that callers can learn of a self-exit without having
-	// to call stop. A nil exited channel means the process never reports
-	// its exit.
-	//
-	// It also returns an output function which snapshots the most recent
-	// output (stdout and stderr, each line prefixed with its stream) the
-	// process has produced so far, bounded to the last tailBufferSize lines.
-	// truncated reports whether older lines were dropped to stay within that
-	// bound. output remains callable after the process has exited. A nil
-	// output means the process output is not retained.
-	//
 	// On error, any process that was started is terminated before
 	// returning; no process is left running.
-	Start(ctx context.Context, subcommand string, args ...string) (pid int, host, port string, stop func() error, exited <-chan struct{}, output func() (lines string, truncated bool), err error)
+	Start(ctx context.Context, subcommand string, args ...string) (startedProcess, error)
 }
 
 // defaultProcessStarter starts subprocesses using the server's configured
@@ -68,7 +93,7 @@ type defaultProcessStarter struct {
 	s *Server
 }
 
-func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, args ...string) (pid int, host, port string, stop func() error, exited <-chan struct{}, output func() (lines string, truncated bool), err error) {
+func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, args ...string) (startedProcess, error) {
 	cmdParts := buildArgs(d.s.prefix, subcommand, args)
 
 	// The subprocess must outlive this call (and the request context that
@@ -91,66 +116,82 @@ func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, arg
 		return cmd.Process.Signal(syscall.SIGTERM)
 	}
 
-	stdout, err := cmd.StdoutPipe()
+	// Both streams go through os.Pipes we own, rather than cmd.StdoutPipe
+	// or a non-*os.File writer. Either of those makes cmd.Wait responsible
+	// for the read side: StdoutPipe is closed by Wait as soon as the process
+	// exits (discarding output not yet read, which is exactly the last
+	// lines of a crashing process), and a copying goroutine makes Wait block
+	// until every holder of the write end (a runner or container which
+	// outlives its parent) has closed it, so the exit would never be
+	// reported. With *os.File descriptors, Wait returns as soon as the
+	// process exits and we drain the pipes ourselves, with a bound.
+	stdoutR, stdoutW, err := os.Pipe()
 	if err != nil {
 		cancel()
-		return 0, "", "", nil, nil, nil, fmt.Errorf("unable to create stdout pipe: %w", err)
+		return startedProcess{}, fmt.Errorf("unable to create stdout pipe: %w", err)
 	}
-	tail := newTailBuffer(tailBufferSize)
-
-	// Stderr is wired through an os.Pipe we own rather than handing the
-	// tailBuffer to cmd.Stderr directly. With a non-*os.File writer, exec
-	// starts a copying goroutine and cmd.Wait does not return until every
-	// holder of the pipe's write end has closed it. A child of the
-	// subprocess (a runner, a container) that outlives its parent would
-	// then keep Wait blocked, and the exited channel below would never
-	// close for a crashed or killed process. With a *os.File, exec passes
-	// the descriptor through and Wait returns as soon as the process exits.
 	stderrR, stderrW, err := os.Pipe()
 	if err != nil {
 		cancel()
-		_ = stdout.Close()
-		return 0, "", "", nil, nil, nil, fmt.Errorf("unable to create stderr pipe: %w", err)
+		_ = stdoutR.Close()
+		_ = stdoutW.Close()
+		return startedProcess{}, fmt.Errorf("unable to create stderr pipe: %w", err)
 	}
+	cmd.Stdout = stdoutW
 	cmd.Stderr = stderrW
 
 	if err = cmd.Start(); err != nil {
 		cancel()
-		_ = stderrR.Close()
-		_ = stderrW.Close()
-		return 0, "", "", nil, nil, nil, fmt.Errorf("unable to start %q: %w", strings.Join(cmdParts, " "), err)
-	}
-	// The child holds its own copy; close ours so the reader sees EOF once
-	// the child (and anything it spawned) is gone.
-	_ = stderrW.Close()
-	stderrDone := make(chan struct{})
-	go func() {
-		defer close(stderrDone)
-		defer stderrR.Close()
-		_, _ = io.Copy(tail, stderrR)
-	}()
-	// drainStderr gives the copier a brief chance to flush what the dead
-	// process wrote, so failure messages include its final stderr output.
-	// It is bounded because a surviving child may hold the pipe open.
-	drainStderr := func() {
-		select {
-		case <-stderrDone:
-		case <-time.After(stderrDrainTimeout):
+		for _, f := range []*os.File{stdoutR, stdoutW, stderrR, stderrW} {
+			_ = f.Close()
 		}
+		return startedProcess{}, fmt.Errorf("unable to start %q: %w", strings.Join(cmdParts, " "), err)
 	}
+	// The child holds its own copies; close ours so the readers see EOF
+	// once the child (and anything it spawned) is gone.
+	_ = stdoutW.Close()
+	_ = stderrW.Close()
 
-	done := make(chan struct{})
+	tail := newTailBuffer(tailBufferSize)
+	ready := make(chan readyResult, 1)
+
+	var readers sync.WaitGroup
+	readers.Add(2)
+	go func() {
+		defer readers.Done()
+		defer stdoutR.Close()
+		scanForReady(stdoutR, tail, ready)
+	}()
+	go func() {
+		defer readers.Done()
+		defer stderrR.Close()
+		readLines(stderrR, func(line string) { tail.WriteLine("stderr: " + line) })
+	}()
+	readersDone := make(chan struct{})
+	go func() {
+		readers.Wait()
+		close(readersDone)
+	}()
+
+	done := make(chan struct{})   // the process has exited
+	exited := make(chan struct{}) // ... and its output has been captured
 	var waitErr error
 	go func() {
 		waitErr = cmd.Wait()
 		close(done)
+		select {
+		case <-readersDone:
+		case <-time.After(outputDrainTimeout):
+			// Something outlived the process and holds the pipes open.
+			// Closing the read ends unblocks the readers.
+			_ = stdoutR.Close()
+			_ = stderrR.Close()
+		}
+		close(exited)
 	}()
 
-	ready := make(chan readyResult, 1)
-	go scanForReady(stdout, tail, ready)
-
 	var stopOnce sync.Once
-	stop = func() error {
+	stop := func() error {
 		stopOnce.Do(func() {
 			select {
 			case <-done:
@@ -165,15 +206,24 @@ func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, arg
 
 	select {
 	case r := <-ready:
-		return cmd.Process.Pid, r.host, r.port, stop, done, tail.Snapshot, nil
+		return startedProcess{
+			Pid:    cmd.Process.Pid,
+			Host:   r.host,
+			Port:   r.port,
+			Stop:   stop,
+			Exited: exited,
+			Output: tail.Snapshot,
+		}, nil
 	case <-done:
 		_ = stop()
-		drainStderr()
-		return 0, "", "", nil, nil, nil, fmt.Errorf("process exited before becoming ready (%v)\noutput:\n%s", waitErr, tail.String())
+		<-exited // bounded; lets the failure message include final output
+		out, _ := truncateTail(tail.String(), maxErrorOutputBytes)
+		return startedProcess{}, fmt.Errorf("process exited before becoming ready (%v)\noutput:\n%s", waitErr, out)
 	case <-ctx.Done():
 		_ = stop()
-		drainStderr()
-		return 0, "", "", nil, nil, nil, fmt.Errorf("timed out waiting for function to become ready\noutput so far:\n%s", tail.String())
+		<-exited
+		out, _ := truncateTail(tail.String(), maxErrorOutputBytes)
+		return startedProcess{}, fmt.Errorf("timed out waiting for function to become ready\noutput so far:\n%s", out)
 	}
 }
 
@@ -195,20 +245,54 @@ type runReadyLine struct {
 // starts streaming logs), sending exactly once on ready as soon as a valid
 // readiness line is found. Every line is also recorded in tail for
 // diagnostics. It returns once r reaches EOF (i.e. the process closed
-// stdout, generally because it exited).
-func scanForReady(r io.ReadCloser, tail *tailBuffer, ready chan<- readyResult) {
-	defer r.Close()
+// stdout, generally because it exited) or is closed.
+func scanForReady(r io.Reader, tail *tailBuffer, ready chan<- readyResult) {
 	sent := false
-	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 64*1024), 1<<20)
-	for scanner.Scan() {
-		line := scanner.Text()
+	readLines(r, func(line string) {
 		tail.WriteLine("stdout: " + line)
-		if !sent {
-			if host, port, ok := parseReadyLine(line); ok {
-				sent = true
-				ready <- readyResult{host: host, port: port}
+		if sent {
+			return
+		}
+		if host, port, ok := parseReadyLine(line); ok {
+			sent = true
+			ready <- readyResult{host: host, port: port}
+		}
+	})
+}
+
+// readLines calls fn with each line read from r until r is exhausted,
+// returns an error or is closed. Unlike bufio.Scanner it never gives up on
+// an over-long line (which would stop the drain and block the child on a
+// full pipe): a line longer than maxLineBytes is cut and marked, and the
+// rest of it discarded. A final line without a terminating newline is
+// delivered too, as that is how a dying process often ends its output.
+// Lines are valid UTF-8; invalid bytes are dropped.
+func readLines(r io.Reader, fn func(line string)) {
+	br := bufio.NewReaderSize(r, 4*1024)
+	var line []byte
+	var over bool
+	emit := func() {
+		s := strings.ToValidUTF8(string(line), "")
+		if over {
+			s += lineTruncatedMarker
+		}
+		line, over = line[:0], false
+		fn(s)
+	}
+	for {
+		chunk, isPrefix, err := br.ReadLine()
+		if err != nil {
+			if len(line) > 0 || over {
+				emit()
 			}
+			return
+		}
+		if room := maxLineBytes - len(line); len(chunk) > room {
+			chunk, over = chunk[:room], true
+		}
+		line = append(line, chunk...)
+		if !isPrefix {
+			emit()
 		}
 	}
 }
@@ -227,8 +311,7 @@ func parseReadyLine(line string) (host, port string, ok bool) {
 
 // tailBuffer is a bounded, concurrency-safe buffer of the most recent output
 // lines from a subprocess, kept for inclusion in error messages and for the
-// run_logs tool. It implements io.Writer so it can be used directly as a
-// Cmd's Stderr.
+// run_logs tool.
 type tailBuffer struct {
 	mu      sync.Mutex
 	lines   []string
@@ -248,16 +331,6 @@ func (t *tailBuffer) WriteLine(line string) {
 		t.lines = t.lines[len(t.lines)-t.max:]
 		t.dropped = true
 	}
-}
-
-func (t *tailBuffer) Write(p []byte) (int, error) {
-	if len(p) == 0 {
-		return 0, nil
-	}
-	for _, line := range strings.Split(strings.TrimRight(string(p), "\n"), "\n") {
-		t.WriteLine("stderr: " + line)
-	}
-	return len(p), nil
 }
 
 func (t *tailBuffer) String() string {
@@ -281,27 +354,41 @@ func (t *tailBuffer) Snapshot() (string, bool) {
 type runEntry struct {
 	pid  int
 	stop func() error
+	// exited is closed once the process has exited; see
+	// startedProcess.Exited. May be nil.
+	exited <-chan struct{}
 	// output snapshots the process's retained output; see
-	// processStarter.Start. May be nil.
+	// startedProcess.Output. May be nil.
 	output func() (lines string, truncated bool)
 }
 
-// runRegistry tracks active local function runs, keyed by the resolved
-// absolute path of the Function being run. It is the single source of
-// truth used by both the "run" and "run_stop" tools.
+// hasExited reports whether the process is known to have exited.
+func (e *runEntry) hasExited() bool {
+	select {
+	case <-e.exited: // a nil channel never fires
+		return true
+	default:
+		return false
+	}
+}
+
+// runRegistry tracks local function runs, keyed by the resolved absolute path
+// of the Function being run. It is the single source of truth used by the
+// "run", "run_stop" and "run_logs" tools.
 type runRegistry struct {
 	mu     sync.Mutex
 	byPath map[string]*runEntry
-	// exited holds, per path, the last run whose process exited on its own.
-	// It is no longer active (it does not block a new run), but is kept so
-	// that run_logs can still show what a crashed Function printed, which is
-	// when that output matters most. It is cleared when a new run claims the
-	// path, on run_stop, and on stopAll.
-	exited map[string]*runEntry
+	// finished holds, per path, the last run which is no longer active,
+	// whether its process exited on its own or was stopped. It does not
+	// block a new run, but is kept so that run_logs can still show what the
+	// Function printed, which matters most after a crash. Only runs whose
+	// output is retained are kept. It is replaced when a new run claims the
+	// path and cleared on stopAll.
+	finished map[string]*runEntry
 }
 
 func newRunRegistry() *runRegistry {
-	return &runRegistry{byPath: map[string]*runEntry{}, exited: map[string]*runEntry{}}
+	return &runRegistry{byPath: map[string]*runEntry{}, finished: map[string]*runEntry{}}
 }
 
 // reserve atomically claims path for a new run before the (slow) subprocess
@@ -319,43 +406,45 @@ func (r *runRegistry) reserve(path string) error {
 		return fmt.Errorf("a function is already running at %q (pid %d); call run_stop first", path, existing.pid)
 	}
 	r.byPath[path] = &runEntry{}
-	delete(r.exited, path) // a new run supersedes the previous one's output
+	delete(r.finished, path) // a new run supersedes the previous one's output
 	return nil
 }
 
-// activate fills in the pid/stop/output for a path previously reserve'd,
-// marking it as an active run. output may be nil.
+// activate fills in the pid/stop/exited/output for a path previously
+// reserve'd, marking it as an active run, and returns the entry. exited and
+// output may be nil.
 //
-// If exited is non-nil, the entry is dropped from the registry as soon as
-// exited is closed, so that a process which dies on its own (crash, killed
-// externally) does not leave a stale entry behind blocking later runs for the
-// same path. Only this exact entry is dropped: if it has already been removed
-// and the path re-reserved by a newer run, that newer run is left untouched.
-func (r *runRegistry) activate(path string, pid int, stop func() error, exited <-chan struct{}, output func() (string, bool)) {
-	entry := &runEntry{pid: pid, stop: stop, output: output}
+// If exited is non-nil, the entry is retired as soon as exited is closed, so
+// that a process which dies on its own (crash, killed externally) does not
+// leave a stale entry behind blocking later runs for the same path. Only this
+// exact entry is retired: if it has already been removed and the path
+// re-reserved by a newer run, that newer run is left untouched.
+func (r *runRegistry) activate(path string, pid int, stop func() error, exited <-chan struct{}, output func() (string, bool)) *runEntry {
+	entry := &runEntry{pid: pid, stop: stop, exited: exited, output: output}
 	r.mu.Lock()
 	r.byPath[path] = entry
 	r.mu.Unlock()
 
-	if exited == nil {
-		return
+	if exited != nil {
+		go r.dropOnExit(path, entry, exited)
 	}
-	go r.dropOnExit(path, entry, exited)
+	return entry
 }
 
-// dropOnExit blocks until exited is closed and then marks entry as exited,
-// provided it is still the entry registered for path. It is run
+// dropOnExit blocks until exited is closed and then retires entry. It is run
 // in its own goroutine by activate; it is a separate method so tests can
 // call it synchronously.
 func (r *runRegistry) dropOnExit(path string, entry *runEntry, exited <-chan struct{}) {
 	<-exited
-	r.markExited(path, entry)
+	r.retire(path, entry)
 }
 
-// markExited makes path inactive (so it can be run again) if entry is still
-// the active entry for it, retaining entry so its final output stays
-// readable via getExited.
-func (r *runRegistry) markExited(path string, entry *runEntry) {
+// retire makes path inactive (so it can be run again) if entry is still the
+// active entry for it, retaining entry so that its final output stays
+// readable via lookup. It is used both when a process exits on its own and by
+// run_stop once it has stopped one. Retiring an entry which is no longer the
+// active one (already retired, or superseded by a newer run) does nothing.
+func (r *runRegistry) retire(path string, entry *runEntry) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.byPath[path] != entry {
@@ -363,24 +452,32 @@ func (r *runRegistry) markExited(path string, entry *runEntry) {
 	}
 	delete(r.byPath, path)
 	if entry.output != nil {
-		r.exited[path] = entry
+		r.finished[path] = entry
 	}
 }
 
-// getExited returns the last run at path whose process exited on its own,
-// if its output was retained and has not been cleared.
-func (r *runRegistry) getExited(path string) (*runEntry, bool) {
+// getFinished returns the last run at path which is no longer active, if its
+// output was retained.
+func (r *runRegistry) getFinished(path string) (*runEntry, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	e, ok := r.exited[path]
+	e, ok := r.finished[path]
 	return e, ok
 }
 
-// clearExited discards the retained output of an exited run at path.
-func (r *runRegistry) clearExited(path string) {
+// lookup returns the run to read output from for path: the active run if
+// there is one, otherwise the last finished one. running reports whether the
+// process is still alive. Both are decided under a single lock, and a process
+// known to have exited is not reported as running merely because its exit
+// has not been processed yet.
+func (r *runRegistry) lookup(path string) (entry *runEntry, running, ok bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	delete(r.exited, path)
+	if e, found := r.byPath[path]; found && e.stop != nil {
+		return e, !e.hasExited(), true
+	}
+	e, found := r.finished[path]
+	return e, false, found
 }
 
 // release removes a reservation for path, used when Start fails after a
@@ -407,33 +504,17 @@ func (r *runRegistry) remove(path string) {
 	delete(r.byPath, path)
 }
 
-// removeEntry removes the registry entry for path only if it is still
-// exactly entry. This guards against a late removal (for example run_stop
-// finishing after the process already exited and a newer run claimed the
-// path) deleting an unrelated, newer entry.
-func (r *runRegistry) removeEntry(path string, entry *runEntry) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.byPath[path] == entry {
-		delete(r.byPath, path)
-	}
-	// The exit watcher may have moved entry here first; an explicit removal
-	// discards its output too.
-	if r.exited[path] == entry {
-		delete(r.exited, path)
-	}
-}
-
-// stopAll stops every currently active run and clears the registry. It is
-// called on normal server shutdown (client disconnect, or SIGINT/SIGTERM
-// canceling the server's context) so that no "func run" subprocess is left
-// behind holding a port. It does nothing useful on a hard kill of the
-// server itself (e.g. SIGKILL), where OS process reaping applies instead.
+// stopAll stops every currently active run and clears the registry,
+// including retained output. It is called on normal server shutdown (client
+// disconnect, or SIGINT/SIGTERM canceling the server's context) so that no
+// "func run" subprocess is left behind holding a port. It does nothing
+// useful on a hard kill of the server itself (e.g. SIGKILL), where OS process
+// reaping applies instead.
 //
 // Exit watchers started by activate outlive this call and fire once each
-// stopped process exits. They are harmless: a watcher only ever removes the
-// exact entry it was created for (see removeEntry), and every entry has
-// been dropped from the map here.
+// stopped process exits. They are harmless: a watcher only ever retires the
+// exact entry it was created for, and every entry has been dropped from the
+// map here.
 func (r *runRegistry) stopAll() {
 	r.mu.Lock()
 	entries := make([]*runEntry, 0, len(r.byPath))
@@ -441,7 +522,7 @@ func (r *runRegistry) stopAll() {
 		entries = append(entries, e)
 	}
 	r.byPath = map[string]*runEntry{}
-	r.exited = map[string]*runEntry{}
+	r.finished = map[string]*runEntry{}
 	r.mu.Unlock()
 
 	for _, e := range entries {

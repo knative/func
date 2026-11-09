@@ -56,8 +56,8 @@ func TestTool_RunStop_NotRunning(t *testing.T) {
 func TestTool_RunStop_Success(t *testing.T) {
 	stopped := false
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
-		return 555, "127.0.0.1", "8080", func() error { stopped = true; return nil }, nil, nil, nil
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
+		return mock.Process{Pid: 555, Host: "127.0.0.1", Port: "8080", Stop: func() error { stopped = true; return nil }}, nil
 	}
 
 	client, server, err := newTestPair(t, WithProcessStarter(starter))

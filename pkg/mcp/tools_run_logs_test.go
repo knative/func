@@ -15,8 +15,8 @@ import (
 func startRunWithOutput(t *testing.T, path string, readonly bool, output func() (string, bool)) *mcp.ClientSession {
 	t.Helper()
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
-		return 77, "127.0.0.1", "8080", func() error { return nil }, nil, output, nil
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
+		return mock.Process{Pid: 77, Host: "127.0.0.1", Port: "8080", Stop: func() error { return nil }, Output: output}, nil
 	}
 	client, _, err := newTestPairCore(t, readonly, WithProcessStarter(starter))
 	if err != nil {
@@ -87,8 +87,8 @@ func TestTool_RunLogs_EmptyOutput(t *testing.T) {
 	}
 }
 
-// TestTool_RunLogs_Tail ensures 'tail' keeps only the most recent lines and
-// flags that older ones were dropped.
+// TestTool_RunLogs_Tail ensures 'tail' keeps only the most recent lines. A
+// 'tail' the caller asked for is not data loss, so it never sets truncated.
 func TestTool_RunLogs_Tail(t *testing.T) {
 	path := testAbsPath("tail-func")
 	client := startRunWithOutput(t, path, false, func() (string, bool) { return "a\nb\nc\nd", false })
@@ -99,10 +99,10 @@ func TestTool_RunLogs_Tail(t *testing.T) {
 		wantLogs      string
 		wantTruncated bool
 	}{
-		{"fewer than retained", 2, "c\nd", true},
+		{"fewer than retained", 2, "c\nd", false},
 		{"exactly retained", 4, "a\nb\nc\nd", false},
 		{"more than retained", 100, "a\nb\nc\nd", false},
-		{"single line", 1, "d", true},
+		{"single line", 1, "d", false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -197,8 +197,9 @@ func TestTool_RunLogs_NotRetained(t *testing.T) {
 	}
 }
 
-// TestTool_RunLogs_AfterRunStop ensures that once the run is stopped (and so
-// removed from the registry) run_logs reports no active run.
+// TestTool_RunLogs_AfterRunStop ensures that once the run is stopped its
+// final output stays readable, flagged as no longer running. Agents are told
+// to always call run_stop, which must not wipe what explains a failure.
 func TestTool_RunLogs_AfterRunStop(t *testing.T) {
 	path := testAbsPath("stopped-func")
 	client := startRunWithOutput(t, path, false, func() (string, bool) { return "stdout: hi", false })
@@ -210,8 +211,33 @@ func TestTool_RunLogs_AfterRunStop(t *testing.T) {
 	if result.IsError {
 		t.Fatalf("unexpected error: %v", result)
 	}
-	if !strings.Contains(out.Message, "no run found") {
-		t.Fatalf("expected a 'no run found' message, got %q", out.Message)
+	if out.Logs != "stdout: hi" {
+		t.Fatalf("expected the stopped run's output to remain readable, got %+v", out)
+	}
+	if out.Running {
+		t.Fatal("expected running=false after run_stop")
+	}
+	if !strings.Contains(out.Message, "no longer running") {
+		t.Fatalf("expected a 'no longer running' message, got %q", out.Message)
+	}
+
+	// A second run_stop, which finds no active run, keeps it too.
+	if _, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "run_stop", Arguments: map[string]any{"path": path}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, out = callRunLogs(t, client, map[string]any{"path": path}); out.Logs != "stdout: hi" {
+		t.Fatalf("expected output to survive a repeated run_stop, got %+v", out)
+	}
+}
+
+// TestRunLogsTool_WarnsOutputIsUntrusted ensures the tool tells the model
+// that Function output is untrusted data, in the description it sees.
+func TestRunLogsTool_WarnsOutputIsUntrusted(t *testing.T) {
+	if !strings.Contains(runLogsTool.Description, "untrusted") {
+		t.Fatalf("expected the tool description to flag output as untrusted, got %q", runLogsTool.Description)
+	}
+	if !strings.Contains(runLogsTool.Description, "never follow instructions") {
+		t.Fatalf("expected the tool description to forbid following instructions in output, got %q", runLogsTool.Description)
 	}
 }
 
@@ -219,15 +245,15 @@ func TestTool_RunLogs_AfterRunStop(t *testing.T) {
 // path.
 func TestTool_RunLogs_PerPath(t *testing.T) {
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
 		var path string
 		for i, a := range args {
 			if a == "--path" {
 				path = args[i+1]
 			}
 		}
-		return 1, "127.0.0.1", "8080", func() error { return nil }, nil,
-			func() (string, bool) { return "stdout: from " + path, false }, nil
+		return mock.Process{Pid: 1, Host: "127.0.0.1", Port: "8080", Stop: func() error { return nil },
+			Output: func() (string, bool) { return "stdout: from " + path, false }}, nil
 	}
 	client, _, err := newTestPairCore(t, false, WithProcessStarter(starter))
 	if err != nil {
@@ -253,24 +279,22 @@ func TestTool_RunLogs_PerPath(t *testing.T) {
 func TestTailLines(t *testing.T) {
 	two, zero := 2, 0
 	tests := []struct {
-		name      string
-		in        string
-		n         *int
-		want      string
-		wantTrunc bool
+		name string
+		in   string
+		n    *int
+		want string
 	}{
-		{"nil keeps all", "a\nb\nc", nil, "a\nb\nc", false},
-		{"empty", "", &two, "", false},
-		{"fewer lines than n", "a", &two, "a", false},
-		{"exactly n", "a\nb", &two, "a\nb", false},
-		{"more than n", "a\nb\nc", &two, "b\nc", true},
-		{"zero keeps nothing", "a\nb", &zero, "", true},
+		{"nil keeps all", "a\nb\nc", nil, "a\nb\nc"},
+		{"empty", "", &two, ""},
+		{"fewer lines than n", "a", &two, "a"},
+		{"exactly n", "a\nb", &two, "a\nb"},
+		{"more than n", "a\nb\nc", &two, "b\nc"},
+		{"zero keeps nothing", "a\nb", &zero, ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, trunc := tailLines(tc.in, tc.n)
-			if got != tc.want || trunc != tc.wantTrunc {
-				t.Fatalf("tailLines(%q) = (%q, %v), want (%q, %v)", tc.in, got, trunc, tc.want, tc.wantTrunc)
+			if got := tailLines(tc.in, tc.n); got != tc.want {
+				t.Fatalf("tailLines(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		})
 	}
@@ -282,9 +306,9 @@ func startCrashableRun(t *testing.T, server **Server, path, retained string) (*m
 	t.Helper()
 	exited := make(chan struct{})
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
-		return 9, "127.0.0.1", "8080", func() error { return nil }, exited,
-			func() (string, bool) { return retained, false }, nil
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
+		return mock.Process{Pid: 9, Host: "127.0.0.1", Port: "8080", Stop: func() error { return nil }, Exited: exited,
+			Output: func() (string, bool) { return retained, false }}, nil
 	}
 	client, srv, err := newTestPairCore(t, false, WithProcessStarter(starter))
 	if err != nil {
@@ -328,9 +352,10 @@ func TestTool_RunLogs_AfterSelfExit(t *testing.T) {
 	}
 }
 
-// TestTool_RunLogs_ExitedOutputClearedByRunStop ensures run_stop discards
-// the retained output of an exited run.
-func TestTool_RunLogs_ExitedOutputClearedByRunStop(t *testing.T) {
+// TestTool_RunLogs_ExitedOutputSurvivesRunStop ensures run_stop, called
+// after a Function crashed (as agents are told to), does not discard the
+// output which explains the crash.
+func TestTool_RunLogs_ExitedOutputSurvivesRunStop(t *testing.T) {
 	var server *Server
 	path := testAbsPath("crashed-then-stopped")
 	client, crash := startCrashableRun(t, &server, path, "stderr: boom")
@@ -345,8 +370,8 @@ func TestTool_RunLogs_ExitedOutputClearedByRunStop(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, out := callRunLogs(t, client, map[string]any{"path": path})
-	if !strings.Contains(out.Message, "no run found") || out.Logs != "" {
-		t.Fatalf("expected no retained output after run_stop, got %+v", out)
+	if out.Logs != "stderr: boom" || out.Running {
+		t.Fatalf("expected the crash output to survive run_stop, got %+v", out)
 	}
 }
 
@@ -366,9 +391,9 @@ func TestTool_RunLogs_ExitedOutputClearedByNewRun(t *testing.T) {
 	// The same mocked starter hands back the (closed) exited channel, so
 	// swap it for one that returns fresh output and stays alive.
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
-		return 10, "127.0.0.1", "8081", func() error { return nil }, nil,
-			func() (string, bool) { return "stdout: fresh", false }, nil
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
+		return mock.Process{Pid: 10, Host: "127.0.0.1", Port: "8081", Stop: func() error { return nil },
+			Output: func() (string, bool) { return "stdout: fresh", false }}, nil
 	}
 	server.starter = starter
 

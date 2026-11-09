@@ -39,31 +39,45 @@ func (s *Server) runHandler(ctx context.Context, r *mcp.CallToolRequest, input R
 	readyCtx, cancel := context.WithTimeout(ctx, runReadyTimeout)
 	defer cancel()
 
-	pid, host, port, stop, exited, procOutput, err := s.starter.Start(readyCtx, "run", input.Args(path)...)
+	proc, err := s.starter.Start(readyCtx, "run", input.Args(path)...)
 	if err != nil {
 		s.runs.release(path)
 		err = fmt.Errorf("unable to run function: %w", err)
 		return
 	}
 
-	// The process may have died between becoming ready and now. Don't hand
-	// back a URL that is already dead; the exit watcher started by activate
-	// would otherwise only clean the registry up after the fact.
-	select {
-	case <-exited: // a nil channel never fires
-		s.runs.release(path)
-		err = fmt.Errorf("unable to run function: process (pid %d) exited right after becoming ready", pid)
-		return
-	default:
-	}
+	entry := s.runs.activate(path, proc.Pid, proc.Stop, proc.Exited, proc.Output)
 
-	s.runs.activate(path, pid, stop, exited, procOutput)
+	// The process may have died between becoming ready and now. Don't hand
+	// back a URL that is already dead. The run is retired synchronously
+	// (rather than left to the exit watcher) so the path is immediately
+	// reusable, and its output is both kept for run_logs and quoted here:
+	// this is exactly the failure that output explains.
+	if entry.hasExited() {
+		s.runs.retire(path, entry)
+		err = fmt.Errorf("unable to run function: process (pid %d) exited right after becoming ready%s", proc.Pid, exitedOutput(entry))
+		return
+	}
 
 	output = RunOutput{
-		Pid: pid,
-		URL: fmt.Sprintf("http://%s:%s", host, port),
+		Pid: proc.Pid,
+		URL: fmt.Sprintf("http://%s:%s", proc.Host, proc.Port),
 	}
 	return
+}
+
+// exitedOutput formats the retained output of an exited run for inclusion in
+// an error message, or returns "" if there is none.
+func exitedOutput(e *runEntry) string {
+	if e.output == nil {
+		return ""
+	}
+	text, _ := e.output()
+	if text == "" {
+		return ""
+	}
+	text, _ = truncateTail(text, maxErrorOutputBytes)
+	return "\noutput:\n" + text
 }
 
 // RunInput defines the input parameters for the run tool.
