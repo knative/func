@@ -144,9 +144,8 @@ func TestCore_Deploy_Source(t *testing.T) {
 	t.Log("Not Implemented: running a local deploy from source code in a remote repo is not currently an implemented feature because this can be easily accomplished with `git clone ... && func deploy`")
 	// Should this be a feature implemented in the future (mostly just a
 	// convenience command), the test would be as follows:
-	// resetEnv(t)
-	// name := "func-e2e-test-core-deploy-source"
-	// _ = cdTemp(t, name) // sets Function name obliquely, see function docs
+	// name := "func-e2e-test-remote-source" // as in the repository's func.yaml
+	// _ = fromCleanEnv(t, name)
 	//
 	// if err := newCmd(t, "deploy", "--source=https://github.com/functions-dev/func-e2e-tests").Run(); err != nil {
 	// 	t.Fatal(err)
@@ -154,8 +153,8 @@ func TestCore_Deploy_Source(t *testing.T) {
 	// defer func() {
 	// 	clean(t, name, Namespace)
 	// }()
-	// if !waitForContent(t, fmt.Sprintf("http://func-e2e-test-deploy-source.%s.%s", Namespace, Domain), "func-e2e-test-deploy-source") {
-	// 	t.Fatal("function did not update correctly")
+	// if !waitFor(t, functionURL(t, name), withContentMatch(name)) {
+	// 	t.Fatal("function did not deploy correctly")
 	// }
 }
 

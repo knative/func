@@ -113,7 +113,7 @@ On other systems, add `127.0.0.1 kind-registry` to your local `hosts` file and `
 
 Once the cluster has been allocated, the `func` CLI (or client library) will automatically use it (see the [Kubeconfig Docs](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) for more)
 
-Functions will be available at the address `[Function Name].[Namespace].[Domain]` where Namespace defaults to `default` and Domain defaults to `localtest.me`. These can be configured via `FUNC_E2E_NAMESPACE` and `FUNC_E2E_DOMAIN` environment variables.
+With the Knative deployer, functions are available at `http://[Function Name]-[Namespace]-ksvc.localtest.me`. The e2e tests deploy to the namespace set by `FUNC_E2E_NAMESPACE` (default `default`) and find each function's address with `func describe`.
 
 To run integration tests, use `make test-integration`.
 
