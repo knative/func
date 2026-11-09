@@ -39,7 +39,7 @@ func (s *Server) runHandler(ctx context.Context, r *mcp.CallToolRequest, input R
 	readyCtx, cancel := context.WithTimeout(ctx, runReadyTimeout)
 	defer cancel()
 
-	pid, host, port, stop, exited, err := s.starter.Start(readyCtx, "run", input.Args(path)...)
+	pid, host, port, stop, exited, procOutput, err := s.starter.Start(readyCtx, "run", input.Args(path)...)
 	if err != nil {
 		s.runs.release(path)
 		err = fmt.Errorf("unable to run function: %w", err)
@@ -57,7 +57,7 @@ func (s *Server) runHandler(ctx context.Context, r *mcp.CallToolRequest, input R
 	default:
 	}
 
-	s.runs.activate(path, pid, stop, exited)
+	s.runs.activate(path, pid, stop, exited, procOutput)
 
 	output = RunOutput{
 		Pid: pid,

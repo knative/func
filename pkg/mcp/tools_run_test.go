@@ -16,7 +16,7 @@ func TestTool_Run_Args(t *testing.T) {
 	path := testAbsPath("my-func")
 
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, error) {
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
 		if subcommand != "run" {
 			t.Fatalf("expected subcommand 'run', got %q", subcommand)
 		}
@@ -40,7 +40,7 @@ func TestTool_Run_Args(t *testing.T) {
 			t.Fatalf("expected --build=true flag, got args %v", args)
 		}
 
-		return 4242, "127.0.0.1", "9090", func() error { return nil }, nil, nil
+		return 4242, "127.0.0.1", "9090", func() error { return nil }, nil, nil, nil
 	}
 
 	client, server, err := newTestPair(t, WithProcessStarter(starter))
@@ -83,8 +83,8 @@ func TestTool_Run_Args(t *testing.T) {
 // deploy/delete.
 func TestTool_Run_AllowedInReadonly(t *testing.T) {
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, error) {
-		return 1, "127.0.0.1", "8080", func() error { return nil }, nil, nil
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
+		return 1, "127.0.0.1", "8080", func() error { return nil }, nil, nil, nil
 	}
 
 	client, _, err := newTestPairCore(t, true, WithProcessStarter(starter))
@@ -108,8 +108,8 @@ func TestTool_Run_AllowedInReadonly(t *testing.T) {
 // while the first is still active.
 func TestTool_Run_Duplicate(t *testing.T) {
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, error) {
-		return 1, "127.0.0.1", "8080", func() error { return nil }, nil, nil
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
+		return 1, "127.0.0.1", "8080", func() error { return nil }, nil, nil, nil
 	}
 
 	client, server, err := newTestPair(t, WithProcessStarter(starter))
@@ -141,8 +141,8 @@ func TestTool_Run_Duplicate(t *testing.T) {
 // surfaced as a tool error.
 func TestTool_Run_StartError(t *testing.T) {
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, error) {
-		return 0, "", "", nil, nil, fmt.Errorf("boom")
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
+		return 0, "", "", nil, nil, nil, fmt.Errorf("boom")
 	}
 
 	client, server, err := newTestPair(t, WithProcessStarter(starter))
@@ -171,12 +171,12 @@ func TestTool_Run_AfterSelfExit(t *testing.T) {
 	exited := make(chan struct{})
 	starts := 0
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, error) {
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
 		starts++
 		if starts == 1 {
-			return 1, "127.0.0.1", "8080", func() error { return nil }, exited, nil
+			return 1, "127.0.0.1", "8080", func() error { return nil }, exited, nil, nil
 		}
-		return 2, "127.0.0.1", "8081", func() error { return nil }, nil, nil
+		return 2, "127.0.0.1", "8081", func() error { return nil }, nil, nil, nil
 	}
 
 	client, server, err := newTestPair(t, WithProcessStarter(starter))
@@ -244,8 +244,8 @@ func TestTool_Run_ExitedBeforeActivate(t *testing.T) {
 	exited := make(chan struct{})
 	close(exited)
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, error) {
-		return 1, "127.0.0.1", "8080", func() error { return nil }, exited, nil
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, <-chan struct{}, func() (string, bool), error) {
+		return 1, "127.0.0.1", "8080", func() error { return nil }, exited, nil, nil
 	}
 
 	client, server, err := newTestPair(t, WithProcessStarter(starter))

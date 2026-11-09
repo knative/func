@@ -33,6 +33,8 @@ func (s *Server) runStopHandler(ctx context.Context, r *mcp.CallToolRequest, inp
 	if !ok {
 		// Idempotent: stopping a path with no active run (already stopped,
 		// or never started) is not an error.
+		// Also drop the output retained from a run which exited on its own.
+		s.runs.clearExited(path)
 		output = RunStopOutput{
 			Message: fmt.Sprintf("no active run found at %q; already stopped", path),
 		}

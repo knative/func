@@ -37,7 +37,7 @@ func TestRunRegistry_ReserveActivateRemove(t *testing.T) {
 		t.Fatal("expected error reserving an already-pending path")
 	}
 
-	r.activate("/a/b", 111, stop, nil)
+	r.activate("/a/b", 111, stop, nil, nil)
 
 	entry, ok := r.get("/a/b")
 	if !ok {
@@ -73,12 +73,12 @@ func TestRunRegistry_StopAll(t *testing.T) {
 	if err := r.reserve("/a"); err != nil {
 		t.Fatal(err)
 	}
-	r.activate("/a", 1, func() error { stoppedA = true; return nil }, nil)
+	r.activate("/a", 1, func() error { stoppedA = true; return nil }, nil, nil)
 
 	if err := r.reserve("/b"); err != nil {
 		t.Fatal(err)
 	}
-	r.activate("/b", 2, func() error { stoppedB = true; return nil }, nil)
+	r.activate("/b", 2, func() error { stoppedB = true; return nil }, nil, nil)
 
 	r.stopAll()
 
@@ -170,7 +170,7 @@ func TestDefaultProcessStarter_Ready(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	pid, host, port, stop, _, err := starter.Start(ctx, "run")
+	pid, host, port, stop, _, _, err := starter.Start(ctx, "run")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestDefaultProcessStarter_ExitsBeforeReady(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	_, _, _, _, _, err := starter.Start(ctx, "run")
+	_, _, _, _, _, _, err := starter.Start(ctx, "run")
 	if err == nil {
 		t.Fatal("expected an error when the process exits before becoming ready")
 	}
@@ -219,7 +219,7 @@ func TestDefaultProcessStarter_Timeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
 	defer cancel()
 
-	_, _, _, _, _, err := starter.Start(ctx, "run")
+	_, _, _, _, _, _, err := starter.Start(ctx, "run")
 	if err == nil {
 		t.Fatal("expected a timeout error")
 	}
@@ -235,7 +235,7 @@ func TestRunRegistry_ActivateDropsEntryOnExit(t *testing.T) {
 	if err := r.reserve("/a"); err != nil {
 		t.Fatal(err)
 	}
-	r.activate("/a", 1, func() error { return nil }, exited)
+	r.activate("/a", 1, func() error { return nil }, exited, nil)
 	if _, ok := r.get("/a"); !ok {
 		t.Fatal("expected entry to be active before the process exits")
 	}
@@ -262,7 +262,7 @@ func TestRunRegistry_ActivateAlreadyExited(t *testing.T) {
 	if err := r.reserve("/a"); err != nil {
 		t.Fatal(err)
 	}
-	r.activate("/a", 1, func() error { return nil }, exited)
+	r.activate("/a", 1, func() error { return nil }, exited, nil)
 
 	waitFor(t, "entry to be dropped for an already-exited process", func() bool {
 		_, ok := r.get("/a")
@@ -281,7 +281,7 @@ func TestRunRegistry_ExitDoesNotDropNewerEntry(t *testing.T) {
 	if err := r.reserve("/a"); err != nil {
 		t.Fatal(err)
 	}
-	r.activate("/a", 1, func() error { return nil }, oldExited)
+	r.activate("/a", 1, func() error { return nil }, oldExited, nil)
 	oldEntry, _ := r.get("/a")
 
 	// The old entry is replaced by a new run before the old exit is seen.
@@ -289,7 +289,7 @@ func TestRunRegistry_ExitDoesNotDropNewerEntry(t *testing.T) {
 	if err := r.reserve("/a"); err != nil {
 		t.Fatal(err)
 	}
-	r.activate("/a", 2, func() error { return nil }, nil)
+	r.activate("/a", 2, func() error { return nil }, nil, nil)
 
 	// Run the old entry's exit watcher to completion, synchronously.
 	close(oldExited)
@@ -311,7 +311,7 @@ func TestRunRegistry_ExitAfterStopAll(t *testing.T) {
 	if err := r.reserve("/a"); err != nil {
 		t.Fatal(err)
 	}
-	r.activate("/a", 1, func() error { close(exited); return nil }, exited)
+	r.activate("/a", 1, func() error { close(exited); return nil }, exited, nil)
 	oldEntry, _ := r.get("/a")
 
 	r.stopAll() // stop closes exited
@@ -322,7 +322,7 @@ func TestRunRegistry_ExitAfterStopAll(t *testing.T) {
 	if err := r.reserve("/a"); err != nil {
 		t.Fatalf("unexpected error reserving after stopAll: %v", err)
 	}
-	r.activate("/a", 2, func() error { return nil }, nil)
+	r.activate("/a", 2, func() error { return nil }, nil, nil)
 
 	r.dropOnExit("/a", oldEntry, exited) // exited is already closed
 	entry, ok := r.get("/a")
@@ -359,7 +359,7 @@ func TestDefaultProcessStarter_ExitedClosesOnSelfExit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	_, _, _, stop, exited, err := starter.Start(ctx, "run")
+	_, _, _, stop, exited, _, err := starter.Start(ctx, "run")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -383,7 +383,7 @@ func TestDefaultProcessStarter_ExitedClosesOnStop(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	_, _, _, stop, exited, err := starter.Start(ctx, "run")
+	_, _, _, stop, exited, _, err := starter.Start(ctx, "run")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -420,7 +420,7 @@ func TestDefaultProcessStarter_ExitedClosesWithSurvivingChild(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	_, _, _, stop, exited, err := starter.Start(ctx, "run")
+	_, _, _, stop, exited, _, err := starter.Start(ctx, "run")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -448,11 +448,155 @@ func TestDefaultProcessStarter_ExitsBeforeReadyIncludesStderr(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
-	_, _, _, _, _, err := starter.Start(ctx, "run")
+	_, _, _, _, _, _, err := starter.Start(ctx, "run")
 	if err == nil {
 		t.Fatal("expected an error when the process exits before becoming ready")
 	}
 	if !strings.Contains(err.Error(), "boom on stderr") {
 		t.Fatalf("expected stderr output in the error, got: %v", err)
 	}
+}
+
+// TestRunRegistry_ExitedOutputRetained verifies the lifecycle of the output
+// kept for a run which exited on its own: it is retrievable, does not block
+// a new run, is not kept when the process retains no output, and is cleared
+// by a new reserve, removeEntry (run_stop) and stopAll.
+func TestRunRegistry_ExitedOutputRetained(t *testing.T) {
+	out := func() (string, bool) { return "stdout: x", false }
+	stop := func() error { return nil }
+
+	activateAndExit := func(r *runRegistry, path string, output func() (string, bool)) *runEntry {
+		t.Helper()
+		exited := make(chan struct{})
+		if err := r.reserve(path); err != nil {
+			t.Fatal(err)
+		}
+		r.activate(path, 1, stop, nil, output)
+		entry, _ := r.get(path)
+		close(exited)
+		r.dropOnExit(path, entry, exited)
+		return entry
+	}
+
+	t.Run("retained and not blocking", func(t *testing.T) {
+		r := newRunRegistry()
+		entry := activateAndExit(r, "/a", out)
+		if _, ok := r.get("/a"); ok {
+			t.Fatal("exited run must not be active")
+		}
+		got, ok := r.getExited("/a")
+		if !ok || got != entry {
+			t.Fatal("expected the exited run to be retained")
+		}
+		if err := r.reserve("/a"); err != nil {
+			t.Fatalf("exited run must not block a new run: %v", err)
+		}
+		if _, ok := r.getExited("/a"); ok {
+			t.Fatal("expected a new reserve to supersede the exited run")
+		}
+	})
+
+	t.Run("nil output is not retained", func(t *testing.T) {
+		r := newRunRegistry()
+		activateAndExit(r, "/a", nil)
+		if _, ok := r.getExited("/a"); ok {
+			t.Fatal("nothing to retain without output")
+		}
+	})
+
+	t.Run("cleared by removeEntry", func(t *testing.T) {
+		r := newRunRegistry()
+		entry := activateAndExit(r, "/a", out)
+		r.removeEntry("/a", entry)
+		if _, ok := r.getExited("/a"); ok {
+			t.Fatal("expected removeEntry to discard retained output")
+		}
+	})
+
+	t.Run("removeEntry of an older entry keeps a newer exited one", func(t *testing.T) {
+		r := newRunRegistry()
+		old := activateAndExit(r, "/a", out)
+		newer := activateAndExit(r, "/a", out)
+		r.removeEntry("/a", old)
+		if got, ok := r.getExited("/a"); !ok || got != newer {
+			t.Fatal("expected the newer exited run to be kept")
+		}
+	})
+
+	t.Run("cleared by clearExited", func(t *testing.T) {
+		r := newRunRegistry()
+		activateAndExit(r, "/a", out)
+		r.clearExited("/a")
+		if _, ok := r.getExited("/a"); ok {
+			t.Fatal("expected clearExited to discard retained output")
+		}
+	})
+
+	t.Run("cleared by stopAll", func(t *testing.T) {
+		r := newRunRegistry()
+		activateAndExit(r, "/a", out)
+		r.stopAll()
+		if _, ok := r.getExited("/a"); ok {
+			t.Fatal("expected stopAll to discard retained output")
+		}
+	})
+}
+
+// TestTailBuffer_Snapshot verifies that Snapshot returns the retained lines
+// and reports dropping only once older lines have actually been discarded.
+func TestTailBuffer_Snapshot(t *testing.T) {
+	b := newTailBuffer(3)
+
+	if s, dropped := b.Snapshot(); s != "" || dropped {
+		t.Fatalf("expected empty, not dropped; got %q, %v", s, dropped)
+	}
+
+	b.WriteLine("1")
+	b.WriteLine("2")
+	b.WriteLine("3")
+	if s, dropped := b.Snapshot(); s != "1\n2\n3" || dropped {
+		t.Fatalf("expected full buffer, not dropped; got %q, %v", s, dropped)
+	}
+
+	b.WriteLine("4")
+	if s, dropped := b.Snapshot(); s != "2\n3\n4" || !dropped {
+		t.Fatalf("expected oldest line dropped; got %q, %v", s, dropped)
+	}
+}
+
+// TestDefaultProcessStarter_Output verifies that the output function
+// returned by Start exposes stdout and stderr lines with their stream
+// prefix, and stays readable after the process has exited.
+func TestDefaultProcessStarter_Output(t *testing.T) {
+	script := writeTestScript(t, 0)
+	body := "#!/bin/sh\n" +
+		"echo '{\"host\":\"127.0.0.1\",\"port\":\"9999\"}'\n" +
+		"echo 'request handled'\n" +
+		"echo 'something broke' >&2\n"
+	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	starter := newTestStarter(t, script)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	_, _, _, stop, exited, output, err := starter.Start(ctx, "run")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if output == nil {
+		t.Fatal("expected a non-nil output function")
+	}
+	select {
+	case <-exited:
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected the script to exit")
+	}
+	_ = stop()
+
+	waitFor(t, "stdout and stderr lines to be captured", func() bool {
+		s, _ := output()
+		return strings.Contains(s, "stdout: request handled") && strings.Contains(s, "stderr: something broke")
+	})
 }

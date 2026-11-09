@@ -210,6 +210,7 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - `verbose` output is written to the same stream the notices come back on, so enabling it makes `warnings` considerably noisier; the returned notices are bounded and older ones are dropped when they overflow
 - This tool is **read-only** — it never modifies any state
 - Use logs to diagnose a deployed Function after `deploy`, especially when combined with `invoke` to trigger the Function and observe its output
+- `logs` reads a Function deployed to a cluster; for a Function started locally with `run`, use `run_logs`
 
 ### delete
 
@@ -252,11 +253,25 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - ALWAYS call `run_stop` with the matching `path` when finished, to free the port and clean up
 - Not a cluster operation, so unaffected by read-only mode
 
+### run_logs
+
+- Returns a finite snapshot of the recent output (stdout and stderr) of a Function started with `run`; it does not stream
+- Use it to debug a locally running Function, for example when `invoke` against the `run` URL returned an error, or when the Function seems to have died
+- For a Function deployed to a cluster use `logs` instead
+- **REQUIRED:** `path` (absolute) must match the path used to start it with `run`
+- **OPTIONAL:** `tail` (number of most recent lines to return, at least 1; default is every retained line)
+- Each line is prefixed with `stdout:` or `stderr:`
+- Only the most recent 200 lines are retained; if older lines were dropped `truncated` is set to true, so do not assume the output is complete
+- `running` tells you whether the process is still alive. If it exited on its own (for example crashed), its final output is still returned with `running: false`, until `run_stop` is called for the path or a new `run` starts there
+- Succeeds with an informational `message` (not an error) when there is no run at the path
+- Read-only and not a cluster operation, so unaffected by read-only mode
+
 ### run_stop
 
 - Stops a Function previously started with `run`
 - **REQUIRED:** `path` (absolute) must match the path used to start it with `run`
 - Idempotent: calling `run_stop` for a path with no active run (already stopped, or never started) succeeds with an informational message rather than erroring
+- Also discards any output `run_logs` retained for that path
 - Not a cluster operation, so unaffected by read-only mode
 
 ### config_envs_list, config_envs_add, config_envs_remove

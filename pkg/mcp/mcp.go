@@ -141,6 +141,7 @@ func New(options ...Option) *Server {
 	mcp.AddTool(i, deleteTool, s.deleteHandler)
 	mcp.AddTool(i, runTool, s.runHandler)
 	mcp.AddTool(i, runStopTool, s.runStopHandler)
+	mcp.AddTool(i, runLogsTool, s.runLogsHandler)
 	mcp.AddTool(i, configVolumesListTool, s.configVolumesListHandler)
 	mcp.AddTool(i, configVolumesAddTool, s.configVolumesAddHandler)
 	mcp.AddTool(i, configVolumesRemoveTool, s.configVolumesRemoveHandler)
