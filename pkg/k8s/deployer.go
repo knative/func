@@ -97,11 +97,11 @@ const (
 // ldflags.
 //
 // This points at the released image published from the func-adapter-kafka
-// release-0.1 branch. The runtime is versioned on its own line like the
+// release-0.2 branch. The runtime is versioned on its own line like the
 // other func middleware (func-go, func-python), independent of func and the
 // knative release train. Pin a different version or fall back to the nightly
 // build via FUNC_KAFKA_RUNTIME_IMAGE.
-var DefaultKafkaRuntimeImage = "gcr.io/knative-releases/knative.dev/func-adapter-kafka/cmd/fkafka-runtime:v0.1.0"
+var DefaultKafkaRuntimeImage = "gcr.io/knative-releases/knative.dev/func-adapter-kafka/cmd/fkafka-runtime:v0.2.0"
 
 type DeployerOpt func(*Deployer)
 
