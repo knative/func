@@ -12,6 +12,7 @@ The Functions MCP server is currently running in **read-only mode**.
 - Inspect Functions
 - List Function configuration
 - Run/stop Functions locally (not cluster operations, so unaffected by read-only mode)
+- List installed template repositories (`repository_list`)
 
 **Disabled operations:**
 - Configure Functions (envs, labels, volumes add/remove)
@@ -19,12 +20,13 @@ The Functions MCP server is currently running in **read-only mode**.
 - Deploy to cluster
 - Delete from cluster
 - Push a built image to a registry (`build` with `push` enabled)
+- Add, rename or remove template repositories (`repository_add`, `repository_rename`, `repository_remove`)
 
 These write operations are disabled to prevent unintended local or cluster modifications.
 
 ## Enabling Write Mode
 
-If the user needs to deploy, delete, or configure Functions, or push a built image to a registry, you MUST inform them to enable write mode:
+If the user needs to deploy, delete, or configure Functions, push a built image to a registry, or manage template repositories, you MUST inform them to enable write mode:
 
 1. Close/exit this application completely
 2. Set the environment variable: `FUNC_ENABLE_MCP_WRITE=true`
