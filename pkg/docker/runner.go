@@ -299,6 +299,12 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	if verbose {
 		c.Env = append(c.Env, "VERBOSE=true")
 	}
+	// TODO(wip): wire the Kafka runtime adapter sub-process for the container
+	// backend (host runner is done; see pkg/functions/runner.go
+	// startKafkaAdapter). Until then this KAFKA_* env is a no-op -- the function
+	// container runs a plain HTTP server and no longer consumes Kafka
+	// in-process (FUNC_TRANSPORT is retired). Left in place to avoid changing a
+	// path this POC does not yet replace.
 	if k := f.Run.Kafka; k != nil && k.Brokers != "" && k.Topic != "" && k.ConsumerGroup != "" {
 		c.Env = append(c.Env,
 			"FUNC_TRANSPORT=kafka",

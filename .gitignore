@@ -59,3 +59,6 @@ CLAUDE.local.md
 # https://github.com/knative/func/issues/3196
 /pkg/builders/testdata/go-fn-with-private-deps/.s2i
 
+
+# Built Kafka runtime adapter binaries (populated by `make kafka-runtime-embed`)
+pkg/kafkaruntime/bin/fkafka-runtime*
