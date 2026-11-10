@@ -118,7 +118,7 @@ console producer, for example:
 
 ```bash
 kubectl run kafka-producer -it --rm --restart=Never \
-  --image=quay.io/strimzi/kafka:latest-kafka-3.7.0 -- \
+  --image=quay.io/strimzi/kafka:latest-kafka-4.2.0 -- \
   bin/kafka-console-producer.sh \
   --bootstrap-server my-cluster-kafka-bootstrap:9092 --topic orders
 ```
