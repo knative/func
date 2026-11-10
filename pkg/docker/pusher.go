@@ -16,7 +16,6 @@ import (
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci"
 
-	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -27,6 +26,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	types2 "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/moby/client"
+	"github.com/moby/moby/client/pkg/jsonmessage"
 	"golang.org/x/term"
 )
 

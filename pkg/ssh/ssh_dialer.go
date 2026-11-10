@@ -11,12 +11,13 @@ import (
 	"net"
 	urlPkg "net/url"
 	"os"
+	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/docker/cli/cli/connhelper"
-	"github.com/docker/docker/pkg/homedir"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
@@ -375,7 +376,7 @@ func createHostKeyCallback(hostKeyCallback HostKeyCallback) func(hostPort string
 			host, port = _h, _p
 		}
 
-		knownHosts := filepath.Join(homedir.Get(), ".ssh", "known_hosts")
+		knownHosts := filepath.Join(userHomeDir(), ".ssh", "known_hosts")
 
 		_, err := os.Stat(knownHosts)
 		if err != nil && errors.Is(err, os.ErrNotExist) {
@@ -432,6 +433,19 @@ func createHostKeyCallback(hostKeyCallback HostKeyCallback) func(hostPort string
 
 		return errUnknownServerKey
 	}
+}
+
+// userHomeDir returns the user's home directory. If $HOME is not set on a
+// system other than Windows, it falls back to the user database. It does what
+// homedir.Get from the deprecated github.com/docker/docker module did.
+func userHomeDir() string {
+	home, _ := os.UserHomeDir()
+	if home == "" && runtime.GOOS != "windows" {
+		if u, err := user.Current(); err == nil {
+			return u.HomeDir
+		}
+	}
+	return home
 }
 
 var ErrBadServerKeyMsg = "server key for given host differs from key in known_host"
