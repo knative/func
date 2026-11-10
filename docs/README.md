@@ -30,4 +30,4 @@ Functions can be deployed on the following platforms:
 
 ## Contributing
 
-We are always looking for contributions to the project from the Function Developer community.  For more information on how to participate, see the [Contributing Guide](CONTRIBUTING.md)
+We are always looking for contributions to the project from the Function Developer community.  For more information on how to participate, see the [Contributing Guide](../CONTRIBUTING.md)
