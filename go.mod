@@ -76,7 +76,7 @@ require (
 	knative.dev/eventing v0.51.1-0.20261106033240-495a0f9afe89
 	knative.dev/hack v0.0.0-20261106011541-9aee2b079953
 	knative.dev/pkg v0.0.0-20261106011441-a8ce7f3f6f84
-	knative.dev/serving v0.51.1-0.20261109210744-3a8d3e92cec8
+	knative.dev/serving v0.51.1-0.20261110122020-ac8f13e9ff3a
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/yaml v1.6.0
 )
