@@ -181,17 +181,27 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
-	if wantKafka {
-		// The following are all pure functions of f, run before the raw deploy
-		// creates anything: failing before the Deployment/Service exist, rather
-		// than after, avoids leaving a partial workload behind with no Kafka
-		// scaler and no error pointing at why.
-		if f.Run.Kafka == nil {
-			return fn.DeploymentResult{}, fmt.Errorf("function %q: scale.keda.triggers has a kafka trigger but run.kafka is not configured", f.Name)
-		}
-		// buildScaledObject sets these directly as KEDA trigger metadata
-		// (bootstrapServers/topic/consumerGroup); an empty value produces a
-		// ScaledObject that can't connect to any broker.
+	if wantKafka && f.Run.Kafka == nil {
+		// A kafka trigger scales off consumer-group lag, which only exists if the
+		// function actually consumes Kafka via run.kafka. Without it the
+		// ScaledObject has nothing to measure, so fail before the raw deploy
+		// rather than leave a workload behind with a scaler pointed at nothing.
+		return fn.DeploymentResult{}, fmt.Errorf("function %q: scale.keda.triggers has a kafka trigger but run.kafka is not configured", f.Name)
+	}
+
+	// These run whenever Kafka is configured -- not only when a kafka trigger is
+	// present -- because the embedded k8s deployer injects the runtime sidecar
+	// (and its broker/TLS/SASL/delivery env) whenever f.Run.Kafka is set,
+	// independent of the scaler. Gating them on wantKafka let an invalid run.kafka
+	// on an http-triggered (or untriggered) function reach the cluster and
+	// crash-loop -- or silently misconfigure -- the sidecar. All are pure
+	// functions of f, run before the raw deploy creates anything, so failing here
+	// avoids leaving a partial workload behind with no error pointing at why.
+	if f.Run.Kafka != nil {
+		// brokers/topic/consumerGroup feed both the sidecar's consumer env and
+		// (when a kafka trigger is present) the ScaledObject's trigger metadata; an
+		// empty value yields a sidecar that can't connect and is silently skipped
+		// by kafkaSidecarContainer.
 		var missing []string
 		if f.Run.Kafka.Brokers == "" {
 			missing = append(missing, "brokers")
@@ -205,18 +215,24 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		if len(missing) > 0 {
 			return fn.DeploymentResult{}, fmt.Errorf("function %q: run.kafka is missing required field(s): %s", f.Name, strings.Join(missing, ", "))
 		}
-		// buildTriggerAuth's TLS-path resolution only depends on
-		// f.Run.Kafka/f.Run.Volumes -- no live deployment needed -- so it runs
-		// here, before the raw Deployment/Service exist.
+		// TLS-path resolution depends only on f.Run.Kafka/f.Run.Volumes -- no live
+		// deployment -- and the resolved paths are consumed by both the sidecar and
+		// buildTriggerAuth.
 		if err := validateKafkaTLSPaths(f.Run.Kafka, f.Run.Volumes); err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("function %q: %w", f.Name, err)
 		}
-		// Validate the securityProtocol/TLS/SASL consistency with the same
-		// rules Function.Validate applies, so a direct Deploy caller that
-		// bypasses it can't create a ScaledObject whose SASL/TLS metadata
-		// silently disagrees with how the function's own container
+		// securityProtocol/TLS/SASL consistency, with the same rules
+		// Function.Validate applies, so a direct Deploy caller that bypasses it
+		// can't create a sidecar (or ScaledObject) whose SASL/TLS metadata is
+		// malformed or disagrees with how the function's own container
 		// authenticates.
 		if errs := fn.ValidateKafkaSecurity(f.Run.Kafka); len(errs) > 0 {
+			return fn.DeploymentResult{}, fmt.Errorf("function %q: %s", f.Name, strings.Join(errs, "; "))
+		}
+		// The delivery block (retry/backoff/timeout) is injected onto the sidecar,
+		// so a malformed value is caught here rather than crash-looping the runtime
+		// at startup.
+		if errs := fn.ValidateKafkaDelivery(f.Run.Kafka); len(errs) > 0 {
 			return fn.DeploymentResult{}, fmt.Errorf("function %q: %s", f.Name, strings.Join(errs, "; "))
 		}
 	}

@@ -66,6 +66,38 @@
 			"type": "object",
 			"description": "BuildSpec"
 		},
+		"DeliverySpec": {
+			"properties": {
+				"retry": {
+					"type": "integer",
+					"description": "Retries after the first delivery attempt. Omit for unlimited; 0 means a single attempt with no retry.",
+					"minimum": 0
+				},
+				"backoffPolicy": {
+					"enum": [
+						"exponential",
+						"linear"
+					],
+					"type": "string",
+					"description": "How the inter-retry delay grows: exponential (default) or linear"
+				},
+				"backoffDelay": {
+					"type": "string",
+					"description": "Base inter-retry delay as a Go duration e.g. 100ms (default 100ms)"
+				},
+				"backoffMaxDelay": {
+					"type": "string",
+					"description": "Maximum inter-retry delay as a Go duration e.g. 30s (default 30s)"
+				},
+				"timeout": {
+					"type": "string",
+					"description": "Per-attempt request timeout as a Go duration e.g. 30s (default 30s)"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object",
+			"description": "DeliverySpec configures how a consumed event is delivered to the function."
+		},
 		"DeploySpec": {
 			"properties": {
 				"namespace": {
@@ -404,6 +436,11 @@
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/KafkaSASL",
 					"description": "SASL authentication for SASL_PLAINTEXT or SASL_SSL"
+				},
+				"delivery": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/DeliverySpec",
+					"description": "Tunes delivery of consumed records to the function (retry budget / backoff / per-attempt timeout)"
 				}
 			},
 			"additionalProperties": false,
