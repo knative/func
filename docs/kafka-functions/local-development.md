@@ -6,9 +6,18 @@ is and isn't available locally today.
 ## What runs locally
 
 `func run` starts your function locally as a plain CloudEvents-over-HTTP server. The
-**Kafka runtime sidecar is not part of a local run**, so a locally-run function
-does **not** connect to a broker or consume any topic — `run.kafka` only takes
-effect when the function is deployed to a cluster.
+**Kafka runtime sidecar is not part of a local run**, so the managed sidecar
+delivery path does not run locally — for most languages this means a locally-run
+function does **not** connect to a broker or consume any topic, and `run.kafka`'s
+sidecar wiring only takes effect when the function is deployed to a cluster.
+
+> **Go is an exception.** Go functions still carry the legacy in-process Kafka
+> consumer. When `run.kafka` is fully configured, `func run` sets
+> `FUNC_TRANSPORT=kafka` (plus `KAFKA_*`) and the Go scaffold connects **directly** to
+> the broker and consumes the topic in-process — so a Go local run *does* talk to
+> Kafka if the broker is reachable. This path is being retired in favor of the
+> sidecar; to exercise only your handler logic, test with `func invoke` (below)
+> rather than relying on it.
 
 That is fine for most development, because your function's job is simply to handle a
 CloudEvent. You can exercise that logic locally by sending it a CloudEvent shaped
@@ -38,9 +47,15 @@ func invoke \
   --extension kafkaoffset=17
 ```
 
-This drives your handler through exactly the shape it will receive in production,
-without needing a broker. Use `--file` instead of `--data` to send a payload from a
-file. (The `--extension`/`-e` flag is only valid with the cloudevent format.)
+This drives your handler through the shape it receives in production, without needing
+a broker. Use `--file` instead of `--data` to send a payload from a file. (The
+`--extension`/`-e` flag is only valid with the cloudevent format.)
+
+One caveat on `--content-type`: the runtime stamps a **plain** Kafka record's data as
+`application/octet-stream` (raw bytes), and only carries a different type when the
+producer sets a `ce_datacontenttype` header. The `application/json` above matches a
+record produced with that header — and keeps a JSON payload easy to read locally; use
+`--content-type application/octet-stream` to mimic a plain record instead.
 
 ## Testing against a real broker
 

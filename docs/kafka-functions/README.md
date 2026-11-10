@@ -11,8 +11,10 @@ consumes the topic, converts each record to a CloudEvent, and POSTs it to your
 function over localhost; your function stays a plain CloudEvents-over-HTTP server.
 
 Delivery is **at-least-once** — the sidecar commits a record's offset only after
-your function returns a 2xx. Functions are deployed with the `keda` deployer, which
-also provides consumer-lag autoscaling.
+your function returns a 2xx. The recommended deployer is `keda`, which adds
+consumer-lag autoscaling (including scale-to-zero); the `raw` deployer also injects
+the sidecar but runs a fixed replica count with no lag scaling. The `knative`
+deployer does not support Kafka functions.
 
 New to this? Start with [Getting started](getting-started.md).
 

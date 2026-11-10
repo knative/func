@@ -33,9 +33,10 @@ Going direct means the function is a normal function with a Kafka library embedd
   retries, and offset commits.
 - **Delivery semantics** — there is no managed at-least-once wrapper; your code
   decides when a record is "done."
-- **Scaling** — the built-in `kafka` consumer-lag trigger is wired from `run.kafka`;
-  without it you configure KEDA (or another autoscaler) yourself, or run a fixed
-  replica count.
+- **Scaling** — the managed path offers a `kafka` consumer-lag trigger, but even
+  there you declare it explicitly under `scale.keda.triggers` with the `keda`
+  deployer (it is never inferred from `run.kafka`). Going direct, you configure KEDA
+  (or another autoscaler) yourself, or run a fixed replica count.
 - **Credentials** — you supply broker addresses and TLS/SASL config to your client
   through environment variables, mounted Secrets, etc.
 - **Language specificity** — you now depend on a Kafka client for your function's

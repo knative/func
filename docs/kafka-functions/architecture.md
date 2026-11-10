@@ -94,9 +94,14 @@ deployer rejects `run.kafka`. Key pieces:
 
 Earlier, Kafka was handled in-process by language-specific middleware (a `kafka`
 template, `invoke: kafka` scaffolding, and lifecycle hooks generated into the
-function). That approach required per-language implementations and is **retired**
-in favor of the sidecar, which works for any language with no function-side Kafka
-code. New work should target the sidecar model only.
+function). That approach required per-language implementations and is **retired for cluster
+deployment** in favor of the sidecar, which works for any language with no
+function-side Kafka code. One remnant persists locally: the Go scaffold still
+carries the in-process consumer, and `func run` sets `FUNC_TRANSPORT=kafka` (plus
+`KAFKA_*`) for a fully configured `run.kafka` (`pkg/functions/runner.go`), so a local
+Go run still connects to the broker and consumes directly — see
+[local-development.md](local-development.md#what-runs-locally). New work should target
+the sidecar model only.
 
 ## Future direction
 

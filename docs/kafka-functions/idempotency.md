@@ -41,25 +41,40 @@ not an individual record, and is usually shared by many records.
 ## Pattern 1: a deduplication store
 
 Keep a record of keys you have already processed in a shared store (Redis, a
-database table, etc.) and skip anything you have seen before. Do the "claim"
-**atomically and before** the work, so two replicas handling the same redelivery
-cannot both proceed:
+database table, etc.) and skip anything you have already **finished**. The subtlety
+is that a crash *between* claiming a key and finishing the work must not leave the
+key marked as done — otherwise the redelivery that would have retried it is acked
+and the record is silently lost. Use a two-phase claim: take a short-lived **lease**
+before the work, and record completion only **after** it succeeds:
 
 ```text
 function handle(event):
     key = event.id
 
-    # Atomic "set if absent": returns false if the key already existed.
-    if not store.add(key, ttl):
-        return 200            # already handled (or in flight) — ack, do nothing
+    # Fast path: this key was already processed to completion.
+    if store.isDone(key):
+        return 200            # already handled — ack, do nothing
 
-    process(event)           # your business logic
+    # Atomically take a short-lived lease so two replicas can't process the
+    # same redelivery at once. The lease EXPIRES on its own, so a crash before
+    # markDone does not lose the record: a later redelivery re-acquires the
+    # expired lease and retries the work.
+    if not store.acquireLease(key, leaseTtl):
+        return 409            # another replica holds the lease — let Kafka redeliver
+
+    process(event)            # your business logic
+    store.markDone(key, ttl)  # record completion only AFTER the work succeeds
     return 200
 ```
 
-Using an atomic set-if-absent (rather than a separate `seen?` check followed by a
-`mark`) closes the race where two concurrent deliveries both read "not seen" and
-both process the record.
+Recording completion only *after* the work succeeds is what makes this safe: an
+interrupted attempt leaves no "done" marker, so at-least-once redelivery still
+retries it. The lease closes the concurrent-duplicate race (two replicas, or a
+retry overlapping a slow first attempt) without turning an in-flight claim into a
+permanent acknowledgement. A plain set-if-absent that acks on the first sight of a
+key *looks* simpler but drops the record whenever the handler dies after the claim
+and before the work — prefer [Pattern 2](#pattern-2-idempotent-writes) when your
+sink allows it, and reach for this lease only for non-idempotent side effects.
 
 ## Pattern 2: idempotent writes
 
@@ -81,7 +96,12 @@ supports upserts or conditional writes; prefer it over a dedup store when you ca
 
 - **Check-then-act races.** A non-atomic "is it seen? → process → mark seen" can
   double-process under concurrency (two replicas, or a retry overlapping a slow
-  first attempt). Claim the key atomically before processing, as in Pattern 1.
+  first attempt). Take a lease atomically before processing and mark the key done
+  only after the work succeeds, as in Pattern 1.
+- **Acking an in-flight claim.** Marking a key "done" *before* the work finishes
+  means a crash in between acks a record that was never processed — a silent drop.
+  Record completion only after the work succeeds (Pattern 1's lease), or make the
+  write itself idempotent (Pattern 2).
 - **Acknowledge duplicates with 2xx.** When you detect a duplicate, return a
   success so the offset advances. Returning an error would retry the record
   forever.

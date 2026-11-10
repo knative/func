@@ -40,11 +40,19 @@ consumed Kafka record arrives as one CloudEvent.
 
 ## 2. Declare Kafka in `func.yaml`
 
-Add a `run.kafka` block and select a deployer (`keda` here). The minimal
-configuration is three fields — the brokers, the topic, and the consumer group:
+Add a `run.kafka` block, select the `keda` deployer, and add a `kafka` scale
+trigger so the function autoscales on consumer-group lag. The `run.kafka` block
+needs three fields — the brokers, the topic, and the consumer group:
 
 ```yaml
 deployer: keda
+scale:
+  min: 0
+  max: 3
+  keda:
+    triggers:
+      - type: kafka        # scale on consumer-group lag
+        lagThreshold: 5
 run:
   kafka:
     brokers: my-cluster-kafka-bootstrap:9092
@@ -55,6 +63,13 @@ run:
 - `brokers` — comma-separated broker addresses.
 - `topic` — the topic to consume from.
 - `consumerGroup` — the Kafka consumer group ID. Give each function its own group.
+
+The `kafka` trigger is what makes the Deployment scale on lag (and scale to zero
+when `scale.min` is `0`). **Omit it and the `keda` deployer falls back to a default
+HTTP scaler** — the function still consumes Kafka, but it is pinned at one replica
+with no lag-based autoscaling. See
+[deployment-and-scaling.md](deployment-and-scaling.md#consumer-lag-autoscaling) for
+`lagThreshold`, `activationLagThreshold`, and the partition cap on `scale.max`.
 
 You can also select the deployer per-invocation with `func deploy --deployer keda`
 (or `FUNC_DEPLOYER=keda`) instead of setting it in `func.yaml`.
@@ -87,11 +102,13 @@ run:
       password: "{{ secret:kafka-credentials:password }}"
 ```
 
-Create the referenced Secrets in the function's namespace beforehand, for example:
+Create the referenced Secrets in the function's namespace beforehand (pass the same
+`-n <namespace>` you deploy into, since these commands otherwise target your current
+`kubectl` namespace), for example:
 
 ```bash
-kubectl create secret generic kafka-ca --from-file=ca.crt=./ca.crt
-kubectl create secret generic kafka-credentials \
+kubectl create secret generic kafka-ca -n my-namespace --from-file=ca.crt=./ca.crt
+kubectl create secret generic kafka-credentials -n my-namespace \
   --from-literal=user=myuser --from-literal=password=mypassword
 ```
 

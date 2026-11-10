@@ -14,8 +14,11 @@ your function responds with a 2xx**. Anything else — a non-2xx response, a
 per-attempt timeout, or a dropped connection — counts as a failed attempt, and the
 offset is **not** advanced.
 
-Because the offset moves forward only on success, no record is lost: a record is
-redelivered until it is accepted or its retry budget runs out. The flip side is
+Because the offset moves forward only on success, a record is redelivered until it
+is accepted — with the default unlimited budget it is never lost. (The one exception
+is a **finite** `retry` budget: when it is exhausted the runtime deliberately skips
+and commits the record — see [Exhaustion](#exhaustion-what-a-bounded-budget-does).)
+The flip side is
 that your function can occasionally see the **same record more than once** (for
 example, if it did its work but crashed before the 2xx was sent). This is the
 standard at-least-once trade-off — design your handler to tolerate duplicates. See
@@ -103,9 +106,10 @@ deadline across all retries.
 With the default unlimited budget there is no exhaustion — a persistently failing
 record simply keeps being retried.
 
-When you set a **finite** `retry` and a record fails that many times — for any
-reason (see [What counts toward the budget](#what-counts-toward-the-budget)) — the
-runtime **skips the record and commits its offset**, emitting a loud warning log.
+When you set a **finite** `retry` and a record fails all of its attempts — the
+initial one plus `retry` retries, i.e. `retry + 1` in total, for any reason (see
+[What counts toward the budget](#what-counts-toward-the-budget)) — the runtime
+**skips the record and commits its offset**, emitting a loud warning log.
 The partition then moves on to the next record. This is deliberate: a finite budget
 is how you prevent a single unprocessable record (a "poison pill") from wedging a
 partition forever. The trade-off is that a sustained outage longer than the budget
