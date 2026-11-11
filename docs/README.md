@@ -24,9 +24,10 @@ Functions can be deployed on the following platforms:
 [Function Quickstart](https://knative.dev/docs/getting-started/about-knative-functions/)
 [Function Developer's Guide](https://knative.dev/docs/functions/)
 [Function Integrator's Guide](integrators_guide.md).
+[Kafka Functions](kafka-functions/README.md)
 [CLI Command Reference](reference/func.md)
 [The func-utils Image](func-utils-image.md)
 
 ## Contributing
 
-We are always looking for contributions to the project from the Function Developer community.  For more information on how to participate, see the [Contributing Guide](CONTRIBUTING.md)
+We are always looking for contributions to the project from the Function Developer community.  For more information on how to participate, see the [Contributing Guide](../CONTRIBUTING.md)
