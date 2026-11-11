@@ -1108,6 +1108,109 @@ func TestAppendKafkaDeliveryEnvs_OmitsUnsetFields(t *testing.T) {
 	}
 }
 
+// kafkaRuntimeContractEnvNames is the complete set of environment variable
+// names func emits onto the Kafka runtime sidecar for a fully-configured
+// run.kafka (delivery target + connection + security + delivery tuning). It is
+// the func side of the func<->func-adapter-kafka env-var contract: the adapter
+// reads exactly these names, so a rename or drop on either side silently turns
+// the corresponding setting into a no-op at runtime -- a failure a mock-based or
+// cluster test would not surface as a contract break. This list is mirrored by a
+// matching assertion in the adapter repo
+// (knative-extensions/func-adapter-kafka); change the two together.
+var kafkaRuntimeContractEnvNames = []string{
+	// Delivery target (fixed value, not derived from config).
+	"FUNCTION_TARGET",
+	// Connection + security (AppendKafkaEnvs).
+	"KAFKA_BROKERS",
+	"KAFKA_TOPIC",
+	"KAFKA_CONSUMER_GROUP",
+	"KAFKA_SECURITY_PROTOCOL",
+	"KAFKA_TLS_CA_CERT",
+	"KAFKA_TLS_CLIENT_CERT",
+	"KAFKA_TLS_CLIENT_KEY",
+	"KAFKA_TLS_SKIP_VERIFY",
+	"KAFKA_SASL_MECHANISM",
+	"KAFKA_SASL_USER",
+	"KAFKA_SASL_PASSWORD",
+	// Delivery tuning (AppendKafkaDeliveryEnvs).
+	"FUNCTION_DELIVERY_RETRY",
+	"FUNCTION_DELIVERY_BACKOFF_POLICY",
+	"FUNCTION_DELIVERY_BACKOFF_DELAY",
+	"FUNCTION_DELIVERY_BACKOFF_MAX_DELAY",
+	"FUNCTION_REQUEST_TIMEOUT",
+}
+
+// TestKafkaSidecarContainer_EnvNameContract pins the exact set of env-var names
+// func emits onto the Kafka runtime sidecar for a fully-populated run.kafka.
+// kafkaSidecarContainer is the single chokepoint every deployer builds the
+// sidecar through, so its emitted env names ARE the contract surface. A drift on
+// either repo (func renames an env var, or the adapter renames the name it
+// reads) would silently neutralize that setting in production without failing a
+// mock or happy-path test. This asserts the set exactly -- missing, extra, or
+// duplicated names all fail -- forcing kafkaRuntimeContractEnvNames and the
+// adapter's read side to move in lockstep.
+func TestKafkaSidecarContainer_EnvNameContract(t *testing.T) {
+	f := fn.Function{
+		Name: "fn",
+		Run: fn.RunSpec{
+			Kafka: &fn.KafkaConfig{
+				Brokers:          "b:9092",
+				Topic:            "t",
+				ConsumerGroup:    "g",
+				SecurityProtocol: "SASL_SSL",
+				TLS: &fn.KafkaTLS{
+					CACert:     "/etc/kafka/ca/ca.crt",
+					ClientCert: "/etc/kafka/client/tls.crt",
+					ClientKey:  "/etc/kafka/client/tls.key",
+					SkipVerify: true,
+				},
+				SASL: &fn.KafkaSASL{
+					Mechanism: "SCRAM-SHA-512",
+					User:      "alice",
+					Password:  "s3cret",
+				},
+				Delivery: &fn.DeliverySpec{
+					Retry:           deliveryRetryPtr(3),
+					BackoffPolicy:   "exponential",
+					BackoffDelay:    "100ms",
+					BackoffMaxDelay: "30s",
+					Timeout:         "30s",
+				},
+			},
+		},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	c, err := kafkaSidecarContainer(f, nil, &secrets, &configMaps)
+	if err != nil {
+		t.Fatalf("kafkaSidecarContainer: %v", err)
+	}
+	if c == nil {
+		t.Fatal("expected a sidecar container, got nil")
+	}
+
+	// A duplicate name would be lost in the set comparison below, so catch it
+	// against the raw count first.
+	got := sets.New[string]()
+	for _, e := range c.Env {
+		got.Insert(e.Name)
+	}
+	if got.Len() != len(c.Env) {
+		t.Errorf("sidecar emits %d env vars but only %d distinct names -- a duplicate name is present: %v",
+			len(c.Env), got.Len(), sets.List(got))
+	}
+
+	want := sets.New(kafkaRuntimeContractEnvNames...)
+	if missing := want.Difference(got); missing.Len() > 0 {
+		t.Errorf("sidecar is missing contract env vars %v; if an env var was intentionally renamed or removed, update kafkaRuntimeContractEnvNames AND the adapter's read side together",
+			sets.List(missing))
+	}
+	if extra := got.Difference(want); extra.Len() > 0 {
+		t.Errorf("sidecar emits env vars outside the contract list %v; add them to kafkaRuntimeContractEnvNames AND the adapter's read side, or drop them",
+			sets.List(extra))
+	}
+}
+
 func TestAppendKafkaEnvs_MissingBrokers(t *testing.T) {
 	base := []corev1.EnvVar{
 		{Name: "EXISTING", Value: "value"},
