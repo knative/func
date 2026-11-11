@@ -387,7 +387,8 @@ func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 
 // Test_sourceRevision ensures a function read from its repository makes the
 // cluster fetch, and label the image with, the commit it was read at, while
-// any other function keeps the configured revision and the local HEAD.
+// any other function keeps the configured revision, empty for the remote's
+// default branch, and the local HEAD.
 func Test_sourceRevision(t *testing.T) {
 	const hash = "0123456789abcdef0123456789abcdef01234567"
 
@@ -401,9 +402,15 @@ func Test_sourceRevision(t *testing.T) {
 		t.Errorf("git without a resolved commit: expected the revision as configured, got %q", fetch)
 	}
 
+	// No revision fetches the remote's default branch, whatever its name.
+	f = fn.Function{Build: fn.BuildSpec{Source: fn.Source{URL: "https://example.com/repo.git"}}}
+	if fetch, _ := sourceRevision(f); fetch != "" {
+		t.Errorf("git without a revision: expected \"\", got %q", fetch)
+	}
+
 	f = fn.Function{Root: t.TempDir()} // no git history, no repository
-	if fetch, label := sourceRevision(f); fetch != "main" || label != "" {
-		t.Errorf("upload without history: expected \"main\", \"\"; got %q, %q", fetch, label)
+	if fetch, label := sourceRevision(f); fetch != "" || label != "" {
+		t.Errorf("upload without history: expected \"\", \"\"; got %q, %q", fetch, label)
 	}
 
 	// A commit shorter than the label must not panic.

@@ -13,10 +13,11 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-// TestSource ensures the Function CR points at the function's own source:
-// the git checkout of a local function, and for a function deployed by
-// reference only the source it was deployed from, whatever git repository the
-// current directory is in.
+// TestSource ensures the Function CR points at the code the deploy built. It
+// uses build.source as it is, and fills in what func.yaml leaves empty from
+// the git checkout of a local function. The checkout's branch is used only
+// when the deploy built the checkout, never for a remote build of a url in
+// func.yaml, nor from the directory func runs in.
 func TestSource(t *testing.T) {
 	checkout := t.TempDir()
 	repo, err := gogit.PlainInit(checkout, false)
@@ -65,6 +66,31 @@ func TestSource(t *testing.T) {
 			url:      given.URL,
 			revision: given.Revision,
 			dir:      given.Dir,
+		},
+		{
+			// A local build deploys the checkout, so the CR follows its branch.
+			name:     "local build of a source with no revision",
+			f:        fn.Function{Root: checkout, Build: fn.BuildSpec{Source: fn.Source{URL: given.URL}}},
+			url:      given.URL,
+			revision: "master",
+			dir:      ".",
+		},
+		{
+			// The cluster fetches the default branch of the url, so the CR
+			// has no revision either.
+			name: "remote build of a source with no revision",
+			f: fn.Function{Root: checkout, Local: fn.Local{Remote: true},
+				Build: fn.BuildSpec{Source: fn.Source{URL: given.URL}}},
+			url: given.URL,
+			dir: ".",
+		},
+		{
+			// A remote build with no url uploads the checkout.
+			name:     "remote build of the checkout",
+			f:        fn.Function{Root: checkout, Local: fn.Local{Remote: true}},
+			url:      "https://github.com/alice/local.git",
+			revision: "master",
+			dir:      ".",
 		},
 		{
 			name: "by reference",
