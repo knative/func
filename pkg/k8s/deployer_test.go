@@ -224,6 +224,137 @@ func TestFindSecretForPath(t *testing.T) {
 	}
 }
 
+// mountNames returns the volume names of a set of mounts, for order-independent
+// comparison in the helper tests below.
+func mountNames(mounts []corev1.VolumeMount) sets.Set[string] {
+	names := sets.New[string]()
+	for _, vm := range mounts {
+		names.Insert(vm.Name)
+	}
+	return names
+}
+
+// TestKafkaSidecarVolumeMounts exercises the sidecar mount selection in
+// isolation. The security property (the TLS private key never reaching the user
+// container) is verified end-to-end in Test_generateDeployment_KafkaSidecar;
+// this covers the helper's own branches directly: the nil guards, the
+// no-backing-Secret path, and dedup when one Secret backs several cert paths.
+func TestKafkaSidecarVolumeMounts(t *testing.T) {
+	caSecret, clientSecret, appSecret := "kafka-ca", "kafka-client", "app-config"
+	caPath, clientPath, appPath := "/etc/kafka/ca", "/etc/kafka/client", "/etc/app"
+	// The full mount set as ProcessVolumes would emit it: one mount per path,
+	// each named secretVolumeName(secret).
+	allMounts := []corev1.VolumeMount{
+		{Name: secretVolumeName(caSecret), MountPath: caPath},
+		{Name: secretVolumeName(clientSecret), MountPath: clientPath},
+		{Name: secretVolumeName(appSecret), MountPath: appPath},
+	}
+	volumes := []fn.Volume{
+		{Secret: &caSecret, Path: &caPath},
+		{Secret: &clientSecret, Path: &clientPath},
+		{Secret: &appSecret, Path: &appPath},
+	}
+
+	t.Run("nil kafka selects nothing", func(t *testing.T) {
+		if got := kafkaSidecarVolumeMounts(nil, volumes, allMounts); got != nil {
+			t.Errorf("expected nil for nil kafka, got %+v", got)
+		}
+	})
+
+	t.Run("nil TLS selects nothing", func(t *testing.T) {
+		k := &fn.KafkaConfig{Brokers: "b:9092", Topic: "t", ConsumerGroup: "g"}
+		if got := kafkaSidecarVolumeMounts(k, volumes, allMounts); got != nil {
+			t.Errorf("expected nil when TLS is unset, got %+v", got)
+		}
+	})
+
+	t.Run("TLS with no cert paths selects nothing", func(t *testing.T) {
+		k := &fn.KafkaConfig{TLS: &fn.KafkaTLS{SkipVerify: true}}
+		if got := kafkaSidecarVolumeMounts(k, volumes, allMounts); got != nil {
+			t.Errorf("expected nil when no cert path is set, got %+v", got)
+		}
+	})
+
+	t.Run("cert path with no backing Secret selects nothing", func(t *testing.T) {
+		// The cert path resolves to no Secret volume, so there is nothing to mount.
+		k := &fn.KafkaConfig{TLS: &fn.KafkaTLS{CACert: "/nowhere/ca.crt"}}
+		if got := kafkaSidecarVolumeMounts(k, volumes, allMounts); got != nil {
+			t.Errorf("expected nil when the cert path has no backing Secret, got %+v", got)
+		}
+	})
+
+	t.Run("selects only the Secret that backs the cert", func(t *testing.T) {
+		k := &fn.KafkaConfig{TLS: &fn.KafkaTLS{CACert: "/etc/kafka/ca/ca.crt"}}
+		got := mountNames(kafkaSidecarVolumeMounts(k, volumes, allMounts))
+		want := sets.New[string](secretVolumeName(caSecret))
+		if !got.Equal(want) {
+			t.Errorf("selected mounts = %v, want %v", got.UnsortedList(), want.UnsortedList())
+		}
+	})
+
+	t.Run("one Secret backing both client cert and key is selected once", func(t *testing.T) {
+		// Mutual TLS: the client cert and key sit in the same Secret directory, so
+		// both resolve to the one secret volume; it must not be selected twice.
+		k := &fn.KafkaConfig{TLS: &fn.KafkaTLS{
+			CACert:     "/etc/kafka/ca/ca.crt",
+			ClientCert: "/etc/kafka/client/tls.crt",
+			ClientKey:  "/etc/kafka/client/tls.key",
+		}}
+		got := kafkaSidecarVolumeMounts(k, volumes, allMounts)
+		if len(got) != 2 {
+			t.Fatalf("expected 2 mounts (ca + client, deduped), got %d: %+v", len(got), got)
+		}
+		names := mountNames(got)
+		want := sets.New[string](secretVolumeName(caSecret), secretVolumeName(clientSecret))
+		if !names.Equal(want) {
+			t.Errorf("selected mounts = %v, want %v", names.UnsortedList(), want.UnsortedList())
+		}
+	})
+}
+
+// TestExcludeVolumeMounts covers the user-container filter directly: the
+// empty-exclude fast path, dropping by volume name (so every mount of an
+// excluded volume is removed, not just one), and leaving unrelated mounts.
+func TestExcludeVolumeMounts(t *testing.T) {
+	// One Secret ("secret-kafka-client") mounted at two paths, plus an unrelated
+	// application mount -- the shape that makes name-based (not path-based)
+	// exclusion necessary.
+	all := []corev1.VolumeMount{
+		{Name: "secret-kafka-client", MountPath: "/etc/kafka/client"},
+		{Name: "secret-kafka-client", MountPath: "/mnt/also-client"},
+		{Name: "secret-app-config", MountPath: "/etc/app"},
+	}
+
+	t.Run("empty exclude returns all unchanged", func(t *testing.T) {
+		got := excludeVolumeMounts(all, nil)
+		if len(got) != len(all) {
+			t.Fatalf("expected all %d mounts, got %d", len(all), len(got))
+		}
+	})
+
+	t.Run("exclude drops every mount of the named volume", func(t *testing.T) {
+		exclude := []corev1.VolumeMount{{Name: "secret-kafka-client", MountPath: "/etc/kafka/client"}}
+		got := excludeVolumeMounts(all, exclude)
+		names := mountNames(got)
+		// Both /etc/kafka/client and /mnt/also-client are backed by the excluded
+		// volume, so neither may survive; only the app mount remains.
+		if names.Has("secret-kafka-client") {
+			t.Errorf("both mounts of the excluded volume must be dropped, got %+v", got)
+		}
+		if !names.Has("secret-app-config") {
+			t.Errorf("unrelated app mount must be kept, got %+v", got)
+		}
+	})
+
+	t.Run("excluding an absent volume keeps everything", func(t *testing.T) {
+		exclude := []corev1.VolumeMount{{Name: "secret-not-present"}}
+		got := excludeVolumeMounts(all, exclude)
+		if len(got) != len(all) {
+			t.Errorf("excluding an absent volume must keep all mounts, got %+v", got)
+		}
+	})
+}
+
 func Test_generateDeployment_KafkaSidecar(t *testing.T) {
 	d := &Deployer{}
 
