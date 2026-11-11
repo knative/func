@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"io"
@@ -11,9 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/mock"
 	. "knative.dev/func/pkg/testing"
 )
@@ -40,7 +41,7 @@ func TestLogs_CommandStructure(t *testing.T) {
 	}
 
 	// Check that required flags exist
-	flags := []string{"name", "namespace", "path", "since", "tail", "follow", "verbose"}
+	flags := []string{"name", "namespace", "path", "since", "tail", "follow", "container", "verbose"}
 	for _, flag := range flags {
 		if logsCmd.Flags().Lookup(flag) == nil {
 			t.Errorf("expected flag '%s' to exist", flag)
@@ -125,9 +126,9 @@ func TestLogs_SuggestFor(t *testing.T) {
 	}
 }
 
-// knativeDescriber returns a describer which reports a deployed function
-// deployed with the Knative deployer.
-func knativeDescriber() *mock.Describer {
+// deployedDescriber returns a describer which reports a function deployed with
+// the given deployer.
+func deployedDescriber(deployer string) *mock.Describer {
 	describer := mock.NewDescriber()
 	describer.DescribeFn = func(_ context.Context, name, _ string) (fn.Instance, error) {
 		return fn.Instance{
@@ -135,7 +136,7 @@ func knativeDescriber() *mock.Describer {
 			Namespace: "default",
 			// That of the latest revision, as the Knative describer reports it.
 			Image:    "example.com/myfunc@sha256:" + strings.Repeat("a", 64),
-			Deployer: "knative",
+			Deployer: deployer,
 		}, nil
 	}
 	return describer
@@ -144,10 +145,17 @@ func knativeDescriber() *mock.Describer {
 // int64Ptr returns a pointer to the given value.
 func int64Ptr(i int64) *int64 { return &i }
 
-// newTestLogsCmd returns a logs command whose logs are gathered by the given
-// function rather than from a cluster.
+// newTestLogsCmd returns a logs command for a function deployed with the
+// Knative deployer, whose logs are gathered by the given function rather than
+// from a cluster.
 func newTestLogsCmd(gather logGatherer, out, errOut io.Writer) *cobra.Command {
-	cmd := newLogsCmd(NewTestClient(fn.WithDescribers(knativeDescriber())), gather)
+	return newTestLogsCmdFor(deployers.Knative, gather, out, errOut)
+}
+
+// newTestLogsCmdFor is newTestLogsCmd for a function deployed with the given
+// deployer.
+func newTestLogsCmdFor(deployer string, gather logGatherer, out, errOut io.Writer) *cobra.Command {
+	cmd := newLogsCmd(NewTestClient(fn.WithDescribers(deployedDescriber(deployer))), gather)
 	cmd.SetOut(out)
 	cmd.SetErr(errOut)
 	return cmd
@@ -159,9 +167,9 @@ func newTestLogsCmd(gather logGatherer, out, errOut io.Writer) *cobra.Command {
 func TestLogs_DefaultSnapshot(t *testing.T) {
 	_ = FromTempDirectory(t)
 
-	var opts knative.LogsOptions
+	var opts k8s.PodLogsOptions
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	cmd := newTestLogsCmd(func(ctx context.Context, o knative.LogsOptions, out io.Writer) error {
+	cmd := newTestLogsCmd(func(ctx context.Context, o k8s.PodLogsOptions, out io.Writer) error {
 		opts = o
 		if o.Follow { // would block indefinitely in the real implementation
 			<-ctx.Done()
@@ -200,14 +208,14 @@ func TestLogs_DefaultSnapshot(t *testing.T) {
 func TestLogs_Follow(t *testing.T) {
 	_ = FromTempDirectory(t)
 
-	var opts knative.LogsOptions
+	var opts k8s.PodLogsOptions
 	started := make(chan struct{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	cmd := newTestLogsCmd(func(ctx context.Context, o knative.LogsOptions, out io.Writer) error {
+	cmd := newTestLogsCmd(func(ctx context.Context, o k8s.PodLogsOptions, out io.Writer) error {
 		opts = o
 		close(started)
 		<-ctx.Done()
@@ -269,8 +277,8 @@ func TestLogs_Window(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_ = FromTempDirectory(t)
 
-			var opts knative.LogsOptions
-			cmd := newTestLogsCmd(func(_ context.Context, o knative.LogsOptions, _ io.Writer) error {
+			var opts k8s.PodLogsOptions
+			cmd := newTestLogsCmd(func(_ context.Context, o k8s.PodLogsOptions, _ io.Writer) error {
 				opts = o
 				return nil
 			}, &bytes.Buffer{}, &bytes.Buffer{})
@@ -308,7 +316,7 @@ func TestLogs_NoPods(t *testing.T) {
 	_ = FromTempDirectory(t)
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	cmd := newTestLogsCmd(func(_ context.Context, _ knative.LogsOptions, _ io.Writer) error {
+	cmd := newTestLogsCmd(func(_ context.Context, _ k8s.PodLogsOptions, _ io.Writer) error {
 		return k8s.ErrNoMatchingPods
 	}, stdout, stderr)
 	cmd.SetArgs([]string{"--name", "myfunc"})
@@ -330,7 +338,7 @@ func TestLogs_PartialLogs(t *testing.T) {
 	_ = FromTempDirectory(t)
 
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
-	cmd := newTestLogsCmd(func(_ context.Context, _ knative.LogsOptions, out io.Writer) error {
+	cmd := newTestLogsCmd(func(_ context.Context, _ k8s.PodLogsOptions, out io.Writer) error {
 		_, _ = out.Write([]byte("log line\n"))
 		return &k8s.PartialLogsError{Err: errors.New("pod is terminating")}
 	}, stdout, stderr)
@@ -351,7 +359,7 @@ func TestLogs_PartialLogs(t *testing.T) {
 func TestLogs_Failure(t *testing.T) {
 	_ = FromTempDirectory(t)
 
-	cmd := newTestLogsCmd(func(_ context.Context, _ knative.LogsOptions, _ io.Writer) error {
+	cmd := newTestLogsCmd(func(_ context.Context, _ k8s.PodLogsOptions, _ io.Writer) error {
 		return errors.New("forbidden")
 	}, &bytes.Buffer{}, &bytes.Buffer{})
 	cmd.SetArgs([]string{"--name", "myfunc"})
@@ -368,8 +376,8 @@ func TestLogs_Failure(t *testing.T) {
 func TestLogs_ImageNotFiltered(t *testing.T) {
 	_ = FromTempDirectory(t)
 
-	var opts knative.LogsOptions
-	cmd := newTestLogsCmd(func(_ context.Context, o knative.LogsOptions, _ io.Writer) error {
+	var opts k8s.PodLogsOptions
+	cmd := newTestLogsCmd(func(_ context.Context, o k8s.PodLogsOptions, _ io.Writer) error {
 		opts = o
 		return nil
 	}, &bytes.Buffer{}, &bytes.Buffer{})
@@ -390,11 +398,11 @@ func TestLogs_FollowEnv(t *testing.T) {
 	_ = FromTempDirectory(t)
 	t.Setenv("FUNC_FOLLOW", "true")
 
-	var opts knative.LogsOptions
+	var opts k8s.PodLogsOptions
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cmd := newTestLogsCmd(func(ctx context.Context, o knative.LogsOptions, _ io.Writer) error {
+	cmd := newTestLogsCmd(func(ctx context.Context, o k8s.PodLogsOptions, _ io.Writer) error {
 		opts = o
 		cancel()
 		return ctx.Err()
@@ -406,5 +414,119 @@ func TestLogs_FollowEnv(t *testing.T) {
 	}
 	if !opts.Follow {
 		t.Error("expected FUNC_FOLLOW to enable following")
+	}
+}
+
+// TestLogs_Deployers ensures the logs of the function's own container are
+// gathered from the pods of the function, whichever deployer created them.
+// Knative labels the pods of a service with its name; the raw deployer, and the
+// keda deployer which deploys through it, label them with the function's name.
+// A describer which reports no deployer means deployers.Default.
+func TestLogs_Deployers(t *testing.T) {
+	knativePods := "serving.knative.dev/service=myfunc"
+	functionPods := "boson.dev/function=true,function.knative.dev/name=myfunc"
+	wantSelectors := map[string]string{
+		deployers.Knative:    knativePods,
+		deployers.Kubernetes: functionPods,
+		deployers.Keda:       functionPods,
+	}
+	wantSelectors[""] = wantSelectors[deployers.Default]
+
+	for _, deployer := range []string{"", deployers.Knative, deployers.Kubernetes, deployers.Keda} {
+		want := wantSelectors[deployer]
+		t.Run(cmp.Or(deployer, "unset"), func(t *testing.T) {
+			_ = FromTempDirectory(t)
+
+			var opts k8s.PodLogsOptions
+			stdout := &bytes.Buffer{}
+			cmd := newTestLogsCmdFor(deployer, func(_ context.Context, o k8s.PodLogsOptions, out io.Writer) error {
+				opts = o
+				_, err := out.Write([]byte("log line\n"))
+				return err
+			}, stdout, &bytes.Buffer{})
+			cmd.SetArgs([]string{"--name", "myfunc"})
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if opts.LabelSelector != want {
+				t.Errorf("expected selector %q, got %q", want, opts.LabelSelector)
+			}
+			if opts.Namespace != "default" {
+				t.Errorf("expected namespace %q, got %q", "default", opts.Namespace)
+			}
+			if opts.Container != "user-container" {
+				t.Errorf("expected the logs of user-container, got those of %q", opts.Container)
+			}
+			if stdout.String() != "log line\n" {
+				t.Errorf("expected the gathered logs on stdout, got %q", stdout.String())
+			}
+		})
+	}
+}
+
+// TestLogs_Sidecar ensures --container gathers the logs of a sidecar rather
+// than those of the function, such as those of the Kafka runtime which runs
+// beside a function consuming from Kafka.
+func TestLogs_Sidecar(t *testing.T) {
+	_ = FromTempDirectory(t)
+
+	var opts k8s.PodLogsOptions
+	cmd := newTestLogsCmdFor(deployers.Keda, func(_ context.Context, o k8s.PodLogsOptions, _ io.Writer) error {
+		opts = o
+		return nil
+	}, &bytes.Buffer{}, &bytes.Buffer{})
+	cmd.SetArgs([]string{"--name", "myfunc", "--container", "kafka-runtime"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if opts.Container != "kafka-runtime" {
+		t.Errorf("expected the logs of kafka-runtime, got those of %q", opts.Container)
+	}
+	if want := "boson.dev/function=true,function.knative.dev/name=myfunc"; opts.LabelSelector != want {
+		t.Errorf("expected selector %q, got %q", want, opts.LabelSelector)
+	}
+}
+
+// TestLogs_ContainerEnv ensures the container can be chosen by environment.
+func TestLogs_ContainerEnv(t *testing.T) {
+	_ = FromTempDirectory(t)
+	t.Setenv("FUNC_CONTAINER", "kafka-runtime")
+
+	var opts k8s.PodLogsOptions
+	cmd := newTestLogsCmdFor(deployers.Keda, func(_ context.Context, o k8s.PodLogsOptions, _ io.Writer) error {
+		opts = o
+		return nil
+	}, &bytes.Buffer{}, &bytes.Buffer{})
+	cmd.SetArgs([]string{"--name", "myfunc"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if opts.Container != "kafka-runtime" {
+		t.Errorf("expected FUNC_CONTAINER to choose kafka-runtime, got %q", opts.Container)
+	}
+}
+
+// TestLogs_UnknownDeployer ensures the logs of a function deployed by a
+// deployer the command does not know are refused rather than gathered with a
+// selector which matches none of its pods.
+func TestLogs_UnknownDeployer(t *testing.T) {
+	_ = FromTempDirectory(t)
+
+	gathered := false
+	cmd := newTestLogsCmdFor("unknown", func(_ context.Context, _ k8s.PodLogsOptions, _ io.Writer) error {
+		gathered = true
+		return nil
+	}, &bytes.Buffer{}, &bytes.Buffer{})
+	cmd.SetArgs([]string{"--name", "myfunc"})
+
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), `"unknown" deployer`) {
+		t.Errorf("expected the unknown deployer to be refused, got %v", err)
+	}
+	if gathered {
+		t.Error("expected no logs to be gathered")
 	}
 }

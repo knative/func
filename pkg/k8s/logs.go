@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +17,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+
+	"knative.dev/func/pkg/k8s/labels"
 )
 
 // GetPodLogs returns logs from a specified Container in a Pod, if container is empty string,
@@ -59,6 +63,13 @@ func (e *PartialLogsError) Error() string {
 }
 
 func (e *PartialLogsError) Unwrap() error { return e.Err }
+
+// PodSelector returns the label selector which matches the pods of the function
+// of the given name deployed by the raw deployer.  The keda deployer deploys the
+// function through the raw deployer, so it matches those pods as well.
+func PodSelector(name string) string {
+	return fmt.Sprintf("%s=true,%s=%s", labels.FunctionKey, labels.FunctionNameKey, name)
+}
 
 // PodLogsOptions are the parameters of GetPodLogsBySelector.
 type PodLogsOptions struct {
@@ -129,6 +140,9 @@ func snapshotPodLogs(ctx context.Context, client kubernetes.Interface, namespace
 		}
 	}
 	if len(pods) == 0 {
+		if err = checkContainer(list.Items, opts.Container); err != nil {
+			return err
+		}
 		return ErrNoMatchingPods
 	}
 	// Sorted such that output is deterministic when multiple pods match.
@@ -170,8 +184,23 @@ func snapshotPodLogs(ctx context.Context, client kubernetes.Interface, namespace
 }
 
 // followPodLogs streams logs of the matching pods, including those which appear
-// later, until the context is cancelled.
+// later, until the context is cancelled.  If none of the pods which match runs
+// the container, it returns an error rather than wait for logs which will never
+// appear.
 func followPodLogs(ctx context.Context, client kubernetes.Interface, namespace string, opts PodLogsOptions, out io.Writer) error {
+	list, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: opts.LabelSelector,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot list pods: %w", err)
+	}
+	if err = checkContainer(list.Items, opts.Container); err != nil {
+		return err
+	}
+	// A function which has scaled to zero has no pods to check yet, so the
+	// first pod to appear is checked instead.
+	checked := len(list.Items) > 0
+
 	podListOpts := metav1.ListOptions{
 		Watch:         true,
 		LabelSelector: opts.LabelSelector,
@@ -191,6 +220,15 @@ func followPodLogs(ctx context.Context, client kubernetes.Interface, namespace s
 	for event := range w.ResultChan() {
 		if event.Type == watch.Modified || event.Type == watch.Added {
 			pod := *event.Object.(*corev1.Pod)
+
+			// No logs are copied before the first pod passes, so returning
+			// here leaves nothing running.
+			if !checked {
+				if err = checkContainer([]corev1.Pod{pod}, opts.Container); err != nil {
+					return err
+				}
+				checked = true
+			}
 
 			beingProcessedMu.Lock()
 			_, loggingAlready := beingProcessed[pod.Name]
@@ -303,6 +341,30 @@ func mayReadLogs(pod corev1.Pod, containerName string) bool {
 		}
 	}
 	return false
+}
+
+// checkContainer returns an error naming the containers the pods run when there
+// are pods but none of them runs the given container.  Such pods have not
+// scaled to zero: the container was misnamed, and its logs will never appear.
+func checkContainer(pods []corev1.Pod, container string) error {
+	names := containerNames(pods)
+	if len(names) > 0 && !slices.Contains(names, container) {
+		return fmt.Errorf("no matching pod has a container %q, only %s", container, strings.Join(names, ", "))
+	}
+	return nil
+}
+
+// containerNames returns the names of the containers the pods declare, sorted
+// and without duplicates.
+func containerNames(pods []corev1.Pod) []string {
+	var names []string
+	for _, pod := range pods {
+		for _, ctr := range pod.Spec.Containers {
+			names = append(names, ctr.Name)
+		}
+	}
+	slices.Sort(names)
+	return slices.Compact(names)
 }
 
 // containerImage returns the image of the given container of the pod.

@@ -2,7 +2,6 @@ package knative
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"time"
 
@@ -34,6 +33,12 @@ type LogsOptions struct {
 	Follow bool
 }
 
+// PodSelector returns the label selector which matches the pods of the Knative
+// service of the given name.
+func PodSelector(name string) string {
+	return "serving.knative.dev/service=" + name
+}
+
 // GetKServiceLogs will get logs of Knative service.
 //
 // It will do so by gathering logs of user-container of all affiliated pods.
@@ -46,7 +51,7 @@ type LogsOptions struct {
 func GetKServiceLogs(ctx context.Context, opts LogsOptions, out io.Writer) error {
 	return k8s.GetPodLogsBySelector(ctx, k8s.PodLogsOptions{
 		Namespace:     opts.Namespace,
-		LabelSelector: fmt.Sprintf("serving.knative.dev/service=%s", opts.Name),
+		LabelSelector: PodSelector(opts.Name),
 		Container:     "user-container",
 		Image:         opts.Image,
 		Since:         opts.Since,

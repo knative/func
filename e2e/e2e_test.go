@@ -516,8 +516,7 @@ func setupEnv(t *testing.T) {
 	// The following host-builder related settings will become the defaults
 	// once the host builder supports the core runtimes.  Setting them here in
 	// order to futureproof individual tests.
-	os.Setenv("FUNC_BUILDER", "host")    // default to host builder
-	os.Setenv("FUNC_CONTAINER", "false") // "run" uses host builder
+	os.Setenv("FUNC_BUILDER", "host") // default to host builder
 }
 
 // setupPodmanEnvs
