@@ -93,7 +93,8 @@ func (s *Syncer) Unsync(ctx context.Context, name, namespace string) error {
 // from the git checkout of a local function: the url, and the branch when the
 // deploy built the checkout. A remote build of the url in func.yaml fetches
 // that url, so an empty revision stays empty: the repository's default
-// branch, as it is for the build. A function deployed by reference (--source)
+// branch, as it is for the build. A checkout on no branch, such as a detached
+// HEAD in CI, leaves it empty too. A function deployed by reference (--source)
 // has no Root, so nothing is filled in: an empty path would read the git
 // repository of the current directory.
 func source(f fn.Function) (url, revision, dir string, err error) {
