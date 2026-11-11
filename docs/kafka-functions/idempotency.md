@@ -28,9 +28,17 @@ transport guarantees.
 
 Pick an identifier that is **stable across redeliveries** of the same record:
 
-- **The CloudEvent `id`.** The runtime assigns each record a CloudEvent id that is
-  the same every time that record is redelivered, which makes it a natural
-  deduplication key with no assumptions about your payload.
+- **The record's Kafka coordinates.** For a plain record the runtime sets the
+  CloudEvent `id` to `partition:<p>/offset:<o>` and also exposes `kafkatopic`,
+  `kafkapartition`, and `kafkaoffset` extensions. That `id` is stable across
+  redeliveries, but it is built from partition and offset **only** — it is *not*
+  unique across topics, nor across a topic that is deleted and re-created (offsets
+  restart at `0`). So do **not** key on `event.id` alone if your store is shared by
+  more than one function or topic: compose a key from the **consumer group** plus
+  `kafkatopic`, `kafkapartition`, and `kafkaoffset`. (A record passed through as the
+  producer's *own* CloudEvent — see [architecture.md](architecture.md#record--cloudevent-mapping)
+  — carries the producer's `id` and **no** `kafka*` extensions; key on that `id`
+  instead for those events.)
 - **A business key from the payload** — an order ID, a transaction ID, etc. Use
   this when you want to deduplicate by *meaning* (the same order submitted twice is
   one order) rather than by record.
@@ -49,7 +57,11 @@ before the work, and record completion only **after** it succeeds:
 
 ```text
 function handle(event):
-    key = event.id
+    # The CloudEvent id is partition:offset only, so it is not unique across
+    # topics or functions sharing this store. Compose a key from the consumer
+    # group + the record's Kafka coordinates (see "Choosing a deduplication key").
+    key = consumerGroup + "/" + event.kafkatopic + "/" \
+          + event.kafkapartition + "/" + event.kafkaoffset
 
     # Fast path: this key was already processed to completion.
     if store.isDone(key):

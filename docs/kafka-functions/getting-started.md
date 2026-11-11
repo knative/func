@@ -64,10 +64,14 @@ run:
 - `topic` — the topic to consume from.
 - `consumerGroup` — the Kafka consumer group ID. Give each function its own group.
 
-The `kafka` trigger is what makes the Deployment scale on lag (and scale to zero
-when `scale.min` is `0`). **Omit it and the `keda` deployer falls back to a default
-HTTP scaler** — the function still consumes Kafka, but it is pinned at one replica
-with no lag-based autoscaling. See
+The `kafka` trigger is what makes the Deployment scale on consumer lag (including
+scaling to zero when `scale.min` is `0`). **Omit the whole `scale.keda` block and the
+`keda` deployer falls back to a default HTTP scaler** bounded by `scale.min` /
+`scale.max`: the function still consumes Kafka, but it scales on HTTP traffic, not
+lag. With `scale.min: 0` — as in this example — that means it scales to **zero when
+there is no HTTP traffic, and stops consuming**; set `scale.min: 1` to keep it
+consuming without a kafka trigger. (Removing only the trigger item is not an option —
+`scale.keda` with an empty `triggers` list is rejected at validation.) See
 [deployment-and-scaling.md](deployment-and-scaling.md#consumer-lag-autoscaling) for
 `lagThreshold`, `activationLagThreshold`, and the partition cap on `scale.max`.
 

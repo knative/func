@@ -15,9 +15,18 @@ sidecar wiring only takes effect when the function is deployed to a cluster.
 > consumer. When `run.kafka` is fully configured, `func run` sets
 > `FUNC_TRANSPORT=kafka` (plus `KAFKA_*`) and the Go scaffold connects **directly** to
 > the broker and consumes the topic in-process — so a Go local run *does* talk to
-> Kafka if the broker is reachable. This path is being retired in favor of the
-> sidecar; to exercise only your handler logic, test with `func invoke` (below)
-> rather than relying on it.
+> Kafka if the broker is reachable (and if it is **not** reachable, `func run` never
+> becomes ready and eventually fails with a timeout). This path is being retired in
+> favor of the sidecar.
+>
+> One consequence: while `run.kafka` is set, the in-process Kafka server registers
+> only `/health/readiness` and `/health/liveness` — **not** `/`. So the `func invoke`
+> approach below does **not** reach a Go handler (the POST to `/` returns 404, even
+> though `func invoke` may still report success). To exercise a Go handler with
+> `func invoke`, temporarily remove `run.kafka` from `func.yaml` so `func run` starts
+> a plain CloudEvents HTTP server — or just test the handler with an ordinary Go test.
+> For every **other** language `func run` always starts the plain HTTP server, so
+> `func invoke` works as described.
 
 That is fine for most development, because your function's job is simply to handle a
 CloudEvent. You can exercise that logic locally by sending it a CloudEvent shaped
@@ -32,15 +41,15 @@ func run
 ```
 
 In another terminal, invoke it with a CloudEvent that mimics a Kafka-delivered
-record — same `type`, `source`, and Kafka extensions the runtime would set (see
-[architecture.md](architecture.md#record--cloudevent-mapping)):
+record — the `type`, `source`, content type, and Kafka extensions the runtime would
+set (see [architecture.md](architecture.md#record--cloudevent-mapping)):
 
 ```bash
 func invoke \
   --format cloudevent \
   --type dev.knative.kafka.event \
   --source "kafka://my-cluster/orders" \
-  --content-type application/json \
+  --content-type application/octet-stream \
   --data '{"orderId":"123","total":42}' \
   --extension kafkatopic=orders \
   --extension kafkapartition=0 \
@@ -51,11 +60,27 @@ This drives your handler through the shape it receives in production, without ne
 a broker. Use `--file` instead of `--data` to send a payload from a file. (The
 `--extension`/`-e` flag is only valid with the cloudevent format.)
 
-One caveat on `--content-type`: the runtime stamps a **plain** Kafka record's data as
-`application/octet-stream` (raw bytes), and only carries a different type when the
-producer sets a `ce_datacontenttype` header. The `application/json` above matches a
-record produced with that header — and keeps a JSON payload easy to read locally; use
-`--content-type application/octet-stream` to mimic a plain record instead.
+**Content type matters.** A **plain** Kafka record is *always* delivered with its data
+as `application/octet-stream` (raw bytes) — the runtime never sets `application/json`
+for a plain record, even when the value is JSON and even when the producer set a
+`ce_datacontenttype` header. So invoke with `application/octet-stream` and have your
+handler read the raw bytes (parse them as JSON yourself if needed). Testing with
+`application/json` would exercise a shape the runtime never produces: a handler that
+decodes by content type could pass locally and then fail in the cluster.
+
+A record is delivered as its *own* CloudEvent only when the producer wrote CloudEvent
+headers (the runtime keys off `ce_specversion`). In that case it keeps the
+**producer's** `id`, `type`, `source`, and content type, and gets **no** `kafka*`
+extensions. Mimic that pass-through case separately:
+
+```bash
+func invoke \
+  --format cloudevent \
+  --type com.example.order.created \
+  --source "/orders/service" \
+  --content-type application/json \
+  --data '{"orderId":"123","total":42}'
+```
 
 ## Testing against a real broker
 

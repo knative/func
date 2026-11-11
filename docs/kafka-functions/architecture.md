@@ -41,13 +41,20 @@ plain record becomes:
 - `type`: `dev.knative.kafka.event`
 - `source`: `kafka://<brokers>/<topic>`
 - `id`: `partition:<p>/offset:<o>` — stable per record, so it repeats on
-  redelivery (useful as a deduplication key; see [idempotency.md](idempotency.md))
+  redelivery. It is built from partition and offset **only** (no topic), so it is
+  not unique across topics or across a re-created topic; for deduplication across a
+  shared store, compose a key from the consumer group plus the `kafkatopic` /
+  `kafkapartition` / `kafkaoffset` extensions (see
+  [idempotency.md](idempotency.md#choosing-a-deduplication-key))
 - `subject`: the record key, if any
-- `data`: the raw record value
+- `data`: the raw record value, with content type `application/octet-stream`
 - extensions: `kafkatopic`, `kafkapartition`, `kafkaoffset`, `kafkakey`
 
-If the record already carries `ce_*` headers, it is passed through as that
-CloudEvent instead of being re-wrapped.
+If the record already carries CloudEvent headers (the runtime keys off
+`ce_specversion`), it is passed through as that CloudEvent instead of being
+re-wrapped — it keeps the **producer's** `id`, `type`, `source`, and content type,
+and does **not** get the `dev.knative.kafka.event` type or the `kafka*` extensions
+above.
 
 ## Offset-commit strategy (at-least-once)
 
