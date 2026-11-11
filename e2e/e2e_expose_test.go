@@ -19,7 +19,6 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -836,7 +835,7 @@ func TestExpose_RemoteRoute(t *testing.T) {
 // the same pipeline/func-util/describer chain, but the Route lives in the
 // interceptor's namespace and an HTTPScaledObject must exist or the
 // interceptor 404s the public Host. The pipeline ServiceAccount has no
-// rights there by default (edit is namespaced), so suite setup grants Route
+// rights there by default (edit is namespaced), so the test grants Route
 // CRUD and Service reads in the interceptor namespace.
 //
 //	func deploy --remote --deployer=keda --expose=route
@@ -914,58 +913,70 @@ func liveInterceptorNamespace(t *testing.T) string {
 	return ""
 }
 
-var grantPipelineInterceptorOnce sync.Once
-
 // grantPipelineSAInterceptorAccess gives the pipeline ServiceAccount (and
-// default, for upstream Tekton) Route CRUD plus Service reads in the
-// interceptor namespace. edit is namespaced and does not reach openshift-keda.
+// default, for upstream Tekton) of the test namespace Route CRUD plus Service
+// reads in the interceptor namespace until the test ends. edit is namespaced
+// and does not reach openshift-keda. Every run shares the interceptor
+// namespace, so the grant is named after the test namespace: a grant an
+// earlier run left behind names that run's namespace, not this one's.
 func grantPipelineSAInterceptorAccess(t *testing.T, interceptorNS string) {
 	t.Helper()
-	grantPipelineInterceptorOnce.Do(func() {
-		clientset, err := k8s.NewKubernetesClientset()
-		if err != nil {
-			t.Fatal(err)
+	clientset, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	roles := clientset.RbacV1().Roles(interceptorNS)
+	bindings := clientset.RbacV1().RoleBindings(interceptorNS)
+	name := "func-e2e-pipeline-routes-" + Namespace
+	t.Cleanup(func() {
+		if err := bindings.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			t.Logf("deleting interceptor Route RoleBinding: %v", err)
 		}
-		role := &rbacv1.Role{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "func-e2e-pipeline-interceptor-routes",
-				Namespace: interceptorNS,
-			},
-			Rules: []rbacv1.PolicyRule{
-				{
-					APIGroups: []string{"route.openshift.io"},
-					Resources: []string{"routes", "routes/status", "routes/custom-host"},
-					Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
-				},
-				{
-					APIGroups: []string{""},
-					Resources: []string{"services"},
-					Verbs:     []string{"get", "list", "watch"},
-				},
-			},
-		}
-		if _, err := clientset.RbacV1().Roles(interceptorNS).Create(context.Background(), role, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-			t.Fatalf("creating interceptor Route Role: %v", err)
-		}
-		binding := &rbacv1.RoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "func-e2e-pipeline-interceptor-routes",
-				Namespace: interceptorNS,
-			},
-			Subjects: []rbacv1.Subject{
-				{Kind: "ServiceAccount", Name: "pipeline", Namespace: Namespace},
-				{Kind: "ServiceAccount", Name: "default", Namespace: Namespace},
-			},
-			RoleRef: rbacv1.RoleRef{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "Role",
-				Name:     "func-e2e-pipeline-interceptor-routes",
-			},
-		}
-		if _, err := clientset.RbacV1().RoleBindings(interceptorNS).Create(context.Background(), binding, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
-			t.Fatalf("creating interceptor Route RoleBinding: %v", err)
+		if err := roles.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			t.Logf("deleting interceptor Route Role: %v", err)
 		}
 	})
+
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: interceptorNS,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"route.openshift.io"},
+				Resources: []string{"routes", "routes/status", "routes/custom-host"},
+				Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"services"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
+		},
+	}
+	if _, err := roles.Create(ctx, role, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		t.Fatalf("creating interceptor Route Role: %v", err)
+	}
+	binding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: interceptorNS,
+		},
+		Subjects: []rbacv1.Subject{
+			{Kind: "ServiceAccount", Name: "pipeline", Namespace: Namespace},
+			{Kind: "ServiceAccount", Name: "default", Namespace: Namespace},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     name,
+		},
+	}
+	if _, err := bindings.Create(ctx, binding, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		t.Fatalf("creating interceptor Route RoleBinding: %v", err)
+	}
 }
 
 // Not covered here, deliberately:
