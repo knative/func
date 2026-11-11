@@ -69,9 +69,12 @@ handler read the raw bytes (parse them as JSON yourself if needed). Testing with
 decodes by content type could pass locally and then fail in the cluster.
 
 A record is delivered as its *own* CloudEvent only when the producer wrote CloudEvent
-headers (the runtime keys off `ce_specversion`). In that case it keeps the
-**producer's** `id`, `type`, `source`, and content type, and gets **no** `kafka*`
-extensions. Mimic that pass-through case separately:
+headers (the runtime keys off `ce_specversion`) **and** those headers form a valid,
+header-safe CloudEvent. In that case it keeps the **producer's** `id`, `type`,
+`source`, and content type, and gets **no** `kafka*` extensions. If the `ce_*` values
+are malformed or header-unsafe (for example an empty `ce_id`, an unknown
+`ce_specversion`, or a value with control characters), the runtime falls back to the
+plain-wrapping case above instead. Mimic the valid pass-through case separately:
 
 ```bash
 func invoke \

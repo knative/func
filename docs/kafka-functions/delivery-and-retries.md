@@ -128,7 +128,14 @@ The choice is between never losing a record and never getting stuck:
   partition ordering is preserved because the runtime does not advance past a
   record it hasn't delivered. Restarts and transient outages are always ridden out.
   The risk: a truly unprocessable record blocks its partition until the function is
-  fixed or the record ages out of the topic.
+  fixed. The runtime holds the record and keeps retrying it from memory — it never
+  re-reads the log — so topic retention does **not** clear a stuck partition on a
+  running sidecar. Worse, if the sidecar restarts or the partition rebalances while
+  stuck and the record has by then aged out of the topic, its committed offset is
+  below the earliest offset still retained; the consumer treats that as out-of-range
+  and resets to the **newest** offset, silently skipping every record produced in
+  the meantime — not just the poison record. Fix the handler (or use a bounded
+  budget); do not rely on retention to unblock a partition.
 - **Bounded retries** — a record that keeps failing is eventually skipped so the
   partition keeps flowing, at the cost of dropping that record. Choose this when
   steady progress matters more than processing every single record, and pair it with

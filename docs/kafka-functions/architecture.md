@@ -46,15 +46,25 @@ plain record becomes:
   shared store, compose a key from the consumer group plus the `kafkatopic` /
   `kafkapartition` / `kafkaoffset` extensions (see
   [idempotency.md](idempotency.md#choosing-a-deduplication-key))
-- `subject`: the record key, if any
+- `time`: the record's timestamp
+- `subject`: the record key as text — set **only** when the key is valid UTF-8 with
+  no control characters; otherwise it is omitted (for example, a binary key)
 - `data`: the raw record value, with content type `application/octet-stream`
-- extensions: `kafkatopic`, `kafkapartition`, `kafkaoffset`, `kafkakey`
+- extensions: `kafkatopic`, `kafkapartition`, `kafkaoffset`, and — when the record
+  has a key — `kafkakey`, which is the key **base64-encoded** (always, regardless of
+  whether the key is valid text). Decode it to recover the raw key; a handler that
+  compares `kafkakey` against the raw key bytes will never match. The readable
+  `subject` is the one to compare against, and only when it is present.
 
 If the record already carries CloudEvent headers (the runtime keys off
 `ce_specversion`), it is passed through as that CloudEvent instead of being
 re-wrapped — it keeps the **producer's** `id`, `type`, `source`, and content type,
 and does **not** get the `dev.knative.kafka.event` type or the `kafka*` extensions
-above.
+above. The pass-through only happens when those `ce_*` headers form a **valid**
+CloudEvent whose values are safe to carry back out as HTTP headers; if any are
+malformed or header-unsafe (for example an empty `ce_id`, an unknown
+`ce_specversion`, or a value with control characters), the runtime falls back to
+wrapping the record as a plain `dev.knative.kafka.event` with the fields above.
 
 ## Offset-commit strategy (at-least-once)
 
