@@ -138,9 +138,9 @@ func repository
 ### Options
 
 ```
-  -c, --confirm   Prompt to confirm options interactively ($FUNC_CONFIRM)
-  -h, --help      help for repository
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -c, --confirm[=true|false]   Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help[=true|false]      help for repository
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

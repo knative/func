@@ -67,13 +67,13 @@ func create
 ### Options
 
 ```
-  -c, --confirm             Prompt to confirm options interactively ($FUNC_CONFIRM)
-  -h, --help                help for create
-  -l, --language string     Language Runtime (see help text for list) ($FUNC_LANGUAGE)
-  -p, --path string         Path to the function project directory ($FUNC_PATH)
-  -r, --repository string   URI to a Git repository containing the specified template ($FUNC_REPOSITORY)
-  -t, --template string     Function template. (see help text for list) ($FUNC_TEMPLATE) (default "http")
-  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
+  -c, --confirm[=true|false]   Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help[=true|false]      help for create
+  -l, --language string        Language Runtime (see help text for list) ($FUNC_LANGUAGE)
+  -p, --path string            Path to the function project directory ($FUNC_PATH)
+  -r, --repository string      URI to a Git repository containing the specified template ($FUNC_REPOSITORY)
+  -t, --template string        Function template. (see help text for list) ($FUNC_TEMPLATE) (default "http")
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

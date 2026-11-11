@@ -20,11 +20,11 @@ func config git remove
 ### Options
 
 ```
-      --delete-cluster   Delete cluster resources (credentials and config on the cluster).
-      --delete-local     Delete local resources (pipeline templates).
-  -h, --help             help for remove
-  -p, --path string      Path to the function.  Default is current directory ($FUNC_PATH)
-  -v, --verbose          Print verbose logs ($FUNC_VERBOSE)
+      --delete-cluster[=true|false]   Delete cluster resources (credentials and config on the cluster).
+      --delete-local[=true|false]     Delete local resources (pipeline templates).
+  -h, --help[=true|false]             help for remove
+  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
+  -v, --verbose[=true|false]          Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

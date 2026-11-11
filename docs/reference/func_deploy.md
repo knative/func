@@ -132,38 +132,38 @@ func deploy
 ### Options
 
 ```
-      --base-image string             Override the base image for your function (host builder only)
-      --build string[="true"]         Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
-      --build-timestamp               Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
-  -b, --builder string                Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
-      --builder-image string          Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
-  -c, --confirm                       Prompt to confirm options interactively ($FUNC_CONFIRM)
-      --deployer string               Type of deployment to use: 'knative' for Knative Service, 'raw' for Kubernetes Deployment, or 'keda' for Deployment scaled by KEDA (HTTP or Kafka triggers) ($FUNC_DEPLOYER) (default "knative")
-      --domain string                 Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
-  -e, --env stringArray               Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
-      --expose string                 External exposure mode: 'route' for an OpenShift Route (OpenShift clusters only), 'none' for cluster-local. Default: no exposure. Raw and keda deployers only. ($FUNC_EXPOSE)
-  -h, --help                          help for deploy
-  -i, --image string                  Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
-      --image-pull-secret string      Image pull secret to use when the function's image is in a private registry ($FUNC_IMAGE_PULL_SECRET)
-      --management-disabled           Disable operator management of this function ($FUNC_MANAGEMENT_DISABLED)
-  -n, --namespace string              Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "default")
-      --password string               Password to use when pushing to the registry. ($FUNC_PASSWORD)
-  -p, --path string                   Path to the function.  Default is current directory ($FUNC_PATH)
-      --platform string               Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
-  -u, --push                          Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
-      --pvc-size string               When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
-  -r, --registry string               Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
-      --registry-authfile string      Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)
-      --registry-insecure             Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)
-  -R, --remote                        Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
-      --remote-storage-class string   Specify a storage class to use for the volume on-cluster during remote builds
-  -t, --revision string               Revision of --source to build: a branch, a tag or a commit (default is the repository's default branch) ($FUNC_REVISION)
-      --service-account string        Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
-  -s, --source string                 Repository to build the function from on the cluster, instead of the local directory ($FUNC_SOURCE)
-  -d, --source-dir string             Directory within --source containing the function (default is the root) ($FUNC_SOURCE_DIR)
-      --token string                  Token to use when pushing to the registry. ($FUNC_TOKEN)
-      --username string               Username to use when pushing to the registry. ($FUNC_USERNAME)
-  -v, --verbose                       Print verbose logs ($FUNC_VERBOSE)
+      --base-image string                  Override the base image for your function (host builder only)
+      --build string[="true"]              Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp[=true|false]       Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                     Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
+      --builder-image string               Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm[=true|false]               Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --deployer string                    Type of deployment to use: 'knative' for Knative Service, 'raw' for Kubernetes Deployment, or 'keda' for Deployment scaled by KEDA (HTTP or Kafka triggers) ($FUNC_DEPLOYER) (default "knative")
+      --domain string                      Domain to use for the function's route.  Cluster must be configured with domain matching for the given domain (ignored if unrecognized) ($FUNC_DOMAIN)
+  -e, --env stringArray                    Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+      --expose string                      External exposure mode: 'route' for an OpenShift Route (OpenShift clusters only), 'none' for cluster-local. Default: no exposure. Raw and keda deployers only. ($FUNC_EXPOSE)
+  -h, --help[=true|false]                  help for deploy
+  -i, --image string                       Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+      --image-pull-secret string           Image pull secret to use when the function's image is in a private registry ($FUNC_IMAGE_PULL_SECRET)
+      --management-disabled[=true|false]   Disable operator management of this function ($FUNC_MANAGEMENT_DISABLED)
+  -n, --namespace string                   Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE) (default "default")
+      --password string                    Password to use when pushing to the registry. ($FUNC_PASSWORD)
+  -p, --path string                        Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string                    Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push[=true|false]                  Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
+      --pvc-size string                    When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
+  -r, --registry string                    Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-authfile string           Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)
+      --registry-insecure[=true|false]     Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)
+  -R, --remote[=true|false]                Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+      --remote-storage-class string        Specify a storage class to use for the volume on-cluster during remote builds
+  -t, --revision string                    Revision of --source to build: a branch, a tag or a commit (default is the repository's default branch) ($FUNC_REVISION)
+      --service-account string             Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
+  -s, --source string                      Repository to build the function from on the cluster, instead of the local directory ($FUNC_SOURCE)
+  -d, --source-dir string                  Directory within --source containing the function (default is the root) ($FUNC_SOURCE_DIR)
+      --token string                       Token to use when pushing to the registry. ($FUNC_TOKEN)
+      --username string                    Username to use when pushing to the registry. ($FUNC_USERNAME)
+  -v, --verbose[=true|false]               Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

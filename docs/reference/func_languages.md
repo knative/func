@@ -45,10 +45,10 @@ func languages
 ### Options
 
 ```
-  -h, --help                help for languages
-      --json                Set output to JSON format. ($FUNC_JSON)
-  -r, --repository string   URI to a specific repository to consider ($FUNC_REPOSITORY)
-  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
+  -h, --help[=true|false]      help for languages
+      --json[=true|false]      Set output to JSON format. ($FUNC_JSON)
+  -r, --repository string      URI to a specific repository to consider ($FUNC_REPOSITORY)
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

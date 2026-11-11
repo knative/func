@@ -25,10 +25,10 @@ func environment
 ### Options
 
 ```
-  -f, --format string   Format of output environment information, 'json' or 'yaml'. ($FUNC_FORMAT) (default "json")
-  -h, --help            help for environment
-  -p, --path string     Path to the function.  Default is current directory ($FUNC_PATH)
-  -v, --verbose         Print verbose logs ($FUNC_VERBOSE)
+  -f, --format string          Format of output environment information, 'json' or 'yaml'. ($FUNC_FORMAT) (default "json")
+  -h, --help[=true|false]      help for environment
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

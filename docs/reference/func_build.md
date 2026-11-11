@@ -57,23 +57,23 @@ func build
 ### Options
 
 ```
-      --base-image string          Override the base image for your function (host builder only)
-      --build-timestamp            Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
-  -b, --builder string             Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
-      --builder-image string       Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
-  -c, --confirm                    Prompt to confirm options interactively ($FUNC_CONFIRM)
-  -h, --help                       help for build
-  -i, --image string               Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)
-      --password string            Password to use when pushing to the registry. ($FUNC_PASSWORD)
-  -p, --path string                Path to the function.  Default is current directory ($FUNC_PATH)
-      --platform string            Optionally specify a target platform, for example "linux/amd64" when using the s2i or pack build strategy
-  -u, --push                       Attempt to push the function image to the configured registry after being successfully built
-  -r, --registry string            Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
-      --registry-authfile string   Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)
-      --registry-insecure          Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)
-      --token string               Token to use when pushing to the registry. ($FUNC_TOKEN)
-      --username string            Username to use when pushing to the registry. ($FUNC_USERNAME)
-  -v, --verbose                    Print verbose logs ($FUNC_VERBOSE)
+      --base-image string                Override the base image for your function (host builder only)
+      --build-timestamp[=true|false]     Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
+  -b, --builder string                   Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
+      --builder-image string             Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm[=true|false]             Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help[=true|false]                help for build
+  -i, --image string                     Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)
+      --password string                  Password to use when pushing to the registry. ($FUNC_PASSWORD)
+  -p, --path string                      Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string                  Optionally specify a target platform, for example "linux/amd64" when using the s2i or pack build strategy
+  -u, --push[=true|false]                Attempt to push the function image to the configured registry after being successfully built
+  -r, --registry string                  Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-authfile string         Path to a authentication file containing registry credentials ($FUNC_REGISTRY_AUTHFILE)
+      --registry-insecure[=true|false]   Skip TLS certificate verification when communicating in HTTPS with the registry. The value is persisted over consecutive runs ($FUNC_REGISTRY_INSECURE)
+      --token string                     Token to use when pushing to the registry. ($FUNC_TOKEN)
+      --username string                  Username to use when pushing to the registry. ($FUNC_USERNAME)
+  -v, --verbose[=true|false]             Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

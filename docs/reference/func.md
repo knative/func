@@ -18,7 +18,7 @@ Learn more about Knative at: https://knative.dev
 ### Options
 
 ```
-  -h, --help   help for func
+  -h, --help[=true|false]   help for func
 ```
 
 ### SEE ALSO

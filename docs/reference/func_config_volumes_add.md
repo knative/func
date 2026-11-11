@@ -37,15 +37,15 @@ func config volumes add --type=emptydir --path=/tmp/cache --size=1Gi --medium=Me
 ### Options
 
 ```
-  -h, --help                help for add
-      --medium string       Storage medium for EmptyDir volume: 'Memory' or '' (default)
-  -m, --mount-path string   Path where the volume should be mounted in the container
-  -p, --path string         Path to the function.  Default is current directory ($FUNC_PATH)
-  -r, --read-only           Mount volume as read-only (only for PVC)
-      --size string         Maximum size limit for EmptyDir volume (e.g., 1Gi)
-  -s, --source string       Name of the ConfigMap, Secret, or PVC to mount (not used for emptydir)
-  -t, --type string         Volume type: configmap, secret, pvc, or emptydir
-  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
+  -h, --help[=true|false]        help for add
+      --medium string            Storage medium for EmptyDir volume: 'Memory' or '' (default)
+  -m, --mount-path string        Path where the volume should be mounted in the container
+  -p, --path string              Path to the function.  Default is current directory ($FUNC_PATH)
+  -r, --read-only[=true|false]   Mount volume as read-only (only for PVC)
+      --size string              Maximum size limit for EmptyDir volume (e.g., 1Gi)
+  -s, --source string            Name of the ConfigMap, Secret, or PVC to mount (not used for emptydir)
+  -t, --type string              Volume type: configmap, secret, pvc, or emptydir
+  -v, --verbose[=true|false]     Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

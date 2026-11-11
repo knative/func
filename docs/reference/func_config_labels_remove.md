@@ -17,10 +17,10 @@ func config labels remove
 ### Options
 
 ```
-  -h, --help          help for remove
-      --name string   Name of the label.
-  -p, --path string   Path to the function.  Default is current directory ($FUNC_PATH)
-  -v, --verbose       Print verbose logs ($FUNC_VERBOSE)
+  -h, --help[=true|false]      help for remove
+      --name string            Name of the label.
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

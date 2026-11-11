@@ -9,9 +9,9 @@ func repository remove <name>
 ### Options
 
 ```
-  -c, --confirm   Prompt to confirm options interactively ($FUNC_CONFIRM)
-  -h, --help      help for remove
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -c, --confirm[=true|false]   Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help[=true|false]      help for remove
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

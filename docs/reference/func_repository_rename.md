@@ -9,9 +9,9 @@ func repository rename <old> <new>
 ### Options
 
 ```
-  -c, --confirm   Prompt to confirm options interactively ($FUNC_CONFIRM)
-  -h, --help      help for rename
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -c, --confirm[=true|false]   Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help[=true|false]      help for rename
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
