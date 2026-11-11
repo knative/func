@@ -52,14 +52,14 @@ func logs -f --since 5m
 ### Options
 
 ```
-  -f, --follow             Stream logs until interrupted rather than printing and exiting ($FUNC_FOLLOW)
-  -h, --help               help for logs
-      --name string        Name of the function to get logs from ($FUNC_NAME)
-  -n, --namespace string   The namespace of the function ($FUNC_NAMESPACE) (default "default")
-  -p, --path string        Path to the function.  Default is current directory ($FUNC_PATH)
-      --since string       Return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all available logs, or to the last minute when following without --tail ($FUNC_SINCE)
-      --tail int           Number of most recent log lines to return per pod. Unlimited if negative ($FUNC_TAIL) (default -1)
-  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+  -f, --follow[=true|false]    Stream logs until interrupted rather than printing and exiting ($FUNC_FOLLOW)
+  -h, --help[=true|false]      help for logs
+      --name string            Name of the function to get logs from ($FUNC_NAME)
+  -n, --namespace string       The namespace of the function ($FUNC_NAMESPACE) (default "default")
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+      --since string           Return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all available logs, or to the last minute when following without --tail ($FUNC_SINCE)
+      --tail int               Number of most recent log lines to return per pod. Unlimited if negative ($FUNC_TAIL) (default -1)
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

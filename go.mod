@@ -52,7 +52,7 @@ require (
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/schollz/progressbar/v3 v3.13.1
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	github.com/tektoncd/cli v0.44.0
 	github.com/tektoncd/pipeline v1.13.0
 	gitlab.com/gitlab-org/api/client-go v1.46.0
@@ -72,11 +72,11 @@ require (
 	k8s.io/client-go v0.36.5
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
-	knative.dev/client/pkg v0.0.0-20261109015742-97e9f5c29009
+	knative.dev/client/pkg v0.0.0-20261110135620-8f0ac119c59f
 	knative.dev/eventing v0.51.1-0.20261106033240-495a0f9afe89
 	knative.dev/hack v0.0.0-20261106011541-9aee2b079953
-	knative.dev/pkg v0.0.0-20261106011441-a8ce7f3f6f84
-	knative.dev/serving v0.51.1-0.20261110122020-ac8f13e9ff3a
+	knative.dev/pkg v0.0.0-20261110182720-ae1437a8b141
+	knative.dev/serving v0.51.1-0.20261110154820-64a49fa2741e
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/yaml v1.6.0
 )

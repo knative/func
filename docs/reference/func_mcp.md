@@ -51,7 +51,7 @@ EXAMPLES
 ### Options
 
 ```
-  -h, --help   help for mcp
+  -h, --help[=true|false]   help for mcp
 ```
 
 ### SEE ALSO

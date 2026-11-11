@@ -29,11 +29,11 @@ func config labels add --name=Foo --value='{{ env:FOO }}'
 ### Options
 
 ```
-  -h, --help           help for add
-      --name string    Name of the label.
-  -p, --path string    Path to the function.  Default is current directory ($FUNC_PATH)
-      --value string   Value of the label.
-  -v, --verbose        Print verbose logs ($FUNC_VERBOSE)
+  -h, --help[=true|false]      help for add
+      --name string            Name of the label.
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+      --value string           Value of the label.
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

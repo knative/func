@@ -38,9 +38,9 @@ func version
 ### Options
 
 ```
-  -h, --help            help for version
-  -o, --output string   Output format (human|json|yaml) ($FUNC_OUTPUT) (default "human")
-  -v, --verbose         Print verbose logs ($FUNC_VERBOSE)
+  -h, --help[=true|false]      help for version
+  -o, --output string          Output format (human|json|yaml) ($FUNC_OUTPUT) (default "human")
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

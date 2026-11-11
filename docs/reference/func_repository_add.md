@@ -9,9 +9,9 @@ func repository add <name> <url>
 ### Options
 
 ```
-  -c, --confirm   Prompt to confirm options interactively ($FUNC_CONFIRM)
-  -h, --help      help for add
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -c, --confirm[=true|false]   Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help[=true|false]      help for add
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

@@ -25,7 +25,7 @@ func completion <bash|zsh|fish>
 ### Options
 
 ```
-  -h, --help   help for completion
+  -h, --help[=true|false]   help for completion
 ```
 
 ### SEE ALSO

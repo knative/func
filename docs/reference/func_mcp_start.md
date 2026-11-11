@@ -28,7 +28,7 @@ func mcp start
 ### Options
 
 ```
-  -h, --help   help for start
+  -h, --help[=true|false]   help for start
 ```
 
 ### SEE ALSO

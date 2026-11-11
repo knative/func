@@ -17,9 +17,9 @@ func config volumes
 ### Options
 
 ```
-  -h, --help          help for volumes
-  -p, --path string   Path to the function.  Default is current directory ($FUNC_PATH)
-  -v, --verbose       Print verbose logs ($FUNC_VERBOSE)
+  -h, --help[=true|false]      help for volumes
+  -p, --path string            Path to the function.  Default is current directory ($FUNC_PATH)
+  -v, --verbose[=true|false]   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
