@@ -15,6 +15,7 @@ import (
 
 	v1alpha1 "github.com/functions-dev/func-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -1222,7 +1223,8 @@ func (f *Function) Handle(w http.ResponseWriter, req *http.Request) {
 `
 
 // TestInt_OperatorSync ensures that deploying with WithSyncer creates a
-// Function CR on first deploy, and only annotates it on subsequent deploys.
+// Function CR on first deploy, only annotates it on subsequent deploys, and
+// that removing the function deletes it.
 func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover, describer fn.Describer, deployerName string) {
 	t.Helper()
 
@@ -1359,6 +1361,15 @@ func TestInt_OperatorSync(t *testing.T, deployer fn.Deployer, remover fn.Remover
 	}
 	if _, err := time.Parse(time.RFC3339, ts); err != nil {
 		t.Fatalf("expected valid RFC3339 timestamp, got %q: %v", ts, err)
+	}
+
+	// Removing the function deletes its CR
+	if _, err = client.Remove(ctx, "", "", f, true); err != nil {
+		t.Fatal(err)
+	}
+	err = cl.Get(ctx, ctrlclient.ObjectKey{Name: name, Namespace: ns}, &funcCR)
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("expected Function CR to be deleted with the function, got: %v", err)
 	}
 }
 

@@ -33,10 +33,13 @@ func ResolveRemoteURL(repoPath string) (string, error) {
 	if len(urls) == 0 {
 		return "", nil
 	}
-	return stripUserinfo(urls[0]), nil
+	return StripUserinfo(urls[0]), nil
 }
 
-func stripUserinfo(rawURL string) string {
+// StripUserinfo returns rawURL without its user name and password, which may
+// hold a token. An scp-like URL (git@host:path) is returned as is: its user
+// is the ssh login, not a credential.
+func StripUserinfo(rawURL string) string {
 	if strings.Contains(rawURL, "@") && !strings.Contains(rawURL, "://") {
 		// SSH-style URL (git@host:path) — no userinfo to strip
 		return rawURL

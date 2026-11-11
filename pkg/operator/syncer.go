@@ -34,24 +34,9 @@ func WithCredentialsProvider(cp oci.CredentialsProvider) SyncerOpt {
 }
 
 func (s *Syncer) Sync(ctx context.Context, f fn.Function) error {
-	repoURL := f.Build.Source.URL
-	repoRevision := f.Build.Source.Revision
-	repoDir := f.Build.Source.Dir
-
-	if repoURL == "" {
-		resolved, err := funcgit.ResolveRemoteURL(f.Root)
-		if err != nil {
-			return nil
-		}
-		repoURL = resolved
-	}
-
-	if repoRevision == "" {
-		repoRevision = funcgit.ResolveBranch(f.Root)
-	}
-
-	if repoDir == "" {
-		repoDir = "."
+	repoURL, repoRevision, repoDir, err := source(f)
+	if err != nil {
+		return nil
 	}
 
 	namespace := f.Deploy.Namespace
@@ -93,4 +78,38 @@ func (s *Syncer) registrySecret(ctx context.Context, f fn.Function) (*v1.Secret,
 		return nil, err
 	}
 	return &secret, nil
+}
+
+// Unsync deletes the Function CR of the function name in namespace.
+func (s *Syncer) Unsync(ctx context.Context, name, namespace string) error {
+	return RemoveFunctionCR(ctx, name, namespace)
+}
+
+// source returns the repository URL, revision and directory of f's source
+// code, which the Function CR points the operator at. The URL never holds
+// credentials: anyone who can read the CR can read it.
+//
+// A function deployed by reference (--source) has no Root: its source is all
+// there is, and an empty revision means the repository's default branch. Only
+// a local function falls back to its git checkout, as an empty path would
+// read the git repository of the current directory.
+func source(f fn.Function) (url, revision, dir string, err error) {
+	url, revision, dir = f.Build.Source.URL, f.Build.Source.Revision, f.Build.Source.Dir
+
+	if f.Root != "" {
+		if url == "" {
+			if url, err = funcgit.ResolveRemoteURL(f.Root); err != nil {
+				return
+			}
+		}
+		if revision == "" {
+			revision = funcgit.ResolveBranch(f.Root)
+		}
+	}
+
+	url = funcgit.StripUserinfo(url)
+	if dir == "" {
+		dir = "."
+	}
+	return
 }
