@@ -352,9 +352,10 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 // sourceRevision returns what the cluster fetches and what it labels the
 // image with. A function read from its repository has the commit it was
 // read at, so the cluster fetches exactly that. Anything else is fetched by
-// the revision as configured (main when empty), and labelled from the git
-// working tree on disk if it has one, HEAD marked dirty when there are
-// uncommitted changes, as every builder labels a local source.
+// the revision as configured, which git reads as the remote's default branch
+// when empty, and labelled from the git working tree on disk if it has one,
+// HEAD marked dirty when there are uncommitted changes, as every builder
+// labels a local source.
 func sourceRevision(f fn.Function) (fetch, label string) {
 	if c := f.Build.Source.Commit; c != "" {
 		// NewFunctionFromGit sets a full hash; the guard spares a caller
@@ -370,11 +371,7 @@ func sourceRevision(f fn.Function) (fetch, label string) {
 	if f.Root != "" {
 		label, _ = fn.GitCommit(f.Root)
 	}
-	fetch = f.Build.Source.Revision
-	if fetch == "" {
-		fetch = defaultPipelinesTargetBranch
-	}
-	return fetch, label
+	return f.Build.Source.Revision, label
 }
 
 // createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build

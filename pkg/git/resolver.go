@@ -78,23 +78,23 @@ func trackingRemoteName(repo *gogit.Repository) string {
 }
 
 // ResolveBranch returns the current branch name for the repository at the given
-// path. Returns "main" if the branch cannot be determined (not a git repo,
-// detached HEAD, etc.).
+// path, or "" when there is none: not a git repo, no commits, or a detached
+// HEAD.
 func ResolveBranch(repoPath string) string {
 	repo, err := gogit.PlainOpenWithOptions(repoPath, &gogit.PlainOpenOptions{
 		DetectDotGit: true,
 	})
 	if err != nil {
-		return "main"
+		return ""
 	}
 
 	head, err := repo.Head()
 	if err != nil {
-		return "main"
+		return ""
 	}
 
 	if !head.Name().IsBranch() {
-		return "main"
+		return ""
 	}
 
 	return head.Name().Short()

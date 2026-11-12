@@ -89,12 +89,19 @@ func (s *Syncer) Unsync(ctx context.Context, name, namespace string) error {
 // code, which the Function CR points the operator at. The URL never holds
 // credentials: anyone who can read the CR can read it.
 //
-// A function deployed by reference (--source) has no Root: its source is all
-// there is, and an empty revision means the repository's default branch. Only
-// a local function falls back to its git checkout, as an empty path would
-// read the git repository of the current directory.
+// It returns build.source as it is, and fills in what func.yaml leaves empty
+// from the git checkout of a local function: the url, and the branch when the
+// deploy built the checkout. A remote build of the url in func.yaml fetches
+// that url, so an empty revision stays empty: the repository's default
+// branch, as it is for the build. A checkout on no branch, such as a detached
+// HEAD in CI, leaves it empty too. A function deployed by reference (--source)
+// has no Root, so nothing is filled in: an empty path would read the git
+// repository of the current directory.
 func source(f fn.Function) (url, revision, dir string, err error) {
 	url, revision, dir = f.Build.Source.URL, f.Build.Source.Revision, f.Build.Source.Dir
+
+	// The cluster fetched the url, not the checkout.
+	fetched := f.Local.Remote && url != ""
 
 	if f.Root != "" {
 		if url == "" {
@@ -102,7 +109,7 @@ func source(f fn.Function) (url, revision, dir string, err error) {
 				return
 			}
 		}
-		if revision == "" {
+		if revision == "" && !fetched {
 			revision = funcgit.ResolveBranch(f.Root)
 		}
 	}
