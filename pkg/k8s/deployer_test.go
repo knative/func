@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -242,44 +243,49 @@ func mountNames(mounts []corev1.VolumeMount) sets.Set[string] {
 func TestKafkaSidecarVolumeMounts(t *testing.T) {
 	caSecret, clientSecret, appSecret := "kafka-ca", "kafka-client", "app-config"
 	caPath, clientPath, appPath := "/etc/kafka/ca", "/etc/kafka/client", "/etc/app"
-	// The full mount set as ProcessVolumes would emit it: one mount per path,
-	// each named secretVolumeName(secret).
-	allMounts := []corev1.VolumeMount{
-		{Name: secretVolumeName(caSecret), MountPath: caPath},
-		{Name: secretVolumeName(clientSecret), MountPath: clientPath},
-		{Name: secretVolumeName(appSecret), MountPath: appPath},
-	}
 	volumes := []fn.Volume{
 		{Secret: &caSecret, Path: &caPath},
 		{Secret: &clientSecret, Path: &clientPath},
 		{Secret: &appSecret, Path: &appPath},
 	}
+	// Build the mount set with the real ProcessVolumes rather than by hand, so
+	// the fixture can't silently drift from how the deployer actually names
+	// secret volume mounts.
+	rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+	_, allMounts, err := ProcessVolumes(volumes, &rs, &rcm, &rpvc)
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	// These guards return "nothing selected"; both callers treat a nil and an
+	// empty slice identically (excludeVolumeMounts checks len, and the sidecar's
+	// VolumeMounts is omitempty), so assert on length, not nil, to avoid
+	// breaking on a refactor that returns an empty slice.
 	t.Run("nil kafka selects nothing", func(t *testing.T) {
-		if got := kafkaSidecarVolumeMounts(nil, volumes, allMounts); got != nil {
-			t.Errorf("expected nil for nil kafka, got %+v", got)
+		if got := kafkaSidecarVolumeMounts(nil, volumes, allMounts); len(got) != 0 {
+			t.Errorf("expected no mounts for nil kafka, got %+v", got)
 		}
 	})
 
 	t.Run("nil TLS selects nothing", func(t *testing.T) {
 		k := &fn.KafkaConfig{Brokers: "b:9092", Topic: "t", ConsumerGroup: "g"}
-		if got := kafkaSidecarVolumeMounts(k, volumes, allMounts); got != nil {
-			t.Errorf("expected nil when TLS is unset, got %+v", got)
+		if got := kafkaSidecarVolumeMounts(k, volumes, allMounts); len(got) != 0 {
+			t.Errorf("expected no mounts when TLS is unset, got %+v", got)
 		}
 	})
 
 	t.Run("TLS with no cert paths selects nothing", func(t *testing.T) {
 		k := &fn.KafkaConfig{TLS: &fn.KafkaTLS{SkipVerify: true}}
-		if got := kafkaSidecarVolumeMounts(k, volumes, allMounts); got != nil {
-			t.Errorf("expected nil when no cert path is set, got %+v", got)
+		if got := kafkaSidecarVolumeMounts(k, volumes, allMounts); len(got) != 0 {
+			t.Errorf("expected no mounts when no cert path is set, got %+v", got)
 		}
 	})
 
 	t.Run("cert path with no backing Secret selects nothing", func(t *testing.T) {
 		// The cert path resolves to no Secret volume, so there is nothing to mount.
 		k := &fn.KafkaConfig{TLS: &fn.KafkaTLS{CACert: "/nowhere/ca.crt"}}
-		if got := kafkaSidecarVolumeMounts(k, volumes, allMounts); got != nil {
-			t.Errorf("expected nil when the cert path has no backing Secret, got %+v", got)
+		if got := kafkaSidecarVolumeMounts(k, volumes, allMounts); len(got) != 0 {
+			t.Errorf("expected no mounts when the cert path has no backing Secret, got %+v", got)
 		}
 	})
 
@@ -326,9 +332,11 @@ func TestExcludeVolumeMounts(t *testing.T) {
 	}
 
 	t.Run("empty exclude returns all unchanged", func(t *testing.T) {
+		// Compare element-by-element, not just length: the fast path must return
+		// the input mounts unchanged, not a same-sized set of different mounts.
 		got := excludeVolumeMounts(all, nil)
-		if len(got) != len(all) {
-			t.Fatalf("expected all %d mounts, got %d", len(all), len(got))
+		if !reflect.DeepEqual(got, all) {
+			t.Fatalf("expected all mounts unchanged %+v, got %+v", all, got)
 		}
 	})
 
