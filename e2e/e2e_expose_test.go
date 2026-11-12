@@ -713,8 +713,7 @@ func TestExpose_RouteDomainTLS(t *testing.T) {
 	if minted == "" {
 		t.Fatal("expected a minted hostname to locate the router with")
 	}
-	routerAddrs, err := net.LookupHost(minted)
-	if err != nil || len(routerAddrs) == 0 {
+	if _, err := net.LookupHost(minted); err != nil {
 		t.Fatalf("could not resolve the router via %q: %v", minted, err)
 	}
 
@@ -758,11 +757,13 @@ func TestExpose_RouteDomainTLS(t *testing.T) {
 		t.Fatal("expected the injected certificate to survive a redeploy")
 	}
 
-	// HTTPS through the router, DNS bypassed, trust anchored only at the
-	// injected cert: a 200 here proves routing AND that the router serves
-	// the user's certificate for the custom domain.
+	// HTTPS through the router, trusting only the injected cert: a 200
+	// proves routing AND that the router serves the user's certificate for
+	// the custom domain. The domain has no DNS, so dial the minted host.
+	// The dialer needs its own timeout (Client.Timeout does not reach it)
+	// to move past an address that never answers.
 	dial := func(ctx context.Context, network, _ string) (net.Conn, error) {
-		return (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(routerAddrs[0], "443"))
+		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, net.JoinHostPort(minted, "443"))
 	}
 	httpClient := &http.Client{
 		Transport: &http.Transport{DialContext: dial, TLSClientConfig: &tls.Config{RootCAs: pool}},
