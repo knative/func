@@ -255,7 +255,7 @@ func (e *ErrInvalidNamespace) Error() string {
 
 Invalid namespace name. Kubernetes namespaces must:
   - Contain only lowercase letters, numbers, and hyphens (-)
-  - Start with a letter and end with a letter or number
+  - Start and end with a letter or number
   - Be 63 characters or less
 
 Valid examples:
