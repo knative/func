@@ -71,9 +71,11 @@ func installKedaHTTPAddon(ctx context.Context, cfg ClusterConfig, out io.Writer)
 	if cfg.GitHubActions {
 		status(out, "Reducing KEDA HTTP add-on resource requests for CI")
 
+		// The interceptor is autoscaled by the add-on's ScaledObject, so
+		// lower its minimum; scaling the Deployment is undone by the HPA.
 		_ = run(ctx, out, "",
-			cfg.kubectl(), "scale", "deployment", "keda-add-ons-http-interceptor",
-			"-n", "keda", "--replicas=1")
+			cfg.kubectl(), "patch", "scaledobject", "keda-add-ons-http-interceptor",
+			"-n", "keda", "--type=merge", "-p", `{"spec":{"minReplicaCount":1}}`)
 		_ = run(ctx, out, "",
 			cfg.kubectl(), "scale", "deployment", "keda-add-ons-http-scaler",
 			"-n", "keda", "--replicas=1")
