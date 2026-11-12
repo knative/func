@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -1112,11 +1113,25 @@ func TestAppendKafkaDeliveryEnvs_OmitsUnsetFields(t *testing.T) {
 // names func emits onto the Kafka runtime sidecar for a fully-configured
 // run.kafka (delivery target + connection + security + delivery tuning). It is
 // the func side of the func<->func-adapter-kafka env-var contract: the adapter
-// reads exactly these names, so a rename or drop on either side silently turns
-// the corresponding setting into a no-op at runtime -- a failure a mock-based or
-// cluster test would not surface as a contract break. This list is mirrored by a
-// matching assertion in the adapter repo
-// (knative-extensions/func-adapter-kafka); change the two together.
+// reads exactly these names, so a rename or drop on either side turns the
+// corresponding setting into a no-op at runtime.
+//
+// This is a func-side tripwire, not a cross-repo check. The test below compares
+// func's emitted names against this local list only -- it does NOT compare them
+// against the adapter. The adapter repo keeps its own independent copy of this
+// list with a matching assertion (knative-extensions/func-adapter-kafka#34);
+// nothing automatically reconciles the two. They are kept in lockstep by humans,
+// and the failure messages below name the adapter so that a rename on one side
+// is a prompt to update the other. (For real runtime enforcement the comparison
+// would have to be against the adapter pinned at DefaultKafkaRuntimeImage, not
+// adapter main; that is left to the integration job that runs the real image.)
+//
+// Most of these names are also pinned individually by the per-value tests above,
+// so a rename of one of them already fails some unit test. What this list adds
+// is: the three TLS names nothing else pins (KAFKA_TLS_CLIENT_CERT /
+// CLIENT_KEY / SKIP_VERIFY), detection of extra and duplicate names, and one
+// place that enumerates the whole contract with a failure message pointing at
+// the adapter.
 var kafkaRuntimeContractEnvNames = []string{
 	// Delivery target (fixed value, not derived from config).
 	"FUNCTION_TARGET",
@@ -1143,12 +1158,12 @@ var kafkaRuntimeContractEnvNames = []string{
 // TestKafkaSidecarContainer_EnvNameContract pins the exact set of env-var names
 // func emits onto the Kafka runtime sidecar for a fully-populated run.kafka.
 // kafkaSidecarContainer is the single chokepoint every deployer builds the
-// sidecar through, so its emitted env names ARE the contract surface. A drift on
-// either repo (func renames an env var, or the adapter renames the name it
-// reads) would silently neutralize that setting in production without failing a
-// mock or happy-path test. This asserts the set exactly -- missing, extra, or
-// duplicated names all fail -- forcing kafkaRuntimeContractEnvNames and the
-// adapter's read side to move in lockstep.
+// sidecar through, so its emitted env names ARE func's side of the contract
+// surface. Asserting the set exactly -- missing, extra, or duplicated names all
+// fail -- means a func-side rename fails here instead of silently neutralizing a
+// setting in production. This guards only the func side; see
+// kafkaRuntimeContractEnvNames for why there is no automated cross-repo check
+// and how the adapter mirror (adapter#34) keeps the two lists aligned by hand.
 func TestKafkaSidecarContainer_EnvNameContract(t *testing.T) {
 	f := fn.Function{
 		Name: "fn",
@@ -1179,6 +1194,14 @@ func TestKafkaSidecarContainer_EnvNameContract(t *testing.T) {
 			},
 		},
 	}
+	// The "extra names" assertion below only catches a new env var if the
+	// fixture actually exercises the config branch that emits it. A newly added
+	// run.kafka field whose env var the fixture leaves unset would slip through.
+	// Guard against that: fail if any fixture field is zero-valued, so adding a
+	// field to KafkaConfig (or a nested struct) forces it to be populated here,
+	// which in turn brings its env name into the contract assertion.
+	assertNoZeroFields(t, reflect.ValueOf(f.Run.Kafka), "run.kafka")
+
 	secrets := sets.New[string]()
 	configMaps := sets.New[string]()
 	c, err := kafkaSidecarContainer(f, nil, &secrets, &configMaps)
@@ -1208,6 +1231,32 @@ func TestKafkaSidecarContainer_EnvNameContract(t *testing.T) {
 	if extra := got.Difference(want); extra.Len() > 0 {
 		t.Errorf("sidecar emits env vars outside the contract list %v; add them to kafkaRuntimeContractEnvNames AND the adapter's read side, or drop them",
 			sets.List(extra))
+	}
+}
+
+// assertNoZeroFields fails if any field reachable from v is left at its zero
+// value, recursing through pointers and nested structs. It keeps the env-name
+// contract fixture exhaustive: a new run.kafka field forces a fixture update
+// here (and thus a contract entry) instead of silently escaping the "extra
+// names" check because its env var was never emitted.
+func assertNoZeroFields(t *testing.T, v reflect.Value, path string) {
+	t.Helper()
+	switch v.Kind() {
+	case reflect.Ptr:
+		if v.IsNil() {
+			t.Errorf("fixture field %s is nil; populate every run.kafka field so the env-name contract covers it", path)
+			return
+		}
+		assertNoZeroFields(t, v.Elem(), path)
+	case reflect.Struct:
+		tp := v.Type()
+		for i := 0; i < v.NumField(); i++ {
+			assertNoZeroFields(t, v.Field(i), path+"."+tp.Field(i).Name)
+		}
+	default:
+		if v.IsZero() {
+			t.Errorf("fixture field %s is zero-valued; populate every run.kafka field so the env-name contract covers it", path)
+		}
 	}
 }
 
