@@ -116,7 +116,7 @@ func WithTimestamp(v bool) Option {
 	}
 }
 
-var DefaultLifecycleImage = "docker.io/buildpacksio/lifecycle:553c041"
+var DefaultLifecycleImage = "docker.io/buildpacksio/lifecycle:0.21.29"
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {

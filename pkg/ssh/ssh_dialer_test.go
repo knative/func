@@ -28,7 +28,6 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 
 	th "github.com/buildpacks/pack/testhelpers"
-	"github.com/docker/docker/pkg/homedir"
 	"github.com/pkg/errors"
 
 	funcssh "knative.dev/func/pkg/ssh"
@@ -572,14 +571,22 @@ func withCleanHome(t *testing.T) {
 	t.Setenv(homeName, tempHome)
 }
 
+// homeDir returns the home directory that withCleanHome set.
+func homeDir(t *testing.T) string {
+	t.Helper()
+	home, err := os.UserHomeDir()
+	th.AssertNil(t, err)
+	return home
+}
+
 // withKnowHosts creates $HOME/.ssh/known_hosts with correct entries
 func withKnowHosts(connConfig *SSHServer) setUpEnvFn {
 	return func(t *testing.T) {
 		t.Helper()
 
-		knownHosts := filepath.Join(homedir.Get(), ".ssh", "known_hosts")
+		knownHosts := filepath.Join(homeDir(t), ".ssh", "known_hosts")
 
-		err := os.MkdirAll(filepath.Join(homedir.Get(), ".ssh"), 0700)
+		err := os.MkdirAll(filepath.Join(homeDir(t), ".ssh"), 0700)
 		th.AssertNil(t, err)
 
 		_, err = os.Stat(knownHosts)
@@ -630,9 +637,9 @@ func withBadKnownHosts(connConfig *SSHServer) setUpEnvFn {
 	return func(t *testing.T) {
 		t.Helper()
 
-		knownHosts := filepath.Join(homedir.Get(), ".ssh", "known_hosts")
+		knownHosts := filepath.Join(homeDir(t), ".ssh", "known_hosts")
 
-		err := os.MkdirAll(filepath.Join(homedir.Get(), ".ssh"), 0700)
+		err := os.MkdirAll(filepath.Join(homeDir(t), ".ssh"), 0700)
 		th.AssertNil(t, err)
 
 		_, err = os.Stat(knownHosts)
@@ -673,9 +680,9 @@ func withBadKnownHosts(connConfig *SSHServer) setUpEnvFn {
 func withBrokenKnownHosts(t *testing.T) {
 	t.Helper()
 
-	knownHosts := filepath.Join(homedir.Get(), ".ssh", "known_hosts")
+	knownHosts := filepath.Join(homeDir(t), ".ssh", "known_hosts")
 
-	err := os.MkdirAll(filepath.Join(homedir.Get(), ".ssh"), 0700)
+	err := os.MkdirAll(filepath.Join(homeDir(t), ".ssh"), 0700)
 	th.AssertNil(t, err)
 
 	_, err = os.Stat(knownHosts)
@@ -699,9 +706,9 @@ func withBrokenKnownHosts(t *testing.T) {
 func withInaccessibleKnownHosts(t *testing.T) {
 	t.Helper()
 
-	knownHosts := filepath.Join(homedir.Get(), ".ssh", "known_hosts")
+	knownHosts := filepath.Join(homeDir(t), ".ssh", "known_hosts")
 
-	err := os.MkdirAll(filepath.Join(homedir.Get(), ".ssh"), 0700)
+	err := os.MkdirAll(filepath.Join(homeDir(t), ".ssh"), 0700)
 	th.AssertNil(t, err)
 
 	_, err = os.Stat(knownHosts)
@@ -722,9 +729,9 @@ func withInaccessibleKnownHosts(t *testing.T) {
 func withEmptyKnownHosts(t *testing.T) {
 	t.Helper()
 
-	knownHosts := filepath.Join(homedir.Get(), ".ssh", "known_hosts")
+	knownHosts := filepath.Join(homeDir(t), ".ssh", "known_hosts")
 
-	err := os.MkdirAll(filepath.Join(homedir.Get(), ".ssh"), 0700)
+	err := os.MkdirAll(filepath.Join(homeDir(t), ".ssh"), 0700)
 	th.AssertNil(t, err)
 
 	_, err = os.Stat(knownHosts)

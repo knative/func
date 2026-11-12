@@ -23,8 +23,8 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/moby/moby/client"
+	"github.com/moby/moby/client/pkg/jsonmessage"
 	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
