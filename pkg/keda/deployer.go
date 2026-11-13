@@ -24,6 +24,9 @@ import (
 
 const (
 	KedaDeployerName = deployers.Keda
+
+	scalerHoldTimeout    = 30 * time.Second
+	scalerRestoreTimeout = 30 * time.Second
 )
 
 type DeployerOpt func(*Deployer)
@@ -101,7 +104,7 @@ func (k *kedaDeployerDecorator) UpdateLabels(function fn.Function, labels map[st
 	return labels
 }
 
-func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (_ fn.DeploymentResult, err error) {
 	triggers := triggers(f)
 	if len(triggers) == 0 {
 		// triggers(f) only returns empty when scale.keda is present with an
@@ -276,6 +279,34 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 	if err := refuseConflictingScaler(ctx, httpScaledObjectClientset, dynClient, scalerNamespace, f.Name, wantKafka); err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("function %q: %w", f.Name, err)
+	}
+
+	// A scaler at min 0 can scale the Deployment away before the readiness
+	// wait sees the new revision. Hold min 1 until the ensure* calls below
+	// set the configured minimum again (#4118).
+	held, err := setScalerMin(ctx, httpScaledObjectClientset, dynClient, scalerNamespace, f.Name, wantKafka, 0, 1)
+	if err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("failed to hold a replica for function %q: %w", f.Name, err)
+	}
+	if held {
+		defer func() {
+			if err == nil {
+				return
+			}
+			// Bounded, so an unresponsive API server cannot hang a failed deploy.
+			rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), scalerRestoreTimeout)
+			defer cancel()
+			if _, rerr := setScalerMin(rctx, httpScaledObjectClientset, dynClient, scalerNamespace, f.Name, wantKafka, 1, 0); rerr != nil {
+				err = fmt.Errorf("%w (also failed to restore scale-to-zero: %v)", err, rerr)
+			}
+		}()
+		// The add-on copies the HTTPScaledObject minimum into a ScaledObject of
+		// the same name asynchronously, and KEDA scales from that one.
+		if wantHTTP {
+			if err = WaitForScaledObjectMinReplicas(ctx, dynClient, scalerNamespace, f.Name, 1, scalerHoldTimeout); err != nil {
+				return fn.DeploymentResult{}, fmt.Errorf("failed waiting for the held replica of function %q: %w", f.Name, err)
+			}
+		}
 	}
 
 	var interceptorNS string
