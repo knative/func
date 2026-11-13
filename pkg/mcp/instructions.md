@@ -42,6 +42,8 @@ This is essential because:
 
 **Exceptions:**
 - The `list` tool operates on the cluster, not local files, so it does NOT use a path parameter (it uses namespace instead)
+- The `repository_*` tools manage the template repositories installed on the machine running the MCP server, not a Function, so they do NOT use a path parameter
+- The `version` and `healthcheck` tools take no parameters
 - The `delete`, `describe` and `logs` tools each require exactly one of `path` or `name`; they do NOT support a no-argument CWD mode (the MCP server process has its own working directory unrelated to the Function being managed)
 
 ## Deployment Behavior
@@ -90,6 +92,7 @@ invokes on the user's behalf.
 - Before 'logs' → Read `func://help/logs`
 - Before 'delete' → Read `func://help/delete`
 - Before 'run' → Read `func://help/run`
+- Before 'repository_list', 'repository_add', 'repository_rename' or 'repository_remove' → Read `func://help/repository` (or the narrower `func://help/repository/add`, `func://help/repository/rename`, `func://help/repository/remove`)
 
 The help text provides authoritative parameter information and usage context.
 
@@ -99,6 +102,13 @@ The help text provides authoritative parameter information and usage context.
 - Takes no parameters
 - Reports the version (and git commit hash, when available) of the func client binary being driven
 - Use this to gate usage of newer tools/flags on the version of func actually installed, before assuming they are supported
+
+### healthcheck
+
+- Takes no parameters
+- Reports whether the MCP server itself is running and responsive (`status`, a `message`, and the server `version`)
+- It does not check the cluster, the container runtime, or the `func` binary; use `version` to inspect the `func` client binary
+- Read-only
 
 ### create
 
@@ -110,7 +120,7 @@ The help text provides authoritative parameter information and usage context.
   - `language` (from languages list)
   - `path` (directory where the Function will be created)
 - **OPTIONAL parameters:**
-  - `template` (from templates list, defaults to "http" if omitted)
+  - `template` (from templates list, defaults to "http" if omitted; a template from an installed repository is addressed as `<repository>/<template>`, see the `repository_*` tools)
 
 ### deploy
 
@@ -294,3 +304,15 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - This is the last step of the production lifecycle: create → build/deploy → **config_ci** to wire up continuous deployment
 - Fails if a workflow file already exists at that path unless `force` is set to `true`
 - **IMPORTANT:** This command is gated behind an experimental feature flag. If it fails with an error like `unknown command "ci" for "config"`, the `func` binary backing this MCP server does not have `FUNC_ENABLE_CI_CONFIG=true` set in its environment — inform the user they need to set that environment variable when starting the MCP server (e.g. in their MCP client's server config) and restart it
+
+### repository_list, repository_add, repository_rename, repository_remove
+
+- **BEFORE calling:** Consider reading `func://help/repository` (or `func://help/repository/add`, `/rename`, `/remove`) for authoritative usage
+- These manage the template repositories installed on the machine running the MCP server (by default `~/.config/func/repositories`, or `FUNC_REPOSITORIES_PATH` when set). They take no `path`, and they do not touch any Function or the cluster
+- Use them when the user wants templates beyond the built-in ones. Once a repository is added, its templates appear in `func://templates` and are used with `create` by prefixing the template name with the repository name (for example `template: "custom/hello-world"`); read `func://templates` again after adding or removing a repository
+- The built-in default repository is embedded in the binary rather than stored on disk: it is always listed first and needs no prefix, and it cannot be renamed or removed
+- `repository_list` — read-only; lists installed repositories by name; optional `verbose` also shows the URL each remote repository was added from
+- `repository_add` — **REQUIRED:** `name` (short name to assign) and `url` (git repository URL; append `#<branch>` to pin a branch). Fails if the name is already in use
+- `repository_rename` — **REQUIRED:** `old` and `new`. Only installed repositories can be renamed. Templates previously referenced as `<old>/<template>` must then be referenced as `<new>/<template>`
+- `repository_remove` — **REQUIRED:** `name`. **WARNING:** destructive — the repository is deleted from local disk immediately, with no confirmation prompt, and this cannot be undone. Confirm with the user before calling it
+- `repository_add`, `repository_rename` and `repository_remove` modify local disk and are disabled in read-only mode; `repository_list` is available in both modes
