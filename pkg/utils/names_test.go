@@ -312,11 +312,11 @@ func TestValidateNamespace(t *testing.T) {
 		{"a", true},
 		{"a-b", true},
 		{"abc-123-xyz", true},
+		{"123app", true},     // a DNS-1123 label may start with a digit
+		{"123invalid", true}, // a DNS-1123 label may start with a digit
+		{"1", true},          // a DNS-1123 label may start with a digit
 
 		// Invalid namespaces
-		{"123app", false},            // cannot start with number (K8s requirement)
-		{"123invalid", false},        // cannot start with number (K8s requirement)
-		{"1", false},                 // cannot start with number (K8s requirement)
 		{"My-App", false},            // uppercase not allowed
 		{"MY-APP", false},            // uppercase not allowed
 		{"my_app", false},            // underscore not allowed
