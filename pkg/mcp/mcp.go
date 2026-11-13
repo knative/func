@@ -186,7 +186,7 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "List Help", "help for 'list'", "list"))
 	i.AddResource(newHelpResource(s, "Describe Help", "help for 'describe'", "describe"))
 	i.AddResource(newHelpResource(s, "Logs Help", "help for 'logs'", "logs"))
-	i.AddResource(newHelpResource(s, "Delete Help", "help for delete", "delete"))
+	i.AddResource(newHelpResource(s, "Delete Help", "help for 'delete'", "delete"))
 	i.AddResource(newHelpResource(s, "Run Help", "help for 'run'", "run"))
 
 	i.AddResource(newHelpResource(s, "Volumes Help", "general help for volumes", "config", "volumes"))
@@ -204,6 +204,7 @@ func New(options ...Option) *Server {
 	i.AddResource(newHelpResource(s, "CI Help", "help for 'config ci'", "config", "ci"))
 
 	i.AddResource(newHelpResource(s, "Repository Help", "general help for repository management", "repository"))
+	i.AddResource(newHelpResource(s, "Repository List Help", "help for 'repository list'", "repository", "list"))
 	i.AddResource(newHelpResource(s, "Repository Add Help", "help for 'repository add'", "repository", "add"))
 	i.AddResource(newHelpResource(s, "Repository Rename Help", "help for 'repository rename'", "repository", "rename"))
 	i.AddResource(newHelpResource(s, "Repository Remove Help", "help for 'repository remove'", "repository", "remove"))

@@ -166,6 +166,11 @@ func TestResource_Help(t *testing.T) {
 			uri:      "func://help/config/envs/add",
 			wantArgs: []string{"config", "envs", "add", "--help"},
 		},
+		{
+			name:     "repository list help",
+			uri:      "func://help/repository/list",
+			wantArgs: []string{"repository", "list", "--help"},
+		},
 	}
 
 	for _, tc := range cases {
