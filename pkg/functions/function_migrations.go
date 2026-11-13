@@ -9,6 +9,8 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"gopkg.in/yaml.v2"
+
+	"knative.dev/func/pkg/deployers"
 )
 
 var unknownFieldsOnce sync.Once
@@ -127,6 +129,7 @@ var migrations = []migration{
 	{"0.36.0", migratePersistentVolumeTypoFixup},
 	{"0.37.0", migrateGitToSource},
 	{"0.38.0", migrateScaleToTopLevel},
+	{"0.39.0", migrateToRecordedDeployer},
 	// New Migrations Here.
 }
 
@@ -483,6 +486,18 @@ func migrateScaleToTopLevel(f Function, raw []byte, m migration) (Function, erro
 	// are already populated by the primary unmarshal, so this migration leaves
 	// them untouched.
 
+	f.SpecVersion = m.version
+	return f, nil
+}
+
+// migrateToRecordedDeployer records knative as the deployer of a function
+// deployed before func.yaml recorded the deployer: it has a namespace but no
+// deployer. func deployed such a function with knative, which it used whenever
+// no deployer was given.
+func migrateToRecordedDeployer(f Function, _ []byte, m migration) (Function, error) {
+	if f.Deploy.Namespace != "" && f.Deploy.Deployer == "" {
+		f.Deploy.Deployer = deployers.Knative
+	}
 	f.SpecVersion = m.version
 	return f, nil
 }

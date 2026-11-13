@@ -43,3 +43,35 @@ func TestValidateSwitch(t *testing.T) {
 		})
 	}
 }
+
+// TestResolve builds a function's deployer up one input at a time: with
+// nothing set it is Default, the one it was last deployed with replaces that,
+// and the one it asks for replaces both.
+func TestResolve(t *testing.T) {
+	// Two deployers other than Default, so each step changes the result, also
+	// in a build that sets Default to another deployer.
+	var others []string
+	for _, d := range []string{Knative, Kubernetes, Keda} {
+		if d != Default {
+			others = append(others, d)
+		}
+	}
+	deployed, intent := others[0], others[1]
+
+	for _, tt := range []struct {
+		name     string
+		intent   string
+		deployed string
+		want     string
+	}{
+		{"nothing set gives Default", "", "", Default},
+		{"deployed replaces Default", "", deployed, deployed},
+		{"intent replaces deployed", intent, deployed, intent},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Resolve(tt.intent, tt.deployed); got != tt.want {
+				t.Fatalf("Resolve(%q, %q) = %q, want %q", tt.intent, tt.deployed, got, tt.want)
+			}
+		})
+	}
+}

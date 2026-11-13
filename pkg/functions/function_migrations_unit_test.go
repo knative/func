@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"gopkg.in/yaml.v2"
+
+	"knative.dev/func/pkg/deployers"
 )
 
 // TestMigrated ensures that the .Migrated() method returns whether or not the
@@ -628,6 +631,52 @@ runtime: go
 		if migrated.Deploy.Deployer != "" || migrated.Deploy.Expose != "" {
 			t.Errorf("expected both fields to stay empty, got Deployer=%q Expose=%q",
 				migrated.Deploy.Deployer, migrated.Deploy.Expose)
+		}
+	})
+}
+
+// TestMigrateToRecordedDeployer ensures a func.yaml from before the deployer
+// was recorded (a namespace but no deployer) loads as deployed with knative,
+// and that the migration leaves every other func.yaml as it is.
+func TestMigrateToRecordedDeployer(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		specVersion string
+		deploy      string // the deploy section of func.yaml
+		want        string
+	}{
+		{"namespace without a deployer is knative", "0.38.0", "deploy:\n  namespace: ns\n", deployers.Knative},
+		{"recorded deployer is kept", "0.38.0", "deploy:\n  namespace: ns\n  deployer: raw\n", deployers.Kubernetes},
+		{"not deployed is left alone", "0.38.0", "", ""},
+		// The migration runs once: a func.yaml at the current spec version is
+		// left as it is.
+		{"current spec version is not migrated", LastSpecVersion(), "deploy:\n  namespace: ns\n", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			funcYaml := fmt.Sprintf("specVersion: %q\nname: f\nruntime: go\n%s", tt.specVersion, tt.deploy)
+			if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+				t.Fatal(err)
+			}
+			f, err := NewFunction(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if f.Deploy.Deployer != tt.want {
+				t.Fatalf("expected deploy.deployer %q, got %q", tt.want, f.Deploy.Deployer)
+			}
+		})
+	}
+
+	// The oldest func.yaml kept the namespace at the top level, which an
+	// earlier migration moves to deploy.namespace.
+	t.Run("top-level namespace is knative", func(t *testing.T) {
+		f, err := NewFunction("testdata/migrations/v0.34.0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.Deploy.Deployer != deployers.Knative {
+			t.Fatalf("expected deploy.deployer %q, got %q", deployers.Knative, f.Deploy.Deployer)
 		}
 	})
 }

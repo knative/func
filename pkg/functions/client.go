@@ -881,21 +881,8 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 		return f, err
 	}
 
-	// Deployer switch gate - changing deployers when function is currently
-	// deployed would leave stranded resources on cluster. We error clearly
-	// and expect the user to undeploy first, which removes the resources
-	// correctly.
-	if f.Deploy.Namespace != "" {
-		if err := deployers.ValidateSwitch(f.Deploy.Deployer, f.Deployer); err != nil {
-			return f, fmt.Errorf("function %q: %w", f.Name, err)
-		}
-		// Scaler switch gate - like the deployer gate above, switching the KEDA
-		// scaler/trigger type (http <-> kafka) in place would leave a stale
-		// scaler orphaned on the Deployment. Refuse and expect the user to
-		// undeploy first.
-		if err := ValidateScalerSwitch(f.Deploy.ScalerType, IntendedScalerType(f)); err != nil {
-			return f, fmt.Errorf("function %q: %w", f.Name, err)
-		}
+	if err := validateSwitch(f); err != nil {
+		return f, err
 	}
 
 	// Warn if moving namespaces
@@ -986,10 +973,33 @@ func (c *Client) unsync(ctx context.Context, name, namespace string, f Function)
 	}
 }
 
+// validateSwitch refuses to redeploy a deployed function with another
+// deployer or KEDA scaler type, which would leave the old resources on the
+// cluster. The user undeploys first, which removes them.
+func validateSwitch(f Function) error {
+	if f.Deploy.Namespace == "" {
+		return nil
+	}
+	if err := deployers.ValidateSwitch(f.Deploy.Deployer, f.Deployer); err != nil {
+		return fmt.Errorf("function %q: %w", f.Name, err)
+	}
+	if err := ValidateScalerSwitch(f.Deploy.ScalerType, IntendedScalerType(f)); err != nil {
+		return fmt.Errorf("function %q: %w", f.Name, err)
+	}
+	return nil
+}
+
 // RunPipeline runs a Pipeline to build and deploy the function.
 // Returned function contains applicable registry and deployed image name.
 // String is the default route.
 func (c *Client) RunPipeline(ctx context.Context, f Function) (string, Function, error) {
+	// Checked here, before the provider records the deployer it picks and
+	// uploads func.yaml: func-util's own check would then compare that
+	// deployer with itself.
+	if err := validateSwitch(f); err != nil {
+		return "", f, err
+	}
+
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
 		f.Registry = c.registry
