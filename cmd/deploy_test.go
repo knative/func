@@ -3083,9 +3083,9 @@ func TestDeploy_DeployerSwitch(t *testing.T) {
 		// reaches the user.
 		{"cross-deployer switch is blocked", keda.KedaDeployerName, k8s.KubernetesDeployerName, true},
 		// ValidateSwitch treats an empty deployer as "not known" and allows it.
-		// The CLI never lets one through: a deployed function without a recorded
-		// deployer is resolved to knative, and an omitted flag is resolved to
-		// whatever is already deployed.
+		// Loading a func.yaml from before the deployer was recorded fills in
+		// knative (see migrateToRecordedDeployer), and an omitted flag is
+		// resolved to whatever is already deployed.
 		{"unrecorded deployer is treated as knative", "", deployers.Knative, false},
 		{"unrecorded deployer to raw is blocked", "", k8s.KubernetesDeployerName, true},
 		{"omitted flag reuses the deployed one", keda.KedaDeployerName, "", false},
@@ -3099,7 +3099,14 @@ func TestDeploy_DeployerSwitch(t *testing.T) {
 				// Namespace set == already deployed, which is what the guard gates on.
 				Deploy: fn.DeploySpec{Namespace: "myns", Deployer: tt.deployedDep},
 			}
-			if _, err := fn.New().Init(f); err != nil {
+			f, err := fn.New().Init(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// An older spec version, so an unrecorded deployer is a func.yaml
+			// from before the deployer was recorded.
+			f.SpecVersion = "0.38.0"
+			if err := f.Write(); err != nil {
 				t.Fatal(err)
 			}
 
@@ -3111,7 +3118,7 @@ func TestDeploy_DeployerSwitch(t *testing.T) {
 			}
 			cmd.SetArgs(args)
 
-			err := cmd.Execute()
+			err = cmd.Execute()
 
 			if tt.wantBlocked {
 				if err == nil {
