@@ -51,7 +51,7 @@ type KEDATrigger struct {
 
 type KPAScaleOptions struct {
 	Metric      *string  `yaml:"metric,omitempty" jsonschema:"enum=concurrency,enum=rps"`
-	Target      *float64 `yaml:"target,omitempty" jsonschema:"exclusiveMinimum=true" jsonschema_extras:"minimum=0.01"` // exclusiveMinimum=true: jsonschema_extras' "minimum" truncates "0.01" to 0 via strconv.Atoi, so this at least excludes the concrete invalid value (0) ValidateScale rejects
+	Target      *float64 `yaml:"target,omitempty" jsonschema_extras:"minimum=0.01"` // minimum stays in jsonschema_extras because jsonschema's "minimum" is an int; the schema generator restores the fractional value reflection truncates (see restoreTargetMinimum), matching the >= 0.01 validateKPAScale enforces
 	Utilization *float64 `yaml:"utilization,omitempty" jsonschema:"minimum=1,maximum=100"`
 }
 
