@@ -305,7 +305,7 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 	for _, name := range envToRemove {
 		found := false
 		for i, envVar := range envs {
-			if *envVar.Name == name {
+			if envVar.Name != nil && *envVar.Name == name {
 				envs = append(envs[:i], envs[i+1:]...)
 				counter++
 				found = true
