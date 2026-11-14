@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -90,6 +91,13 @@ the local machine.
 
 				function.Deploy.Labels = append(function.Deploy.Labels, fn.Label{Key: np, Value: vp})
 				return loaderSaver.Save(function)
+			}
+
+			if np != nil {
+				return errors.New("--value is required when --name is provided")
+			}
+			if vp != nil {
+				return errors.New("--name is required when --value is provided")
 			}
 
 			return runAddLabelsPrompt(cmd.Context(), function, loaderSaver)

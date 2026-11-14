@@ -120,6 +120,9 @@ set environment variable from a secret
 			}
 
 			if np != nil || vp != nil {
+				if np != nil && vp == nil {
+					return fmt.Errorf("--value is required when --name is provided")
+				}
 				if np != nil {
 					if err := utils.ValidateEnvVarName(*np); err != nil {
 						return err
