@@ -38,7 +38,18 @@ VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS         ?= $(shell git describe --tags --match 'v*' 2>/dev/null)
 KVER         ?= $(shell git describe --tags --match 'knative-*' 2>/dev/null)
 
-LDFLAGS      := -X knative.dev/func/pkg/version.Vers=$(VERS) -X knative.dev/func/pkg/version.Kver=$(KVER) -X knative.dev/func/pkg/version.Hash=$(HASH)
+# -X pkg.Var=<empty> clears the Go initializer, so only stamp values that are
+# actually set (e.g. VERS/KVER are empty outside of a tagged checkout).
+LDFLAGS      :=
+ifneq ($(VERS),)
+LDFLAGS      += -X knative.dev/func/pkg/version.Vers=$(VERS)
+endif
+ifneq ($(KVER),)
+LDFLAGS      += -X knative.dev/func/pkg/version.Kver=$(KVER)
+endif
+ifneq ($(HASH),)
+LDFLAGS      += -X knative.dev/func/pkg/version.Hash=$(HASH)
+endif
 
 # Overrides the func-utils image; the default is version.FuncUtilsImage.
 FUNC_UTILS_IMG ?=
