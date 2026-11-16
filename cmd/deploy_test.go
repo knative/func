@@ -3074,7 +3074,7 @@ func TestDeploy_DeployerGlobalConfig(t *testing.T) {
 func TestDeploy_DeployerSwitch(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
-		deployedDep string // Deploy.Deployer already deployed ("" = unrecorded)
+		deployedDep string // Deploy.Deployer already deployed
 		requested   string // --deployer flag value ("" = flag omitted)
 		wantBlocked bool
 	}{
@@ -3082,12 +3082,7 @@ func TestDeploy_DeployerSwitch(t *testing.T) {
 		// reached at all through flag -> config -> client, and that its error
 		// reaches the user.
 		{"cross-deployer switch is blocked", keda.KedaDeployerName, k8s.KubernetesDeployerName, true},
-		// ValidateSwitch treats an empty deployer as "not known" and allows it.
-		// The CLI never lets one through: a deployed function without a recorded
-		// deployer is resolved to knative, and an omitted flag is resolved to
-		// whatever is already deployed.
-		{"unrecorded deployer is treated as knative", "", deployers.Knative, false},
-		{"unrecorded deployer to raw is blocked", "", k8s.KubernetesDeployerName, true},
+		{"same deployer is allowed", deployers.Knative, deployers.Knative, false},
 		{"omitted flag reuses the deployed one", keda.KedaDeployerName, "", false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

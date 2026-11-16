@@ -2792,15 +2792,16 @@ func absPath(p string) string {
 	return abs
 }
 
-// TestClient_Deploy_BlocksDeployerSwitch ensures the deployer-switch guard is
-// enforced by the client itself, so every API consumer is protected, not only
-// the CLI. Redeploying an already-deployed function with a different deployer
-// would strand the previous deployer's resources, so every change of deployer
-// is refused and the user is told to run func delete first.
+// TestClient_BlocksDeployerSwitch ensures the deployer-switch guard is
+// enforced by the client itself, on a deploy and on a pipeline run, so every
+// API consumer is protected, not only the CLI. Redeploying an already-deployed
+// function with a different deployer would strand the previous deployer's
+// resources, so every change of deployer is refused and the user is told to
+// run func delete first.
 //
-// A blocked switch must also fail BEFORE the deployer runs: the point of the
-// guard is that nothing on the cluster is touched.
-func TestClient_Deploy_BlocksDeployerSwitch(t *testing.T) {
+// A blocked switch must also fail BEFORE the deployer or the pipeline runs:
+// the point of the guard is that nothing on the cluster is touched.
+func TestClient_BlocksDeployerSwitch(t *testing.T) {
 	for _, tt := range []struct {
 		name         string
 		deployedWith string // observed state: Deploy.Deployer
@@ -2819,39 +2820,52 @@ func TestClient_Deploy_BlocksDeployerSwitch(t *testing.T) {
 		{"unknown deployed-with is not blocked", "", deployers.Kubernetes, "ns", false},
 		{"unknown requested is not blocked", deployers.Keda, "", "ns", false},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			deployer := mock.NewDeployer()
-			client := fn.New(fn.WithDeployer(deployer))
+		f := fn.Function{
+			Name:  "f",
+			Image: "example.com/f:latest",
+			// Target ns (intent) and it is Deploy.Namespace (state) below
+			// that decides whether the guard considers f already deployed.
+			Namespace: "ns",
+			Deployer:  tt.requested,
+			Deploy: fn.DeploySpec{
+				Namespace: tt.deployedNS,
+				Deployer:  tt.deployedWith,
+			},
+		}
 
-			f := fn.Function{
-				Name: "f",
-				// Target ns (intent) and it is Deploy.Namespace (state) below
-				// that decides whether the guard considers f already deployed.
-				Namespace: "ns",
-				Deployer:  tt.requested,
-				Deploy: fn.DeploySpec{
-					Namespace: tt.deployedNS,
-					Deployer:  tt.deployedWith,
-				},
-			}
-
-			_, err := client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
-
+		// check fails the test unless the call was blocked, and the deployer
+		// or pipeline left alone, exactly when the case says so.
+		check := func(t *testing.T, err error, ran bool) {
+			t.Helper()
 			if tt.wantBlocked {
 				if err == nil {
 					t.Fatalf("expected %q -> %q to be blocked, got nil", tt.deployedWith, tt.requested)
 				}
-				if deployer.DeployInvoked {
-					t.Fatal("expected the deployer NOT to run on a blocked switch")
+				if ran {
+					t.Fatal("expected nothing to run on a blocked switch")
 				}
 				return
 			}
 			if err != nil {
 				t.Fatalf("expected %q -> %q to be allowed, got: %v", tt.deployedWith, tt.requested, err)
 			}
-			if !deployer.DeployInvoked {
-				t.Fatal("expected the deployer to run when the switch is allowed")
+			if !ran {
+				t.Fatal("expected the deploy to run when the switch is allowed")
 			}
+		}
+
+		t.Run(tt.name+"/deploy", func(t *testing.T) {
+			deployer := mock.NewDeployer()
+			client := fn.New(fn.WithDeployer(deployer))
+			_, err := client.Deploy(t.Context(), f, fn.WithDeploySkipBuildCheck(true))
+			check(t, err, deployer.DeployInvoked)
+		})
+
+		t.Run(tt.name+"/pipeline", func(t *testing.T) {
+			pipeliner := mock.NewPipelinesProvider()
+			client := fn.New(fn.WithPipelinesProvider(pipeliner))
+			_, _, err := client.RunPipeline(t.Context(), f)
+			check(t, err, pipeliner.RunInvoked)
 		})
 	}
 }

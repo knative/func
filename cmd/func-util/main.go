@@ -155,15 +155,9 @@ func deploy(ctx context.Context) error {
 	if f.Deploy.Image == "" {
 		f.Deploy.Image = f.Image
 	}
-	// Resolve the deployer. Mirrors config.Apply on the CLI so a remote deploy
-	// honors --deployer, which travels in func.yaml as intent.
-	deployer := f.Deployer
-	if deployer == "" {
-		deployer = f.Deploy.Deployer
-	}
-	if deployer == "" {
-		deployer = knative.KnativeDeployerName
-	}
+	// Resolve the deployer as the CLI does, so a remote deploy honors
+	// --deployer, which travels in func.yaml as intent.
+	deployer := deployers.Resolve(f.Deployer, f.Deploy.Deployer)
 	var d fn.Deployer
 	switch deployer {
 	case knative.KnativeDeployerName:

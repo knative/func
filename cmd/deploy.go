@@ -323,12 +323,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		// Warn if scale.kpa is set with a deployer that ignores it
 		warnScaleKpaIgnore(cmd.OutOrStderr(), f.Scale, cfg.Deployer)
 
-		// Back-compat: a function deployed before the deployer was recorded has a
-		// namespace but no deployer, which historically could only mean knative.
-		if f.Deploy.Namespace != "" && f.Deploy.Deployer == "" {
-			f.Deploy.Deployer = deployers.Knative
-		}
-
 		if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 			return
 		}
@@ -1096,15 +1090,8 @@ func gitFunction(cmd *cobra.Command, cfg deployConfig) (f fn.Function, _ deployC
 	}
 
 	// The client is configured by cfg, whose defaults came from the current
-	// directory. The deployer is the one the cluster deploys with: the
-	// function's, else the one it was last deployed with, else the default.
-	deployer := f.Deployer
-	if deployer == "" {
-		deployer = f.Deploy.Deployer
-	}
-	if deployer == "" {
-		deployer = deployers.Default
-	}
+	// directory. The deployer is the one the cluster deploys with.
+	deployer := deployers.Resolve(f.Deployer, f.Deploy.Deployer)
 	cfg.Builder, cfg.Registry, cfg.RegistryInsecure, cfg.Deployer = f.Build.Builder, f.Registry, f.RegistryInsecure, deployer
 	return f, cfg, nil
 }

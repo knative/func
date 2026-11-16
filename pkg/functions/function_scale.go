@@ -3,6 +3,8 @@ package functions
 import (
 	"fmt"
 	"math"
+
+	"knative.dev/func/pkg/deployers"
 )
 
 // KEDA scaler types recorded as observed state (DeploySpec.ScalerType) and
@@ -15,15 +17,11 @@ const (
 // IntendedScalerType derives the KEDA scaler type a deploy of f would provision:
 // "kafka" when a kafka trigger is configured, otherwise "http" (the keda
 // default). Returns "" for non-keda deployers, which have no scaler concept.
-// The deployer is read from intent (f.Deployer) falling back to the observed
-// value (f.Deploy.Deployer) so a redeploy that omits the deployer flag still
-// resolves the scaler type the function is actually deployed with.
+// The deployer is resolved with deployers.Resolve, so a redeploy that omits
+// the deployer flag still resolves the scaler type the function is actually
+// deployed with.
 func IntendedScalerType(f Function) string {
-	deployer := f.Deployer
-	if deployer == "" {
-		deployer = f.Deploy.Deployer
-	}
-	if deployer != "keda" {
+	if deployers.Resolve(f.Deployer, f.Deploy.Deployer) != "keda" {
 		return ""
 	}
 	if f.Scale != nil && f.Scale.KEDA != nil {
