@@ -584,6 +584,57 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	}
 }
 
+// TestCredentialsProviderReadOnlyHelper ensures that credentials entered by the
+// user and verified against the registry are returned even when the credential
+// helper cannot store them. Read-only helpers such as docker-credential-gcloud
+// or docker-credential-ecr-login answer "store" with "not implemented".
+func TestCredentialsProviderReadOnlyHelper(t *testing.T) {
+	tests := []struct {
+		name string
+		// credsStore already set in auth.json before the prompt
+		configured bool
+	}{
+		{name: "helper configured in auth.json", configured: true},
+		{name: "helper chosen at the prompt", configured: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetHomeDir(t)
+			WithExecutable(t, "docker-credential-ro", readOnlyHelperGoSrc)
+
+			configPath := testConfigPath(t)
+			if tt.configured {
+				authFile := filepath.Join(configPath, "auth.json")
+				if err := os.WriteFile(authFile, []byte(`{"credsStore":"ro"}`), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			chooseStore := func(available []string) (string, error) {
+				if tt.configured {
+					t.Error("the choose helper callback shall not be invoked when a helper is configured")
+				}
+				return "docker-credential-ro", nil
+			}
+
+			credentialsProvider := creds.NewCredentialsProvider(
+				configPath,
+				creds.WithPromptForCredentials(correctPwdCallback),
+				creds.WithVerifyCredentials(correctVerifyCbk),
+				creds.WithPromptForCredentialStore(chooseStore))
+
+			got, err := credentialsProvider(t.Context(), "docker.io/someorg/someimage:sometag")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			want := Credentials{Username: dockerIoUser, Password: dockerIoUserPwd}
+			if got != want {
+				t.Errorf("got: %v, want: %v", got, want)
+			}
+		})
+	}
+}
+
 // TestCredentialsWithoutHome ensures that credentialProvider works when HOME is
 // not set or config is empty
 func TestCredentialsWithoutHome(t *testing.T) {
@@ -1167,6 +1218,35 @@ func main() {
 		log.Fatal(errors.New(resp.Status))
 	}
 	return
+}
+`
+
+// readOnlyHelperGoSrc behaves like a read-only docker credential helper
+// (for example docker-credential-ecr-login): it holds no credentials and
+// answers "store" with "not implemented" on stdout and a non-zero exit code.
+const readOnlyHelperGoSrc = `package main
+
+import (
+	"fmt"
+	"io"
+	"os"
+)
+
+func main() {
+	_, _ = io.Copy(io.Discard, os.Stdin)
+	switch os.Args[1] {
+	case "list":
+		fmt.Println("{}")
+	case "get":
+		fmt.Println("credentials not found in native keychain")
+		os.Exit(1)
+	case "store":
+		fmt.Println("not implemented")
+		os.Exit(1)
+	default:
+		fmt.Println("unknown cmd: " + os.Args[1])
+		os.Exit(1)
+	}
 }
 `
 
