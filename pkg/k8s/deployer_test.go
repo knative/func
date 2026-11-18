@@ -227,14 +227,6 @@ func TestFindSecretForPath(t *testing.T) {
 
 // mountNames returns the volume names of a set of mounts, for order-independent
 // comparison in the helper tests below.
-func mountNames(mounts []corev1.VolumeMount) sets.Set[string] {
-	names := sets.New[string]()
-	for _, vm := range mounts {
-		names.Insert(vm.Name)
-	}
-	return names
-}
-
 // TestKafkaSidecarVolumeMounts exercises the sidecar mount selection in
 // isolation. The security property (the TLS private key never reaching the user
 // container) is verified end-to-end in Test_generateDeployment_KafkaSidecar;
@@ -291,10 +283,12 @@ func TestKafkaSidecarVolumeMounts(t *testing.T) {
 
 	t.Run("selects only the Secret that backs the cert", func(t *testing.T) {
 		k := &fn.KafkaConfig{TLS: &fn.KafkaTLS{CACert: "/etc/kafka/ca/ca.crt"}}
-		got := mountNames(kafkaSidecarVolumeMounts(k, volumes, allMounts))
-		want := sets.New[string](secretVolumeName(caSecret))
-		if !got.Equal(want) {
-			t.Errorf("selected mounts = %v, want %v", got.UnsortedList(), want.UnsortedList())
+		got := kafkaSidecarVolumeMounts(k, volumes, allMounts)
+		// Compare whole mounts (name AND path), not just names, so a helper that
+		// dropped MountPath would fail here, not only in the end-to-end test.
+		want := []corev1.VolumeMount{allMounts[0]} // the CA secret's mount
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("selected mounts = %+v, want %+v", got, want)
 		}
 	})
 
@@ -307,13 +301,12 @@ func TestKafkaSidecarVolumeMounts(t *testing.T) {
 			ClientKey:  "/etc/kafka/client/tls.key",
 		}}
 		got := kafkaSidecarVolumeMounts(k, volumes, allMounts)
-		if len(got) != 2 {
-			t.Fatalf("expected 2 mounts (ca + client, deduped), got %d: %+v", len(got), got)
-		}
-		names := mountNames(got)
-		want := sets.New[string](secretVolumeName(caSecret), secretVolumeName(clientSecret))
-		if !names.Equal(want) {
-			t.Errorf("selected mounts = %v, want %v", names.UnsortedList(), want.UnsortedList())
+		// The one client Secret backs both cert and key, so it is selected once: the
+		// result is exactly the CA and client mounts (whole mounts, in input order),
+		// not the client mount twice.
+		want := []corev1.VolumeMount{allMounts[0], allMounts[1]}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("selected mounts = %+v, want %+v", got, want)
 		}
 	})
 }
@@ -323,8 +316,12 @@ func TestKafkaSidecarVolumeMounts(t *testing.T) {
 // excluded volume is removed, not just one), and leaving unrelated mounts.
 func TestExcludeVolumeMounts(t *testing.T) {
 	// One Secret ("secret-kafka-client") mounted at two paths, plus an unrelated
-	// application mount -- the shape that makes name-based (not path-based)
-	// exclusion necessary.
+	// application mount. This exercises excludeVolumeMounts' documented behavior --
+	// dropping every mount of an excluded volume by name -- when handed a partial
+	// exclude list that names only one of the two paths. (The sole production caller
+	// passes the full sidecar mount set, and kafkaSidecarVolumeMounts already returns
+	// every mount of a backing volume, so there path- and name-based exclusion would
+	// behave identically; this pins the helper's behavior in isolation.)
 	all := []corev1.VolumeMount{
 		{Name: "secret-kafka-client", MountPath: "/etc/kafka/client"},
 		{Name: "secret-kafka-client", MountPath: "/mnt/also-client"},
@@ -343,22 +340,22 @@ func TestExcludeVolumeMounts(t *testing.T) {
 	t.Run("exclude drops every mount of the named volume", func(t *testing.T) {
 		exclude := []corev1.VolumeMount{{Name: "secret-kafka-client", MountPath: "/etc/kafka/client"}}
 		got := excludeVolumeMounts(all, exclude)
-		names := mountNames(got)
 		// Both /etc/kafka/client and /mnt/also-client are backed by the excluded
-		// volume, so neither may survive; only the app mount remains.
-		if names.Has("secret-kafka-client") {
-			t.Errorf("both mounts of the excluded volume must be dropped, got %+v", got)
-		}
-		if !names.Has("secret-app-config") {
-			t.Errorf("unrelated app mount must be kept, got %+v", got)
+		// volume, so neither may survive; only the app mount remains. Compare the whole
+		// mount so a dropped MountPath is caught here too.
+		want := []corev1.VolumeMount{all[2]}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("exclude result = %+v, want %+v", got, want)
 		}
 	})
 
 	t.Run("excluding an absent volume keeps everything", func(t *testing.T) {
 		exclude := []corev1.VolumeMount{{Name: "secret-not-present"}}
 		got := excludeVolumeMounts(all, exclude)
-		if len(got) != len(all) {
-			t.Errorf("excluding an absent volume must keep all mounts, got %+v", got)
+		// Compare element-by-element: an absent exclude must return the input mounts
+		// unchanged, not merely a same-sized set of different mounts.
+		if !reflect.DeepEqual(got, all) {
+			t.Errorf("excluding an absent volume must keep all mounts unchanged, got %+v", got)
 		}
 	})
 }
