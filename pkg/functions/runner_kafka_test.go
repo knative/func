@@ -2,12 +2,14 @@ package functions
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"reflect"
@@ -582,4 +584,169 @@ func captureStderr(t *testing.T, fn func()) string {
 	fn()
 	w.Close()
 	return <-out
+}
+
+// kafkaRuntimeRecords returns the runtime records in f's run directory.
+func kafkaRuntimeRecords(t *testing.T, f Function) map[string]kafkaRuntimeRecord {
+	t.Helper()
+	paths, err := filepath.Glob(filepath.Join(funcJobsDir(f), kafkaRuntimeRecordPattern))
+	if err != nil {
+		t.Fatal(err)
+	}
+	records := map[string]kafkaRuntimeRecord{}
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var r kafkaRuntimeRecord
+		if err := json.Unmarshal(data, &r); err != nil {
+			t.Fatalf("record %v: %v", p, err)
+		}
+		records[p] = r
+	}
+	return records
+}
+
+// TestStartKafkaRuntime_Record ensures a running runtime is recorded in the
+// function's run directory, naming this process as the one that started it,
+// and that the record is removed once it stops.
+func TestStartKafkaRuntime_Record(t *testing.T) {
+	useFakeKafkaRuntime(t, "ready")
+	job, _ := newKafkaJob(t, kafkaConfig())
+	if err := startKafkaRuntime(t.Context(), job, 30*time.Second); err != nil {
+		t.Fatal(err)
+	}
+
+	records := kafkaRuntimeRecords(t, job.Function)
+	if len(records) != 1 {
+		t.Fatalf("expected one runtime record, got %v", records)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range records {
+		if r.Owner != os.Getpid() || r.PID <= 0 || !samePath(r.Binary, exe) {
+			t.Fatalf("unexpected record %+v (this process %d, binary %v)", r, os.Getpid(), exe)
+		}
+	}
+
+	if err := job.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	if records := kafkaRuntimeRecords(t, job.Function); len(records) != 0 {
+		t.Fatalf("expected the record removed once the runtime stopped, got %v", records)
+	}
+}
+
+// TestStopLeftoverKafkaRuntimes ensures a runtime left running by a func
+// process that is gone is stopped, and that nothing else is: not a runtime
+// whose func process still runs, and not a process whose PID merely matches a
+// record.
+func TestStopLeftoverKafkaRuntimes(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := Function{Root: t.TempDir()}
+
+	// A runtime, left running: this test binary as the fake runtime, reaped
+	// here as soon as it exits (as init reaps a real orphan).
+	port, err := freeLoopbackPort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtimeCmd := exec.Command(exe)
+	runtimeCmd.Env = append(os.Environ(), fakeKafkaRuntimeEnv+"=ready", "LISTEN_ADDRESS="+net.JoinHostPort(defaultRunHost, port))
+	if err := runtimeCmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	exited := make(chan struct{})
+	go func() { _ = runtimeCmd.Wait(); close(exited) }()
+	t.Cleanup(func() { _ = runtimeCmd.Process.Kill(); <-exited })
+	if err := waitFor(t.Context(), &Job{Host: defaultRunHost, Port: port}, 30*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	pid := runtimeCmd.Process.Pid
+
+	// The PID of a func process that is gone.
+	gone := exec.Command(exe)
+	gone.Env = append(os.Environ(), fakeKafkaRuntimeEnv+"=exit")
+	_ = gone.Run()
+	goneOwner := gone.Process.Pid
+
+	write := func(name string, data any) string {
+		t.Helper()
+		b, err := json.Marshal(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(funcJobsDir(f), name)
+		if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	exists := func(path string) bool {
+		_, err := os.Stat(path)
+		return err == nil
+	}
+	// running reports whether the runtime is still running a moment later, so
+	// a signal sent to it would have taken effect.
+	running := func() bool {
+		select {
+		case <-exited:
+			return false
+		case <-time.After(300 * time.Millisecond):
+			return true
+		}
+	}
+
+	// Its func process still runs: left alone, record kept.
+	path := write("kafka-runtime-1.json", kafkaRuntimeRecord{PID: pid, Owner: os.Getpid(), Binary: exe})
+	stopLeftoverKafkaRuntimes(f)
+	if !running() || !exists(path) {
+		t.Fatal("a runtime whose func process still runs was stopped, or its record removed")
+	}
+	_ = os.Remove(path)
+
+	// The PID runs another executable (a reused PID): not signaled, record removed.
+	path = write("kafka-runtime-2.json", kafkaRuntimeRecord{PID: pid, Owner: goneOwner, Binary: filepath.Join(t.TempDir(), "fkafka-runtime")})
+	stopLeftoverKafkaRuntimes(f)
+	if !running() {
+		t.Fatal("a process not running the recorded executable was stopped")
+	}
+	if exists(path) {
+		t.Fatal("the record of a runtime no longer running was kept")
+	}
+
+	// A record of a runtime that is gone, and a malformed record: removed.
+	stale := write("kafka-runtime-3.json", kafkaRuntimeRecord{PID: goneOwner, Owner: goneOwner, Binary: exe})
+	malformed := filepath.Join(funcJobsDir(f), "kafka-runtime-4.json")
+	if err := os.WriteFile(malformed, []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stopLeftoverKafkaRuntimes(f)
+	if exists(stale) || exists(malformed) {
+		t.Fatal("stale or malformed records were kept")
+	}
+	if !running() {
+		t.Fatal("the runtime was stopped by an unrelated record")
+	}
+
+	// Its func process is gone: stopped, record removed.
+	path = write("kafka-runtime-5.json", kafkaRuntimeRecord{PID: pid, Owner: goneOwner, Binary: exe})
+	stopLeftoverKafkaRuntimes(f)
+	select {
+	case <-exited:
+	case <-time.After(15 * time.Second):
+		t.Fatal("the left-over runtime was not stopped")
+	}
+	if exists(path) {
+		t.Fatal("the record of the stopped runtime was kept")
+	}
 }

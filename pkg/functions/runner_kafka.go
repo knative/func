@@ -3,13 +3,16 @@ package functions
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -112,7 +115,7 @@ func startKafkaRuntime(ctx context.Context, job *Job, timeout time.Duration) err
 		fmt.Printf("Starting Kafka runtime %v: topic %q, group %q, brokers %v, delivering to %v (health %v)\n",
 			bin, k.Topic, k.ConsumerGroup, k.Brokers, target, listen)
 	}
-	rt, err := startKafkaRuntimeProcess(ctx, bin, env)
+	rt, err := startKafkaRuntimeProcess(ctx, bin, env, funcJobsDir(job.Function))
 	if err != nil {
 		return err
 	}
@@ -236,7 +239,9 @@ type kafkaRuntimeProcess struct {
 
 // startKafkaRuntimeProcess starts the runtime binary with the given
 // environment, its output prefixed into func's own. Canceling ctx stops it.
-func startKafkaRuntimeProcess(ctx context.Context, bin string, env []string) (*kafkaRuntimeProcess, error) {
+// While it runs, it is recorded in recordDir (see stopLeftoverKafkaRuntimes);
+// an empty recordDir records nothing.
+func startKafkaRuntimeProcess(ctx context.Context, bin string, env []string, recordDir string) (*kafkaRuntimeProcess, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	stdout := newLinePrefixWriter(os.Stdout, kafkaRuntimeLogPrefix)
 	stderr := newLinePrefixWriter(os.Stderr, kafkaRuntimeLogPrefix)
@@ -262,8 +267,12 @@ func startKafkaRuntimeProcess(ctx context.Context, bin string, env []string) (*k
 		done:     make(chan struct{}),
 		stopping: make(chan struct{}),
 	}
+	record := writeKafkaRuntimeRecord(recordDir, cmd.Process.Pid, cmd.Path)
 	go func() {
 		p.err = cmd.Wait()
+		if record != "" {
+			_ = os.Remove(record)
+		}
 		_ = stdout.Flush()
 		_ = stderr.Flush()
 		close(p.done)
@@ -330,6 +339,122 @@ func (p *kafkaRuntimeProcess) stop() {
 		p.cancel()
 	})
 	<-p.done
+}
+
+// Left-over runtimes
+//
+// A func process killed outright (SIGKILL) or crashing gets no chance to stop
+// the runtime it started, which then keeps consuming in the background, a
+// member of the function's consumer group no one sees. So each runtime is
+// recorded in the function's run directory while it runs, and the next
+// `func run` of the function stops any whose func process is gone.
+
+// kafkaRuntimeRecord identifies a running Kafka runtime and the func process
+// that started it.
+type kafkaRuntimeRecord struct {
+	PID    int    `json:"pid"`
+	Owner  int    `json:"owner"`  // PID of the func process that started it
+	Binary string `json:"binary"` // absolute path of the runtime executable
+}
+
+// kafkaRuntimeRecordPattern matches the records' file names in a function's
+// run directory.
+const kafkaRuntimeRecordPattern = "kafka-runtime-*.json"
+
+// writeKafkaRuntimeRecord records the runtime with the given PID, started from
+// bin by this process, in dir and returns the record's path, or "" when it
+// could not be written (the runtime then simply cannot be cleaned up later).
+func writeKafkaRuntimeRecord(dir string, pid int, bin string) string {
+	if dir == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(bin); err == nil {
+		bin = abs
+	}
+	if resolved, err := filepath.EvalSymlinks(bin); err == nil {
+		bin = resolved
+	}
+	data, err := json.Marshal(kafkaRuntimeRecord{PID: pid, Owner: os.Getpid(), Binary: bin})
+	if err != nil {
+		return ""
+	}
+	path := filepath.Join(dir, strings.Replace(kafkaRuntimeRecordPattern, "*", strconv.Itoa(pid), 1))
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return ""
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return ""
+	}
+	return path
+}
+
+// stopLeftoverKafkaRuntimes stops the Kafka runtimes recorded for f whose func
+// process is gone, and removes the records of runtimes no longer running. A
+// recorded runtime is stopped only if its PID still runs the recorded
+// executable, so a PID since reused by another process is never signaled; a
+// runtime whose func process is still running (another `func run` of the
+// function) is left alone.
+func stopLeftoverKafkaRuntimes(f Function) {
+	paths, _ := filepath.Glob(filepath.Join(funcJobsDir(f), kafkaRuntimeRecordPattern))
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var r kafkaRuntimeRecord
+		if err := json.Unmarshal(data, &r); err != nil || r.PID <= 1 || r.Owner <= 0 {
+			_ = os.Remove(path)
+			continue
+		}
+		if processAlive(r.Owner) {
+			continue // still run by its func process
+		}
+		if exe, err := processExecutable(r.PID); err == nil && samePath(exe, r.Binary) {
+			stopProcess(r.PID, kafkaRuntimeStopTimeout)
+			fmt.Fprintf(os.Stderr, "Stopped a Kafka runtime (pid %d) left running by an earlier func run.\n", r.PID)
+		}
+		_ = os.Remove(path)
+	}
+}
+
+// stopProcess interrupts the process with the given PID, which is not a child
+// of this one, and waits up to timeout for it to exit before killing it.
+func stopProcess(pid int, timeout time.Duration) {
+	_ = interruptProcess(pid)
+	if waitProcessExit(pid, timeout) {
+		return
+	}
+	_ = killProcess(pid)
+	waitProcessExit(pid, 2*time.Second)
+}
+
+// waitProcessExit waits up to timeout for the process with the given PID to
+// exit, reporting whether it did.
+func waitProcessExit(pid int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for processAlive(pid) {
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return true
+}
+
+// samePath reports whether a and b name the same file, resolving symbolic
+// links (and, on Windows, ignoring case).
+func samePath(a, b string) bool {
+	if r, err := filepath.EvalSymlinks(a); err == nil {
+		a = r
+	}
+	if r, err := filepath.EvalSymlinks(b); err == nil {
+		b = r
+	}
+	a, b = filepath.Clean(a), filepath.Clean(b)
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
 }
 
 // exitDescription describes a process exit error from exec.Cmd.Wait.

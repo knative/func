@@ -18,7 +18,9 @@ group and been assigned partitions. If the broker is unreachable, the topic does
 exist or the credentials are rejected, `func run` fails with the runtime's error
 rather than starting a function that silently receives nothing. The runtime's output
 is shown in the `func run` output prefixed with `[kafka]`, and it stops with the
-function.
+function. If `func run` itself is killed without a chance to stop it (for example
+with `kill -9`), the runtime keeps running; the next `func run` of the function
+stops it before starting a new one.
 
 ```console
 $ func run

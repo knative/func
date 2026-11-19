@@ -1149,6 +1149,11 @@ func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job
 		timeout = oo.StartTimeout
 	}
 
+	// Stop any Kafka runtime an earlier run of the function left running (it
+	// was killed before it could stop it), so it neither keeps consuming
+	// unseen nor competes with this run's runtime for the topic's partitions.
+	stopLeftoverKafkaRuntimes(f)
+
 	// Run the function, which returns a Job for use interacting (at arms length)
 	// with that running task (which is likely inside a container process).
 	if job, err = c.runner.Run(ctx, f, oo.Address, timeout); err != nil {

@@ -135,7 +135,11 @@ port.
 - **Lifecycle.** `func run` waits for the runtime's `/health/readiness` (ready once
   partitions are assigned) within the start timeout, and fails at once if the
   runtime exits first. An unexpected exit afterwards ends the run like a function
-  crash. Stopping the run stops the runtime before the function.
+  crash. Stopping the run stops the runtime before the function. While it runs,
+  the runtime is recorded in the function's `.func/runs/` directory with the PID of
+  the `func` process that started it; the next `func run` stops a recorded runtime
+  whose `func` process is gone (killed before it could stop it), after checking the
+  PID still runs the recorded executable.
 
 ## The retired in-process path
 
