@@ -10,7 +10,6 @@ import (
 	"path"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -1078,88 +1077,35 @@ func withOpenAddress(ee []fn.Env) []fn.Env {
 }
 
 // AppendKafkaEnvs appends the runtime's Kafka configuration (brokers, topic,
-// consumer group, and any TLS/SASL settings) to envVars. These are consumed by
-// the injected Kafka runtime sidecar, not by the function container. A nil or
+// consumer group, and any TLS/SASL settings) to envVars, as given by
+// fn.KafkaConnectionEnvs, the mapping shared with local `func run`. These are
+// consumed by the injected Kafka runtime sidecar, not by the function
+// container. A SASL credential given as a {{ secret:name:key }} or
+// {{ configMap:name:key }} reference becomes an env var source. A nil or
 // incomplete Kafka config leaves envVars unchanged.
 func AppendKafkaEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, error) {
-	if kafka == nil || kafka.Brokers == "" || kafka.Topic == "" || kafka.ConsumerGroup == "" {
-		return envVars, nil
-	}
-	envVars = append(envVars,
-		corev1.EnvVar{Name: "KAFKA_BROKERS", Value: kafka.Brokers},
-		corev1.EnvVar{Name: "KAFKA_TOPIC", Value: kafka.Topic},
-		corev1.EnvVar{Name: "KAFKA_CONSUMER_GROUP", Value: kafka.ConsumerGroup},
-	)
-
-	if kafka.SecurityProtocol != "" {
-		envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_SECURITY_PROTOCOL", Value: kafka.SecurityProtocol})
-	}
-
-	if kafka.TLS != nil {
-		if kafka.TLS.CACert != "" {
-			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_CA_CERT", Value: kafka.TLS.CACert})
+	for _, e := range fn.KafkaConnectionEnvs(kafka) {
+		if e.Field == "" {
+			envVars = append(envVars, corev1.EnvVar{Name: e.Name, Value: e.Value})
+			continue
 		}
-		if kafka.TLS.ClientCert != "" {
-			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_CLIENT_CERT", Value: kafka.TLS.ClientCert})
-		}
-		if kafka.TLS.ClientKey != "" {
-			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_CLIENT_KEY", Value: kafka.TLS.ClientKey})
-		}
-		if kafka.TLS.SkipVerify {
-			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_SKIP_VERIFY", Value: "true"})
-		} else {
-			envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_TLS_SKIP_VERIFY", Value: "false"})
-		}
-	}
-
-	if kafka.SASL != nil {
-		envVars = append(envVars, corev1.EnvVar{Name: "KAFKA_SASL_MECHANISM", Value: kafka.SASL.EffectiveMechanism()})
 		var err error
-		if kafka.SASL.User != "" {
-			envVars, err = appendKafkaEnvValue(envVars, "KAFKA_SASL_USER", kafka.SASL.User, referencedSecrets, referencedConfigMaps)
-			if err != nil {
-				return nil, fmt.Errorf("processing run.kafka.sasl.user: %w", err)
-			}
-		}
-		if kafka.SASL.Password != "" {
-			envVars, err = appendKafkaEnvValue(envVars, "KAFKA_SASL_PASSWORD", kafka.SASL.Password, referencedSecrets, referencedConfigMaps)
-			if err != nil {
-				return nil, fmt.Errorf("processing run.kafka.sasl.password: %w", err)
-			}
+		if envVars, err = appendKafkaEnvValue(envVars, e.Name, e.Value, referencedSecrets, referencedConfigMaps); err != nil {
+			return nil, fmt.Errorf("processing %s: %w", e.Field, err)
 		}
 	}
-
 	return envVars, nil
 }
 
 // AppendKafkaDeliveryEnvs appends the delivery-tuning environment variables that
-// configure how the Kafka runtime sidecar delivers a record to the function.
-// Each variable maps 1:1 to a run.kafka.delivery field (same name, same
-// semantics); an unset field is omitted so the runtime applies its own default.
-// A nil kafka or nil delivery appends nothing.
+// configure how the Kafka runtime sidecar delivers a record to the function, as
+// given by fn.KafkaDeliveryEnvs, the mapping shared with local `func run`. Each
+// variable maps 1:1 to a run.kafka.delivery field (same name, same semantics);
+// an unset field is omitted so the runtime applies its own default. A nil kafka
+// or nil delivery appends nothing.
 func AppendKafkaDeliveryEnvs(envVars []corev1.EnvVar, kafka *fn.KafkaConfig) []corev1.EnvVar {
-	if kafka == nil || kafka.Delivery == nil {
-		return envVars
-	}
-	d := kafka.Delivery
-
-	// retry is a pointer: nil means "omit, run unlimited", while 0 is an explicit
-	// single-attempt budget that must be injected.
-	if d.Retry != nil {
-		envVars = append(envVars, corev1.EnvVar{Name: "FUNCTION_DELIVERY_RETRY", Value: strconv.Itoa(*d.Retry)})
-	}
-	if d.BackoffPolicy != "" {
-		envVars = append(envVars, corev1.EnvVar{Name: "FUNCTION_DELIVERY_BACKOFF_POLICY", Value: d.BackoffPolicy})
-	}
-	if d.BackoffDelay != "" {
-		envVars = append(envVars, corev1.EnvVar{Name: "FUNCTION_DELIVERY_BACKOFF_DELAY", Value: d.BackoffDelay})
-	}
-	if d.BackoffMaxDelay != "" {
-		envVars = append(envVars, corev1.EnvVar{Name: "FUNCTION_DELIVERY_BACKOFF_MAX_DELAY", Value: d.BackoffMaxDelay})
-	}
-	// timeout maps to the runtime's existing per-attempt request timeout knob.
-	if d.Timeout != "" {
-		envVars = append(envVars, corev1.EnvVar{Name: "FUNCTION_REQUEST_TIMEOUT", Value: d.Timeout})
+	for _, e := range fn.KafkaDeliveryEnvs(kafka) {
+		envVars = append(envVars, corev1.EnvVar{Name: e.Name, Value: e.Value})
 	}
 	return envVars
 }

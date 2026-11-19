@@ -299,48 +299,6 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	if verbose {
 		c.Env = append(c.Env, "VERBOSE=true")
 	}
-	// TODO(wip): wire the Kafka runtime adapter sub-process for the container
-	// backend (host runner is done; see pkg/functions/runner.go
-	// startKafkaAdapter). Until then this KAFKA_* env is a no-op -- the function
-	// container runs a plain HTTP server and no longer consumes Kafka
-	// in-process (FUNC_TRANSPORT is retired). Left in place to avoid changing a
-	// path this POC does not yet replace.
-	if k := f.Run.Kafka; k != nil && k.Brokers != "" && k.Topic != "" && k.ConsumerGroup != "" {
-		c.Env = append(c.Env,
-			"FUNC_TRANSPORT=kafka",
-			"KAFKA_BROKERS="+k.Brokers,
-			"KAFKA_TOPIC="+k.Topic,
-			"KAFKA_CONSUMER_GROUP="+k.ConsumerGroup,
-		)
-		if k.SecurityProtocol != "" {
-			c.Env = append(c.Env, "KAFKA_SECURITY_PROTOCOL="+k.SecurityProtocol)
-		}
-		if k.TLS != nil {
-			if k.TLS.CACert != "" {
-				c.Env = append(c.Env, "KAFKA_TLS_CA_CERT="+k.TLS.CACert)
-			}
-			if k.TLS.ClientCert != "" {
-				c.Env = append(c.Env, "KAFKA_TLS_CLIENT_CERT="+k.TLS.ClientCert)
-			}
-			if k.TLS.ClientKey != "" {
-				c.Env = append(c.Env, "KAFKA_TLS_CLIENT_KEY="+k.TLS.ClientKey)
-			}
-			if k.TLS.SkipVerify {
-				c.Env = append(c.Env, "KAFKA_TLS_SKIP_VERIFY=true")
-			} else {
-				c.Env = append(c.Env, "KAFKA_TLS_SKIP_VERIFY=false")
-			}
-		}
-		if k.SASL != nil {
-			c.Env = append(c.Env, "KAFKA_SASL_MECHANISM="+k.SASL.EffectiveMechanism())
-			if k.SASL.User != "" {
-				c.Env = append(c.Env, "KAFKA_SASL_USER="+k.SASL.User)
-			}
-			if k.SASL.Password != "" {
-				c.Env = append(c.Env, "KAFKA_SASL_PASSWORD="+k.SASL.Password)
-			}
-		}
-	}
 
 	return
 }

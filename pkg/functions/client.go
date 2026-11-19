@@ -1155,6 +1155,16 @@ func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job
 		return
 	}
 
+	// When the function consumes from Kafka, run the Kafka runtime next to it:
+	// the local counterpart of the sidecar injected on the cluster. Started here
+	// rather than in a runner so it works the same for every runner.
+	if err = startKafkaRuntime(ctx, job, timeout); err != nil {
+		if stopErr := job.Stop(); stopErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: error stopping the function: %v\n", stopErr)
+		}
+		return nil, err
+	}
+
 	// Return to the caller the effective port, a function to call to trigger
 	// stop, and a channel on which can be received runtime errors.
 	return job, nil
