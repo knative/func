@@ -17,10 +17,11 @@ type KafkaRuntimeEnv struct {
 
 	// Field is set to the run.kafka field a credential comes from
 	// (run.kafka.sasl.user or run.kafka.sasl.password). Its Value may be a
-	// {{ secret:name:key }} or {{ configMap:name:key }} reference, which each
-	// consumer resolves its own way: the cluster deployers into an env var
-	// source, a local run as run.envs references are resolved. Field is empty
-	// for every other variable, whose Value is used as is.
+	// {{ secret:name:key }}, {{ configMap:name:key }} or {{ env:NAME }}
+	// reference, which each consumer resolves its own way: the cluster
+	// deployers into an env var source (an env reference into a literal value),
+	// a local run as run.envs references are resolved. Field is empty for every
+	// other variable, whose Value is used as is.
 	Field string
 }
 

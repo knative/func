@@ -843,6 +843,31 @@ func TestValidateKafka(t *testing.T) {
 			wantSubst: "must both be set or both be empty",
 		},
 		{
+			name: "env refs in SASL credentials are valid",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{User: "{{ env:KAFKA_USER }}", Password: "{{env:KAFKA_PASSWORD}}"},
+			},
+			invoke:   "cloudevent",
+			wantErrs: 0,
+		},
+		{
+			name: "malformed env ref in SASL password",
+			kafka: &fn.KafkaConfig{
+				Brokers:          "broker:9093",
+				Topic:            "my-topic",
+				ConsumerGroup:    "my-group",
+				SecurityProtocol: "SASL_SSL",
+				SASL:             &fn.KafkaSASL{User: "u", Password: "{{ env:KAFKA-PASSWORD }}"},
+			},
+			invoke:    "cloudevent",
+			wantErrs:  1,
+			wantSubst: "{{ env:NAME }}",
+		},
+		{
 			name: "malformed secret ref in SASL password",
 			kafka: &fn.KafkaConfig{
 				Brokers:          "broker:9093",

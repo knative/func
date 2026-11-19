@@ -261,8 +261,8 @@ type KafkaTLS struct {
 
 type KafkaSASL struct {
 	Mechanism string `yaml:"mechanism,omitempty" jsonschema:"description=SASL mechanism: PLAIN SCRAM-SHA-256 or SCRAM-SHA-512. Optional; defaults to PLAIN when unset.,enum=PLAIN,enum=SCRAM-SHA-256,enum=SCRAM-SHA-512"`
-	User      string `yaml:"user,omitempty" jsonschema:"description=SASL username. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"`
-	Password  string `yaml:"password,omitempty" jsonschema:"description=SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"`
+	User      string `yaml:"user,omitempty" jsonschema:"description=SASL username. Supports {{ secret:name:key }} and {{ configMap:name:key }} references to the cluster and {{ env:NAME }} references to the local environment"`
+	Password  string `yaml:"password,omitempty" jsonschema:"description=SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} references to the cluster and {{ env:NAME }} references to the local environment"`
 }
 
 // EffectiveMechanism returns the SASL mechanism the function actually
@@ -451,9 +451,12 @@ func ValidateKafkaSecurity(kafka *KafkaConfig) (errors []string) {
 
 var TemplateRefPattern = regexp.MustCompile(`^\{\{\s*(secret|configMap):([^:{}\s]+):([^:{}\s]+)\s*\}\}$`)
 
+// validateTemplateRef validates a value that may be a reference: a cluster
+// {{ secret:name:key }} or {{ configMap:name:key }}, or a {{ env:NAME }}
+// variable of the environment func runs in, resolved as for run.envs.
 func validateTemplateRef(field, value string) (errors []string) {
-	if strings.HasPrefix(value, "{{") && !TemplateRefPattern.MatchString(value) {
-		errors = append(errors, fmt.Sprintf("%s has invalid reference format, expected {{ secret:name:key }} or {{ configMap:name:key }}", field))
+	if strings.HasPrefix(value, "{{") && !TemplateRefPattern.MatchString(value) && !regLocalEnv.MatchString(value) {
+		errors = append(errors, fmt.Sprintf("%s has invalid reference format, expected {{ secret:name:key }}, {{ configMap:name:key }} or {{ env:NAME }}", field))
 	}
 	return
 }

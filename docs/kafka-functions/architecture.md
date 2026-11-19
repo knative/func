@@ -129,9 +129,9 @@ port.
   `FUNCTION_TARGET` is the function's local address and `LISTEN_ADDRESS` a free
   loopback port for the runtime's health endpoints. Inherited `KAFKA_*` /
   `FUNCTION_*` runtime settings from the user's shell are dropped, so `run.kafka`
-  alone configures it, as on the cluster. SASL `{{ secret:... }}` /
-  `{{ configMap:... }}` references cannot be resolved locally and are passed through
-  with a warning.
+  alone configures it, as on the cluster. SASL `{{ env:NAME }}` references are
+  resolved from the local environment; `{{ secret:... }}` / `{{ configMap:... }}`
+  references cannot be resolved locally and are passed through with a warning.
 - **Lifecycle.** `func run` waits for the runtime's `/health/readiness` (ready once
   partitions are assigned) within the start timeout, and fails at once if the
   runtime exits first. An unexpected exit afterwards ends the run like a function

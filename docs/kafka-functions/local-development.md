@@ -45,11 +45,22 @@ sense from your machine:
   runtime from your machine's filesystem, so for a local run they must be paths on
   your machine. (Deployed, they are paths inside the sidecar, mounted from
   `run.volumes`.)
-- **SASL credentials** given as inline values are used as is. A
+- **SASL credentials** given as `{{ env:NAME }}` are read from your shell's
+  environment (an unset variable is an error), and inline values are used as is. A
   `{{ secret:name:key }}` or `{{ configMap:name:key }}` reference names a cluster
   resource that `func run` cannot read: it is passed to the runtime verbatim, so
-  authentication fails, and `func run` warns about it beforehand. A local run
-  against a SASL-secured broker therefore needs inline credentials.
+  authentication fails, and `func run` warns about it beforehand. For a local run
+  against a SASL-secured broker, use `{{ env:NAME }}`:
+
+  ```yaml
+  sasl:
+    mechanism: SCRAM-SHA-512
+    user: "{{ env:KAFKA_USER }}"
+    password: "{{ env:KAFKA_PASSWORD }}"
+  ```
+
+  `func deploy` resolves these the same way, from the environment it runs in, and
+  sets the values on the sidecar directly rather than reading them from a Secret.
 
 ### Where the runtime comes from
 

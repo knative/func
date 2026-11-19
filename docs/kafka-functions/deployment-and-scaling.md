@@ -101,7 +101,8 @@ KEDA allows only one scaler per workload.
 TLS and SASL credentials are supplied through `run.kafka` and must exist as
 Secrets in the function's namespace before you deploy. The CA certificate is
 mounted from a Secret via `run.volumes`; SASL credentials use the
-`{{ secret:name:key }}` reference syntax. See
+`{{ secret:name:key }}` reference syntax (or `{{ env:NAME }}`, resolved at deploy
+time from the environment `func` runs in). See
 [getting-started.md](getting-started.md#3-provide-credentials-secured-brokers) for
 a worked example and the [`func.yaml` reference](../reference/func_yaml.md#runkafka)
 for every field.

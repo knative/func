@@ -1313,18 +1313,26 @@ func excludeVolumeMounts(all, exclude []corev1.VolumeMount) []corev1.VolumeMount
 }
 
 func appendKafkaEnvValue(envVars []corev1.EnvVar, name, value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, error) {
-	if strings.HasPrefix(value, "{{") {
-		matches := fn.TemplateRefPattern.FindStringSubmatch(value)
-		if matches == nil {
-			return nil, fmt.Errorf("invalid reference format for %s, expected {{ secret:name:key }} or {{ configMap:name:key }}", name)
-		}
+	if !strings.HasPrefix(value, "{{") {
+		return append(envVars, corev1.EnvVar{Name: name, Value: value}), nil
+	}
+	if matches := fn.TemplateRefPattern.FindStringSubmatch(value); matches != nil {
 		valueFrom, err := createEnvVarSource(matches[1:4], referencedSecrets, referencedConfigMaps)
 		if err != nil {
 			return nil, err
 		}
 		return append(envVars, corev1.EnvVar{Name: name, ValueFrom: valueFrom}), nil
 	}
-	return append(envVars, corev1.EnvVar{Name: name, Value: value}), nil
+	// A {{ env:NAME }} reference is resolved from the environment func runs in,
+	// into a literal value, as for run.envs.
+	if match := evRegex.FindStringSubmatch(value); match != nil && match[ctxIdx] == "env" {
+		v, err := processLocalEnvValue(value)
+		if err != nil {
+			return nil, err
+		}
+		return append(envVars, corev1.EnvVar{Name: name, Value: v}), nil
+	}
+	return nil, fmt.Errorf("invalid reference format for %s, expected {{ secret:name:key }}, {{ configMap:name:key }} or {{ env:NAME }}", name)
 }
 
 func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.EnvFromSource, error) {
