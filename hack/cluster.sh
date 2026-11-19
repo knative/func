@@ -857,8 +857,10 @@ keda_http_addon() {
   if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
     echo "${blue}Reducing KEDA HTTP add-on resource requests for CI${reset}"
 
-    # Reduce replica counts for CI (3 replicas is overkill for testing)
-    $KUBECTL scale deployment keda-add-ons-http-interceptor -n keda --replicas=1 || echo "Warning: Failed to scale keda-add-ons-http-interceptor"
+    # Reduce replica counts for CI (3 replicas is overkill for testing).
+    # The interceptor is autoscaled by the add-on's ScaledObject, so lower
+    # its minimum; scaling the Deployment is undone by the HPA.
+    $KUBECTL patch scaledobject keda-add-ons-http-interceptor -n keda --type=merge -p '{"spec":{"minReplicaCount":1}}' || echo "Warning: Failed to lower the keda-add-ons-http-interceptor minimum"
     $KUBECTL scale deployment keda-add-ons-http-scaler -n keda --replicas=1 || echo "Warning: Failed to scale keda-add-ons-http-scaler"
 
     echo "${green}✅ Resource requests reduced for CI${reset}"
