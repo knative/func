@@ -1124,14 +1124,17 @@ func TestAppendKafkaDeliveryEnvs_OmitsUnsetFields(t *testing.T) {
 // and the failure messages below name the adapter so that a rename on one side
 // is a prompt to update the other. (For real runtime enforcement the comparison
 // would have to be against the adapter pinned at DefaultKafkaRuntimeImage, not
-// adapter main; that is left to the integration job that runs the real image.)
+// adapter main. The integration job that runs the real image exercises only the
+// ~9 connection/SASL/CA names it configures -- it sets no Delivery, client
+// cert/key, or skip-verify -- so those 8 names have no automated cross-repo check
+// today.)
 //
-// Most of these names are also pinned individually by the per-value tests above,
-// so a rename of one of them already fails some unit test. What this list adds
-// is: the three TLS names nothing else pins (KAFKA_TLS_CLIENT_CERT /
-// CLIENT_KEY / SKIP_VERIFY), detection of extra and duplicate names, and one
-// place that enumerates the whole contract with a failure message pointing at
-// the adapter.
+// Most of these names are also pinned individually by the per-value AppendKafka*
+// tests in this package, so a rename of one already fails some unit test. What
+// this list adds: it enumerates the whole contract in one place, detects extra and
+// duplicate names, and carries a failure message pointing at the adapter. It is
+// also, as of today, the main coverage for the client-cert/key and skip-verify TLS
+// names.
 var kafkaRuntimeContractEnvNames = []string{
 	// Delivery target (fixed value, not derived from config).
 	"FUNCTION_TARGET",
@@ -1200,6 +1203,11 @@ func TestKafkaSidecarContainer_EnvNameContract(t *testing.T) {
 	// Guard against that: fail if any fixture field is zero-valued, so adding a
 	// field to KafkaConfig (or a nested struct) forces it to be populated here,
 	// which in turn brings its env name into the contract assertion.
+	//
+	// This guard only covers new *fields*. It cannot catch an env var emitted only
+	// for a particular *value* of an existing field -- e.g. one gated on
+	// SecurityProtocol == "SSL" when the fixture sets "SASL_SSL". A single fixture
+	// cannot exercise every such branch; those names need their own per-value test.
 	assertNoZeroFields(t, reflect.ValueOf(f.Run.Kafka), "run.kafka")
 
 	secrets := sets.New[string]()
@@ -1212,15 +1220,19 @@ func TestKafkaSidecarContainer_EnvNameContract(t *testing.T) {
 		t.Fatal("expected a sidecar container, got nil")
 	}
 
-	// A duplicate name would be lost in the set comparison below, so catch it
-	// against the raw count first.
+	// A duplicate name would be lost in the set comparison below, so catch it first
+	// and report the offending name(s), not the whole distinct set.
 	got := sets.New[string]()
+	var duplicates []string
 	for _, e := range c.Env {
+		if got.Has(e.Name) {
+			duplicates = append(duplicates, e.Name)
+		}
 		got.Insert(e.Name)
 	}
-	if got.Len() != len(c.Env) {
-		t.Errorf("sidecar emits %d env vars but only %d distinct names -- a duplicate name is present: %v",
-			len(c.Env), got.Len(), sets.List(got))
+	if len(duplicates) > 0 {
+		t.Errorf("sidecar emits duplicate env var name(s) %v (%d env vars, %d distinct names)",
+			duplicates, len(c.Env), got.Len())
 	}
 
 	want := sets.New(kafkaRuntimeContractEnvNames...)
