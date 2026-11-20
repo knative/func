@@ -21,7 +21,7 @@ New to this? Start with [Getting started](getting-started.md).
 ## Pages
 
 | Page                                                              | What it covers                                                               |
-|-------------------------------------------------------------------|------------------------------------------------------------------------------|
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | [Getting started](getting-started.md)                             | Create, configure, deploy, and verify a Kafka function end to end.           |
 | [Delivery, retries & offsets](delivery-and-retries.md)            | At-least-once delivery, the retry budget, backoff, timeouts, and exhaustion. |
 | [Deployment & scaling](deployment-and-scaling.md)                 | Deployer choice, what gets deployed, and consumer-lag autoscaling.           |

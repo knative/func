@@ -49,6 +49,7 @@ cluster.
 ```
 ❯ func build
 ```
+
 You might be asked about docker registry during the build step.
 After the function has been built, it can be run locally.
 
@@ -76,7 +77,6 @@ You can get the URL for your deployed function with the `info` command.
 
 ## Testing a function locally
 
-
 Quarkus functions can be tested locally on your computer.
 The project contains tests which you can run.
 You do this as you would with any Maven project.
@@ -102,12 +102,14 @@ They each will listen and respond to incoming HTTP events.
 When an incoming request is received, your function will be invoked with an instance of type of your choice, see [Types](#types).
 
 The instance will contain one of:
-* `data` of `CloudEvent`
-* Body of HTTP POST request
-* Query parameters of HTTP GET request
+
+- `data` of `CloudEvent`
+- Body of HTTP POST request
+- Query parameters of HTTP GET request
 
 For example, imagine a function that is meant to receive and process purchase data.
 Your function signature may look like this:
+
 ```java
 public class Functions {
     @Funq
@@ -116,7 +118,9 @@ public class Functions {
     }
 }
 ```
+
 With a `Purchase` bean that looks like this:
+
 ```java
 public class Purchase {
     private long customerId;
@@ -124,19 +128,24 @@ public class Purchase {
     // getters and setter here
 }
 ```
+
 Expecting data that may be represented in JSON like this:
+
 ```json
 {
   "customerId": "0123456",
   "productId": "6543210"
 }
 ```
+
 Depending on the deployment, this function will be invoked in one of three ways:
-* An incoming `CloudEvent` with a JSON object such as above in its `data` property.
-* An ordinary HTTP POST with a JSON object such as above in the body of the request
-* An ordinary HTTP GET with a query string like `?customerId=0123456&productId=6543210`
+
+- An incoming `CloudEvent` with a JSON object such as above in its `data` property.
+- An ordinary HTTP POST with a JSON object such as above in the body of the request
+- An ordinary HTTP GET with a query string like `?customerId=0123456&productId=6543210`
 
 ### Return Values
+
 Functions may return an instance of type satisfying condition described in [Types](#types).
 
 You can also return `Uni<T>`.
@@ -155,6 +164,7 @@ through an incoming `CloudEvent`, will receive a response with a `CloudEvent` co
 in the HTTP response body, but no `CloudEvent` headers will be included.
 
 #### Example
+
 ```java
 public class Functions {
     @Funq
@@ -165,16 +175,18 @@ public class Functions {
 ### Types
 
 The input and output types of a function can be:
-* `void`
-* `String`,
-* `byte[]`
-* Primitive types and their wrappers (e.g. `int`, `Double`),
-* JavaBeans (the attributes of the bean must also follow the rules defined here)
-* Map, List or Array of the above
+
+- `void`
+- `String`,
+- `byte[]`
+- Primitive types and their wrappers (e.g. `int`, `Double`),
+- JavaBeans (the attributes of the bean must also follow the rules defined here)
+- Map, List or Array of the above
 
 In addition to above, there is one special type: `CloudEvents<T>` described below [CloudEvent attributes](#cloudevent-attributes).
 
 #### Example
+
 ```java
 public class Functions {
     public List<Integer> getIds();
@@ -195,6 +207,7 @@ For this purpose `Funqy` offers the generic interface `CloudEvent<T>` and a buil
 Note that the type parameter of `CloudEvent<T>` must satisfy the conditions described in [Types](#types).
 
 #### Example
+
 ```java
 public class Functions {
 
@@ -258,19 +271,22 @@ public class Functions {
 
 The `Functions::withBeans` function above can be invoked by:
 
-* Simple HTTP POST with JSON body
+- Simple HTTP POST with JSON body
+
 ```shell
 curl "http://localhost:8080/" -X POST \
   -H "Content-Type: application/json" \
   -d '{"message": "Hello there."}'
 ```
 
-* Simple HTTP GET with query parameters
+- Simple HTTP GET with query parameters
+
 ```shell
 curl "http://localhost:8080?message=Hello%20there." -X GET
 ```
 
-* CloudEvent in binary encoding:
+- CloudEvent in binary encoding:
+
 ```shell
 curl "http://localhost:8080/" -X POST \
   -H "Content-Type: application/json" \
@@ -281,7 +297,8 @@ curl "http://localhost:8080/" -X POST \
   -d '{"message": "Hello there."}'
 ```
 
-* CloudEvent in structured (JSON) encoding:
+- CloudEvent in structured (JSON) encoding:
+
 ```shell
 curl http://localhost:8080/ \
   -H "Content-Type: application/cloudevents+json" \
@@ -298,7 +315,8 @@ however only the last two examples are correct, the first two (raw HTTP) would r
 
 The `Functions::withBinary` function can be invoked by:
 
-* CloudEvent in binary encoding:
+- CloudEvent in binary encoding:
+
 ```shell
 curl "http://localhost:8080/" -X POST \
   -H "Content-Type: application/octet-stream" \
@@ -310,7 +328,8 @@ curl "http://localhost:8080/" -X POST \
 
 ```
 
-* CloudEvent in structured (JSON) encoding:
+- CloudEvent in structured (JSON) encoding:
+
 ```shell
 curl http://localhost:8080/ \
   -H "Content-Type: application/cloudevents+json" \

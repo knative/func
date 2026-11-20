@@ -4,22 +4,20 @@ Start the MCP server
 
 ### Synopsis
 
-
 NAME
-	func mcp start - start the Model Context Protocol (MCP) server
+func mcp start - start the Model Context Protocol (MCP) server
 
 SYNOPSIS
-	func mcp start [flags]
+func mcp start [flags]
 
 DESCRIPTION
-	Starts the Model Context Protocol (MCP) server.
+Starts the Model Context Protocol (MCP) server.
 
-	This command is designed to be invoked by MCP clients directly
-	(such as Claude Code, Claude Desktop, Cursor, VS Code, Windsurf, etc.);
-	not run directly.
+    This command is designed to be invoked by MCP clients directly
+    (such as Claude Code, Claude Desktop, Cursor, VS Code, Windsurf, etc.);
+    not run directly.
 
-	Please see 'func mcp --help' for more information.
-
+    Please see 'func mcp --help' for more information.
 
 ```
 func mcp start
@@ -33,5 +31,4 @@ func mcp start
 
 ### SEE ALSO
 
-* [func mcp](func_mcp.md)	 - Model Context Protocol (MCP) server
-
+- [func mcp](func_mcp.md) - Model Context Protocol (MCP) server

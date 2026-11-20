@@ -16,7 +16,6 @@ such as the function name, and the image name.
 
 The following fields are used in `func.yaml`.
 
-
 ### `build`
 
 Specifies how to build the function. Possible values are "local" to build on your local
@@ -26,7 +25,7 @@ repository.
 ### `builderImages`
 
 Defines the builder images to use by builder implementations in lieu of the defaults.
-They key is the builder's short name.  For example:
+They key is the builder's short name. For example:
 
 ```
 build:
@@ -50,29 +49,33 @@ source:
 ```
 
 ### `buildEnvs`
+
 This field allows you to set environment variables available to the builder/buildpack that builds the function. This environment variable is NOT set at runtime, use [envs](#envs) instead
+
 1. Environment variable can be set directly from a value
 2. Environment variable can be set from a local environment value. Eg. `'{{ env:LOCAL_ENV_VALUE }}'`, for more details see [Local Environment Variables section](#local-environment-variables).
 
 ```yaml
 buildEnvs:
-- name: EXAMPLE1                            # (1) env variable directly from a value
-  value: value
-- name: EXAMPLE2                            # (2) env variable from a local environment value
-  value: '{{ env:LOCAL_ENV_VALUE }}'
+  - name: EXAMPLE1 # (1) env variable directly from a value
+    value: value
+  - name: EXAMPLE2 # (2) env variable from a local environment value
+    value: "{{ env:LOCAL_ENV_VALUE }}"
 ```
 
 For example, the below `func.yaml` snippet modifies the default Golang buildpack to build source code with 1.15 compiler version. Refer to respective buildpack documentation to know more about environment variables that modify behavior of the `func build`.
+
 ```yaml
 buildEnvs:
-- name: BP_GO_VERSION
-  value: '1.15'
+  - name: BP_GO_VERSION
+    value: "1.15"
 ```
 
 ### `envs`
 
 The `envs` field allows you to set environment variables that will be
 available to your function at runtime.
+
 1. Environment variable can be set directly from a value
 2. Environment variable can be set from a local environment value. Eg. `'{{ env:LOCAL_ENV_VALUE }}'`, for more details see [Local Environment Variables section](#local-environment-variables).
 3. Environment variable can be set from a key in a Kubernetes Secret or ConfigMap. This Secret/ConfigMap needs to be created before it is referenced in a function. Eg. `'{{ secret:mysecret:key }}'` where `mysecret` is the name of the Secret and `key` is the referenced key; or `{{ configMap:myconfigmap:key }}` where `myconfigmap` is the name of the ConfigMap and `key` is the referenced key.
@@ -80,16 +83,16 @@ available to your function at runtime.
 
 ```yaml
 envs:
-- name: EXAMPLE1                            # (1) env variable directly from a value
-  value: value
-- name: EXAMPLE2                            # (2) env variable from a local environment value
-  value: '{{ env:LOCAL_ENV_VALUE }}'
-- name: EXAMPLE3                            # (3) env variable from a key in Secret
-  value: '{{ secret:mysecret:key }}'
-- name: EXAMPLE4                            # (3) env variable from a key in ConfigMap
-  value: '{{ configMap:myconfigmap:key }}'
-- value: '{{ secret:mysecret2 }}'           # (4) all key-value pairs in Secret as env variables
-- value: '{{ configMap:myconfigmap2 }}'     # (4) all key-value pairs in ConfigMap as env variables
+  - name: EXAMPLE1 # (1) env variable directly from a value
+    value: value
+  - name: EXAMPLE2 # (2) env variable from a local environment value
+    value: "{{ env:LOCAL_ENV_VALUE }}"
+  - name: EXAMPLE3 # (3) env variable from a key in Secret
+    value: "{{ secret:mysecret:key }}"
+  - name: EXAMPLE4 # (3) env variable from a key in ConfigMap
+    value: "{{ configMap:myconfigmap:key }}"
+  - value: "{{ secret:mysecret2 }}" # (4) all key-value pairs in Secret as env variables
+  - value: "{{ configMap:myconfigmap2 }}" # (4) all key-value pairs in ConfigMap as env variables
 ```
 
 ### `image`
@@ -110,10 +113,10 @@ directly from a value or from a local environment value. Eg. `'{{ env:USER }}'`,
 
 ```yaml
 labels:
-- key: role                                # (1) label directly from a value
-  value: backend
-- key: author                              # (2) label from a local environment value
-  value: '{{ env:USER }}'
+  - key: role # (1) label directly from a value
+    value: backend
+  - key: author # (2) label from a local environment value
+    value: "{{ env:USER }}"
 ```
 
 ### `name`
@@ -126,7 +129,6 @@ subsequent deployments.
 
 The Kubernetes namespace where your function will be deployed.
 
-
 ### `serviceAccountName`
 
 The name of the service account used for the function pod. The service account
@@ -137,6 +139,7 @@ More info: https://k8s.io/docs/tasks/configure-pod-container/configure-service-a
 ### `deployer`
 
 The type of deployment to use when deploying the function. Possible values are:
+
 - `knative` (default): deploys a Knative Service, scaled by Knative's KPA (Knative Pod Autoscaler).
 - `raw`: deploys a plain Kubernetes Deployment with a static replica count.
 - `keda`: deploys a plain Kubernetes Deployment scaled by [KEDA](https://keda.sh), based on triggers such as incoming HTTP traffic or Kafka consumer lag. See [`scale.keda`](#scale) below.
@@ -149,11 +152,11 @@ deployer: keda
 
 Top-level autoscaling configuration. `min`/`max` are shared across all deployers, but the default when left unset differs per deployer:
 
-| deployer | `min` default | `max` default | notes |
-|----------|---------------|---------------|-------|
-| `raw` | 1 | not enforced | fixed-size Deployment, no autoscaler (`min` unset or 0 means 1 replica) |
-| `knative` | 0 | 0 (no limit) | scale-to-zero, per Knative Serving's own defaults |
-| `keda` | 1 | 10 | `max: 0` is rejected (KEDA maps it to an HPA `maxReplicas`, which must be `>= 1`); a `min` above the default `max` of 10 requires setting `max` explicitly |
+| deployer  | `min` default | `max` default | notes                                                                                                                                                      |
+| --------- | ------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `raw`     | 1             | not enforced  | fixed-size Deployment, no autoscaler (`min` unset or 0 means 1 replica)                                                                                    |
+| `knative` | 0             | 0 (no limit)  | scale-to-zero, per Knative Serving's own defaults                                                                                                          |
+| `keda`    | 1             | 10            | `max: 0` is rejected (KEDA maps it to an HPA `maxReplicas`, which must be `>= 1`); a `min` above the default `max` of 10 requires setting `max` explicitly |
 
 The scaler sub-keys are deployer-aware: `kpa` holds Knative Pod Autoscaler settings and is used only with `deployer: knative`; `keda` holds KEDA settings and is used only with `deployer: keda`. The sub-key that does not match the chosen deployer is ignored (`kpa` with a warning on non-knative deployers; `keda` is rejected when the deployer is not `keda`), so both may be present at once without conflict.
 
@@ -221,7 +224,9 @@ both targeting the same Deployment, and KEDA only allows one scaler per
 workload. `func` rejects this combination at validation time.
 
 ### `options`
+
 Options allows you to set resource limits and requests for the deployed function container.
+
 - `resources`
   - `requests`
     - `cpu`: A CPU resource request for the container with deployed function. See related [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits).
@@ -297,7 +302,7 @@ connection) is retried; the offset is not advanced until the record is either
 acknowledged or its retry budget is exhausted. `run.kafka.delivery` tunes that
 behavior:
 
-- `retry`: the number of retries *after* the first attempt (so total attempts = `retry` + 1). Omit for unlimited retries; `0` means a single attempt with no retry. Must be `>= 0`.
+- `retry`: the number of retries _after_ the first attempt (so total attempts = `retry` + 1). Omit for unlimited retries; `0` means a single attempt with no retry. Must be `>= 0`.
 - `backoffPolicy`: how the inter-retry delay grows, `exponential` (default) or `linear`. Lowercase only.
 - `backoffDelay`: the base inter-retry delay as a Go duration, e.g. `100ms` (default `100ms`).
 - `backoffMaxDelay`: the maximum inter-retry delay as a Go duration, e.g. `30s` (default `30s`). Must be `>=` the effective `backoffDelay`.
@@ -327,7 +332,7 @@ run:
 independent of how it is scaled (the [`scale.keda`](#scale) trigger). A Kafka
 consumer can be scaled by a `kafka` trigger (on consumer-group lag), by an
 `http` trigger, or held at a fixed replica count — all are valid. Two things to
-know when the consumer is *not* scaled by a `kafka` trigger:
+know when the consumer is _not_ scaled by a `kafka` trigger:
 
 - With an `http` trigger (or the implicit HTTP default) and `scale.min: 0`, KEDA
   scales the Deployment to zero whenever there is no HTTP traffic. That stops the
@@ -349,16 +354,16 @@ your function. For example `http` for plain HTTP requests, `event` for
 CloudEvent triggered functions.
 
 ### `volumes`
+
 Kubernetes Secrets or ConfigMaps can be mounted to the function as a Kubernetes Volume accessible under specified path. Below you can see an example how to mount the Secret `mysecret` to the path `/workspace/secret` and the ConfigMap `myconfigmap` to the path `/workspace/configmap`. This Secret/ConfigMap needs to be created before it is referenced in a function.
 
 ```yaml
 volumes:
-- secret: mysecret
-  path: /workspace/secret
-- configMap: myconfigmap
-  path: /workspace/configmap
+  - secret: mysecret
+    path: /workspace/secret
+  - configMap: myconfigmap
+    path: /workspace/configmap
 ```
-
 
 ## Local Environment Variables
 
@@ -371,6 +376,6 @@ the name with `env:`. For example:
 
 ```yaml
 envs:
-- name: API_KEY
-  value: '{{ env:API_KEY }}'
+  - name: API_KEY
+    value: "{{ env:API_KEY }}"
 ```

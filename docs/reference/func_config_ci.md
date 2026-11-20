@@ -29,5 +29,4 @@ func config ci
 
 ### SEE ALSO
 
-* [func config](func_config.md)	 - Configure a function
-
+- [func config](func_config.md) - Configure a function

@@ -6,12 +6,11 @@ Remove Git settings from the function configuration
 
 Remove Git settings from the function configuration
 
-	Interactive prompt to remove Git settings from the function project in the current
-	directory or from the directory specified with --path.
+    Interactive prompt to remove Git settings from the function project in the current
+    directory or from the directory specified with --path.
 
-	It also removes any generated resources that are used for Git based build and deployment,
-	such as local generated Pipelines resources and any resources generated on the cluster.
-
+    It also removes any generated resources that are used for Git based build and deployment,
+    such as local generated Pipelines resources and any resources generated on the cluster.
 
 ```
 func config git remove
@@ -29,5 +28,4 @@ func config git remove
 
 ### SEE ALSO
 
-* [func config git](func_config_git.md)	 - Manage Git configuration of a function
-
+- [func config git](func_config_git.md) - Manage Git configuration of a function

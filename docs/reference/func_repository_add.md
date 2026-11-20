@@ -16,5 +16,4 @@ func repository add <name> <url>
 
 ### SEE ALSO
 
-* [func repository](func_repository.md)	 - Manage installed template repositories
-
+- [func repository](func_repository.md) - Manage installed template repositories

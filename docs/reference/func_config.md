@@ -10,7 +10,6 @@ Interactive prompt that allows configuration of Git configuration, Volume mounts
 variables, and Labels for a function project present in the current directory
 or from the directory specified with --path.
 
-
 ```
 func config
 ```
@@ -25,10 +24,9 @@ func config
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-* [func config ci](func_config_ci.md)	 - Generate a GitHub Workflow for function deployment
-* [func config envs](func_config_envs.md)	 - List and manage configured environment variable for a function
-* [func config git](func_config_git.md)	 - Manage Git configuration of a function
-* [func config labels](func_config_labels.md)	 - List and manage configured labels for a function
-* [func config volumes](func_config_volumes.md)	 - List and manage configured volumes for a function
-
+- [func](func.md) - func manages Knative Functions
+- [func config ci](func_config_ci.md) - Generate a GitHub Workflow for function deployment
+- [func config envs](func_config_envs.md) - List and manage configured environment variable for a function
+- [func config git](func_config_git.md) - Manage Git configuration of a function
+- [func config labels](func_config_labels.md) - List and manage configured labels for a function
+- [func config volumes](func_config_volumes.md) - List and manage configured volumes for a function

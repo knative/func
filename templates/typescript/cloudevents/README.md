@@ -18,13 +18,13 @@ npm run local
 
 The runtime will expose three endpoints.
 
-  * `/` The endpoint for your function.
-  * `/health/readiness` The endpoint for a readiness health check
-  * `/health/liveness` The endpoint for a liveness health check
+- `/` The endpoint for your function.
+- `/health/readiness` The endpoint for a readiness health check
+- `/health/liveness` The endpoint for a liveness health check
 
 The health checks can be accessed in your browser at
-[http://localhost:8080/health/readiness]() and
-[http://localhost:8080/health/liveness](). You can use `curl` to `POST` an event
+[http://localhost:8080/health/readiness](<>) and
+[http://localhost:8080/health/liveness](<>). You can use `curl` to `POST` an event
 to the function endpoint:
 
 ```console
@@ -132,7 +132,7 @@ By default, the health checks are bound to the `/health/liveness` and `/health/r
 ## Testing
 
 This function project includes a [unit test](./test/unit.ts) and an
-[integration test](./test/integration.ts).  Modify these, or add additional tests for your business logic.
+[integration test](./test/integration.ts). Modify these, or add additional tests for your business logic.
 
 ```console
 npm test
