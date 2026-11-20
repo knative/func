@@ -16,22 +16,22 @@ This document (in)formally describes a Language Pack contract followed by the `d
 
 The Language Pack contract is implemented in the following built-in templates.
 
-|Language|Format|
-|---|---|
-|Go|[CloudEvents](https://github.com/knative/func/tree/main/templates/go/cloudevents)|
-|Go|[HTTP](https://github.com/knative/func/tree/main/templates/go/http)|
-|Node.js|[CloudEvents](https://github.com/knative/func/tree/main/templates/node/cloudevents)|
-|Node.js|[HTTP](https://github.com/knative/func/tree/main/templates/node/http)|
-|Python|[CloudEvents](https://github.com/knative/func/tree/main/templates/python/cloudevents)|
-|Python|[HTTP](https://github.com/knative/func/tree/main/templates/python/http)|
-|Quarkus|[CloudEvents](https://github.com/knative/func/tree/main/templates/quarkus/cloudevents)|
-|Quarkus|[HTTP](https://github.com/knative/func/tree/main/templates/quarkus/http)|
-|Rust|[CloudEvents](https://github.com/knative/func/tree/main/templates/rust/cloudevents)|
-|Rust|[HTTP](https://github.com/knative/func/tree/main/templates/rust/http)|
-|Springboot|[CloudEvents](https://github.com/knative/func/tree/main/templates/springboot/cloudevents)|
-|Springboot|[HTTP](https://github.com/knative/func/tree/main/templates/springboot/http)|
-|TypeScript|[CloudEvents](https://github.com/knative/func/tree/main/templates/typescript/cloudevents)|
-|TypeScript|[HTTP](https://github.com/knative/func/tree/main/templates/typescript/http)|
+| Language   | Format                                                                                    |
+| ---------- | ----------------------------------------------------------------------------------------- |
+| Go         | [CloudEvents](https://github.com/knative/func/tree/main/templates/go/cloudevents)         |
+| Go         | [HTTP](https://github.com/knative/func/tree/main/templates/go/http)                       |
+| Node.js    | [CloudEvents](https://github.com/knative/func/tree/main/templates/node/cloudevents)       |
+| Node.js    | [HTTP](https://github.com/knative/func/tree/main/templates/node/http)                     |
+| Python     | [CloudEvents](https://github.com/knative/func/tree/main/templates/python/cloudevents)     |
+| Python     | [HTTP](https://github.com/knative/func/tree/main/templates/python/http)                   |
+| Quarkus    | [CloudEvents](https://github.com/knative/func/tree/main/templates/quarkus/cloudevents)    |
+| Quarkus    | [HTTP](https://github.com/knative/func/tree/main/templates/quarkus/http)                  |
+| Rust       | [CloudEvents](https://github.com/knative/func/tree/main/templates/rust/cloudevents)       |
+| Rust       | [HTTP](https://github.com/knative/func/tree/main/templates/rust/http)                     |
+| Springboot | [CloudEvents](https://github.com/knative/func/tree/main/templates/springboot/cloudevents) |
+| Springboot | [HTTP](https://github.com/knative/func/tree/main/templates/springboot/http)               |
+| TypeScript | [CloudEvents](https://github.com/knative/func/tree/main/templates/typescript/cloudevents) |
+| TypeScript | [HTTP](https://github.com/knative/func/tree/main/templates/typescript/http)               |
 
 ### Built-in Template APIs
 
@@ -120,6 +120,7 @@ buildpacks:
 ```
 
 #### `healthEndpoints`
+
 OPTIONAL: A set of key value pairs for `liveness` and `readiness` endpoints for functions created using the language pack. For example
 
 ```
@@ -161,13 +162,13 @@ healthEndpoints:
 
 # Runtimes is a list of language packs supported by this repository
 runtimes:
-  - path: go       # Required. The path of the runtime directory from the repository root
-    name: go       # Optional. Name of the runtime; if not provided, path will be used
+  - path: go # Required. The path of the runtime directory from the repository root
+    name: go # Optional. Name of the runtime; if not provided, path will be used
 
     # A list of templates supplied by this language pack
-    templates:     # Required. One or more templates that correspond to directories within this language pack
-    - path: events # Required. The path to the template directory from the language pack root
-      name: events # Optional. The name of the template; if not provided path will be used
+    templates: # Required. One or more templates that correspond to directories within this language pack
+      - path: events # Required. The path to the template directory from the language pack root
+        name: events # Optional. The name of the template; if not provided path will be used
 ```
 
 ## Lifecycle

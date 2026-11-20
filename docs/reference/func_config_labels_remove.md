@@ -9,7 +9,6 @@ Remove labels from the function configuration
 Interactive prompt to remove labels from the function project in the current
 directory or from the directory specified with --path.
 
-
 ```
 func config labels remove
 ```
@@ -25,5 +24,4 @@ func config labels remove
 
 ### SEE ALSO
 
-* [func config labels](func_config_labels.md)	 - List and manage configured labels for a function
-
+- [func config labels](func_config_labels.md) - List and manage configured labels for a function

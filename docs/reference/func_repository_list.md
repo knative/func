@@ -16,5 +16,4 @@ func repository list
 
 ### SEE ALSO
 
-* [func repository](func_repository.md)	 - Manage installed template repositories
-
+- [func repository](func_repository.md) - Manage installed template repositories

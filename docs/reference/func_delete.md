@@ -13,7 +13,6 @@ of the function can be given as argument or the project path provided with --pat
 No local files are deleted. When undeploying by project (not by name), on success
 the local func.yaml is updated to reflect that the function is no longer deployed.
 
-
 ```
 func delete <name>
 ```
@@ -43,5 +42,4 @@ func delete myfunc --namespace apps
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-
+- [func](func.md) - func manages Knative Functions

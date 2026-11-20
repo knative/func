@@ -19,8 +19,8 @@ Analyze the git commits on the current branch since it diverged from the main br
 
 4. Format the PR description using the template in `.github/pull-request-template.md` and do the following:
    - Add a PR title in a comment above `# Changes` like so: `<!-- PR Title: <pull-request-title> -->`.
-      - Use correct English capitalization and grammar for the PR title.
-      - Replace `<pull-request-title>` with the actual title.
+     - Use correct English capitalization and grammar for the PR title.
+     - Replace `<pull-request-title>` with the actual title.
    - Update the "Changes" section with bullet points using appropriate emoji: :gift: :bug: :broom: :wastebasket:.
    - Add a /kind label
    - Add "Fixes #" if issue is referenced or "Relates to #" if issue is not supposed to be closed by this PR.

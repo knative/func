@@ -1,4 +1,4 @@
-# ⚠️  Read-Only Mode Warning
+# ⚠️ Read-Only Mode Warning
 
 **IMPORTANT INSTRUCTIONS FOR YOU (the AI assistant)**
 
@@ -7,6 +7,7 @@
 The Functions MCP server is currently running in **read-only mode**.
 
 **Available operations:**
+
 - Create Functions
 - Build Functions (without pushing the image)
 - Inspect Functions
@@ -14,6 +15,7 @@ The Functions MCP server is currently running in **read-only mode**.
 - Run/stop Functions locally (not cluster operations, so unaffected by read-only mode)
 
 **Disabled operations:**
+
 - Configure Functions (envs, labels, volumes add/remove)
 - Configure Git source settings and pipeline resources (config_git_set, config_git_remove)
 - Deploy to cluster

@@ -11,13 +11,13 @@ After executing `npm install`, you can run this function locally by executing
 
 The runtime will expose three endpoints.
 
-  * `/` The endpoint for your function.
-  * `/health/readiness` The endpoint for a readiness health check
-  * `/health/liveness` The endpoint for a liveness health check
+- `/` The endpoint for your function.
+- `/health/readiness` The endpoint for a readiness health check
+- `/health/liveness` The endpoint for a liveness health check
 
 The health checks can be accessed in your browser at
-[http://localhost:8080/health/readiness]() and
-[http://localhost:8080/health/liveness](). You can use `curl` to `POST` an event
+[http://localhost:8080/health/readiness](<>) and
+[http://localhost:8080/health/liveness](<>). You can use `curl` to `POST` an event
 to the function endpoint:
 
 ```console
@@ -83,8 +83,10 @@ interface CloudEventFunction {
 Where the return type is defined as:
 
 ```typescript
-type CloudEventFunctionReturn = Promise<CloudEvent> | CloudEvent | HTTPFunctionReturn;
-type HTTPFunctionReturn = Promise<StructuredReturn> | StructuredReturn | ResponseBody | void;
+type CloudEventFunctionReturn =
+  Promise<CloudEvent> | CloudEvent | HTTPFunctionReturn;
+type HTTPFunctionReturn =
+  Promise<StructuredReturn> | StructuredReturn | ResponseBody | void;
 ```
 
 The function return type can be anything that a simple HTTP function can return or a CloudEvent. Whatever is returned, it will be sent back to the caller as a response.

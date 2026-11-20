@@ -5,6 +5,7 @@ Developers can integrate directly with the function system using the client libr
 ## Using the Client Library
 
 To create a Client which uses the included buildpacks-based function builder, pushes to a Quay.io registry function container artifacts and deploys to a Knative enabled cluster:
+
 ```go
 package main
 
@@ -57,4 +58,3 @@ block in `func.yaml`). On deploy, a language-agnostic runtime sidecar is injecte
 to consume the topic and deliver each record to the function as a CloudEvent. See
 [Kafka functions](kafka-functions/README.md) for the concepts, configuration, and
 guides, and [`run.kafka`](reference/func_yaml.md#runkafka) for the full schema.
-

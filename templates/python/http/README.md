@@ -14,6 +14,7 @@ Kubernetes cluster with Knative installed.
 
 Python functions must implement a `new()` method that returns a function
 instance. The function class can optionally implement:
+
 - `handle()` - Process HTTP requests
 - `start()` - Initialize the function with configuration
 - `stop()` - Clean up resources when the function stops
@@ -47,4 +48,3 @@ before deployment. Subsequent deployments will update the existing function.
 ## Roadmap
 
 Our project roadmap can be found: https://github.com/orgs/knative/projects/49
-
