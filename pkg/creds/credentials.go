@@ -355,7 +355,7 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 				// This shouldn't be fatal error.
 				if strings.Contains(err.Error(), "not implemented") {
 					fmt.Fprintf(os.Stderr, "the cred-helper does not support write operation (consider changing the cred-helper it in auth.json)\n")
-					return oci.Credentials{}, nil
+					return result, nil
 				}
 
 				if !errors.Is(err, errNoCredentialHelperConfigured) {
@@ -377,7 +377,7 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 					// This shouldn't be fatal error.
 					if strings.Contains(err.Error(), "not implemented") {
 						fmt.Fprintf(os.Stderr, "the cred-helper does not support write operation (consider changing the cred-helper it in auth.json)\n")
-						return oci.Credentials{}, nil
+						return result, nil
 					}
 
 					if !errors.Is(err, errNoCredentialHelperConfigured) {
