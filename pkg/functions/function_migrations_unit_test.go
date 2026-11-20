@@ -578,12 +578,12 @@ deploy:
 		}
 	})
 
-	t.Run("deploy.deployer/deploy.expose survive migration without becoming intent", func(t *testing.T) {
+	t.Run("deploy.deployer/deploy.expose survive migration; intent recovered by the deployer-intent migration", func(t *testing.T) {
 		// A pre-#3953 legacy file recorded the deployer only under the old
 		// deploy.deployer key. Those observed-state fields must survive the
-		// migration, but it must NOT promote the legacy value to f.Deployer
-		// (intent) -- that recovery was removed as an unrelated, pre-existing
-		// concern (see the follow-up ticket).
+		// migration, and the deployer-intent migration (#4054) promotes the
+		// legacy value to f.Deployer (intent) so a later delete-then-redeploy
+		// no longer falls back to the default deployer.
 		migrated := newFn(t, `specVersion: "0.36.0"
 name: testfn
 runtime: go
@@ -597,17 +597,16 @@ deploy:
 		if migrated.Deploy.Expose != "route" {
 			t.Errorf("Deploy.Expose = %q, want route", migrated.Deploy.Expose)
 		}
-		// Intent is left empty: the migration no longer recovers the legacy
-		// deploy.deployer value as f.Deployer.
-		if migrated.Deployer != "" {
-			t.Errorf("Deployer = %q, want empty (legacy intent recovery removed)", migrated.Deployer)
+		// Intent is recovered from the legacy observed field.
+		if migrated.Deployer != "keda" {
+			t.Errorf("Deployer = %q, want keda (legacy intent recovered)", migrated.Deployer)
 		}
 	})
 
-	t.Run("migration never touches f.Deployer intent", func(t *testing.T) {
-		// The migration must leave the intent field exactly as it was loaded --
-		// it neither invents intent from the legacy observed field nor overrides
-		// an already-present one.
+	t.Run("migration never overrides an explicitly recorded f.Deployer intent", func(t *testing.T) {
+		// The migration must leave an already-present intent field exactly as
+		// it was loaded -- it only fills in missing intent, never overriding
+		// an explicit one.
 		migrated := newFn(t, `specVersion: "0.36.0"
 name: testfn
 runtime: go
@@ -677,6 +676,110 @@ func TestMigrateToRecordedDeployer(t *testing.T) {
 		}
 		if f.Deploy.Deployer != deployers.Knative {
 			t.Fatalf("expected deploy.deployer %q, got %q", deployers.Knative, f.Deploy.Deployer)
+		}
+	})
+}
+
+// TestMigrateDeployerIntent covers issue #4054: a legacy pre-#3953 func.yaml
+// which recorded the deployer only under deploy.deployer must have that value
+// promoted to the top-level deployer intent, so that a later func delete
+// (which clears the observed Deploy.Deployer) no longer drops the deployer
+// and the next deploy falls back to the default. Drives the real load path
+// via NewFunction, like TestMigrateScaleToTopLevel.
+func TestMigrateDeployerIntent(t *testing.T) {
+	newFn := func(t *testing.T, funcYaml string) Function {
+		t.Helper()
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, FunctionFile), []byte(funcYaml), 0644); err != nil {
+			t.Fatal(err)
+		}
+		f, err := NewFunction(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+
+	t.Run("0.39.0 file recovers intent on direct upgrade", func(t *testing.T) {
+		// Direct upgrade from the immediately preceding schema version:
+		// only the 0.40.0 deployer-intent migration applies.
+		migrated := newFn(t, `specVersion: "0.39.0"
+name: testfn
+runtime: go
+created: 2024-01-01T00:00:00Z
+deploy:
+  deployer: keda
+`)
+		if migrated.Deployer != "keda" {
+			t.Errorf("Deployer = %q, want keda", migrated.Deployer)
+		}
+		if migrated.Deploy.Deployer != "keda" {
+			t.Errorf("Deploy.Deployer = %q, want keda (observed state untouched)", migrated.Deploy.Deployer)
+		}
+		if migrated.SpecVersion != LastSpecVersion() {
+			t.Errorf("SpecVersion = %q, want %q", migrated.SpecVersion, LastSpecVersion())
+		}
+	})
+
+	t.Run("0.36.0 legacy file recovers intent", func(t *testing.T) {
+		migrated := newFn(t, `specVersion: "0.36.0"
+name: testfn
+runtime: go
+created: 2024-01-01T00:00:00Z
+deploy:
+  deployer: keda
+`)
+		if migrated.Deployer != "keda" {
+			t.Errorf("Deployer = %q, want keda", migrated.Deployer)
+		}
+		if migrated.Deploy.Deployer != "keda" {
+			t.Errorf("Deploy.Deployer = %q, want keda (observed state untouched)", migrated.Deploy.Deployer)
+		}
+		if migrated.SpecVersion != LastSpecVersion() {
+			t.Errorf("SpecVersion = %q, want %q", migrated.SpecVersion, LastSpecVersion())
+		}
+	})
+
+	t.Run("explicit top-level deployer wins", func(t *testing.T) {
+		migrated := newFn(t, `specVersion: "0.38.0"
+name: testfn
+runtime: go
+created: 2024-01-01T00:00:00Z
+deployer: raw
+deploy:
+  deployer: keda
+`)
+		if migrated.Deployer != "raw" {
+			t.Errorf("Deployer = %q, want raw (explicit intent must win)", migrated.Deployer)
+		}
+		if migrated.Deploy.Deployer != "keda" {
+			t.Errorf("Deploy.Deployer = %q, want keda", migrated.Deploy.Deployer)
+		}
+	})
+
+	t.Run("namespace without a deployer recovers knative intent", func(t *testing.T) {
+		// The 0.39.0 migration records knative as the deployer, which this
+		// migration then keeps as the intent.
+		migrated := newFn(t, `specVersion: "0.38.0"
+name: testfn
+runtime: go
+created: 2024-01-01T00:00:00Z
+deploy:
+  namespace: ns
+`)
+		if migrated.Deployer != deployers.Knative {
+			t.Errorf("Deployer = %q, want %q", migrated.Deployer, deployers.Knative)
+		}
+	})
+
+	t.Run("no deployer anywhere stays empty", func(t *testing.T) {
+		migrated := newFn(t, `specVersion: "0.38.0"
+name: testfn
+runtime: go
+created: 2024-01-01T00:00:00Z
+`)
+		if migrated.Deployer != "" {
+			t.Errorf("Deployer = %q, want empty", migrated.Deployer)
 		}
 	})
 }
