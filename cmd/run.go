@@ -266,8 +266,10 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return wrapRunError(err, cfg.Address)
 	}
 	defer func() {
-		if err = job.Stop(); err != nil {
-			fmt.Fprintf(cmd.OutOrStderr(), "Job stop error. %v", err)
+		// Not assigned to err: that would discard the runtime error that ended
+		// the run (see job.Errors below).
+		if stopErr := job.Stop(); stopErr != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "Job stop error. %v", stopErr)
 		}
 	}()
 

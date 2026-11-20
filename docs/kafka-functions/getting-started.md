@@ -106,6 +106,11 @@ run:
       password: "{{ secret:kafka-credentials:password }}"
 ```
 
+Alternatively, `{{ env:NAME }}` reads a credential from the environment `func` runs
+in, as for `run.envs`. `func run` resolves it when it starts the function locally,
+and `func deploy` resolves it at deploy time and sets the value on the sidecar
+directly, so it is not kept in a Secret on the cluster.
+
 Create the referenced Secrets in the function's namespace beforehand (pass the same
 `-n <namespace>` you deploy into, since these commands otherwise target your current
 `kubectl` namespace), for example:

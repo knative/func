@@ -266,7 +266,8 @@ func buildTriggerAuth(f fn.Function, deployment *v1.Deployment, namespace string
 			})
 		} else {
 			// Plaintext value: ends up as a literal KAFKA_SASL_PASSWORD env var
-			// on the Kafka runtime sidecar. A {{ configMap:... }} reference
+			// on the Kafka runtime sidecar, as does a {{ env:NAME }} reference,
+			// resolved at deploy time. A {{ configMap:... }} reference
 			// ends up as a KAFKA_SASL_PASSWORD env var too, but backed by a
 			// ConfigMapKeyRef instead of a literal value (see
 			// appendKafkaEnvValue in pkg/k8s/deployer.go). Either way the env

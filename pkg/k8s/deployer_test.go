@@ -1108,6 +1108,49 @@ func TestAppendKafkaDeliveryEnvs_OmitsUnsetFields(t *testing.T) {
 	}
 }
 
+// TestAppendKafkaEnvs_EnvRefCredentials ensures a {{ env:NAME }} SASL
+// credential is resolved from the environment func runs in into a literal
+// sidecar env var, as run.envs references are, and that an unset variable is an
+// error naming the field.
+func TestAppendKafkaEnvs_EnvRefCredentials(t *testing.T) {
+	t.Setenv("FUNC_TEST_KAFKA_USER", "env-user")
+	t.Setenv("FUNC_TEST_KAFKA_PASSWORD", "env-pass")
+	kafka := &fn.KafkaConfig{
+		Brokers:          "b:9092",
+		Topic:            "t",
+		ConsumerGroup:    "g",
+		SecurityProtocol: "SASL_SSL",
+		SASL:             &fn.KafkaSASL{User: "{{ env:FUNC_TEST_KAFKA_USER }}", Password: "{{env:FUNC_TEST_KAFKA_PASSWORD}}"},
+	}
+	secrets := sets.New[string]()
+	configMaps := sets.New[string]()
+	got, err := AppendKafkaEnvs(nil, kafka, &secrets, &configMaps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"KAFKA_SASL_USER": "env-user", "KAFKA_SASL_PASSWORD": "env-pass"}
+	for _, e := range got {
+		if v, ok := want[e.Name]; ok {
+			if e.ValueFrom != nil || e.Value != v {
+				t.Errorf("%s = %+v, want the literal value %q", e.Name, e, v)
+			}
+			delete(want, e.Name)
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("missing env vars %v", want)
+	}
+	if secrets.Len() != 0 || configMaps.Len() != 0 {
+		t.Errorf("an env reference must not reference cluster resources, got secrets %v, configMaps %v", secrets, configMaps)
+	}
+
+	kafka.SASL.Password = "{{ env:FUNC_TEST_KAFKA_UNSET }}"
+	if _, err := AppendKafkaEnvs(nil, kafka, &secrets, &configMaps); err == nil ||
+		!strings.Contains(err.Error(), "run.kafka.sasl.password") || !strings.Contains(err.Error(), "FUNC_TEST_KAFKA_UNSET") {
+		t.Fatalf("expected an error naming the field and the unset variable, got %v", err)
+	}
+}
+
 func TestAppendKafkaEnvs_MissingBrokers(t *testing.T) {
 	base := []corev1.EnvVar{
 		{Name: "EXISTING", Value: "value"},

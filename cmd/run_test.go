@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -515,6 +516,38 @@ func TestRun_Address(t *testing.T) {
 	<-ctx.Done()
 	if err := <-runErrCh; err != nil { // wait for completion of assertions
 		t.Fatal(err)
+	}
+}
+
+// TestRun_RuntimeError ensures an error reported by the running job (the
+// function, or the Kafka runtime beside it, exiting) ends the run with that
+// error, after stopping the job, rather than as a success.
+func TestRun_RuntimeError(t *testing.T) {
+	root := FromTempDirectory(t)
+	if _, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"}); err != nil {
+		t.Fatal(err)
+	}
+
+	runtimeErr := errors.New("exited unexpectedly")
+	stopped := false
+	runner := mock.NewRunner()
+	runner.RunFn = func(_ context.Context, f fn.Function, _ string, _ time.Duration) (*fn.Job, error) {
+		errs := make(chan error, 1)
+		errs <- runtimeErr
+		stop := func() error { stopped = true; return nil }
+		return fn.NewJob(f, "127.0.0.1", "8080", errs, stop, false)
+	}
+
+	cmd := NewRunCmd(NewTestClient(
+		fn.WithRunner(runner),
+		fn.WithRegistry("ghcr.com/reg"),
+	))
+	cmd.SetArgs([]string{})
+	if err := cmd.ExecuteContext(t.Context()); !errors.Is(err, runtimeErr) {
+		t.Fatalf("expected the run to fail with the runtime error, got %v", err)
+	}
+	if !stopped {
+		t.Fatal("the job was not stopped")
 	}
 }
 

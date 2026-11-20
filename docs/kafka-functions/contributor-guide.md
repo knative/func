@@ -53,10 +53,17 @@ with `FUNC_KAFKA_RUNTIME_IMAGE` and run the end-to-end walkthrough below.
 
 ## Image pin and release lockstep
 
-`func` pins the **released** adapter tag, not a nightly, so a given `func` build
-always runs a known runtime. When a new adapter version is released, bump
-`DefaultKafkaRuntimeImage` in a follow-up `func` change; the override above is for
-testing before that bump lands, not a substitute for it.
+`func` pins the **released** adapter version, not a nightly, so a given `func` build
+always runs a known runtime. The version is `kafkaruntime.Version` in
+`pkg/kafkaruntime/kafkaruntime.go`: it builds `DefaultKafkaRuntimeImage` and selects
+the binary embedded for local `func run`, so the sidecar and local runs always use
+the same runtime. When a new adapter version is released, bump that constant in a
+follow-up `func` change; the override above is for testing before that bump lands,
+not a substitute for it.
+
+Overriding the image (`FUNC_KAFKA_RUNTIME_IMAGE`, or `-X` at build time) does not
+change the binary used by local runs; for those, see
+[Testing a local run](#testing-a-local-run).
 
 ## Testing end to end
 
@@ -257,11 +264,27 @@ and `sasl.*` in `run.kafka` with the CA mounted via `run.volumes` — see
 
 If something doesn't work, see [troubleshooting.md](troubleshooting.md).
 
-## Local sub-process mode (in progress)
+## Testing a local run
 
-A local mode that runs the adapter as a sub-process beside `func run` — so a
-locally-run function can consume from a real broker without a cluster — is being
-prototyped. It is tracked in
-[knative/func#4124](https://github.com/knative/func/issues/4124).
+`func run` runs the adapter as a process beside the function (see
+[local-development.md](local-development.md) and
+[architecture.md](architecture.md#local-runs)). `make build` (and the
+cross-platform targets) build the pinned adapter for the target platform with
+`hack/kafka-runtime.sh` and embed it; a plain `go build` embeds none, and `func run`
+then warns that records will not be delivered.
+
+To run a **locally-built adapter** instead, point `FUNC_KAFKA_RUNTIME_BINARY` at it:
+
+```bash
+# in a func-adapter-kafka checkout
+CGO_ENABLED=0 go build -o /tmp/fkafka-runtime ./cmd/fkafka-runtime
+
+# in the function's directory
+FUNC_KAFKA_RUNTIME_BINARY=/tmp/fkafka-runtime func run
+```
+
+Any broker reachable from your machine works, for example a single-node broker in
+a local container listening on `localhost:9092`, with `run.kafka.brokers` set to
+that address.
 
 [adapter]: https://github.com/knative-extensions/func-adapter-kafka

@@ -1,0 +1,2 @@
+# Built by hack/kafka-runtime.sh (git-ignored); this file keeps the directory,
+# and so the //go:embed in embed_linux_amd64.go, resolvable without it.

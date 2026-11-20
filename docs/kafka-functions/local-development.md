@@ -1,38 +1,86 @@
 # Local development
 
-This page covers how to develop and test a Kafka function on your machine, and what
-is and isn't available locally today.
+This page covers how to develop and test a Kafka function on your machine.
 
 ## What runs locally
 
-`func run` starts your function locally as a plain CloudEvents-over-HTTP server. The
-**Kafka runtime sidecar is not part of a local run**, so the managed sidecar
-delivery path does not run locally — for most languages this means a locally-run
-function does **not** connect to a broker or consume any topic, and `run.kafka`'s
-sidecar wiring only takes effect when the function is deployed to a cluster.
+When `run.kafka` is fully configured (brokers, topic and consumer group), `func run`
+starts the **Kafka runtime** as a process next to your function. It is the same
+program, at the same version, that runs as the sidecar when the function is deployed:
+it consumes the topic and POSTs each record to the function as a CloudEvent,
+committing the offset only on a `2xx`, with the same `run.kafka.delivery` retry,
+backoff and timeout settings. Your function runs as a plain CloudEvents-over-HTTP
+server, exactly as it does on the cluster. This works the same for every language,
+whether the function runs as a host process (`--builder host`) or in a container.
 
-> **Go is an exception.** Go functions still carry the legacy in-process Kafka
-> consumer. When `run.kafka` is fully configured, `func run` sets
-> `FUNC_TRANSPORT=kafka` (plus `KAFKA_*`) and the Go scaffold connects **directly** to
-> the broker and consumes the topic in-process — so a Go local run *does* talk to
-> Kafka if the broker is reachable (and if it is **not** reachable, `func run` never
-> becomes ready and eventually fails with a timeout). This path is being retired in
-> favor of the sidecar.
->
-> One consequence: while `run.kafka` is set, the in-process Kafka server registers
-> only `/health/readiness` and `/health/liveness` — **not** `/`. So the `func invoke`
-> approach below does **not** reach a Go handler (the POST to `/` returns 404, even
-> though `func invoke` may still report success). To exercise a Go handler with
-> `func invoke`, temporarily remove `run.kafka` from `func.yaml` so `func run` starts
-> a plain CloudEvents HTTP server — or just test the handler with an ordinary Go test.
-> For every **other** language `func run` always starts the plain HTTP server, so
-> `func invoke` works as described.
+`func run` reports the function running only once the runtime has joined the consumer
+group and been assigned partitions. If the broker is unreachable, the topic does not
+exist or the credentials are rejected, `func run` fails with the runtime's error
+rather than starting a function that silently receives nothing. The runtime's output
+is shown in the `func run` output prefixed with `[kafka]`, and it stops with the
+function. If `func run` itself is killed without a chance to stop it (for example
+with `kill -9`), the runtime keeps running; the next `func run` of the function
+stops it before starting a new one.
 
-That is fine for most development, because your function's job is simply to handle a
-CloudEvent. You can exercise that logic locally by sending it a CloudEvent shaped
-like one the runtime would deliver.
+```console
+$ func run
+...
+[kafka] {"level":"info","brokers":["localhost:9092"],"topic":"orders","group":"orders-dev","message":"connecting to kafka"}
+[kafka] {"level":"info","message":"kafka consumer ready (partitions assigned)"}
+Function running on 127.0.0.1:8080
+```
+
+### Configuring a local run
+
+`func run` uses the `run.kafka` block from `func.yaml` as it is, so check it makes
+sense from your machine:
+
+- **Brokers** must be reachable from your machine. An in-cluster address such as
+  `my-cluster-kafka-bootstrap.kafka:9092` is not; point at a broker you can reach,
+  for example a single-node broker in a local container.
+- **Consumer group.** The local runtime joins `run.kafka.consumerGroup`. If the
+  function is also deployed against the same broker, the local run joins the same
+  group and takes over some of its partitions while it runs. A group with no
+  committed offsets starts at the end of the topic, so only records produced after
+  `func run` reports the function running are delivered to a new group.
+- **TLS files** (`tls.caCert`, `tls.clientCert`, `tls.clientKey`) are read by the
+  runtime from your machine's filesystem, so for a local run they must be paths on
+  your machine. (Deployed, they are paths inside the sidecar, mounted from
+  `run.volumes`.)
+- **SASL credentials** given as `{{ env:NAME }}` are read from your shell's
+  environment (an unset variable is an error), and inline values are used as is. A
+  `{{ secret:name:key }}` or `{{ configMap:name:key }}` reference names a cluster
+  resource that `func run` cannot read: it is passed to the runtime verbatim, so
+  authentication fails, and `func run` warns about it beforehand. For a local run
+  against a SASL-secured broker, use `{{ env:NAME }}`:
+
+  ```yaml
+  sasl:
+    mechanism: SCRAM-SHA-512
+    user: "{{ env:KAFKA_USER }}"
+    password: "{{ env:KAFKA_PASSWORD }}"
+  ```
+
+  `func deploy` resolves these the same way, from the environment it runs in, and
+  sets the values on the sidecar directly rather than reading them from a Secret.
+
+### Where the runtime comes from
+
+`func` release builds for macOS, Linux and Windows on amd64 and arm64 include the
+runtime and extract it on first use into `kafka-runtime/<version>/` under func's
+config directory (`~/.config/func`, or `$XDG_CONFIG_HOME/func`). On other platforms,
+or with a `func` built without it (for example with a plain `go build`), `func run`
+warns that records will not be delivered and runs the function alone. To use a
+runtime binary of your own instead — on such a platform, or to test a locally built
+runtime — set `FUNC_KAFKA_RUNTIME_BINARY` to the path of an `fkafka-runtime` binary
+built from [func-adapter-kafka](https://github.com/knative-extensions/func-adapter-kafka).
 
 ## Exercising the handler with `func invoke`
+
+You can also drive your handler directly, without producing to Kafka, by sending it
+a CloudEvent shaped like one the runtime delivers. (Without a reachable broker,
+remove `run.kafka` from `func.yaml` while you do this, since `func run` fails when
+it cannot start the runtime.)
 
 Run the function in one terminal:
 
@@ -85,17 +133,8 @@ func invoke \
   --data '{"orderId":"123","total":42}'
 ```
 
-## Testing against a real broker
+## Testing on a cluster
 
-To exercise the full path — real consumption, offset commits, retries, scaling —
-deploy to a cluster. See the
-[contributor guide](contributor-guide.md#testing-end-to-end) for a complete local
-kind + Strimzi walkthrough.
-
-## Planned: local sub-process mode
-
-A local mode that runs the actual Kafka runtime as a sub-process alongside
-`func run` — so a locally-run function can consume from a real broker without a
-cluster — is planned and tracked in
-[knative/func#4124](https://github.com/knative/func/issues/4124). Until it ships,
-use `func invoke` for handler logic and a cluster deploy for real Kafka.
+Consumer-lag autoscaling, and the deployed setup as a whole, can only be exercised
+on a cluster. See the [contributor guide](contributor-guide.md#testing-end-to-end)
+for a complete local kind + Strimzi walkthrough.

@@ -90,8 +90,11 @@ deployer rejects `run.kafka`. Key pieces:
   a slow-starting function doesn't restart-loop the sidecar before it connects.
 - **Config → env.** `AppendKafkaEnvs` maps `run.kafka` connection fields to
   `KAFKA_*` env vars, and `AppendKafkaDeliveryEnvs` maps `run.kafka.delivery` to
-  `FUNCTION_DELIVERY_*` / `FUNCTION_REQUEST_TIMEOUT`. **These land on the sidecar,
-  not the function container** — the function stays plain.
+  `FUNCTION_DELIVERY_*` / `FUNCTION_REQUEST_TIMEOUT`. Both are built on
+  `KafkaConnectionEnvs` / `KafkaDeliveryEnvs` (`pkg/functions/kafka_runtime_env.go`),
+  the single mapping from `run.kafka` to the runtime's environment, which local runs
+  use as well. **These land on the sidecar, not the function container** — the
+  function stays plain.
 - **Credentials.** TLS certificate volumes (for `tls.caCert` etc.) are mounted into
   the sidecar only, never exposed to the user container.
 - **Scaling (keda).** The keda deployer additionally creates the KEDA `ScaledObject`
@@ -107,23 +110,51 @@ deployer rejects `run.kafka`. Key pieces:
   record→CloudEvent conversion, delivery with retry/backoff/timeout, and offset
   commits. Look there for the runtime internals and the exact conversion rules.
 
+## Local runs
+
+`func run` has no Pod to put a sidecar in, so it runs the same runtime as a
+**process** next to the function (`pkg/functions/runner_kafka.go`). `Client.Run`
+starts it once the runner reports the function ready, so it serves every runner
+alike: the host runner's function process and the container runner's published
+port.
+
+- **Binary.** The runtime is built from the module version pinned by
+  `kafkaruntime.Version` (`pkg/kafkaruntime`) and embedded into the `func` binary per
+  platform (`hack/kafka-runtime.sh`, run by the Makefile build targets), then
+  extracted on first use into func's config directory. The same constant builds
+  `DefaultKafkaRuntimeImage`, so a local run and a deployed function use the same
+  runtime version. `FUNC_KAFKA_RUNTIME_BINARY` overrides the embedded binary.
+- **Config → env.** The same `KafkaConnectionEnvs` / `KafkaDeliveryEnvs` mapping as
+  the sidecar, so the runtime gets the same variables locally and deployed.
+  `FUNCTION_TARGET` is the function's local address and `LISTEN_ADDRESS` a free
+  loopback port for the runtime's health endpoints. Inherited `KAFKA_*` /
+  `FUNCTION_*` runtime settings from the user's shell are dropped, so `run.kafka`
+  alone configures it, as on the cluster. SASL `{{ env:NAME }}` references are
+  resolved from the local environment; `{{ secret:... }}` / `{{ configMap:... }}`
+  references cannot be resolved locally and are passed through with a warning.
+- **Lifecycle.** `func run` waits for the runtime's `/health/readiness` (ready once
+  partitions are assigned) within the start timeout, and fails at once if the
+  runtime exits first. An unexpected exit afterwards ends the run like a function
+  crash. Stopping the run stops the runtime before the function. While it runs,
+  the runtime is recorded in the function's `.func/runs/` directory with the PID of
+  the `func` process that started it; the next `func run` stops a recorded runtime
+  whose `func` process is gone (killed before it could stop it), after checking the
+  PID still runs the recorded executable.
+
 ## The retired in-process path
 
 Earlier, Kafka was handled in-process by language-specific middleware (a `kafka`
 template, `invoke: kafka` scaffolding, and lifecycle hooks generated into the
-function). That approach required per-language implementations and is **retired for cluster
-deployment** in favor of the sidecar, which works for any language with no
-function-side Kafka code. One remnant persists locally: the Go scaffold still
-carries the in-process consumer, and `func run` sets `FUNC_TRANSPORT=kafka` (plus
-`KAFKA_*`) for a fully configured `run.kafka` (`pkg/functions/runner.go`), so a local
-Go run still connects to the broker and consumes directly — see
-[local-development.md](local-development.md#what-runs-locally). New work should target
-the sidecar model only.
+function). That approach required per-language implementations and is retired in
+favor of the runtime, which works for any language with no function-side Kafka code:
+as the sidecar on the cluster, and as a process beside the function in a local run
+(see [Local runs](#local-runs)). The Go scaffolding no longer contains the
+in-process consumer, and `func run` no longer sets `FUNC_TRANSPORT=kafka` or any
+`KAFKA_*` variable on the function. New work should target the runtime model only.
 
 ## Future direction
 
 Planned and possible extensions — dead-letter routing, producing/replying to
 Kafka, batch delivery, pluggable deserialization, CloudEvent format detection,
-in-function concurrency control, a local sub-process mode
-([knative/func#4124](https://github.com/knative/func/issues/4124)), and runtime
-metrics/observability — are tracked in the adapter repo and its issues.
+in-function concurrency control, and runtime metrics/observability — are tracked
+in the adapter repo and its issues.

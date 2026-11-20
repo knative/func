@@ -266,8 +266,8 @@ scaling, idempotency, and troubleshooting, see
   - `skipVerify`: skip broker certificate verification (development only).
 - `sasl`: SASL configuration, required for `SASL_PLAINTEXT` and `SASL_SSL`.
   - `mechanism`: one of `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`. Optional; defaults to `PLAIN` when unset.
-  - `user`: SASL username. Supports `{{ secret:name:key }}` and `{{ configMap:name:key }}` syntax, or a plain value.
-  - `password`: SASL password. Supports `{{ secret:name:key }}` and `{{ configMap:name:key }}` syntax, or a plain value (at least for debugging purposes).
+  - `user`: SASL username. Supports `{{ secret:name:key }}` and `{{ configMap:name:key }}` syntax, `{{ env:NAME }}` (read from the environment `func` runs in, as for `envs`), or a plain value.
+  - `password`: SASL password. Supports `{{ secret:name:key }}` and `{{ configMap:name:key }}` syntax, `{{ env:NAME }}` (read from the environment `func` runs in, as for `envs`), or a plain value (at least for debugging purposes).
 - `delivery`: tunes how the runtime delivers each consumed record to the function. Optional; every field is optional and falls back to the runtime default (see [Delivery tuning](#delivery-tuning) below).
 
 ```yaml

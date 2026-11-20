@@ -460,11 +460,11 @@
 				},
 				"user": {
 					"type": "string",
-					"description": "SASL username. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"
+					"description": "SASL username. Supports {{ secret:name:key }} and {{ configMap:name:key }} references to the cluster and {{ env:NAME }} references to the local environment"
 				},
 				"password": {
 					"type": "string",
-					"description": "SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} syntax"
+					"description": "SASL password. Supports {{ secret:name:key }} and {{ configMap:name:key }} references to the cluster and {{ env:NAME }} references to the local environment"
 				}
 			},
 			"additionalProperties": false,

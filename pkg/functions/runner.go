@@ -80,8 +80,11 @@ func (r *defaultRunner) Run(ctx context.Context, f Function, address string, sta
 		return
 	}
 
-	// Wait for it to become available before returning the metadata.
-	err = waitFor(ctx, job, startTimeout)
+	// Wait for it to become available before returning the metadata, stopping
+	// it rather than leaving it running if it does not.
+	if err = waitFor(ctx, job, startTimeout); err != nil {
+		_ = job.Stop()
+	}
 	return
 }
 
@@ -165,6 +168,7 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	if job.verbose {
 		fmt.Printf("cd %v && PORT=%v %v\n", job.Function.Root, job.Port, bin)
 	}
+	ctx, cancel := context.WithCancel(ctx)
 	cmd = exec.CommandContext(ctx, bin)
 	cmd.Dir = job.Function.Root
 	cmd.Stdout = os.Stdout
@@ -185,14 +189,13 @@ func runGo(ctx context.Context, job *Job) (err error) {
 		"PWD":            cmd.Dir,
 	})
 	if err != nil {
+		cancel()
 		return fmt.Errorf("error building runner environment: %w", err)
 	}
 
 	// Running asynchronously allows for the client Run method to return
 	// metadata about the running function such as its chosen port.
-	go func() {
-		job.Errors <- cmd.Run()
-	}()
+	runFunctionProcess(job, cmd, cancel)
 	return
 }
 
@@ -249,6 +252,7 @@ func runPython(ctx context.Context, job *Job) (err error) {
 	if job.verbose {
 		fmt.Printf("PORT=%v LISTEN_ADDRESS=%v ./.venv/bin/python ./service/main.py\n", job.Port, listenAddress)
 	}
+	ctx, cancel := context.WithCancel(ctx)
 	cmd = exec.CommandContext(ctx, "./.venv/bin/python", "./service/main.py")
 	// cmd.Dir = job.Function.Root // handled by the middleware
 	cmd.Dir = job.Dir()
@@ -269,14 +273,13 @@ func runPython(ctx context.Context, job *Job) (err error) {
 		"PWD":            cmd.Dir,
 	})
 	if err != nil {
+		cancel()
 		return fmt.Errorf("error building runner environment: %w", err)
 	}
 
 	// Running asynchronously allows for the client Run method to return
 	// metadata about the running function such as its chosen port.
-	go func() {
-		job.Errors <- cmd.Run()
-	}()
+	runFunctionProcess(job, cmd, cancel)
 
 	// TODO(enhancement):  context cancellation such that we can both
 	// signal the running command process to complete (thus triggering the
@@ -285,6 +288,25 @@ func runPython(ctx context.Context, job *Job) (err error) {
 	// creating a racing condition.
 
 	return
+}
+
+// runFunctionProcess runs the function process cmd asynchronously, reporting
+// its exit on job.Errors, and makes stopping the job stop it: cancel, which
+// must cancel cmd's context, interrupts it, and the stop waits for it to exit
+// (it is killed after cmd.WaitDelay). Stopping must not rely on the run's
+// context being canceled: func exits without canceling it when a run fails.
+func runFunctionProcess(job *Job, cmd *exec.Cmd, cancel context.CancelFunc) {
+	exited := make(chan struct{})
+	go func() {
+		err := cmd.Run()
+		close(exited)
+		job.Errors <- err
+	}()
+	job.onStop = func() error {
+		cancel()
+		<-exited
+		return nil
+	}
 }
 
 // buildRunnerEnv constructs the environment for a host-run subprocess.
@@ -305,43 +327,6 @@ func buildRunnerEnv(job *Job, extras map[string]string) ([]string, error) {
 	}
 	for k, v := range funcEnvs {
 		env = append(env, k+"="+v)
-	}
-
-	if k := job.Function.Run.Kafka; k != nil && k.Brokers != "" && k.Topic != "" && k.ConsumerGroup != "" {
-		env = append(env,
-			"FUNC_TRANSPORT=kafka",
-			"KAFKA_BROKERS="+k.Brokers,
-			"KAFKA_TOPIC="+k.Topic,
-			"KAFKA_CONSUMER_GROUP="+k.ConsumerGroup,
-		)
-		if k.SecurityProtocol != "" {
-			env = append(env, "KAFKA_SECURITY_PROTOCOL="+k.SecurityProtocol)
-		}
-		if k.TLS != nil {
-			if k.TLS.CACert != "" {
-				env = append(env, "KAFKA_TLS_CA_CERT="+k.TLS.CACert)
-			}
-			if k.TLS.ClientCert != "" {
-				env = append(env, "KAFKA_TLS_CLIENT_CERT="+k.TLS.ClientCert)
-			}
-			if k.TLS.ClientKey != "" {
-				env = append(env, "KAFKA_TLS_CLIENT_KEY="+k.TLS.ClientKey)
-			}
-			if k.TLS.SkipVerify {
-				env = append(env, "KAFKA_TLS_SKIP_VERIFY=true")
-			} else {
-				env = append(env, "KAFKA_TLS_SKIP_VERIFY=false")
-			}
-		}
-		if k.SASL != nil {
-			env = append(env, "KAFKA_SASL_MECHANISM="+k.SASL.EffectiveMechanism())
-			if k.SASL.User != "" {
-				env = append(env, "KAFKA_SASL_USER="+k.SASL.User)
-			}
-			if k.SASL.Password != "" {
-				env = append(env, "KAFKA_SASL_PASSWORD="+k.SASL.Password)
-			}
-		}
 	}
 
 	return env, nil

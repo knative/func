@@ -84,7 +84,12 @@ build: $(BIN) ## (default) Build binary for current OS
 
 .PHONY: $(BIN)
 $(BIN): generate/zz_filesystem_generated.go
+	./hack/kafka-runtime.sh
 	env CGO_ENABLED=0 go build ./cmd/$(BIN)
+
+.PHONY: kafka-runtime
+kafka-runtime: ## Build the pinned Kafka runtime embedded for local `func run` (current OS)
+	./hack/kafka-runtime.sh
 
 .PHONY: test
 test: generate/zz_filesystem_generated.go ## Run core unit tests
@@ -205,6 +210,7 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 	rm -f $(BIN_GOLANGCI_LINT)
 	rm -f schema/func_yaml-schema.json
 	rm -f coverage.txt
+	rm -f pkg/kafkaruntime/bin/*/fkafka-runtime* pkg/kafkaruntime/bin/*/VERSION
 
 .PHONY: docs
 docs:
@@ -374,6 +380,7 @@ test-full-logged: func-instrumented-bin ## Run full test and log with timestamps
 
 .PHONY: func-instrumented-bin
 func-instrumented-bin: # func binary instrumented with coverage reporting
+	./hack/kafka-runtime.sh
 	env CGO_ENABLED=1 go build -cover -o func ./cmd/$(BIN)
 
 
@@ -395,42 +402,49 @@ func-utils-image: ## Print the func-utils image reference builds embed
 darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1
 
 $(BIN_DARWIN_ARM64): generate/zz_filesystem_generated.go
+	./hack/kafka-runtime.sh darwin arm64
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: darwn-amd64
 darwin-amd64: $(BIN_DARWIN_AMD64) ## Build for Darwin (macOS)
 
 $(BIN_DARWIN_AMD64): generate/zz_filesystem_generated.go
+	./hack/kafka-runtime.sh darwin amd64
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: linux-amd64
 linux-amd64: $(BIN_LINUX_AMD64) ## Build for Linux amd64
 
 $(BIN_LINUX_AMD64): generate/zz_filesystem_generated.go
+	./hack/kafka-runtime.sh linux amd64
 	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_LINUX_AMD64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: linux-arm64
 linux-arm64: $(BIN_LINUX_ARM64) ## Build for Linux arm64
 
 $(BIN_LINUX_ARM64): generate/zz_filesystem_generated.go
+	./hack/kafka-runtime.sh linux arm64
 	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BIN_LINUX_ARM64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: linux-ppc64le
 linux-ppc64le: $(BIN_LINUX_PPC64LE) ## Build for Linux ppc64le
 
 $(BIN_LINUX_PPC64LE): generate/zz_filesystem_generated.go
+	./hack/kafka-runtime.sh linux ppc64le
 	env CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -o $(BIN_LINUX_PPC64LE) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: linux-s390x
 linux-s390x: $(BIN_LINUX_S390X) ## Build for Linux s390x
 
 $(BIN_LINUX_S390X): generate/zz_filesystem_generated.go
+	./hack/kafka-runtime.sh linux s390x
 	env CGO_ENABLED=0 GOOS=linux GOARCH=s390x go build -o $(BIN_LINUX_S390X) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 .PHONY: windows
 windows: $(BIN_WINDOWS) ## Build for Windows
 
 $(BIN_WINDOWS): generate/zz_filesystem_generated.go
+	./hack/kafka-runtime.sh windows amd64
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_WINDOWS) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 ######################

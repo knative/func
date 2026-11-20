@@ -59,3 +59,6 @@ CLAUDE.local.md
 # https://github.com/knative/func/issues/3196
 /pkg/builders/testdata/go-fn-with-private-deps/.s2i
 
+# Kafka runtime built by hack/kafka-runtime.sh to embed into func (pkg/kafkaruntime)
+/pkg/kafkaruntime/bin/*/fkafka-runtime*
+/pkg/kafkaruntime/bin/*/VERSION
