@@ -48,9 +48,6 @@ type Pusher struct {
 	Insecure bool
 	Verbose  bool
 
-	updates chan v1.Update
-	done    chan bool
-
 	transport http.RoundTripper
 }
 
@@ -82,8 +79,6 @@ func NewPusher(insecure, anon, verbose bool, opts ...Opt) *Pusher {
 		Insecure:            insecure,
 		Anonymous:           anon,
 		Verbose:             verbose,
-		updates:             make(chan v1.Update, 10),
-		done:                make(chan bool, 1),
 		transport:           remote.DefaultTransport,
 	}
 	for _, opt := range opts {
@@ -95,8 +90,6 @@ func NewPusher(insecure, anon, verbose bool, opts ...Opt) *Pusher {
 func (p *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err error) {
 	credentials, _ := p.credentialsProvider(ctx, f.Build.Image)
 
-	go p.handleUpdates(ctx)
-	defer func() { p.done <- true }()
 	buildDir, err := getBuildDir(f)
 	if err != nil {
 		return
@@ -142,32 +135,21 @@ func (p *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	return
 }
 
-func (p *Pusher) handleUpdates(ctx context.Context) {
+func handleUpdates(updates <-chan v1.Update) {
 	var bar *progress.ProgressBar
-	for {
-		select {
-		case update := <-p.updates:
-			if bar == nil {
-				bar = progress.NewOptions64(update.Total,
-					progress.OptionSetVisibility(term.IsTerminal(int(os.Stdin.Fd()))),
-					progress.OptionSetDescription("pushing"),
-					progress.OptionShowCount(),
-					progress.OptionShowBytes(true),
-					progress.OptionShowElapsedTimeOnFinish())
-			}
-			_ = bar.Set64(update.Complete)
-			continue
-		case <-p.done:
-			if bar != nil {
-				_ = bar.Finish()
-			}
-			return
-		case <-ctx.Done():
-			if bar != nil {
-				_ = bar.Finish()
-			}
-			return
+	for update := range updates {
+		if bar == nil {
+			bar = progress.NewOptions64(update.Total,
+				progress.OptionSetVisibility(term.IsTerminal(int(os.Stdin.Fd()))),
+				progress.OptionSetDescription("pushing"),
+				progress.OptionShowCount(),
+				progress.OptionShowBytes(true),
+				progress.OptionShowElapsedTimeOnFinish())
 		}
+		_ = bar.Set64(update.Complete)
+	}
+	if bar != nil {
+		_ = bar.Finish()
 	}
 }
 
@@ -209,5 +191,15 @@ func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.Image
 		}
 	}
 
-	return remote.WriteIndex(ref, ii, append(oo, remote.WithProgress(p.updates))...)
+	// WriteIndex closes its progress channel. Keep it local to this upload and
+	// drain it until closure, including after cancellation, so writers can finish.
+	updates := make(chan v1.Update, 10)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		handleUpdates(updates)
+	}()
+	err := remote.WriteIndex(ref, ii, append(oo, remote.WithProgress(updates))...)
+	<-done
+	return err
 }
