@@ -19,6 +19,9 @@ import (
 // - All replicas are updated to the latest version
 // - There are no unavailable replicas
 // - All pods associated with the deployment are running
+// A Deployment with zero desired replicas is available once the
+// controller has observed the current generation and reports all-zero
+// counts: no pods are wanted, so none are required to be ready.
 func WaitForDeploymentAvailable(ctx context.Context, clientset *kubernetes.Clientset, namespace, deploymentName string, timeout time.Duration) error {
 	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
@@ -69,6 +72,17 @@ func checkIfDeploymentIsAvailable(ctx context.Context, clientset *kubernetes.Cli
 
 	desiredReplicas := *deployment.Spec.Replicas
 
+	// Scalers can request zero replicas while readiness is being polled.
+	// Require reconciled status, including replicas from older ReplicaSets.
+	if desiredReplicas == 0 {
+		return deployment.Status.ObservedGeneration >= deployment.Generation &&
+			deployment.Status.Replicas == 0 &&
+			deployment.Status.UpdatedReplicas == 0 &&
+			deployment.Status.ReadyReplicas == 0 &&
+			deployment.Status.AvailableReplicas == 0 &&
+			deployment.Status.UnavailableReplicas == 0, nil
+	}
+
 	// Check if deployment is available
 	for _, condition := range deployment.Status.Conditions {
 		if condition.Type == appsv1.DeploymentAvailable && condition.Status == corev1.ConditionTrue {
@@ -99,7 +113,8 @@ func checkIfDeploymentIsAvailable(ctx context.Context, clientset *kubernetes.Cli
 				}
 
 				if currentPodTemplateHash == "" {
-					return false, fmt.Errorf("could not find current pod-template-hash for deployment %s", deployment.Name)
+					// A scaler may change ReplicaSets after the Deployment read.
+					return false, nil
 				}
 
 				// Verify all pods are from the current ReplicaSet and are running
