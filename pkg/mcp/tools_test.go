@@ -185,7 +185,7 @@ func TestRegistry_RejectsRelativePath(t *testing.T) {
 		t.Fatal("no registered tools expose a path input; schema discovery is broken")
 	}
 	for _, name := range []string{
-		"config_ci", "config_git_set", "config_git_remove", "invoke", "run", "run_stop",
+		"config_ci", "config_git_set", "config_git_remove", "invoke", "run", "run_stop", "run_logs",
 		"describe", "logs", "build", "deploy", "create",
 	} {
 		found := false

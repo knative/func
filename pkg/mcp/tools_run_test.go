@@ -16,7 +16,7 @@ func TestTool_Run_Args(t *testing.T) {
 	path := testAbsPath("my-func")
 
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, error) {
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
 		if subcommand != "run" {
 			t.Fatalf("expected subcommand 'run', got %q", subcommand)
 		}
@@ -40,7 +40,7 @@ func TestTool_Run_Args(t *testing.T) {
 			t.Fatalf("expected --build=true flag, got args %v", args)
 		}
 
-		return 4242, "127.0.0.1", "9090", func() error { return nil }, nil
+		return mock.Process{Pid: 4242, Host: "127.0.0.1", Port: "9090", Stop: func() error { return nil }}, nil
 	}
 
 	client, server, err := newTestPair(t, WithProcessStarter(starter))
@@ -83,8 +83,8 @@ func TestTool_Run_Args(t *testing.T) {
 // deploy/delete.
 func TestTool_Run_AllowedInReadonly(t *testing.T) {
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, error) {
-		return 1, "127.0.0.1", "8080", func() error { return nil }, nil
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
+		return mock.Process{Pid: 1, Host: "127.0.0.1", Port: "8080", Stop: func() error { return nil }}, nil
 	}
 
 	client, _, err := newTestPairCore(t, true, WithProcessStarter(starter))
@@ -108,8 +108,8 @@ func TestTool_Run_AllowedInReadonly(t *testing.T) {
 // while the first is still active.
 func TestTool_Run_Duplicate(t *testing.T) {
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, error) {
-		return 1, "127.0.0.1", "8080", func() error { return nil }, nil
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
+		return mock.Process{Pid: 1, Host: "127.0.0.1", Port: "8080", Stop: func() error { return nil }}, nil
 	}
 
 	client, server, err := newTestPair(t, WithProcessStarter(starter))
@@ -141,8 +141,8 @@ func TestTool_Run_Duplicate(t *testing.T) {
 // surfaced as a tool error.
 func TestTool_Run_StartError(t *testing.T) {
 	starter := mock.NewProcessStarter()
-	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (int, string, string, func() error, error) {
-		return 0, "", "", nil, fmt.Errorf("boom")
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
+		return mock.Process{Pid: 0}, fmt.Errorf("boom")
 	}
 
 	client, server, err := newTestPair(t, WithProcessStarter(starter))
@@ -160,5 +160,127 @@ func TestTool_Run_StartError(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected run to surface the process starter's error")
+	}
+}
+
+// TestTool_Run_AfterSelfExit ensures that when a running function dies on
+// its own, a later run for the same path is accepted instead of being
+// rejected as "already running", and that run_stop reports it as already
+// stopped.
+func TestTool_Run_AfterSelfExit(t *testing.T) {
+	exited := make(chan struct{})
+	starts := 0
+	starter := mock.NewProcessStarter()
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
+		starts++
+		if starts == 1 {
+			return mock.Process{Pid: 1, Host: "127.0.0.1", Port: "8080", Stop: func() error { return nil }, Exited: exited}, nil
+		}
+		return mock.Process{Pid: 2, Host: "127.0.0.1", Port: "8081", Stop: func() error { return nil }}, nil
+	}
+
+	client, server, err := newTestPair(t, WithProcessStarter(starter))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly.Store(false)
+
+	path := testAbsPath("crashy-func")
+	params := &mcp.CallToolParams{Name: "run", Arguments: map[string]any{"path": path}}
+
+	result, err := client.CallTool(t.Context(), params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error on first run: %v", result)
+	}
+
+	// While alive, a second run is rejected.
+	result, err = client.CallTool(t.Context(), params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected second run to be rejected while the first is alive")
+	}
+
+	// The function crashes on its own.
+	close(exited)
+	waitFor(t, "registry to drop the exited run", func() bool {
+		_, ok := server.runs.get(path)
+		return !ok
+	})
+
+	// run_stop is idempotent for the dead process.
+	result, err = client.CallTool(t.Context(), &mcp.CallToolParams{Name: "run_stop", Arguments: map[string]any{"path": path}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("expected run_stop after self-exit to succeed idempotently, got: %v", result)
+	}
+	if text := resultToString(result); !strings.Contains(text, "already stopped") {
+		t.Fatalf("expected idempotent message, got %q", text)
+	}
+
+	// A fresh run now succeeds.
+	result, err = client.CallTool(t.Context(), params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("expected run after self-exit to succeed, got: %v", result)
+	}
+	if text := resultToString(result); !strings.Contains(text, "8081") {
+		t.Fatalf("expected the new run's URL in the result, got %q", text)
+	}
+}
+
+// TestTool_Run_ExitedBeforeActivate covers a process that has already
+// exited by the time Start returns to the handler: run must report an
+// error rather than a dead URL, quote the output which explains the exit,
+// keep that output readable via run_logs, and leave the path reusable.
+func TestTool_Run_ExitedBeforeActivate(t *testing.T) {
+	exited := make(chan struct{})
+	close(exited)
+	starter := mock.NewProcessStarter()
+	starter.StartFn = func(ctx context.Context, subcommand string, args ...string) (mock.Process, error) {
+		return mock.Process{
+			Pid: 1, Host: "127.0.0.1", Port: "8080", Exited: exited,
+			Output: func() (string, bool) { return "stderr: panic: bad config", false },
+		}, nil
+	}
+
+	client, server, err := newTestPair(t, WithProcessStarter(starter))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.readonly.Store(false)
+
+	path := testAbsPath("instant-exit")
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "run", Arguments: map[string]any{"path": path}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatalf("expected an error for a process that already exited, got: %v", result)
+	}
+	text := resultToString(result)
+	if !strings.Contains(text, "exited right after becoming ready") {
+		t.Fatalf("unexpected error text: %q", text)
+	}
+	if !strings.Contains(text, "stderr: panic: bad config") {
+		t.Fatalf("expected the process output in the error, got %q", text)
+	}
+
+	// The output remains readable, and the exit was handled synchronously:
+	// the path is free again without waiting on the exit watcher.
+	_, out := callRunLogs(t, client, map[string]any{"path": path})
+	if out.Logs != "stderr: panic: bad config" || out.Running {
+		t.Fatalf("expected the exited run's output via run_logs, got %+v", out)
+	}
+	if err := server.runs.reserve(path); err != nil {
+		t.Fatalf("expected path to be free after the failed run, got: %v", err)
 	}
 }
