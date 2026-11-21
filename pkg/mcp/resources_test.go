@@ -255,6 +255,64 @@ func TestResource_HelpInstructionsRegistered(t *testing.T) {
 	}
 }
 
+// TestInstructions_MentionEveryTool guards against the agent instructions
+// drifting from the tool set: every registered tool must be named in the
+// instructions, otherwise agents (who are told to read them first) have no
+// guidance for it.
+func TestInstructions_MentionEveryTool(t *testing.T) {
+	client, _, err := newTestPair(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := client.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Tools) == 0 {
+		t.Fatal("no tools registered; discovery is broken")
+	}
+	for _, tool := range listed.Tools {
+		if !strings.Contains(instructionsBody, "`"+tool.Name+"`") &&
+			!strings.Contains(instructionsBody, tool.Name+",") &&
+			!strings.Contains(instructionsBody, tool.Name+"\n") {
+			t.Errorf("tool %q is not mentioned in instructions.md", tool.Name)
+		}
+	}
+}
+
+// TestReadonlyWarning_ListsGuardedRepositoryTools ensures the read-only
+// warning names the repository tools which are refused in read-only mode,
+// and agrees with the handlers: each named tool must actually be refused,
+// and the read-only one must not be.
+func TestReadonlyWarning_ListsGuardedRepositoryTools(t *testing.T) {
+	client, _, err := newTestPairWithReadonly(t, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	guarded := map[string]map[string]any{
+		"repository_add":    {"name": "x", "url": "https://example.com/templates"},
+		"repository_rename": {"old": "x", "new": "y"},
+		"repository_remove": {"name": "x"},
+	}
+	for tool, args := range guarded {
+		if !strings.Contains(readonlyWarning, tool) {
+			t.Errorf("readonly warning does not mention %q", tool)
+		}
+		result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: tool, Arguments: args})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !result.IsError {
+			t.Errorf("%q is listed as disabled in read-only mode but was accepted", tool)
+		}
+	}
+
+	if !strings.Contains(readonlyWarning, "repository_list") {
+		t.Error("readonly warning does not list repository_list as available")
+	}
+}
+
 func TestResource_Listings(t *testing.T) {
 	cases := []struct {
 		name           string
