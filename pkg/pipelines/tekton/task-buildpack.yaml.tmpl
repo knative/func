@@ -55,9 +55,7 @@ spec:
       default: "1001"
     - name: GROUP_ID
       description: The group ID of the builder image user.
-      default: "0"
-      ##############################################################
-      #####  "default" has been changed to "0" for Knative Functions
+      default: "1001"
     - name: PLATFORM_DIR
       description: The name of the platform directory.
       default: empty-dir
@@ -252,9 +250,7 @@ spec:
           mountPath: /platform
       securityContext:
         runAsUser: 1001
-        #################################################################
-        #####  "runAsGroup" has been changed to "0" for Knative Functions
-        runAsGroup: 0
+        runAsGroup: 1001
     - name: results
       image: docker.io/library/bash:5.1
       script: |
