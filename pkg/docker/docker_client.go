@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -19,6 +20,8 @@ import (
 	"time"
 
 	"github.com/docker/cli/cli/config"
+	ctxdocker "github.com/docker/cli/cli/context/docker"
+	"github.com/docker/cli/cli/context/store"
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/moby/moby/client"
@@ -69,6 +72,9 @@ var ErrNoDocker = errors.New("docker/podman API not available")
 //   - For TCP connections it returns "" so it defaults in the remote (note that
 //     one should not be use client.DefaultDockerHost in this situation). This is
 //     needed beaus of TCP+tls connections.
+//
+// If DOCKER_HOST is not set, the host (and TLS material) of the current
+// non-default Docker context is used, falling back to defaultHost.
 func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, err error) {
 	var rawClient client.APIClient
 	defer func() {
@@ -83,6 +89,16 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 	dockerHostSSHIdentity := os.Getenv("DOCKER_HOST_SSH_IDENTITY")
 	hostKeyCallback := fnssh.NewHostKeyCbk()
 
+	// A selected (non-default) Docker context takes precedence over the
+	// default host, as it does for the docker CLI.
+	var dockerCtx *dockerContext
+	if dockerHost == "" {
+		if c := currentDockerContext(); c != nil && isUsableContextHost(c.endpoint.Host) {
+			dockerHost = c.endpoint.Host
+			dockerCtx = c
+		}
+	}
+
 	if dockerHost == "" {
 		_url, err = url.Parse(defaultHost)
 		if err != nil {
@@ -95,31 +111,8 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 		case err != nil && !os.IsNotExist(err):
 			return
 		case os.IsNotExist(err):
-			// Default socket doesn't exist, try Docker context
-			if contextHost := GetDockerContextHostFunc(); contextHost != "" {
-				// Verify the context socket actually exists
-				contextURL, parseErr := url.Parse(contextHost)
-				if parseErr == nil {
-					switch contextURL.Scheme {
-					case "unix", "":
-						// For unix sockets, verify the socket file exists
-						socketPath := contextURL.Path
-						if contextURL.Scheme == "" {
-							socketPath = contextHost
-						}
-						if _, statErr := os.Stat(socketPath); statErr == nil {
-							dockerHost = contextHost
-						}
-					case "ssh", "tcp", "npipe":
-						// For remote connections, use the context host directly
-						// We can't verify connectivity here, so trust the context
-						dockerHost = contextHost
-					}
-				}
-			}
-
-			// If context didn't work, try Podman
-			if dockerHost == "" && podmanPresent() {
+			// Default socket doesn't exist, try Podman
+			if podmanPresent() {
 				if runtime.GOOS == "linux" {
 					// on Linux: spawn temporary podman service
 					rawClient, dockerHostInRemote, err = newClientWithPodmanService()
@@ -167,7 +160,14 @@ func NewClient(defaultHost string) (dc DockerClient, dockerHostInRemote string, 
 		opts := []client.Opt{client.FromEnv, client.WithHost(dockerHost)}
 		if isTCP {
 			if httpClient := newHttpClient(); httpClient != nil {
+				// DOCKER_TLS_VERIFY/DOCKER_CERT_PATH override the context TLS.
 				opts = append(opts, client.WithHTTPClient(httpClient))
+			} else if dockerCtx != nil {
+				ctxOpts, ctxErr := dockerCtx.endpoint.ClientOpts()
+				if ctxErr != nil {
+					return nil, "", fmt.Errorf("cannot load TLS configuration of docker context %q: %w", dockerCtx.name, ctxErr)
+				}
+				opts = append(opts, ctxOpts...)
 			}
 		}
 		rawClient, err = client.New(opts...)
@@ -310,50 +310,77 @@ func podmanPresent() bool {
 	return err == nil
 }
 
-// getDockerContextHost tries to get the Docker host from the current Docker context.
-// This is useful for Docker Desktop which uses context-specific sockets.
-// Returns empty string if unable to determine the context host.
-func getDockerContextHost() string {
-	// Check if docker CLI is available
-	dockerPath, err := exec.LookPath("docker")
-	if err != nil {
-		return ""
-	}
-
-	// Run 'docker context inspect' to get current context details
-	cmd := exec.Command(dockerPath, "context", "inspect")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return ""
-	}
-
-	// Parse the JSON output
-	var contexts []struct {
-		Name      string
-		Endpoints struct {
-			Docker struct {
-				Host string `json:"Host"`
-			} `json:"docker"`
-		} `json:"Endpoints"`
-	}
-
-	if err := json.Unmarshal(out, &contexts); err != nil {
-		return ""
-	}
-
-	// Return the host from the first (current) context
-	if len(contexts) > 0 && contexts[0].Endpoints.Docker.Host != "" {
-		if contexts[0].Name == "default" {
-			return ""
-		}
-		return contexts[0].Endpoints.Docker.Host
-	}
-
-	return ""
+// dockerContext is the docker endpoint of the currently selected Docker context,
+// including its TLS material.
+type dockerContext struct {
+	name     string
+	endpoint ctxdocker.Endpoint
 }
 
-// GetDockerContextHostFunc is a variable to allow mocking in tests
-var GetDockerContextHostFunc = getDockerContextHost
+// currentDockerContext resolves the current Docker context the same way the
+// docker CLI does: DOCKER_CONTEXT, or currentContext from config.json in the
+// Docker config directory (DOCKER_CONFIG or ~/.docker).
+// It returns nil for the default context, for a context without a docker
+// endpoint host, and when the context cannot be loaded.
+func currentDockerContext() *dockerContext {
+	configDir := os.Getenv("DOCKER_CONFIG")
+	if configDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil
+		}
+		configDir = filepath.Join(home, ".docker")
+	}
+
+	name := os.Getenv("DOCKER_CONTEXT")
+	if name == "" {
+		cfg, err := config.Load(configDir)
+		if err != nil {
+			return nil
+		}
+		name = cfg.CurrentContext
+	}
+	if name == "" || name == "default" {
+		return nil
+	}
+
+	s := store.New(filepath.Join(configDir, "contexts"), store.NewConfig(nil,
+		store.EndpointTypeGetter(ctxdocker.DockerEndpoint, func() any { return &ctxdocker.EndpointMeta{} })))
+	meta, err := s.GetMetadata(name)
+	if err != nil {
+		return nil
+	}
+	epMeta, err := ctxdocker.EndpointFromContext(meta)
+	if err != nil || epMeta.Host == "" {
+		return nil
+	}
+	ep, err := ctxdocker.WithTLSData(s, name, epMeta)
+	if err != nil {
+		return nil
+	}
+	return &dockerContext{name: name, endpoint: ep}
+}
+
+// isUsableContextHost reports whether the host of a Docker context can be used.
+// Unix sockets must exist; ssh, tcp and npipe hosts are accepted as is.
+func isUsableContextHost(host string) bool {
+	u, err := url.Parse(host)
+	if err != nil {
+		return false
+	}
+	switch u.Scheme {
+	case "unix", "":
+		socketPath := u.Path
+		if u.Scheme == "" {
+			socketPath = host
+		}
+		_, err = os.Stat(socketPath)
+		return err == nil
+	case "ssh", "tcp", "npipe":
+		return true
+	}
+	return false
+}
 
 type clientWithAdditionalCleanup struct {
 	client.APIClient
