@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 type Format string
@@ -24,10 +25,20 @@ type Formatter interface {
 	URL(io.Writer) error
 }
 
+// validateOutputFormat returns an error if the format is not recognized.
+func validateOutputFormat(formatName string) error {
+	switch Format(strings.ToLower(formatName)) {
+	case Human, Plain, JSON, YAML, URL:
+		return nil
+	default:
+		return fmt.Errorf("format not recognized: %v", formatName)
+	}
+}
+
 // write the output using the formatter's appropriate serialization function,
 // returning any errors to the caller for graceful handling.
 func write(out io.Writer, s Formatter, formatName string) error {
-	switch Format(formatName) {
+	switch Format(strings.ToLower(formatName)) {
 	case Human:
 		return s.Human(out)
 	case Plain:

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -105,5 +106,26 @@ func TestList_Namespace(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+// TestList_InvalidOutputFormat ensures that list fails early when an invalid
+// output format is specified without querying the cluster.
+func TestList_InvalidOutputFormat(t *testing.T) {
+	_ = FromTempDirectory(t)
+	lister := mock.NewLister()
+
+	cmd := NewListCmd(NewTestClient(fn.WithListers(lister)))
+	cmd.SetArgs([]string{"--output", "invalid-format"})
+	err := cmd.Execute()
+
+	if err == nil {
+		t.Fatal("expected an error for invalid output format, got nil")
+	}
+	if !strings.Contains(err.Error(), "format not recognized: invalid-format") {
+		t.Fatalf("expected format not recognized error, got %v", err)
+	}
+	if lister.ListInvoked {
+		t.Fatal("lister should not be invoked when invalid output format is specified")
 	}
 }
