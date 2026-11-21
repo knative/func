@@ -41,6 +41,7 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 		Deployer: *k8s.NewDeployer(
 			// init with the kedaDeployerDecorator to have the correct deployer labels&annotations
 			k8s.WithDeployerDecorator(&kedaDeployerDecorator{}),
+			k8s.WithAutoscaledReplicas(true),
 		),
 	}
 
