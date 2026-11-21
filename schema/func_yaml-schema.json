@@ -53,6 +53,10 @@
 					"type": "string",
 					"description": "BaseImage defines an override for the function to be built upon (host builder only)"
 				},
+				"caFile": {
+					"type": "string",
+					"description": "CAFile is a path to a PEM file with one or more CA certificates to\ntrust during the build (pack builder only). A relative path is\nresolved against the function's root directory."
+				},
 				"volumes": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
