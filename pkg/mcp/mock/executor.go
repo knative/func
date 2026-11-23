@@ -12,6 +12,9 @@ type Executor struct {
 
 	ExecuteSplitInvoked bool
 	ExecuteSplitFn      func(context.Context, string, ...string) (stdout, stderr []byte, err error)
+
+	ExecuteEnvInvoked bool
+	ExecuteEnvFn      func(ctx context.Context, env []string, subcommand string, args ...string) ([]byte, error)
 }
 
 // NewExecutor creates a new mock executor
@@ -29,6 +32,19 @@ func (m *Executor) Execute(ctx context.Context, subcommand string, args ...strin
 	}
 
 	return []byte(""), nil
+}
+
+// ExecuteEnv implements the executor interface, recording invocation details
+// and delegating to ExecuteEnvFn if provided. Without ExecuteEnvFn it falls
+// back to Execute, so tests which only check arguments need not change.
+func (m *Executor) ExecuteEnv(ctx context.Context, env []string, subcommand string, args ...string) ([]byte, error) {
+	m.ExecuteEnvInvoked = true
+
+	if m.ExecuteEnvFn != nil {
+		return m.ExecuteEnvFn(ctx, env, subcommand, args...)
+	}
+
+	return m.Execute(ctx, subcommand, args...)
 }
 
 // ExecuteSplit implements the executor interface, recording invocation

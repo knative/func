@@ -74,9 +74,23 @@ func (i ConfigGitSetInput) Args() []string {
 		args = appendBoolFlag(args, "--config-remote", i.ConfigRemote)
 	}
 
-	args = appendStringFlag(args, "--gh-access-token", i.GhAccessToken)
+	// The access token is deliberately not added here: see Env.
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
 	return args
+}
+
+// Env returns the environment variables to set for the subprocess.
+//
+// The GitHub access token is passed as FUNC_GH_ACCESS_TOKEN (which the CLI
+// reads in place of --gh-access-token) rather than as an argument, because a
+// process's command line is readable by other local users. When no token is
+// given nothing is set, so any value already exported in the server's own
+// environment still applies.
+func (i ConfigGitSetInput) Env() []string {
+	if i.GhAccessToken == nil || *i.GhAccessToken == "" {
+		return nil
+	}
+	return []string{"FUNC_GH_ACCESS_TOKEN=" + *i.GhAccessToken}
 }
 
 type ConfigGitSetOutput struct {
@@ -104,7 +118,7 @@ func (s *Server) configGitSetHandler(ctx context.Context, r *mcp.CallToolRequest
 		return
 	}
 
-	out, err := s.executor.Execute(ctx, "config", input.Args()...)
+	out, err := s.executor.ExecuteEnv(ctx, input.Env(), "config", input.Args()...)
 	if err != nil {
 		err = fmt.Errorf("%w\n%s", err, string(out))
 		return
