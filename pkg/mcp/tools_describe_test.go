@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -32,17 +33,18 @@ func TestTool_Describe_Args(t *testing.T) {
 			t.Fatalf("expected subcommand 'describe', got %q", subcommand)
 		}
 
-		// Expected: 1 positional + 2 string flags (namespace, output) * 2 + 1 bool flag
-		// = 1 + 2*2 + 1 = 6 args
-		if len(args) != 1+2*2+1 {
-			t.Fatalf("expected %d args, got %d: %v", 1+2*2+1, len(args), args)
+		// Expected: 2 string flags (namespace, output) * 2 + 1 bool flag
+		// + "--" + name = 2*2 + 1 + 2 = 7 args
+		if len(args) != 2*2+1+2 {
+			t.Fatalf("expected %d args, got %d: %v", 2*2+1+2, len(args), args)
 		}
 
-		if args[0] != name {
-			t.Fatalf("expected positional arg %q, got %q", name, args[0])
+		// The positional argument (name) comes last, after "--"
+		if args[len(args)-2] != "--" || args[len(args)-1] != name {
+			t.Fatalf("expected args to end with [-- %s], got %v", name, args)
 		}
 
-		rest := args[1:]
+		rest := args[:len(args)-2]
 		validateStringFlags(t, rest, stringFlags)
 		validateBoolFlags(t, rest, boolFlags)
 		validateStringFlags(t, rest, map[string]struct {
@@ -324,5 +326,45 @@ func TestTool_Describe_StderrWarningDoesNotBreakParsing(t *testing.T) {
 	wantWarning := "Warning: cannot list eventing triggers (permission denied) - skipping"
 	if output.Warnings != wantWarning {
 		t.Errorf("expected warnings %q, got %q", wantWarning, output.Warnings)
+	}
+}
+
+// TestTool_Describe_InvalidName ensures the describe tool rejects a name that
+// is not a valid Function name, before anything is executed. Without this, a
+// name such as "--namespace=kube-system" would be parsed by the CLI as a flag.
+func TestTool_Describe_InvalidName(t *testing.T) {
+	for _, name := range []string{"--all", "-h", "--namespace=kube-system", "My_Function", ""} {
+		t.Run(name, func(t *testing.T) {
+			executor := mock.NewExecutor()
+			client, _, err := newTestPair(t, WithExecutor(executor))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+				Name:      "describe",
+				Arguments: map[string]any{"name": name},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !result.IsError {
+				t.Fatalf("expected error result for name %q, got success", name)
+			}
+			if executor.ExecuteSplitInvoked {
+				t.Fatalf("executor was invoked for invalid name %q", name)
+			}
+		})
+	}
+}
+
+// TestDescribeInput_Args_NameAfterDoubleDash ensures the name is always passed
+// after "--", so the CLI can never parse it as a flag, even if handler
+// validation were bypassed.
+func TestDescribeInput_Args_NameAfterDoubleDash(t *testing.T) {
+	args := DescribeInput{Name: ptr("--help")}.Args()
+	want := []string{"--output", "json", "--", "--help"}
+	if !slices.Equal(args, want) {
+		t.Fatalf("expected %v, got %v", want, args)
 	}
 }

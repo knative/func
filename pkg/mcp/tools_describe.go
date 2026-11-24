@@ -8,6 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/utils"
 )
 
 var describeTool = &mcp.Tool{
@@ -29,6 +30,11 @@ func (s *Server) describeHandler(ctx context.Context, r *mcp.CallToolRequest, in
 	}
 	if input.Path != nil {
 		if err = validatePath(*input.Path); err != nil {
+			return
+		}
+	}
+	if input.Name != nil {
+		if err = utils.ValidateFunctionName(*input.Name); err != nil {
 			return
 		}
 	}
@@ -99,11 +105,9 @@ type DescribeInput struct {
 func (i DescribeInput) Args() []string {
 	args := []string{}
 
-	// Either path flag or positional name argument
+	// Either the path flag, or the name as the last positional argument (below)
 	if i.Path != nil {
 		args = append(args, "--path", *i.Path)
-	} else if i.Name != nil {
-		args = append(args, *i.Name)
 	}
 
 	args = appendStringFlag(args, "--namespace", i.Namespace)
@@ -111,6 +115,11 @@ func (i DescribeInput) Args() []string {
 
 	// The tool's contract is structured JSON, regardless of caller input.
 	args = append(args, "--output", "json")
+
+	// The name goes last, after "--", so it can never be parsed as a flag.
+	if i.Path == nil && i.Name != nil {
+		args = appendPositional(args, *i.Name)
+	}
 	return args
 }
 

@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -109,19 +110,19 @@ func TestTool_Delete_Args(t *testing.T) {
 			t.Fatalf("expected subcommand 'delete', got %q", subcommand)
 		}
 
-		// Expected: 1 positional + 2 string flags + 1 bool flag = 1 + 2*2 + 1 = 6 args
-		if len(args) != 1+len(stringFlags)*2+len(boolFlags) {
-			t.Fatalf("expected %d args, got %d: %v", 1+len(stringFlags)*2+len(boolFlags), len(args), args)
+		// Expected: 1 string flag (2 args) + 2 bool flags + "--" + name = 6 args
+		if len(args) != len(stringFlags)*2+len(boolFlags)+2 {
+			t.Fatalf("expected %d args, got %d: %v", len(stringFlags)*2+len(boolFlags)+2, len(args), args)
 		}
 
-		// Validate positional argument (name) comes first
-		if args[0] != name {
-			t.Fatalf("expected positional arg %q, got %q", name, args[0])
+		// Validate the positional argument (name) comes last, after "--"
+		if args[len(args)-2] != "--" || args[len(args)-1] != name {
+			t.Fatalf("expected args to end with [-- %s], got %v", name, args)
 		}
 
-		// Validate flags (excluding positional argument at beginning)
-		validateStringFlags(t, args[1:], stringFlags)
-		validateBoolFlags(t, args[1:], boolFlags)
+		// Validate flags (excluding "--" and the name at the end)
+		validateStringFlags(t, args[:len(args)-2], stringFlags)
+		validateBoolFlags(t, args[:len(args)-2], boolFlags)
 
 		return []byte("Function 'my-function' deleted from namespace 'prod'\n"), nil
 	}
@@ -150,5 +151,47 @@ func TestTool_Delete_Args(t *testing.T) {
 	}
 	if !executor.ExecuteInvoked {
 		t.Fatal("executor was not invoked")
+	}
+}
+
+// TestTool_Delete_InvalidName ensures the delete tool rejects a name that is
+// not a valid Function name, before anything is executed. Without this, a
+// name such as "--all" would be parsed by the CLI as a flag, and the CLI
+// would fall back to deleting the Function in the server's working directory.
+func TestTool_Delete_InvalidName(t *testing.T) {
+	for _, name := range []string{"--all", "-h", "--namespace=kube-system", "My_Function", ""} {
+		t.Run(name, func(t *testing.T) {
+			executor := mock.NewExecutor()
+			client, server, err := newTestPair(t, WithExecutor(executor))
+			if err != nil {
+				t.Fatal(err)
+			}
+			server.readonly.Store(false)
+
+			result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+				Name:      "delete",
+				Arguments: map[string]any{"name": name},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !result.IsError {
+				t.Fatalf("expected error result for name %q, got success", name)
+			}
+			if executor.ExecuteInvoked {
+				t.Fatalf("executor was invoked for invalid name %q", name)
+			}
+		})
+	}
+}
+
+// TestDeleteInput_Args_NameAfterDoubleDash ensures the name is always passed
+// after "--", so the CLI can never parse it as a flag, even if handler
+// validation were bypassed.
+func TestDeleteInput_Args_NameAfterDoubleDash(t *testing.T) {
+	args := DeleteInput{Name: ptr("--all"), Namespace: ptr("prod")}.Args()
+	want := []string{"--namespace", "prod", "--", "--all"}
+	if !slices.Equal(args, want) {
+		t.Fatalf("expected %v, got %v", want, args)
 	}
 }
