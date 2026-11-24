@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ory/viper"
+
 	fn "knative.dev/func/pkg/functions"
 	. "knative.dev/func/pkg/testing"
 )
@@ -26,6 +28,9 @@ func TestConfigVolumesAdd_CaseInsensitiveTypes(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			viper.Reset()
+			t.Cleanup(viper.Reset)
+
 			root := FromTempDirectory(t)
 			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 				t.Fatal(err)
@@ -58,6 +63,9 @@ func TestConfigVolumesAdd_CaseInsensitiveTypes(t *testing.T) {
 
 // TestConfigVolumesAdd_DuplicateMountPath ensures adding a duplicate mount path is rejected
 func TestConfigVolumesAdd_DuplicateMountPath(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
 	root := FromTempDirectory(t)
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -70,6 +78,7 @@ func TestConfigVolumesAdd_DuplicateMountPath(t *testing.T) {
 	}
 
 	// Try adding second volume with exact same mount path
+	viper.Reset()
 	cmd2 := NewConfigVolumesAddCmd()
 	cmd2.SetArgs([]string{"--path=" + root, "--type=secret", "--source=sec1", "--mount-path=/etc/config"})
 	err := cmd2.Execute()
@@ -81,6 +90,7 @@ func TestConfigVolumesAdd_DuplicateMountPath(t *testing.T) {
 	}
 
 	// Try adding with trailing slash variation
+	viper.Reset()
 	cmd3 := NewConfigVolumesAddCmd()
 	cmd3.SetArgs([]string{"--path=" + root, "--type=secret", "--source=sec2", "--mount-path=/etc/config/"})
 	err = cmd3.Execute()
@@ -94,6 +104,9 @@ func TestConfigVolumesAdd_DuplicateMountPath(t *testing.T) {
 
 // TestConfigVolumesRemove_CleanMountPath ensures volumes can be removed even if trailing slashes differ
 func TestConfigVolumesRemove_CleanMountPath(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
 	root := FromTempDirectory(t)
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -106,6 +119,7 @@ func TestConfigVolumesRemove_CleanMountPath(t *testing.T) {
 	}
 
 	// Remove using trailing slash
+	viper.Reset()
 	removeCmd := NewConfigVolumesRemoveCmd()
 	removeCmd.SetArgs([]string{"--path=" + root, "--mount-path=/etc/config/"})
 	if err := removeCmd.Execute(); err != nil {
@@ -125,6 +139,9 @@ func TestConfigVolumesRemove_CleanMountPath(t *testing.T) {
 func TestConfigVolumesAdd_EmptyDirMemoryMedium(t *testing.T) {
 	for _, med := range []string{"Memory", "memory", "MEMORY"} {
 		t.Run(med, func(t *testing.T) {
+			viper.Reset()
+			t.Cleanup(viper.Reset)
+
 			root := FromTempDirectory(t)
 			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 				t.Fatal(err)
@@ -152,6 +169,9 @@ func TestConfigVolumesAdd_EmptyDirMemoryMedium(t *testing.T) {
 
 // TestConfigVolumesAdd_InvalidType ensures invalid volume types return a clear error
 func TestConfigVolumesAdd_InvalidType(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
 	root := FromTempDirectory(t)
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)

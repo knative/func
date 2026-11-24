@@ -47,12 +47,7 @@ the current directory or from the directory specified with --path.
 	configVolumesRemoveCmd := NewConfigVolumesRemoveCmd()
 
 	addPathFlag(cmd)
-	addPathFlag(configVolumesAddCmd)
-	addPathFlag(configVolumesRemoveCmd)
-
 	addVerboseFlag(cmd, cfg.Verbose)
-	addVerboseFlag(configVolumesAddCmd, cfg.Verbose)
-	addVerboseFlag(configVolumesRemoveCmd, cfg.Verbose)
 
 	cmd.AddCommand(configVolumesAddCmd)
 	cmd.AddCommand(configVolumesRemoveCmd)
@@ -103,6 +98,11 @@ For non-interactive usage, use flags to specify the volume type and configuratio
 		},
 	}
 
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
+
 	// Add flags for non-interactive mode
 	cmd.Flags().StringP("type", "t", "", "Volume type: configmap, secret, pvc, or emptydir")
 	cmd.Flags().StringP("source", "s", "", "Name of the ConfigMap, Secret, or PVC to mount (not used for emptydir)")
@@ -110,6 +110,8 @@ For non-interactive usage, use flags to specify the volume type and configuratio
 	cmd.Flags().BoolP("read-only", "r", false, "Mount volume as read-only (only for PVC)")
 	cmd.Flags().StringP("size", "", "", "Maximum size limit for EmptyDir volume (e.g., 1Gi)")
 	cmd.Flags().StringP("medium", "", "", "Storage medium for EmptyDir volume: 'Memory' or '' (default)")
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
@@ -147,8 +149,15 @@ For non-interactive usage, use the --mount-path flag to specify which volume to 
 		},
 	}
 
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
+
 	// Add flag for non-interactive mode
 	cmd.Flags().StringP("mount-path", "m", "", "Path of the volume mount to remove")
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
