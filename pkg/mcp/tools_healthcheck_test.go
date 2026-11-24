@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"knative.dev/func/pkg/version"
 )
 
 // TestTool_Healthcheck verifies the healthcheck tool returns expected output
@@ -64,7 +65,7 @@ func TestTool_Healthcheck(t *testing.T) {
 		t.Errorf("expected message to contain 'running', got %q", output.Message)
 	}
 
-	if output.Version == "" {
-		t.Error("expected non-empty version")
+	if output.Version != version.Vers {
+		t.Errorf("healthcheck version = %q, want build stamp %q", output.Version, version.Vers)
 	}
 }
