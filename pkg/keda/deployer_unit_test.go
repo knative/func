@@ -354,6 +354,36 @@ func TestDeploy_KafkaResourceNamePreflight(t *testing.T) {
 	}
 }
 
+// TestDeploy_KafkaTLSPreflight_HTTPFunction covers the preflight check where an
+// HTTP-triggered function has run.kafka set with a TLS path that does not match
+// any volume: the check runs before any cluster call regardless of trigger type,
+// because the Kafka sidecar is injected whenever run.kafka is present.
+func TestDeploy_KafkaTLSPreflight_HTTPFunction(t *testing.T) {
+	d := NewDeployer()
+	f := fn.Function{
+		Name: testFnName,
+		// Default or explicit HTTP trigger: wantKafka is false.
+		Scale: &fn.ScaleOptions{
+			KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "http"}}},
+		},
+		Run: fn.RunSpec{
+			Kafka: &fn.KafkaConfig{
+				TLS: &fn.KafkaTLS{
+					CACert: "/etc/certs/ca.crt",
+				},
+			},
+			// Volumes do not mount /etc/certs/ca.crt.
+		},
+	}
+	_, err := d.Deploy(context.Background(), f)
+	if err == nil {
+		t.Fatal("expected Deploy to reject mismatched Kafka TLS path on HTTP function, got nil")
+	}
+	if !strings.Contains(err.Error(), "tls.caCert") {
+		t.Fatalf("expected error mentioning tls.caCert, got: %v", err)
+	}
+}
+
 // Test_deleteTriggerAuthIfExists covers the in-type credential-drop cleanup:
 // it deletes an existing TriggerAuthentication and issues no delete when none
 // is present (so a kafka deploy that never had credentials never hits Forbidden

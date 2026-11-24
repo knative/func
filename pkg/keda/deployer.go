@@ -138,7 +138,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
-	if wantKafka {
+	if f.Run.Kafka != nil {
 		// buildTriggerAuth's TLS-path resolution only depends on
 		// f.Run.Kafka/f.Run.Volumes -- no live deployment needed -- so it runs
 		// here, before the raw Deployment/Service exist. Function.Validate does
