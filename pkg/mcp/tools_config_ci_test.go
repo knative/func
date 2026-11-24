@@ -153,7 +153,6 @@ func TestTool_ConfigCI_Error(t *testing.T) {
 	}
 }
 
-
 func TestTool_ConfigCI_Readonly(t *testing.T) {
 	executor := mock.NewExecutor()
 
