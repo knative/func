@@ -192,19 +192,10 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		Source:      cfg.Source,
 		Type:        cfg.Type,
 		ContentType: cfg.ContentType,
-		RequestType: strings.ToUpper(cfg.RequestType),
+		RequestType: cfg.RequestType,
 		Data:        cfg.Data,
 		Format:      cfg.Format,
 		Extensions:  exts,
-	}
-
-	// If --file was specified, use its content for message data
-	if cfg.File != "" {
-		content, err := os.ReadFile(cfg.File)
-		if err != nil {
-			return err
-		}
-		m.Data = content
 	}
 
 	// Invoke
@@ -286,10 +277,22 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 		cfg.Data = b
 	}
 
-	switch strings.ToLower(cfg.Format) {
-	case "cloudevent", "cloudevents":
-		cfg.Format = "cloudevent"
+	if cfg.Format != "" {
+		switch strings.ToLower(cfg.Format) {
+		case "cloudevent", "cloudevents":
+			cfg.Format = "cloudevent"
+		case "http":
+			cfg.Format = "http"
+		default:
+			return cfg, fmt.Errorf("message format %q not supported, expected 'http' or 'cloudevent'", cfg.Format)
+		}
 	}
+
+	reqType := strings.ToUpper(cfg.RequestType)
+	if reqType != "" && reqType != "POST" && reqType != "GET" {
+		return cfg, fmt.Errorf("request type %q not supported, expected GET or POST", cfg.RequestType)
+	}
+	cfg.RequestType = reqType
 
 	// if not in confirm/prompting mode, the cfg structure is complete.
 	if !cfg.Confirm {
@@ -429,6 +432,12 @@ func (c invokeConfig) prompt() (invokeConfig, error) {
 		if err := survey.Ask(qs, &c); err != nil {
 			return c, err
 		}
+	} else {
+		b, err := os.ReadFile(c.File)
+		if err != nil {
+			return c, err
+		}
+		c.Data = b
 	}
 
 	// Finally, allow mutation of the data content type.
