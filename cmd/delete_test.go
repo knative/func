@@ -551,4 +551,3 @@ func TestDelete_InvalidFunctionName(t *testing.T) {
 		})
 	}
 }
-
