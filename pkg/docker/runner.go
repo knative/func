@@ -7,13 +7,18 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	fn "knative.dev/func/pkg/functions"
 )
@@ -90,7 +95,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, address string, startTi
 	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {
 		return job, errors.Wrap(err, "failed to create Docker API client")
 	}
-	if id, err = newContainer(ctx, c, f, host, port, n.verbose); err != nil {
+	if id, err = newContainer(ctx, c, f, host, port, n.verbose, n.errOut); err != nil {
 		return job, errors.Wrap(err, "runner unable to create container")
 	}
 	if conn, err = copyStdio(ctx, c, id, copyErrCh, n.out, n.errOut); err != nil {
@@ -254,7 +259,7 @@ func choosePort(host, preferredPort string, dialTimeout time.Duration) string {
 
 }
 
-func newContainer(ctx context.Context, c DockerClient, f fn.Function, host, port string, verbose bool) (id string, err error) {
+func newContainer(ctx context.Context, c DockerClient, f fn.Function, host, port string, verbose bool, errOut io.Writer) (id string, err error) {
 	var (
 		containerCfg container.Config
 		hostCfg      container.HostConfig
@@ -262,7 +267,7 @@ func newContainer(ctx context.Context, c DockerClient, f fn.Function, host, port
 	if containerCfg, err = newContainerConfig(f, port, verbose); err != nil {
 		return
 	}
-	if hostCfg, err = newHostConfig(host, port); err != nil {
+	if hostCfg, err = newHostConfig(host, port, f, errOut); err != nil {
 		return
 	}
 	t, err := c.ContainerCreate(ctx, client.ContainerCreateOptions{
@@ -339,7 +344,7 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	return
 }
 
-func newHostConfig(host, port string) (c container.HostConfig, err error) {
+func newHostConfig(host, port string, f fn.Function, errOut io.Writer) (c container.HostConfig, err error) {
 	httpPort := network.MustParsePort("8080/tcp")
 	hostIP, err := netip.ParseAddr(host)
 	if err != nil {
@@ -353,7 +358,189 @@ func newHostConfig(host, port string) (c container.HostConfig, err error) {
 			},
 		},
 	}
-	return container.HostConfig{PortBindings: ports}, nil
+	binds, mounts := volumeMounts(f.Root, f.Run.Volumes, errOut)
+	return container.HostConfig{PortBindings: ports, Binds: binds, Mounts: mounts}, nil
+}
+
+// volumeMounts converts func.yaml volume definitions into Docker host config.
+// Secret and ConfigMap binds go on Binds as "src:dst:ro,z" so Docker and Podman
+// relabel for SELinux; non-SELinux hosts ignore the z flag. A source or target
+// that contains ":" stays a read-only Mount instead: the Linux daemon splits a
+// bind spec on colon, so a drive letter or a colon in the path would make
+// container create fail, and :z buys nothing on Windows. emptyDir and PVC
+// stay on Mounts (tmpfs and named volumes). mount.Mount has no relabel field.
+// Volumes that cannot be mapped locally emit a warning on errOut and are
+// skipped rather than aborting the run. A nil errOut is treated as io.Discard.
+// Creating a secret or configMap directory prints one line: the directory is
+// empty until the user adds a file per key.
+func volumeMounts(root string, volumes []fn.Volume, errOut io.Writer) (binds []string, mounts []mount.Mount) {
+	if errOut == nil {
+		errOut = io.Discard
+	}
+	for _, vol := range volumes {
+		if vol.Path == nil {
+			fmt.Fprintf(errOut, "warning: skipping volume %s: missing path\n", vol.String())
+			continue
+		}
+		kind, src, isBind := localBind(root, vol)
+		fresh := false
+		if isBind {
+			_, err := os.Stat(src)
+			fresh = os.IsNotExist(err)
+		}
+		m, err := toMount(root, vol)
+		if err != nil {
+			fmt.Fprintf(errOut, "warning: skipping volume %s: %v\n", vol.String(), err)
+			continue
+		}
+		if fresh {
+			fmt.Fprintf(errOut, "created empty local %s dir %s; add files named after the %s's keys to populate it\n", kind, src, kind)
+		}
+		if m.Type == mount.TypeBind {
+			if strings.Contains(m.Source, ":") || strings.Contains(m.Target, ":") {
+				fmt.Fprintf(errOut, "warning: %s bound without SELinux relabel (path contains ':')\n", vol.String())
+				mounts = append(mounts, m)
+				continue
+			}
+			binds = append(binds, m.Source+":"+m.Target+":ro,z")
+			continue
+		}
+		mounts = append(mounts, m)
+	}
+	return binds, mounts
+}
+
+// localBind is the host path toMount will use for a secret or configMap.
+// The kind is the word used in the create-time message.
+func localBind(root string, vol fn.Volume) (kind, src string, ok bool) {
+	runDir := filepath.Join(root, fn.RunDataDir, "run")
+	switch {
+	case vol.Secret != nil:
+		return "secret", filepath.Join(runDir, "secrets", *vol.Secret), true
+	case vol.ConfigMap != nil:
+		return "configmap", filepath.Join(runDir, "configmaps", *vol.ConfigMap), true
+	default:
+		return "", "", false
+	}
+}
+
+// safeLocalName accepts only a DNS-1123 subdomain, the same rule Kubernetes
+// uses for Secret and ConfigMap names. That rejects empty, ".", "..",
+// uppercase, separators, and consecutive dots. "." is not just a bad name:
+// filepath.Join collapses it to the parent directory and the bind would
+// expose every local secret at once.
+func safeLocalName(name string) error {
+	if errs := validation.IsDNS1123Subdomain(name); len(errs) > 0 {
+		return fmt.Errorf("name %q must be a DNS-1123 subdomain: %s", name, strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// prepareBindDir creates src when it is missing and makes that directory
+// readable by a non-root container user. An existing directory keeps the
+// mode the user set. Only the leaf matters: the engine bind-mounts src, so
+// the container does not walk the host ancestors. chmod after mkdir so a
+// tight umask cannot leave the new directory owner-only.
+func prepareBindDir(src string) (created bool, err error) {
+	if _, err := os.Stat(src); err == nil {
+		return false, nil
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+	if err := os.MkdirAll(src, 0755); err != nil {
+		return false, err
+	}
+	if err := os.Chmod(src, 0755); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// toMount maps a single Volume spec to a Docker mount.Mount.
+//
+// runDir is <root>/.func/run (fn.RunDataDir = ".func", the extra "run" segment
+// scopes local state for the run subcommand away from build artifacts).
+//
+// Mapping rules:
+//   - Secret    → read-only bind from <runDir>/secrets/<name> (created 0755 if absent),
+//     placed on HostConfig.Binds as src:dst:ro,z
+//   - ConfigMap → read-only bind from <runDir>/configmaps/<name> (created 0755 if absent),
+//     placed on HostConfig.Binds as src:dst:ro,z
+//   - EmptyDir  → tmpfs for both default and Memory mediums. A sizeLimit, when
+//     set, becomes TmpfsOptions.SizeBytes. This is not an anonymous volume:
+//     those persist across runs and leak storage.
+//   - PVC       → named Docker volume keyed by claimName (not a bind under
+//     .func/run/pvcs). Shared across functions, matching Kubernetes. ReadOnly
+//     is forwarded from the claim.
+//
+// A newly created directory is 0755, not 0700. Function images run as a
+// non-root user, and rootless Podman maps that uid away from the host owner,
+// so a 0700 bind is unreadable. An existing directory is left alone. The
+// engine bind-mounts the directory itself, so parent modes on the host do
+// not matter to the container.
+//
+// SELinux: secret and ConfigMap binds use HostConfig.Binds with the :z
+// relabel suffix, which Docker and Podman honor and non-SELinux hosts
+// ignore. emptyDir and PVC stay on Mounts, which has no relabel field.
+func toMount(root string, vol fn.Volume) (mount.Mount, error) {
+	if vol.Path == nil {
+		return mount.Mount{}, fmt.Errorf("missing path")
+	}
+	target := *vol.Path
+	// fn.RunDataDir = ".func"; the "run" subdirectory scopes local run state.
+	runDir := filepath.Join(root, fn.RunDataDir, "run")
+
+	if vol.Secret != nil {
+		if err := safeLocalName(*vol.Secret); err != nil {
+			return mount.Mount{}, fmt.Errorf("secret: %w", err)
+		}
+		src := filepath.Join(runDir, "secrets", *vol.Secret)
+		if _, err := prepareBindDir(src); err != nil {
+			return mount.Mount{}, fmt.Errorf("cannot create local secret dir %q: %w", src, err)
+		}
+		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target, ReadOnly: true}, nil
+	}
+
+	if vol.ConfigMap != nil {
+		if err := safeLocalName(*vol.ConfigMap); err != nil {
+			return mount.Mount{}, fmt.Errorf("configMap: %w", err)
+		}
+		src := filepath.Join(runDir, "configmaps", *vol.ConfigMap)
+		if _, err := prepareBindDir(src); err != nil {
+			return mount.Mount{}, fmt.Errorf("cannot create local configmap dir %q: %w", src, err)
+		}
+		return mount.Mount{Type: mount.TypeBind, Source: src, Target: target, ReadOnly: true}, nil
+	}
+
+	if vol.EmptyDir != nil {
+		// Both mediums map to tmpfs locally: EmptyDir is ephemeral (pod-lifetime)
+		// and anonymous Docker volumes persist across runs, leaking storage.
+		m := mount.Mount{Type: mount.TypeTmpfs, Target: target}
+		if vol.EmptyDir.SizeLimit != nil && *vol.EmptyDir.SizeLimit != "" {
+			q, err := resource.ParseQuantity(*vol.EmptyDir.SizeLimit)
+			if err != nil {
+				return mount.Mount{}, fmt.Errorf("emptyDir sizeLimit: %w", err)
+			}
+			m.TmpfsOptions = &mount.TmpfsOptions{SizeBytes: q.Value()}
+		}
+		return m, nil
+	}
+
+	if vol.PersistentVolumeClaim != nil {
+		if vol.PersistentVolumeClaim.ClaimName == nil {
+			return mount.Mount{}, fmt.Errorf("persistentVolumeClaim missing claimName")
+		}
+		// Named Docker volume keyed by claimName: multiple functions referencing
+		// the same claim share the same local volume, matching Kubernetes semantics.
+		return mount.Mount{
+			Type:     mount.TypeVolume,
+			Source:   *vol.PersistentVolumeClaim.ClaimName,
+			Target:   target,
+			ReadOnly: vol.PersistentVolumeClaim.ReadOnly,
+		}, nil
+	}
+
+	return mount.Mount{}, fmt.Errorf("unrecognized volume type")
 }
 
 // copy stdin and stdout from the container of the given ID.  Errors encountered
