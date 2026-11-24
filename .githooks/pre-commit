@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# This scripts checks if the generated file is commited together with files that it is generated from.
+# This scripts checks if the generated file is committed together with files that it is generated from.
 
 if git diff-index --cached --name-only HEAD | grep -i "^templates/.*$" >/dev/null; then
   if ! git diff-index --cached --name-only HEAD | grep -i "^generate/zz_filesystem_generated.go$" >/dev/null; then
