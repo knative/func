@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -239,18 +240,26 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 
 	// SECTION - specify mount Path of the Volume
 
-	path := ""
+	mountPath := ""
 	err = survey.AskOne(&survey.Input{
 		Message: fmt.Sprintf("Please specify the path where the %s should be mounted:", selectedOption),
-	}, &path, survey.WithValidator(func(val interface{}) error {
-		if str, ok := val.(string); !ok || len(str) <= 0 || !strings.HasPrefix(str, "/") {
+	}, &mountPath, survey.WithValidator(func(val interface{}) error {
+		str, ok := val.(string)
+		if !ok || len(str) <= 0 || !strings.HasPrefix(str, "/") {
 			return fmt.Errorf("the input must be non-empty absolute path")
+		}
+		cleaned := path.Clean(str)
+		for _, v := range f.Run.Volumes {
+			if v.Path != nil && path.Clean(*v.Path) == cleaned {
+				return fmt.Errorf("volume with mount path %q already exists", cleaned)
+			}
 		}
 		return nil
 	}))
 	if err != nil {
 		return
 	}
+	mountPath = path.Clean(mountPath)
 
 	// SECTION - is this read only for pvc
 	readOnly := false
@@ -265,7 +274,7 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	// we have all necessary information -> let's store the new Volume
-	newVolume := fn.Volume{Path: &path}
+	newVolume := fn.Volume{Path: &mountPath}
 	switch selectedOption {
 	case optionConfigMap:
 		newVolume.ConfigMap = &selectedResource
@@ -350,6 +359,20 @@ func runAddVolume(cmd *cobra.Command, f fn.Function) error {
 	if !strings.HasPrefix(mountPath, "/") {
 		return fmt.Errorf("mount path must be an absolute path (start with /)")
 	}
+	mountPath = path.Clean(mountPath)
+
+	// Check for duplicate mount path
+	for _, v := range f.Run.Volumes {
+		if v.Path != nil && path.Clean(*v.Path) == mountPath {
+			return fmt.Errorf("volume with mount path %q already exists", mountPath)
+		}
+	}
+
+	// Normalize volume type
+	volumeType = strings.ToLower(volumeType)
+	if volumeType == "persistentvolumeclaim" {
+		volumeType = "pvc"
+	}
 
 	// Create the volume based on type
 	newVolume := fn.Volume{Path: &mountPath}
@@ -379,7 +402,9 @@ func runAddVolume(cmd *cobra.Command, f fn.Function) error {
 			emptyDir.SizeLimit = &sizeLimit
 		}
 		if medium != "" {
-			if medium != fn.StorageMediumMemory && medium != fn.StorageMediumDefault {
+			if strings.EqualFold(medium, fn.StorageMediumMemory) {
+				medium = fn.StorageMediumMemory
+			} else if medium != fn.StorageMediumDefault {
 				return fmt.Errorf("invalid medium: must be 'Memory' or empty")
 			}
 			emptyDir.Medium = medium
@@ -408,12 +433,13 @@ func runRemoveVolume(cmd *cobra.Command, f fn.Function, mountPath string) error 
 	if !strings.HasPrefix(mountPath, "/") {
 		return fmt.Errorf("mount path must be an absolute path (start with /)")
 	}
+	mountPath = path.Clean(mountPath)
 
 	// Find and remove the volume with the specified path
 	var newVolumes []fn.Volume
 	removed := false
 	for _, v := range f.Run.Volumes {
-		if v.Path != nil && *v.Path == mountPath {
+		if v.Path != nil && path.Clean(*v.Path) == mountPath {
 			removed = true
 		} else {
 			newVolumes = append(newVolumes, v)
