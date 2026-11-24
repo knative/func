@@ -428,14 +428,10 @@ func buildScaledObject(f fn.Function, trigger fn.KEDATrigger, deployment *v1.Dep
 
 	// Optional KEDA kafka scaler settings: sent only when set so KEDA's own
 	// defaults apply otherwise.
-	if trigger.OffsetResetPolicy != nil {
-		triggerMeta["offsetResetPolicy"] = *trigger.OffsetResetPolicy
-	}
 	for key, v := range map[string]*bool{
-		"allowIdleConsumers":         trigger.AllowIdleConsumers,
-		"excludePersistentLag":       trigger.ExcludePersistentLag,
-		"scaleToZeroOnInvalidOffset": trigger.ScaleToZeroOnInvalidOffset,
-		"limitToPartitionsWithLag":   trigger.LimitToPartitionsWithLag,
+		"allowIdleConsumers":       trigger.AllowIdleConsumers,
+		"excludePersistentLag":     trigger.ExcludePersistentLag,
+		"limitToPartitionsWithLag": trigger.LimitToPartitionsWithLag,
 	} {
 		if v != nil {
 			triggerMeta[key] = strconv.FormatBool(*v)

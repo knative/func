@@ -1065,30 +1065,20 @@ func TestBuildScaledObject_KafkaScalerOptions(t *testing.T) {
 		{
 			name:    "none set emits none",
 			trigger: fn.KEDATrigger{Type: "kafka"},
-			absent:  []string{"offsetResetPolicy", "allowIdleConsumers", "excludePersistentLag", "scaleToZeroOnInvalidOffset", "limitToPartitionsWithLag"},
-		},
-		{
-			name:    "offsetResetPolicy earliest",
-			trigger: fn.KEDATrigger{Type: "kafka", OffsetResetPolicy: strPtr("earliest")},
-			want:    map[string]string{"offsetResetPolicy": "earliest"},
-			absent:  []string{"allowIdleConsumers", "limitToPartitionsWithLag"},
+			absent:  []string{"allowIdleConsumers", "excludePersistentLag", "limitToPartitionsWithLag"},
 		},
 		{
 			name: "all set true",
 			trigger: fn.KEDATrigger{
-				Type:                       "kafka",
-				OffsetResetPolicy:          strPtr("latest"),
-				AllowIdleConsumers:         b(true),
-				ExcludePersistentLag:       b(true),
-				ScaleToZeroOnInvalidOffset: b(true),
-				LimitToPartitionsWithLag:   b(true),
+				Type:                     "kafka",
+				AllowIdleConsumers:       b(true),
+				ExcludePersistentLag:     b(true),
+				LimitToPartitionsWithLag: b(true),
 			},
 			want: map[string]string{
-				"offsetResetPolicy":          "latest",
-				"allowIdleConsumers":         "true",
-				"excludePersistentLag":       "true",
-				"scaleToZeroOnInvalidOffset": "true",
-				"limitToPartitionsWithLag":   "true",
+				"allowIdleConsumers":       "true",
+				"excludePersistentLag":     "true",
+				"limitToPartitionsWithLag": "true",
 			},
 		},
 		{
