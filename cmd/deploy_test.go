@@ -1446,6 +1446,28 @@ func TestDeploy_Namespace(t *testing.T) {
 	}
 }
 
+// TestDeploy_NamespaceMayStartWithADigit ensures a namespace Kubernetes itself
+// accepts is accepted here. Namespace names are DNS-1123 labels, which are
+// allowed to begin with a digit.
+func TestDeploy_NamespaceMayStartWithADigit(t *testing.T) {
+	root := FromTempDirectory(t)
+
+	if _, err := fn.New().Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
+	cmd.SetArgs([]string{"--namespace=1-my-ns"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ := fn.NewFunction(root)
+	if f.Deploy.Namespace != "1-my-ns" {
+		t.Fatalf("expected namespace '1-my-ns', got '%v'", f.Deploy.Namespace)
+	}
+}
+
 // TestDeploy_NamespaceDefaultsToK8sContext ensures that when not specified, a
 // users's active kubernetes context is used for the namespace if available.
 func TestDeploy_NamespaceDefaultsToK8sContext(t *testing.T) {
