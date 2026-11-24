@@ -197,4 +197,3 @@ func TestInvoke_FormatNormalization(t *testing.T) {
 		})
 	}
 }
-
