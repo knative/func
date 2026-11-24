@@ -43,7 +43,8 @@ func (s *Server) runStopHandler(ctx context.Context, r *mcp.CallToolRequest, inp
 		err = fmt.Errorf("unable to stop function at %q: %w", path, err)
 		return
 	}
-	s.runs.remove(path)
+	// The output stays readable via run_logs: it is retained, not discarded.
+	s.runs.retire(path, entry)
 
 	output = RunStopOutput{
 		Message: fmt.Sprintf("stopped function at %q (pid %d)", path, entry.pid),
