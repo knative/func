@@ -182,6 +182,49 @@ func TestInvokeExtensionsRequireCloudEvent(t *testing.T) {
 	}
 }
 
+// TestInvokeExtensionsReservedAttributes ensures core CloudEvents attribute
+// names are rejected as extensions, and that the error points at the flag
+// which sets the attribute when one exists.
+func TestInvokeExtensionsReservedAttributes(t *testing.T) {
+	cases := []struct {
+		name string
+		ext  string
+		flag string // invoke flag that sets this attribute, if any
+	}{
+		{"id", "id=abc", "--id"},
+		{"type", "type=com.example", "--type"},
+		{"source", "source=/example", "--source"},
+		{"datacontenttype", "datacontenttype=text/plain", "--content-type"},
+		{"specversion", "specversion=1.0", ""},
+		{"subject", "subject=hello", ""},
+		{"time", "time=2020-01-01T00:00:00Z", ""},
+		{"dataschema", "dataschema=https://example.com/schema", ""},
+		{"mixed case", "ID=abc", "--id"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := invokeConfig{Extensions: []string{"ok=1", tc.ext}}
+			_, err := c.parseExtensions()
+			if err == nil {
+				t.Fatalf("expected error for %q", tc.ext)
+			}
+			msg := err.Error()
+			if !strings.Contains(msg, "reserved CloudEvents attribute") {
+				t.Fatalf("expected reserved-attribute error, got %v", err)
+			}
+			if tc.flag == "" {
+				if strings.Contains(msg, "set it with") {
+					t.Fatalf("expected no flag hint, got %v", err)
+				}
+				return
+			}
+			if !strings.Contains(msg, tc.flag) {
+				t.Fatalf("expected error to mention %s, got %v", tc.flag, err)
+			}
+		})
+	}
+}
+
 // TestInvoke_WrapsNotInitialized ensures invoke wraps uninitialized errors
 // through the CLI error wrapping layer instead of inline fmt.Errorf.
 func TestInvoke_WrapsNotInitialized(t *testing.T) {
