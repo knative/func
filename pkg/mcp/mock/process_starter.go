@@ -10,7 +10,7 @@ import (
 // typing.
 type ProcessStarter struct {
 	StartInvoked bool
-	StartFn      func(ctx context.Context, subcommand string, args ...string) (pid int, host, port string, stop func() error, err error)
+	StartFn      func(ctx context.Context, subcommand string, args ...string) (pid int, host, port string, stop func() error, exited <-chan struct{}, err error)
 }
 
 // NewProcessStarter creates a new mock process starter.
@@ -20,12 +20,12 @@ func NewProcessStarter() *ProcessStarter {
 
 // Start implements the processStarter interface, recording invocation
 // details and delegating to StartFn if provided.
-func (m *ProcessStarter) Start(ctx context.Context, subcommand string, args ...string) (pid int, host, port string, stop func() error, err error) {
+func (m *ProcessStarter) Start(ctx context.Context, subcommand string, args ...string) (pid int, host, port string, stop func() error, exited <-chan struct{}, err error) {
 	m.StartInvoked = true
 
 	if m.StartFn != nil {
 		return m.StartFn(ctx, subcommand, args...)
 	}
 
-	return 1234, "127.0.0.1", "8080", func() error { return nil }, nil
+	return 1234, "127.0.0.1", "8080", func() error { return nil }, nil, nil
 }
