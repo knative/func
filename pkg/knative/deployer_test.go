@@ -24,11 +24,16 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/fake"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
+	eventingduckv1 "knative.dev/eventing/pkg/apis/duck/v1"
+	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/pkg/ptr"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -763,4 +768,439 @@ func TestWaitForReadyOrPrivateRegistry_CallerCancelJoinsWaiter(t *testing.T) {
 	if !exited.Load() {
 		t.Fatal("waitForService still running after caller cancel")
 	}
+}
+
+func TestSyncKnativeTriggers_DeletesOwnedStaleTrigger(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	desired := map[string]*eventingv1.Trigger{
+		"my-func-function-trigger-0": newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "default"}, 0),
+	}
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old"}, 2)
+
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(&eventingv1.TriggerList{Items: []eventingv1.Trigger{*existing}}, nil)
+	client.Recorder().DeleteTrigger("my-func-function-trigger-2", nil)
+	client.Recorder().CreateTrigger(func(t *testing.T, got any) {
+		trigger := got.(*eventingv1.Trigger)
+		if trigger.Name != "my-func-function-trigger-0" {
+			t.Fatalf("expected create of trigger-0, got %q", trigger.Name)
+		}
+	}, nil)
+
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, desired); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	client.Recorder().Validate()
+}
+
+func TestSyncKnativeTriggers_BrokerChangeRecreatesOwnedTrigger(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old-broker"}, 0)
+	delete(existing.Annotations, knativeTriggerManagedByAnnotation)
+	desired := map[string]*eventingv1.Trigger{
+		"my-func-function-trigger-0": newKnativeTrigger(ksvc, fn.KnativeSubscription{
+			Source:  "new-broker",
+			Filters: map[string]string{"type": "dev.knative.func"},
+		}, 0),
+	}
+
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(&eventingv1.TriggerList{Items: []eventingv1.Trigger{*existing}}, nil)
+	// spec.broker is immutable in Eventing, so a broker change is delete+create.
+	client.Recorder().DeleteTrigger("my-func-function-trigger-0", nil)
+	client.Recorder().GetTrigger("my-func-function-trigger-0", nil, apierrors.NewNotFound(schema.GroupResource{Group: "eventing.knative.dev", Resource: "triggers"}, "my-func-function-trigger-0"))
+	client.Recorder().CreateTrigger(func(t *testing.T, got any) {
+		trigger := got.(*eventingv1.Trigger)
+		if trigger.Name != "my-func-function-trigger-0" {
+			t.Fatalf("expected trigger name my-func-function-trigger-0, got %q", trigger.Name)
+		}
+		if trigger.Spec.Broker != "new-broker" {
+			t.Fatalf("expected broker new-broker, got %q", trigger.Spec.Broker)
+		}
+		if trigger.Spec.Filter.Attributes["type"] != "dev.knative.func" {
+			t.Fatalf("expected updated filter attributes, got %v", trigger.Spec.Filter.Attributes)
+		}
+		if trigger.Annotations[knativeTriggerManagedByAnnotation] != knativeTriggerManagedByValue {
+			t.Fatalf("expected managed annotation, got %v", trigger.Annotations)
+		}
+	}, nil)
+
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, desired); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	client.Recorder().Validate()
+}
+
+func TestSyncKnativeTriggers_SkipsUnownedSamePrefixTrigger(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old"}, 2)
+	existing.Annotations = nil
+	existing.OwnerReferences = nil
+
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(&eventingv1.TriggerList{Items: []eventingv1.Trigger{*existing}}, nil)
+
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, nil); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	client.Recorder().Validate()
+}
+
+func TestSyncKnativeTriggers_EventingUnavailable(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(nil, errors.New("no or newer Knative Eventing API found on the backend"))
+
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, nil); err != nil {
+		t.Fatalf("expected eventing unavailable to be ignored, got %v", err)
+	}
+	client.Recorder().Validate()
+}
+
+func TestSyncKnativeTriggers_DeleteError(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old"}, 5)
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(&eventingv1.TriggerList{Items: []eventingv1.Trigger{*existing}}, nil)
+	client.Recorder().DeleteTrigger("my-func-function-trigger-5", errors.New("connection refused"))
+
+	err := syncKnativeTriggers(t.Context(), client, ksvc, nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "connection refused") {
+		t.Fatalf("expected 'connection refused' in error, got: %v", err)
+	}
+	client.Recorder().Validate()
+}
+
+func testKnativeService(name string) *servingv1.Service {
+	return &servingv1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "serving.knative.dev/v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			UID:  "ksvc-uid",
+		},
+	}
+}
+
+func TestIsKnativeFunctionTriggerName(t *testing.T) {
+	cases := []struct {
+		service, name string
+		want          bool
+	}{
+		{service: "my-func", name: "my-func-function-trigger-0", want: true},
+		{service: "my-func", name: "my-func-function-trigger-10", want: true},
+		{service: "my-func", name: "my-func-function-trigger-01", want: false},
+		{service: "my-func", name: "my-func-function-trigger-backup", want: false},
+		{service: "my-func", name: "my-func-function-trigger-extra-function-trigger-0", want: false},
+		{service: "my-func", name: "my-func-function-trigger-", want: false},
+		{service: "foo", name: "foobar-function-trigger-0", want: false},
+		{service: "", name: "-function-trigger-0", want: false},
+	}
+	for _, tc := range cases {
+		if got := isKnativeFunctionTriggerName(tc.service, tc.name); got != tc.want {
+			t.Errorf("isKnativeFunctionTriggerName(%q, %q) = %v, want %v", tc.service, tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestSyncKnativeTriggers_RemoveSubscriptionKeepsForeign(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	keep := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "default"}, 0)
+	stale := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old"}, 2)
+	similar := &eventingv1.Trigger{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-func-function-trigger-backup"},
+		Spec:       eventingv1.TriggerSpec{Broker: "user-broker"},
+	}
+	// Another function deployed by this same deployer. Its trigger name
+	// has my-func's prefix and carries the shared managed-by annotation.
+	other := testKnativeService("my-func-function-trigger-extra")
+	colliding := newKnativeTrigger(other, fn.KnativeSubscription{Source: "foreign"}, 0)
+
+	client := &recordingEventingClient{items: []eventingv1.Trigger{*keep, *stale, *similar, *colliding}}
+	desired := map[string]*eventingv1.Trigger{keep.Name: keep}
+
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, desired); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	assertTriggerNames(t, client.deleted, stale.Name)
+	if len(client.updated) != 0 {
+		t.Fatalf("updated %d triggers, want none", len(client.updated))
+	}
+}
+
+func TestSyncKnativeTriggers_ZeroSubscriptions(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	first := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "default"}, 0)
+	second := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "other"}, 1)
+	similar := &eventingv1.Trigger{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-func-function-trigger-backup"},
+	}
+	other := testKnativeService("my-func-function-trigger-extra")
+	colliding := newKnativeTrigger(other, fn.KnativeSubscription{Source: "foreign"}, 0)
+
+	client := &recordingEventingClient{items: []eventingv1.Trigger{*first, *second, *similar, *colliding}}
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, map[string]*eventingv1.Trigger{}); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	assertTriggerNames(t, client.deleted, first.Name, second.Name)
+	if len(client.updated) != 0 {
+		t.Fatalf("updated %d triggers, want none", len(client.updated))
+	}
+}
+
+func TestSyncKnativeTriggers_BrokerChangeRecreates(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	first := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-a", Filters: map[string]string{"type": "a"}}, 0)
+	second := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-b", Filters: map[string]string{"type": "b"}}, 1)
+	desiredFirst := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-b", Filters: map[string]string{"type": "b"}}, 0)
+	desiredSecond := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-a", Filters: map[string]string{"type": "a"}}, 1)
+
+	client := &recordingEventingClient{items: []eventingv1.Trigger{*first, *second}}
+	desired := map[string]*eventingv1.Trigger{
+		desiredFirst.Name:  desiredFirst,
+		desiredSecond.Name: desiredSecond,
+	}
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, desired); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	if len(client.updated) != 0 {
+		t.Fatalf("updated %d triggers, want none", len(client.updated))
+	}
+	assertTriggerNames(t, client.deleted, first.Name, second.Name)
+	got := map[string]string{}
+	for _, trigger := range client.created {
+		got[trigger.Name] = trigger.Spec.Broker
+	}
+	if got[first.Name] != "broker-b" || got[second.Name] != "broker-a" {
+		t.Fatalf("recreated brokers = %v", got)
+	}
+}
+
+func TestSyncKnativeTriggers_FilterChangeUpdatesInPlace(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-a", Filters: map[string]string{"type": "a"}}, 0)
+	existing.Spec.Subscriber.Ref.Namespace = "default"
+	existing.Spec.Delivery = &eventingduckv1.DeliverySpec{Retry: ptr.Int32(3)}
+	desired := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-a", Filters: map[string]string{"type": "b"}}, 0)
+
+	client := &recordingEventingClient{items: []eventingv1.Trigger{*existing}}
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, map[string]*eventingv1.Trigger{desired.Name: desired}); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	if len(client.deleted) != 0 || len(client.created) != 0 {
+		t.Fatalf("deleted %v created %d, want neither", client.deleted, len(client.created))
+	}
+	if len(client.updated) != 1 {
+		t.Fatalf("updated %d triggers, want 1", len(client.updated))
+	}
+	got := client.updated[0]
+	if got.Spec.Filter.Attributes["type"] != "b" {
+		t.Fatalf("updated filter type = %q, want b", got.Spec.Filter.Attributes["type"])
+	}
+	if got.Spec.Broker != "broker-a" {
+		t.Fatalf("broker changed to %q", got.Spec.Broker)
+	}
+	if got.Spec.Subscriber.Ref.Namespace != "default" {
+		t.Fatalf("namespace = %q, want default", got.Spec.Subscriber.Ref.Namespace)
+	}
+	if got.Spec.Delivery == nil || got.Spec.Delivery.Retry == nil || *got.Spec.Delivery.Retry != 3 {
+		t.Fatalf("delivery was not preserved: %#v", got.Spec.Delivery)
+	}
+}
+
+func TestSyncKnativeTriggers_ServerDefaultsDoNotUpdate(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	desired := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-a"}, 0)
+	existing := desired.DeepCopy()
+	existing.Spec.Filter = &eventingv1.TriggerFilter{}
+	existing.Spec.Subscriber.Ref.Namespace = "default"
+	existing.Spec.Filters = []eventingv1.SubscriptionsAPIFilter{}
+
+	client := &recordingEventingClient{items: []eventingv1.Trigger{*existing}}
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, map[string]*eventingv1.Trigger{desired.Name: desired}); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	if len(client.deleted) != 0 || len(client.updated) != 0 || len(client.created) != 0 {
+		t.Fatalf("deleted %v updated %d created %d, want none", client.deleted, len(client.updated), len(client.created))
+	}
+}
+
+func TestSyncKnativeTriggers_CreateMissing(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-a"}, 0)
+	extra := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-b"}, 1)
+	client := &recordingEventingClient{items: []eventingv1.Trigger{*existing}}
+	desired := map[string]*eventingv1.Trigger{
+		existing.Name: existing,
+		extra.Name:    extra,
+	}
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, desired); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	if len(client.deleted) != 0 || len(client.updated) != 0 {
+		t.Fatalf("deleted %v updated %d, want neither", client.deleted, len(client.updated))
+	}
+	if len(client.created) != 1 || client.created[0].Name != extra.Name || client.created[0].Spec.Broker != "broker-b" {
+		t.Fatalf("created %#v", client.created)
+	}
+}
+
+func TestSyncKnativeTriggers_RecreateAlreadyExists(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-a"}, 0)
+	desired := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "broker-b"}, 0)
+	client := &recordingEventingClient{
+		items:     []eventingv1.Trigger{*existing},
+		createErr: apierrors.NewAlreadyExists(schema.GroupResource{Group: "eventing.knative.dev", Resource: "triggers"}, existing.Name),
+	}
+	err := syncKnativeTriggers(t.Context(), client, ksvc, map[string]*eventingv1.Trigger{desired.Name: desired})
+	if !apierrors.IsAlreadyExists(err) {
+		t.Fatalf("expected AlreadyExists, got %v", err)
+	}
+	if len(client.updated) != 0 {
+		t.Fatalf("updated %d triggers, want none", len(client.updated))
+	}
+	assertTriggerNames(t, client.deleted, existing.Name)
+}
+
+func TestSyncKnativeTriggers_EmptyServiceUIDDoesNotDelete(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old"}, 1)
+	delete(existing.Annotations, knativeTriggerManagedByAnnotation)
+	ksvc.UID = ""
+
+	client := &recordingEventingClient{items: []eventingv1.Trigger{*existing}}
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, map[string]*eventingv1.Trigger{}); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	if len(client.deleted) != 0 || len(client.updated) != 0 {
+		t.Fatalf("empty service UID deleted %v updated %d", client.deleted, len(client.updated))
+	}
+}
+
+func TestSyncKnativeTriggers_ForeignOwnerSurvives(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	existing := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old"}, 2)
+	existing.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion: ksvc.APIVersion,
+		Kind:       ksvc.Kind,
+		Name:       "someone-else",
+		UID:        "other-uid",
+	}}
+
+	client := &recordingEventingClient{items: []eventingv1.Trigger{*existing}}
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, map[string]*eventingv1.Trigger{}); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	if len(client.deleted) != 0 || len(client.updated) != 0 {
+		t.Fatalf("foreign owner deleted %v updated %d", client.deleted, len(client.updated))
+	}
+}
+
+func TestSyncKnativeTriggers_ForbiddenWithoutSubscriptions(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	forbidden := apierrors.NewForbidden(
+		schema.GroupResource{Group: "eventing.knative.dev", Resource: "triggers"},
+		"",
+		errors.New("no"),
+	)
+	client := clienteventingv1.NewMockKnEventingClient(t)
+	client.Recorder().ListTriggers(&eventingv1.TriggerList{}, forbidden)
+
+	err := syncKnativeTriggers(t.Context(), client, ksvc, map[string]*eventingv1.Trigger{})
+	if !apierrors.IsForbidden(err) {
+		t.Fatalf("expected forbidden to stay wrapped, got %v", err)
+	}
+	if got := ignoreTriggerSyncForbidden(err, false, "gitlab-test"); got != nil {
+		t.Fatalf("expected no-subscription forbidden to be ignored, got %v", got)
+	}
+	if got := ignoreTriggerSyncForbidden(err, true, "gitlab-test"); got == nil {
+		t.Fatal("expected forbidden to fail when subscriptions are declared")
+	}
+	client.Recorder().Validate()
+}
+
+func TestSyncKnativeTriggers_RecreatedServiceDeletesStale(t *testing.T) {
+	ksvc := testKnativeService("my-func")
+	stale := newKnativeTrigger(ksvc, fn.KnativeSubscription{Source: "old"}, 1)
+	stale.OwnerReferences[0].UID = "previous-service-uid"
+	delete(stale.Annotations, knativeTriggerManagedByAnnotation)
+
+	client := &recordingEventingClient{items: []eventingv1.Trigger{*stale}}
+	if err := syncKnativeTriggers(t.Context(), client, ksvc, map[string]*eventingv1.Trigger{}); err != nil {
+		t.Fatalf("syncKnativeTriggers returned error: %v", err)
+	}
+	assertTriggerNames(t, client.deleted, stale.Name)
+}
+
+func assertTriggerNames(t *testing.T, got []string, want ...string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("deleted %v, want %v", got, want)
+	}
+	counts := map[string]int{}
+	for _, name := range got {
+		counts[name]++
+	}
+	for _, name := range want {
+		if counts[name] != 1 {
+			t.Fatalf("deleted %v, want %v", got, want)
+		}
+	}
+}
+
+// recordingEventingClient records trigger deletes, creates, and updates.
+// Unimplemented KnEventingClient methods are the nil embedded client.
+type recordingEventingClient struct {
+	clienteventingv1.KnEventingClient
+
+	items     []eventingv1.Trigger
+	deleted   []string
+	updated   []*eventingv1.Trigger
+	created   []*eventingv1.Trigger
+	createErr error
+	gone      map[string]bool
+}
+
+func (c *recordingEventingClient) ListTriggers(context.Context) (*eventingv1.TriggerList, error) {
+	return &eventingv1.TriggerList{Items: c.items}, nil
+}
+
+func (c *recordingEventingClient) DeleteTrigger(_ context.Context, name string) error {
+	c.deleted = append(c.deleted, name)
+	if c.gone == nil {
+		c.gone = map[string]bool{}
+	}
+	c.gone[name] = true
+	return nil
+}
+
+func (c *recordingEventingClient) UpdateTrigger(_ context.Context, trigger *eventingv1.Trigger) error {
+	c.updated = append(c.updated, trigger.DeepCopy())
+	return nil
+}
+
+func (c *recordingEventingClient) CreateTrigger(_ context.Context, trigger *eventingv1.Trigger) error {
+	if c.createErr != nil {
+		return c.createErr
+	}
+	c.created = append(c.created, trigger.DeepCopy())
+	return nil
+}
+
+func (c *recordingEventingClient) GetTrigger(_ context.Context, name string) (*eventingv1.Trigger, error) {
+	if c.gone[name] {
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: "eventing.knative.dev", Resource: "triggers"}, name)
+	}
+	for i := range c.items {
+		if c.items[i].Name == name {
+			return c.items[i].DeepCopy(), nil
+		}
+	}
+	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "eventing.knative.dev", Resource: "triggers"}, name)
 }
