@@ -848,21 +848,21 @@ keda_http_addon() {
   echo "${blue}Installing Keda HTTP add-on${reset}"
   echo "Version: ${keda_http_addon_version}"
 
-  $KUBECTL apply --server-side -f "https://github.com/kedacore/http-add-on/releases/download/${keda_http_addon_version}/keda-add-ons-http-${keda_http_addon_version:1}-crds.yaml"
-  $KUBECTL apply --server-side -f "https://github.com/kedacore/http-add-on/releases/download/${keda_http_addon_version}/keda-add-ons-http-${keda_http_addon_version:1}.yaml"
+  local crds_url="https://github.com/kedacore/http-add-on/releases/download/${keda_http_addon_version}/keda-add-ons-http-${keda_http_addon_version:1}-crds.yaml"
+  local addon_url="https://github.com/kedacore/http-add-on/releases/download/${keda_http_addon_version}/keda-add-ons-http-${keda_http_addon_version:1}.yaml"
+
+  $KUBECTL apply --server-side -f "${crds_url}"
+  if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+    echo "Installing Keda HTTP add-on with single-replica settings for CI."
+    curl -fsSL "${addon_url}" \
+      | $YQ '(select(.kind == "Deployment" and (.metadata.name == "keda-add-ons-http-interceptor" or .metadata.name == "keda-add-ons-http-scaler")).spec.replicas) = 1' \
+      | $YQ '(select(.kind == "ScaledObject" and .metadata.name == "keda-add-ons-http-interceptor").spec.minReplicaCount) = 1' \
+      | $KUBECTL apply --server-side -f -
+  else
+    $KUBECTL apply --server-side -f "${addon_url}"
+  fi
   echo "Waiting for Keda HTTP add-on to become ready"
   $KUBECTL wait deployment --all --timeout=-1s --for=condition=Available --namespace keda
-
-  # Reduce resource requests for CI environments
-  if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
-    echo "${blue}Reducing KEDA HTTP add-on resource requests for CI${reset}"
-
-    # Reduce replica counts for CI (3 replicas is overkill for testing)
-    $KUBECTL scale deployment keda-add-ons-http-interceptor -n keda --replicas=1 || echo "Warning: Failed to scale keda-add-ons-http-interceptor"
-    $KUBECTL scale deployment keda-add-ons-http-scaler -n keda --replicas=1 || echo "Warning: Failed to scale keda-add-ons-http-scaler"
-
-    echo "${green}✅ Resource requests reduced for CI${reset}"
-  fi
 
   $KUBECTL get pod -n keda
   echo "${green}✅ Keda HTTP add-on${reset}"
