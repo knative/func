@@ -111,7 +111,8 @@ type Deployer struct {
 
 	exposer deployer.Exposer
 
-	autoscaledReplicas bool
+	autoscaledReplicas  bool
+	requireReadyReplica bool
 }
 
 func NewDeployer(opts ...DeployerOpt) *Deployer {
@@ -138,6 +139,15 @@ func WithDeployerVerbose(verbose bool) DeployerOpt {
 func WithAutoscaledReplicas(autoscaledReplicas bool) DeployerOpt {
 	return func(d *Deployer) {
 		d.autoscaledReplicas = autoscaledReplicas
+	}
+}
+
+// WithRequireReadyReplica refuses a settled zero-replica Deployment during the
+// readiness wait so callers holding a replica prove a pod of the new revision
+// became ready before allowing scale-to-zero (#4118).
+func WithRequireReadyReplica(require bool) DeployerOpt {
+	return func(d *Deployer) {
+		d.requireReadyReplica = require
 	}
 }
 
@@ -332,7 +342,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		}
 	}
 
-	if err := WaitForDeploymentAvailable(ctx, clientset, namespace, f.Name, DefaultWaitingTimeout); err != nil {
+	if err := waitForDeploymentAvailable(ctx, clientset, namespace, f.Name, DefaultWaitingTimeout, !d.requireReadyReplica); err != nil {
 		return fn.DeploymentResult{}, fmt.Errorf("deployment did not become ready: %w", err)
 	}
 

@@ -96,4 +96,14 @@ func TestCheckIfDeploymentIsAvailable_ZeroReplicas(t *testing.T) {
 			t.Error("expected ready=false with an unavailable replica")
 		}
 	})
+
+	t.Run("reconciled zero is not ready when allowZero is false", func(t *testing.T) {
+		ready, err := checkIfDeploymentAvailable(ctx, nil, zeroDeployment(nil), false)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if ready {
+			t.Error("expected ready=false when allowZero=false")
+		}
+	})
 }
