@@ -10,16 +10,20 @@ For `func` version `v0.20.0` and later on Linux no further setup is needed,
 For older versions some setup is required:
 
 In order to do this you need to run `podman` as a service. You can do this with the following command.
+
 ```
 ❯ systemctl start --user podman.socket
 ```
+
 This will serve the Docker API on a UNIX socket at `${XDG_RUNTIME_DIR}/podman/podman.sock` (on most systems that would be `/run/user/{uid}/podman/podman.sock`).
 
 Then set the environment variable `DOCKER_HOST` to the socket so `func` knows where to connect.
+
 ```
 ❯ export DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/podman/podman.sock"
 ❯ func build -v
 ```
+
 Now you may use `func` as usual.
 
 ## macOS and Windows
@@ -32,15 +36,17 @@ The docs will guide you through `podman machine` setup.
 The `podman machine start` command it will output path to API socket.
 
 Example output:
+
 ```
 You can still connect Docker API clients by setting DOCKER_HOST using the
 following command in your terminal session:
 
 	export DOCKER_HOST='unix:///Users/jdoe/.local/share/containers/podman/machine/podman-machine-default/podman.sock'
 ```
+
 It's required to export the DOCKER_HOST environment variable in shell where `func` is used.
 
-*Tip*: Put the export to your shell rc file (e.g. `~/.bashrc`).
+_Tip_: Put the export to your shell rc file (e.g. `~/.bashrc`).
 
 ## Remote connections
 
@@ -92,22 +98,22 @@ Finally, to ensure that `func` knows the address of your newly configured regist
 export DOCKER_HOST=$(podman system connection ls --format="{{.URI}}" | head -1)
 ```
 
-
 ## Known issues
 
-* In func version 0.19, some runtimes might be unable to build a function by using podman. You might see an error message similar to the following:
+- In func version 0.19, some runtimes might be unable to build a function by using podman. You might see an error message similar to the following:
 
-    ```
-    ERROR: failed to image: error during connect: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.40/info": EOF
-    ```
-  * The following workaround exists for this issue:
-    * Update the podman service by adding --time=0 to the service ExecStart definition in the podman configuration file at `/etc/systemd/user/podman.service`.You might need to copy the default configuration file from `/usr/lib/systemd/user/podman.service` first.
+  ```
+  ERROR: failed to image: error during connect: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.40/info": EOF
+  ```
+  - The following workaround exists for this issue:
+    - Update the podman service by adding --time=0 to the service ExecStart definition in the podman configuration file at `/etc/systemd/user/podman.service`.You might need to copy the default configuration file from `/usr/lib/systemd/user/podman.service` first.
       </br></br>
       Example service configuration:
 
       `ExecStart=/usr/bin/podman $LOGGING system service --time=0`
       </br></br>
       After editing the configuration files you need to reload/restart service:
+
       ```
       ❯ systemctl --user daemon-reload
       ❯ systemctl restart --user podman.socket

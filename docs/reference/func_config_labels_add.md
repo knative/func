@@ -11,7 +11,6 @@ If label is not set explicitly by flag, interactive prompt is used.
 The label can be set directly from a value or from an environment variable on
 the local machine.
 
-
 ```
 func config labels add
 ```
@@ -38,5 +37,4 @@ func config labels add --name=Foo --value='{{ env:FOO }}'
 
 ### SEE ALSO
 
-* [func config labels](func_config_labels.md)	 - List and manage configured labels for a function
-
+- [func config labels](func_config_labels.md) - List and manage configured labels for a function

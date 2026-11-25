@@ -101,7 +101,7 @@ func info
 
 Note the value of **Routes:** from the output, set `$URL` to its value.
 
-__TIP__:
+**TIP**:
 
 If you use `kn` then you can set the url by:
 
@@ -157,6 +157,7 @@ curl -v "$URL/echo" \
 ### HTTPie
 
 Using CloudEvents `Ce-Type` routing:
+
 ```shell script
 echo hello | http -v "$URL/" \
   Content-Type:application/json \
@@ -168,6 +169,7 @@ echo hello | http -v "$URL/" \
 ```
 
 Using Path-Based routing:
+
 ```shell script
 echo hello | http -v "$URL/echo" \
   Content-Type:application/json \

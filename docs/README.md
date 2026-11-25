@@ -4,19 +4,19 @@
 
 Functions can be written in the following languages using built-in templates:
 
-* Go (Golang)
-* Node.js (JavaScript)
-* Python
-* Quarkus (Java)
-* Rust
-* SpringBoot (Java)
-* TypeScript
+- Go (Golang)
+- Node.js (JavaScript)
+- Python
+- Quarkus (Java)
+- Rust
+- SpringBoot (Java)
+- TypeScript
 
 Functions can be deployed on the following platforms:
 
-* Kubernetes
-* OpenShift
-* Localhost
+- Kubernetes
+- OpenShift
+- Localhost
 
 ## Function Installation, Development and Integration
 
@@ -30,4 +30,4 @@ Functions can be deployed on the following platforms:
 
 ## Contributing
 
-We are always looking for contributions to the project from the Function Developer community.  For more information on how to participate, see the [Contributing Guide](../CONTRIBUTING.md)
+We are always looking for contributions to the project from the Function Developer community. For more information on how to participate, see the [Contributing Guide](../CONTRIBUTING.md)

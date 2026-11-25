@@ -10,9 +10,9 @@ some resources for your function, you can do that in the [`configure` function](
 
 The app will expose three endpoints:
 
-  * `/` Triggers the `handle` function for a POST method
-  * `/health/readiness` The endpoint for a readiness health check
-  * `/health/liveness` The endpoint for a liveness health check
+- `/` Triggers the `handle` function for a POST method
+- `/health/readiness` The endpoint for a readiness health check
+- `/health/liveness` The endpoint for a liveness health check
 
 You may use any of the available [actix
 features](https://actix.rs/docs/) to fulfill the requests at those

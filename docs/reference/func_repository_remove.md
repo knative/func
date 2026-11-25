@@ -16,5 +16,4 @@ func repository remove <name>
 
 ### SEE ALSO
 
-* [func repository](func_repository.md)	 - Manage installed template repositories
-
+- [func repository](func_repository.md) - Manage installed template repositories

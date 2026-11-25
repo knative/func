@@ -67,7 +67,6 @@ You can get the URL for your deployed function with the `info` command.
 
 ## Testing a function locally
 
-
 Go functions can be tested locally on your computer. In the project there is
 a `function_test.go` file which contains a simple test which can be extended as needed.
 You can run this test locally as you would do with any Go project.
@@ -195,6 +194,7 @@ func (f *Function) Handle(ctx context.Context, event cloudevents.Event) {
 ```
 
 ### Return Values
+
 As mentioned above, HTTP triggered functions can set the response directly via
 Golang's [http.ResponseWriter](https://golang.org/pkg/net/http/#ResponseWriter).
 
@@ -256,11 +256,13 @@ func (f *Function) Handle(ctx context.Context, event cloudevents.Event) (resp *c
 ```
 
 ## Dependencies
+
 Developers are not restricted to the dependencies provided in the template
 `go.mod` file. Additional dependencies can be added as they would be in any
 other Golang project.
 
 ### Example
+
 ```console
 go get gopkg.in/yaml.v2@v2.4.0
 ```

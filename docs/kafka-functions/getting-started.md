@@ -51,7 +51,7 @@ scale:
   max: 3
   keda:
     triggers:
-      - type: kafka        # scale on consumer-group lag
+      - type: kafka # scale on consumer-group lag
         lagThreshold: 5
 run:
   kafka:
@@ -91,7 +91,7 @@ syntax so they are read from a Secret rather than written in `func.yaml`:
 deployer: keda
 run:
   volumes:
-    - secret: kafka-ca          # Secret containing ca.crt
+    - secret: kafka-ca # Secret containing ca.crt
       path: /etc/kafka/ca
   kafka:
     brokers: my-cluster-kafka-bootstrap:9093

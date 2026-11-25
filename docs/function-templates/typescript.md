@@ -71,7 +71,6 @@ You can get the URL for your deployed function with the `info` command.
 
 ## Testing a function locally
 
-
 Node.js functions can be tested locally on your computer. In the project there is
 a `test` folder which contains some simple unit and integration tests. To run these
 locally, you'll need to install the required dependencies. You do this as you would
@@ -104,7 +103,9 @@ When an incoming request is received, your function will be invoked with a `Cont
 ```js
 function handle(context: Context, cloudevent?: CloudEvent): CloudEvent
 ```
+
 ### Return Values
+
 Functions may return any valid JavaScript type, or nothing at all. When a
 function returns nothing, and no failure is indicated, the caller will receive
 a `204 No Content"` response. Functions may also return a `CloudEvent`, or a
@@ -114,6 +115,7 @@ CloudEvent messaging specification. Headers and other relevant information from
 the returned values are extracted and sent with the response.
 
 #### Example
+
 ```js
 function handle(context: Context, cloudevent?: CloudEvent): CloudEvent {
   // process customer and return a new CloudEvent
@@ -126,11 +128,13 @@ function handle(context: Context, cloudevent?: CloudEvent): CloudEvent {
 ```
 
 ### Response headers
+
 Functions may additionally set headers to be sent with the response by adding a
 `headers` property to the object being returned. These headers will be
 extracted and sent with the response to the caller.
 
 #### Example
+
 ```js
 function handle(context: Context, cloudevent?: CloudEvent): Record<string, string> {
   // process customer and return custom headers
@@ -141,10 +145,12 @@ function handle(context: Context, cloudevent?: CloudEvent): Record<string, strin
 ```
 
 ### Response codes
+
 Developers may set the response code returned to the caller by adding a
 `statusCode` property to the response.
 
 #### Example
+
 ```js
 function handle(context: Context, cloudevent?: CloudEvent): Record<string, string> {
   // process customer
@@ -164,6 +170,7 @@ function handle(context: Context, cloudevent?: CloudEvent): Record<string, strin
 This also works with `Error` objects thrown from the function.
 
 #### Example
+
 ```js
 function handle(context: Context, cloudevent?: CloudEvent) Record<string, string> {
   // process customer
@@ -177,6 +184,7 @@ function handle(context: Context, cloudevent?: CloudEvent) Record<string, string
 ```
 
 ## The Context Object
+
 Functions are invoked with a context object as the first parameter. This object
 provides access to the incoming request information. Developers can get the
 HTTP request method, any query strings sent with the request, the headers, the
@@ -187,10 +195,12 @@ The `Context` object has several properties that may be accessed by the
 function developer.
 
 ### `log`
+
 Provides a logging object that can be used to write output to the cluster logs.
 The log adheres to the Pino logging API (https://getpino.io/#/docs/api).
 
 #### Example
+
 ```js
 function handle(context:Context): string {
   context.log.info('Processing customer');
@@ -211,10 +221,12 @@ The function will log
 ```
 
 ### `query`
+
 Returns the query string for the request, if any, as key value pairs. These
 attributes are also found on the context object itself.
 
 #### Example
+
 ```js
 function handle(context: Context): string {
   // Log the 'name' query parameter
@@ -230,6 +242,7 @@ Access the function via `curl` to invoke it.
 ```sh
 curl "http://example.com?name=tiger"
 ```
+
 The function will log
 
 ```console
@@ -238,10 +251,12 @@ The function will log
 ```
 
 ### `body`
+
 Returns the request body if any. If the request body contains JSON, this will
 be parsed so that the attributes are directly available.
 
 #### Example
+
 ```js
 function handle(context: Context): string {
   // log the incoming request body's 'hello' parameter
@@ -257,26 +272,32 @@ curl -X POST -d '{"hello": "world"}'  -H'Content-type: application/json' http://
 ```
 
 The function will log
+
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"world"}
 ```
 
 ### `headers`
+
 Returns the HTTP request headers as an object.
 
 #### Example
+
 ```js
 function handle(context: Context): string {
   context.log.info(context.headers['custom-header']);
   return 'OK';
 }
 ```
+
 Access the function via `curl` to invoke it.
 
 ```console
 curl -H'x-custom-header: some-value’' http://example.com
 ```
+
 The function will log
+
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"some-value"}
 ```
@@ -285,8 +306,8 @@ The function will log
 
 Returns the HTTP request method as a string.
 
-
 ### `httpVersion`
+
 Returns the HTTP version as a string.
 
 ### `httpVersionMajor`
@@ -294,12 +315,15 @@ Returns the HTTP version as a string.
 Returns the HTTP major version number as a string.
 
 ### `httpVersionMinor`
+
 Returns the HTTP minor version number as a string.
 
 ### `httpVersionMinor`
+
 Returns the HTTP minor version number as a string.
 
 ## Context Methods
+
 There is a single method on the `Context` object which is a convenience
 function for returning a `CloudEvent` object. In Knative systems, if a function
 service is invoked by an event broker with a `CloudEvent`, the broker will
@@ -307,9 +331,11 @@ examine the response. If the response is a `CloudEvent`, this event will then
 be handled by the broker just as with any other event it receives.
 
 ### cloudEventResponse()
+
 A function which accepts a data value and returns a CloudEvent.
 
 #### Example
+
 ```js
 // Expects to receive a CloudEvent with customer data
 function handle(context: Context, cloudevent?: CloudEvent): CloudEvent {
@@ -324,6 +350,7 @@ function handle(context: Context, cloudevent?: CloudEvent): CloudEvent {
 ```
 
 ### Context types
+
 The TypeScript type definition files export the following for use
 in your functions. Usage for these types is described in the previous
 sections.
@@ -331,52 +358,54 @@ sections.
 ```typescript
 // Invocable is the expected Function signature for user functions
 export interface Invocable {
-    (context: Context, cloudevent?: CloudEvent): any
+  (context: Context, cloudevent?: CloudEvent): any;
 }
 
 // Logger can be used for structural logging to the console
 export interface Logger {
-  debug: (msg: any) => void,
-  info:  (msg: any) => void,
-  warn:  (msg: any) => void,
-  error: (msg: any) => void,
-  fatal: (msg: any) => void,
-  trace: (msg: any) => void,
+  debug: (msg: any) => void;
+  info: (msg: any) => void;
+  warn: (msg: any) => void;
+  error: (msg: any) => void;
+  fatal: (msg: any) => void;
+  trace: (msg: any) => void;
 }
 
 // Context represents the function invocation context, and provides
 // access to the event itself as well as raw HTTP objects.
 export interface Context {
-    log: Logger;
-    req: IncomingMessage;
-    query?: Record<string, any>;
-    body?: Record<string, any>|string;
-    method: string;
-    headers: IncomingHttpHeaders;
-    httpVersion: string;
-    httpVersionMajor: number;
-    httpVersionMinor: number;
-    cloudevent: CloudEvent;
-    cloudEventResponse(data: string|object): CloudEventResponse;
+  log: Logger;
+  req: IncomingMessage;
+  query?: Record<string, any>;
+  body?: Record<string, any> | string;
+  method: string;
+  headers: IncomingHttpHeaders;
+  httpVersion: string;
+  httpVersionMajor: number;
+  httpVersionMinor: number;
+  cloudevent: CloudEvent;
+  cloudEventResponse(data: string | object): CloudEventResponse;
 }
 
 // CloudEventResponse is a convenience class used to create
 // CloudEvents on function returns
 export interface CloudEventResponse {
-    id(id: string): CloudEventResponse;
-    source(source: string): CloudEventResponse;
-    type(type: string): CloudEventResponse;
-    version(version: string): CloudEventResponse;
-    response(): CloudEvent;
+  id(id: string): CloudEventResponse;
+  source(source: string): CloudEventResponse;
+  type(type: string): CloudEventResponse;
+  version(version: string): CloudEventResponse;
+  response(): CloudEvent;
 }
 ```
 
 ## Dependencies
+
 Developers are not restricted to the dependencies provided in the template
 `package.json` file. Additional dependencies can be added as they would be in any
 other Node.js project.
 
 ### Example
+
 ```console
 npm install --save opossum
 ```

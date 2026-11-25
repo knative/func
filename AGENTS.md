@@ -26,12 +26,12 @@ edge cases into account.
 
 Before committing, test locally following the table below:
 
-| If changed | Target | Description |
-|------------|--------|-------------|
-| `*.go` files | `make test` | Core unit tests |
-| Any files | `make check` | Linting, formatting, spelling |
-| `templates/` files | `make test-templates` | All language template tests |
-| Significant architectural changes | `make test-full` | e2e tests (cluster required - read `CONTRIBUTING.md`) |
+| If changed                        | Target                | Description                                           |
+| --------------------------------- | --------------------- | ----------------------------------------------------- |
+| `*.go` files                      | `make test`           | Core unit tests                                       |
+| Any files                         | `make check`          | Linting, formatting, spelling                         |
+| `templates/` files                | `make test-templates` | All language template tests                           |
+| Significant architectural changes | `make test-full`      | e2e tests (cluster required - read `CONTRIBUTING.md`) |
 
 ### Generated Files
 

@@ -6,9 +6,8 @@ Set Git settings in the function configuration
 
 Set Git settings in the function configuration
 
-	Interactive prompt to set Git settings in the function project in the current
-	directory or from the directory specified with --path.
-
+    Interactive prompt to set Git settings in the function project in the current
+    directory or from the directory specified with --path.
 
 ```
 func config git set
@@ -38,5 +37,4 @@ func config git set
 
 ### SEE ALSO
 
-* [func config git](func_config_git.md)	 - Manage Git configuration of a function
-
+- [func config git](func_config_git.md) - Manage Git configuration of a function

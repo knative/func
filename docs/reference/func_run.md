@@ -4,54 +4,52 @@ Run the function locally
 
 ### Synopsis
 
-
 NAME
-	func run - Run a function locally
+func run - Run a function locally
 
 SYNOPSIS
-	func run [-r|--registry] [-i|--image] [-e|--env] [--build]
-				 [-b|--builder] [--builder-image] [-c|--confirm]
-	             [--address] [--json] [-v|--verbose]
+func run [-r|--registry] [-i|--image] [-e|--env] [--build]
+[-b|--builder] [--builder-image] [-c|--confirm]
+[--address] [--json] [-v|--verbose]
 
 DESCRIPTION
-	Run the function locally.
+Run the function locally.
 
-	Values provided for flags are not persisted to the function's metadata.
+    Values provided for flags are not persisted to the function's metadata.
 
-	Containerized Runs
-	  You can build your function in a container using the Pack or S2i builders.
-	  On the contrary, non-containerized run is achieved via Host builder which
-	  will use your host OS' environment to build the function. This builder is
-	  currently enabled for Go and Python. Building defaults to using the Host
-	  builder when available. You can alter this by using the --builder flag
-	  eg: --builder=s2i.
+    Containerized Runs
+      You can build your function in a container using the Pack or S2i builders.
+      On the contrary, non-containerized run is achieved via Host builder which
+      will use your host OS' environment to build the function. This builder is
+      currently enabled for Go and Python. Building defaults to using the Host
+      builder when available. You can alter this by using the --builder flag
+      eg: --builder=s2i.
 
-	Process Scaffolding
-	  This is an Experimental Feature currently available only to Go and Python
-	  projects. When running a function with --builder=host, the function is
-	  first wrapped with code which presents it as a process. This "scaffolding"
-	  is transient, written for each build or run, and should in most cases be
-	  transparent to a function author.
+    Process Scaffolding
+      This is an Experimental Feature currently available only to Go and Python
+      projects. When running a function with --builder=host, the function is
+      first wrapped with code which presents it as a process. This "scaffolding"
+      is transient, written for each build or run, and should in most cases be
+      transparent to a function author.
 
 EXAMPLES
 
-	o Run the function locally from within its container.
-	  $ func run
+    o Run the function locally from within its container.
+      $ func run
 
-	o Run the function locally from within its container, forcing a rebuild
-	  of the container even if no filesystem changes are detected. There are 2
-	  builders available for containerized build - 'pack' and 's2i'.
-	  $ func run --build=<builder>
+    o Run the function locally from within its container, forcing a rebuild
+      of the container even if no filesystem changes are detected. There are 2
+      builders available for containerized build - 'pack' and 's2i'.
+      $ func run --build=<builder>
 
-	o Run the function locally on the host with no containerization (Go/Python only).
-	  $ func run --builder=host
+    o Run the function locally on the host with no containerization (Go/Python only).
+      $ func run --builder=host
 
-	o Run the function locally on a specific address.
-	  $ func run --address='[::]:8081'
+    o Run the function locally on a specific address.
+      $ func run --address='[::]:8081'
 
-	o Run the function locally and output JSON with the service address.
-	  $ func run --json
-
+    o Run the function locally and output JSON with the service address.
+      $ func run --json
 
 ```
 func run
@@ -77,5 +75,4 @@ func run
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-
+- [func](func.md) - func manages Knative Functions

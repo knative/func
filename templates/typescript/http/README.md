@@ -14,9 +14,9 @@ npm run local
 
 The runtime will expose three endpoints.
 
-  * `/` The endpoint for your function.
-  * `/health/readiness` The endpoint for a readiness health check
-  * `/health/liveness` The endpoint for a liveness health check
+- `/` The endpoint for your function.
+- `/health/readiness` The endpoint for a readiness health check
+- `/health/liveness` The endpoint for a liveness health check
 
 The parameter provided to the function endpoint at invocation is a `Context` object containing HTTP request information.
 
@@ -31,7 +31,7 @@ function handleRequest(context) {
 }
 ```
 
-The health checks can be accessed in your browser at [http://localhost:8080/health/readiness]() and [http://localhost:8080/health/liveness](). You can use `curl` to `POST` an event to the function endpoint:
+The health checks can be accessed in your browser at [http://localhost:8080/health/readiness](<>) and [http://localhost:8080/health/liveness](<>). You can use `curl` to `POST` an event to the function endpoint:
 
 ```console
 curl -X POST -d '{"hello": "world"}' \

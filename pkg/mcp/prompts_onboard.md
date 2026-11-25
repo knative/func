@@ -10,11 +10,11 @@ ahead — every later step depends on the ones before it.
 
 ## Session parameters
 
-| Parameter | Value |
-|-----------|-------|
-| language  | {{if .Language}}`{{.Language}}`{{else}}**not provided** — ask the user in step 2{{end}} |
-| template  | `{{.Template}}` |
-| registry  | {{if .Registry}}`{{.Registry}}`{{else}}**not provided** — ask the user in step 4{{end}} |
+| Parameter | Value                                                                                                          |
+| --------- | -------------------------------------------------------------------------------------------------------------- |
+| language  | {{if .Language}}`{{.Language}}`{{else}}**not provided** — ask the user in step 2{{end}}                        |
+| template  | `{{.Template}}`                                                                                                |
+| registry  | {{if .Registry}}`{{.Registry}}`{{else}}**not provided** — ask the user in step 4{{end}}                        |
 | cluster   | `{{.Cluster}}`{{if eq .Cluster "local"}} (a local cluster, e.g. kind){{else}} (a remote/shared cluster){{end}} |
 
 Treat provided values as decided: do not re-ask for them. Ask only for the
@@ -107,7 +107,7 @@ asking:
   or to explicitly confirm they mean the domain-only form.
 - The image name is derived automatically as `<registry>/<function>:latest`;
   they do not need to supply an image name.
-{{if eq .Cluster "local"}}- On a local cluster, an in-cluster registry like `registry.localtest.me/func`
+  {{if eq .Cluster "local"}}- On a local cluster, an in-cluster registry like `registry.localtest.me/func`
   avoids pushing over the network entirely, if their setup provides one.
 {{end}}
 Wait for the user's answer, then echo the final value back and confirm it
@@ -120,8 +120,7 @@ Also confirm they are logged in to that registry (`docker login` /
 
 Prove the Function works locally before involving a cluster.
 
-1. Call `run` with the Function's absolute `path` and the `registry` from step
-   4. It builds if needed, starts the Function, and returns a `pid` and a
+1. Call `run` with the Function's absolute `path` and the `registry` from step 4. It builds if needed, starts the Function, and returns a `pid` and a
    `url`.
 2. Call `invoke` with the same `path` and `target: "local"`. With no `data`, a
    real `{"message":"Hello World"}` payload is sent — the handler actually
@@ -140,8 +139,8 @@ Call the `deploy` tool with:
 
 - `path`: the Function's absolute path
 - `registry`: the value from step 4
-{{if .HostBuilder}}- `builder`: `host` (faster than the default `pack` builder for this runtime)
-{{else if not .Language}}- `builder`: omit it unless the runtime chosen in step 2 is supported by the
+  {{if .HostBuilder}}- `builder`: `host` (faster than the default `pack` builder for this runtime)
+  {{else if not .Language}}- `builder`: omit it unless the runtime chosen in step 2 is supported by the
   `host` builder, which is faster where it applies. The default (`pack`) works
   for every runtime, and `deploy` reports plainly when `host` does not support
   the runtime

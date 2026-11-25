@@ -1,7 +1,7 @@
 # Delivery, retries & offsets
 
-This page explains *how* records reach your function and *what happens when
-delivery fails*, so you can choose a retry policy that fits your workload. For the
+This page explains _how_ records reach your function and _what happens when
+delivery fails_, so you can choose a retry policy that fits your workload. For the
 exact field names, types, and defaults, see the
 [`func.yaml` reference](../reference/func_yaml.md#delivery-tuning); this page is
 about behavior.
@@ -49,7 +49,7 @@ per-attempt timeout.
 
 ### Retry budget (`retry`)
 
-`retry` counts attempts *after* the first one, so total attempts = `retry` + 1.
+`retry` counts attempts _after_ the first one, so total attempts = `retry` + 1.
 
 - **Omitted → unlimited.** The record is retried forever until the function
   accepts it. Nothing is ever dropped. This is the default.
@@ -69,7 +69,7 @@ per-attempt timeout.
   example during a rollout, crash, or scale-up).
 
 The runtime does not try to tell these apart: a failed delivery is a failed
-delivery. The one thing that is *not* a failed attempt is the consumer shutting
+delivery. The one thing that is _not_ a failed attempt is the consumer shutting
 down or rebalancing mid-delivery — that record is simply redelivered in the next
 session, it does not spend the budget.
 

@@ -29,8 +29,8 @@ becomes Ready, `kubectl describe pod <pod>` shows which probe is failing.
 The sidecar must connect to the broker and be assigned partitions before it
 reports healthy, so a stuck deploy usually means it can't reach Kafka:
 
-- **Wrong broker address.** `brokers` must be resolvable *from inside the
-  cluster* — use the in-cluster service name (e.g.
+- **Wrong broker address.** `brokers` must be resolvable _from inside the
+  cluster_ — use the in-cluster service name (e.g.
   `my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092`), not a localhost or
   external address.
 - **Network policy / firewall** blocking the broker port.

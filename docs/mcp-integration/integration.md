@@ -23,8 +23,8 @@ This block should either be the full contents of your MCP config file (for clien
 
 ## Configuration Scope
 
-* **Global configuration**: applies to all projects in the client. Usually stored in a global settings file under your home directory.
-* **Local/project configuration**: applies only to the current project or workspace. Usually stored in the project folder.
+- **Global configuration**: applies to all projects in the client. Usually stored in a global settings file under your home directory.
+- **Local/project configuration**: applies only to the current project or workspace. Usually stored in the project folder.
 
 If both exist, local/project config usually overrides global config.
 
@@ -34,14 +34,14 @@ If both exist, local/project config usually overrides global config.
 
 **Config file location:**
 
-* macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-* Windows: `%APPDATA%/Claude/claude_desktop_config.json`
-* Linux: `~/.config/Claude/claude_desktop_config.json`
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%/Claude/claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
 
 **How to edit:**
 
-* Open the file in a text editor.
-* Replace contents with the base config above, or merge it into an existing `mcpServers` block.
+- Open the file in a text editor.
+- Replace contents with the base config above, or merge it into an existing `mcpServers` block.
 
 Restart Claude Desktop after editing.
 
@@ -51,13 +51,13 @@ Restart Claude Desktop after editing.
 
 **Config file location:**
 
-* Global: `~/.cursor/mcp.json`
-* Local: `.cursor/mcp.json` inside the project folder
+- Global: `~/.cursor/mcp.json`
+- Local: `.cursor/mcp.json` inside the project folder
 
 **How to edit:**
 
-* Open or create the file.
-* Use the base config above directly, or merge into an existing `mcpServers` object.
+- Open or create the file.
+- Use the base config above directly, or merge into an existing `mcpServers` object.
 
 Restart Cursor after editing.
 
@@ -67,13 +67,13 @@ Restart Cursor after editing.
 
 **Config file location:**
 
-* Linux/macOS: `~/.codeium/windsurf/mcp_config.json`
-* Windows: `%APPDATA%/Codeium/Windsurf/mcp_config.json`
+- Linux/macOS: `~/.codeium/windsurf/mcp_config.json`
+- Windows: `%APPDATA%/Codeium/Windsurf/mcp_config.json`
 
 **How to edit:**
 
-* Open the file in a text editor.
-* Replace contents with the base config above, or merge into existing config.
+- Open the file in a text editor.
+- Replace contents with the base config above, or merge into existing config.
 
 Restart Windsurf after editing.
 
@@ -83,15 +83,15 @@ Restart Windsurf after editing.
 
 **Config file location:**
 
-* Global: `~/.config/Code/User/settings.json` (Linux/macOS)
-* Global: `%APPDATA%/Code/User/settings.json` (Windows)
-* Local: `.vscode/settings.json` inside the project folder
+- Global: `~/.config/Code/User/settings.json` (Linux/macOS)
+- Global: `%APPDATA%/Code/User/settings.json` (Windows)
+- Local: `.vscode/settings.json` inside the project folder
 
 **How to edit:**
 
-* VS Code’s `settings.json` is usually prefilled with many settings.
-* Locate or add a top-level key `mcpServers`.
-* Insert the base config block under it.
+- VS Code’s `settings.json` is usually prefilled with many settings.
+- Locate or add a top-level key `mcpServers`.
+- Insert the base config block under it.
 
 For example:
 
@@ -113,10 +113,9 @@ Restart VS Code after editing.
 
 ## Quick Troubleshooting
 
-* Ensure `func` is installed and in PATH.
-* Use an absolute path if needed (e.g., `/usr/local/bin/func`).
-* Restart the client after editing config files.
-* If local and global configs conflict, the local one usually takes priority.
+- Ensure `func` is installed and in PATH.
+- Use an absolute path if needed (e.g., `/usr/local/bin/func`).
+- Restart the client after editing config files.
+- If local and global configs conflict, the local one usually takes priority.
 
 ---
-

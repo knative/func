@@ -4,19 +4,16 @@ Display function execution environment information
 
 ### Synopsis
 
-
 NAME
-	func environment (env) - display function execution environment information
+func environment (env) - display function execution environment information
 
 SYNOPSIS
-	func environment [-f|--format] [-v|--verbose] [-p|--path]
-
+func environment [-f|--format] [-v|--verbose] [-p|--path]
 
 DESCRIPTION
-	Display information about the function execution environment, including
-	the version of func, the version of the function spec, the default builder,
-	available runtimes, and available templates.
-
+Display information about the function execution environment, including
+the version of func, the version of the function spec, the default builder,
+available runtimes, and available templates.
 
 ```
 func environment
@@ -33,5 +30,4 @@ func environment
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-
+- [func](func.md) - func manages Knative Functions

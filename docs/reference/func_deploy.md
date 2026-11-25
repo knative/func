@@ -4,126 +4,123 @@ Deploy a function
 
 ### Synopsis
 
-
 NAME
-	func deploy - Deploy a function
+func deploy - Deploy a function
 
 SYNOPSIS
-	func deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
-	             [-e|--env] [-s|--source] [-t|--revision] [-d|--source-dir]
-	             [-b|--build] [--builder] [--builder-image] [-p|--push]
-	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
-	             [--service-account] [-c|--confirm] [-v|--verbose]
-	             [--registry-insecure] [--registry-authfile] [--remote-storage-class]
+func deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
+[-e|--env] [-s|--source] [-t|--revision] [-d|--source-dir]
+[-b|--build] [--builder] [--builder-image] [-p|--push]
+[--domain] [--platform] [--build-timestamp] [--pvc-size]
+[--service-account] [-c|--confirm] [-v|--verbose]
+[--registry-insecure] [--registry-authfile] [--remote-storage-class]
 
 DESCRIPTION
 
-	Deploys a function to the currently configured Knative-enabled cluster.
+    Deploys a function to the currently configured Knative-enabled cluster.
 
-	By default the function in the current working directory is deployed, or at
-	the path defined by --path.
+    By default the function in the current working directory is deployed, or at
+    the path defined by --path.
 
-	A function which was previously deployed will be updated when re-deployed.
+    A function which was previously deployed will be updated when re-deployed.
 
-	The function is built into a container for transport to the destination
-	cluster by way of a registry.  Therefore --registry must be provided or have
-	previously been configured for the function. This registry is also used to
-	determine the final built image tag for the function.  This final image name
-	can be provided explicitly using --image, in which case it is used in place
-	of --registry.
+    The function is built into a container for transport to the destination
+    cluster by way of a registry.  Therefore --registry must be provided or have
+    previously been configured for the function. This registry is also used to
+    determine the final built image tag for the function.  This final image name
+    can be provided explicitly using --image, in which case it is used in place
+    of --registry.
 
-	To run deploy using an interactive mode, use the --confirm (-c) option.
-	This mode is useful for the first deployment in particular, since subsequent
-	deployments remember most of the settings provided.
+    To run deploy using an interactive mode, use the --confirm (-c) option.
+    This mode is useful for the first deployment in particular, since subsequent
+    deployments remember most of the settings provided.
 
-	Building
-	  By default the function will be built if it has not yet been built, or if
-	  changes are detected in the function's source.  The --build flag can be
-	  used to override this behavior and force building either on or off.
+    Building
+      By default the function will be built if it has not yet been built, or if
+      changes are detected in the function's source.  The --build flag can be
+      used to override this behavior and force building either on or off.
 
-	Pushing
-	  By default the function's image will be pushed to the configured container
-	  registry after being successfully built.  The --push flag can be used
-	  to disable pushing.  This could be used, for example, to trigger a redeploy
-	  of a service without needing to build, or even have the container available
-	  locally with 'func deploy --build=false --push=false'.
+    Pushing
+      By default the function's image will be pushed to the configured container
+      registry after being successfully built.  The --push flag can be used
+      to disable pushing.  This could be used, for example, to trigger a redeploy
+      of a service without needing to build, or even have the container available
+      locally with 'func deploy --build=false --push=false'.
 
-	Remote
-	  Building and pushing (deploying) is by default run on localhost.  This
-	  process can also be triggered to run remotely in a Tekton-enabled cluster.
-	  The --remote flag indicates that a build and deploy pipeline should be
-	  invoked in the remote.  Deploying with 'func deploy --remote' will
-	  send the function's source code to be built and deployed by the cluster,
-	  eliminating the need for a local container engine.  To trigger deployment
-	  of a git repository instead of local source, combine with '--source':
-	  'func deploy --remote --source=git.example.com/alice/f.git'
-	  A branch, tag or commit is given with '--revision':
-	  'func deploy --remote --source=git.example.com/alice/f.git --revision=v1.2.0'
-	  The function is then read from the repository, so no local copy is
-	  needed, and nothing is written locally: to change the function, clone
-	  the repository, edit it and deploy the working tree.  Choose the
-	  directory within the repository with '--source-dir'.  The function is
-	  deployed as configured by the func.yaml committed there: of the flags
-	  which configure a function, only '--builder', '--registry',
-	  '--registry-insecure' and '--namespace' apply, the latter only if the
-	  func.yaml names no other namespace.  A repository set in the local
-	  func.yaml (build.source) instead of with '--source' is built with the
-	  local function's settings.
+    Remote
+      Building and pushing (deploying) is by default run on localhost.  This
+      process can also be triggered to run remotely in a Tekton-enabled cluster.
+      The --remote flag indicates that a build and deploy pipeline should be
+      invoked in the remote.  Deploying with 'func deploy --remote' will
+      send the function's source code to be built and deployed by the cluster,
+      eliminating the need for a local container engine.  To trigger deployment
+      of a git repository instead of local source, combine with '--source':
+      'func deploy --remote --source=git.example.com/alice/f.git'
+      A branch, tag or commit is given with '--revision':
+      'func deploy --remote --source=git.example.com/alice/f.git --revision=v1.2.0'
+      The function is then read from the repository, so no local copy is
+      needed, and nothing is written locally: to change the function, clone
+      the repository, edit it and deploy the working tree.  Choose the
+      directory within the repository with '--source-dir'.  The function is
+      deployed as configured by the func.yaml committed there: of the flags
+      which configure a function, only '--builder', '--registry',
+      '--registry-insecure' and '--namespace' apply, the latter only if the
+      func.yaml names no other namespace.  A repository set in the local
+      func.yaml (build.source) instead of with '--source' is built with the
+      local function's settings.
 
-	Domain
-	  When deploying, a function's route is automatically generated using the
-	  default domain with which the target platform has been configured.  The
-	  optional flag --domain can be used to choose this domain explicitly for
-	  clusters which have been configured with support for function domain
-	  selectors. Note that the domain specified must be one of those configured
-	  or the flag will be ignored.
+    Domain
+      When deploying, a function's route is automatically generated using the
+      default domain with which the target platform has been configured.  The
+      optional flag --domain can be used to choose this domain explicitly for
+      clusters which have been configured with support for function domain
+      selectors. Note that the domain specified must be one of those configured
+      or the flag will be ignored.
 
-	  With '--expose=route' (raw and keda deployers on OpenShift) the domain
-	  is used verbatim as the Route's hostname. DNS (pointing the name at the
-	  cluster's router) and the TLS certificate (e.g. via cert-manager, whose
-	  injected certificate deploys preserve) are the user's responsibility;
-	  until both exist the name does not resolve or serves the router's
-	  default certificate.
+      With '--expose=route' (raw and keda deployers on OpenShift) the domain
+      is used verbatim as the Route's hostname. DNS (pointing the name at the
+      cluster's router) and the TLS certificate (e.g. via cert-manager, whose
+      injected certificate deploys preserve) are the user's responsibility;
+      until both exist the name does not resolve or serves the router's
+      default certificate.
 
 EXAMPLES
 
-	o Deploy the function
-	  $ func deploy
+    o Deploy the function
+      $ func deploy
 
-	o Deploy the function using interactive prompts. This is useful for the first
-	  deployment, since most settings will be remembered for future deployments.
-	  $ func deploy -c
+    o Deploy the function using interactive prompts. This is useful for the first
+      deployment, since most settings will be remembered for future deployments.
+      $ func deploy -c
 
-	o Deploy the function in the current working directory.
-	  The function image will be pushed to "ghcr.io/alice/<Function Name>"
-	  $ func deploy --registry ghcr.io/alice
+    o Deploy the function in the current working directory.
+      The function image will be pushed to "ghcr.io/alice/<Function Name>"
+      $ func deploy --registry ghcr.io/alice
 
-	o Deploy the function in the current working directory, manually specifying
-	  the final image name and target cluster namespace.
-	  $ func deploy --image ghcr.io/alice/myfunc --namespace myns
+    o Deploy the function in the current working directory, manually specifying
+      the final image name and target cluster namespace.
+      $ func deploy --image ghcr.io/alice/myfunc --namespace myns
 
-	o Deploy the current function's source code by sending it to the cluster to
-	  be built and deployed:
-	  $ func deploy --remote
+    o Deploy the current function's source code by sending it to the cluster to
+      be built and deployed:
+      $ func deploy --remote
 
-	o Trigger a remote deploy, which instructs the cluster to build and deploy
-	  the function in the specified git repository.
-	  $ func deploy --remote --source=https://example.com/alice/myfunc.git
+    o Trigger a remote deploy, which instructs the cluster to build and deploy
+      the function in the specified git repository.
+      $ func deploy --remote --source=https://example.com/alice/myfunc.git
 
-	o Deploy the function, rebuilding the image even if no changes have been
-	  detected in the local filesystem (source).
-	  $ func deploy --build
+    o Deploy the function, rebuilding the image even if no changes have been
+      detected in the local filesystem (source).
+      $ func deploy --build
 
-	o Deploy without rebuilding, even if changes have been detected in the
-	  local filesystem.
-	  $ func deploy --build=false
+    o Deploy without rebuilding, even if changes have been detected in the
+      local filesystem.
+      $ func deploy --build=false
 
-	o Redeploy a function which has already been built and pushed. Works without
-	  the use of a local container engine.  For example, if the function was
-	  manually deleted from the cluster, it can be quickly redeployed with:
-	  $ func deploy --build=false --push=false
-
-
+    o Redeploy a function which has already been built and pushed. Works without
+      the use of a local container engine.  For example, if the function was
+      manually deleted from the cluster, it can be quickly redeployed with:
+      $ func deploy --build=false --push=false
 
 ```
 func deploy
@@ -168,5 +165,4 @@ func deploy
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-
+- [func](func.md) - func manages Knative Functions

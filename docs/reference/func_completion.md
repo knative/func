@@ -16,8 +16,6 @@ compdef _func f
 For bash:
 source &lt;(func completion bash)
 
-
-
 ```
 func completion <bash|zsh|fish>
 ```
@@ -30,5 +28,4 @@ func completion <bash|zsh|fish>
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-
+- [func](func.md) - func manages Knative Functions
