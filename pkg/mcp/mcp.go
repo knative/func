@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"sync/atomic"
@@ -49,6 +50,11 @@ type executor interface {
 	// that need to parse structured output (e.g. JSON) from stdout can do so
 	// without risk of stderr content (warnings, etc.) corrupting the parse.
 	ExecuteSplit(ctx context.Context, subcommand string, args ...string) (stdout, stderr []byte, err error)
+	// ExecuteEnv is Execute with extra environment variables ("KEY=value")
+	// added to the subprocess's inherited environment. Use it for secrets,
+	// which must not be passed as arguments: a process's command line is
+	// readable by other local users (e.g. via ps or /proc/<pid>/cmdline).
+	ExecuteEnv(ctx context.Context, env []string, subcommand string, args ...string) ([]byte, error)
 }
 
 type Option func(*Server)
@@ -246,6 +252,18 @@ func (e defaultExecutor) Execute(ctx context.Context, subcommand string, args ..
 	cmdParts := buildArgs(e.s.prefix, subcommand, args)
 	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
 	// cmd.Dir not set - inherits process working directory which is the current working directory
+	return cmd.CombinedOutput()
+}
+
+func (e defaultExecutor) ExecuteEnv(ctx context.Context, env []string, subcommand string, args ...string) ([]byte, error) {
+	cmdParts := buildArgs(e.s.prefix, subcommand, args)
+	cmd := exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
+	// cmd.Dir not set - inherits process working directory which is the current working directory
+	if len(env) > 0 {
+		// Later entries win, so env overrides any inherited value of the
+		// same key.
+		cmd.Env = append(os.Environ(), env...)
+	}
 	return cmd.CombinedOutput()
 }
 

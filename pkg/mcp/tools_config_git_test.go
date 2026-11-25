@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -407,5 +408,91 @@ func TestTool_ConfigGitRemove_Readonly(t *testing.T) {
 	}
 	if executor.ExecuteInvoked {
 		t.Fatal("executor should not be invoked in readonly mode")
+	}
+}
+
+// TestTool_ConfigGitSet_TokenViaEnv ensures the GitHub access token is handed
+// to the subprocess through the FUNC_GH_ACCESS_TOKEN environment variable and
+// never appears on its command line, where any local user could read it
+// (e.g. with ps or /proc/<pid>/cmdline).
+func TestTool_ConfigGitSet_TokenViaEnv(t *testing.T) {
+	const token = "ghp_testtoken123"
+
+	// The mock runs on the server's goroutine, where t.Fatal would hang the
+	// call; it only records what it was given, and the checks run below.
+	var gotEnv, gotArgs []string
+	executor := mock.NewExecutor()
+	executor.ExecuteEnvFn = func(ctx context.Context, env []string, subcommand string, args ...string) ([]byte, error) {
+		gotEnv, gotArgs = env, args
+		return []byte("Git configuration set successfully\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_git_set",
+		Arguments: map[string]any{
+			"path":            testAbsPath("myfunc"),
+			"git_url":         "https://github.com/user/repo",
+			"git_branch":      "main",
+			"gh_access_token": token,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+	if !executor.ExecuteEnvInvoked {
+		t.Fatal("executor was not invoked with an environment")
+	}
+	for _, a := range gotArgs {
+		if strings.Contains(a, token) || a == "--gh-access-token" {
+			t.Fatalf("token must not be passed as an argument, got args: %v", gotArgs)
+		}
+	}
+	if want := "FUNC_GH_ACCESS_TOKEN=" + token; !slices.Contains(gotEnv, want) {
+		t.Fatalf("expected env to contain %q, got %v", want, gotEnv)
+	}
+}
+
+// TestTool_ConfigGitSet_NoTokenNoEnv ensures that when no token is given, no
+// FUNC_GH_ACCESS_TOKEN entry is added, so a value the user already exported
+// in the server's own environment is left untouched.
+func TestTool_ConfigGitSet_NoTokenNoEnv(t *testing.T) {
+	var gotEnv []string
+	executor := mock.NewExecutor()
+	executor.ExecuteEnvFn = func(ctx context.Context, env []string, subcommand string, args ...string) ([]byte, error) {
+		gotEnv = env
+		return []byte("ok\n"), nil
+	}
+
+	client, _, err := newTestPair(t, WithExecutor(executor))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{
+		Name: "config_git_set",
+		Arguments: map[string]any{
+			"path":       testAbsPath("myfunc"),
+			"git_url":    "https://github.com/user/repo",
+			"git_branch": "main",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error result: %v", result)
+	}
+	for _, e := range gotEnv {
+		if strings.HasPrefix(e, "FUNC_GH_ACCESS_TOKEN=") {
+			t.Fatalf("expected no FUNC_GH_ACCESS_TOKEN entry, got env: %v", gotEnv)
+		}
 	}
 }
