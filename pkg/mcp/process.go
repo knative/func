@@ -160,9 +160,23 @@ func (d defaultProcessStarter) Start(ctx context.Context, subcommand string, arg
 	case r := <-ready:
 		return cmd.Process.Pid, r.host, r.port, stop, done, nil
 	case <-done:
-		_ = stop()
-		drainStderr()
-		return 0, "", "", nil, nil, fmt.Errorf("process exited before becoming ready (%v)\noutput:\n%s", waitErr, tail.String())
+		// Nothing orders ready and done. The process can exit in the
+		// same instant it prints the ready line, and select may observe
+		// the exit first. Give a ready result already in flight the same
+		// bound as the stderr drain, then succeed if it arrives. Do not
+		// wait for stdout EOF: a surviving child may hold the pipe open.
+		select {
+		case r := <-ready:
+			return cmd.Process.Pid, r.host, r.port, stop, done, nil
+		case <-time.After(stderrDrainTimeout):
+			_ = stop()
+			drainStderr()
+			return 0, "", "", nil, nil, fmt.Errorf("process exited before becoming ready (%v)\noutput:\n%s", waitErr, tail.String())
+		case <-ctx.Done():
+			_ = stop()
+			drainStderr()
+			return 0, "", "", nil, nil, fmt.Errorf("timed out waiting for function to become ready\noutput so far:\n%s", tail.String())
+		}
 	case <-ctx.Done():
 		_ = stop()
 		drainStderr()
