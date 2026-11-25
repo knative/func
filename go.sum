@@ -1897,8 +1897,8 @@ knative.dev/networking v0.0.0-20261123011602-e5e5c8504b0d h1:FPHBZeR/4gwoz27yb/Y
 knative.dev/networking v0.0.0-20261123011602-e5e5c8504b0d/go.mod h1:dCq4J4YafAQ0nPCO5kAQuktxj26M90tJ0xZOI7d7Pmw=
 knative.dev/pkg v0.0.0-20261123011003-3a0c08ddeaa2 h1:Ef9G27/7L/IHMU5wtH9xsHiLD2bAteftsIJYdkjPktw=
 knative.dev/pkg v0.0.0-20261123011003-3a0c08ddeaa2/go.mod h1:vzqbvQxrfCYQ7gG/Zl0WHRX5iPpFmJ1i0bAUNTxDvbQ=
-knative.dev/serving v0.51.1-0.20261124123014-812786513e9b h1:sezsdoZES0AGeF4Z5K/tnW2zl0buXEMLmC2j1WzE6Gg=
-knative.dev/serving v0.51.1-0.20261124123014-812786513e9b/go.mod h1:7qZsvu2SwpGRSbv72wboUrZWtiyvnNxPZjEQEUQXj5U=
+knative.dev/serving v0.51.1-0.20261125122304-f5f9bd4d3382 h1:5PmOshkt0P+emUH2EwIGJovXppCibm405sdGTzK4B5k=
+knative.dev/serving v0.51.1-0.20261125122304-f5f9bd4d3382/go.mod h1:7qZsvu2SwpGRSbv72wboUrZWtiyvnNxPZjEQEUQXj5U=
 pgregory.net/rapid v1.2.0 h1:keKAYRcjm+e1F0oAuU5F5+YPAWcyxNNRK2wud503Gnk=
 pgregory.net/rapid v1.2.0/go.mod h1:PY5XlDGj0+V1FCq0o192FdRhpKHGTRIWBgqjDBTrq04=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
