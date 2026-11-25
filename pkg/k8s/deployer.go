@@ -650,7 +650,7 @@ func syncTriggers(ctx context.Context, f fn.Function, namespace string, eventing
 					Subscriber: duckv1.Destination{
 						URI: &apis.URL{
 							Scheme: "http",
-							Host:   fmt.Sprintf("%s.%s.svc.cluster.local", svc.Name, namespace),
+							Host:   fmt.Sprintf("%s.%s.svc.%s", svc.Name, namespace, ClusterDomain()),
 						},
 					},
 					Filter: &eventingv1.TriggerFilter{

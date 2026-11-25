@@ -725,7 +725,7 @@ func interceptorBridgeService(ref deployer.ExposureRef, deployment *v1.Deploymen
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: fmt.Sprintf("%s.%s.svc.cluster.local", interceptorServiceName, ref.Namespace),
+			ExternalName: fmt.Sprintf("%s.%s.svc.%s", interceptorServiceName, ref.Namespace, k8s.ClusterDomain()),
 		},
 	}
 }

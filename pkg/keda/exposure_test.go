@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -328,5 +329,26 @@ func Test_validateExposureName(t *testing.T) {
 
 	if err := validateExposureName(f, ""); err == nil {
 		t.Error("expected an unresolved namespace to be refused rather than silently producing 'myfunc-'")
+	}
+}
+
+// Test_interceptorBridgeService_usesClusterDomain: the bridge Service forwards
+// to the interceptor by its in-cluster DNS name, which must be built from
+// k8s.ClusterDomain() rather than a hard-coded domain.
+func Test_interceptorBridgeService_usesClusterDomain(t *testing.T) {
+	ref := deployer.NewExposureRef("f", "fn-ns", interceptorNamespaceUpstream)
+	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "f", UID: "uid"}}
+
+	svc := interceptorBridgeService(ref, deployment)
+
+	if svc.Spec.Type != corev1.ServiceTypeExternalName {
+		t.Errorf("Type = %q, want %q", svc.Spec.Type, corev1.ServiceTypeExternalName)
+	}
+	want := interceptorServiceName + "." + interceptorNamespaceUpstream + ".svc." + k8s.ClusterDomain()
+	if svc.Spec.ExternalName != want {
+		t.Errorf("ExternalName = %q, want %q", svc.Spec.ExternalName, want)
+	}
+	if svc.Name != interceptorBridgeServiceName("f") || svc.Namespace != "fn-ns" {
+		t.Errorf("Service = %s/%s, want fn-ns/%s", svc.Namespace, svc.Name, interceptorBridgeServiceName("f"))
 	}
 }
