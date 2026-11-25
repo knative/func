@@ -316,6 +316,40 @@ func Test_LabelsMap(t *testing.T) {
 				key2: value2,
 			},
 		},
+		{
+			name: "duplicate label keys in user labels should return error",
+			labels: []fn.Label{
+				{
+					Key:   &key1,
+					Value: &value1,
+				},
+				{
+					Key:   &key1,
+					Value: &value2,
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "user label with reserved key function.knative.dev/name should return error",
+			labels: []fn.Label{
+				{
+					Key:   ptr.String(fnlabels.FunctionNameKey),
+					Value: &value1,
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "user label with reserved key function.knative.dev/runtime should return error",
+			labels: []fn.Label{
+				{
+					Key:   ptr.String(fnlabels.FunctionRuntimeKey),
+					Value: &value1,
+				},
+			},
+			expectErr: true,
+		},
 	}
 
 	for _, tt := range tests {

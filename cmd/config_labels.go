@@ -89,6 +89,12 @@ the local machine.
 					return err
 				}
 
+				for _, l := range function.Deploy.Labels {
+					if l.Key != nil && *l.Key == *np {
+						return fmt.Errorf("label with key %q already exists", *np)
+					}
+				}
+
 				function.Deploy.Labels = append(function.Deploy.Labels, fn.Label{Key: np, Value: vp})
 				return loaderSaver.Save(function)
 			}
@@ -250,7 +256,19 @@ func runAddLabelsPrompt(_ context.Context, f fn.Function, saver common.FunctionS
 				Name:   "key",
 				Prompt: &survey.Input{Message: "Please specify the label key:"},
 				Validate: func(val interface{}) error {
-					return utils.ValidateLabelKey(val.(string))
+					str, ok := val.(string)
+					if !ok {
+						return fmt.Errorf("invalid label key")
+					}
+					if err := utils.ValidateLabelKey(str); err != nil {
+						return err
+					}
+					for _, l := range f.Deploy.Labels {
+						if l.Key != nil && *l.Key == str {
+							return fmt.Errorf("label with key %q already exists", str)
+						}
+					}
+					return nil
 				},
 			},
 			{
@@ -280,7 +298,19 @@ func runAddLabelsPrompt(_ context.Context, f fn.Function, saver common.FunctionS
 				Name:   "key",
 				Prompt: &survey.Input{Message: "Please specify the label key:"},
 				Validate: func(val interface{}) error {
-					return utils.ValidateLabelKey(val.(string))
+					str, ok := val.(string)
+					if !ok {
+						return fmt.Errorf("invalid label key")
+					}
+					if err := utils.ValidateLabelKey(str); err != nil {
+						return err
+					}
+					for _, l := range f.Deploy.Labels {
+						if l.Key != nil && *l.Key == str {
+							return fmt.Errorf("label with key %q already exists", str)
+						}
+					}
+					return nil
 				},
 			},
 			{
