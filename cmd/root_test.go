@@ -25,6 +25,7 @@ func TestRoot_mergeEnvMaps(t *testing.T) {
 	b := "B"
 	v1 := "x"
 	v2 := "y"
+	secret := "{{ secret:mysecret }}"
 
 	type args struct {
 		envs     []fn.Env
@@ -98,6 +99,15 @@ func TestRoot_mergeEnvMaps(t *testing.T) {
 				[]string{b},
 			},
 			[]fn.Env{{Name: &a, Value: &v2}},
+		},
+		{
+			"remove var with unnamed env present",
+			args{
+				[]fn.Env{{Value: &secret}, {Name: &a, Value: &v1}},
+				util.NewOrderedMap(),
+				[]string{a},
+			},
+			[]fn.Env{{Value: &secret}},
 		},
 	}
 	for _, tt := range tests {
