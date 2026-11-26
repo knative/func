@@ -3,6 +3,7 @@ package cmd_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -137,6 +138,148 @@ func TestEnvsAddNameWithoutValue(t *testing.T) {
 	}
 }
 
+func TestEnvsAdd_Duplicate(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	foo := "foo"
+	bar := "bar"
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{Run: fn.RunSpec{Envs: []fn.Env{{Name: &foo, Value: &bar}}}}, nil
+	}
+	mock.SaveFn = func(f fn.Function) error {
+		t.Error("Save must not be called when validation fails")
+		return nil
+	}
+
+	cmd := setupConfigEnvCmd(mock, "add", "--name=foo", "--value=baz")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when adding duplicate env name, got nil")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("expected error to contain 'already exists', got: %v", err)
+	}
+}
+
+func TestEnvsAdd_ValueWithoutNameNotWholeResource(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{}, nil
+	}
+	mock.SaveFn = func(f fn.Function) error {
+		t.Error("Save must not be called when validation fails")
+		return nil
+	}
+
+	cmd := setupConfigEnvCmd(mock, "add", "--value=plainValue")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --value is provided without --name, got nil")
+	}
+}
+
+func TestEnvsRemove_Success(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	foo := "foo"
+	bar := "bar"
+	var saved fn.Function
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{Run: fn.RunSpec{Envs: []fn.Env{{Name: &foo, Value: &bar}}}}, nil
+	}
+	mock.SaveFn = func(f fn.Function) error {
+		saved = f
+		return nil
+	}
+
+	cmd := setupConfigEnvCmd(mock, "remove", "--name=foo")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(saved.Run.Envs) != 0 {
+		t.Fatalf("expected 0 envs after removal, got %d", len(saved.Run.Envs))
+	}
+}
+
+func TestEnvsRemove_UnnamedEnvPresent(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	secret := "{{ secret:mysecret }}"
+	foo := "foo"
+	bar := "bar"
+	var saved fn.Function
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{Run: fn.RunSpec{Envs: []fn.Env{
+			{Value: &secret},
+			{Name: &foo, Value: &bar},
+		}}}, nil
+	}
+	mock.SaveFn = func(f fn.Function) error {
+		saved = f
+		return nil
+	}
+
+	cmd := setupConfigEnvCmd(mock, "remove", "--name=foo")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(saved.Run.Envs) != 1 || *saved.Run.Envs[0].Value != secret {
+		t.Fatalf("expected unnamed env to be preserved, got: %v", saved.Run.Envs)
+	}
+}
+
+func TestEnvsRemove_NonExistent(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	foo := "foo"
+	bar := "bar"
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{Run: fn.RunSpec{Envs: []fn.Env{{Name: &foo, Value: &bar}}}}, nil
+	}
+	mock.SaveFn = func(f fn.Function) error {
+		t.Error("Save must not be called when removing nonexistent env")
+		return nil
+	}
+
+	cmd := setupConfigEnvCmd(mock, "remove", "--name=nonexistent")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when removing nonexistent env, got nil")
+	}
+	var envNotExist *fn.ErrEnvNotExist
+	if !errors.As(err, &envNotExist) {
+		t.Fatalf("expected ErrEnvNotExist, got: %v", err)
+	}
+}
+
 func setupConfigLabelsCmd(mock common.FunctionLoaderSaver, args ...string) *cobra.Command {
 	cmd := fnCmd.NewConfigCmd(
 		mock,
@@ -213,6 +356,63 @@ func TestConfigLabelsAdd_Duplicate(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("expected error to contain 'already exists', got: %v", err)
+	}
+}
+
+func TestConfigLabelsRemove_Success(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	key := "foo"
+	val := "bar"
+	var saved fn.Function
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{Deploy: fn.DeploySpec{Labels: []fn.Label{{Key: &key, Value: &val}}}}, nil
+	}
+	mock.SaveFn = func(f fn.Function) error {
+		saved = f
+		return nil
+	}
+
+	cmd := setupConfigLabelsCmd(mock, "remove", "--name=foo")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(saved.Deploy.Labels) != 0 {
+		t.Fatalf("expected 0 labels after removal, got %d", len(saved.Deploy.Labels))
+	}
+}
+
+func TestConfigLabelsRemove_NonExistent(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	key := "foo"
+	val := "bar"
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{Deploy: fn.DeploySpec{Labels: []fn.Label{{Key: &key, Value: &val}}}}, nil
+	}
+	mock.SaveFn = func(f fn.Function) error {
+		t.Error("Save must not be called when removing nonexistent label")
+		return nil
+	}
+
+	cmd := setupConfigLabelsCmd(mock, "remove", "--name=nonexistent")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when removing nonexistent label, got nil")
+	}
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("expected error to contain 'does not exist', got: %v", err)
 	}
 }
 
