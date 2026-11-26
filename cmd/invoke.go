@@ -318,6 +318,20 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 // extensionName matches the CloudEvents spec restriction on attribute names.
 var extensionName = regexp.MustCompile(`^[a-z0-9]+$`)
 
+// reservedCloudEventAttributes are CloudEvents context attribute names.
+// They cannot be set with --extension. The value is the invoke flag that
+// sets the attribute, when one exists.
+var reservedCloudEventAttributes = map[string]string{
+	"id":              "--id",
+	"source":          "--source",
+	"type":            "--type",
+	"datacontenttype": "--content-type",
+	"dataschema":      "",
+	"specversion":     "",
+	"subject":         "",
+	"time":            "",
+}
+
 func (c invokeConfig) parseExtensions() (map[string]string, error) {
 	result := make(map[string]string)
 	for _, ext := range c.Extensions {
@@ -325,10 +339,17 @@ func (c invokeConfig) parseExtensions() (map[string]string, error) {
 		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
 			return nil, fmt.Errorf("invalid --extension %q: must be in key=value format", ext)
 		}
-		if !extensionName.MatchString(parts[0]) {
+		name := parts[0]
+		if flag, reserved := reservedCloudEventAttributes[strings.ToLower(name)]; reserved {
+			if flag == "" {
+				return nil, fmt.Errorf("invalid --extension %q: %q is a reserved CloudEvents attribute", ext, name)
+			}
+			return nil, fmt.Errorf("invalid --extension %q: %q is a reserved CloudEvents attribute; set it with %s", ext, name, flag)
+		}
+		if !extensionName.MatchString(name) {
 			return nil, fmt.Errorf("invalid --extension %q: name must consist of lower-case letters (a-z) or digits (0-9)", ext)
 		}
-		result[parts[0]] = parts[1]
+		result[name] = parts[1]
 	}
 	return result, nil
 }
