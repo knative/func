@@ -14,16 +14,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/deployers"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 )
 
-// logGatherer writes the logs of a deployed function.
-type logGatherer func(context.Context, knative.LogsOptions, io.Writer) error
+// logGatherer writes the logs of a container of the pods matching a selector.
+type logGatherer func(context.Context, k8s.PodLogsOptions, io.Writer) error
 
 func NewLogsCmd(newClient ClientFactory) *cobra.Command {
-	return newLogsCmd(newClient, knative.GetKServiceLogs)
+	return newLogsCmd(newClient, k8s.GetPodLogsBySelector)
 }
 
 // newLogsCmd constructs the command with an explicit log gatherer, allowing
@@ -42,8 +43,9 @@ When more than one pod is serving the function, each line is prefixed with the
 pod it came from. A function which has scaled to zero has no pods, and thus no
 logs to print.
 
-Only functions deployed with the default Knative deployer are currently
-supported.
+A function which consumes from Kafka runs the Kafka runtime in a sidecar
+container beside it. Use --container kafka-runtime to print the logs of that
+sidecar rather than those of the function.
 `,
 		Example: `
 # Print the logs of the function in the current directory and exit
@@ -66,10 +68,13 @@ supported.
 
 # Stream logs, starting with those of the last 5 minutes
 {{rootCmdUse}} logs -f --since 5m
+
+# Print the logs of the Kafka runtime sidecar
+{{rootCmdUse}} logs --container kafka-runtime
 `,
 		SuggestFor:        []string{"log", "tail"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("name", "namespace", "path", "since", "tail", "follow", "verbose"),
+		PreRunE:           bindEnv("name", "namespace", "path", "since", "tail", "follow", "container", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runLogs(cmd, newClient, gather)
 		},
@@ -87,6 +92,8 @@ supported.
 	cmd.Flags().StringP("since", "", "", "Return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all available logs, or to the last minute when following without --tail ($FUNC_SINCE)")
 	cmd.Flags().Int64P("tail", "", -1, "Number of most recent log lines to return per pod. Unlimited if negative ($FUNC_TAIL)")
 	cmd.Flags().BoolP("follow", "f", false, "Stream logs until interrupted rather than printing and exiting ($FUNC_FOLLOW)")
+	// The function runs in user-container under every deployer.
+	cmd.Flags().StringP("container", "", "user-container", "Container whose logs to print. Defaults to that of the function; kafka-runtime is the Kafka runtime sidecar ($FUNC_CONTAINER)")
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
 
@@ -136,14 +143,9 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory, gather logGatherer) er
 		deployer = instance.Deployer
 	}
 
-	// Guard: the knative log streamer uses a serving.knative.dev/service
-	// label selector that only matches pods created by the Knative deployer.
-	// For other deployer types, return a clear error rather than silently
-	// producing no output.
-	if deployer != "" && deployer != "knative" {
-		return fmt.Errorf("'func logs' is not yet supported for the %q deployer.\n"+
-			"Currently only functions deployed with the default Knative deployer are supported.\n"+
-			"You can use 'kubectl logs' directly to view logs for %s-deployed functions", deployer, deployer)
+	selector, err := podSelector(deployer, f.Name)
+	if err != nil {
+		return err
 	}
 
 	// Limit the lines returned per pod if requested
@@ -197,12 +199,13 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory, gather logGatherer) er
 	// filter pods.  It is that of the latest revision, so filtering on it
 	// would drop the logs of the pods actually serving traffic during a
 	// rollout.  All pods of the function's service are of interest here.
-	err = gather(ctx, knative.LogsOptions{
-		Name:      f.Name,
-		Namespace: f.Namespace,
-		Since:     sinceTime,
-		TailLines: tailLines,
-		Follow:    cfg.Follow,
+	err = gather(ctx, k8s.PodLogsOptions{
+		Namespace:     f.Namespace,
+		LabelSelector: selector,
+		Container:     cfg.Container,
+		Since:         sinceTime,
+		TailLines:     tailLines,
+		Follow:        cfg.Follow,
 	}, cmd.OutOrStdout())
 
 	// A function which has scaled to zero has no pods, and thus no logs.  This
@@ -231,6 +234,22 @@ func runLogs(cmd *cobra.Command, newClient ClientFactory, gather logGatherer) er
 	return nil
 }
 
+// podSelector returns the label selector which matches the pods of the named
+// function deployed by the given deployer.
+func podSelector(deployer, name string) (string, error) {
+	// A describer which reports no deployer means the default one.
+	if deployer == "" {
+		deployer = deployers.Default
+	}
+	switch deployer {
+	case deployers.Knative:
+		return knative.PodSelector(name), nil
+	case deployers.Kubernetes, deployers.Keda:
+		return k8s.PodSelector(name), nil
+	}
+	return "", fmt.Errorf("'func logs' does not support the %q deployer", deployer)
+}
+
 // CLI Configuration (parameters)
 // ------------------------------
 
@@ -241,6 +260,7 @@ type logsConfig struct {
 	Since     string
 	Tail      int64
 	Follow    bool
+	Container string
 	Verbose   bool
 }
 
@@ -252,6 +272,7 @@ func newLogsConfig(cmd *cobra.Command) (cfg logsConfig, err error) {
 		Since:     viper.GetString("since"),
 		Tail:      viper.GetInt64("tail"),
 		Follow:    viper.GetBool("follow"),
+		Container: viper.GetString("container"),
 		Verbose:   viper.GetBool("verbose"),
 	}
 

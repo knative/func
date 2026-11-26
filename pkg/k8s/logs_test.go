@@ -4,15 +4,21 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+
+	fn "knative.dev/func/pkg/functions"
 )
 
 // fake.Clientset always serves this as the content of a pod's logs.
@@ -48,6 +54,36 @@ func pendingPod(name string) *corev1.Pod {
 		State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{}},
 	}}
 	return pod
+}
+
+// kafkaPod returns a running pod which runs the Kafka runtime beside the
+// function, as the pod of a function which consumes from Kafka does.
+func kafkaPod(name string) *corev1.Pod {
+	pod := runningPod(name, "example.com/img:v1")
+	pod.Spec.Containers = append(pod.Spec.Containers,
+		corev1.Container{Name: "kafka-runtime", Image: "example.com/kafka-runtime:v1"})
+	pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, corev1.ContainerStatus{
+		Name:  "kafka-runtime",
+		State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}},
+	})
+	return pod
+}
+
+// followWithin runs followPodLogs and returns its error, failing the test if
+// it has not returned within a few seconds.
+func followWithin(t *testing.T, client kubernetes.Interface, opts PodLogsOptions, out io.Writer) error {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- followPodLogs(ctx, client, "default", opts, out) }()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected following to return, but it is still waiting")
+		return nil
+	}
 }
 
 func snapshotOpts() PodLogsOptions {
@@ -104,6 +140,143 @@ func TestSnapshotPodLogs_NoMatchingPods(t *testing.T) {
 				t.Errorf("expected no output, got %q", out.String())
 			}
 		})
+	}
+}
+
+// TestSnapshotPodLogs_NoSuchContainer ensures that pods which match but do not
+// run the requested container at all are reported as such, rather than as the
+// absence of pods, which suggests a function which has scaled to zero.
+func TestSnapshotPodLogs_NoSuchContainer(t *testing.T) {
+	client := fake.NewClientset(runningPod("pod-a", "example.com/img:v1"), pendingPod("pod-b"))
+	opts := snapshotOpts()
+	opts.Container = "kafka-runtim"
+
+	out := &bytes.Buffer{}
+	err := snapshotPodLogs(context.Background(), client, "default", opts, out)
+
+	if err == nil || errors.Is(err, ErrNoMatchingPods) {
+		t.Fatalf("expected the missing container to be reported, got %v", err)
+	}
+	if want := `no matching pod has a container "kafka-runtim", only user-container`; err.Error() != want {
+		t.Errorf("expected %q, got %q", want, err.Error())
+	}
+	if out.Len() != 0 {
+		t.Errorf("expected no output, got %q", out.String())
+	}
+}
+
+// TestFollowPodLogs_NoSuchContainer ensures that following the logs of a
+// container which no matching pod runs fails at once, rather than waiting for
+// logs which will never appear.
+func TestFollowPodLogs_NoSuchContainer(t *testing.T) {
+	client := fake.NewClientset(runningPod("pod-a", "example.com/img:v1"))
+	opts := snapshotOpts()
+	opts.Container = "kafka-runtim"
+	opts.Follow = true
+
+	err := followWithin(t, client, opts, &bytes.Buffer{})
+	if want := `no matching pod has a container "kafka-runtim", only user-container`; err == nil || err.Error() != want {
+		t.Errorf("expected %q, got %v", want, err)
+	}
+}
+
+// TestFollowPodLogs_NoSuchContainerOnScaleUp ensures that following a function
+// which has scaled to zero checks the container of the first pod to appear, as
+// there was none to check before.
+func TestFollowPodLogs_NoSuchContainerOnScaleUp(t *testing.T) {
+	client := fake.NewClientset()
+	watcher := watch.NewFakeWithChanSize(1, false)
+	client.PrependWatchReactor("pods", k8stesting.DefaultWatchReactor(watcher, nil))
+	watcher.Add(runningPod("pod-a", "example.com/img:v1"))
+
+	opts := snapshotOpts()
+	opts.Container = "kafka-runtim"
+	opts.Follow = true
+
+	err := followWithin(t, client, opts, &bytes.Buffer{})
+	if want := `no matching pod has a container "kafka-runtim", only user-container`; err == nil || err.Error() != want {
+		t.Errorf("expected %q, got %v", want, err)
+	}
+}
+
+// TestSnapshotPodLogs_Sidecar ensures the logs of a sidecar are read from a pod
+// which runs it beside the function.
+func TestSnapshotPodLogs_Sidecar(t *testing.T) {
+	client := fake.NewClientset(kafkaPod("pod-a"))
+	opts := snapshotOpts()
+	opts.Container = "kafka-runtime"
+
+	out := &bytes.Buffer{}
+	if err := snapshotPodLogs(context.Background(), client, "default", opts, out); err != nil {
+		t.Fatal(err)
+	}
+	if got := requestedPodLogOptions(t, client).Container; got != "kafka-runtime" {
+		t.Errorf("expected the logs of kafka-runtime, got those of %q", got)
+	}
+	if expected := fakeLogs + "\n"; out.String() != expected {
+		t.Errorf("expected %q, got %q", expected, out.String())
+	}
+}
+
+// TestFollowPodLogs_Sidecar ensures the logs of a sidecar are followed in a pod
+// which runs it beside the function.
+func TestFollowPodLogs_Sidecar(t *testing.T) {
+	pod := kafkaPod("pod-a")
+	client := fake.NewClientset(pod)
+	watcher := watch.NewFakeWithChanSize(1, false)
+	client.PrependWatchReactor("pods", k8stesting.DefaultWatchReactor(watcher, nil))
+	watcher.Add(pod)
+	watcher.Stop() // ends the watch once the pod has been seen
+
+	opts := snapshotOpts()
+	opts.Container = "kafka-runtime"
+	opts.Follow = true
+
+	out := &SynchronizedBuffer{}
+	if err := followWithin(t, client, opts, out); err != nil {
+		t.Fatal(err)
+	}
+	if got := requestedPodLogOptions(t, client).Container; got != "kafka-runtime" {
+		t.Errorf("expected the logs of kafka-runtime, got those of %q", got)
+	}
+	if out.String() != fakeLogs {
+		t.Errorf("expected %q, got %q", fakeLogs, out.String())
+	}
+}
+
+// TestPodSelector ensures the selector matches the pods of the function the raw
+// deployer creates, whatever other labels they carry, and not those of another
+// function.
+func TestPodSelector(t *testing.T) {
+	key, value := "team", "a"
+	deployment := func(name string) map[string]string {
+		f := fn.Function{
+			Name:    name,
+			Runtime: "go",
+			Domain:  "example.com",
+			Deploy: fn.DeploySpec{
+				Image:  "example.com/img:latest",
+				Labels: []fn.Label{{Key: &key, Value: &value}},
+			},
+		}
+		labels, anns := testMeta(t, f)
+		rs, rcm, rpvc := sets.New[string](), sets.New[string](), sets.New[string]()
+		dep, err := (&Deployer{}).generateDeployment(f, "default", labels, anns, &rs, &rcm, &rpvc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return dep.Spec.Template.Labels
+	}
+
+	selector, err := k8slabels.Parse(PodSelector("myfunc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pod := deployment("myfunc"); !selector.Matches(k8slabels.Set(pod)) {
+		t.Errorf("expected %q to match the function's pods, labeled %v", selector, pod)
+	}
+	if pod := deployment("other"); selector.Matches(k8slabels.Set(pod)) {
+		t.Errorf("expected %q to not match the pods of another function, labeled %v", selector, pod)
 	}
 }
 

@@ -216,7 +216,7 @@ A first-time deploy can be detected by checking the func.yaml for a value in the
 - `namespace` applies when identifying the Function by `name`. In `path` mode the namespace is read from the Function's own deploy identity in func.yaml and `namespace` has no effect — the same behavior as `func logs`, which this tool does not add rules on top of
 - When more than one pod serves the Function, each line is prefixed with `[pod/<name>] `
 - `follow`/streaming is deliberately not exposed: it never terminates, so it is unusable from an agent. Use `since`/`tail` and call again to observe new output
-- Only Functions deployed with the default **knative** deployer are supported; for other deployers the CLI returns an error directing you to `kubectl logs`
+- Functions deployed with the **knative**, **raw** and **keda** deployers are supported. The tool reads the Function's own container only, not the `kafka-runtime` sidecar of a Function which consumes from Kafka
 - `verbose` output is written to the same stream the notices come back on, so enabling it makes `warnings` considerably noisier; the returned notices are bounded and older ones are dropped when they overflow
 - This tool is **read-only** — it never modifies any state
 - Use logs to diagnose a deployed Function after `deploy`, especially when combined with `invoke` to trigger the Function and observe its output
