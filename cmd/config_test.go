@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/ory/viper"
@@ -188,6 +189,30 @@ func TestLabelsAddValueWithoutName(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected error when --value is provided without --name, got nil")
+	}
+}
+
+func TestConfigLabelsAdd_Duplicate(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+
+	key := "foo"
+	val := "bar"
+	mock := common.NewMockLoaderSaver()
+	mock.LoadFn = func(path string) (fn.Function, error) {
+		return fn.Function{Deploy: fn.DeploySpec{Labels: []fn.Label{{Key: &key, Value: &val}}}}, nil
+	}
+
+	cmd := setupConfigLabelsCmd(mock, "add", "--name=foo", "--value=baz")
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when adding duplicate label key, got nil")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("expected error to contain 'already exists', got: %v", err)
 	}
 }
 

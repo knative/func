@@ -953,6 +953,16 @@ func WarnIfLegacyS2IScaffolding(f Function, w io.Writer) {
 //   - key: EXAMPLE2                            # Label from the local ENV var
 //     value: {{ env:MY_ENV }}
 func (f Function) LabelsMap() (map[string]string, error) {
+	for i, label := range f.Deploy.Labels {
+		if label.Key != nil && (*label.Key == fnlabels.FunctionNameKey || *label.Key == fnlabels.FunctionRuntimeKey) {
+			return nil, fmt.Errorf("label entry #%d has reserved key %q: default label applied automatically", i, *label.Key)
+		}
+	}
+
+	if err := ValidateLabels(f.Deploy.Labels); len(err) != 0 {
+		return nil, errors.New(strings.Join(err, " "))
+	}
+
 	defaultLabels := []Label{
 		{
 			Key:   ptr.String(fnlabels.FunctionNameKey),
@@ -965,9 +975,6 @@ func (f Function) LabelsMap() (map[string]string, error) {
 	}
 
 	labels := append(defaultLabels, f.Deploy.Labels...)
-	if err := ValidateLabels(labels); len(err) != 0 {
-		return nil, errors.New(strings.Join(err, " "))
-	}
 
 	l := map[string]string{}
 	for _, label := range labels {
