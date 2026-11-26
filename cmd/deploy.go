@@ -199,7 +199,7 @@ EXAMPLES
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("base-image", "", f.Build.BaseImage,
 		"Override the base image for your function (host builder only)")
-	cmd.Flags().String("build-cafile", f.Build.CAFile, buildCAFileFlagUsage)
+	cmd.Flags().String("build-cafile", f.Local.BuildCAFile, buildCAFileFlagUsage)
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)")
 
@@ -859,9 +859,11 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	}
 
 	// A build CA file is only applied to local pack builds; the on-cluster
-	// pipelines do not support it yet.
-	if c.Remote && c.BuildCAFile != "" {
-		return errors.New("--build-cafile is not supported for remote (on-cluster) builds yet")
+	// pipelines do not support it yet. A value remembered in
+	// .func/local.yaml is ignored by remote builds, so only reject one given
+	// on this command.
+	if c.Remote && flagGiven(cmd, "build-cafile") {
+		return ErrBuildCAFileNotRemote
 	}
 
 	// Source can contain at maximum one '#'

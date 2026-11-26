@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -96,7 +99,7 @@ func TestBuild_BaseImage(t *testing.T) {
 }
 
 // TestBuild_BuildCAFile ensures that --build-cafile is accepted with the pack
-// builder only and persists to f.Build.CAFile.
+// builder only and is remembered in the function's local settings.
 func TestBuild_BuildCAFile(t *testing.T) {
 	testBuildCAFile(NewBuildCmd, t)
 }
@@ -159,31 +162,37 @@ func TestBuild_Push(t *testing.T) {
 	}
 }
 
-// testBuildCAFile ensures the build CA file is read from func.yaml, the
-// FUNC_BUILD_CAFILE env and the --build-cafile flag, reaches the builder,
-// is persisted, and is rejected for builders other than pack.
+// testBuildCAFile ensures the build CA file is read from the function's local
+// settings (.func/local.yaml), the FUNC_BUILD_CAFILE env and the
+// --build-cafile flag, reaches the builder, and is remembered in
+// .func/local.yaml but never written to func.yaml. Given on the command with a
+// builder other than pack it is an error; a remembered value is ignored there.
 func testBuildCAFile(cmdFn commandConstructor, t *testing.T) {
 	tests := []struct {
-		name     string
-		builder  string
-		funcYAML string // value already in func.yaml
-		env      string // FUNC_BUILD_CAFILE
-		args     []string
-		want     string
-		wantErr  error
+		name       string
+		builder    string
+		remembered string // value already in .func/local.yaml
+		env        string // FUNC_BUILD_CAFILE
+		args       []string
+		want       string
+		wantErr    error
 	}{
 		{name: "flag", builder: "pack", args: []string{"--build-cafile=certs/ca.pem"}, want: "certs/ca.pem"},
 		{name: "env", builder: "pack", env: "/etc/corp/ca.pem", want: "/etc/corp/ca.pem"},
-		{name: "func.yaml", builder: "pack", funcYAML: "ca.pem", want: "ca.pem"},
-		{name: "flag overrides func.yaml", builder: "pack", funcYAML: "ca.pem", args: []string{"--build-cafile=other.pem"}, want: "other.pem"},
-		{name: "s2i rejected", builder: "s2i", args: []string{"--build-cafile=ca.pem"}, wantErr: ErrBuildCAFileRequiresPack},
-		{name: "host rejected", builder: "host", args: []string{"--build-cafile=ca.pem"}, wantErr: ErrBuildCAFileRequiresPack},
+		{name: "remembered", builder: "pack", remembered: "ca.pem", want: "ca.pem"},
+		{name: "flag overrides remembered", builder: "pack", remembered: "ca.pem", args: []string{"--build-cafile=other.pem"}, want: "other.pem"},
+		{name: "flag clears remembered", builder: "pack", remembered: "ca.pem", args: []string{"--build-cafile="}, want: ""},
+		{name: "s2i rejects flag", builder: "s2i", args: []string{"--build-cafile=ca.pem"}, wantErr: ErrBuildCAFileRequiresPack},
+		{name: "s2i rejects env", builder: "s2i", env: "ca.pem", wantErr: ErrBuildCAFileRequiresPack},
+		{name: "host rejects flag", builder: "host", args: []string{"--build-cafile=ca.pem"}, wantErr: ErrBuildCAFileRequiresPack},
+		// A value remembered for this machine must not break other builders.
+		{name: "s2i ignores remembered", builder: "s2i", remembered: "ca.pem", want: "ca.pem"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			root := FromTempDirectory(t)
 			f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry,
-				Build: fn.BuildSpec{CAFile: tt.funcYAML}})
+				Local: fn.Local{BuildCAFile: tt.remembered}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -196,8 +205,8 @@ func testBuildCAFile(cmdFn commandConstructor, t *testing.T) {
 
 			builder := mock.NewBuilder()
 			builder.BuildFn = func(f fn.Function) error {
-				if f.Build.CAFile != tt.want {
-					t.Errorf("expected builder to receive CA file %q, got %q", tt.want, f.Build.CAFile)
+				if f.Local.BuildCAFile != tt.want {
+					t.Errorf("expected builder to receive CA file %q, got %q", tt.want, f.Local.BuildCAFile)
 				}
 				return nil
 			}
@@ -223,8 +232,15 @@ func testBuildCAFile(cmdFn commandConstructor, t *testing.T) {
 			if f, err = fn.NewFunction(root); err != nil {
 				t.Fatal(err)
 			}
-			if f.Build.CAFile != tt.want {
-				t.Fatalf("expected func.yaml build.caFile %q, got %q", tt.want, f.Build.CAFile)
+			if f.Local.BuildCAFile != tt.want {
+				t.Fatalf("expected .func/local.yaml buildCAFile %q, got %q", tt.want, f.Local.BuildCAFile)
+			}
+			funcYAML, err := os.ReadFile(filepath.Join(root, fn.FunctionFile))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(strings.ToLower(string(funcYAML)), "cafile") {
+				t.Fatalf("the CA file must not be written to func.yaml:\n%s", funcYAML)
 			}
 		})
 	}

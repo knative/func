@@ -221,7 +221,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	opts.ContainerConfig.Volumes = bindings
 
 	// Trust a custom CA during the build via a Paketo ca-certificates binding.
-	if f.Build.CAFile != "" {
+	if f.Local.BuildCAFile != "" {
 		var cleanup func()
 		if cleanup, err = addCABinding(f, &opts); err != nil {
 			return err
@@ -306,20 +306,23 @@ const (
 	// defaultServiceBindingRoot is the CNB platform default binding root.
 	defaultServiceBindingRoot = "/platform/bindings"
 	// caBindingName is the name of the binding directory holding the CA
-	// certificates given with f.Build.CAFile.
+	// certificates given with f.Local.BuildCAFile.
 	caBindingName = "func-build-ca"
+	// caBindingMountMode mounts the CA binding read-only and relabeled for
+	// SELinux (see addCABinding).
+	caBindingMountMode = "ro,z"
 )
 
-// addCABinding makes the CA certificates in f.Build.CAFile trusted during the
+// addCABinding makes the CA certificates in f.Local.BuildCAFile trusted during the
 // build. It writes a service binding of type "ca-certificates", as read by the
 // Paketo CA Certificates buildpack, into a temporary directory with one PEM
 // certificate per file, and mounts it read-only under the service binding
-// root. A relative f.Build.CAFile is resolved against f.Root. The binding root
+// root. A relative f.Local.BuildCAFile is resolved against f.Root. The binding root
 // is the SERVICE_BINDING_ROOT build env when set, else the CNB default, which
 // is then also exported to the build. The returned cleanup function removes
 // the temporary directory and must be called once the build has returned.
 func addCABinding(f fn.Function, opts *pack.BuildOptions) (cleanup func(), err error) {
-	caPath := f.Build.CAFile
+	caPath := f.Local.BuildCAFile
 	if !filepath.IsAbs(caPath) {
 		caPath = filepath.Join(f.Root, caPath)
 	}
@@ -359,8 +362,12 @@ func addCABinding(f fn.Function, opts *pack.BuildOptions) (cleanup func(), err e
 		opts.Env[serviceBindingRootEnv] = root
 	}
 	// Copy so neither f.Build.Mounts nor a caller's slice is modified.
+	// "z" relabels the directory for SELinux, without which the build
+	// container cannot read it under Podman (or Docker with SELinux enabled)
+	// on Fedora/RHEL. It is a no-op without SELinux, and safe here because
+	// the directory is our own temporary one, never a user path.
 	opts.ContainerConfig.Volumes = append(slices.Clone(opts.ContainerConfig.Volumes),
-		fmt.Sprintf("%s:%s:ro", dir, path.Join(root, caBindingName)))
+		fmt.Sprintf("%s:%s:%s", dir, path.Join(root, caBindingName), caBindingMountMode))
 	return cleanup, nil
 }
 

@@ -116,7 +116,7 @@ EXAMPLES
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("base-image", "", f.Build.BaseImage,
 		"Override the base image for your function (host builder only)")
-	cmd.Flags().String("build-cafile", f.Build.CAFile, buildCAFileFlagUsage)
+	cmd.Flags().String("build-cafile", f.Local.BuildCAFile, buildCAFileFlagUsage)
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)")
 
@@ -233,8 +233,10 @@ type buildConfig struct {
 	// TODO: gauron99 -- make option to add a path to dockerfile ?
 	BaseImage string
 
-	// BuildCAFile is a PEM file of CA certificates to trust during the build
-	// (pack builder only). Relative paths are resolved against the function root.
+	// BuildCAFile is a PEM file of CA certificates to trust during local pack
+	// builds. Relative paths are resolved against the function root. It is
+	// remembered in the function's local settings (.func/local.yaml), not in
+	// func.yaml, as it describes this machine rather than the function.
 	BuildCAFile string
 
 	// Path of the function implementation on local disk. Defaults to current
@@ -302,7 +304,7 @@ func (c buildConfig) Configure(f fn.Function) fn.Function {
 	}
 	f.Image = c.Image
 	f.Build.BaseImage = c.BaseImage
-	f.Build.CAFile = c.BuildCAFile
+	f.Local.BuildCAFile = c.BuildCAFile
 	// Path, Platform and Push are not part of a function's state.
 	return f
 }
@@ -435,22 +437,31 @@ func (c buildConfig) Validate(cmd *cobra.Command) (err error) {
 		return
 	}
 
-	// A build CA file is only supported with the pack builder
-	if c.BuildCAFile != "" && c.Builder != builders.Pack {
+	// A build CA file is only supported with the pack builder. A value
+	// remembered in .func/local.yaml is ignored by other builders, so only
+	// reject one given on this command.
+	if c.Builder != builders.Pack && flagGiven(cmd, "build-cafile") {
 		err = ErrBuildCAFileRequiresPack
 	}
 	return
 }
 
 // buildCAFileFlagUsage is the help text of the --build-cafile flag, shared by
-// the build and deploy commands.
+// the build, deploy and run commands.
 const buildCAFileFlagUsage = "Path to a PEM file with one or more CA certificates to trust during the build, " +
 	"for example the CA of a TLS-intercepting proxy. Used at build time only and not added to the " +
-	"function image. Pack builder only. A relative path is resolved against the function directory. ($FUNC_BUILD_CAFILE)"
+	"function image. Pack builder only. A relative path is resolved against the function directory. " +
+	"Remembered for this copy of the function in .func/local.yaml, not in func.yaml. " +
+	"git does not read it on its own, so dependencies fetched with git (e.g. Go modules from a VCS) " +
+	"need the GIT_SSL_CAINFO build env as well, see docs/building-functions/custom-ca.md. ($FUNC_BUILD_CAFILE)"
 
 // ErrBuildCAFileRequiresPack is returned when --build-cafile is used with a
 // builder other than pack.
 var ErrBuildCAFileRequiresPack = errors.New("--build-cafile is only supported by the pack builder")
+
+// ErrBuildCAFileNotRemote is returned when --build-cafile is given for a
+// remote (on-cluster) build, which does not support it yet.
+var ErrBuildCAFileNotRemote = errors.New("--build-cafile is not supported for remote (on-cluster) builds yet")
 
 // clientOptions returns options suitable for instantiating a client based on
 // the current state of the build config object.

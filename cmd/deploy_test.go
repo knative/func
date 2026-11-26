@@ -2751,30 +2751,71 @@ func Test_isDigested(t *testing.T) {
 }
 
 // TestDeploy_BuildCAFile ensures that --build-cafile is accepted with the pack
-// builder only and persists to f.Build.CAFile.
+// builder only and is remembered in the function's local settings.
 func TestDeploy_BuildCAFile(t *testing.T) {
 	testBuildCAFile(NewDeployCmd, t)
 }
 
-// TestDeploy_BuildCAFileRemote ensures that --build-cafile is rejected for
-// remote (on-cluster) builds, which do not support it.
+// TestDeploy_BuildCAFileRemote ensures that a build CA file given on a remote
+// (on-cluster) deploy is rejected, as the pipelines do not support it yet,
+// while one remembered in .func/local.yaml for local builds is ignored by the
+// remote deploy and kept for the next local build.
 func TestDeploy_BuildCAFileRemote(t *testing.T) {
-	root := FromTempDirectory(t)
-	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name       string
+		remembered string // value already in .func/local.yaml
+		env        string // FUNC_BUILD_CAFILE
+		args       []string
+		wantErr    bool
+	}{
+		{name: "flag rejected", args: []string{"--build-cafile=ca.pem"}, wantErr: true},
+		{name: "env rejected", env: "ca.pem", wantErr: true},
+		{name: "remembered ignored", remembered: "ca.pem"},
 	}
-	pipelinesProvider := mock.NewPipelinesProvider()
-	cmd := NewDeployCmd(NewTestClient(
-		fn.WithPipelinesProvider(pipelinesProvider),
-		fn.WithRegistry(TestRegistry),
-	))
-	cmd.SetArgs([]string{"--remote", "--builder=pack", "--build-cafile=ca.pem"})
-	err := cmd.Execute()
-	if err == nil || !strings.Contains(err.Error(), "remote") {
-		t.Fatalf("expected an error about remote builds, got %v", err)
-	}
-	if pipelinesProvider.RunInvoked {
-		t.Fatal("pipeline must not run")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry,
+				Local: fn.Local{BuildCAFile: tt.remembered}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = f.Write(); err != nil {
+				t.Fatal(err)
+			}
+			if tt.env != "" {
+				t.Setenv("FUNC_BUILD_CAFILE", tt.env)
+			}
+			pipelinesProvider := mock.NewPipelinesProvider()
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithPipelinesProvider(pipelinesProvider),
+				fn.WithRegistry(TestRegistry),
+			))
+			cmd.SetArgs(append([]string{"--remote", "--builder=pack"}, tt.args...))
+			err = cmd.Execute()
+
+			if tt.wantErr {
+				if !errors.Is(err, ErrBuildCAFileNotRemote) {
+					t.Fatalf("expected %v, got %v", ErrBuildCAFileNotRemote, err)
+				}
+				if pipelinesProvider.RunInvoked {
+					t.Fatal("pipeline must not run")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("a remembered CA file must not fail a remote deploy: %v", err)
+			}
+			if !pipelinesProvider.RunInvoked {
+				t.Fatal("expected the pipeline to run")
+			}
+			if f, err = fn.NewFunction(root); err != nil {
+				t.Fatal(err)
+			}
+			if f.Local.BuildCAFile != tt.remembered {
+				t.Fatalf("expected the remembered CA file %q to be kept, got %q", tt.remembered, f.Local.BuildCAFile)
+			}
+		})
 	}
 }
 

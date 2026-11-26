@@ -425,10 +425,12 @@ func writeCAFile(t *testing.T, path string, n int) {
 	}
 }
 
-// caBindingDir returns the host directory mounted at dest in opts.
+// caBindingDir returns the host directory mounted at dest in opts. The mount
+// must be read-only and relabeled for SELinux ("ro,z"), so that Podman on
+// Fedora/RHEL can read it.
 func caBindingDir(t *testing.T, opts pack.BuildOptions, dest string) string {
 	t.Helper()
-	suffix := ":" + dest + ":ro"
+	suffix := ":" + dest + ":ro,z"
 	for _, v := range opts.ContainerConfig.Volumes {
 		if strings.HasSuffix(v, suffix) {
 			return strings.TrimSuffix(v, suffix)
@@ -448,7 +450,7 @@ func TestBuild_CAFile(t *testing.T) {
 	var (
 		i       = &mockImpl{}
 		b       = NewBuilder(WithImpl(i))
-		f       = fn.Function{Runtime: "node", Root: root, Build: fn.BuildSpec{CAFile: "bundle.pem"}}
+		f       = fn.Function{Runtime: "node", Root: root, Local: fn.Local{BuildCAFile: "bundle.pem"}}
 		bindDir string
 	)
 	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
@@ -512,8 +514,8 @@ func TestBuild_CAFileBindingRoot(t *testing.T) {
 		f      = fn.Function{
 			Runtime: "node",
 			Root:    t.TempDir(),
+			Local:   fn.Local{BuildCAFile: caFile},
 			Build: fn.BuildSpec{
-				CAFile:    caFile,
 				BuildEnvs: []fn.Env{{Name: &name, Value: &value}},
 				Mounts:    slices.Clone(mounts),
 			},
@@ -563,7 +565,7 @@ func TestBuild_CAFileErrors(t *testing.T) {
 				t.Fatal("pack build must not run with an unusable CA file")
 				return nil
 			}}
-			f := fn.Function{Runtime: "node", Root: root, Build: fn.BuildSpec{CAFile: tt.file}}
+			f := fn.Function{Runtime: "node", Root: root, Local: fn.Local{BuildCAFile: tt.file}}
 			err := NewBuilder(WithImpl(i)).Build(t.Context(), f, nil)
 			if err == nil || !strings.Contains(err.Error(), tt.file) {
 				t.Fatalf("expected an error naming %q, got %v", tt.file, err)

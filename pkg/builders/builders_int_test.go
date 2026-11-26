@@ -174,9 +174,9 @@ password=nbusr123
 			Builder:    buildpacks.NewBuilder(buildpacks.WithVerbose(true)),
 			// The private module is fetched by git, which in jammy is linked
 			// against gnutls and ignores SSL_CERT_DIR, where the Paketo CA
-			// Certificates buildpack adds a CA given with f.Build.CAFile.
+			// Certificates buildpack adds a CA given with f.Local.BuildCAFile.
 			// So this case still needs a builder image that trusts our CA.
-			// See TestInt_PackBuildTrustsCAFile for f.Build.CAFile.
+			// See TestInt_PackBuildTrustsCAFile for f.Local.BuildCAFile.
 			BuilderImage: buildPatchedBuildpackBuilder,
 			Envs: []fn.Env{
 				{
@@ -216,7 +216,7 @@ password=nbusr123
 	}
 }
 
-// TestInt_PackBuildTrustsCAFile ensures that a CA given with f.Build.CAFile is
+// TestInt_PackBuildTrustsCAFile ensures that a CA given with f.Local.BuildCAFile is
 // trusted during a pack build with a stock builder image. The function
 // depends on a module served by a Go module proxy over TLS with a certificate
 // signed by a custom CA, as with a TLS-intercepting proxy. The same build
@@ -240,7 +240,7 @@ func TestInt_PackBuildTrustsCAFile(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		caFile  func(root string) string // returns f.Build.CAFile, may write into root
+		caFile  func(root string) string // returns f.Local.BuildCAFile, may write into root
 		wantErr bool
 	}{
 		{
@@ -273,7 +273,7 @@ func TestInt_PackBuildTrustsCAFile(t *testing.T) {
 			f.Build.Image = fmt.Sprintf("registry.localtest.me/go-cadep:test-%s-%d", tt.name, time.Now().UnixNano())
 			f.Build.Builder = builders.Pack
 			f.Build.BuilderImages = map[string]string{builders.Pack: stockBuilder}
-			f.Build.CAFile = tt.caFile(f.Root)
+			f.Local.BuildCAFile = tt.caFile(f.Root)
 
 			zips, handshakeErrors := proxy.zips.Load(), proxy.handshakeErrors.Load()
 			if err := buildpacks.NewScaffolder(true).Scaffold(ctx, f, ""); err != nil {
