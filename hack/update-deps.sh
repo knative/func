@@ -32,8 +32,16 @@ echo ">> args='$@'"
 # When this is running in 'verify deps' workflow it runs with no arguments.
 # We don't want these changes to break the GH Action for all PRs therefore we
 # limit this only for dependency bumps.
-if [[ $# -gt 0 ]]; then
+# The bot also runs on release branches. Only the Go dependency bump above
+# belongs there: a patch release does not take new hack components, middleware
+# versions or root certificates.
+if [[ $# -gt 0 ]] && ! is_release_branch; then
     echo ">> Running make hack-generate-components"
     # Update hack components
     make hack-generate-components
+    echo ">> Running make update-templates"
+    # Update middleware versions and root certificates in templates
+    make update-templates
+elif [[ $# -gt 0 ]]; then
+    echo ">> Release branch: skipping make hack-generate-components and make update-templates"
 fi

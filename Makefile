@@ -301,26 +301,27 @@ test-typescript: ## Test Typescript templates
 ##@ Scaffolding
 ###############
 
-# Pulls runtimes then rebuilds the embedded filesystem
-.PHONY: update-runtimes
-update-runtimes:  update-runtime-go generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
-
-.PHONY: update-runtime-go
-update-runtime-go:
-	@echo "Updating Go runtime..."
-	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http
-	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
-	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
-	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
-
-
 .PHONY: certs
 certs: templates/certs/ca-certificates.crt ## Update root certificates
 
 .PHONY: templates/certs/ca-certificates.crt
 templates/certs/ca-certificates.crt:
-	# Updating root certificates
-	curl --output templates/certs/ca-certificates.crt https://curl.se/ca/cacert.pem
+	@echo "Updating root certificates..."
+	curl --fail --silent --show-error --output $@.tmp https://curl.se/ca/cacert.pem || { rm -f $@.tmp; exit 1; }
+	mv $@.tmp $@
+
+# Run by hack/update-deps.sh when the dependency bot runs it. make builds
+# these prerequisites in the order listed, and a failed one stops the rest.
+# The order matters: the embedded filesystem is rebuilt last, from the updated
+# templates. make -j would build them all at once; nothing runs this with -j,
+# but if that changes, run them as $(MAKE) lines in the recipe instead.
+.PHONY: update-templates
+update-templates: certs update-middleware generate/zz_filesystem_generated.go ## Update template middleware and root certificates
+
+.PHONY: update-middleware
+update-middleware: ## Update middleware versions in templates
+	@echo "Updating middleware..."
+	go run ./hack/cmd/update-middleware
 
 ###################
 ##@ Extended Testing (cluster required)
