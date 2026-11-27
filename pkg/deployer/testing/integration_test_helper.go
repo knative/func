@@ -187,13 +187,13 @@ func TestInt_Metadata(t *testing.T, deployer fn.Deployer, remover fn.Remover, de
 	// from a local environment variable
 	f.Run.Envs.Add("LOCAL", "{{ env:LOCAL_KEY_A }}")
 	// From a Secret
-	f.Run.Envs.Add("SECRET", "{{ secret: "+secretName+":SECRET_KEY_A }}")
+	f.Run.Envs.Add("SECRET", "{{ secret:"+secretName+":SECRET_KEY_A }}")
 	// From a Secret (all)
-	f.Run.Envs.Add("", "{{ secret: "+secretName+" }}")
+	f.Run.Envs.Add("", "{{ secret:"+secretName+" }}")
 	// From a ConfigMap (by key)
-	f.Run.Envs.Add("CONFIGMAP", "{{ configMap: "+configMapName+":CONFIGMAP_KEY_A }}")
+	f.Run.Envs.Add("CONFIGMAP", "{{ configMap:"+configMapName+":CONFIGMAP_KEY_A }}")
 	// From a ConfigMap (all)
-	f.Run.Envs.Add("", "{{ configMap: "+configMapName+" }}")
+	f.Run.Envs.Add("", "{{ configMap:"+configMapName+" }}")
 
 	// VOLUMES
 	// from a Secret
@@ -752,7 +752,7 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		Run: fn.RunSpec{
 			Envs: []fn.Env{
 				{Name: ptr("FUNC_TEST_VAR"), Value: ptr("nbusr123")},
-				{Name: ptr("FUNC_TEST_SC_A"), Value: ptr("{{ secret: " + secret + ":FUNC_TEST_SC_A }}")},
+				{Name: ptr("FUNC_TEST_SC_A"), Value: ptr("{{ secret:" + secret + ":FUNC_TEST_SC_A }}")},
 				{Value: ptr("{{configMap:" + configMap + "}}")},
 			},
 			Volumes: []fn.Volume{
@@ -774,6 +774,11 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		}, buff)
 	}()
 
+	// deployer.Deploy is called directly (not through Client.Deploy), so
+	// validate up front as Client.Deploy does.
+	if err := function.Validate(); err != nil {
+		t.Fatal(err)
+	}
 	depRes, err := deployer.Deploy(ctx, function)
 	if err != nil {
 		t.Fatal(err)
@@ -843,7 +848,7 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 	t.Setenv("LOCAL_ENV_TO_DEPLOY", "iddqd")
 	function.Run.Envs = []fn.Env{
 		{Name: ptr("FUNC_TEST_VAR"), Value: ptr("{{ env:LOCAL_ENV_TO_DEPLOY }}")},
-		{Value: ptr("{{ secret: " + secret + " }}")},
+		{Value: ptr("{{ secret:" + secret + " }}")},
 		{Name: ptr("FUNC_TEST_CM_A_ALIASED"), Value: ptr("{{configMap:" + configMap + ":FUNC_TEST_CM_A}}")},
 	}
 	now = time.Now() // reset timer for new log receiver
@@ -860,6 +865,9 @@ func TestInt_FullPath(t *testing.T, deployer fn.Deployer, remover fn.Remover, li
 		}, redeployLogBuff)
 	}()
 
+	if err = function.Validate(); err != nil {
+		t.Fatal(err)
+	}
 	_, err = deployer.Deploy(ctx, function)
 	if err != nil {
 		t.Fatal(err)
@@ -958,7 +966,7 @@ func TestInt_ResourceValidationOnFirstDeploy(t *testing.T, deployer fn.Deployer,
 	}
 
 	// Reference a Secret that does NOT exist on the cluster yet.
-	f.Run.Envs.Add("SECRET_KEY", "{{ secret: "+secretName+":SECRET_KEY }}")
+	f.Run.Envs.Add("SECRET_KEY", "{{ secret:"+secretName+":SECRET_KEY }}")
 
 	err = client.Scaffold(ctx, f, "")
 	if err != nil {

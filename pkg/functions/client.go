@@ -881,6 +881,13 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 		return f, err
 	}
 
+	// Validate the function once here so every deployer receives a function that
+	// has already passed the shared checks (volumes, envs, scale, kafka, expose);
+	// deployers only perform deploy-specific checks.
+	if err := f.Validate(); err != nil {
+		return f, err
+	}
+
 	if err := validateSwitch(f); err != nil {
 		return f, err
 	}

@@ -3,7 +3,6 @@ package keda
 import (
 	"context"
 	"fmt"
-	"math"
 	"strings"
 	"testing"
 
@@ -279,24 +278,6 @@ func Test_replicaBounds(t *testing.T) {
 		}
 	})
 
-	// ValidateScale rejects these, but Deploy is reachable without it
-	// (library callers), so replicaBounds must guard the int32 narrowing
-	// itself rather than let an out-of-range value silently wrap.
-	t.Run("out-of-range min errors instead of wrapping", func(t *testing.T) {
-		if _, _, err := replicaBounds(fn.Function{Scale: &fn.ScaleOptions{Min: i64(1 << 32)}}); err == nil {
-			t.Error("expected an error for scale.min above int32 max, got nil")
-		}
-		if _, _, err := replicaBounds(fn.Function{Scale: &fn.ScaleOptions{Min: i64(-1)}}); err == nil {
-			t.Error("expected an error for a negative scale.min, got nil")
-		}
-	})
-
-	t.Run("out-of-range max errors instead of wrapping", func(t *testing.T) {
-		if _, _, err := replicaBounds(fn.Function{Scale: &fn.ScaleOptions{Max: i64(1 << 32)}}); err == nil {
-			t.Error("expected an error for scale.max above int32 max, got nil")
-		}
-	})
-
 	// ValidateScale only compares min and max when both are set explicitly, so
 	// a min above keda's default max (max unset) reaches replicaBounds; it must
 	// reject that rather than emit an HTTPScaledObject with min > max.
@@ -349,119 +330,6 @@ func TestPollingIntervalIgnored(t *testing.T) {
 	}
 }
 
-// TestDeploy_KafkaSASLPreflight covers the Deploy preflight for direct callers
-// that bypass Function.Validate: an inconsistent SASL/security config must be
-// rejected before any cluster resources are created. Otherwise buildScaledObject
-// would produce a ScaledObject whose SASL/TLS trigger metadata silently
-// disagrees with how the function's own container authenticates. Each case
-// returns from the pure preflight before Deploy touches the cluster, so no fake
-// clientset is needed.
-func TestDeploy_KafkaSASLPreflight(t *testing.T) {
-	kafkaTrigger := &fn.ScaleOptions{
-		KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "kafka"}}},
-	}
-	base := func(k *fn.KafkaConfig) fn.Function {
-		return fn.Function{Name: testFnName, Scale: kafkaTrigger, Run: fn.RunSpec{Kafka: k}}
-	}
-
-	tests := []struct {
-		name    string
-		kafka   *fn.KafkaConfig
-		wantErr string
-	}{
-		{
-			name: "SASL block with non-SASL protocol",
-			kafka: &fn.KafkaConfig{
-				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
-				SecurityProtocol: "SSL",
-				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: "p"},
-			},
-			wantErr: "run.kafka.sasl requires securityProtocol SASL_PLAINTEXT or SASL_SSL",
-		},
-		{
-			name: "unrecognized mechanism",
-			kafka: &fn.KafkaConfig{
-				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
-				SecurityProtocol: "SASL_SSL",
-				SASL:             &fn.KafkaSASL{Mechanism: "OAUTHBEARER", User: "u", Password: "p"},
-			},
-			wantErr: "run.kafka.sasl.mechanism must be one of",
-		},
-	}
-
-	d := NewDeployer()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := d.Deploy(context.Background(), base(tt.kafka))
-			if err == nil {
-				t.Fatalf("expected Deploy to reject %s, got nil error", tt.name)
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("error %q does not contain %q", err.Error(), tt.wantErr)
-			}
-		})
-	}
-}
-
-// TestDeploy_KafkaSidecarConfigPreflightWithoutKafkaTrigger verifies the
-// run.kafka sidecar-config preflight (required fields, security, delivery) runs
-// whenever run.kafka is set -- even for a function whose only scaler trigger is
-// http. The embedded k8s deployer injects the runtime sidecar (and its
-// broker/TLS/SASL/delivery env) whenever f.Run.Kafka is set, independent of the
-// scaler, so gating these checks on a kafka trigger let an invalid run.kafka on
-// an http-triggered function reach the cluster and crash-loop the sidecar. Each
-// case must be rejected in the pure preflight, before any cluster call.
-func TestDeploy_KafkaSidecarConfigPreflightWithoutKafkaTrigger(t *testing.T) {
-	httpTrigger := &fn.ScaleOptions{
-		KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "http"}}},
-	}
-	base := func(k *fn.KafkaConfig) fn.Function {
-		return fn.Function{Name: testFnName, Scale: httpTrigger, Run: fn.RunSpec{Kafka: k}}
-	}
-
-	tests := []struct {
-		name    string
-		kafka   *fn.KafkaConfig
-		wantErr string
-	}{
-		{
-			name:    "missing required fields",
-			kafka:   &fn.KafkaConfig{Topic: "t", ConsumerGroup: "g"},
-			wantErr: "run.kafka is missing required field(s): brokers",
-		},
-		{
-			name: "invalid delivery backoff",
-			kafka: &fn.KafkaConfig{
-				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
-				Delivery: &fn.DeliverySpec{BackoffDelay: "10s", BackoffMaxDelay: "1s"},
-			},
-			wantErr: "run.kafka.delivery.backoffMaxDelay",
-		},
-		{
-			name: "invalid security",
-			kafka: &fn.KafkaConfig{
-				Brokers: "b:9092", Topic: "t", ConsumerGroup: "g",
-				SecurityProtocol: "SSL",
-				SASL:             &fn.KafkaSASL{Mechanism: "PLAIN", User: "u", Password: "p"},
-			},
-			wantErr: "run.kafka.sasl requires securityProtocol",
-		},
-	}
-
-	d := NewDeployer()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := d.Deploy(context.Background(), base(tt.kafka))
-			if err == nil {
-				t.Fatalf("expected Deploy to reject %s, got nil error", tt.name)
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("error %q does not contain %q", err.Error(), tt.wantErr)
-			}
-		})
-	}
-}
-
 // TestDeploy_KafkaResourceNamePreflight covers the Deploy preflight guard for a
 // function whose name is too long for the Kafka scaler resources: the
 // ScaledObject (<name>-kafka) and TriggerAuthentication (<name>-kafka-auth)
@@ -486,80 +354,33 @@ func TestDeploy_KafkaResourceNamePreflight(t *testing.T) {
 	}
 }
 
-// TestDeploy_ScaleOverflowPreflight covers the Deploy preflight guard against
-// scale.min/max values that do not fit int32: replicaBounds narrows them to
-// int32, and 1<<32 would silently wrap to 0 (and then masquerade as a valid
-// small value) without this check.
-func TestDeploy_ScaleOverflowPreflight(t *testing.T) {
-	overflow := int64(math.MaxInt32) + 1
-	valid := int64(3)
-	trigger := &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "kafka"}}}
-
-	tests := []struct {
-		name    string
-		scale   *fn.ScaleOptions
-		wantErr string
-	}{
-		{"max overflow", &fn.ScaleOptions{Max: &overflow, KEDA: trigger}, "scale.max"},
-		{"min overflow", &fn.ScaleOptions{Min: &overflow, Max: &valid, KEDA: trigger}, "scale.min"},
-	}
-
+// TestDeploy_KafkaTLSPreflight_HTTPFunction covers the preflight check where an
+// HTTP-triggered function has run.kafka set with a TLS path that does not match
+// any volume: the check runs before any cluster call regardless of trigger type,
+// because the Kafka sidecar is injected whenever run.kafka is present.
+func TestDeploy_KafkaTLSPreflight_HTTPFunction(t *testing.T) {
 	d := NewDeployer()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := d.Deploy(context.Background(), fn.Function{Name: testFnName, Scale: tt.scale})
-			if err == nil {
-				t.Fatalf("expected Deploy to reject %s, got nil error", tt.name)
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) || !strings.Contains(err.Error(), "out of range") {
-				t.Fatalf("error %q is not the expected out-of-range error", err.Error())
-			}
-		})
-	}
-}
-
-// TestDeploy_ScaleValidationPreflight covers the shared-ValidateScale sweep the
-// Deploy preflight runs for direct callers that bypass Function.Validate: the
-// value-range checks the tailored guards above it don't duplicate
-// (pollingInterval/cooldownPeriod bounds, per-trigger threshold bounds, and the
-// scale.keda<->scale.kpa mutual exclusion). Each returns from the pure preflight
-// before any cluster call, so no fake clientset is needed.
-func TestDeploy_ScaleValidationPreflight(t *testing.T) {
-	httpTrigger := func() []fn.KEDATrigger { return []fn.KEDATrigger{{Type: "http"}} }
-
-	tests := []struct {
-		name    string
-		scale   *fn.ScaleOptions
-		wantErr string
-	}{
-		{
-			name:    "pollingInterval below minimum",
-			scale:   &fn.ScaleOptions{KEDA: &fn.KEDAScaleOptions{PollingInterval: ptr.Int32(0), Triggers: httpTrigger()}},
-			wantErr: "scale.keda.pollingInterval must be >= 1",
+	f := fn.Function{
+		Name: testFnName,
+		// Default or explicit HTTP trigger: wantKafka is false.
+		Scale: &fn.ScaleOptions{
+			KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "http"}}},
 		},
-		{
-			name:    "cooldownPeriod below minimum",
-			scale:   &fn.ScaleOptions{KEDA: &fn.KEDAScaleOptions{CooldownPeriod: ptr.Int32(0), Triggers: httpTrigger()}},
-			wantErr: "scale.keda.cooldownPeriod must be >= 1",
-		},
-		{
-			name:    "http targetValue below minimum",
-			scale:   &fn.ScaleOptions{KEDA: &fn.KEDAScaleOptions{Triggers: []fn.KEDATrigger{{Type: "http", TargetValue: ptr.Int64(0)}}}},
-			wantErr: "targetValue must be >= 1",
+		Run: fn.RunSpec{
+			Kafka: &fn.KafkaConfig{
+				TLS: &fn.KafkaTLS{
+					CACert: "/etc/certs/ca.crt",
+				},
+			},
+			// Volumes do not mount /etc/certs/ca.crt.
 		},
 	}
-
-	d := NewDeployer()
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := d.Deploy(context.Background(), fn.Function{Name: testFnName, Scale: tt.scale})
-			if err == nil {
-				t.Fatalf("expected Deploy to reject %s, got nil error", tt.name)
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("error %q does not contain %q", err.Error(), tt.wantErr)
-			}
-		})
+	_, err := d.Deploy(context.Background(), f)
+	if err == nil {
+		t.Fatal("expected Deploy to reject mismatched Kafka TLS path on HTTP function, got nil")
+	}
+	if !strings.Contains(err.Error(), "tls.caCert") {
+		t.Fatalf("expected error mentioning tls.caCert, got: %v", err)
 	}
 }
 
