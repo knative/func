@@ -261,17 +261,34 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, fmt.Errorf("failed to generate service resources: %w", err)
 		}
 
-		// Preserve resource version for update
-		deployment.ResourceVersion = existingDeployment.ResourceVersion
-
-		if err := preserveDeploymentSelector(existingDeployment, deployment, f.Name); err != nil {
-			return fn.DeploymentResult{}, err
-		}
-		if d.autoscaledReplicas {
-			preserveAutoscaledReplicas(existingDeployment, deployment, f)
-		}
-
-		if _, err = deploymentClient.Update(ctx, deployment, metav1.UpdateOptions{}); err != nil {
+		// An HPA scale between the Get and the Update returns a 409.
+		live := existingDeployment
+		firstAttempt := true
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if !firstAttempt {
+				var getErr error
+				live, getErr = deploymentClient.Get(ctx, f.Name, metav1.GetOptions{})
+				if getErr != nil {
+					return getErr
+				}
+				// The Service's owner reference belongs to the original Deployment.
+				if live.UID != existingDeployment.UID {
+					return fmt.Errorf("deployment %q was replaced during update", f.Name)
+				}
+			}
+			firstAttempt = false
+			desired := deployment.DeepCopy()
+			desired.ResourceVersion = live.ResourceVersion
+			if err := preserveDeploymentSelector(live, desired, f.Name); err != nil {
+				return err
+			}
+			if d.autoscaledReplicas {
+				preserveAutoscaledReplicas(live, desired, f)
+			}
+			_, updateErr := deploymentClient.Update(ctx, desired, metav1.UpdateOptions{})
+			return updateErr
+		})
+		if err != nil {
 			return fn.DeploymentResult{}, fmt.Errorf("failed to update deployment: %w", err)
 		}
 
