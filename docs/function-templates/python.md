@@ -1,7 +1,7 @@
 # Python Function Developer's Guide
 
 Python Functions allow for the direct deployment of source code as a production
-service to any Kubernetes cluster with Knative installed.  The request handler
+service to any Kubernetes cluster with Knative installed. The request handler
 method signature follows the ASGI (Asynchronous Server Gateway Interface)
 standard, allowing for integration with any supporting library.
 
@@ -45,6 +45,7 @@ class Function:
 Your function class can implement several optional methods:
 
 #### `handle(self, scope, receive, send)`
+
 The main request handler following ASGI protocol. This async method processes all HTTP requests except health checks.
 
 ```python
@@ -192,6 +193,7 @@ deactivate
 ```
 
 **Note**:
+
 - Python 3 typically comes with `venv` module built-in
 - If `python3` command is not found, try `python` instead
 - The `-m pip` syntax ensures you're using the pip from your virtual environment
@@ -374,7 +376,6 @@ async def handle(self, scope, receive, send):
 # Deploy to a specific registry
 func deploy --builder=host --registry docker.io/myuser
 ```
-
 
 For all deploy options, see `func deploy --help`
 

@@ -50,5 +50,4 @@ func config envs add --value='{{ configMap:confMapName }}'
 
 ### SEE ALSO
 
-* [func config envs](func_config_envs.md)	 - List and manage configured environment variable for a function
-
+- [func config envs](func_config_envs.md) - List and manage configured environment variable for a function

@@ -17,7 +17,6 @@ logs to print.
 Only functions deployed with the default Knative deployer are currently
 supported.
 
-
 ```
 func logs
 ```
@@ -64,5 +63,4 @@ func logs -f --since 5m
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-
+- [func](func.md) - func manages Knative Functions

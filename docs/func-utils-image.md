@@ -6,11 +6,11 @@ func CLI embeds one tag of it.
 
 ## Tags
 
-| Tag | Used by |
-| --- | --- |
-| `latest` | CLIs before 2025. Frozen. |
-| `v2` | CLIs up to 1.23. Frozen. |
-| `X.Y` | CLIs `vX.Y.*`. Published from `release-X.Y`, and from `main` while `X.Y` is in development. |
+| Tag      | Used by                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------- |
+| `latest` | CLIs before 2025. Frozen.                                                                   |
+| `v2`     | CLIs up to 1.23. Frozen.                                                                    |
+| `X.Y`    | CLIs `vX.Y.*`. Published from `release-X.Y`, and from `main` while `X.Y` is in development. |
 
 Ideally we would not backport to `release-X.Y` a change that breaks how the CLI
 calls the image: arguments, exit codes, parsed output or shared files.
