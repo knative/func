@@ -50,6 +50,13 @@ type Local struct {
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
 	Remote bool `yaml:"remote,omitempty"`
+
+	// BuildCAFile is a path to a PEM file with one or more CA certificates to
+	// trust during local builds (pack builder only), for example the CA of a
+	// TLS-intercepting proxy in front of this machine. It describes the
+	// machine, not the function, so it is kept out of func.yaml. A relative
+	// path is resolved against the function's root directory.
+	BuildCAFile string `yaml:"buildCAFile,omitempty"`
 }
 
 // Function

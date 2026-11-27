@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -95,6 +98,12 @@ func TestBuild_BaseImage(t *testing.T) {
 	testBaseImage(NewBuildCmd, t)
 }
 
+// TestBuild_BuildCAFile ensures that --build-cafile is accepted with the pack
+// builder only and is remembered in the function's local settings.
+func TestBuild_BuildCAFile(t *testing.T) {
+	testBuildCAFile(NewBuildCmd, t)
+}
+
 // TestBuild_Push ensures that the build command properly pushes and respects
 // the --push flag.
 // - Push triggered after a successful build
@@ -150,5 +159,89 @@ func TestBuild_Push(t *testing.T) {
 	// Assert push was not invoked when the build failed
 	if pusher.PushInvoked {
 		t.Fatal("push should not be invoked on a failed build")
+	}
+}
+
+// testBuildCAFile ensures the build CA file is read from the function's local
+// settings (.func/local.yaml), the FUNC_BUILD_CAFILE env and the
+// --build-cafile flag, reaches the builder, and is remembered in
+// .func/local.yaml but never written to func.yaml. Given on the command with a
+// builder other than pack it is an error; a remembered value is ignored there.
+func testBuildCAFile(cmdFn commandConstructor, t *testing.T) {
+	tests := []struct {
+		name       string
+		builder    string
+		remembered string // value already in .func/local.yaml
+		env        string // FUNC_BUILD_CAFILE
+		args       []string
+		want       string
+		wantErr    error
+	}{
+		{name: "flag", builder: "pack", args: []string{"--build-cafile=certs/ca.pem"}, want: "certs/ca.pem"},
+		{name: "env", builder: "pack", env: "/etc/corp/ca.pem", want: "/etc/corp/ca.pem"},
+		{name: "remembered", builder: "pack", remembered: "ca.pem", want: "ca.pem"},
+		{name: "flag overrides remembered", builder: "pack", remembered: "ca.pem", args: []string{"--build-cafile=other.pem"}, want: "other.pem"},
+		{name: "flag clears remembered", builder: "pack", remembered: "ca.pem", args: []string{"--build-cafile="}, want: ""},
+		{name: "s2i rejects flag", builder: "s2i", args: []string{"--build-cafile=ca.pem"}, wantErr: ErrBuildCAFileRequiresPack},
+		{name: "s2i rejects env", builder: "s2i", env: "ca.pem", wantErr: ErrBuildCAFileRequiresPack},
+		{name: "host rejects flag", builder: "host", args: []string{"--build-cafile=ca.pem"}, wantErr: ErrBuildCAFileRequiresPack},
+		// A value remembered for this machine must not break other builders.
+		{name: "s2i ignores remembered", builder: "s2i", remembered: "ca.pem", want: "ca.pem"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry,
+				Local: fn.Local{BuildCAFile: tt.remembered}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = f.Write(); err != nil {
+				t.Fatal(err)
+			}
+			if tt.env != "" {
+				t.Setenv("FUNC_BUILD_CAFILE", tt.env)
+			}
+
+			builder := mock.NewBuilder()
+			builder.BuildFn = func(f fn.Function) error {
+				if f.Local.BuildCAFile != tt.want {
+					t.Errorf("expected builder to receive CA file %q, got %q", tt.want, f.Local.BuildCAFile)
+				}
+				return nil
+			}
+			cmd := cmdFn(NewTestClient(
+				fn.WithBuilder(builder),
+				fn.WithDeployer(mock.NewDeployer()),
+				fn.WithRegistry(TestRegistry),
+			))
+			cmd.SetArgs(append([]string{"--builder=" + tt.builder}, tt.args...))
+			err = cmd.Execute()
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("expected error %v, got %v", tt.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !builder.BuildInvoked {
+				t.Fatal("builder was not invoked")
+			}
+			if f, err = fn.NewFunction(root); err != nil {
+				t.Fatal(err)
+			}
+			if f.Local.BuildCAFile != tt.want {
+				t.Fatalf("expected .func/local.yaml buildCAFile %q, got %q", tt.want, f.Local.BuildCAFile)
+			}
+			funcYAML, err := os.ReadFile(filepath.Join(root, fn.FunctionFile))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(strings.ToLower(string(funcYAML)), "cafile") {
+				t.Fatalf("the CA file must not be written to func.yaml:\n%s", funcYAML)
+			}
+		})
 	}
 }
