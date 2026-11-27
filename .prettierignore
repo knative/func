@@ -1,0 +1,15 @@
+# Markdown the knobots update-markdown job must not reformat.
+# Only hand-written docs (README.md, CONTRIBUTING.md, docs/*.md, ...) are
+# left to it. See https://github.com/knative/func/issues/4200
+
+# generated from the CLI help text (make docs); checked by make check
+docs/reference/
+
+# embedded into the binary and scaffolded into users' functions
+templates/
+
+# test input and embedded content, not documentation
+pkg/
+e2e/testdata/
+
+.claude/
