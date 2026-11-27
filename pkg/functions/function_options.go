@@ -47,6 +47,14 @@ type KEDATrigger struct {
 	TargetValue            *int64 `yaml:"targetValue,omitempty" jsonschema_extras:"minimum=1"`
 	LagThreshold           *int64 `yaml:"lagThreshold,omitempty" jsonschema_extras:"minimum=1"`
 	ActivationLagThreshold *int64 `yaml:"activationLagThreshold,omitempty" jsonschema_extras:"minimum=0"`
+
+	// Kafka scaler options, valid only on a kafka trigger. Each maps to the KEDA
+	// kafka scaler metadata key of the same name and is sent only when set.
+	// (Blank line below keeps this note out of the generated schema description.)
+
+	AllowIdleConsumers       *bool `yaml:"allowIdleConsumers,omitempty"`
+	ExcludePersistentLag     *bool `yaml:"excludePersistentLag,omitempty"`
+	LimitToPartitionsWithLag *bool `yaml:"limitToPartitionsWithLag,omitempty"`
 }
 
 type KPAScaleOptions struct {

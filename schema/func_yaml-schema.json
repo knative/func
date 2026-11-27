@@ -370,6 +370,15 @@
 				"activationLagThreshold": {
 					"type": "integer",
 					"minimum": 0
+				},
+				"allowIdleConsumers": {
+					"type": "boolean"
+				},
+				"excludePersistentLag": {
+					"type": "boolean"
+				},
+				"limitToPartitionsWithLag": {
+					"type": "boolean"
 				}
 			},
 			"additionalProperties": false,
