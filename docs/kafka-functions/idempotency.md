@@ -31,26 +31,26 @@ Pick an identifier that is **stable across redeliveries** of the same record:
 - **The record's Kafka coordinates.** For a plain record the runtime sets the
   CloudEvent `id` to `partition:<p>/offset:<o>` and also exposes `kafkatopic`,
   `kafkapartition`, and `kafkaoffset` extensions. That `id` is stable across
-  redeliveries, but it is built from partition and offset **only** — it is *not*
+  redeliveries, but it is built from partition and offset **only** — it is _not_
   unique across topics, nor across a topic that is deleted and re-created (offsets
   restart at `0`). So do **not** key on `event.id` alone if your store is shared by
   more than one function or topic: compose a key from the **consumer group** plus
   `kafkatopic`, `kafkapartition`, and `kafkaoffset`. (A record passed through as the
-  producer's *own* CloudEvent — see [architecture.md](architecture.md#record--cloudevent-mapping)
+  producer's _own_ CloudEvent — see [architecture.md](architecture.md#record--cloudevent-mapping)
   — carries the producer's `id` and **no** `kafka*` extensions; key on that `id`
   instead for those events.)
 - **A business key from the payload** — an order ID, a transaction ID, etc. Use
-  this when you want to deduplicate by *meaning* (the same order submitted twice is
+  this when you want to deduplicate by _meaning_ (the same order submitted twice is
   one order) rather than by record.
 
-Avoid the Kafka message *key* as a dedup key: it identifies a partitioning group,
+Avoid the Kafka message _key_ as a dedup key: it identifies a partitioning group,
 not an individual record, and is usually shared by many records.
 
 ## Pattern 1: a deduplication store
 
 Keep a record of keys you have already processed in a shared store (Redis, a
 database table, etc.) and skip anything you have already **finished**. The subtlety
-is that a crash *between* claiming a key and finishing the work must not leave the
+is that a crash _between_ claiming a key and finishing the work must not leave the
 key marked as done — otherwise the redelivery that would have retried it is acked
 and the record is silently lost. Use a two-phase claim: take a short-lived **lease**
 before the work, and record completion only **after** it succeeds:
@@ -79,12 +79,12 @@ function handle(event):
     return 200
 ```
 
-Recording completion only *after* the work succeeds is what makes this safe: an
+Recording completion only _after_ the work succeeds is what makes this safe: an
 interrupted attempt leaves no "done" marker, so at-least-once redelivery still
 retries it. The lease closes the concurrent-duplicate race (two replicas, or a
 retry overlapping a slow first attempt) without turning an in-flight claim into a
 permanent acknowledgement. A plain set-if-absent that acks on the first sight of a
-key *looks* simpler but drops the record whenever the handler dies after the claim
+key _looks_ simpler but drops the record whenever the handler dies after the claim
 and before the work — prefer [Pattern 2](#pattern-2-idempotent-writes) when your
 sink allows it, and reach for this lease only for non-idempotent side effects.
 
@@ -110,7 +110,7 @@ supports upserts or conditional writes; prefer it over a dedup store when you ca
   double-process under concurrency (two replicas, or a retry overlapping a slow
   first attempt). Take a lease atomically before processing and mark the key done
   only after the work succeeds, as in Pattern 1.
-- **Acking an in-flight claim.** Marking a key "done" *before* the work finishes
+- **Acking an in-flight claim.** Marking a key "done" _before_ the work finishes
   means a crash in between acks a record that was never processed — a silent drop.
   Record completion only after the work succeeds (Pattern 1's lease), or make the
   write itself idempotent (Pattern 2).

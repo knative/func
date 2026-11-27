@@ -5,6 +5,7 @@
 Always capitalize "**Function**" when referring to a deployable Function (the service). Use lowercase "function" only for programming concepts (functions in code). Suggest users do the same when ambiguity is detected.
 
 **Examples:**
+
 - "Let's create a Function!" (deployable service) ✓
 - "What is a Function?" (this project's concept) ✓
 - "What is a function?" (programming construct) ✓
@@ -25,11 +26,13 @@ The func binary is smart - if func.yaml has previous deployment config, the depl
 **CRITICAL: YOU (the agent) should always BE in the Function directory you're working on.**
 
 This is essential because:
+
 - File operations (Read, Edit, Bash, etc.) work relative to YOUR current working directory
 - The user will say things like "edit my handler" expecting you to be IN the Function directory
 - This matches how developers naturally work with Functions (like git repositories)
 
 **When calling MCP tools, ALWAYS pass the ABSOLUTE path to your current working directory as the 'path' parameter:**
+
 - `create` tool: path = absolute path to directory where Function will be created
 - `deploy` tool: path = absolute path to Function directory (where func.yaml exists)
 - `build` tool: path = absolute path to Function directory (where func.yaml exists)
@@ -41,6 +44,7 @@ This is essential because:
 **IMPORTANT:** You must use absolute paths (e.g., `/Users/name/myproject/myfunc`), NOT relative paths (e.g., `.` or `myfunc`). The MCP server process runs in a different directory than your current working directory, so relative paths will not resolve correctly.
 
 **Exceptions:**
+
 - The `list` tool operates on the cluster, not local files, so it does NOT use a path parameter (it uses namespace instead)
 - The `repository_*` tools manage the template repositories installed on the machine running the MCP server, not a Function, so they do NOT use a path parameter
 - The `version` and `healthcheck` tools take no parameters
@@ -82,6 +86,7 @@ invokes on the user's behalf.
 ### General Rules
 
 **CRITICAL:** Before invoking ANY tool, ALWAYS read its help resource first to understand parameters and usage:
+
 - Before 'version' → Read `func://help/version`
 - Before 'create' → Read `func://help/create`
 - Before 'deploy' → Read `func://help/deploy`
@@ -142,12 +147,14 @@ A common challenge with users is determining the right value for "registry". Thi
 When combined this constitutes a full "registry" location for the Function's built image.
 
 **Examples:**
+
 - `docker.io/alice`
 - `registry.localtest.me/func`
 
 The final Function image will then have the Function name as a suffix along with the :latest tag (example: `docker.io/alice/myfunc:latest`), but this is hidden from the user unless they want to fully override this behavior and supply their own custom value for the image parameter.
 
 **Important guidance:**
+
 - It is important to carefully guide the user through the creation of this registry argument, as this is often the most challenging part of getting a Function deployed the first time
 - Ask for the registry. If they only provide the DOMAIN part (eg docker.io or registry.localtest.me), ask them to either confirm there is no registry user part or provide it
 - The final value is the two concatenated with a forward slash

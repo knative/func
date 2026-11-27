@@ -9,7 +9,6 @@ Describe a function
 Prints the name, route and event subscriptions for a deployed function in
 the current directory or from the directory specified with --path.
 
-
 ```
 func describe <name>
 ```
@@ -38,5 +37,4 @@ func describe --output yaml --path myotherfunc
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-
+- [func](func.md) - func manages Knative Functions

@@ -49,13 +49,16 @@ etc.) are passed through as-is. Plain Kafka messages are wrapped in a
 CloudEvent with type `dev.knative.kafka.event` and the message value as data.
 
 ### Import Private Go Modules
+
 If you want to use a module that is in a private `git` repository,
 you can do it by mounting credentials and by setting appropriate environment variable.
 
 This is done by setting the `build.volumes` and `build.buildEnvs` properties in the `func.yaml` config file.
 
 #### pack
+
 For the `pack` builder have to use [paketo bindings](https://github.com/paketo-buildpacks/git?tab=readme-ov-file#bindings):
+
 ```yaml
 # $schema: https://raw.githubusercontent.com/knative/func/refs/heads/main/schema/func_yaml-schema.json
 specVersion: 0.36.0
@@ -74,7 +77,9 @@ build:
 ```
 
 #### s2i
+
 For the `s2i` builder you have to mount credentials in `.netrc` format.
+
 ```yaml
 # $schema: https://raw.githubusercontent.com/knative/func/refs/heads/main/schema/func_yaml-schema.json
 specVersion: 0.36.0

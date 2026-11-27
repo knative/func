@@ -8,7 +8,6 @@ List deployed functions
 
 Lists deployed functions.
 
-
 ```
 func list
 ```
@@ -40,5 +39,4 @@ func list --all-namespaces --output json
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-
+- [func](func.md) - func manages Knative Functions

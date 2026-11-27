@@ -10,7 +10,7 @@ Note that the "instanced" versions also support static, thus only they are
 included:
 
 Each of the two support either the instanced method signature ("new") or the
-static "handle" method.  This differs from strongly typed languages such as Go
+static "handle" method. This differs from strongly typed languages such as Go
 which require different scaffolding be written based on this division.
 This is because as a dynamically typed language, we can inspect the user's
 function at runtime and import either their "handle" or "new" depending on

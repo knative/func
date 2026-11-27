@@ -5,4 +5,3 @@ function images.
 
 The certs can be updated by running `make certs` or by running `make clean`
 before `make`.
-

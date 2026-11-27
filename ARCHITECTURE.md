@@ -65,14 +65,14 @@ client.Build(ctx, f)
 
 When exploring the codebase, search for these:
 
-| Term | Where | What it does |
-|------|-------|--------------|
-| `fn.Client` | `pkg/functions/client.go` | Main client type for all operations |
-| `NewClient` | `cmd/client.go` | Creates fully-configured client |
-| `ClientFactory` | `cmd/root.go` | Function type for client creation |
-| `Builder` | `pkg/functions/client.go` | Interface for function builders |
-| `Deployer` | `pkg/functions/client.go` | Interface for function deployers |
-| `Function` | `pkg/functions/function.go` | Type representing a function |
+| Term            | Where                       | What it does                        |
+| --------------- | --------------------------- | ----------------------------------- |
+| `fn.Client`     | `pkg/functions/client.go`   | Main client type for all operations |
+| `NewClient`     | `cmd/client.go`             | Creates fully-configured client     |
+| `ClientFactory` | `cmd/root.go`               | Function type for client creation   |
+| `Builder`       | `pkg/functions/client.go`   | Interface for function builders     |
+| `Deployer`      | `pkg/functions/client.go`   | Interface for function deployers    |
+| `Function`      | `pkg/functions/function.go` | Type representing a function        |
 
 ## Layer Architecture
 
@@ -104,6 +104,7 @@ flowchart TB
 ### Builders
 
 Implement the `Builder` interface (source → OCI image):
+
 - `pkg/buildpacks/`: Cloud Native Buildpacks via Pack
 - `pkg/s2i/`: Red Hat Source-to-Image
 - `pkg/oci/`: Direct OCI image building on host
@@ -135,29 +136,29 @@ flowchart LR
     end
 ```
 
-| Stage | Client Method | Description |
-|-------|---------------|-------------|
-| Create | `Init()` | Create boilerplate project from template |
-| Scaffold | `Scaffold()` | Scaffold project as a service|
-| Build | `Build()` | Produce OCI image via Builder |
-| Deploy | `Deploy()` | Push image, create K8s/Knative Service |
-| Run | `Run()` | Local execution for development |
-| Invoke | `Invoke()` | Send request to deployed function |
+| Stage    | Client Method | Description                              |
+| -------- | ------------- | ---------------------------------------- |
+| Create   | `Init()`      | Create boilerplate project from template |
+| Scaffold | `Scaffold()`  | Scaffold project as a service            |
+| Build    | `Build()`     | Produce OCI image via Builder            |
+| Deploy   | `Deploy()`    | Push image, create K8s/Knative Service   |
+| Run      | `Run()`       | Local execution for development          |
+| Invoke   | `Invoke()`    | Send request to deployed function        |
 
 ## Key Interfaces
 
 Defined in `pkg/functions/client.go`:
 
-| Interface | Purpose |
-|-----------|---------|
-| `Builder` | Source → OCI image |
-| `Pusher` | Image → Registry |
-| `Deployer` | Image → Service on K8s |
-| `Runner` | Local execution |
-| `Remover` | Delete deployed function |
-| `Lister` | List deployed functions |
-| `Describer` | Describe function instances |
-| `PipelinesProvider` | Remote build orchestration |
+| Interface           | Purpose                     |
+| ------------------- | --------------------------- |
+| `Builder`           | Source → OCI image          |
+| `Pusher`            | Image → Registry            |
+| `Deployer`          | Image → Service on K8s      |
+| `Runner`            | Local execution             |
+| `Remover`           | Delete deployed function    |
+| `Lister`            | List deployed functions     |
+| `Describer`         | Describe function instances |
+| `PipelinesProvider` | Remote build orchestration  |
 
 ## Subsystems
 

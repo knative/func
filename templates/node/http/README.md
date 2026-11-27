@@ -8,9 +8,9 @@ After executing `npm install`, you can run this function locally by executing `n
 
 The runtime will expose three endpoints.
 
-  * `/` The endpoint for your function.
-  * `/health/readiness` The endpoint for a readiness health check
-  * `/health/liveness` The endpoint for a liveness health check
+- `/` The endpoint for your function.
+- `/health/readiness` The endpoint for a readiness health check
+- `/health/liveness` The endpoint for a liveness health check
 
 The parameter provided to the function endpoint at invocation is a `Context` object containing HTTP request information.
 
@@ -25,7 +25,7 @@ function handleRequest(context) {
 }
 ```
 
-The health checks can be accessed in your browser at [http://localhost:8080/health/readiness]() and [http://localhost:8080/health/liveness](). You can use `curl` to `POST` an event to the function endpoint:
+The health checks can be accessed in your browser at [http://localhost:8080/health/readiness](<>) and [http://localhost:8080/health/liveness](<>). You can use `curl` to `POST` an event to the function endpoint:
 
 ```console
 curl -X POST -d '{"hello": "world"}' \
@@ -82,7 +82,8 @@ interface HTTPFunction {
 Where the `IncomingBody` is either a string, a Buffer, a JavaScript object, or undefined, depending on what was supplied in the HTTP POST message body. The `HTTTPFunctionReturn` type is defined as:
 
 ```typescript
-type HTTPFunctionReturn = Promise<StructuredReturn> | StructuredReturn | ResponseBody | void;
+type HTTPFunctionReturn =
+  Promise<StructuredReturn> | StructuredReturn | ResponseBody | void;
 ```
 
 Where the `StructuredReturn` is a JavaScript object with the following properties:
@@ -117,6 +118,7 @@ export interface HealthCheck {
 ```
 
 By default, the health checks are bound to the `/health/liveness` and `/health/readiness` paths. You can override this by setting the `path` property on the `HealthCheck` object, or by setting the `LIVENESS_URL` and `READINESS_URL` environment variables.
+
 ## Testing
 
 This function project includes a [unit test](./test/unit.js) and an [integration test](./test/integration.js). All `.js` files in the test directory are run.

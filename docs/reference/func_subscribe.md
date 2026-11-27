@@ -9,7 +9,6 @@ Subscribe a function to events
 Subscribe the function to a set of events, matching a set of filters for Cloud Event metadata
 and a Knative Broker from where the events are consumed.
 
-
 ```
 func subscribe
 ```
@@ -40,5 +39,4 @@ func subscribe --filter type=com.example --filter extension=my-extension-value -
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-
+- [func](func.md) - func manages Knative Functions

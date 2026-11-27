@@ -25,11 +25,11 @@ This block should either be the full contents of your MCP config file (for clien
 
 By default the MCP server runs in **read-only mode**. In this mode an agent can create, build (without pushing the image), run locally, and inspect Functions, and list template repositories. Anything that mutates configuration, the cluster, or the template repositories is refused, including:
 
-* deploying and deleting Functions
-* adding or removing environment variables, labels and volumes
-* configuring Git source settings and CI workflows
-* pushing a built image to a registry
-* adding, renaming or removing template repositories
+- deploying and deleting Functions
+- adding or removing environment variables, labels and volumes
+- configuring Git source settings and CI workflows
+- pushing a built image to a registry
+- adding, renaming or removing template repositories
 
 To allow these operations, set the environment variable `FUNC_ENABLE_MCP_WRITE=true` for the MCP server process, and restart the MCP server (usually by restarting the client). Set it in the client's MCP server config rather than in your shell, because the client launches the server. Most clients accept an `env` object next to `command` and `args`:
 
@@ -55,13 +55,13 @@ Enabling write mode gives the agent the ability to create, modify, deploy and de
 
 The agent is given built-in instructions describing each tool, so you do not need to explain them. In summary:
 
-| Area | Tools |
-|------|-------|
-| Server | `healthcheck`, `version` |
-| Lifecycle | `create`, `build`, `deploy`, `delete`, `list`, `describe`, `logs`, `invoke` |
-| Local run | `run`, `run_stop` |
-| Configuration | `config_envs_*`, `config_labels_*`, `config_volumes_*`, `config_git_set`, `config_git_remove`, `config_ci` |
-| Template repositories | `repository_list`, `repository_add`, `repository_rename`, `repository_remove` |
+| Area                  | Tools                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Server                | `healthcheck`, `version`                                                                                   |
+| Lifecycle             | `create`, `build`, `deploy`, `delete`, `list`, `describe`, `logs`, `invoke`                                |
+| Local run             | `run`, `run_stop`                                                                                          |
+| Configuration         | `config_envs_*`, `config_labels_*`, `config_volumes_*`, `config_git_set`, `config_git_remove`, `config_ci` |
+| Template repositories | `repository_list`, `repository_add`, `repository_rename`, `repository_remove`                              |
 
 `config_ci` additionally requires `FUNC_ENABLE_CI_CONFIG=true` to be set for the server, as it is an experimental feature.
 
@@ -71,8 +71,8 @@ The server also provides an `onboard` prompt, which walks through creating, runn
 
 ## Configuration Scope
 
-* **Global configuration**: applies to all projects in the client. Usually stored in a global settings file under your home directory.
-* **Local/project configuration**: applies only to the current project or workspace. Usually stored in the project folder.
+- **Global configuration**: applies to all projects in the client. Usually stored in a global settings file under your home directory.
+- **Local/project configuration**: applies only to the current project or workspace. Usually stored in the project folder.
 
 If both exist, local/project config usually overrides global config.
 
@@ -82,14 +82,14 @@ If both exist, local/project config usually overrides global config.
 
 **Config file location:**
 
-* macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-* Windows: `%APPDATA%/Claude/claude_desktop_config.json`
-* Linux: `~/.config/Claude/claude_desktop_config.json`
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%/Claude/claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
 
 **How to edit:**
 
-* Open the file in a text editor.
-* Replace contents with the base config above, or merge it into an existing `mcpServers` block.
+- Open the file in a text editor.
+- Replace contents with the base config above, or merge it into an existing `mcpServers` block.
 
 Restart Claude Desktop after editing.
 
@@ -99,13 +99,13 @@ Restart Claude Desktop after editing.
 
 **Config file location:**
 
-* Global: `~/.cursor/mcp.json`
-* Local: `.cursor/mcp.json` inside the project folder
+- Global: `~/.cursor/mcp.json`
+- Local: `.cursor/mcp.json` inside the project folder
 
 **How to edit:**
 
-* Open or create the file.
-* Use the base config above directly, or merge into an existing `mcpServers` object.
+- Open or create the file.
+- Use the base config above directly, or merge into an existing `mcpServers` object.
 
 Restart Cursor after editing.
 
@@ -115,13 +115,13 @@ Restart Cursor after editing.
 
 **Config file location:**
 
-* Linux/macOS: `~/.codeium/windsurf/mcp_config.json`
-* Windows: `%APPDATA%/Codeium/Windsurf/mcp_config.json`
+- Linux/macOS: `~/.codeium/windsurf/mcp_config.json`
+- Windows: `%APPDATA%/Codeium/Windsurf/mcp_config.json`
 
 **How to edit:**
 
-* Open the file in a text editor.
-* Replace contents with the base config above, or merge into existing config.
+- Open the file in a text editor.
+- Replace contents with the base config above, or merge into existing config.
 
 Restart Windsurf after editing.
 
@@ -133,13 +133,13 @@ VS Code configures MCP servers in an `mcp.json` file (not under `mcpServers` in 
 
 **Config file location:**
 
-* Local: `.vscode/mcp.json` inside the project folder (run **MCP: Open Workspace Folder MCP Configuration**)
-* Global: the `mcp.json` in your VS Code user profile (run **MCP: Open User Configuration**)
+- Local: `.vscode/mcp.json` inside the project folder (run **MCP: Open Workspace Folder MCP Configuration**)
+- Global: the `mcp.json` in your VS Code user profile (run **MCP: Open User Configuration**)
 
 **How to edit:**
 
-* Open the file with one of the commands above (from the Command Palette), or create `.vscode/mcp.json`.
-* Add the server under `servers`.
+- Open the file with one of the commands above (from the Command Palette), or create `.vscode/mcp.json`.
+- Add the server under `servers`.
 
 For example:
 
@@ -187,10 +187,9 @@ Use `claude mcp list` to confirm it is registered.
 
 ## Quick Troubleshooting
 
-* Ensure `func` is installed and in PATH.
-* Use an absolute path if needed (e.g., `/usr/local/bin/func`).
-* Restart the client after editing config files.
-* If local and global configs conflict, the local one usually takes priority.
+- Ensure `func` is installed and in PATH.
+- Use an absolute path if needed (e.g., `/usr/local/bin/func`).
+- Restart the client after editing config files.
+- If local and global configs conflict, the local one usually takes priority.
 
 ---
-

@@ -4,61 +4,58 @@ Create a function
 
 ### Synopsis
 
-
 NAME
-	func create - Create a function
+func create - Create a function
 
 SYNOPSIS
-	func create [-l|--language] [-t|--template] [-r|--repository]
-	            [-p |--path] [-c|--confirm]  [-v|--verbose]
+func create [-l|--language] [-t|--template] [-r|--repository]
+[-p |--path] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
-	Creates a new function project.
+Creates a new function project.
 
-	  $ func create -l node
+      $ func create -l node
 
-	Creates a function in the current directory '.' which is written in the
-	language/runtime 'node' and handles HTTP events.
+    Creates a function in the current directory '.' which is written in the
+    language/runtime 'node' and handles HTTP events.
 
-	If [path] is provided, the function is initialized at that path, creating
-	the path if necessary.
+    If [path] is provided, the function is initialized at that path, creating
+    the path if necessary.
 
-	To complete this command interactively, use --confirm (-c):
-	  $ func create -c
+    To complete this command interactively, use --confirm (-c):
+      $ func create -c
 
-	Available Language Runtimes and Templates:
-	  Language     Template
-	  --------     --------
-	  go           cloudevents
-	  go           http
-	  node         cloudevents
-	  node         http
-	  python       cloudevents
-	  python       http
-	  quarkus      cloudevents
-	  quarkus      http
-	  rust         cloudevents
-	  rust         http
-	  springboot   cloudevents
-	  springboot   http
-	  typescript   cloudevents
-	  typescript   http
+    Available Language Runtimes and Templates:
+      Language     Template
+      --------     --------
+      go           cloudevents
+      go           http
+      node         cloudevents
+      node         http
+      python       cloudevents
+      python       http
+      quarkus      cloudevents
+      quarkus      http
+      rust         cloudevents
+      rust         http
+      springboot   cloudevents
+      springboot   http
+      typescript   cloudevents
+      typescript   http
 
 
-	To install more language runtimes and their templates see 'func repository'.
-
+    To install more language runtimes and their templates see 'func repository'.
 
 EXAMPLES
-	o Create a Node.js function in the current directory (the default path) which
-	  handles http events (the default template).
-	  $ func create -l node
+o Create a Node.js function in the current directory (the default path) which
+handles http events (the default template).
+$ func create -l node
 
-	o Create a Node.js function in the directory 'myfunc'.
-	  $ func create -l node myfunc
+    o Create a Node.js function in the directory 'myfunc'.
+      $ func create -l node myfunc
 
-	o Create a Go function which handles CloudEvents in ./myfunc.
-	  $ func create -l go -t cloudevents myfunc
-
+    o Create a Go function which handles CloudEvents in ./myfunc.
+      $ func create -l go -t cloudevents myfunc
 
 ```
 func create
@@ -78,5 +75,4 @@ func create
 
 ### SEE ALSO
 
-* [func](func.md)	 - func manages Knative Functions
-
+- [func](func.md) - func manages Knative Functions

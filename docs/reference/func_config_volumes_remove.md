@@ -11,7 +11,6 @@ in the current directory or from the directory specified with --path.
 
 For non-interactive usage, use the --mount-path flag to specify which volume to remove.
 
-
 ```
 func config volumes remove
 ```
@@ -34,5 +33,4 @@ func config volumes remove --mount-path=/etc/config
 
 ### SEE ALSO
 
-* [func config volumes](func_config_volumes.md)	 - List and manage configured volumes for a function
-
+- [func config volumes](func_config_volumes.md) - List and manage configured volumes for a function

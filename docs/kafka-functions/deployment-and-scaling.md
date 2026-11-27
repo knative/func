@@ -76,7 +76,7 @@ combination otherwise.
 ### Partitions cap useful parallelism
 
 Within a consumer group, each partition is consumed by at most one member, so a
-topic with *N* partitions supports at most *N* actively-consuming replicas. Setting
+topic with _N_ partitions supports at most _N_ actively-consuming replicas. Setting
 `scale.max` higher than the partition count just creates idle replicas that never
 get a partition assigned. **Keep `scale.max` ≤ the topic's partition count.**
 
@@ -88,7 +88,7 @@ arrive. This is the typical event-driven setup: no records, no running pods.
 
 Be careful mixing scale-to-zero with a **non-Kafka** trigger. With an `http`
 trigger (or the implicit HTTP default) and `scale.min: 0`, KEDA scales to zero
-whenever there is no *HTTP* traffic. That stops the consumer, and since nothing
+whenever there is no _HTTP_ traffic. That stops the consumer, and since nothing
 sends it HTTP requests, lag grows with nothing to wake it back up. For a Kafka
 consumer, either use a `kafka` trigger (so lag itself drives scaling) or set
 `scale.min: 1` to keep at least one consumer running.

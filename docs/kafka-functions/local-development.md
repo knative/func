@@ -14,7 +14,7 @@ sidecar wiring only takes effect when the function is deployed to a cluster.
 > **Go is an exception.** Go functions still carry the legacy in-process Kafka
 > consumer. When `run.kafka` is fully configured, `func run` sets
 > `FUNC_TRANSPORT=kafka` (plus `KAFKA_*`) and the Go scaffold connects **directly** to
-> the broker and consumes the topic in-process — so a Go local run *does* talk to
+> the broker and consumes the topic in-process — so a Go local run _does_ talk to
 > Kafka if the broker is reachable (and if it is **not** reachable, `func run` never
 > becomes ready and eventually fails with a timeout). This path is being retired in
 > favor of the sidecar.
@@ -60,7 +60,7 @@ This drives your handler through the shape it receives in production, without ne
 a broker. Use `--file` instead of `--data` to send a payload from a file. (The
 `--extension`/`-e` flag is only valid with the cloudevent format.)
 
-**Content type matters.** A **plain** Kafka record is *always* delivered with its data
+**Content type matters.** A **plain** Kafka record is _always_ delivered with its data
 as `application/octet-stream` (raw bytes) — the runtime never sets `application/json`
 for a plain record, even when the value is JSON and even when the producer set a
 `ce_datacontenttype` header. So invoke with `application/octet-stream` and have your
@@ -68,7 +68,7 @@ handler read the raw bytes (parse them as JSON yourself if needed). Testing with
 `application/json` would exercise a shape the runtime never produces: a handler that
 decodes by content type could pass locally and then fail in the cluster.
 
-A record is delivered as its *own* CloudEvent only when the producer wrote CloudEvent
+A record is delivered as its _own_ CloudEvent only when the producer wrote CloudEvent
 headers (the runtime keys off `ce_specversion`) **and** those headers form a valid,
 header-safe CloudEvent. In that case it keeps the **producer's** `id`, `type`,
 `source`, and content type, and gets **no** `kafka*` extensions. If the `ce_*` values

@@ -2,7 +2,7 @@
 
 This page is for people working on Kafka support itself — the `func` code that
 injects and configures the runtime, and the [func-adapter-kafka][adapter] runtime
-it runs. If you are writing a function that *consumes* Kafka, see
+it runs. If you are writing a function that _consumes_ Kafka, see
 [getting-started.md](getting-started.md) and [local-development.md](local-development.md)
 instead.
 

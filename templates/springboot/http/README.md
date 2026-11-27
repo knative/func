@@ -94,7 +94,7 @@ func info
 
 Note the value of **Routes:** from the output, set `$URL` to its value.
 
-__TIP__:
+**TIP**:
 
 If you use `kn` then you can set the url by:
 

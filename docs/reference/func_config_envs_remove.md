@@ -9,7 +9,6 @@ Remove environment variable from the function configuration
 Interactive prompt to remove Environment variables from the function project
 in the current directory or from the directory specified with --path.
 
-
 ```
 func config envs remove
 ```
@@ -25,5 +24,4 @@ func config envs remove
 
 ### SEE ALSO
 
-* [func config envs](func_config_envs.md)	 - List and manage configured environment variable for a function
-
+- [func config envs](func_config_envs.md) - List and manage configured environment variable for a function
