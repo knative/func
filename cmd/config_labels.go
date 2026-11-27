@@ -138,10 +138,16 @@ directory or from the directory specified with --path.
 
 			if name != "" {
 				labels := []fn.Label{}
+				removed := false
 				for _, v := range function.Deploy.Labels {
-					if v.Key == nil || *v.Key != name {
-						labels = append(labels, v)
+					if v.Key != nil && *v.Key == name {
+						removed = true
+						continue
 					}
+					labels = append(labels, v)
+				}
+				if !removed {
+					return fmt.Errorf("label with key %q does not exist", name)
 				}
 				function.Deploy.Labels = labels
 				return loaderSaver.Save(function)

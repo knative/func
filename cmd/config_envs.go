@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -123,13 +124,28 @@ set environment variable from a secret
 				if np != nil && vp == nil {
 					return fmt.Errorf("--value is required when --name is provided")
 				}
+				if np == nil && vp != nil {
+					if errs := fn.ValidateEnvs([]fn.Env{{Value: vp}}); len(errs) > 0 {
+						return fmt.Errorf("--name is required when setting an environment variable value")
+					}
+				}
 				if np != nil {
 					if err := utils.ValidateEnvVarName(*np); err != nil {
 						return err
 					}
+					for _, env := range function.Run.Envs {
+						if env.Name != nil && *env.Name == *np {
+							return fmt.Errorf("environment variable with name %q already exists", *np)
+						}
+					}
 				}
 
-				function.Run.Envs = append(function.Run.Envs, fn.Env{Name: np, Value: vp})
+				newEnv := fn.Env{Name: np, Value: vp}
+				if errs := fn.ValidateEnvs([]fn.Env{newEnv}); len(errs) > 0 {
+					return errors.New(strings.Join(errs, "; "))
+				}
+
+				function.Run.Envs = append(function.Run.Envs, newEnv)
 				return loadSaver.Save(function)
 			}
 
@@ -172,10 +188,16 @@ in the current directory or from the directory specified with --path.
 
 			if name != "" {
 				envs := []fn.Env{}
+				removed := false
 				for _, v := range function.Run.Envs {
-					if *v.Name != name {
-						envs = append(envs, v)
+					if v.Name != nil && *v.Name == name {
+						removed = true
+						continue
 					}
+					envs = append(envs, v)
+				}
+				if !removed {
+					return &fn.ErrEnvNotExist{Name: name}
 				}
 				function.Run.Envs = envs
 				return loadSaver.Save(function)
@@ -285,16 +307,30 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 
 	newEnv := fn.Env{}
 
+	validateEnvName := func(val interface{}) error {
+		str, ok := val.(string)
+		if !ok {
+			return fmt.Errorf("invalid environment variable name")
+		}
+		if err := utils.ValidateEnvVarName(str); err != nil {
+			return err
+		}
+		for _, env := range f.Run.Envs {
+			if env.Name != nil && *env.Name == str {
+				return fmt.Errorf("environment variable with name %q already exists", str)
+			}
+		}
+		return nil
+	}
+
 	switch selectedOption {
 	// SECTION - add new Environment variable with the specified value
 	case optionEnvValue:
 		qs := []*survey.Question{
 			{
-				Name:   "name",
-				Prompt: &survey.Input{Message: "Please specify the Environment variable name:"},
-				Validate: func(val interface{}) error {
-					return utils.ValidateEnvVarName(val.(string))
-				},
+				Name:     "name",
+				Prompt:   &survey.Input{Message: "Please specify the Environment variable name:"},
+				Validate: validateEnvName,
 			},
 			{
 				Name:   "value",
@@ -321,11 +357,9 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 	case optionEnvLocal:
 		qs := []*survey.Question{
 			{
-				Name:   "name",
-				Prompt: &survey.Input{Message: "Please specify the Environment variable name:"},
-				Validate: func(val interface{}) error {
-					return utils.ValidateEnvVarName(val.(string))
-				},
+				Name:     "name",
+				Prompt:   &survey.Input{Message: "Please specify the Environment variable name:"},
+				Validate: validateEnvName,
 			},
 			{
 				Name:     "value",
@@ -382,11 +416,9 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 				},
 			},
 			{
-				Name:   "name",
-				Prompt: &survey.Input{Message: "Please specify the Environment variable name:"},
-				Validate: func(val interface{}) error {
-					return utils.ValidateEnvVarName(val.(string))
-				},
+				Name:     "name",
+				Prompt:   &survey.Input{Message: "Please specify the Environment variable name:"},
+				Validate: validateEnvName,
 			},
 			{
 				Name:   "key",
@@ -442,11 +474,9 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 				},
 			},
 			{
-				Name:   "name",
-				Prompt: &survey.Input{Message: "Please specify the Environment variable name:"},
-				Validate: func(val interface{}) error {
-					return utils.ValidateEnvVarName(val.(string))
-				},
+				Name:     "name",
+				Prompt:   &survey.Input{Message: "Please specify the Environment variable name:"},
+				Validate: validateEnvName,
 			},
 			{
 				Name:   "key",
