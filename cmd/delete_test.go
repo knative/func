@@ -518,3 +518,36 @@ func TestDelete_ByProjectThenRedeployWithDifferentDeployerNotBlocked(t *testing.
 		t.Fatal("expected the deployer to be invoked - the guard must not fire on an undeployed function")
 	}
 }
+
+// TestDelete_InvalidAllFlag ensures that passing invalid values to --all returns an error
+func TestDelete_InvalidAllFlag(t *testing.T) {
+	for _, val := range []string{"invalid", "foo", "maybe"} {
+		t.Run(val, func(t *testing.T) {
+			remover := mock.NewRemover()
+			cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
+			cmd.SetArgs([]string{"myfunc", "--all=" + val})
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatalf("expected error for --all=%s, got nil", val)
+			}
+			if !strings.Contains(err.Error(), "invalid value for --all") {
+				t.Fatalf("expected error message to contain 'invalid value for --all', got: %v", err)
+			}
+		})
+	}
+}
+
+// TestDelete_InvalidFunctionName ensures that passing an invalid DNS-1035 function name returns an error
+func TestDelete_InvalidFunctionName(t *testing.T) {
+	for _, name := range []string{"-invalid-prefix", "invalid_name", "UPPERCASE", "invalid-suffix-"} {
+		t.Run(name, func(t *testing.T) {
+			remover := mock.NewRemover()
+			cmd := NewDeleteCmd(NewTestClient(fn.WithRemovers(remover)))
+			cmd.SetArgs([]string{name})
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatalf("expected error for invalid function name %q, got nil", name)
+			}
+		})
+	}
+}

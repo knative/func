@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
@@ -9,6 +10,7 @@ import (
 
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/utils"
 )
 
 func NewDeleteCmd(newClient ClientFactory) *cobra.Command {
@@ -114,24 +116,40 @@ func newDeleteConfig(cmd *cobra.Command, args []string) (cfg deleteConfig, err e
 	if len(args) > 0 {
 		name = args[0]
 	}
+
+	allStr := viper.GetString("all")
+	all, err := strconv.ParseBool(allStr)
+	if err != nil {
+		return cfg, fmt.Errorf("invalid value for --all: %q (allowed values: \"true\", \"false\")", allStr)
+	}
+
 	cfg = deleteConfig{
-		All:       viper.GetBool("all"),
+		All:       all,
 		Name:      name, // args[0] or derived
 		Namespace: viper.GetString("namespace"),
 		Path:      viper.GetString("path"),
 		Verbose:   viper.GetBool("verbose"), // defined on root
 	}
+
+	if cfg.Name != "" {
+		if err = utils.ValidateFunctionName(cfg.Name); err != nil {
+			return cfg, err
+		}
+	}
+
 	if cfg.Name == "" && cmd.Flags().Changed("namespace") {
-		// logicially inconsistent to supply only a namespace.
+		// logically inconsistent to supply only a namespace.
 		// Either use the function's local state in its entirety, or specify
 		// both a name and a namespace to ignore any local function source.
 		err = fmt.Errorf("must also specify a name when specifying namespace")
+		return
 	}
 	if cfg.Name != "" && cmd.Flags().Changed("path") {
 		// logically inconsistent to provide both a name and a path to source.
 		// Either use the function's local state on disk (--path), or specify
 		// a name and a namespace to ignore any local function source.
 		err = ErrNameAndPathConflict
+		return
 	}
 	return
 }
@@ -151,7 +169,12 @@ func (c deleteConfig) Prompt() (deleteConfig, error) {
 			Prompt: &survey.Input{
 				Message: "Function to remove:",
 				Default: deriveName(c.Name, c.Path)},
-			Validate: survey.Required,
+			Validate: func(val interface{}) error {
+				if err := survey.Required(val); err != nil {
+					return err
+				}
+				return utils.ValidateFunctionName(val.(string))
+			},
 		},
 		{
 			Name: "all",
