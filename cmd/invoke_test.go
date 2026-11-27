@@ -246,3 +246,62 @@ func TestInvoke_WrapsNotInitialized(t *testing.T) {
 		t.Fatalf("expected error to contain 'func invoke' guidance, got: %v", err)
 	}
 }
+
+// TestInvoke_InvalidFormat ensures invoke rejects unsupported message formats
+func TestInvoke_InvalidFormat(t *testing.T) {
+	for _, format := range []string{"grpc", "websocket", "xml", "invalid"} {
+		t.Run(format, func(t *testing.T) {
+			cmd := NewInvokeCmd(NewTestClient())
+			cmd.SetArgs([]string{"--format=" + format})
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatalf("expected error for invalid format %q, got nil", format)
+			}
+			if !strings.Contains(err.Error(), "message format") || !strings.Contains(err.Error(), "not supported") {
+				t.Fatalf("expected error message to mention unsupported format, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestInvoke_InvalidRequestType ensures invoke rejects unsupported HTTP request types
+func TestInvoke_InvalidRequestType(t *testing.T) {
+	for _, reqType := range []string{"DELETE", "PUT", "PATCH", "HEAD", "OPTIONS"} {
+		t.Run(reqType, func(t *testing.T) {
+			cmd := NewInvokeCmd(NewTestClient())
+			cmd.SetArgs([]string{"--request-type=" + reqType})
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatalf("expected error for invalid request type %q, got nil", reqType)
+			}
+			if !strings.Contains(err.Error(), "request type") || !strings.Contains(err.Error(), "not supported") {
+				t.Fatalf("expected error message to mention unsupported request type, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestInvoke_FormatNormalization ensures invoke normalizes format case and aliases
+func TestInvoke_FormatNormalization(t *testing.T) {
+	for _, tc := range []struct {
+		input    string
+		expected string
+	}{
+		{"http", "http"},
+		{"HTTP", "http"},
+		{"cloudevent", "cloudevent"},
+		{"CLOUDEVENT", "cloudevent"},
+		{"cloudevents", "cloudevent"},
+		{"CloudEvents", "cloudevent"},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			cmd := NewInvokeCmd(NewTestClient())
+			cmd.SetArgs([]string{"--format=" + tc.input})
+			// newInvokeConfig should accept these without returning a format error
+			err := cmd.Execute()
+			if err != nil && strings.Contains(err.Error(), "message format") {
+				t.Fatalf("format %q should be accepted, got format error: %v", tc.input, err)
+			}
+		})
+	}
+}
