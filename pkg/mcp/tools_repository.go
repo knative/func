@@ -65,9 +65,9 @@ type RepositoryAddInput struct {
 }
 
 func (i RepositoryAddInput) Args() []string {
-	args := []string{"add", i.Name, i.URL}
+	args := []string{"add"}
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
-	return args
+	return appendPositional(args, i.Name, i.URL)
 }
 
 type RepositoryAddOutput struct {
@@ -109,9 +109,9 @@ type RepositoryRenameInput struct {
 }
 
 func (i RepositoryRenameInput) Args() []string {
-	args := []string{"rename", i.Old, i.New}
+	args := []string{"rename"}
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
-	return args
+	return appendPositional(args, i.Old, i.New)
 }
 
 type RepositoryRenameOutput struct {
@@ -152,9 +152,9 @@ type RepositoryRemoveInput struct {
 }
 
 func (i RepositoryRemoveInput) Args() []string {
-	args := []string{"remove", i.Name}
+	args := []string{"remove"}
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
-	return args
+	return appendPositional(args, i.Name)
 }
 
 type RepositoryRemoveOutput struct {

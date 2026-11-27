@@ -40,6 +40,15 @@ func appendBoolFlag(args []string, flag string, value *bool) []string {
 	return args
 }
 
+// appendPositional appends values as positional arguments, after a "--"
+// separator. The CLI stops parsing flags at "--", so a value that starts with
+// "-" (e.g. a name of "--all") is never read as a flag. Call it last: anything
+// appended after it is also treated as a positional argument.
+func appendPositional(args []string, values ...string) []string {
+	args = append(args, "--")
+	return append(args, values...)
+}
+
 // ptr returns a pointer to the given value.
 // Useful for setting optional annotation fields.
 func ptr[T any](v T) *T {

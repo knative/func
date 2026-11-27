@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -106,18 +107,9 @@ func TestTool_RepositoryAdd(t *testing.T) {
 		if subcommand != "repository" {
 			t.Fatalf("expected subcommand 'repository', got %q", subcommand)
 		}
-		// args: ["add", <name>, <url>]
-		if len(args) < 3 {
-			t.Fatalf("expected at least 3 args (add <name> <url>), got %d: %v", len(args), args)
-		}
-		if args[0] != "add" {
-			t.Fatalf("expected args[0]='add', got %q", args[0])
-		}
-		if args[1] != repoName {
-			t.Fatalf("expected args[1]=%q, got %q", repoName, args[1])
-		}
-		if args[2] != repoURL {
-			t.Fatalf("expected args[2]=%q, got %q", repoURL, args[2])
+		want := []string{"add", "--", repoName, repoURL}
+		if !slices.Equal(args, want) {
+			t.Fatalf("expected args %v, got %v", want, args)
 		}
 		return []byte(""), nil
 	}
@@ -197,18 +189,9 @@ func TestTool_RepositoryRename(t *testing.T) {
 		if subcommand != "repository" {
 			t.Fatalf("expected subcommand 'repository', got %q", subcommand)
 		}
-		// args: ["rename", <old>, <new>]
-		if len(args) < 3 {
-			t.Fatalf("expected at least 3 args (rename <old> <new>), got %d: %v", len(args), args)
-		}
-		if args[0] != "rename" {
-			t.Fatalf("expected args[0]='rename', got %q", args[0])
-		}
-		if args[1] != "boson" {
-			t.Fatalf("expected args[1]='boson', got %q", args[1])
-		}
-		if args[2] != "functastic" {
-			t.Fatalf("expected args[2]='functastic', got %q", args[2])
+		want := []string{"rename", "--", "boson", "functastic"}
+		if !slices.Equal(args, want) {
+			t.Fatalf("expected args %v, got %v", want, args)
 		}
 		return []byte(""), nil
 	}
@@ -288,15 +271,9 @@ func TestTool_RepositoryRemove(t *testing.T) {
 		if subcommand != "repository" {
 			t.Fatalf("expected subcommand 'repository', got %q", subcommand)
 		}
-		// args: ["remove", <name>]
-		if len(args) < 2 {
-			t.Fatalf("expected at least 2 args (remove <name>), got %d: %v", len(args), args)
-		}
-		if args[0] != "remove" {
-			t.Fatalf("expected args[0]='remove', got %q", args[0])
-		}
-		if args[1] != "boson" {
-			t.Fatalf("expected args[1]='boson', got %q", args[1])
+		want := []string{"remove", "--", "boson"}
+		if !slices.Equal(args, want) {
+			t.Fatalf("expected args %v, got %v", want, args)
 		}
 		return []byte(""), nil
 	}
@@ -366,5 +343,39 @@ func TestTool_RepositoryRemove_Error(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected error result, got success")
+	}
+}
+
+// TestRepositoryInputs_Args_PositionalsAfterDoubleDash ensures repository
+// names and URLs are always passed after "--", after any flags, so a value
+// starting with "-" (e.g. "--help") is never parsed by the CLI as a flag.
+func TestRepositoryInputs_Args_PositionalsAfterDoubleDash(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{
+			name: "add",
+			args: RepositoryAddInput{Name: "--help", URL: "--verbose", Verbose: ptr(true)}.Args(),
+			want: []string{"add", "--verbose", "--", "--help", "--verbose"},
+		},
+		{
+			name: "rename",
+			args: RepositoryRenameInput{Old: "--help", New: "-v"}.Args(),
+			want: []string{"rename", "--", "--help", "-v"},
+		},
+		{
+			name: "remove",
+			args: RepositoryRemoveInput{Name: "--help"}.Args(),
+			want: []string{"remove", "--", "--help"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !slices.Equal(tt.args, tt.want) {
+				t.Fatalf("expected %v, got %v", tt.want, tt.args)
+			}
+		})
 	}
 }

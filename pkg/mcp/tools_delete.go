@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"knative.dev/func/pkg/utils"
 )
 
 var deleteTool = &mcp.Tool{
@@ -35,6 +36,11 @@ func (s *Server) deleteHandler(ctx context.Context, r *mcp.CallToolRequest, inpu
 			return
 		}
 	}
+	if input.Name != nil {
+		if err = utils.ValidateFunctionName(*input.Name); err != nil {
+			return
+		}
+	}
 
 	// Execute
 	out, err := s.executor.Execute(ctx, "delete", input.Args()...)
@@ -61,16 +67,19 @@ type DeleteInput struct {
 func (i DeleteInput) Args() []string {
 	args := []string{}
 
-	// Either path flag or positional name argument
+	// Either the path flag, or the name as the last positional argument (below)
 	if i.Path != nil {
 		args = append(args, "--path", *i.Path)
-	} else if i.Name != nil {
-		args = append(args, *i.Name)
 	}
 
 	args = appendStringFlag(args, "--namespace", i.Namespace)
 	args = appendBoolFlag(args, "--all", i.All)
 	args = appendBoolFlag(args, "--verbose", i.Verbose)
+
+	// The name goes last, after "--", so it can never be parsed as a flag.
+	if i.Path == nil && i.Name != nil {
+		args = appendPositional(args, *i.Name)
+	}
 	return args
 }
 
