@@ -23,13 +23,17 @@ import (
 // controller has observed the current generation and reports all-zero
 // counts: no pods are wanted, so none are required to be ready.
 func WaitForDeploymentAvailable(ctx context.Context, clientset *kubernetes.Clientset, namespace, deploymentName string, timeout time.Duration) error {
+	return waitForDeploymentAvailable(ctx, clientset, namespace, deploymentName, timeout, true)
+}
+
+func waitForDeploymentAvailable(ctx context.Context, clientset *kubernetes.Clientset, namespace, deploymentName string, timeout time.Duration, allowZero bool) error {
 	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 		deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 
-		return checkIfDeploymentIsAvailable(ctx, clientset, deployment)
+		return checkIfDeploymentAvailable(ctx, clientset, deployment, allowZero)
 	})
 }
 
@@ -65,18 +69,34 @@ func WaitForServiceRemoved(ctx context.Context, clientset *kubernetes.Clientset,
 }
 
 func checkIfDeploymentIsAvailable(ctx context.Context, clientset *kubernetes.Clientset, deployment *appsv1.Deployment) (bool, error) {
+	return checkIfDeploymentAvailable(ctx, clientset, deployment, true)
+}
+
+func checkIfDeploymentAvailable(ctx context.Context, clientset *kubernetes.Clientset, deployment *appsv1.Deployment, allowZero bool) (bool, error) {
 	// Check if the deployment has the desired number of replicas
 	if deployment.Spec.Replicas == nil {
 		return false, fmt.Errorf("deployment %s has nil replicas", deployment.Name)
+	}
+
+	// Wait until the controller has observed the current spec generation so
+	// stale status (including ready pods from the previous revision after an
+	// image update) cannot satisfy the readiness check (#4118).
+	if deployment.Status.ObservedGeneration < deployment.Generation {
+		return false, nil
 	}
 
 	desiredReplicas := *deployment.Spec.Replicas
 
 	// Scalers can request zero replicas while readiness is being polled.
 	// Require reconciled status, including replicas from older ReplicaSets.
+	// Callers that hold a replica to verify the new revision ran set
+	// allowZero=false so a stale scale-to-zero keeps polling until the
+	// scaler brings a pod back (#4118).
 	if desiredReplicas == 0 {
-		return deployment.Status.ObservedGeneration >= deployment.Generation &&
-			deployment.Status.Replicas == 0 &&
+		if !allowZero {
+			return false, nil
+		}
+		return deployment.Status.Replicas == 0 &&
 			deployment.Status.UpdatedReplicas == 0 &&
 			deployment.Status.ReadyReplicas == 0 &&
 			deployment.Status.AvailableReplicas == 0 &&

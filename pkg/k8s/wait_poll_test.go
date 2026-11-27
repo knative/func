@@ -143,6 +143,39 @@ func TestWaitForDeploymentAvailable_NonzeroReady(t *testing.T) {
 	}
 }
 
+func TestWaitForDeploymentAvailable_StaleNonzeroGeneration(t *testing.T) {
+	stale := waitDeployment(1)
+	stale.Generation = 8
+	stale.Status.ObservedGeneration = 7
+	reconciled := waitDeployment(1)
+	reconciled.Generation = 8
+	reconciled.Status.ObservedGeneration = 8
+
+	t.Run("waits until observedGeneration catches up", func(t *testing.T) {
+		api := &waitAPI{deployments: []*appsv1.Deployment{stale, reconciled}, activeAfter: 1}
+		if err := k8s.WaitForDeploymentAvailable(t.Context(), api.client(t), "ns", "fn", 5*time.Second); err != nil {
+			t.Fatal(err)
+		}
+		if got := api.deploymentReads.Load(); got != 2 {
+			t.Fatalf("deployment reads = %d, want 2", got)
+		}
+		if got := api.podReads.Load(); got != 1 {
+			t.Fatalf("pod reads = %d, want 1 (should skip stale generation)", got)
+		}
+	})
+
+	t.Run("times out when observedGeneration stays behind", func(t *testing.T) {
+		api := &waitAPI{deployments: []*appsv1.Deployment{stale}, activeAfter: 1}
+		err := k8s.WaitForDeploymentAvailable(t.Context(), api.client(t), "ns", "fn", 100*time.Millisecond)
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("error = %v, want deadline exceeded", err)
+		}
+		if api.podReads.Load() != 0 {
+			t.Fatal("stale generation should not query pods")
+		}
+	})
+}
+
 func waitDeployment(replicas int32) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "fn", Namespace: "ns", Generation: 7},

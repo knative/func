@@ -24,6 +24,9 @@ import (
 
 const (
 	KedaDeployerName = deployers.Keda
+
+	scalerHoldTimeout    = 30 * time.Second
+	scalerRestoreTimeout = 30 * time.Second
 )
 
 type DeployerOpt func(*Deployer)
@@ -42,6 +45,7 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 			// init with the kedaDeployerDecorator to have the correct deployer labels&annotations
 			k8s.WithDeployerDecorator(&kedaDeployerDecorator{}),
 			k8s.WithAutoscaledReplicas(true),
+			k8s.WithRequireReadyReplica(true),
 		),
 	}
 
@@ -102,7 +106,7 @@ func (k *kedaDeployerDecorator) UpdateLabels(function fn.Function, labels map[st
 	return labels
 }
 
-func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (_ fn.DeploymentResult, err error) {
 	triggers := triggers(f)
 	if len(triggers) == 0 {
 		// triggers(f) only returns empty when scale.keda is present with an
@@ -290,6 +294,35 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		}
 	}
 
+	// A scaler at min 0 can scale the Deployment away before the readiness
+	// wait sees the new revision. Hold min 1 until the ensure* calls below
+	// set the configured minimum again (#4118).
+	held, err := setScalerMin(ctx, httpScaledObjectClientset, dynClient, scalerNamespace, f.Name, wantKafka, 0, 1)
+	if err != nil {
+		return fn.DeploymentResult{}, fmt.Errorf("failed to hold a replica for function %q: %w", f.Name, err)
+	}
+	restoreHold := held
+	if held {
+		defer func() {
+			if err == nil || !restoreHold {
+				return
+			}
+			// Bounded, so an unresponsive API server cannot hang a failed deploy.
+			rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), scalerRestoreTimeout)
+			defer cancel()
+			if _, rerr := setScalerMin(rctx, httpScaledObjectClientset, dynClient, scalerNamespace, f.Name, wantKafka, 1, 0); rerr != nil {
+				err = fmt.Errorf("%w (also failed to restore scale-to-zero: %v)", err, rerr)
+			}
+		}()
+		// The add-on copies the HTTPScaledObject minimum into a ScaledObject of
+		// the same name asynchronously, and KEDA scales from that one.
+		if wantHTTP {
+			if err = WaitForScaledObjectMinReplicas(ctx, dynClient, scalerNamespace, f.Name, 1, scalerHoldTimeout); err != nil {
+				return fn.DeploymentResult{}, fmt.Errorf("failed waiting for the held replica of function %q: %w", f.Name, err)
+			}
+		}
+	}
+
 	// execute raw deployment deployer
 	deployResult, err := d.Deployer.Deploy(ctx, f)
 	if err != nil {
@@ -325,16 +358,17 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		annotations := deployer.GenerateCommonAnnotations(f, d.decorator, false, KedaDeployerName)
 
 		target := deployTarget{
-			clientset:   k8sClientset,
-			dynClient:   dynClient,
-			ref:         ref,
-			deployment:  deployment,
-			appService:  appService,
-			labels:      labels,
-			annotations: annotations,
-			minScale:    minScale,
-			maxScale:    maxScale,
-			scale:       f.Scale,
+			clientset:          k8sClientset,
+			dynClient:          dynClient,
+			ref:                ref,
+			deployment:         deployment,
+			appService:         appService,
+			labels:             labels,
+			annotations:        annotations,
+			minScale:           minScale,
+			maxScale:           maxScale,
+			scale:              f.Scale,
+			onScalerReconciled: func() { restoreHold = false },
 		}
 
 		if d.exposer != nil && fn.ActiveExpose(f.Expose) {
@@ -402,6 +436,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			if err := ensureScaledObject(ctx, dynClient, so); err != nil {
 				return fn.DeploymentResult{}, fmt.Errorf("failed to ensure ScaledObject: %w", err)
 			}
+			restoreHold = false
 		}
 
 		if !needsAuth {
@@ -466,16 +501,17 @@ func (d *Deployer) validateExposure(f fn.Function, exposeRefusal error) error {
 // choosing a path: the clients, the function's placement, replica bounds,
 // and the live objects the HSO hangs off
 type deployTarget struct {
-	clientset   kubernetes.Interface
-	dynClient   dynamic.Interface
-	ref         deployer.ExposureRef
-	deployment  *v1.Deployment
-	appService  *corev1.Service
-	labels      map[string]string
-	annotations map[string]string
-	minScale    int32
-	maxScale    int32
-	scale       *fn.ScaleOptions
+	clientset          kubernetes.Interface
+	dynClient          dynamic.Interface
+	ref                deployer.ExposureRef
+	deployment         *v1.Deployment
+	appService         *corev1.Service
+	labels             map[string]string
+	annotations        map[string]string
+	minScale           int32
+	maxScale           int32
+	scale              *fn.ScaleOptions
+	onScalerReconciled func()
 }
 
 // bridgeHosts are the cluster-local names the HSO registers for f: requests
@@ -785,6 +821,9 @@ func ensureHTTPScaledObject(ctx context.Context, t deployTarget, hosts []string)
 			if _, err := httpScaledObjectClientset.HttpV1alpha1().HTTPScaledObjects(expected.Namespace).Create(ctx, expected, metav1.CreateOptions{}); err != nil {
 				return fmt.Errorf("failed to create HTTPScaledObject: %w", err)
 			}
+			if t.onScalerReconciled != nil {
+				t.onScalerReconciled()
+			}
 
 			if err := WaitForHTTPScaledObjectAvailable(ctx, httpScaledObjectClientset, t.ref.FunctionNamespace, expected.Name, k8s.DefaultWaitingTimeout); err != nil {
 				return fmt.Errorf("HTTPScaledObject did not become ready: %w", err)
@@ -804,12 +843,19 @@ func ensureHTTPScaledObject(ctx context.Context, t deployTarget, hosts []string)
 		if _, err = httpScaledObjectClientset.HttpV1alpha1().HTTPScaledObjects(expected.Namespace).Update(ctx, expected, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update HTTPScaledObject: %w", err)
 		}
+		if t.onScalerReconciled != nil {
+			t.onScalerReconciled()
+		}
 
 		if err := WaitForHTTPScaledObjectAvailable(ctx, httpScaledObjectClientset, t.ref.FunctionNamespace, expected.Name, k8s.DefaultWaitingTimeout); err != nil {
 			return fmt.Errorf("HTTPScaledObject did not become ready: %w", err)
 		}
 
 		return nil
+	}
+
+	if t.onScalerReconciled != nil {
+		t.onScalerReconciled()
 	}
 
 	return nil
